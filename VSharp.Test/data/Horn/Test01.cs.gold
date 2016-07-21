@@ -4,19 +4,26 @@ namespace Test
 {
     public sealed class Test01
     {
-        private int Fib(int n)
+        private int |Fib|(0)(int n)
         {
             return n < 2 ? 1 : Fib(n - 1) + Fib(n - 2);
         }
 
         public void DoSomething()
         {
-            int n = new Random().Next(10);
-            int fib = Fib(n);
-            if (fib <= 0)
-                Console.WriteLine("Goodbye cruel world :(");
-            else
+            |int|(1) n = new Random().Next(10);
+            |int|(2) fib = Fib(n);
+            |if|(3) (fib <= 0)
+                |Console.WriteLine("Goodbye cruel world :(");|(4)
+            else                                                
                 Console.WriteLine("We do not actually need 3 lines above :)");
         }
     }
 }
+
+---------------------------------------------------------
+(0): ReSharper Hint: Method 'Fib' can be made static
+(1): ReSharper Hint: Use 'var' (built-in types)
+(2): ReSharper Hint: Use 'var' (built-in types)
+(3): ReSharper Suggestion: Convert to method call with '?:' expression inside
+(4): Some unreachable warning will be here

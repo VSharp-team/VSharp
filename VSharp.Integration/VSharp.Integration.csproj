@@ -133,9 +133,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="TestDaemonStage.cs" />
-    <Compile Include="TestDaemonStageProcess.cs" />
-    <Compile Include="TestFix.cs" />
+    <Compile Include="HornDaemonStage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ZoneMarker.cs" />
   </ItemGroup>

@@ -56,6 +56,9 @@
     <Reference Include="JetBrains.ReSharper.Psi.CSharp">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.ReSharper.Psi.CSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Z3">
+      <HintPath>C:\dev\VSharp\lib\Microsoft.Z3.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -66,7 +69,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="HornSolverDaemonStageProcess.fs" />
+    <Compile Include="Horn\HornSolverDaemonStageProcess.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

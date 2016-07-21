@@ -11,7 +11,7 @@ namespace VSharp
         protected override IDaemonStageProcess CreateProcess(IDaemonProcess process, IContextBoundSettingsStore settings,
             DaemonProcessKind processKind, ICSharpFile file)
         {
-            return new Core.HornSolverDaemonStageProcess(process, file);
+            return new Core.Horn.HornSolverDaemonStageProcess(process, file);
         }
     }
 }
