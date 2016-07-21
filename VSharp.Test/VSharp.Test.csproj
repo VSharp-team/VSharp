@@ -163,6 +163,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="HornTests.cs" />
     <Compile Include="TestEnvironment.cs" />
+    <Compile Include="UtilsTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="data\Horn\Test01.cs.gold" />
@@ -172,6 +173,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\VSharp.Core\VSharp.Core.fsproj">
+      <Project>{92626722-6b2f-4917-8af6-acc612490c76}</Project>
+      <Name>VSharp.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VSharp.Integration\VSharp.Integration.csproj">
       <Project>{00977017-c9b6-44ed-9102-6a37f219a908}</Project>
       <Name>VSharp.Integration</Name>

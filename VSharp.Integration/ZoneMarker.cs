@@ -3,7 +3,7 @@
 namespace VSharp
 {
     [ZoneMarker]
-    public class ZoneMarker
+    public sealed class ZoneMarker
     {
     }
 }

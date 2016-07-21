@@ -10,12 +10,12 @@ using NUnit.Framework;
 namespace VSharp.Test
 {
     [ZoneDefinition]
-    public class TestEnvironmentZone : ITestsZone, IRequire<PsiFeatureTestZone>
+    public sealed class TestEnvironmentZone : ITestsZone, IRequire<PsiFeatureTestZone>
     {
     }
 
     [SetUpFixture]
-    public class ReSharperTestEnvironmentAssembly : ExtensionTestEnvironmentAssembly<TestEnvironmentZone>
+    public sealed class ReSharperTestEnvironmentAssembly : ExtensionTestEnvironmentAssembly<TestEnvironmentZone>
     {
     }
 }
