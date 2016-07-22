@@ -1,20 +1,24 @@
 ﻿namespace VSharp.Core.Horn
 
-open System;
 open JetBrains.ReSharper.Feature.Services.Daemon
 open JetBrains.ReSharper.Psi
 open JetBrains.ReSharper.Psi.CSharp.Tree
 open Microsoft
+open System;
 
 type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharpFile) =
     interface IDaemonStageProcess with
         member x.DaemonProcess with get() = daemonProcess
-        member x.Execute(commiter) =
-            let processMethods = fun declaration ->
+        member x.Execute commiter =
+            let processMethods = fun (declaration : IMethodDeclaration) ->
                 Console.WriteLine(declaration.ToString())
-                
+                Console.WriteLine(declaration.Type)
+                Console.WriteLine(declaration.GetText())
+                Console.WriteLine("--------------------------\n")
+
             let processor = new RecursiveElementProcessor<IMethodDeclaration>(new Action<_>( processMethods));
             file.ProcessDescendants(processor);
+
 
 //---------------------------------------------------------------------------------------------                         
 //            let cfg =
