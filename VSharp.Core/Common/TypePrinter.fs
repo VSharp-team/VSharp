@@ -3,6 +3,7 @@
 open JetBrains.ReSharper.Psi
 open JetBrains.ReSharper.Psi.CSharp.Tree
 open Microsoft
+open System
 
 module TypePrinter =
 
@@ -11,7 +12,14 @@ module TypePrinter =
     let printDeclaredType (ctx : Z3.Context) (declaredType : IDeclaredType) =
         match declaredType with
         | t when t.IsFloatOrDouble() -> ctx.MkRealSort() :> Z3.Sort
-        | t when t.IsPredefinedNumeric() -> ctx.MkIntSort() :> Z3.Sort
+        | t when t.IsPredefinedNumeric() ->
+            let infinite = VSharp.Core.Properties.Settings.InfiniteIntegers
+            if infinite then ctx.MkIntSort() :> Z3.Sort
+            else
+                let clrName = t.GetPresentableName(t.GetTypeElement().PresentationLanguage)
+                // Calling Type.GetType and Marshal.SizeOf is safe because type filtered out to be good
+                let size = Runtime.InteropServices.Marshal.SizeOf(Type.GetType(clrName))
+                ctx.MkBitVecSort(Convert.ToUInt32(size)) :> Z3.Sort
         | t when t.IsBool() -> ctx.MkBoolSort() :> Z3.Sort
         | _ -> __notImplemented__
 

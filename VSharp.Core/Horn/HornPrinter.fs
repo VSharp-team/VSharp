@@ -10,23 +10,68 @@ open VSharp.Core.Utils
 module HornPrinter =
 
     let private __notImplemented__() = raise (new System.NotImplementedException())
+    // Partial active pattern. Match if field equals value.
+    let (|Field|_|) field x = if field = x then Some () else None
+    let infiniteDomain = VSharp.Core.Properties.Settings.InfiniteIntegers
 
-    let printBinaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IBinaryExpression) =
-        match expression with
-        | :? IAdditiveExpression as a -> __notImplemented__()
-        | :? IBitwiseAndExpression as a -> __notImplemented__()
-        | :? IBitwiseExclusiveOrExpression as a -> __notImplemented__()
-        | :? IBitwiseInclusiveOrExpression as a -> __notImplemented__()
-        | :? IConditionalAndExpression as a -> __notImplemented__()
-        | :? IConditionalOrExpression as a -> __notImplemented__()
-        | :? IEqualityExpression as a -> __notImplemented__()
-        | :? IMultiplicativeExpression as a -> __notImplemented__()
-        | :? INullCoalescingExpression as a -> __notImplemented__()
-        | :? IRelationalExpression as a -> __notImplemented__()
-        | :? IShiftExpression as a -> __notImplemented__()
-        | _ -> __notImplemented__()
+    let rec printBinaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IBinaryExpression) =
+        let operatorToken = expression.OperatorSign.GetTokenType()
+        let assertions1 = printExpression facade assertions expression.LeftOperand
+        let assertions2 = printExpression facade assertions1 expression.RightOperand
+        let leftResult = facade.symbols.[expression.LeftOperand]
+        let rightResult = facade.symbols.[expression.RightOperand]
+        let resultingSort = TypePrinter.printType facade.ctx (expression.Type())
+        let resultingConst = facade.symbols.NewIntermediateVar(facade.ctx, resultingSort)
 
-    let printUnaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IUnaryExpression) =
+        let arithOrBitwise fun1 fun2 =
+            if infiniteDomain then fun1 (leftResult :?> Z3.ArithExpr) (rightResult :?> Z3.ArithExpr) :> Z3.Expr
+            else fun2 (leftResult :?> Z3.BitVecExpr) (rightResult :?> Z3.BitVecExpr) :> Z3.Expr
+        let justBitwise func =
+            if infiniteDomain then __notImplemented__()
+            else func (leftResult :?> Z3.BitVecExpr) (rightResult :?> Z3.BitVecExpr) :> Z3.Expr
+
+        let resultingExpression =
+            match expression with
+            | :? IAdditiveExpression ->
+                match operatorToken with
+                | Field CSharp.Parsing.CSharpTokenType.PLUS -> arithOrBitwise (fun a b -> facade.ctx.MkAdd(a, b)) (fun a b -> facade.ctx.MkBVAdd(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.MINUS -> arithOrBitwise (fun a b -> facade.ctx.MkSub(a, b)) (fun a b -> facade.ctx.MkBVSub(a, b))
+                | _ -> __notImplemented__()
+            | :? IBitwiseAndExpression -> justBitwise (fun a b -> facade.ctx.MkBVAND(a, b))
+            | :? IBitwiseExclusiveOrExpression -> justBitwise (fun a b -> facade.ctx.MkBVXOR(a, b))
+            | :? IBitwiseInclusiveOrExpression -> justBitwise (fun a b -> facade.ctx.MkBVOR(a, b))
+            | :? IConditionalAndExpression -> facade.ctx.MkAnd(leftResult :?> Z3.BoolExpr, rightResult :?> Z3.BoolExpr) :> Z3.Expr
+            | :? IConditionalOrExpression -> facade.ctx.MkOr(leftResult :?> Z3.BoolExpr, rightResult :?> Z3.BoolExpr) :> Z3.Expr
+            | :? IEqualityExpression ->
+                match operatorToken with
+                | Field CSharp.Parsing.CSharpTokenType.EQEQ -> facade.ctx.MkEq(leftResult, rightResult) :> Z3.Expr
+                | Field CSharp.Parsing.CSharpTokenType.NE -> facade.ctx.MkNot(facade.ctx.MkEq(leftResult, rightResult)) :> Z3.Expr
+                | _ -> __notImplemented__()
+            | :? IMultiplicativeExpression ->
+                match operatorToken with
+                | Field CSharp.Parsing.CSharpTokenType.ASTERISK -> arithOrBitwise (fun a b -> facade.ctx.MkMul(a, b)) (fun a b -> facade.ctx.MkBVMul(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.DIV -> arithOrBitwise (fun a b -> facade.ctx.MkDiv(a, b)) (fun a b -> facade.ctx.MkBVSDiv(a, b))
+                | _ -> __notImplemented__()
+            | :? INullCoalescingExpression -> __notImplemented__()
+            | :? IRelationalExpression ->
+                match operatorToken with
+                | Field CSharp.Parsing.CSharpTokenType.GT -> arithOrBitwise (fun a b -> facade.ctx.MkGt(a, b)) (fun a b -> facade.ctx.MkBVSGT(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.GE -> arithOrBitwise (fun a b -> facade.ctx.MkGe(a, b)) (fun a b -> facade.ctx.MkBVSGE(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.LT -> arithOrBitwise (fun a b -> facade.ctx.MkLt(a, b)) (fun a b -> facade.ctx.MkBVSLT(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.LE -> arithOrBitwise (fun a b -> facade.ctx.MkLe(a, b)) (fun a b -> facade.ctx.MkBVSLE(a, b))
+                | _ -> __notImplemented__()
+            | :? IShiftExpression ->
+                match operatorToken with
+                | Field CSharp.Parsing.CSharpTokenType.LTLT -> justBitwise (fun a b -> facade.ctx.MkBVSHL(a, b))
+                | Field CSharp.Parsing.CSharpTokenType.GTGT -> justBitwise (fun a b -> facade.ctx.MkBVASHR(a, b))
+                | _ -> __notImplemented__()
+            | _ -> __notImplemented__()
+
+        facade.symbols.AddExpr(expression, resultingConst)
+        assertions2.With(facade.ctx.MkEq(resultingConst, resultingExpression))
+
+
+    and printUnaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IUnaryExpression) =
         match expression with
         | :? IReferenceExpression as a -> __notImplemented__()
         | :? ITypeofExpression as a -> __notImplemented__()
@@ -39,7 +84,7 @@ module HornPrinter =
         | :? I__ArglistExpression as a -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printOperatorExpression (facade : HornFacade) (assertions : Assertions) (expression : IOperatorExpression) =
+    and printOperatorExpression (facade : HornFacade) (assertions : Assertions) (expression : IOperatorExpression) =
         match expression with
         | :? IAssignmentExpression as a -> __notImplemented__()
         | :? IBinaryExpression as binary -> printBinaryExpression facade assertions binary
@@ -47,29 +92,29 @@ module HornPrinter =
         | :? IPrefixOperatorExpression as a -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printConditionalAccessExpression (facade : HornFacade) (assertions : Assertions) (expression : IConditionalAccessExpression) =
+    and printConditionalAccessExpression (facade : HornFacade) (assertions : Assertions) (expression : IConditionalAccessExpression) =
         match expression with
-        | :? IElementAccessExpression as a -> __notImplemented__
-        | :? IInvocationExpression as a -> __notImplemented__
-        | :? IReferenceExpression as a -> __notImplemented__
+        | :? IElementAccessExpression as a -> __notImplemented__()
+        | :? IInvocationExpression as a -> __notImplemented__()
+        | :? IReferenceExpression as a -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printCreationExpression(facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
+    and printCreationExpression(facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
         match expression with
         | :? IAnonymousObjectCreationExpression as a -> __notImplemented__()
         | :? IArrayCreationExpression as a -> __notImplemented__()
         | :? IObjectCreationExpression as a -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printAnonymousFunctionExpression (facade : HornFacade) (assertions : Assertions) (expression : IAnonymousFunctionExpression) =
+    and printAnonymousFunctionExpression (facade : HornFacade) (assertions : Assertions) (expression : IAnonymousFunctionExpression) =
         match expression with
-        | :? IAnonymousMethodExpression as a -> __notImplemented__
-        | :? ILambdaExpression as a -> __notImplemented__
+        | :? IAnonymousMethodExpression as a -> __notImplemented__()
+        | :? ILambdaExpression as a -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printExpression (facade : HornFacade) (assertions : Assertions) (expression : ICSharpExpression) =
+    and printExpression (facade : HornFacade) (assertions : Assertions) (expression : ICSharpExpression) =
         match expression with
-        | :? IAnonymousFunctionExpression as anonimous -> printAnonymousFunctionExpression facade assertions anonimous
+        | :? IAnonymousFunctionExpression as anonymous -> printAnonymousFunctionExpression facade assertions anonymous
         | :? IAsExpression as a -> __notImplemented__()
         | :? IAwaitExpression as a -> __notImplemented__()
         | :? IBaseExpression as a -> __notImplemented__()
@@ -148,5 +193,5 @@ module HornPrinter =
         Seq.fold (printStatement facade) assertions functionBody.Statements
 
     let printMethod (facade : HornFacade) (assertions : Assertions) (methodDeclaration : IMethodDeclaration) =
-        let newAssertions = printParametersDeclarations facade methodDeclaration.ParameterDeclarationsEnumerable
+        let newAssertions = printParametersDeclarations facade assertions methodDeclaration.ParameterDeclarationsEnumerable
         printBlock facade newAssertions methodDeclaration.Body
