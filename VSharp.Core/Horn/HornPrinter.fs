@@ -18,8 +18,8 @@ module HornPrinter =
         let operatorToken = expression.OperatorSign.GetTokenType()
         let assertions1 = printExpression facade assertions expression.LeftOperand
         let assertions2 = printExpression facade assertions1 expression.RightOperand
-        let leftResult = facade.symbols.[expression.LeftOperand]
-        let rightResult = facade.symbols.[expression.RightOperand]
+        let leftResult = facade.symbols.Expr expression.LeftOperand
+        let rightResult = facade.symbols.Expr expression.RightOperand
         let resultingSort = TypePrinter.printType facade.ctx (expression.Type())
         let resultingConst = facade.symbols.NewIntermediateVar(facade.ctx, resultingSort)
 
@@ -67,98 +67,162 @@ module HornPrinter =
                 | _ -> __notImplemented__()
             | _ -> __notImplemented__()
 
-        facade.symbols.AddExpr(expression, resultingConst)
+        facade.symbols.[expression] <- resultingConst
         assertions2.With(facade.ctx.MkEq(resultingConst, resultingExpression))
 
 
     and printUnaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IUnaryExpression) =
         match expression with
-        | :? IReferenceExpression as a -> __notImplemented__()
-        | :? ITypeofExpression as a -> __notImplemented__()
-        | :? IUnaryOperatorExpression as a -> __notImplemented__()
-        | :? IUncheckedExpression as a -> __notImplemented__()
-        | :? IUnsafeCodeAddressOfExpression as a -> __notImplemented__()
-        | :? IUnsafeCodePointerAccessExpression as a -> __notImplemented__()
-        | :? IUnsafeCodePointerIndirectionExpression as a -> __notImplemented__()
-        | :? IUnsafeCodeSizeOfExpression as a -> __notImplemented__()
-        | :? I__ArglistExpression as a -> __notImplemented__()
+        | :? IReferenceExpression -> __notImplemented__()
+        | :? ITypeofExpression -> __notImplemented__()
+        | :? IUnaryOperatorExpression -> __notImplemented__()
+        | :? IUncheckedExpression -> __notImplemented__()
+        | :? IUnsafeCodeAddressOfExpression -> __notImplemented__()
+        | :? IUnsafeCodePointerAccessExpression -> __notImplemented__()
+        | :? IUnsafeCodePointerIndirectionExpression -> __notImplemented__()
+        | :? IUnsafeCodeSizeOfExpression -> __notImplemented__()
+        | :? I__ArglistExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
     and printOperatorExpression (facade : HornFacade) (assertions : Assertions) (expression : IOperatorExpression) =
         match expression with
-        | :? IAssignmentExpression as a -> __notImplemented__()
+        | :? IAssignmentExpression -> __notImplemented__()
         | :? IBinaryExpression as binary -> printBinaryExpression facade assertions binary
-        | :? IPostfixOperatorExpression as a -> __notImplemented__()
-        | :? IPrefixOperatorExpression as a -> __notImplemented__()
+        | :? IPostfixOperatorExpression -> __notImplemented__()
+        | :? IPrefixOperatorExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    and printConditionalAccessExpression (facade : HornFacade) (assertions : Assertions) (expression : IConditionalAccessExpression) =
+    and printArgument facade assertions (argument : ICSharpArgument) = printExpression facade assertions argument.Value
+
+    and printArgumentList facade assertions (expression : IArgumentList) =
+        Seq.fold (printArgument facade) assertions expression.ArgumentsEnumerable
+
+    and printConditionalAccessExpression facade assertions (expression : IConditionalAccessExpression) =
         match expression with
-        | :? IElementAccessExpression as a -> __notImplemented__()
-        | :? IInvocationExpression as a -> __notImplemented__()
-        | :? IReferenceExpression as a -> __notImplemented__()
+        | :? IElementAccessExpression -> __notImplemented__()
+        | :? IInvocationExpression as invocation ->
+            let invokedAssertions = printExpression facade assertions invocation.InvokedExpression
+            let newAssertions = printArgumentList facade invokedAssertions invocation.ArgumentList
+            let args = Seq.map (fun arg -> facade.symbols.Expr(arg :> ITreeNode)) invocation.ArgumentsEnumerable
+            match facade.symbols.[invocation.InvokedExpression] with
+            | :? Z3.FuncDecl as func ->
+                let argsWithReturn =
+                    if facade.symbols.HasReturnType func then
+                        let returnType = func.Parameters.[func.Parameters.Length - 1].Sort
+                        let resultVar = facade.symbols.NewIntermediateVar(facade.ctx, returnType)
+                        facade.symbols.[expression] <- resultVar
+                        Seq.append args (Seq.singleton resultVar)
+                    else
+                        args
+                assertions.With (func.Apply(argsWithReturn |> Seq.toArray) :?> Z3.BoolExpr)
+            | _ -> __notImplemented__()
+        | :? IReferenceExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
     and printCreationExpression(facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
         match expression with
-        | :? IAnonymousObjectCreationExpression as a -> __notImplemented__()
-        | :? IArrayCreationExpression as a -> __notImplemented__()
-        | :? IObjectCreationExpression as a -> __notImplemented__()
+        | :? IAnonymousObjectCreationExpression -> __notImplemented__()
+        | :? IArrayCreationExpression -> __notImplemented__()
+        | :? IObjectCreationExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
     and printAnonymousFunctionExpression (facade : HornFacade) (assertions : Assertions) (expression : IAnonymousFunctionExpression) =
         match expression with
-        | :? IAnonymousMethodExpression as a -> __notImplemented__()
-        | :? ILambdaExpression as a -> __notImplemented__()
+        | :? IAnonymousMethodExpression -> __notImplemented__()
+        | :? ILambdaExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
     and printExpression (facade : HornFacade) (assertions : Assertions) (expression : ICSharpExpression) =
         match expression with
         | :? IAnonymousFunctionExpression as anonymous -> printAnonymousFunctionExpression facade assertions anonymous
-        | :? IAsExpression as a -> __notImplemented__()
-        | :? IAwaitExpression as a -> __notImplemented__()
-        | :? IBaseExpression as a -> __notImplemented__()
-        | :? ICastExpression as a -> __notImplemented__()
-        | :? ICheckedExpression as a -> __notImplemented__()
+        | :? IAsExpression -> __notImplemented__()
+        | :? IAwaitExpression -> __notImplemented__()
+        | :? IBaseExpression -> __notImplemented__()
+        | :? ICastExpression -> __notImplemented__()
+        | :? ICheckedExpression -> __notImplemented__()
         | :? IConditionalAccessExpression as conditional -> printConditionalAccessExpression facade assertions conditional
-        | :? IConditionalTernaryExpression as a -> __notImplemented__()
+        | :? IConditionalTernaryExpression -> __notImplemented__()
         | :? ICreationExpression as creation -> printCreationExpression facade assertions creation
-        | :? ICSharpLiteralExpression as a -> __notImplemented__()
-        | :? IDefaultExpression as a -> __notImplemented__()
-        | :? IInterpolatedStringExpression as a -> __notImplemented__()
-        | :? IIsExpression as a -> __notImplemented__()
+        | :? ICSharpLiteralExpression -> __notImplemented__()
+        | :? IDefaultExpression -> __notImplemented__()
+        | :? IInterpolatedStringExpression -> __notImplemented__()
+        | :? IIsExpression -> __notImplemented__()
         | :? IOperatorExpression as operator -> printOperatorExpression facade assertions operator
-        | :? IParenthesizedExpression as a -> __notImplemented__()
-        | :? IPredefinedTypeExpression as a -> __notImplemented__()
-        | :? IQueryExpression as a -> __notImplemented__()
-        | :? IStringLiteralOwner as a -> __notImplemented__()
-        | :? IThisExpression as a -> __notImplemented__()
+        | :? IParenthesizedExpression -> __notImplemented__()
+        | :? IPredefinedTypeExpression -> __notImplemented__()
+        | :? IQueryExpression -> __notImplemented__()
+        | :? IStringLiteralOwner -> __notImplemented__()
+        | :? IThisExpression -> __notImplemented__()
         | :? IUnaryExpression as unary -> printUnaryExpression facade assertions unary
         | _ -> __notImplemented__()
 
-    let printConstantDeclaration facade smtSymbol assertions (declaration : IConstantDeclaration) =
-        let newAssertions = printExpression facade assertions declaration.ValueExpression
-        newAssertions.With(facade.ctx.MkEq(smtSymbol, facade.symbols.[declaration.ValueExpression]))
-
-    let printTypeOwnerDeclaration (facade : HornFacade) assertions (parameterDeclaration : ITypeOwnerDeclaration) =
-        let sort = TypePrinter.printType facade.ctx parameterDeclaration.Type
-        // TODO: MkBound??
-        let smtConst = facade.ctx.MkConst(IdGenerator.startingWith parameterDeclaration.DeclaredName, sort)
-        facade.symbols.AddExpr(parameterDeclaration.DeclaredName, smtConst)
-
-        match parameterDeclaration with
-        | :? IParameterDeclaration -> assertions
-        | :? ICatchVariableDeclaration -> __notImplemented__()
-        | :? IConstantDeclaration as decl -> printConstantDeclaration facade smtConst assertions decl
+    and printVariableInitializer facade assertions (initializer : IVariableInitializer) =
+        match initializer with
+        | :? IArrayInitializer -> __notImplemented__()
+        | :? IExpressionInitializer as init ->
+            let result = printExpression facade assertions init.Value
+            facade.symbols.[init] <- facade.symbols.[init.Value]
+            result
+        | :? IUnsafeCodeFixedPointerInitializer -> __notImplemented__()
+        | :? IUnsafeCodeStackAllocInitializer -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let printParametersDeclarations facade assertions parametersDeclarations =
-        Seq.fold (printTypeOwnerDeclaration facade) assertions parametersDeclarations
+    and printMemberInitializer facade assertions (initializer : IMemberInitializer) =
+        match initializer with
+        | :? IEventInitializer -> __notImplemented__()
+        | :? IIndexerInitializer -> __notImplemented__()
+        | :? IPropertyInitializer -> __notImplemented__()
+        | _ -> __notImplemented__()
 
-    let printMultipleDeclarations facade assertions (declaration : IMultipleDeclaration) =
+    and printInitializerElement facade assertions (initializer : IInitializerElement) =
+        match initializer with
+        | :? IAnonymousMemberDeclaration -> __notImplemented__()
+        | :? ICollectionElementInitializer -> __notImplemented__()
+        | :? IMemberInitializer as init -> printMemberInitializer facade assertions init
+        | :? IVariableInitializer as init -> printVariableInitializer facade assertions init
+        | _ -> __notImplemented__()
+
+    and printMultipleDeclarationMember (facade : HornFacade) assertions (declaration : IMultipleDeclarationMember) =
+        let sort = TypePrinter.printType facade.ctx declaration.Type
+        // TODO: MkBound??
+        let smtConst = facade.ctx.MkConst(IdGenerator.startingWith declaration.DeclaredName, sort)
+        facade.symbols.[declaration.DeclaredElement] <- smtConst
+        match declaration with
+        | :? IConstantDeclaration as decl ->
+            let newAssertions = printExpression facade assertions decl.ValueExpression
+            newAssertions.With(facade.ctx.MkEq(smtConst, facade.symbols.Expr decl.ValueExpression))
+        | :? IEventDeclaration -> __notImplemented__()
+        | :? IFieldDeclaration -> __notImplemented__()
+        | :? ILocalConstantDeclaration as decl ->
+            let newAssertions = printExpression facade assertions decl.ValueExpression
+            newAssertions.With(facade.ctx.MkEq(smtConst, facade.symbols.Expr decl.ValueExpression))
+        | :? ILocalVariableDeclaration as decl ->
+            let newAssertions = printVariableInitializer facade assertions decl.Initial
+            newAssertions.With(facade.ctx.MkEq(smtConst, facade.symbols.Expr decl.Initial))
+        | _ -> __notImplemented__()
+
+    and printParameterDeclaration (facade : HornFacade) assertions (declaration : IParameterDeclaration) =
+        let sort = TypePrinter.printType facade.ctx declaration.Type
+        // TODO: MkBound??
+        let smtConst = facade.ctx.MkConst(IdGenerator.startingWith declaration.DeclaredName, sort)
+        declaration.DeclaredElement |> ignore
+        facade.symbols.[declaration.DeclaredElement] <- smtConst
+        assertions
+
+    and printTypeOwnerDeclaration facade assertions (parameterDeclaration : ITypeOwnerDeclaration) =
+        match parameterDeclaration with
+        | :? IParameterDeclaration as decl -> printParameterDeclaration facade assertions decl
+        | :? ICatchVariableDeclaration as decl -> __notImplemented__()
+        | :? IMultipleDeclarationMember as decl -> printMultipleDeclarationMember facade assertions decl
+        | _ -> __notImplemented__()
+
+    and printParametersDeclarations facade assertions parametersDeclarations =
+        Seq.fold (printParameterDeclaration facade) assertions parametersDeclarations
+
+    and printMultipleDeclarations facade assertions (declaration : IMultipleDeclaration) =
         Seq.fold (printTypeOwnerDeclaration facade) assertions declaration.Declarators
 
-    let rec printStatement facade assertions (statement : ICSharpStatement) =
+    and printStatement facade assertions (statement : ICSharpStatement) =
         match statement with
         | :? IBlock as block -> printBlock facade assertions block
         | :? IBreakStatement as breakStatement -> __notImplemented__()
@@ -192,6 +256,19 @@ module HornPrinter =
     and printBlock facade assertions (functionBody : IBlock) =
         Seq.fold (printStatement facade) assertions functionBody.Statements
 
-    let printMethod (facade : HornFacade) (assertions : Assertions) (methodDeclaration : IMethodDeclaration) =
-        let newAssertions = printParametersDeclarations facade assertions methodDeclaration.ParameterDeclarationsEnumerable
-        printBlock facade newAssertions methodDeclaration.Body
+    and printFunctionDeclaration facade assertions (functionDeclaration : ICSharpFunctionDeclaration) =
+        let printParametrizedFunction (declaration : ICSharpParametersOwnerDeclaration) (func : ICSharpFunctionDeclaration) =
+            let newAssertions = printParametersDeclarations facade assertions declaration.ParameterDeclarationsEnumerable
+            let sortOfParameter (decl : ICSharpParameterDeclaration) = facade.symbols.Expr(decl.DeclaredElement :> IDeclaredElement).Sort
+            let signature = Seq.map sortOfParameter declaration.ParameterDeclarationsEnumerable
+            let returnSort = TypePrinter.printType facade.ctx declaration.DeclaredElement.ReturnType
+            let fullSignature = (if returnSort = null then signature else Seq.append signature (Seq.singleton returnSort)) |> Seq.toArray
+            let smtFuncDecl = facade.ctx.MkFuncDecl(IdGenerator.startingWith functionDeclaration.DeclaredName, fullSignature, facade.ctx.MkBoolSort())
+            facade.symbols.[functionDeclaration.DeclaredElement :> IDeclaredElement] <- smtFuncDecl
+            printBlock facade newAssertions func.Body
+
+        match functionDeclaration with
+        | :? IAccessorDeclaration -> __notImplemented__()
+        | :? IOperatorDeclaration -> __notImplemented__()
+        | :? ICSharpParametersOwnerDeclaration as parameterized -> printParametrizedFunction parameterized functionDeclaration
+        | _ -> __notImplemented__()

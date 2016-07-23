@@ -16,11 +16,12 @@ module TypePrinter =
             let infinite = VSharp.Core.Properties.Settings.InfiniteIntegers
             if infinite then ctx.MkIntSort() :> Z3.Sort
             else
-                let clrName = t.GetPresentableName(t.GetTypeElement().PresentationLanguage)
+                let clrName = t.GetPresentableName(CSharp.CSharpLanguage.Instance)
                 // Calling Type.GetType and Marshal.SizeOf is safe because type filtered out to be good
                 let size = Runtime.InteropServices.Marshal.SizeOf(Type.GetType(clrName))
                 ctx.MkBitVecSort(Convert.ToUInt32(size)) :> Z3.Sort
         | t when t.IsBool() -> ctx.MkBoolSort() :> Z3.Sort
+        | t when t.IsVoid() -> null
         | _ -> __notImplemented__
 
     let printType (ctx : Z3.Context) (typ : IType) =

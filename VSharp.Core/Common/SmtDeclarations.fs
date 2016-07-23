@@ -1,28 +1,45 @@
 ﻿namespace VSharp.Core.Common
 
+open JetBrains.ReSharper.Psi
 open JetBrains.ReSharper.Psi.Tree
 open Microsoft
 open System.Collections.Generic
 open VSharp.Core.Utils.IdGenerator
 
 type SmtDeclarations() =
-    let expressions = new Dictionary<string, Z3.Expr>()
-    let functions = new Dictionary<string, Z3.FuncDecl>()
-    let intermediate = new Dictionary<ITreeNode, Z3.Expr>()
+    let declared = new Dictionary<IDeclaredElement, Z3.AST>()
+    let intermediate = new Dictionary<ITreeNode, Z3.AST>()
+    let hasReturnType = new Dictionary<Z3.FuncDecl, bool>()
 
     let tempVarPrefix = "tr"
     let tempVarIndeces = new Dictionary<string, int>()
     let tempVars = new Dictionary<string, Z3.Expr>()
 
-    member public this.AddExpr(id : string, expr : Z3.Expr)  = expressions.Add(id, expr)
-    member public this.AddExpr(node : ITreeNode, expr : Z3.Expr) = intermediate.Add(node, expr)
-    member public this.Item with get(node) = intermediate.[node]
-    member public this.Item with get(id) = expressions.[id]
-    member public this.ArithmeticExpr id = expressions.[id] :?> Z3.ArithExpr
-    member public this.ArithmeticExpr node = intermediate.[node] :?> Z3.ArithExpr
+    member public this.Add(decl : IDeclaredElement, expr : Z3.Expr) = declared.Add(decl, expr)
+    member public this.Add(node : ITreeNode, expr : Z3.Expr) = intermediate.Add(node, expr)
+    member public this.Item 
+        with get(decl) = declared.[decl] 
+        and set (decl : IDeclaredElement) (value : Z3.AST) = 
+            if (decl :? IParametersOwner) && (value :? Z3.FuncDecl) then 
+                hasReturnType.[value :?> Z3.FuncDecl] <- not ((decl :?> IParametersOwner).ReturnType.IsVoid())
+            declared.[decl] <- value
+    member public this.Item with get(node) = intermediate.[node] and  set node value = intermediate.[node] <- value
 
-    member public this.AddFunc = functions.Add
-    member public this.Function id = functions.[id]
+    member public this.IsExpr decl = declared.[decl] :? Z3.Expr
+    member public this.IsExpr node = intermediate.[node] :? Z3.Expr
+    member public this.IsArithmetic decl = declared.[decl] :? Z3.ArithExpr
+    member public this.IsArithmetic node = intermediate.[node] :? Z3.ArithExpr
+    member public this.IsFunction decl = declared.[decl] :? Z3.FuncDecl
+    member public this.IsFunction node = intermediate.[node] :? Z3.FuncDecl
+
+    member public this.Expr decl = declared.[decl] :?> Z3.Expr
+    member public this.Expr node = intermediate.[node] :?> Z3.Expr
+    member public this.Arithmetic decl = declared.[decl] :?> Z3.ArithExpr
+    member public this.Arithmetic node = intermediate.[node] :?> Z3.ArithExpr
+    member public this.Function decl = declared.[decl] :?> Z3.FuncDecl
+    member public this.Function node = intermediate.[node] :?> Z3.FuncDecl
+
+    member public this.HasReturnType func = if not (hasReturnType.ContainsKey(func)) then false else hasReturnType.[func]
 
     member public this.ResetIntermediateVars = tempVarIndeces.Clear
     member public this.NewIntermediateVar(ctx : Z3.Context, sort : Z3.Sort) =
