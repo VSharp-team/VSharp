@@ -70,12 +70,21 @@ module HornPrinter =
         facade.symbols.[expression] <- resultingConst
         assertions2.With(facade.ctx.MkEq(resultingConst, resultingExpression))
 
+    and printReferenceExpression (facade : HornFacade) (assertions : Assertions) (reference : IReferenceExpression) =
+        let declaredElement = reference.Reference.Resolve().DeclaredElement
+        if declaredElement <> null then
+            facade.symbols.[reference] <- facade.symbols.[declaredElement]
+        assertions
 
-    and printUnaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IUnaryExpression) =
+    and printUnaryExpression facade assertions (expression : IUnaryExpression) =
         match expression with
-        | :? IReferenceExpression -> __notImplemented__()
+        | :? IReferenceExpression as reference -> printReferenceExpression facade assertions reference
         | :? ITypeofExpression -> __notImplemented__()
-        | :? IUnaryOperatorExpression -> __notImplemented__()
+        | :? IUnaryOperatorExpression as operatorExpression ->
+            let operatorToken = operatorExpression.OperatorSign.GetTokenType()
+            match operatorToken with
+            | Field CSharp.Parsing.CSharpTokenType.MINUS -> __notImplemented__()
+            | _ -> __notImplemented__()
         | :? IUncheckedExpression -> __notImplemented__()
         | :? IUnsafeCodeAddressOfExpression -> __notImplemented__()
         | :? IUnsafeCodePointerAccessExpression -> __notImplemented__()
@@ -119,7 +128,7 @@ module HornPrinter =
         | :? IReferenceExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    and printCreationExpression(facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
+    and printCreationExpression (facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
         match expression with
         | :? IAnonymousObjectCreationExpression -> __notImplemented__()
         | :? IArrayCreationExpression -> __notImplemented__()
@@ -132,7 +141,20 @@ module HornPrinter =
         | :? ILambdaExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    and printExpression (facade : HornFacade) (assertions : Assertions) (expression : ICSharpExpression) =
+    and printLiteralExpression (facade : HornFacade) assertions (literal : ICSharpLiteralExpression) =
+        let sort = TypePrinter.printType facade.ctx literal.ConstantValue.Type
+        let expr =
+            match literal.ConstantValue with
+            | b when b.IsBoolean() -> facade.ctx.MkBool(b.Value :?> bool) :> Z3.Expr
+            | n when n.IsFloat() || n.IsDouble() || n.IsDecimal() -> facade.ctx.MkFP(n.Value :?> float, sort :?> Z3.FPSort) :> Z3.Expr
+            | n when n.Type.IsPredefinedNumeric() ->
+                if infiniteDomain then facade.ctx.MkInt(n.Value :?> int) :> Z3.Expr
+                else facade.ctx.MkBV(n.Value :?> int, (sort :?> Z3.BitVecSort).Size) :> Z3.Expr
+            | _ -> __notImplemented__()
+        facade.symbols.[literal] <- expr
+        assertions
+
+    and printExpression facade assertions (expression : ICSharpExpression) =
         match expression with
         | :? IAnonymousFunctionExpression as anonymous -> printAnonymousFunctionExpression facade assertions anonymous
         | :? IAsExpression -> __notImplemented__()
@@ -143,7 +165,7 @@ module HornPrinter =
         | :? IConditionalAccessExpression as conditional -> printConditionalAccessExpression facade assertions conditional
         | :? IConditionalTernaryExpression -> __notImplemented__()
         | :? ICreationExpression as creation -> printCreationExpression facade assertions creation
-        | :? ICSharpLiteralExpression -> __notImplemented__()
+        | :? ICSharpLiteralExpression as literal -> printLiteralExpression facade assertions literal
         | :? IDefaultExpression -> __notImplemented__()
         | :? IInterpolatedStringExpression -> __notImplemented__()
         | :? IIsExpression -> __notImplemented__()

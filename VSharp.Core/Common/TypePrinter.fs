@@ -11,7 +11,9 @@ module TypePrinter =
 
     let printDeclaredType (ctx : Z3.Context) (declaredType : IDeclaredType) =
         match declaredType with
-        | t when t.IsFloatOrDouble() -> ctx.MkRealSort() :> Z3.Sort
+        | t when t.IsFloat() -> ctx.MkFPSort32() :> Z3.Sort
+        | t when t.IsDouble() -> ctx.MkFPSort64() :> Z3.Sort
+        | t when t.IsDecimal() -> ctx.MkFPSort128() :> Z3.Sort
         | t when t.IsPredefinedNumeric() ->
             let infinite = VSharp.Core.Properties.Settings.InfiniteIntegers
             if infinite then ctx.MkIntSort() :> Z3.Sort
