@@ -12,7 +12,18 @@ module HornPrinter =
     let private __notImplemented__() = raise (new System.NotImplementedException())
     // Partial active pattern. Match if field equals value.
     let (|Field|_|) field x = if field = x then Some () else None
-    let infiniteDomain = VSharp.Core.Properties.Settings.InfiniteIntegers
+    // Install this flag for using arithmetics over infinite domain rather then bitvectors
+    let infiniteDomain = false
+
+    let addRule (facade : HornFacade) (assertions : Assertions) returnValue =
+        let func = facade.symbols.CurrentFunctionDeclaration()
+        let smtFunc = facade.symbols.Function func
+        let declarationToVariable (param : ICSharpParameterDeclaration) = facade.symbols.Expr(param.DeclaredElement :> IDeclaredElement)
+        let arguments = Seq.map declarationToVariable func.ParameterDeclarationsEnumerable
+        let argumentsAndReturnValue = Seq.append arguments (Seq.singleton returnValue) |> Seq.toArray
+        let premise = assertions.Print facade.ctx
+        let conclusion = smtFunc.Apply argumentsAndReturnValue :?> Z3.BoolExpr
+        facade.fp.AddRule(facade.ctx.MkImplies(premise, conclusion))
 
     let rec printBinaryExpression (facade : HornFacade) (assertions : Assertions) (expression : IBinaryExpression) =
         let operatorToken = expression.OperatorSign.GetTokenType()
@@ -106,25 +117,27 @@ module HornPrinter =
     and printArgumentList facade assertions (expression : IArgumentList) =
         Seq.fold (printArgument facade) assertions expression.ArgumentsEnumerable
 
+    and printInvocationExpression facade assertions (invocation : IInvocationExpression) =
+        let invokedAssertions = printExpression facade assertions invocation.InvokedExpression
+        let newAssertions = printArgumentList facade invokedAssertions invocation.ArgumentList
+        let args = Seq.map (fun arg -> facade.symbols.Expr(arg :> ITreeNode)) invocation.ArgumentsEnumerable
+        match facade.symbols.[invocation.InvokedExpression] with
+        | :? Z3.FuncDecl as func ->
+            let argsWithReturn =
+                if facade.symbols.HasReturnType func then
+                    let returnType = func.Parameters.[func.Parameters.Length - 1].Sort
+                    let resultVar = facade.symbols.NewIntermediateVar(facade.ctx, returnType)
+                    facade.symbols.[invocation] <- resultVar
+                    Seq.append args (Seq.singleton resultVar)
+                else
+                    args
+            assertions.With (func.Apply(argsWithReturn |> Seq.toArray) :?> Z3.BoolExpr)
+        | _ -> __notImplemented__()
+
     and printConditionalAccessExpression facade assertions (expression : IConditionalAccessExpression) =
         match expression with
         | :? IElementAccessExpression -> __notImplemented__()
-        | :? IInvocationExpression as invocation ->
-            let invokedAssertions = printExpression facade assertions invocation.InvokedExpression
-            let newAssertions = printArgumentList facade invokedAssertions invocation.ArgumentList
-            let args = Seq.map (fun arg -> facade.symbols.Expr(arg :> ITreeNode)) invocation.ArgumentsEnumerable
-            match facade.symbols.[invocation.InvokedExpression] with
-            | :? Z3.FuncDecl as func ->
-                let argsWithReturn =
-                    if facade.symbols.HasReturnType func then
-                        let returnType = func.Parameters.[func.Parameters.Length - 1].Sort
-                        let resultVar = facade.symbols.NewIntermediateVar(facade.ctx, returnType)
-                        facade.symbols.[expression] <- resultVar
-                        Seq.append args (Seq.singleton resultVar)
-                    else
-                        args
-                assertions.With (func.Apply(argsWithReturn |> Seq.toArray) :?> Z3.BoolExpr)
-            | _ -> __notImplemented__()
+        | :? IInvocationExpression as invocation -> printInvocationExpression facade assertions invocation
         | :? IReferenceExpression -> __notImplemented__()
         | _ -> __notImplemented__()
 
@@ -154,6 +167,17 @@ module HornPrinter =
         facade.symbols.[literal] <- expr
         assertions
 
+    and printConditionalTernaryExpression facade assertions (ternary : IConditionalTernaryExpression) =
+//        let conditionAssertions = printExpression facade assertions ternary.ConditionOperand
+//        let condition = facade.symbols.Boolean ternary.ConditionOperand
+//        let thenBranch = (new Assertions()).With(condition)
+//        let elseBranch = (new Assertions()).With(facade.ctx.MkNot condition)
+//        let thenAssertions = printExpression facade thenBranch ternary.ThenResult
+//        let elseAssertions = printExpression facade elseBranch ternary.ElseResult
+//        conditionAssertions.Fork(thenAssertions, elseAssertions)
+        assertions
+
+
     and printExpression facade assertions (expression : ICSharpExpression) =
         match expression with
         | :? IAnonymousFunctionExpression as anonymous -> printAnonymousFunctionExpression facade assertions anonymous
@@ -163,7 +187,7 @@ module HornPrinter =
         | :? ICastExpression -> __notImplemented__()
         | :? ICheckedExpression -> __notImplemented__()
         | :? IConditionalAccessExpression as conditional -> printConditionalAccessExpression facade assertions conditional
-        | :? IConditionalTernaryExpression -> __notImplemented__()
+        | :? IConditionalTernaryExpression as ternary -> printConditionalTernaryExpression facade assertions ternary
         | :? ICreationExpression as creation -> printCreationExpression facade assertions creation
         | :? ICSharpLiteralExpression as literal -> printLiteralExpression facade assertions literal
         | :? IDefaultExpression -> __notImplemented__()
@@ -244,6 +268,23 @@ module HornPrinter =
     and printMultipleDeclarations facade assertions (declaration : IMultipleDeclaration) =
         Seq.fold (printTypeOwnerDeclaration facade) assertions declaration.Declarators
 
+    and printReturnStatement facade assertions (statement : IReturnStatement) =
+        if statement.Value = null then assertions
+        else
+            let newAssertions = printExpression facade assertions statement.Value
+            let resultingExpr = facade.symbols.Expr statement.Value
+            addRule facade newAssertions resultingExpr
+            newAssertions
+
+    and printIfStatement facade assertions (conditional : IIfStatement) =
+        let conditionAssertions = printExpression facade assertions conditional.Condition
+        let condition = facade.symbols.Boolean conditional.Condition
+        let thenBranch = (new Assertions()).With(condition)
+        let elseBranch = (new Assertions()).With(facade.ctx.MkNot condition)
+        let thenAssertions = printStatement facade thenBranch conditional.Then
+        let elseAssertions = printStatement facade elseBranch conditional.Else
+        conditionAssertions.Fork(thenAssertions, elseAssertions)
+
     and printStatement facade assertions (statement : ICSharpStatement) =
         match statement with
         | :? IBlock as block -> printBlock facade assertions block
@@ -256,7 +297,7 @@ module HornPrinter =
         | :? IExpressionStatement as expression -> __notImplemented__()
         | :? IGotoCaseStatement as gotoCase -> __notImplemented__()
         | :? IGotoStatement as goto -> __notImplemented__()
-        | :? IIfStatement as fork -> __notImplemented__()
+        | :? IIfStatement as fork -> printIfStatement facade assertions fork
         | :? ILabelStatement as label -> __notImplemented__()
         | :? ILockStatement as lock -> __notImplemented__()
         | :? IForeachStatement as foreach -> __notImplemented__()
@@ -278,8 +319,9 @@ module HornPrinter =
     and printBlock facade assertions (functionBody : IBlock) =
         Seq.fold (printStatement facade) assertions functionBody.Statements
 
-    and printFunctionDeclaration facade assertions (functionDeclaration : ICSharpFunctionDeclaration) =
+    and printFunctionDeclaration (facade : HornFacade) assertions (functionDeclaration : ICSharpFunctionDeclaration) =
         let printParametrizedFunction (declaration : ICSharpParametersOwnerDeclaration) (func : ICSharpFunctionDeclaration) =
+            facade.symbols.EnterFunctionDeclaration declaration
             let newAssertions = printParametersDeclarations facade assertions declaration.ParameterDeclarationsEnumerable
             let sortOfParameter (decl : ICSharpParameterDeclaration) = facade.symbols.Expr(decl.DeclaredElement :> IDeclaredElement).Sort
             let signature = Seq.map sortOfParameter declaration.ParameterDeclarationsEnumerable
@@ -287,7 +329,9 @@ module HornPrinter =
             let fullSignature = (if returnSort = null then signature else Seq.append signature (Seq.singleton returnSort)) |> Seq.toArray
             let smtFuncDecl = facade.ctx.MkFuncDecl(IdGenerator.startingWith functionDeclaration.DeclaredName, fullSignature, facade.ctx.MkBoolSort())
             facade.symbols.[functionDeclaration.DeclaredElement :> IDeclaredElement] <- smtFuncDecl
-            printBlock facade newAssertions func.Body
+            let result = printBlock facade newAssertions func.Body
+            facade.symbols.LeaveFunctionDeclaration()
+            result
 
         match functionDeclaration with
         | :? IAccessorDeclaration -> __notImplemented__()

@@ -75,6 +75,9 @@
     <Reference Include="JetBrains.Platform.TextControl">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Platform.Core.Text.105.0.20160522.80211\DotFiles\JetBrains.Platform.TextControl.dll</HintPath>
     </Reference>
+    <Reference Include="JetBrains.Platform.Util">
+      <HintPath>C:\dev\VSharp\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
+    </Reference>
     <Reference Include="JetBrains.ReSharper.Feature.Services">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.ReSharper.Feature.Services.dll</HintPath>
     </Reference>
@@ -92,6 +95,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>

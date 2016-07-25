@@ -2,6 +2,7 @@
 
 open JetBrains.ReSharper.Psi
 open JetBrains.ReSharper.Psi.Tree
+open JetBrains.ReSharper.Psi.CSharp.Tree
 open Microsoft
 open System.Collections.Generic
 open VSharp.Core.Utils.IdGenerator
@@ -10,6 +11,7 @@ type SmtDeclarations() =
     let declared = new Dictionary<IDeclaredElement, Z3.AST>()
     let intermediate = new Dictionary<ITreeNode, Z3.AST>()
     let hasReturnType = new Dictionary<Z3.FuncDecl, bool>()
+    let currentFunctions = new Stack<ICSharpParametersOwnerDeclaration>()
 
     let tempVarPrefix = "tr"
     let tempVarIndeces = new Dictionary<string, int>()
@@ -29,6 +31,8 @@ type SmtDeclarations() =
     member public this.IsExpr node = intermediate.[node] :? Z3.Expr
     member public this.IsArithmetic decl = declared.[decl] :? Z3.ArithExpr
     member public this.IsArithmetic node = intermediate.[node] :? Z3.ArithExpr
+    member public this.IsBoolean decl = declared.[decl] :? Z3.BoolExpr
+    member public this.IsBoolean node = intermediate.[node] :? Z3.BoolExpr
     member public this.IsFunction decl = declared.[decl] :? Z3.FuncDecl
     member public this.IsFunction node = intermediate.[node] :? Z3.FuncDecl
 
@@ -36,6 +40,8 @@ type SmtDeclarations() =
     member public this.Expr node = intermediate.[node] :?> Z3.Expr
     member public this.Arithmetic decl = declared.[decl] :?> Z3.ArithExpr
     member public this.Arithmetic node = intermediate.[node] :?> Z3.ArithExpr
+    member public this.Boolean decl = declared.[decl] :?> Z3.BoolExpr
+    member public this.Boolean node = intermediate.[node] :?> Z3.BoolExpr
     member public this.Function decl = declared.[decl] :?> Z3.FuncDecl
     member public this.Function node = intermediate.[node] :?> Z3.FuncDecl
 
@@ -58,3 +64,7 @@ type SmtDeclarations() =
         if not (tempVars.ContainsKey name) then
             tempVars.Add(name, ctx.MkConst(name, sort))
         tempVars.[name]
+
+    member public this.EnterFunctionDeclaration = currentFunctions.Push
+    member public this.LeaveFunctionDeclaration() = currentFunctions.Pop() |> ignore
+    member public this.CurrentFunctionDeclaration = currentFunctions.Peek

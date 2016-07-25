@@ -16,7 +16,17 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                 Console.WriteLine(declaration.GetText())
                 Console.WriteLine("--------------------------\n")
 
-            let processor = new RecursiveElementProcessor<IMethodDeclaration>(new Action<_>( processMethods));
+                let cfg =
+                    let list = [ ("AUTO_CONFIG", "true" ) ]
+                    System.Linq.Enumerable.ToDictionary(list, fst, snd)
+                use ctx = new Z3.Context(cfg)
+                let test = HornPrinter.infiniteDomain
+                Console.WriteLine("RESULT: " + test.ToString())
+                let facade = new HornFacade(ctx, ctx.MkFixedpoint(), new VSharp.Core.Common.SmtDeclarations())
+                let assertions = new Assertions()
+                Console.WriteLine((HornPrinter.printFunctionDeclaration facade assertions declaration).ToString())
+
+            let processor = new RecursiveElementProcessor<IMethodDeclaration>(new Action<_>(processMethods));
             file.ProcessDescendants(processor);
 
 
