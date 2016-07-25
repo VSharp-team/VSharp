@@ -3,7 +3,7 @@
 open Microsoft
 open System.Collections.Generic
 
-type 'a AssertionElement = Just of Z3.BoolExpr | Fork of 'a * 'a
+type 'a AssertionElement = Just of Z3.BoolExpr | Fork of 'a * 'a | Returned
 
 /// <summary>
 /// Convenient immutable storage for boolean assertions about code constructions.
@@ -14,6 +14,16 @@ type 'a AssertionElement = Just of Z3.BoolExpr | Fork of 'a * 'a
 type Assertions private(assertions) =
     member public this.With(expr : Z3.BoolExpr) = Assertions(Just expr :: assertions)
     member public this.Fork(branch1 : Assertions, branch2 : Assertions) = Assertions(Fork(branch1, branch2) :: assertions)
+    member public this.Returned() = Assertions(Returned :: assertions)
+
+    member public this.IsReturned() =
+        let isReturn elem =
+            match elem with
+            | Returned -> true
+            | _ -> false
+
+        if List.isEmpty assertions then false
+        else List.exists isReturn assertions
 
     member public this.Print(ctx : Z3.Context) = this.PrintImpl(ctx, [])
 
@@ -29,7 +39,7 @@ type Assertions private(assertions) =
         let toSimple elem =
             match elem with
             | Just expr -> expr
-            | Fork (_, _) -> null
+            | _ -> null
 
         let cutted = cutAndMap toSimple (List.rev assertions) []
         let linear = fst cutted
@@ -39,9 +49,10 @@ type Assertions private(assertions) =
             | (Fork (branch1, branch2))::xs ->
                 let newAppendix = List.append xs appendix
                 ctx.MkOr(branch1.PrintImpl(ctx, newAppendix), branch2.PrintImpl(ctx, newAppendix))
-            | _ -> ctx.MkTrue()
+            | _ -> null
 
-        ctx.MkAnd(List.append linear (List.singleton fork) |> List.toArray)
+        let listWithFork = if fork = null then linear else List.append linear (List.singleton fork)
+        ctx.MkAnd(listWithFork |> List.toArray)
 
     override this.ToString() = List.foldBack (fun assertion acc -> acc + assertion.ToString()) assertions ""
 

@@ -17,7 +17,7 @@ module HornPrinter =
 
     let addRule (facade : HornFacade) (assertions : Assertions) returnValue =
         let func = facade.symbols.CurrentFunctionDeclaration()
-        let smtFunc = facade.symbols.Function func
+        let smtFunc = facade.symbols.Function func.DeclaredElement
         let declarationToVariable (param : ICSharpParameterDeclaration) = facade.symbols.Expr(param.DeclaredElement :> IDeclaredElement)
         let arguments = Seq.map declarationToVariable func.ParameterDeclarationsEnumerable
         let argumentsAndReturnValue = Seq.append arguments (Seq.singleton returnValue) |> Seq.toArray
@@ -83,13 +83,12 @@ module HornPrinter =
 
     and printReferenceExpression (facade : HornFacade) (assertions : Assertions) (reference : IReferenceExpression) =
         let declaredElement = reference.Reference.Resolve().DeclaredElement
-        if declaredElement <> null then
+        if declaredElement <> null && facade.symbols.Has declaredElement then
             facade.symbols.[reference] <- facade.symbols.[declaredElement]
         assertions
 
     and printUnaryExpression facade assertions (expression : IUnaryExpression) =
         match expression with
-        | :? IReferenceExpression as reference -> printReferenceExpression facade assertions reference
         | :? ITypeofExpression -> __notImplemented__()
         | :? IUnaryOperatorExpression as operatorExpression ->
             let operatorToken = operatorExpression.OperatorSign.GetTokenType()
@@ -120,25 +119,29 @@ module HornPrinter =
     and printInvocationExpression facade assertions (invocation : IInvocationExpression) =
         let invokedAssertions = printExpression facade assertions invocation.InvokedExpression
         let newAssertions = printArgumentList facade invokedAssertions invocation.ArgumentList
-        let args = Seq.map (fun arg -> facade.symbols.Expr(arg :> ITreeNode)) invocation.ArgumentsEnumerable
-        match facade.symbols.[invocation.InvokedExpression] with
-        | :? Z3.FuncDecl as func ->
-            let argsWithReturn =
-                if facade.symbols.HasReturnType func then
-                    let returnType = func.Parameters.[func.Parameters.Length - 1].Sort
-                    let resultVar = facade.symbols.NewIntermediateVar(facade.ctx, returnType)
-                    facade.symbols.[invocation] <- resultVar
-                    Seq.append args (Seq.singleton resultVar)
-                else
-                    args
-            assertions.With (func.Apply(argsWithReturn |> Seq.toArray) :?> Z3.BoolExpr)
-        | _ -> __notImplemented__()
+        let argToSmtExpr (arg : ICSharpArgument) = facade.symbols.Expr(arg.Value :> ITreeNode)
+        let args = Seq.map argToSmtExpr invocation.ArgumentsEnumerable
+        if facade.symbols.Has invocation.InvokedExpression then
+            match facade.symbols.[invocation.InvokedExpression] with
+            | :? Z3.FuncDecl as func ->
+                let argsWithReturn =
+                    if facade.symbols.HasReturnType func then
+                        let returnType = Seq.last func.Domain
+                        let resultVar = facade.symbols.NewIntermediateVar(facade.ctx, returnType)
+                        facade.symbols.[invocation] <- resultVar
+                        Seq.append args (Seq.singleton resultVar)
+                    else
+                        args
+                newAssertions.With (func.Apply(argsWithReturn |> Seq.toArray) :?> Z3.BoolExpr)
+            | _ -> __notImplemented__()
+        else
+            newAssertions
 
     and printConditionalAccessExpression facade assertions (expression : IConditionalAccessExpression) =
         match expression with
         | :? IElementAccessExpression -> __notImplemented__()
         | :? IInvocationExpression as invocation -> printInvocationExpression facade assertions invocation
-        | :? IReferenceExpression -> __notImplemented__()
+        | :? IReferenceExpression as reference -> printReferenceExpression facade assertions reference
         | _ -> __notImplemented__()
 
     and printCreationExpression (facade : HornFacade) (assertions : Assertions) (expression : ICreationExpression) =
@@ -163,6 +166,8 @@ module HornPrinter =
             | n when n.Type.IsPredefinedNumeric() ->
                 if infiniteDomain then facade.ctx.MkInt(n.Value :?> int) :> Z3.Expr
                 else facade.ctx.MkBV(n.Value :?> int, (sort :?> Z3.BitVecSort).Size) :> Z3.Expr
+            // Strings are currently not supported.
+            | s when s.IsString() -> facade.ctx.MkInt(0) :> Z3.Expr
             | _ -> __notImplemented__()
         facade.symbols.[literal] <- expr
         assertions
@@ -176,7 +181,6 @@ module HornPrinter =
 //        let elseAssertions = printExpression facade elseBranch ternary.ElseResult
 //        conditionAssertions.Fork(thenAssertions, elseAssertions)
         assertions
-
 
     and printExpression facade assertions (expression : ICSharpExpression) =
         match expression with
@@ -274,19 +278,25 @@ module HornPrinter =
             let newAssertions = printExpression facade assertions statement.Value
             let resultingExpr = facade.symbols.Expr statement.Value
             addRule facade newAssertions resultingExpr
-            newAssertions
+            newAssertions.Returned()
 
     and printIfStatement facade assertions (conditional : IIfStatement) =
         let conditionAssertions = printExpression facade assertions conditional.Condition
         let condition = facade.symbols.Boolean conditional.Condition
-        let thenBranch = (new Assertions()).With(condition)
-        let elseBranch = (new Assertions()).With(facade.ctx.MkNot condition)
-        let thenAssertions = printStatement facade thenBranch conditional.Then
-        let elseAssertions = printStatement facade elseBranch conditional.Else
-        conditionAssertions.Fork(thenAssertions, elseAssertions)
+        let thenBranch = conditionAssertions.With(condition)
+        let elseBranch = conditionAssertions.With(facade.ctx.MkNot condition)
+        let thenAssertions : Assertions = printStatement facade thenBranch conditional.Then
+        let elseAssertions : Assertions = printStatement facade elseBranch conditional.Else
+        let thenReturned = thenAssertions.IsReturned()
+        let elseReturned = elseAssertions.IsReturned()
+        if (thenReturned && elseReturned) then conditionAssertions.Returned()
+        else if (thenReturned) then elseAssertions
+        else if (thenReturned) then thenAssertions
+        else (new Assertions()).Fork(thenAssertions, elseAssertions)
 
     and printStatement facade assertions (statement : ICSharpStatement) =
         match statement with
+        | s when s = null -> assertions
         | :? IBlock as block -> printBlock facade assertions block
         | :? IBreakStatement as breakStatement -> __notImplemented__()
         | :? ICheckedStatement as checkedStatement -> __notImplemented__()
@@ -294,7 +304,7 @@ module HornPrinter =
         | :? IDeclarationStatement as declaration -> printMultipleDeclarations facade assertions declaration.Declaration
         | :? IDoStatement as doStatement -> __notImplemented__()
         | :? IEmptyStatement -> assertions
-        | :? IExpressionStatement as expression -> __notImplemented__()
+        | :? IExpressionStatement as expression -> printExpression facade assertions expression.Expression
         | :? IGotoCaseStatement as gotoCase -> __notImplemented__()
         | :? IGotoStatement as goto -> __notImplemented__()
         | :? IIfStatement as fork -> printIfStatement facade assertions fork
@@ -304,7 +314,7 @@ module HornPrinter =
         | :? IForStatement as forStatement -> __notImplemented__()
         | :? IWhileStatement as whileStatement -> __notImplemented__()
         | :? ILoopStatement as otherLoop -> __notImplemented__()
-        | :? IReturnStatement as returnStatement -> __notImplemented__()
+        | :? IReturnStatement as returnStatement -> printReturnStatement facade assertions returnStatement
         | :? ISwitchLabelStatement as switchLabel -> __notImplemented__()
         | :? ISwitchStatement as switch -> __notImplemented__()
         | :? IThrowStatement as throw -> __notImplemented__()

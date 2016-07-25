@@ -19,13 +19,16 @@ type SmtDeclarations() =
 
     member public this.Add(decl : IDeclaredElement, expr : Z3.Expr) = declared.Add(decl, expr)
     member public this.Add(node : ITreeNode, expr : Z3.Expr) = intermediate.Add(node, expr)
-    member public this.Item 
-        with get(decl) = declared.[decl] 
-        and set (decl : IDeclaredElement) (value : Z3.AST) = 
-            if (decl :? IParametersOwner) && (value :? Z3.FuncDecl) then 
+    member public this.Item
+        with get(decl) = declared.[decl]
+        and set (decl : IDeclaredElement) (value : Z3.AST) =
+            if (decl :? IParametersOwner) && (value :? Z3.FuncDecl) then
                 hasReturnType.[value :?> Z3.FuncDecl] <- not ((decl :?> IParametersOwner).ReturnType.IsVoid())
             declared.[decl] <- value
     member public this.Item with get(node) = intermediate.[node] and  set node value = intermediate.[node] <- value
+
+    member public this.Has decl = declared.ContainsKey decl
+    member public this.Has node = intermediate.ContainsKey node
 
     member public this.IsExpr decl = declared.[decl] :? Z3.Expr
     member public this.IsExpr node = intermediate.[node] :? Z3.Expr

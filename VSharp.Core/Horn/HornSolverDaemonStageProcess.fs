@@ -10,24 +10,27 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
     interface IDaemonStageProcess with
         member x.DaemonProcess with get() = daemonProcess
         member x.Execute commiter =
+            let cfg =
+                let list = [ ("AUTO_CONFIG", "true" ) ]
+                System.Linq.Enumerable.ToDictionary(list, fst, snd)
+            use ctx = new Z3.Context(cfg)
+            let test = HornPrinter.infiniteDomain
+            Console.WriteLine("RESULT: " + test.ToString())
+            let facade = new HornFacade(ctx, ctx.MkFixedpoint(), new VSharp.Core.Common.SmtDeclarations())
+            let assertions = new Assertions()
+
             let processMethods = fun (declaration : IMethodDeclaration) ->
                 Console.WriteLine(declaration.ToString())
                 Console.WriteLine(declaration.Type)
                 Console.WriteLine(declaration.GetText())
                 Console.WriteLine("--------------------------\n")
 
-                let cfg =
-                    let list = [ ("AUTO_CONFIG", "true" ) ]
-                    System.Linq.Enumerable.ToDictionary(list, fst, snd)
-                use ctx = new Z3.Context(cfg)
-                let test = HornPrinter.infiniteDomain
-                Console.WriteLine("RESULT: " + test.ToString())
-                let facade = new HornFacade(ctx, ctx.MkFixedpoint(), new VSharp.Core.Common.SmtDeclarations())
-                let assertions = new Assertions()
                 Console.WriteLine((HornPrinter.printFunctionDeclaration facade assertions declaration).ToString())
 
             let processor = new RecursiveElementProcessor<IMethodDeclaration>(new Action<_>(processMethods));
             file.ProcessDescendants(processor);
+            Console.WriteLine("--------------<SMT2 dump:>--------------")
+            Console.WriteLine(facade.fp.ToString());
 
 
 //---------------------------------------------------------------------------------------------                         
