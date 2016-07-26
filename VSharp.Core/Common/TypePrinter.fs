@@ -16,7 +16,7 @@ module TypePrinter =
         | t when t.IsDecimal() -> ctx.MkFPSort128() :> Z3.Sort
         | t when t.IsPredefinedNumeric() ->
             //let infinite = VSharp.Core.Properties.Settings.InfiniteIntegers
-            let infinite = false
+            let infinite = true
             if infinite then ctx.MkIntSort() :> Z3.Sort
             else
                 let clrName = t.GetClrName().FullName

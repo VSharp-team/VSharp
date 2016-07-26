@@ -56,6 +56,7 @@
     <Compile Include="Common\SmtDeclarations.fs" />
     <Compile Include="Common\TypePrinter.fs" />
     <Compile Include="Horn\Assertions.fs" />
+    <Compile Include="Horn\HornHighlighter.fs" />
     <Compile Include="Horn\HornFacade.fs" />
     <Compile Include="Horn\HornPrinter.fs" />
     <Compile Include="Horn\HornSolverDaemonStageProcess.fs" />

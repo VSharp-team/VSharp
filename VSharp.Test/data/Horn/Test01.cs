@@ -16,7 +16,7 @@ namespace Test
         {
             if (n < 2)
                 return 1;
-            return Fib2(n - 1) + Fib2(n - 2);
+            return Fib1(n - 1) + Fib2(n - 2);
         }
 
         //private int Fib3(int n)
@@ -32,9 +32,9 @@ namespace Test
             int fib2 = Fib2(n);
             //int fib3 = Fib3(n);
             if (fib1 <= 0 || fib2 <= 0 /*|| fib3 <= 0*/)
-                Console.WriteLine("Goodbye cruel world :(");
+                Console.WriteLine("Wat?");
             else
-                Console.WriteLine("We do not actually need 3 lines above :)");
+                Console.WriteLine("We do not actually need 3 lines above");
         }
     }
 }

@@ -13,7 +13,7 @@ module HornPrinter =
     // Partial active pattern. Match if field equals value.
     let (|Field|_|) field x = if field = x then Some () else None
     // Install this flag for using arithmetics over infinite domain rather then bitvectors
-    let infiniteDomain = false
+    let infiniteDomain = true
 
     let addRule (facade : HornFacade) (assertions : Assertions) returnValue =
         let func = facade.symbols.CurrentFunctionDeclaration()
@@ -234,8 +234,7 @@ module HornPrinter =
 
     and printMultipleDeclarationMember (facade : HornFacade) assertions (declaration : IMultipleDeclarationMember) =
         let sort = TypePrinter.printType facade.ctx declaration.Type
-        // TODO: MkBound??
-        let smtConst = facade.ctx.MkConst(IdGenerator.startingWith declaration.DeclaredName, sort)
+        let smtConst = facade.ctx.MkBound(IdGenerator.newBoundIndex(), sort)
         facade.symbols.[declaration.DeclaredElement] <- smtConst
         match declaration with
         | :? IConstantDeclaration as decl ->
@@ -253,8 +252,7 @@ module HornPrinter =
 
     and printParameterDeclaration (facade : HornFacade) assertions (declaration : IParameterDeclaration) =
         let sort = TypePrinter.printType facade.ctx declaration.Type
-        // TODO: MkBound??
-        let smtConst = facade.ctx.MkConst(IdGenerator.startingWith declaration.DeclaredName, sort)
+        let smtConst = facade.ctx.MkBound(IdGenerator.newBoundIndex(), sort)
         declaration.DeclaredElement |> ignore
         facade.symbols.[declaration.DeclaredElement] <- smtConst
         assertions
@@ -283,6 +281,7 @@ module HornPrinter =
     and printIfStatement facade assertions (conditional : IIfStatement) =
         let conditionAssertions = printExpression facade assertions conditional.Condition
         let condition = facade.symbols.Boolean conditional.Condition
+        facade.highlighter.checkIfStatement conditional conditionAssertions condition
         let thenBranch = conditionAssertions.With(condition)
         let elseBranch = conditionAssertions.With(facade.ctx.MkNot condition)
         let thenAssertions : Assertions = printStatement facade thenBranch conditional.Then
@@ -338,6 +337,7 @@ module HornPrinter =
             let returnSort = TypePrinter.printType facade.ctx declaration.DeclaredElement.ReturnType
             let fullSignature = (if returnSort = null then signature else Seq.append signature (Seq.singleton returnSort)) |> Seq.toArray
             let smtFuncDecl = facade.ctx.MkFuncDecl(IdGenerator.startingWith functionDeclaration.DeclaredName, fullSignature, facade.ctx.MkBoolSort())
+            facade.fp.RegisterRelation(smtFuncDecl)
             facade.symbols.[functionDeclaration.DeclaredElement :> IDeclaredElement] <- smtFuncDecl
             let result = printBlock facade newAssertions func.Body
             facade.symbols.LeaveFunctionDeclaration()

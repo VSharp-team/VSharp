@@ -4,26 +4,47 @@ namespace Test
 {
     public sealed class Test01
     {
-        private int |Fib|(0)(int n)
+        private int |Fib1|(0)(int n)
         {
-            return n < 2 ? 1 : Fib(n - 1) + Fib(n - 2);
+            if (n < 2)
+                return 1;
+            |else|(1)
+                return Fib1(n - 1) + Fib1(n - 2);
         }
+
+        private int |Fib2|(2)(int n)
+        {
+            if (n < 2)
+                return 1;
+            return Fib2(n - 1) + Fib2(n - 2);
+        }
+
+        //private int Fib3(int n)
+        //{
+        //    return n < 2 ? 1 : Fib3(n - 1) + Fib3(n - 2);
+        //}
 
         public void DoSomething()
         {
-            |int|(1) n = new Random().Next(10);
-            |int|(2) fib = Fib(n);
-            |if|(3) (fib <= 0)
-                |Console.WriteLine("Goodbye cruel world :(");|(4)
-            else                                                
+            //int n = new Random().Next(10);
+            |int|(3) |n|(4) = 5;
+            |int|(5) fib1 = Fib1(n);
+            |int|(6) fib2 = Fib2(n);
+            //int fib3 = Fib3(n);
+            if (fib1 <= 0 || fib2 <= 0 /*|| fib3 <= 0*/)
+                |Console.WriteLine("Goodbye cruel world :(");|(7)
+            else
                 Console.WriteLine("We do not actually need 3 lines above :)");
         }
     }
 }
 
 ---------------------------------------------------------
-(0): ReSharper Hint: Method 'Fib' can be made static
-(1): ReSharper Hint: Use 'var' (built-in types)
-(2): ReSharper Hint: Use 'var' (built-in types)
-(3): ReSharper Suggestion: Convert to method call with '?:' expression inside
-(4): Some unreachable warning will be here
+(0): ReSharper Hint: Method 'Fib1' can be made static
+(1): ReSharper Dead Code: Redundant 'else' keyword
+(2): ReSharper Hint: Method 'Fib2' can be made static
+(3): ReSharper Hint: Use 'var' (built-in types)
+(4): ReSharper Hint: Convert to constant
+(5): ReSharper Hint: Use 'var' (built-in types)
+(6): ReSharper Hint: Use 'var' (built-in types)
+(7): Some unreachable warning will be here

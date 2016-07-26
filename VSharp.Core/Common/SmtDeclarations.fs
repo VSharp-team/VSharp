@@ -49,6 +49,7 @@ type SmtDeclarations() =
     member public this.Function node = intermediate.[node] :?> Z3.FuncDecl
 
     member public this.HasReturnType func = if not (hasReturnType.ContainsKey(func)) then false else hasReturnType.[func]
+    member public this.Relations = hasReturnType.Keys
 
     member public this.ResetIntermediateVars = tempVarIndeces.Clear
     member public this.NewIntermediateVar(ctx : Z3.Context, sort : Z3.Sort) =
@@ -65,7 +66,7 @@ type SmtDeclarations() =
 
         let name = prefix + nextIndex.ToString()
         if not (tempVars.ContainsKey name) then
-            tempVars.Add(name, ctx.MkConst(name, sort))
+            tempVars.Add(name, ctx.MkBound(VSharp.Core.Utils.IdGenerator.newBoundIndex(), sort))
         tempVars.[name]
 
     member public this.EnterFunctionDeclaration = currentFunctions.Push
