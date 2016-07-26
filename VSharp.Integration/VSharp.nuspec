@@ -2,7 +2,7 @@
 <package>
 	<metadata>
 		<id>SPbSU.VSharp</id>
-		<version>0.0.6</version>
+		<version>0.0.7</version>
 		<authors>Dmitry Mordvinov</authors>
 		<owners>JetBrains Research</owners>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -17,5 +17,7 @@
 		<file src="bin\Debug\VSharp.Integration.pdb" target="dotFiles\" />
 		<file src="bin\Debug\VSharp.Core.dll" target="dotFiles\" />
 		<file src="bin\Debug\VSharp.Core.pdb" target="dotFiles\" />
+		<file src="bin\Debug\libz3.dll" target="dotFiles\" />
+		<file src="bin\Debug\Microsoft.Z3.dll" target="dotFiles\" />
 	</files>
 </package>

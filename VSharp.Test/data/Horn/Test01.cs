@@ -24,10 +24,9 @@ namespace Test
         //    return n < 2 ? 1 : Fib3(n - 1) + Fib3(n - 2);
         //}
 
-        public void DoSomething()
+        public void DoSomething(int n)
         {
             //int n = new Random().Next(10);
-            int n = 5;
             int fib1 = Fib1(n);
             int fib2 = Fib2(n);
             //int fib3 = Fib3(n);

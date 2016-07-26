@@ -80,6 +80,9 @@
     <Reference Include="JetBrains.Platform.Util">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
     </Reference>
+    <Reference Include="JetBrains.ReSharper.Daemon.CSharp">
+      <HintPath>C:\dev\VSharp\packages\JetBrains.Psi.Features.src.105.0.20160523.140224\DotFiles\JetBrains.ReSharper.Daemon.CSharp.dll</HintPath>
+    </Reference>
     <Reference Include="JetBrains.ReSharper.Feature.Services">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.ReSharper.Feature.Services.dll</HintPath>
     </Reference>
