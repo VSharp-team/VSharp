@@ -52,6 +52,8 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="SILI\Term.fs" />
+    <Compile Include="SILI\Interpreter.fs" />
     <Compile Include="Utils\IdGenerator.fs" />
     <Compile Include="Common\SmtDeclarations.fs" />
     <Compile Include="Common\TypePrinter.fs" />
@@ -62,6 +64,9 @@
     <Compile Include="Horn\HornSolverDaemonStageProcess.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="JetBrains.Decompiler.Core">
+      <HintPath>C:\dev\VSharp\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
+    </Reference>
     <Reference Include="JetBrains.Platform.DocumentModel">
       <HintPath>C:\dev\VSharp\packages\JetBrains.Platform.Core.Text.105.0.20160522.80211\DotFiles\JetBrains.Platform.DocumentModel.dll</HintPath>
     </Reference>

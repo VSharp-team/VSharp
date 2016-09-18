@@ -159,7 +159,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="data\Horn\Test01.cs" />
+    <None Include="data\Horn\Test01.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="HornTests.cs" />
     <Compile Include="TestEnvironment.cs" />
@@ -173,6 +173,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TempTest\TempTest.csproj">
+      <Project>{4a73ae24-56d0-4517-b38b-feaa44436592}</Project>
+      <Name>TempTest</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VSharp.Core\VSharp.Core.fsproj">
       <Project>{92626722-6b2f-4917-8af6-acc612490c76}</Project>
       <Name>VSharp.Core</Name>
