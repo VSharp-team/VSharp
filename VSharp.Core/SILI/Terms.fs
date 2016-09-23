@@ -2,91 +2,79 @@
 
 open JetBrains.Decompiler.Ast
 open System
+open VSharp.Core.Utils
 
-type Operation =
-    | Operator of OperationType
+type public Operation =
+    | Operator of OperationType * bool
     | Application of string
 
-type Term =
-    | Void
-    | Constant of string * Type
-    | Expression of Operation * Term list
-    | Concrete of Object * Type
+type public Term =
+    | Nop
+    | Concrete of Object * TermType
+    | Constant of string * TermType
+    | Expression of Operation * Term list * TermType
+    | Union of (Term * Term) list
 
-module Terms =
-    let private operatorToStringFormat (op : OperationType) =
-        match op with
-        | OperationType.Add -> ("({0} + {1})", 2)
-        | OperationType.Assignment -> ("({0} = {1})", 2)
-        | OperationType.AssignmentAdd -> ("({0} += {1})", 2)
-        | OperationType.AssignmentDivide -> ("({0} /= {1})", 2)
-        | OperationType.AssignmentLogicalAnd -> ("({0} &= {1})", 2)
-        | OperationType.AssignmentLogicalOr -> ("({0} |= {1})", 2)
-        | OperationType.AssignmentLogicalXor -> ("({0} ^= {1})", 2)
-        | OperationType.AssignmentMultiply -> ("({0} *= {1})", 2)
-        | OperationType.AssignmentRemainder -> ("({0} %= {1})", 2)
-        | OperationType.AssignmentShiftLeft -> ("({0} <<= {1})", 2)
-        | OperationType.AssignmentShiftRight -> ("({0} >>= {1})", 2)
-        | OperationType.AssignmentSubtract -> ("({0} -= {1}_", 2)
-        | OperationType.ConditionalAnd -> ("({0} && {1})", 2)
-        | OperationType.ConditionalOr -> ("({0} || {1})", 2)
-        | OperationType.Divide -> ("({0} / {1}_", 2)
-        | OperationType.Equal -> ("({0} == {1})", 2)
-        | OperationType.Greater -> ("({0} > {1})", 2)
-        | OperationType.GreaterOrEqual -> ("({0} >= {1})", 2)
-        | OperationType.Less -> ("({0} < {1})", 2)
-        | OperationType.LessOrEqual -> ("({0} <= {1})", 2)
-        | OperationType.LogicalAnd -> ("({0} & {1})", 2)
-        | OperationType.LogicalOr -> ("({0} | {1})", 2)
-        | OperationType.LogicalNeg -> ("(~{0})", 1)
-        | OperationType.LogicalXor -> ("({0} ^ {1})", 2)
-        | OperationType.Multiply -> ("({0} * {1})", 2)
-        | OperationType.Not -> ("(!{0})", 1)
-        | OperationType.NotEqual -> ("({0} != {1})", 2)
-        | OperationType.NullCoalescing -> ("({0} ?? {1})", 2)
-        | OperationType.PostfixIncrement -> ("({0}++)", 1)
-        | OperationType.PostfixDecrement -> ("({0}--)", 1)
-        | OperationType.PrefixIncrement -> ("(++{0})", 1)
-        | OperationType.PrefixDecrement -> ("(--{0})", 1)
-        | OperationType.Remainder -> ("({0} % {1})", 2)
-        | OperationType.ShiftLeft -> ("({0} << {1})", 2)
-        | OperationType.ShiftRight -> ("({0} >> {1})", 2)
-        | OperationType.Subtract -> ("({0} - {1})", 2)
-        | OperationType.UnaryMinus -> ("(-{0})", 1)
-        | OperationType.UnaryPlus -> ("(+{0})", 1)
-        | _ -> ("", 0)
+    override this.ToString() =
+        match this with
+        | Nop -> "<VOID>"
+        | Constant(name, _) -> name
+        | Expression(operation, operands, _) ->
+            let printedOperands = operands |> List.map Wrappers.toString
+            match operation with
+            | Operator(operator, isChecked) ->
+                let format = Operators.operatorToStringFormat operator
+                let count = Operators.operatorArity operator
+                let checkedFormat = if isChecked then format + "✓" else format
+                if (List.length operands) <> count then
+                    raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
+                else String.Format(checkedFormat, printedOperands |> List.map box |> List.toArray)
+            | Application f -> String.Format("{0}({1})", f, String.Join(", ", printedOperands))
+        | Concrete(value, _) -> value.ToString()
+        | Union(guardedTerms) ->
+            let guardedToString (guard, term) =
+                String.Format("| {0} -> {1}", guard, term)
+            let printed = guardedTerms |> Seq.map guardedToString
+            String.Format("UNION\n\t{0}", String.Join("\n\t", printed))
+
+module public Terms =
 
     let public IsVoid term =
         match term with
-        | Void -> true
+        | Nop -> true
         | _ -> false
 
+    let rec public TypeOf term =
+        match term with
+        | Nop -> TermType.Void
+        | Concrete(_, t) -> t
+        | Constant(_, t) -> t
+        | Expression(_, _,  t) -> t
+        | Union(ts) -> 
+            if List.isEmpty ts then TermType.Void
+            else (fst >> TypeOf) (List.head ts)
+
+    let public IsBool = TypeOf >> Types.IsBool
+    let public IsInteger = TypeOf >> Types.IsInteger
+    let public IsReal = TypeOf >> Types.IsInteger
+    let public IsNumeric t = TypeOf >> Types.IsNumeric
+    let public IsString t = TypeOf >> Types.IsString
+    let public IsPrimitiveSolvable = TypeOf >> Types.IsPrimitiveSolvable
+    let public IsSolvable t = TypeOf >> Types.IsSolvable
+    let public DomainOf = TypeOf >> Types.DomainOf
+    let public RangeOf = TypeOf >> Types.RangeOf
+    let public IsRelation = TypeOf >> Types.IsRelation
+
     let public FreshConstant name t =
-        Constant(name, t)
+        Constant(name, Types.FromPrimitiveDotNetType t)
 
     let public MakeConcrete value t =
-        Concrete(value, t)
+        Concrete(value, Types.FromPrimitiveDotNetType t)
 
-    let public MakeBinary operation x y =
-        assert((snd (operatorToStringFormat operation)) = 2)
-        Expression(Operator operation, [x; y])
+    let public MakeBinary operation x y isChecked t =
+        assert(Operators.isBinary operation)
+        Expression(Operator(operation, isChecked), [x; y], Types.FromPrimitiveDotNetType t)
 
-    let public MakeUnary operation x =
-        assert((snd (operatorToStringFormat operation)) = 1)
-        Expression(Operator operation, [x])
-
-    let rec internal toString term =
-        match term with
-        | Void -> "<VOID>"
-        | Constant(name, _) -> name
-        | Expression(operation, operands) ->
-            let printedOperands = operands |> List.map toString
-            match operation with
-            | Operator operator ->
-                match (operatorToStringFormat operator) with
-                | (format, count) ->
-                    if (List.length operands) <> count then
-                        raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
-                    else String.Format(format, printedOperands |> List.map box |> List.toArray)
-            | Application f -> String.Format("{0}({1})", f, String.Join(", ", printedOperands))
-        | Concrete(value, _) -> value.ToString()
+    let public MakeUnary operation x isChecked t =
+        assert(Operators.isUnary operation)
+        Expression(Operator(operation, isChecked), [x], t)

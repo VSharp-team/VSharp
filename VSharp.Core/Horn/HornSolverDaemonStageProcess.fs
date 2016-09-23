@@ -22,15 +22,15 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                     let meth = (resolved.DeclaredElement :?> IMethod)
                     let isValid = (meth <> null) && ((meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null))
                     System.Console.WriteLine("BEFORE SUSP: " + resolved.Info.ToString())
-                    let qualifiedTypeName = if isValid then meth.GetContainingType().GetClrName().FullName else "TempTest.Testbed"
-                    let methodName = if isValid then meth.ShortName else "Add1"
+                    let qualifiedTypeName = if isValid then meth.GetContainingType().GetClrName().FullName else "VSharp.CSharpUtils.Tests.Arithmetics"
+                    let methodName = if isValid then meth.ShortName else "Add7"
 
                     let path = 
                         if isValid then
                             match meth.GetContainingType().Module with
                             | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
                             | _ -> raise(new Exception("Shit happens"))
-                         else JetBrains.Util.FileSystemPath.Parse(@"c:\dev\VSharp\TempTest\bin\Debug\TempTest.dll")
+                         else JetBrains.Util.FileSystemPath.Parse(@"c:\dev\VSharp\VSharp.CSharpUtils\bin\Debug\VSharp.CSharpUtils.dll")
 
                     let metadataAssembly = assemblyLoader.LoadFrom(path, fun x -> true)
                     let rp = JetBrains.Util.FileSystemPath.Parse(@"C:\Program Files\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\")
@@ -49,8 +49,8 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                     System.Console.WriteLine("DECOMPILED BODY: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod.Body))
                     System.Console.WriteLine("NOW TRACING:")
                     VSharp.Core.Symbolic.Interpreter.dbg 0 decompiledMethod
-                    let (term, env) = VSharp.Core.Symbolic.Interpreter.reduceDecompiledMethod VSharp.Core.Symbolic.Environment.empty decompiledMethod
-                    Console.WriteLine("AFTER INTERPRETATION: " + VSharp.Core.Symbolic.Terms.toString term)
+                    let (term, env) = VSharp.Core.Symbolic.Interpreter.reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod
+                    Console.WriteLine("AFTER INTERPRETATION: " + term.ToString())
                     Console.WriteLine("Environment: " + env.ToString())
 
                 let processor = new RecursiveElementProcessor<IInvocationExpression>(new Action<_>(processInvocationExpression))

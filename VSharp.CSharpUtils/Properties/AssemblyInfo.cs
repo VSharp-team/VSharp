@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("TempTest")]
+[assembly: AssemblyTitle("VSharp.CSharpUtils")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("TempTest")]
+[assembly: AssemblyProduct("VSharp.CSharpUtils")]
 [assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("4a73ae24-56d0-4517-b38b-feaa44436592")]
+[assembly: Guid("783ca74c-2a2d-4866-9007-10b51f529423")]
 
 // Version information for an assembly consists of the following four values:
 //

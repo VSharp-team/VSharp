@@ -13,502 +13,492 @@ module Interpreter =
 
 // ------------------------------- INode and inheritors -------------------------------
 
-    let rec reduceNode env (ast : INode) =
+    let rec reduceNode state (ast : INode) =
         match ast with
-        | :? IStatement as statement -> reduceStatement env statement
-        | :? IExpression as expression -> reduceExpression env expression
-        | :? ICatchClause as catch -> reduceCatchClause env catch
-        | :? IFunctionSignature as signature -> (Void, reduceFunctionSignature env signature)
-        | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner env owner
-        | :? IMemberInitializer as initializer -> reduceMemberInitializer env initializer
-        | :? ISwitchCase as switchCase -> reduceSwitchCase env switchCase
+        | :? IStatement as statement -> reduceStatement state statement
+        | :? IExpression as expression -> reduceExpression state expression
+        | :? ICatchClause as catch -> reduceCatchClause state catch
+        | :? IFunctionSignature as signature -> (Nop, reduceFunctionSignature state signature)
+        | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner state owner
+        | :? IMemberInitializer as initializer -> reduceMemberInitializer state initializer
+        | :? ISwitchCase as switchCase -> reduceSwitchCase state switchCase
         | _ -> __notImplemented__()
 
-    and reduceCatchClause env (ast : ICatchClause) =
+    and reduceCatchClause state (ast : ICatchClause) =
         __notImplemented__()
 
-    and reduceFunctionSignature env (ast : IFunctionSignature) =
-        let foldParam env (param : IMethodParameter) =
+    and reduceFunctionSignature state (ast : IFunctionSignature) =
+        let foldParam state (param : IMethodParameter) =
             let freshConst = Terms.FreshConstant param.Name (System.Type.GetType(param.Type.FullName))
-            Environment.addTerm env param.Name freshConst
-        ast.Parameters |> Seq.fold foldParam env
+            State.addTerm state param.Name freshConst
+        ast.Parameters |> Seq.fold foldParam state
 
-    and reduceSwitchCase env (ast : ISwitchCase) =
+    and reduceSwitchCase state (ast : ISwitchCase) =
         __notImplemented__()
 
 // ------------------------------- ILocalVariableDeclarationScopeOwner and inheritors -------------------------------
 
-    and reduceLocalVariableDeclarationScopeOwner env (ast : ILocalVariableDeclarationScopeOwner) =
+    and reduceLocalVariableDeclarationScopeOwner state (ast : ILocalVariableDeclarationScopeOwner) =
         match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression env expression
-        | :? IDecompiledMethod as expression -> reduceDecompiledMethod env expression
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression env expression
+        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression
+        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state expression
+        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceDecompiledMethod env (ast : IDecompiledMethod) =
-        let newEnv = reduceFunctionSignature env ast.Signature
-        reduceBlockStatement newEnv ast.Body
+    and reduceDecompiledMethod state (ast : IDecompiledMethod) =
+        let newState = reduceFunctionSignature state ast.Signature
+        reduceBlockStatement newState ast.Body
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
-    and reduceMemberInitializer env (ast : IMemberInitializer) =
+    and reduceMemberInitializer state (ast : IMemberInitializer) =
         match ast with
-        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer env initializer
-        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer env initializer
+        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer state initializer
+        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer
         | _ -> __notImplemented__()
 
-    and reduceFieldMemberInitializer env (ast : IFieldMemberInitializer) =
+    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) =
         __notImplemented__()
 
-    and reducePropertyMemberInitializer env (ast : IPropertyMemberInitializer) =
+    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) =
         __notImplemented__()
 
 
 // ------------------------------- IStatement and inheritors -------------------------------
 
-    and reduceStatement env (ast : IStatement) =
+    and reduceStatement state (ast : IStatement) =
         match ast with
-        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement env abstractGoto
-        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement env abstractLoop
-        | :? IBlockStatement as blockStatement -> reduceBlockStatement env blockStatement
-        | :? ICommentStatement as commentStatement -> reduceCommentStatement env commentStatement
-        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement env emptyStatement
-        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement env endFinally
-        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement env expressionStatement
-        | :? IFixedStatement as fixedStatement -> reduceFixedStatement env fixedStatement
-        | :? IIfStatement as ifStatement -> reduceIfStatement env ifStatement
-        | :? IJumpStatement as jump -> reduceJumpStatement env jump
-        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement env labelDeclaration
-        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement env localVariableDeclaration
-        | :? ILockStatement as lockStatement -> reduceLockStatement env lockStatement
-        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement env memoryCopy
-        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement env memoryInitialize
-        | :? IPinStatement as pinStatement -> reducePinStatement env pinStatement
-        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement env rethrowStatement
-        | :? IReturnStatement as returnStatement -> reduceReturnStatement env returnStatement
-        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement env filtering
-        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement env switchStatement
-        | :? IThrowStatement as throwStatement -> reduceThrowStatement env throwStatement
-        | :? ITryStatement as tryStatement -> reduceTryStatement env tryStatement
-        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement env unpinStatement
-        | :? IUsingStatement as usingStatement -> reduceUsingStatement env usingStatement
-        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement env yieldReturn
+        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto
+        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop
+        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement
+        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement
+        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement
+        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally
+        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement
+        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement
+        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement
+        | :? IJumpStatement as jump -> reduceJumpStatement state jump
+        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration
+        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration
+        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement
+        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy
+        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize
+        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement
+        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement
+        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement
+        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering
+        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement
+        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement
+        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement
+        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement
+        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement
+        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn
         | _ -> __notImplemented__()
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
 
-    and reduceAbstractGotoStatement env (ast : IAbstractGotoStatement) =
+    and reduceAbstractGotoStatement state (ast : IAbstractGotoStatement) =
         match ast with
-        | :? IBreakStatement as breakStatement -> reduceBreakStatement env breakStatement
-        | :? IContinueStatement as continueStatement -> reduceContinueStatement env continueStatement
-        | :? IGotoCaseStatement as gotoCaseStatement -> reduceGotoCaseStatement env gotoCaseStatement 
-        | :? IGotoDefaultStatement as gotoDefaultStatement -> reduceGotoDefaultStatement env gotoDefaultStatement
-        | :? IGotoStatement as gotoStatement -> reduceGotoStatement env gotoStatement
-        | :? IYieldBreakStatement as yieldBreakStatement -> reduceYieldBreakStatement env yieldBreakStatement
+        | :? IBreakStatement as breakStatement -> reduceBreakStatement state breakStatement
+        | :? IContinueStatement as continueStatement -> reduceContinueStatement state continueStatement
+        | :? IGotoCaseStatement as gotoCaseStatement -> reduceGotoCaseStatement state gotoCaseStatement 
+        | :? IGotoDefaultStatement as gotoDefaultStatement -> reduceGotoDefaultStatement state gotoDefaultStatement
+        | :? IGotoStatement as gotoStatement -> reduceGotoStatement state gotoStatement
+        | :? IYieldBreakStatement as yieldBreakStatement -> reduceYieldBreakStatement state yieldBreakStatement
         | _ -> __notImplemented__()
 
-    and reduceBreakStatement env (ast : IBreakStatement) =
+    and reduceBreakStatement state (ast : IBreakStatement) =
         __notImplemented__()
 
-    and reduceContinueStatement env (ast : IContinueStatement) =
+    and reduceContinueStatement state (ast : IContinueStatement) =
         __notImplemented__()
 
-    and reduceGotoCaseStatement env (ast : IGotoCaseStatement) =
+    and reduceGotoCaseStatement state (ast : IGotoCaseStatement) =
         __notImplemented__()
 
-    and reduceGotoDefaultStatement env (ast : IGotoDefaultStatement) =
+    and reduceGotoDefaultStatement state (ast : IGotoDefaultStatement) =
         __notImplemented__()
 
-    and reduceGotoStatement env (ast : IGotoStatement) =
+    and reduceGotoStatement state (ast : IGotoStatement) =
         __notImplemented__()
 
-    and reduceYieldBreakStatement env (ast : IYieldBreakStatement) =
+    and reduceYieldBreakStatement state (ast : IYieldBreakStatement) =
         __notImplemented__()
 
 // ------------------------------- IAbstractLoopStatement and inheritors -------------------------------
 
-    and reduceAbstractLoopStatement env (ast : IAbstractLoopStatement) =
+    and reduceAbstractLoopStatement state (ast : IAbstractLoopStatement) =
         match ast with
-        | :? IForEachStatement as forEach -> reduceForEachStatement env forEach
-        | :? IForStatement as forStatement -> reduceForStatement env forStatement
-        | :? ILoopStatement as loop -> reduceLoopStatement env loop
+        | :? IForEachStatement as forEach -> reduceForEachStatement state forEach
+        | :? IForStatement as forStatement -> reduceForStatement state forStatement
+        | :? ILoopStatement as loop -> reduceLoopStatement state loop
         | _ -> __notImplemented__()
 
-    and reduceForEachStatement env (ast : IForEachStatement) =
+    and reduceForEachStatement state (ast : IForEachStatement) =
         __notImplemented__()
 
-    and reduceForStatement env (ast : IForStatement) =
+    and reduceForStatement state (ast : IForStatement) =
         __notImplemented__()
 
-    and reduceLoopStatement env (ast : ILoopStatement) =
+    and reduceLoopStatement state (ast : ILoopStatement) =
         __notImplemented__()
 
 // ------------------------------- Rest Statements-------------------------------
 
-    and reduceBlockStatement env (ast : IBlockStatement) =
-        let foldStatement state statement =
-            let (curTerm, curEnv) = state
-            let (newTerm, newEnv) = reduceStatement curEnv statement
-            ((if Terms.IsVoid curTerm then newTerm else curTerm), newEnv)
-        ast.Statements |> Seq.fold foldStatement (Void, env)
+    and reduceBlockStatement state (ast : IBlockStatement) =
+        let foldStatement (curTerm, curState) statement =
+            let (newTerm, newState) = reduceStatement curState statement
+            ((if Terms.IsVoid curTerm then newTerm else curTerm), newState)
+        ast.Statements |> Seq.fold foldStatement (Nop, state)
         // TODO: Remove local variables declarations
 
-    and reduceCommentStatement env (ast : ICommentStatement) =
+    and reduceCommentStatement state (ast : ICommentStatement) =
         __notImplemented__()
 
-    and reduceEmptyStatement env (ast : IEmptyStatement) =
+    and reduceEmptyStatement state (ast : IEmptyStatement) =
         __notImplemented__()
 
-    and reduceEndFinallyStatement env (ast : IEndFinallyStatement) =
+    and reduceEndFinallyStatement state (ast : IEndFinallyStatement) =
         __notImplemented__()
 
-    and reduceExpressionStatement env (ast : IExpressionStatement) =
-        (Void, snd (reduceExpression env ast.Expression))
+    and reduceExpressionStatement state (ast : IExpressionStatement) =
+        (Nop, snd (reduceExpression state ast.Expression))
 
-    and reduceFixedStatement env (ast : IFixedStatement) =
+    and reduceFixedStatement state (ast : IFixedStatement) =
         __notImplemented__()
 
-    and reduceIfStatement env (ast : IIfStatement) =
+    and reduceIfStatement state (ast : IIfStatement) =
         __notImplemented__()
 
-    and reduceJumpStatement env (ast : IJumpStatement) =
+    and reduceJumpStatement state (ast : IJumpStatement) =
         __notImplemented__()
 
-    and reduceLabelDeclarationStatement env (ast : ILabelDeclarationStatement) =
+    and reduceLabelDeclarationStatement state (ast : ILabelDeclarationStatement) =
         __notImplemented__()
 
-    and reduceLocalVariableDeclarationStatement env (ast : ILocalVariableDeclarationStatement) =
+    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) =
         __notImplemented__()
 
-    and reduceLockStatement env (ast : ILockStatement) =
+    and reduceLockStatement state (ast : ILockStatement) =
         __notImplemented__()
 
-    and reduceMemoryCopyStatement env (ast : IMemoryCopyStatement) =
+    and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) =
         __notImplemented__()
 
-    and reduceMemoryInitializeStatement env (ast : IMemoryInitializeStatement) =
+    and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) =
         __notImplemented__()
 
-    and reducePinStatement env (ast : IPinStatement) =
+    and reducePinStatement state (ast : IPinStatement) =
         __notImplemented__()
 
-    and reduceRethrowStatement env (ast : IRethrowStatement) =
+    and reduceRethrowStatement state (ast : IRethrowStatement) =
         __notImplemented__()
 
-    and reduceReturnStatement env (ast : IReturnStatement) =
-        reduceExpression env ast.Result
+    and reduceReturnStatement state (ast : IReturnStatement) =
+        reduceExpression state ast.Result
 
-    and reduceSuccessfulFilteringStatement env (ast : ISuccessfulFilteringStatement) =
+    and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) =
         __notImplemented__()
 
-    and reduceSwitchStatement env (ast : ISwitchStatement) =
+    and reduceSwitchStatement state (ast : ISwitchStatement) =
         __notImplemented__()
 
-    and reduceThrowStatement env (ast : IThrowStatement) =
+    and reduceThrowStatement state (ast : IThrowStatement) =
         __notImplemented__()
 
-    and reduceTryStatement env (ast : ITryStatement) =
+    and reduceTryStatement state (ast : ITryStatement) =
         __notImplemented__()
 
-    and reduceUnpinStatement env (ast : IUnpinStatement) =
+    and reduceUnpinStatement state (ast : IUnpinStatement) =
         __notImplemented__()
 
-    and reduceUsingStatement env (ast : IUsingStatement) =
+    and reduceUsingStatement state (ast : IUsingStatement) =
         __notImplemented__()
 
-    and reduceYieldReturnStatement env (ast : IYieldReturnStatement) =
+    and reduceYieldReturnStatement state (ast : IYieldReturnStatement) =
         __notImplemented__()
 
 
 // ------------------------------- IExpression and inheritors -------------------------------
 
-    and reduceExpression env (ast : IExpression) =
+    and reduceExpression state (ast : IExpression) =
         match ast with
-        | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation env expression
-        | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression env expression
-        | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression env expression
-        | :? IAddressOfExpression as expression -> reduceAddressOfExpression env expression
-        | :? IArgListCreationExpression as expression -> reduceArgListCreationExpression env expression
-        | :? IArgListReferenceExpression as expression -> reduceArgListReferenceExpression env expression
-        | :? IArrayElementAccessExpression as expression -> reduceArrayElementAccessExpression env expression
-        | :? IAwaitExpression as expression -> reduceAwaitExpression env expression
-        | :? IBaseReferenceExpression as expression -> reduceBaseReferenceExpression env expression
-        | :? IBoxExpression as expression -> reduceBoxExpression env expression
-        | :? ICheckCastExpression as expression -> reduceCheckCastExpression env expression
-        | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression env expression
-        | :? IConditionalExpression as expression -> reduceConditionalExpression env expression
-        | :? ICreationExpression as expression -> reduceCreationExpression env expression
-        | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression env expression
-        | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression env expression
-        | :? IDerefExpression as expression -> reduceDerefExpression env expression
-        | :? IExpressionList as expression -> reduceExpressionList env expression
-        | :? IFieldReferenceExpression as expression -> reduceFieldReferenceExpression env expression
-        | :? IFunctionPointerCallExpression as expression -> reduceFunctionPointerCallExpression env expression
-        | :? ILiteralExpression as expression -> reduceLiteralExpression env expression
-        | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression env expression
-        | :? IMakeRefExpression as expression -> reduceMakeRefExpression env expression
-        | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression env expression
-        | :? IMemberInitializerList as expression -> reduceMemberInitializerList env expression
-        | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression env expression
-        | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression env expression
-        | :? INestedInitializer as expression -> reduceNestedInitializer env expression
-        | :? IOverflowCheckExpression as expression -> reduceOverflowCheckExpression env expression
-        | :? IParameterModifierExpression as expression -> reduceParameterModifierExpression env expression
-        | :? IParameterReferenceExpression as expression -> reduceParameterReferenceExpression env expression
-        | :? IPointerElementAccessExpression as expression -> reducePointerElementAccessExpression env expression
-        | :? IPointerIndirectionExpression as expression -> reducePointerIndirectionExpression env expression
-        | :? IRefExpression as expression -> reduceRefExpression env expression
-        | :? IRefTypeExpression as expression -> reduceRefTypeExpression env expression
-        | :? IRefTypeTokenExpression as expression -> reduceRefTypeTokenExpression env expression
-        | :? IRefValueExpression as expression -> reduceRefValueExpression env expression
-        | :? ISizeOfExpression as expression -> reduceSizeOfExpression env expression
-        | :? IStackAllocExpression as expression -> reduceStackAllocExpression env expression
-        | :? IThisReferenceExpression as expression -> reduceThisReferenceExpression env expression
-        | :? ITryCastExpression as expression -> reduceTryCastExpression env expression
-        | :? ITypeOfExpression as expression -> reduceTypeOfExpression env expression
-        | :? ITypeReferenceExpression as expression -> reduceTypeReferenceExpression env expression
-        | :? IUnboxExpression as expression -> reduceUnboxExpression env expression
-        | :? IUntypedStackAllocExpression as expression -> reduceUntypedStackAllocExpression env expression
-        | :? IVirtualMethodPointerExpression as expression -> reduceVirtualMethodPointerExpression env expression
+        | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation state expression
+        | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression state expression
+        | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression state expression
+        | :? IAddressOfExpression as expression -> reduceAddressOfExpression state expression
+        | :? IArgListCreationExpression as expression -> reduceArgListCreationExpression state expression
+        | :? IArgListReferenceExpression as expression -> reduceArgListReferenceExpression state expression
+        | :? IArrayElementAccessExpression as expression -> reduceArrayElementAccessExpression state expression
+        | :? IAwaitExpression as expression -> reduceAwaitExpression state expression
+        | :? IBaseReferenceExpression as expression -> reduceBaseReferenceExpression state expression
+        | :? IBoxExpression as expression -> reduceBoxExpression state expression
+        | :? ICheckCastExpression as expression -> reduceCheckCastExpression state expression
+        | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression state expression
+        | :? IConditionalExpression as expression -> reduceConditionalExpression state expression
+        | :? ICreationExpression as expression -> reduceCreationExpression state expression
+        | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression state expression
+        | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression state expression
+        | :? IDerefExpression as expression -> reduceDerefExpression state expression
+        | :? IExpressionList as expression -> reduceExpressionList state expression
+        | :? IFieldReferenceExpression as expression -> reduceFieldReferenceExpression state expression
+        | :? IFunctionPointerCallExpression as expression -> reduceFunctionPointerCallExpression state expression
+        | :? ILiteralExpression as expression -> reduceLiteralExpression state expression
+        | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression state expression
+        | :? IMakeRefExpression as expression -> reduceMakeRefExpression state expression
+        | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression state expression
+        | :? IMemberInitializerList as expression -> reduceMemberInitializerList state expression
+        | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression state expression
+        | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression state expression
+        | :? INestedInitializer as expression -> reduceNestedInitializer state expression
+        | :? IParameterModifierExpression as expression -> reduceParameterModifierExpression state expression
+        | :? IParameterReferenceExpression as expression -> reduceParameterReferenceExpression state expression
+        | :? IPointerElementAccessExpression as expression -> reducePointerElementAccessExpression state expression
+        | :? IPointerIndirectionExpression as expression -> reducePointerIndirectionExpression state expression
+        | :? IRefExpression as expression -> reduceRefExpression state expression
+        | :? IRefTypeExpression as expression -> reduceRefTypeExpression state expression
+        | :? IRefTypeTokenExpression as expression -> reduceRefTypeTokenExpression state expression
+        | :? IRefValueExpression as expression -> reduceRefValueExpression state expression
+        | :? ISizeOfExpression as expression -> reduceSizeOfExpression state expression
+        | :? IStackAllocExpression as expression -> reduceStackAllocExpression state expression
+        | :? IThisReferenceExpression as expression -> reduceThisReferenceExpression state expression
+        | :? ITryCastExpression as expression -> reduceTryCastExpression state expression
+        | :? ITypeOfExpression as expression -> reduceTypeOfExpression state expression
+        | :? ITypeReferenceExpression as expression -> reduceTypeReferenceExpression state expression
+        | :? IUnboxExpression as expression -> reduceUnboxExpression state expression
+        | :? IUntypedStackAllocExpression as expression -> reduceUntypedStackAllocExpression state expression
+        | :? IVirtualMethodPointerExpression as expression -> reduceVirtualMethodPointerExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceAddressOfExpression env (ast : IAddressOfExpression) =
+    and reduceAddressOfExpression state (ast : IAddressOfExpression) =
         __notImplemented__()
 
-    and reduceArgListCreationExpression env (ast : IArgListCreationExpression) =
+    and reduceArgListCreationExpression state (ast : IArgListCreationExpression) =
         __notImplemented__()
 
-    and reduceArgListReferenceExpression env (ast : IArgListReferenceExpression) =
+    and reduceArgListReferenceExpression state (ast : IArgListReferenceExpression) =
         __notImplemented__()
 
-    and reduceArrayElementAccessExpression env (ast : IArrayElementAccessExpression) =
+    and reduceArrayElementAccessExpression state (ast : IArrayElementAccessExpression) =
         __notImplemented__()
 
-    and reduceAwaitExpression env (ast : IAwaitExpression) =
+    and reduceAwaitExpression state (ast : IAwaitExpression) =
         __notImplemented__()
 
-    and reduceBaseReferenceExpression env (ast : IBaseReferenceExpression) =
+    and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) =
         __notImplemented__()
 
-    and reduceBoxExpression env (ast : IBoxExpression) =
+    and reduceBoxExpression state (ast : IBoxExpression) =
         __notImplemented__()
 
-    and reduceCheckCastExpression env (ast : ICheckCastExpression) =
+    and reduceCheckCastExpression state (ast : ICheckCastExpression) =
         __notImplemented__()
 
-    and reduceCheckFiniteExpression env (ast : ICheckFiniteExpression) =
+    and reduceCheckFiniteExpression state (ast : ICheckFiniteExpression) =
         __notImplemented__()
 
-    and reduceConditionalExpression env (ast : IConditionalExpression) =
+    and reduceConditionalExpression state (ast : IConditionalExpression) =
         __notImplemented__()
 
-    and reduceDefaultValueExpression env (ast : IDefaultValueExpression) =
+    and reduceDefaultValueExpression state (ast : IDefaultValueExpression) =
         __notImplemented__()
 
-    and reduceDelegateCallExpression env (ast : IDelegateCallExpression) =
+    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) =
         __notImplemented__()
 
-    and reduceDerefExpression env (ast : IDerefExpression) =
+    and reduceDerefExpression state (ast : IDerefExpression) =
         __notImplemented__()
 
-    and reduceExpressionList env (ast : IExpressionList) =
+    and reduceExpressionList state (ast : IExpressionList) =
         __notImplemented__()
 
-    and reduceFieldReferenceExpression env (ast : IFieldReferenceExpression) =
+    and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) =
         __notImplemented__()
 
-    and reduceFunctionPointerCallExpression env (ast : IFunctionPointerCallExpression) =
+    and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) =
         __notImplemented__()
 
-    and reduceLiteralExpression env (ast : ILiteralExpression) =
-        (Terms.MakeConcrete ast.Value.Value (System.Type.GetType(ast.Value.Type.AssemblyQualifiedName)), env)
+    and reduceLiteralExpression state (ast : ILiteralExpression) =
+        (Terms.MakeConcrete ast.Value.Value (System.Type.GetType(ast.Value.Type.AssemblyQualifiedName)), state)
 
-    and reduceLocalVariableReferenceExpression env (ast : ILocalVariableReferenceExpression) =
+    and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) =
         __notImplemented__()
 
-    and reduceMakeRefExpression env (ast : IMakeRefExpression) =
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) =
         __notImplemented__()
 
-    and reduceMemberInitializerList env (ast : IMemberInitializerList ) =
+    and reduceMemberInitializerList state (ast : IMemberInitializerList ) =
         __notImplemented__()
 
-    and reduceMethodPointerExpression env (ast : IMethodPointerExpression) =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression env (ast : IMethodReferenceExpression) =
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) =
         __notImplemented__()
 
-    and reduceNestedInitializer env (ast : INestedInitializer) =
+    and reduceNestedInitializer state (ast : INestedInitializer) =
         __notImplemented__()
 
-    and reduceParameterModifierExpression env (ast : IParameterModifierExpression) =
+    and reduceParameterModifierExpression state (ast : IParameterModifierExpression) =
         __notImplemented__()
 
-    and reduceParameterReferenceExpression env (ast : IParameterReferenceExpression) =
-        (env.[ast.Parameter.Name], env)
+    and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) =
+        (State.eval state ast.Parameter.Name, state)
 
-    and reducePointerElementAccessExpression env (ast : IPointerElementAccessExpression) =
+    and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) =
         __notImplemented__()
 
-    and reducePointerIndirectionExpression env (ast : IPointerIndirectionExpression) =
+    and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) =
         __notImplemented__()
 
-    and reduceRefExpression env (ast : IRefExpression) =
+    and reduceRefExpression state (ast : IRefExpression) =
         __notImplemented__()
 
-    and reduceRefTypeExpression env (ast : IRefTypeExpression) =
+    and reduceRefTypeExpression state (ast : IRefTypeExpression) =
         __notImplemented__()
 
-    and reduceRefTypeTokenExpression env (ast : IRefTypeTokenExpression) =
+    and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) =
         __notImplemented__()
 
-    and reduceRefValueExpression env (ast : IRefValueExpression) =
+    and reduceRefValueExpression state (ast : IRefValueExpression) =
         __notImplemented__()
 
-    and reduceSizeOfExpression env (ast : ISizeOfExpression) =
+    and reduceSizeOfExpression state (ast : ISizeOfExpression) =
         __notImplemented__()
 
-    and reduceStackAllocExpression env (ast : IStackAllocExpression) =
+    and reduceStackAllocExpression state (ast : IStackAllocExpression) =
         __notImplemented__()
 
-    and reduceThisReferenceExpression env (ast : IThisReferenceExpression) =
+    and reduceThisReferenceExpression state (ast : IThisReferenceExpression) =
         __notImplemented__()
 
-    and reduceTryCastExpression env (ast : ITryCastExpression) =
+    and reduceTryCastExpression state (ast : ITryCastExpression) =
         __notImplemented__()
 
-    and reduceTypeOfExpression env (ast : ITypeOfExpression) =
+    and reduceTypeOfExpression state (ast : ITypeOfExpression) =
         __notImplemented__()
 
-    and reduceTypeReferenceExpression env (ast : ITypeReferenceExpression) =
+    and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) =
         __notImplemented__()
 
-    and reduceUnboxExpression env (ast : IUnboxExpression) =
+    and reduceUnboxExpression state (ast : IUnboxExpression) =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression env (ast : IUntypedStackAllocExpression) =
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) =
         __notImplemented__()
 
-    and reduceVirtualMethodPointerExpression env (ast : IVirtualMethodPointerExpression) =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) =
         __notImplemented__()
 
 // ------------------------------- IAbstractBinaryOperationExpression and inheritors -------------------------------
 
-    and reduceAbstractBinaryOperation env (ast : IAbstractBinaryOperationExpression) =
+    and reduceAbstractBinaryOperation state (ast : IAbstractBinaryOperationExpression) =
         match ast with
-        | :? IBinaryOperationExpression as binOp -> reduceBinaryOperationExpression env binOp
-        | :? IUserDefinedBinaryOperationExpression as userBinOp -> reduceUserDefinedBinaryOperationExpression env userBinOp
+        | :? IBinaryOperationExpression as binOp -> reduceBinaryOperationExpression state binOp
+        | :? IUserDefinedBinaryOperationExpression as userBinOp -> reduceUserDefinedBinaryOperationExpression state userBinOp
         | _ -> __notImplemented__()
 
-    and reduceBinaryOperationExpression env (ast : IBinaryOperationExpression) =
-        match (reduceExpression env ast.LeftArgument, reduceExpression env ast.RightArgument) with
-        | ((op1, env1), (op2, env2)) -> (Terms.MakeBinary ast.OperationType op1 op2, Environment.merge env1 env2)
+    and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) =
+        let (op1, state1) = reduceExpression state ast.LeftArgument
+        let (op2, state2) = reduceExpression state1 ast.RightArgument
+        (Terms.MakeBinary ast.OperationType op1 op2 (ast.OverflowCheck = OverflowCheckType.Enabled) (Types.GetTypeOfNode ast), state2)
 
-    and reduceUserDefinedBinaryOperationExpression env (ast : IUserDefinedBinaryOperationExpression) =
+    and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) =
         __notImplemented__()
 
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
 
-    and reduceAbstractTypeCastExpression env (ast : IAbstractTypeCastExpression) =
+    and reduceAbstractTypeCastExpression state (ast : IAbstractTypeCastExpression) =
         match ast with
-        | :? ITypeCastExpression as expression -> reduceTypeCastExpression env expression
-        | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression env expression
+        | :? ITypeCastExpression as expression -> reduceTypeCastExpression state expression
+        | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceTypeCastExpression env (ast : ITypeCastExpression) =
+    and reduceTypeCastExpression state (ast : ITypeCastExpression) =
         __notImplemented__()
 
-    and reduceUserDefinedTypeCastExpression env (ast : IUserDefinedTypeCastExpression) =
+    and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) =
         __notImplemented__()
 
 // ------------------------------- IAbstractUnaryOperationExpression and inheritors -------------------------------
 
-    and reduceAbstractUnaryOperationExpression env (ast : IAbstractUnaryOperationExpression) =
+    and reduceAbstractUnaryOperationExpression state (ast : IAbstractUnaryOperationExpression) =
         match ast with
-        | :? IUnaryOperationExpression as expression -> reduceUnaryOperationExpression env expression
-        | :? IUserDefinedUnaryOperationExpression as expression -> reduceUserDefinedUnaryOperationExpression env expression
+        | :? IUnaryOperationExpression as expression -> reduceUnaryOperationExpression state expression
+        | :? IUserDefinedUnaryOperationExpression as expression -> reduceUserDefinedUnaryOperationExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceUnaryOperationExpression env (ast : IUnaryOperationExpression) =
+    and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) =
         __notImplemented__()
 
-    and reduceUserDefinedUnaryOperationExpression env (ast : IUserDefinedUnaryOperationExpression) =
+    and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) =
         __notImplemented__()
 
 // ------------------------------- ICreationExpression and inheritors -------------------------------
 
-    and reduceCreationExpression env (ast : ICreationExpression) =
+    and reduceCreationExpression state (ast : ICreationExpression) =
         match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression env expression
-        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression env expression
-        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression env expression
-        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression env expression
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression env expression
-        | :? ILambdaExpression as expression -> reduceLambdaExpression env expression
-        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression env expression
+        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression
+        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression
+        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression state expression
+        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression
+        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression
+        | :? ILambdaExpression as expression -> reduceLambdaExpression state expression
+        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceAnonymousMethodExpression env (ast : IAnonymousMethodExpression) =
+    and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) =
         __notImplemented__()
 
-    and reduceAnonymousObjectCreationExpression env (ast : IAnonymousObjectCreationExpression) =
+    and reduceAnonymousObjectCreationExpression state (ast : IAnonymousObjectCreationExpression) =
         __notImplemented__()
 
-    and reduceArrayCreationExpression env (ast : IArrayCreationExpression) =
+    and reduceArrayCreationExpression state (ast : IArrayCreationExpression) =
         __notImplemented__()
 
-    and reduceDelegateCreationExpression env (ast : IDelegateCreationExpression) =
+    and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) =
         __notImplemented__()
 
-    and reduceLambdaBlockExpression env (ast : ILambdaBlockExpression) =
+    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) =
         __notImplemented__()
 
-    and reduceLambdaExpression env (ast : ILambdaExpression) =
+    and reduceLambdaExpression state (ast : ILambdaExpression) =
         __notImplemented__()
 
-    and reduceObjectCreationExpression env (ast : IObjectCreationExpression) =
+    and reduceObjectCreationExpression state (ast : IObjectCreationExpression) =
         __notImplemented__()
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
-    and reduceMemberAccessExpression env (ast : IMemberAccessExpression) =
+    and reduceMemberAccessExpression state (ast : IMemberAccessExpression) =
         match ast with
-        | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression env expression
-        | :? IMemberCallExpression as expression -> reduceMemberAccessExpression env expression
+        | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression state expression
+        | :? IMemberCallExpression as expression -> reduceMemberAccessExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceFieldAccessExpression env (ast : IFieldAccessExpression) =
+    and reduceFieldAccessExpression state (ast : IFieldAccessExpression) =
         __notImplemented__()
 
 // ------------------------------- IMemberCallExpression and inheritors -------------------------------
 
-    and reduceMemberCallExpression env (ast : IMemberCallExpression) =
+    and reduceMemberCallExpression state (ast : IMemberCallExpression) =
         match ast with
-        | :? IEventAccessExpression as expression -> reduceEventAccessExpression env expression
-        | :? IIndexerCallExpression as expression -> reduceIndexerCallExpression env expression
-        | :? IMethodCallExpression as expression -> reduceMethodCallExpression env expression
-        | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression env expression
+        | :? IEventAccessExpression as expression -> reduceEventAccessExpression state expression
+        | :? IIndexerCallExpression as expression -> reduceIndexerCallExpression state expression
+        | :? IMethodCallExpression as expression -> reduceMethodCallExpression state expression
+        | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression
         | _ -> __notImplemented__()
 
-    and reduceEventAccessExpression env (ast : IEventAccessExpression) =
+    and reduceEventAccessExpression state (ast : IEventAccessExpression) =
         __notImplemented__()
 
-    and reduceIndexerCallExpression env (ast : IIndexerCallExpression) =
+    and reduceIndexerCallExpression state (ast : IIndexerCallExpression) =
         __notImplemented__()
 
-    and reduceMethodCallExpression env (ast : IMethodCallExpression) =
+    and reduceMethodCallExpression state (ast : IMethodCallExpression) =
         __notImplemented__()
 
-    and reducePropertyAccessExpression env (ast : IPropertyAccessExpression) =
+    and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) =
         __notImplemented__()
-
-// ------------------------------- IOverflowCheckExpression and inheritors -------------------------------
-
-    and reduceOverflowCheckExpression env (ast : IOverflowCheckExpression) =
-        match ast with
-        | :? IBinaryOperationExpression as expression -> reduceBinaryOperationExpression env expression
-        | :? ITypeCastExpression as expression -> reduceTypeCastExpression env expression
-        | :? IUnaryOperationExpression as expression -> reduceUnaryOperationExpression env expression
-        | _ -> __notImplemented__()

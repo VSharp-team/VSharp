@@ -52,14 +52,15 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Utils\IdGenerator.fs" />
+    <Compile Include="Utils\Wrappers.fs" />
+    <Compile Include="SILI\Operators.fs" />
     <Compile Include="SILI\Types.fs" />
     <Compile Include="SILI\Terms.fs" />
-    <Compile Include="SILI\Reduction\Calculator.fs" />
     <Compile Include="SILI\Reduction\Arithmetics.fs" />
     <Compile Include="SILI\Reduction\Propositional.fs" />
-    <Compile Include="SILI\Environment.fs" />
+    <Compile Include="SILI\State.fs" />
     <Compile Include="SILI\Interpreter.fs" />
-    <Compile Include="Utils\IdGenerator.fs" />
     <Compile Include="Common\SmtDeclarations.fs" />
     <Compile Include="Common\TypePrinter.fs" />
     <Compile Include="Horn\Assertions.fs" />
@@ -112,6 +113,13 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
+      <Name>VSharp.CSharpUtils</Name>
+      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
