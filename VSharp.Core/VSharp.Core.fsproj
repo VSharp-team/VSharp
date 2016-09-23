@@ -52,7 +52,12 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="SILI\Term.fs" />
+    <Compile Include="SILI\Types.fs" />
+    <Compile Include="SILI\Terms.fs" />
+    <Compile Include="SILI\Reduction\Calculator.fs" />
+    <Compile Include="SILI\Reduction\Arithmetics.fs" />
+    <Compile Include="SILI\Reduction\Propositional.fs" />
+    <Compile Include="SILI\Environment.fs" />
     <Compile Include="SILI\Interpreter.fs" />
     <Compile Include="Utils\IdGenerator.fs" />
     <Compile Include="Common\SmtDeclarations.fs" />

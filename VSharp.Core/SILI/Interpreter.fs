@@ -18,7 +18,7 @@ module Interpreter =
         | :? IStatement as statement -> reduceStatement env statement
         | :? IExpression as expression -> reduceExpression env expression
         | :? ICatchClause as catch -> reduceCatchClause env catch
-        | :? IFunctionSignature as signature -> reduceFunctionSignature env signature
+        | :? IFunctionSignature as signature -> (Void, reduceFunctionSignature env signature)
         | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner env owner
         | :? IMemberInitializer as initializer -> reduceMemberInitializer env initializer
         | :? ISwitchCase as switchCase -> reduceSwitchCase env switchCase
@@ -28,7 +28,10 @@ module Interpreter =
         __notImplemented__()
 
     and reduceFunctionSignature env (ast : IFunctionSignature) =
-        __notImplemented__()
+        let foldParam env (param : IMethodParameter) =
+            let freshConst = Terms.FreshConstant param.Name (System.Type.GetType(param.Type.FullName))
+            Environment.addTerm env param.Name freshConst
+        ast.Parameters |> Seq.fold foldParam env
 
     and reduceSwitchCase env (ast : ISwitchCase) =
         __notImplemented__()
@@ -43,7 +46,8 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceDecompiledMethod env (ast : IDecompiledMethod) =
-        __notImplemented__()
+        let newEnv = reduceFunctionSignature env ast.Signature
+        reduceBlockStatement newEnv ast.Body
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -93,6 +97,7 @@ module Interpreter =
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
+
     and reduceAbstractGotoStatement env (ast : IAbstractGotoStatement) =
         match ast with
         | :? IBreakStatement as breakStatement -> reduceBreakStatement env breakStatement
@@ -140,8 +145,14 @@ module Interpreter =
         __notImplemented__()
 
 // ------------------------------- Rest Statements-------------------------------
+
     and reduceBlockStatement env (ast : IBlockStatement) =
-        __notImplemented__()
+        let foldStatement state statement =
+            let (curTerm, curEnv) = state
+            let (newTerm, newEnv) = reduceStatement curEnv statement
+            ((if Terms.IsVoid curTerm then newTerm else curTerm), newEnv)
+        ast.Statements |> Seq.fold foldStatement (Void, env)
+        // TODO: Remove local variables declarations
 
     and reduceCommentStatement env (ast : ICommentStatement) =
         __notImplemented__()
@@ -153,7 +164,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceExpressionStatement env (ast : IExpressionStatement) =
-        __notImplemented__()
+        (Void, snd (reduceExpression env ast.Expression))
 
     and reduceFixedStatement env (ast : IFixedStatement) =
         __notImplemented__()
@@ -186,7 +197,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceReturnStatement env (ast : IReturnStatement) =
-        __notImplemented__()
+        reduceExpression env ast.Result
 
     and reduceSuccessfulFilteringStatement env (ast : ISuccessfulFilteringStatement) =
         __notImplemented__()
@@ -311,7 +322,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceLiteralExpression env (ast : ILiteralExpression) =
-        __notImplemented__()
+        (Terms.MakeConcrete ast.Value.Value (System.Type.GetType(ast.Value.Type.AssemblyQualifiedName)), env)
 
     and reduceLocalVariableReferenceExpression env (ast : ILocalVariableReferenceExpression) =
         __notImplemented__()
@@ -335,7 +346,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceParameterReferenceExpression env (ast : IParameterReferenceExpression) =
-        __notImplemented__()
+        (env.[ast.Parameter.Name], env)
 
     and reducePointerElementAccessExpression env (ast : IPointerElementAccessExpression) =
         __notImplemented__()
@@ -391,7 +402,8 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceBinaryOperationExpression env (ast : IBinaryOperationExpression) =
-        __notImplemented__()
+        match (reduceExpression env ast.LeftArgument, reduceExpression env ast.RightArgument) with
+        | ((op1, env1), (op2, env2)) -> (Terms.MakeBinary ast.OperationType op1 op2, Environment.merge env1 env2)
 
     and reduceUserDefinedBinaryOperationExpression env (ast : IUserDefinedBinaryOperationExpression) =
         __notImplemented__()

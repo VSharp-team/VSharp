@@ -31,10 +31,10 @@ namespace Test
             //int fib2 = Fib2(n);
             ////int fib3 = Fib3(n);
             //if (fib1 <= 0 || fib2 <= 0 /*|| fib3 <= 0*/)
-                Math.Max(2, 1);
             TempTest.Testbed.Add1(5);
+            //Math.Max(2, 1);
             //else
-                Console.WriteLine("We do not actually need 3 lines above");
+                //Console.WriteLine("We do not actually need 3 lines above");
         }
     }
 }

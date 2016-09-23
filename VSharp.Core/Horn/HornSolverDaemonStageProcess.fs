@@ -1,12 +1,15 @@
 ﻿namespace VSharp.Core.Horn
 
+open JetBrains.Metadata.Reader.API
 open JetBrains.ReSharper.Feature.Services.Daemon
 open JetBrains.ReSharper.Psi
 open JetBrains.ReSharper.Psi.CSharp.Tree
 open Microsoft
 open System;
+open System.Reflection
 
 type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharpFile) =
+
     interface IDaemonStageProcess with
         member x.DaemonProcess with get() = daemonProcess
         member x.Execute commiter =
@@ -14,9 +17,6 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                 let processInvocationExpression (invocation : IInvocationExpression) =
                     System.Console.WriteLine("=============================")
                     System.Console.WriteLine("GOT HERE: " + invocation.InvokedExpression.ToString() + " ;; " + invocation.InvokedExpression.GetText())
-                    let lifetime = JetBrains.DataFlow.Lifetimes.Define()
-                    let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
-                    let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
                     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
                     let resolved = (invocation.InvokedExpression :?> IReferenceExpression).Reference.Resolve()
                     let meth = (resolved.DeclaredElement :?> IMethod)
@@ -40,15 +40,21 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                     System.Console.WriteLine("TYPE: " + metadataTypeInfo.ToString())
                     let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.pick (fun m -> if m.Name.Equals(methodName) then Some(m) else None)
 
+                    let lifetime = JetBrains.DataFlow.Lifetimes.Define()
+                    let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
+                    let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
                     let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
                     let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
                     System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
                     System.Console.WriteLine("DECOMPILED BODY: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod.Body))
                     System.Console.WriteLine("NOW TRACING:")
                     VSharp.Core.Symbolic.Interpreter.dbg 0 decompiledMethod
+                    let (term, env) = VSharp.Core.Symbolic.Interpreter.reduceDecompiledMethod VSharp.Core.Symbolic.Environment.empty decompiledMethod
+                    Console.WriteLine("AFTER INTERPRETATION: " + VSharp.Core.Symbolic.Terms.toString term)
+                    Console.WriteLine("Environment: " + env.ToString())
 
-                let processor = new RecursiveElementProcessor<IInvocationExpression>(new Action<_>(processInvocationExpression));
-                file.ProcessDescendants(processor);
+                let processor = new RecursiveElementProcessor<IInvocationExpression>(new Action<_>(processInvocationExpression))
+                file.ProcessDescendants(processor)
 
 
 
