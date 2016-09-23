@@ -22,9 +22,6 @@ type public TermType =
         | Func(domain, range) -> String.Format("{0} -> {1}", domain, range)
 
 module public Types =
-
-    let private typeKey = new JetBrains.Decompiler.Utils.DataKey<JetBrains.Metadata.Reader.API.IMetadataType>("Type");
-
     let private integerTypes =
         new HashSet<System.Type>(
                           [typedefof<byte>; typedefof<sbyte>;
@@ -95,5 +92,13 @@ module public Types =
     let public IsRelation = RangeOf >> IsBool
 
     let public GetTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        let mutable result : (JetBrains.Metadata.Reader.API.IMetadataType ref) = ref null
-        if node.Data.TryGetValue(typeKey, result) then Type.GetType((!result).AssemblyQualifiedName) else typedefof<obj>
+        Console.WriteLine("Keys-values: ");
+        node.Data |> Seq.iter (fun (v : KeyValuePair<obj, obj>) -> Console.WriteLine(v.Key.ToString() + " ;;; " + v.Value.ToString()))
+
+        // node.Data.TryGetValue is poorly implemented (it checks reference equality of keys), so searching manually...
+        let typeKey = "Type"
+        let typeOption = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = typeKey) then Some(keyValue.Value) else None)
+
+        match typeOption with
+        | Some t -> Type.GetType((t :?> JetBrains.Metadata.Reader.API.IMetadataType).AssemblyQualifiedName)
+        | None -> typedefof<obj>

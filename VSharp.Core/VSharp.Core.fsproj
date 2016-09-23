@@ -57,9 +57,10 @@
     <Compile Include="SILI\Operators.fs" />
     <Compile Include="SILI\Types.fs" />
     <Compile Include="SILI\Terms.fs" />
-    <Compile Include="SILI\Reduction\Arithmetics.fs" />
-    <Compile Include="SILI\Reduction\Propositional.fs" />
     <Compile Include="SILI\State.fs" />
+    <Compile Include="SILI\Reduction\Propositional.fs" />
+    <Compile Include="SILI\Reduction\Arithmetics.fs" />
+    <Compile Include="SILI\Reduction\Strings.fs" />
     <Compile Include="SILI\Interpreter.fs" />
     <Compile Include="Common\SmtDeclarations.fs" />
     <Compile Include="Common\TypePrinter.fs" />

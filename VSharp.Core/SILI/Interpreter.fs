@@ -400,9 +400,19 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) =
-        let (op1, state1) = reduceExpression state ast.LeftArgument
-        let (op2, state2) = reduceExpression state1 ast.RightArgument
-        (Terms.MakeBinary ast.OperationType op1 op2 (ast.OverflowCheck = OverflowCheckType.Enabled) (Types.GetTypeOfNode ast), state2)
+        let op = ast.OperationType
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
+        let (left, state1) = reduceExpression state ast.LeftArgument
+        let (right, state2) = reduceExpression state1 ast.RightArgument
+        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
+        let result =
+            match t with
+            | Bool -> __notImplemented__()
+            | Numeric t -> Reduction.Arithmetics.simplifyBinaryOperation op left right isChecked t
+            | String -> Reduction.Strings.simplifyOperation op left right
+            | _ -> __notImplemented__()
+        (result, state2)
+
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) =
         __notImplemented__()

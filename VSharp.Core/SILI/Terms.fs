@@ -9,6 +9,7 @@ type public Operation =
     | Application of string
 
 type public Term =
+    | Bottom
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
@@ -17,6 +18,7 @@ type public Term =
 
     override this.ToString() =
         match this with
+        | Bottom -> "<ERROR!>"
         | Nop -> "<VOID>"
         | Constant(name, _) -> name
         | Expression(operation, operands, _) ->
@@ -46,11 +48,12 @@ module public Terms =
 
     let rec public TypeOf term =
         match term with
+        | Bottom
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
         | Expression(_, _,  t) -> t
-        | Union(ts) -> 
+        | Union ts ->
             if List.isEmpty ts then TermType.Void
             else (fst >> TypeOf) (List.head ts)
 
@@ -73,7 +76,7 @@ module public Terms =
 
     let public MakeBinary operation x y isChecked t =
         assert(Operators.isBinary operation)
-        Expression(Operator(operation, isChecked), [x; y], Types.FromPrimitiveDotNetType t)
+        Expression(Operator(operation, isChecked), [x; y], t)
 
     let public MakeUnary operation x isChecked t =
         assert(Operators.isUnary operation)

@@ -25,10 +25,10 @@ module internal Operators =
         | OperationType.AssignmentRemainder -> "({0} %= {1})"
         | OperationType.AssignmentShiftLeft -> "({0} <<= {1})"
         | OperationType.AssignmentShiftRight -> "({0} >>= {1})"
-        | OperationType.AssignmentSubtract -> "({0} -= {1}_"
+        | OperationType.AssignmentSubtract -> "({0} -= {1})"
         | OperationType.ConditionalAnd -> "({0} && {1})"
         | OperationType.ConditionalOr -> "({0} || {1})"
-        | OperationType.Divide -> "({0} / {1}_"
+        | OperationType.Divide -> "({0} / {1})"
         | OperationType.Equal -> "({0} == {1})"
         | OperationType.Greater -> "({0} > {1})"
         | OperationType.GreaterOrEqual -> "({0} >= {1})"
@@ -56,3 +56,33 @@ module internal Operators =
 
     let internal isUnary op = operatorArity op = 1
     let internal isBinary op = operatorArity op = 2
+
+    let internal isAssignment = (=) OperationType.Assignment
+
+    let internal isOperationAssignment op =
+        match op with
+        | OperationType.AssignmentAdd
+        | OperationType.AssignmentDivide
+        | OperationType.AssignmentLogicalAnd
+        | OperationType.AssignmentLogicalOr
+        | OperationType.AssignmentLogicalXor
+        | OperationType.AssignmentMultiply
+        | OperationType.AssignmentRemainder
+        | OperationType.AssignmentShiftLeft
+        | OperationType.AssignmentShiftRight
+        | OperationType.AssignmentSubtract -> true
+        | _ -> false
+
+    let internal getAssignmentOperation op =
+        match op with
+        | OperationType.AssignmentAdd -> OperationType.Add
+        | OperationType.AssignmentDivide -> OperationType.Divide
+        | OperationType.AssignmentLogicalAnd -> OperationType.LogicalAnd
+        | OperationType.AssignmentLogicalOr -> OperationType.LogicalOr
+        | OperationType.AssignmentLogicalXor -> OperationType.LogicalXor
+        | OperationType.AssignmentMultiply -> OperationType.Multiply
+        | OperationType.AssignmentRemainder -> OperationType.Remainder
+        | OperationType.AssignmentShiftLeft -> OperationType.ShiftLeft
+        | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
+        | OperationType.AssignmentSubtract -> OperationType.Subtract
+        | _ -> raise(new System.ArgumentException(op.ToString() + " is not an assignment operation"))
