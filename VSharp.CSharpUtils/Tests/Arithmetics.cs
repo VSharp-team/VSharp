@@ -4,7 +4,7 @@
     {
         public static int Add7(int n)
         {
-            return 1 + n + 2 + 4;
+            return 1 + n + 2 + 0 + 4;
         }
     }
 }

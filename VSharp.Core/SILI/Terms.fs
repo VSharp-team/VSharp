@@ -46,6 +46,11 @@ module public Terms =
         | Nop -> true
         | _ -> false
 
+    let public IsError term =
+        match term with
+        | Bottom -> true
+        | _ -> false
+
     let rec public TypeOf term =
         match term with
         | Bottom
@@ -57,16 +62,16 @@ module public Terms =
             if List.isEmpty ts then TermType.Void
             else (fst >> TypeOf) (List.head ts)
 
-    let public IsBool = TypeOf >> Types.IsBool
-    let public IsInteger = TypeOf >> Types.IsInteger
-    let public IsReal = TypeOf >> Types.IsInteger
-    let public IsNumeric t = TypeOf >> Types.IsNumeric
-    let public IsString t = TypeOf >> Types.IsString
-    let public IsPrimitiveSolvable = TypeOf >> Types.IsPrimitiveSolvable
-    let public IsSolvable t = TypeOf >> Types.IsSolvable
-    let public DomainOf = TypeOf >> Types.DomainOf
-    let public RangeOf = TypeOf >> Types.RangeOf
-    let public IsRelation = TypeOf >> Types.IsRelation
+    let public IsBool =                 TypeOf >> Types.IsBool
+    let public IsInteger =              TypeOf >> Types.IsInteger
+    let public IsReal =                 TypeOf >> Types.IsReal
+    let public IsNumeric t =            TypeOf >> Types.IsNumeric
+    let public IsString t =             TypeOf >> Types.IsString
+    let public IsPrimitiveSolvable =    TypeOf >> Types.IsPrimitiveSolvable
+    let public IsSolvable t =           TypeOf >> Types.IsSolvable
+    let public DomainOf =               TypeOf >> Types.DomainOf
+    let public RangeOf =                TypeOf >> Types.RangeOf
+    let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public FreshConstant name t =
         Constant(name, Types.FromPrimitiveDotNetType t)

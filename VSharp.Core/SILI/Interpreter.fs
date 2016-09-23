@@ -148,8 +148,8 @@ module Interpreter =
 
     and reduceBlockStatement state (ast : IBlockStatement) =
         let foldStatement (curTerm, curState) statement =
-            let (newTerm, newState) = reduceStatement curState statement
-            ((if Terms.IsVoid curTerm then newTerm else curTerm), newState)
+            if Terms.IsVoid curTerm then reduceStatement curState statement
+            else (curTerm, curState)
         ast.Statements |> Seq.fold foldStatement (Nop, state)
         // TODO: Remove local variables declarations
 
@@ -163,7 +163,8 @@ module Interpreter =
         __notImplemented__()
 
     and reduceExpressionStatement state (ast : IExpressionStatement) =
-        (Nop, snd (reduceExpression state ast.Expression))
+        let (term, newState) = reduceExpression state ast.Expression
+        ((if Terms.IsError term then term else Nop), newState)
 
     and reduceFixedStatement state (ast : IFixedStatement) =
         __notImplemented__()

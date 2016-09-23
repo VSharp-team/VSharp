@@ -9,7 +9,24 @@ namespace VSharp.CSharpUtils
     public static class Calculator
     {
         /// <summary>
-        /// Calculates <arg>x</arg> + <arg>y</arg> casted to <arg>targetType</arg>.
+        /// Returns true if <paramref name="x"/> is fuzzy equal to zero with the given precision <paramref name="eps"/>.
+        /// </summary>
+        public static bool IsZero(object x, double eps = 1e-8)
+        {
+            dynamic val = x;
+            return val < eps && val > -eps;
+        }
+
+        /// <summary>
+        /// Returns true if numeric value <paramref name="x"/> is fuzzy equal to numeric value <paramref name="y"/> with the given precision <paramref name="eps"/>.
+        /// </summary>
+        public static bool FuzzyEqual(object x, object y, double eps = 1e-8)
+        {
+            return IsZero((dynamic) x - (dynamic) y, eps);
+        }
+
+        /// <summary>
+        /// Calculates <paramref name="x"/> + <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object Add(object x, object y, Type targetType)
         {
@@ -17,7 +34,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> + <arg>y</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates <paramref name="x"/> + <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object AddChecked(object x, object y, Type targetType, out bool success)
@@ -35,7 +52,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> - <arg>y</arg> casted to <arg>targetType</arg>.
+        /// Calculates <paramref name="x"/> - <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object Sub(object x, object y, Type targetType)
         {
@@ -43,7 +60,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> - <arg>y</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates <paramref name="x"/> - <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object SubChecked(object x, object y, Type targetType, out bool success)
@@ -61,7 +78,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> * <arg>y</arg> casted to <arg>targetType</arg>.
+        /// Calculates <paramref name="x"/> * <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object Mul(object x, object y, Type targetType)
         {
@@ -69,7 +86,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> * <arg>y</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates <paramref name="x"/> * <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object MulChecked(object x, object y, Type targetType, out bool success)
@@ -87,7 +104,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> / <arg>y</arg> casted to <arg>targetType</arg>.
+        /// Calculates <paramref name="x"/> / <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object Div(object x, object y, Type targetType)
         {
@@ -95,7 +112,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> / <arg>y</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates <paramref name="x"/> / <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object DivChecked(object x, object y, Type targetType, out bool success)
@@ -113,7 +130,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> % <arg>y</arg> casted to <arg>targetType</arg>.
+        /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object Rem(object x, object y, Type targetType)
         {
@@ -121,7 +138,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates <arg>x</arg> % <arg>y</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object RemChecked(object x, object y, Type targetType, out bool success)
@@ -139,7 +156,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates -<arg>x</arg> casted to <arg>targetType</arg>.
+        /// Calculates -<paramref name="x"/> casted to <paramref name="targetType"/>.
         /// </summary>
         public static object UnaryMinus(object x, Type targetType)
         {
@@ -147,7 +164,7 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Calculates -<arg>x</arg> casted to <arg>targetType</arg> and checks for overflow.
+        /// Calculates -<paramref name="x"/> casted to <paramref name="targetType"/> and checks for overflow.
         /// <param name="success">If false then overflow happened during calculation process.</param>
         /// </summary>
         public static object UnaryMinusChecked(object x, Type targetType, out bool success)
