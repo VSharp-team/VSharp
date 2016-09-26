@@ -10,7 +10,7 @@ type public Operation =
     | Cond
 
 type public Term =
-    | Bottom
+    | Bottom of System.Exception
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
@@ -19,7 +19,7 @@ type public Term =
 
     override this.ToString() =
         match this with
-        | Bottom -> "<ERROR!>"
+        | Bottom e -> String.Format("<ERROR: {0}>", e)
         | Nop -> "<VOID>"
         | Constant(name, _) -> name
         | Expression(operation, operands, _) ->
@@ -50,7 +50,7 @@ module public Terms =
 
     let public IsError term =
         match term with
-        | Bottom -> true
+        | Bottom _ -> true
         | _ -> false
 
     let public IsConcrete term =
@@ -75,7 +75,7 @@ module public Terms =
 
     let rec public TypeOf term =
         match term with
-        | Bottom
+        | Bottom _
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
@@ -138,4 +138,9 @@ module public Terms =
     let (|Rem|_|) term =
         match term with
         | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
+        | _ -> None
+
+    let (|If|_|) term =
+        match term with
+        | Expression(Cond, [x;y;z], t) -> Some(If(x, y, z, t))
         | _ -> None

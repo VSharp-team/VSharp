@@ -105,10 +105,20 @@ namespace VSharp.CSharpUtils
 
         /// <summary>
         /// Calculates <paramref name="x"/> / <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// May return exception object if division by zero occured.
         /// </summary>
-        public static object Div(object x, object y, Type targetType)
+        public static object Div(object x, object y, Type targetType, out bool success)
         {
-            return Convert.ChangeType((dynamic) x / (dynamic) y, targetType);
+            success = true;
+            try
+            {
+                return Convert.ChangeType((dynamic) x/(dynamic) y, targetType);
+            }
+            catch (DivideByZeroException e)
+            {
+                success = false;
+                return e;
+            }
         }
 
         /// <summary>
@@ -123,6 +133,11 @@ namespace VSharp.CSharpUtils
                 checked { return Convert.ChangeType((dynamic)x / (dynamic)y, targetType); }
             }
             catch (OverflowException e)
+            {
+                success = false;
+                return e;
+            }
+            catch (DivideByZeroException e)
             {
                 success = false;
                 return e;

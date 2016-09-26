@@ -70,7 +70,11 @@ module internal Operators =
         | OperationType.AssignmentRemainder
         | OperationType.AssignmentShiftLeft
         | OperationType.AssignmentShiftRight
-        | OperationType.AssignmentSubtract -> true
+        | OperationType.AssignmentSubtract
+        | OperationType.PostfixIncrement
+        | OperationType.PostfixDecrement
+        | OperationType.PrefixIncrement
+        | OperationType.PrefixDecrement -> true
         | _ -> false
 
     let internal getAssignmentOperation op =

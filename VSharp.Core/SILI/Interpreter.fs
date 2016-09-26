@@ -2,6 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 
+// TODO: use CPS jedi...
 module Interpreter =
 
     let private __notImplemented__() = raise (new System.NotImplementedException())
@@ -406,13 +407,11 @@ module Interpreter =
         let (left, state1) = reduceExpression state ast.LeftArgument
         let (right, state2) = reduceExpression state1 ast.RightArgument
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
-        let result =
-            match t with
-            | Bool -> __notImplemented__()
-            | Numeric t -> Reduction.Arithmetics.simplifyBinaryOperation op left right isChecked t
-            | String -> Reduction.Strings.simplifyOperation op left right
-            | _ -> __notImplemented__()
-        (result, state2)
+        match t with
+        | Bool -> __notImplemented__()
+        | Numeric t -> Reduction.Arithmetics.simplifyBinaryOperation op left right isChecked t state2
+        | String -> (Reduction.Strings.simplifyOperation op left right, state2)
+        | _ -> __notImplemented__()
 
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) =

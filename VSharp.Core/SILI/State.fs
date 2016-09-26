@@ -4,7 +4,7 @@ module internal State =
     type private environment = Map<string, Term>
     type private path = Term list
     type private assertions = Term list
-    type private state = environment * path * assertions
+    type internal state = environment * path * assertions
 
     let private addToEnv (env : environment) name term = env.Add(name, term)
 
@@ -19,6 +19,6 @@ module internal State =
 
     let internal appendPath ((e, p, a) : state) cond : state = (e, cond :: p, a)
 
-    let internal addAssertion ((e, p, a) : state) cond : state = (e, p, cond :: a)
+    let internal addAssertion ((e, p, a) : state) cond : state = if List.contains cond a then (e, p, a) else (e, p, cond :: a)
 
     let internal eval ((e, _, _) : state) id = e.[id]
