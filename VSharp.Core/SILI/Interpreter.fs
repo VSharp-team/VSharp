@@ -442,7 +442,17 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) =
-        __notImplemented__()
+        let op = ast.OperationType
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
+        let (arg, newState) = reduceExpression state ast.Argument
+        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
+        let result =
+            match t with
+            | Bool -> __notImplemented__()
+            | Numeric t -> Reduction.Arithmetics.simplifyUnaryOperation op arg isChecked t
+            | String -> __notImplemented__()
+            | _ -> __notImplemented__()
+        (result, newState)
 
     and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) =
         __notImplemented__()

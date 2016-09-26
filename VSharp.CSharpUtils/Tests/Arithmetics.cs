@@ -2,9 +2,9 @@
 {
     public class Arithmetics
     {
-        public static int Add7(int n)
+        public static int Add7(int n, int m)
         {
-            return 1 + n + 2 + 0 + 4;
+            return -((n - m) + (m - n) + (1 + m + 2 + 0 - m + 4 + m) - (m + n)) + 14;
         }
     }
 }

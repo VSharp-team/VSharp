@@ -7,6 +7,7 @@ open VSharp.Core.Utils
 type public Operation =
     | Operator of OperationType * bool
     | Application of string
+    | Cond
 
 type public Term =
     | Bottom
@@ -30,8 +31,9 @@ type public Term =
                 let checkedFormat = if isChecked then format + "✓" else format
                 if (List.length operands) <> count then
                     raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
-                else String.Format(checkedFormat, printedOperands |> List.map box |> List.toArray)
-            | Application f -> String.Format("{0}({1})", f, String.Join(", ", printedOperands))
+                else printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
+            | Application f -> printedOperands |> Wrappers.join ", " |> Wrappers.format2 "{0}({1})" f
+            | Cond -> printedOperands |> List.map box |> List.toArray |> Wrappers.format "(if {0} then {1} else {2})"
         | Concrete(value, _) -> value.ToString()
         | Union(guardedTerms) ->
             let guardedToString (guard, term) =
@@ -50,6 +52,26 @@ module public Terms =
         match term with
         | Bottom -> true
         | _ -> false
+
+    let public IsConcrete term =
+        match term with
+        | Concrete(_, _) -> true
+        | _ -> false
+
+    let public IsExpression term =
+        match term with
+        | Expression(_, _, _) -> true
+        | _ -> false
+
+    let public OperationOf term =
+        match term with
+        | Expression(op, _, _) -> op
+        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+
+    let public ArgumentsOf term =
+        match term with
+        | Expression(_, args, _) -> args
+        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
     let rec public TypeOf term =
         match term with
@@ -86,3 +108,34 @@ module public Terms =
     let public MakeUnary operation x isChecked t =
         assert(Operators.isUnary operation)
         Expression(Operator(operation, isChecked), [x], t)
+
+
+    let (|UnaryMinus|_|) term =
+        match term with
+        | Expression(Operator(OperationType.UnaryMinus, isChecked), [x], t) -> Some(UnaryMinus(x, isChecked, t))
+        | _ -> None
+
+    let (|Add|_|) term =
+        match term with
+        | Expression(Operator(OperationType.Add, isChecked), [x;y], t) -> Some(Add(x, y, isChecked, t))
+        | _ -> None
+
+    let (|Sub|_|) term =
+        match term with
+        | Expression(Operator(OperationType.Subtract, isChecked), [x;y], t) -> Some(Sub(x, y, isChecked, t))
+        | _ -> None
+
+    let (|Mul|_|) term =
+        match term with
+        | Expression(Operator(OperationType.Multiply, isChecked), [x;y], t) -> Some(Mul(x, y, isChecked, t))
+        | _ -> None
+
+    let (|Div|_|) term =
+        match term with
+        | Expression(Operator(OperationType.Divide, isChecked), [x;y], t) -> Some(Div(x, y, isChecked, t))
+        | _ -> None
+
+    let (|Rem|_|) term =
+        match term with
+        | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
+        | _ -> None
