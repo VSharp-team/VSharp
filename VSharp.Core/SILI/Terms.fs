@@ -10,16 +10,16 @@ type public Operation =
     | Cond
 
 type public Term =
-    | Bottom of System.Exception
+    | Error of System.Exception
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
-    | Expression of Operation * Term list * TermType
+    | Expression of (Operation * Term list * TermType)
     | Union of (Term * Term) list
 
     override this.ToString() =
         match this with
-        | Bottom e -> String.Format("<ERROR: {0}>", e)
+        | Error e -> String.Format("<ERROR: {0}>", e)
         | Nop -> "<VOID>"
         | Constant(name, _) -> name
         | Expression(operation, operands, _) ->
@@ -50,7 +50,7 @@ module public Terms =
 
     let public IsError term =
         match term with
-        | Bottom _ -> true
+        | Error _ -> true
         | _ -> false
 
     let public IsConcrete term =
@@ -75,7 +75,7 @@ module public Terms =
 
     let rec public TypeOf term =
         match term with
-        | Bottom _
+        | Error _
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
