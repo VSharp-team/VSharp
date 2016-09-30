@@ -55,12 +55,27 @@ module public Terms =
 
     let public IsConcrete term =
         match term with
-        | Concrete(_, _) -> true
+        | Concrete _ -> true
         | _ -> false
 
     let public IsExpression term =
         match term with
-        | Expression(_, _, _) -> true
+        | Expression _ -> true
+        | _ -> false
+
+    let public IsUnion term =
+        match term with
+        | Union _ -> true
+        | _ -> false
+
+    let public IsTrue term =
+        match term with
+        | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
+        | _ -> false
+
+    let public IsFalse term =
+        match term with
+        | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
         | _ -> false
 
     let public OperationOf term =
@@ -89,6 +104,7 @@ module public Terms =
     let public IsReal =                 TypeOf >> Types.IsReal
     let public IsNumeric t =            TypeOf >> Types.IsNumeric
     let public IsString t =             TypeOf >> Types.IsString
+    let public IsPrimitive =            TypeOf >> Types.IsPrimitive
     let public IsPrimitiveSolvable =    TypeOf >> Types.IsPrimitiveSolvable
     let public IsSolvable t =           TypeOf >> Types.IsSolvable
     let public DomainOf =               TypeOf >> Types.DomainOf
@@ -109,6 +125,12 @@ module public Terms =
         assert(Operators.isUnary operation)
         Expression(Operator(operation, isChecked), [x], t)
 
+    let public Negate term =
+        assert(IsBool term)
+        MakeUnary OperationType.Not term false Bool
+
+    let (|True|_|) term = if IsTrue term then Some True else None
+    let (|False|_|) term = if IsFalse term then Some False else None
 
     let (|UnaryMinus|_|) term =
         match term with

@@ -164,14 +164,20 @@ module Interpreter =
         __notImplemented__()
 
     and reduceExpressionStatement state (ast : IExpressionStatement) =
-        let (term, newState) = reduceExpression state ast.Expression
+        let term, newState = reduceExpression state ast.Expression
         ((if Terms.IsError term then term else Nop), newState)
 
     and reduceFixedStatement state (ast : IFixedStatement) =
         __notImplemented__()
 
     and reduceIfStatement state (ast : IIfStatement) =
-        __notImplemented__()
+        let condition, conditionState = reduceExpression state ast.Condition
+        match condition with
+        | True ->  reduceStatement conditionState ast.Then
+        | False -> reduceStatement conditionState ast.Else
+        | _ ->
+            let thenVal, thenState = reduceStatement conditionState ast.Then
+            let elseVal, elseState = reduceStatement conditionState ast.Else
 
     and reduceJumpStatement state (ast : IJumpStatement) =
         __notImplemented__()
@@ -404,8 +410,8 @@ module Interpreter =
     and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) =
         let op = ast.OperationType
         let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        let (left, state1) = reduceExpression state ast.LeftArgument
-        let (right, state2) = reduceExpression state1 ast.RightArgument
+        let left, state1 = reduceExpression state ast.LeftArgument
+        let right, state2 = reduceExpression state1 ast.RightArgument
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
         match t with
         | Bool -> __notImplemented__()
@@ -443,7 +449,7 @@ module Interpreter =
     and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) =
         let op = ast.OperationType
         let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        let (arg, newState) = reduceExpression state ast.Argument
+        let arg, newState = reduceExpression state ast.Argument
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
         let result =
             match t with

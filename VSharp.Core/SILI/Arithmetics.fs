@@ -1,4 +1,4 @@
-namespace VSharp.Core.Symbolic.Reduction
+namespace VSharp.Core.Symbolic
 
 open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
@@ -314,7 +314,7 @@ module internal Arithmetics =
 
     and private simplifyNotEqual x y = MakeBinary OperationType.NotEqual x y false Bool
 
-// ------------------------------- General methods -------------------------------
+// ------------------------------- General functions -------------------------------
 
     let private withState state x = (x, state)
 

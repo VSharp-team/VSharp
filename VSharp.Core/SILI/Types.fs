@@ -36,6 +36,8 @@ module public Types =
 
     let private primitiveSolvableTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
+    let private primitiveTypes = new HashSet<Type>(Seq.append primitiveSolvableTypes [typedefof<string>])
+
     let public ToDotNetType t =
         match t with
         | Bool -> typedefof<bool>
@@ -69,6 +71,7 @@ module public Types =
         | String -> true
         | _ -> false
 
+    let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
     let public IsPrimitiveSolvable = ToDotNetType >> primitiveSolvableTypes.Contains
 
     let rec public IsSolvable t =
