@@ -4,11 +4,13 @@ open JetBrains.Decompiler.Ast
 open System
 open VSharp.Core.Utils
 
+[<StructuralEquality;StructuralComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of string
     | Cond
 
+[<StructuralEquality;NoComparison>]
 type public Term =
     | Error of System.Exception
     | Nop

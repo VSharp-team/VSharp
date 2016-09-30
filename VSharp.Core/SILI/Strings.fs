@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core.Symbolic.Reduction
+﻿namespace VSharp.Core.Symbolic
 
 open JetBrains.Decompiler.Ast
 open VSharp.Core.Symbolic

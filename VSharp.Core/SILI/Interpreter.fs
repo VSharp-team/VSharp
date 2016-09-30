@@ -153,6 +153,8 @@ module Interpreter =
             else (curTerm, curState)
         ast.Statements |> Seq.fold foldStatement (Nop, state)
         // TODO: Remove local variables declarations
+        // TODO: Actually branches of if statement may not be IBlockStatement, but arbitrary statement
+        // (including int x = ...). We should get rid of that local declarations too.
 
     and reduceCommentStatement state (ast : ICommentStatement) =
         __notImplemented__()
@@ -173,11 +175,12 @@ module Interpreter =
     and reduceIfStatement state (ast : IIfStatement) =
         let condition, conditionState = reduceExpression state ast.Condition
         match condition with
-        | True ->  reduceStatement conditionState ast.Then
-        | False -> reduceStatement conditionState ast.Else
+        | Terms.True ->  reduceStatement conditionState ast.Then
+        | Terms.False -> reduceStatement conditionState ast.Else
         | _ ->
             let thenVal, thenState = reduceStatement conditionState ast.Then
             let elseVal, elseState = reduceStatement conditionState ast.Else
+            Merging.merge condition thenVal elseVal conditionState thenState elseState
 
     and reduceJumpStatement state (ast : IJumpStatement) =
         __notImplemented__()
@@ -415,8 +418,8 @@ module Interpreter =
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
         match t with
         | Bool -> __notImplemented__()
-        | Numeric t -> Reduction.Arithmetics.simplifyBinaryOperation op left right isChecked t state2
-        | String -> (Reduction.Strings.simplifyOperation op left right, state2)
+        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2
+        | String -> (Strings.simplifyOperation op left right, state2)
         | _ -> __notImplemented__()
 
 
@@ -454,7 +457,7 @@ module Interpreter =
         let result =
             match t with
             | Bool -> __notImplemented__()
-            | Numeric t -> Reduction.Arithmetics.simplifyUnaryOperation op arg isChecked t
+            | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t
             | String -> __notImplemented__()
             | _ -> __notImplemented__()
         (result, newState)

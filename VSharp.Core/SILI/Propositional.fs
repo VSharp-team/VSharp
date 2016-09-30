@@ -6,6 +6,8 @@ open VSharp.Core.Symbolic.Terms
 
 module internal Propositional =
 
+// ------------------------------- Simplification of logical operations -------------------------------
+
     let internal simplifyNegation x =
         // TODO!
         Terms.MakeUnary OperationType.Not x false Bool
@@ -14,7 +16,14 @@ module internal Propositional =
         // TODO!
         Terms.MakeBinary operation x y false Bool
 
-// ------------------------------- General methods -------------------------------
+// ------------------------------- Simplification of logical operations -------------------------------
+
+    let internal ite condition thenValue elseValue =
+        // TODO!
+        assert(TypeOf thenValue = TypeOf elseValue)
+        Expression(Cond, [condition; thenValue; elseValue], TypeOf thenValue)
+
+// ------------------------------- General functions -------------------------------
 
     let internal (!!) x =
         simplifyNegation x
