@@ -30,10 +30,16 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                             match meth.GetContainingType().Module with
                             | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
                             | _ -> raise(new Exception("Shit happens"))
-                         else JetBrains.Util.FileSystemPath.Parse(@"c:\dev\VSharp\VSharp.CSharpUtils\bin\Debug\VSharp.CSharpUtils.dll")
+                         else
+                            JetBrains.Util.FileSystemUtil.GetCurrentDirectory() 
+                                |> fun x -> (x, x.Name) 
+                                |> fun (x, y) -> 
+                                    x.Parent.Parent.Parent.Combine("VSharp.CSharpUtils").Combine("bin").Combine(y).Combine("VSharp.CSharpUtils.dll")
 
                     let metadataAssembly = assemblyLoader.LoadFrom(path, fun x -> true)
-                    let rp = JetBrains.Util.FileSystemPath.Parse(@"C:\Program Files\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.5\")
+                    
+                    
+                    let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
                     metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> Console.WriteLine("Loaded from " + assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true).Location.ToString()))
                     let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
                     System.Console.WriteLine("METADATA ASS: " + metadataAssembly.Location.FullPath + " " + metadataAssembly.IsResolved.ToString())
