@@ -14,7 +14,7 @@ namespace VSharp.Test
 
         protected override IEnumerable<string> GetReferencedAssemblies(PlatformID platformId)
         {
-            var result = base.GetReferencedAssemblies(platformId).Concat(new[] { "VSharp.CSharpUtils" }).ToList();
+            var result = base.GetReferencedAssemblies(platformId).Concat(System.Reflection.Assembly.Load("VSharp.CSharpUtils").Location).ToList();
             System.Console.WriteLine("RESULT IS: " + string.Join("\n", result));
             return result;
         }
@@ -25,7 +25,7 @@ namespace VSharp.Test
             // Just to load VSharp.Integration
             // TODO: Understand how to do it correctly
             new ZoneMarker();
-            CSharpUtils.Tests.Arithmetics.Add7(35, 1);
+            //CSharpUtils.Tests.Arithmetics.Add7(35, 1);
             DoNamedTest();
         }
     }
