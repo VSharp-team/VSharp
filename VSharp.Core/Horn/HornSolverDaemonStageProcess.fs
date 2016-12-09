@@ -18,24 +18,20 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                     System.Console.WriteLine("=============================")
                     System.Console.WriteLine("GOT HERE: " + invocation.InvokedExpression.ToString() + " ;; " + invocation.InvokedExpression.GetText())
                     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
+
                     let resolved = (invocation.InvokedExpression :?> IReferenceExpression).Reference.Resolve()
                     let meth = (resolved.DeclaredElement :?> IMethod)
                     let isValid = (meth <> null) && ((meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null))
                     System.Console.WriteLine("BEFORE SUSP: " + resolved.Info.ToString())
-                    let qualifiedTypeName = if isValid then meth.GetContainingType().GetClrName().FullName else "VSharp.CSharpUtils.Tests.Arithmetics"
-                    let methodName = if isValid then meth.ShortName else "Add7"
+
+                    let qualifiedTypeName = if isValid then meth.GetContainingType().GetClrName().FullName else (invocation.InvokedExpression :?> IReferenceExpression).GetExtensionQualifier().GetText()
+                    let methodName = if isValid then meth.ShortName else invocation.InvocationExpressionReference.GetName()
 
                     let path = 
-                        if isValid then
-                            match meth.GetContainingType().Module with
-                            | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
-                            | _ -> raise(new Exception("Shit happens"))
-                         else
-                            JetBrains.Util.FileSystemUtil.GetCurrentDirectory() 
-                                |> fun x -> (x, x.Name) 
-                                |> fun (x, y) -> 
-                                    x.Parent.Parent.Parent.Combine("VSharp.CSharpUtils").Combine("bin").Combine(y).Combine("VSharp.CSharpUtils.dll")
-
+                        match meth.GetContainingType().Module with
+                        | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
+                        | _ -> raise(new Exception("Shit happens"))
+                        
                     let metadataAssembly = assemblyLoader.LoadFrom(path, fun x -> true)
                     
                     
