@@ -25,7 +25,6 @@ namespace VSharp.Test
             // Just to load VSharp.Integration
             // TODO: Understand how to do it correctly
             new ZoneMarker();
-            //CSharpUtils.Tests.Arithmetics.Add7(35, 1);
             DoNamedTest();
         }
     }

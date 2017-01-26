@@ -1,10 +1,12 @@
 ﻿namespace VSharp.Core.Symbolic
 
 open JetBrains.Decompiler.Ast
+open System
 
 // TODO: use CPS jedi...
 module Interpreter =
 
+    let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private __notImplemented__() = raise (new System.NotImplementedException())
 
     let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
@@ -12,9 +14,44 @@ module Interpreter =
         System.Console.WriteLine(ast.GetType().ToString())
         ast.Children |> Seq.iter (dbg (indent + 1))
 
+// ------------------------------- Decompilation -------------------------------
+    let rec decompileAndReduceMethod (meth : JetBrains.ReSharper.Psi.IMethod) =
+        let isValid = (meth <> null) && (meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null)
+
+        let qualifiedTypeName =
+            if isValid then meth.GetContainingType().GetClrName().FullName
+            else raise(new System.ArgumentException("What have I done..."))
+            //else (invocation.InvokedExpression :?> IReferenceExpression).GetExtensionQualifier().GetText()
+        let methodName = if isValid then meth.ShortName else "NahSon"//invocation.InvocationExpressionReference.GetName()
+
+        let path =
+            match meth.GetContainingType().Module with
+            | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
+            | _ -> raise(new System.Exception("Shit happens"))
+
+        let metadataAssembly = assemblyLoader.LoadFrom(path, fun x -> true)
+
+        let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
+        metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> Console.WriteLine("Loaded from " + assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true).Location.ToString()))
+        let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
+        System.Console.WriteLine("METADATA ASS: " + metadataAssembly.Location.FullPath + " " + metadataAssembly.IsResolved.ToString())
+        System.Console.WriteLine("TYPE: " + metadataTypeInfo.ToString())
+        let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.pick (fun m -> if m.Name.Equals(methodName) then Some(m) else None)
+
+        let lifetime = JetBrains.DataFlow.Lifetimes.Define()
+        let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
+        let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
+        let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
+        let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
+        System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+        System.Console.WriteLine("DECOMPILED BODY: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod.Body))
+        System.Console.WriteLine("NOW TRACING:")
+        dbg 0 decompiledMethod
+        reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod
+
 // ------------------------------- INode and inheritors -------------------------------
 
-    let rec reduceNode state (ast : INode) =
+    and reduceNode state (ast : INode) =
         match ast with
         | :? IStatement as statement -> reduceStatement state statement
         | :? IExpression as expression -> reduceExpression state expression
@@ -504,7 +541,7 @@ module Interpreter =
     and reduceMemberAccessExpression state (ast : IMemberAccessExpression) =
         match ast with
         | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression state expression
-        | :? IMemberCallExpression as expression -> reduceMemberAccessExpression state expression
+        | :? IMemberCallExpression as expression -> reduceMemberCallExpression state expression
         | _ -> __notImplemented__()
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) =
@@ -527,7 +564,13 @@ module Interpreter =
         __notImplemented__()
 
     and reduceMethodCallExpression state (ast : IMethodCallExpression) =
-        __notImplemented__()
+        System.Console.WriteLine("reduceMethodCallExpression " + ast.ToString())
+        match ast with
+        | _ when ast.IsStatic ->
+            let args, newState = Seq.mapFold reduceExpression state ast.Arguments
+            System.Console.WriteLine("TARGET: " + (ast.Target = null).ToString())
+            Seq.head args, newState
+        | _ -> __notImplemented__()
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) =
         __notImplemented__()
