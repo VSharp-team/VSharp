@@ -17,10 +17,10 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                 let processInvocationExpression (invocation : IInvocationExpression) =
                     let resolved = (invocation.InvokedExpression :?> IReferenceExpression).Reference.Resolve()
                     let meth = resolved.DeclaredElement :?> IMethod
-                    let (term, env) = VSharp.Core.Symbolic.Interpreter.decompileAndReduceMethod meth
-                    Console.WriteLine("=========== Results: ===========")
-                    Console.WriteLine("SVM term: " + term.ToString())
-                    Console.WriteLine("SVM environment: " + env.ToString())
+                    VSharp.Core.Symbolic.Interpreter.decompileAndReduceMethod meth (fun (term, env) -> 
+                        Console.WriteLine("=========== Results: ===========")
+                        Console.WriteLine("SVM term: " + term.ToString())
+                        Console.WriteLine("SVM environment: " + env.ToString()))
 
                 let processor = new RecursiveElementProcessor<IInvocationExpression>(new Action<_>(processInvocationExpression))
                 file.ProcessDescendants(processor)

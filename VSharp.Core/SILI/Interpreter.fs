@@ -2,6 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 open System
+open VSharp.Core.Utils
 
 // TODO: use CPS jedi...
 module Interpreter =
@@ -15,7 +16,7 @@ module Interpreter =
         ast.Children |> Seq.iter (dbg (indent + 1))
 
 // ------------------------------- Decompilation -------------------------------
-    let rec decompileAndReduceMethod (meth : JetBrains.ReSharper.Psi.IMethod) =
+    let rec decompileAndReduceMethod (meth : JetBrains.ReSharper.Psi.IMethod) k =
         let isValid = (meth <> null) && (meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null)
 
         let qualifiedTypeName =
@@ -47,530 +48,542 @@ module Interpreter =
         System.Console.WriteLine("DECOMPILED BODY: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod.Body))
         System.Console.WriteLine("NOW TRACING:")
         dbg 0 decompiledMethod
-        reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod
+        reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod k
 
 // ------------------------------- INode and inheritors -------------------------------
 
-    and reduceNode state (ast : INode) =
+    and reduceNode state (ast : INode) k =
         match ast with
-        | :? IStatement as statement -> reduceStatement state statement
-        | :? IExpression as expression -> reduceExpression state expression
-        | :? ICatchClause as catch -> reduceCatchClause state catch
-        | :? IFunctionSignature as signature -> (Nop, reduceFunctionSignature state signature)
-        | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner state owner
-        | :? IMemberInitializer as initializer -> reduceMemberInitializer state initializer
-        | :? ISwitchCase as switchCase -> reduceSwitchCase state switchCase
+        | :? IStatement as statement -> reduceStatement state statement k
+        | :? IExpression as expression -> reduceExpression state expression k
+        | :? ICatchClause as catch -> reduceCatchClause state catch k
+        | :? IFunctionSignature as signature -> reduceFunctionSignature state signature (fun t -> k (Nop, t))
+        | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner state owner k
+        | :? IMemberInitializer as initializer -> reduceMemberInitializer state initializer k
+        | :? ISwitchCase as switchCase -> reduceSwitchCase state switchCase k
         | _ -> __notImplemented__()
 
-    and reduceCatchClause state (ast : ICatchClause) =
+    and reduceCatchClause state (ast : ICatchClause) k =
         __notImplemented__()
 
-    and reduceFunctionSignature state (ast : IFunctionSignature) =
+    and reduceFunctionSignature state (ast : IFunctionSignature) k =
         let foldParam state (param : IMethodParameter) =
             let freshConst = Terms.FreshConstant param.Name (System.Type.GetType(param.Type.FullName))
             State.addTerm state param.Name freshConst
-        ast.Parameters |> Seq.fold foldParam state
+        ast.Parameters |> Seq.fold foldParam state |> k
 
-    and reduceSwitchCase state (ast : ISwitchCase) =
+
+    and reduceSwitchCase state (ast : ISwitchCase) k =
         __notImplemented__()
 
 // ------------------------------- ILocalVariableDeclarationScopeOwner and inheritors -------------------------------
 
-    and reduceLocalVariableDeclarationScopeOwner state (ast : ILocalVariableDeclarationScopeOwner) =
+    and reduceLocalVariableDeclarationScopeOwner state (ast : ILocalVariableDeclarationScopeOwner) k =
         match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression
-        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state expression
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression
+        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
+        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state expression k
+        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceDecompiledMethod state (ast : IDecompiledMethod) =
-        let newState = reduceFunctionSignature state ast.Signature
-        reduceBlockStatement newState ast.Body
+    and reduceDecompiledMethod state (ast : IDecompiledMethod) k : unit = 
+        reduceFunctionSignature state ast.Signature (fun newState -> reduceBlockStatement newState ast.Body k)
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
-    and reduceMemberInitializer state (ast : IMemberInitializer) =
+    and reduceMemberInitializer state (ast : IMemberInitializer) k =
         match ast with
-        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer state initializer
-        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer
+        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer state initializer k
+        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer k
         | _ -> __notImplemented__()
 
-    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) =
+    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) k=
         __notImplemented__()
 
-    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) =
+    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) k=
         __notImplemented__()
 
 
 // ------------------------------- IStatement and inheritors -------------------------------
 
-    and reduceStatement state (ast : IStatement) =
+    and reduceStatement state (ast : IStatement) k =
         match ast with
-        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto
-        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop
-        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement
-        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement
-        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement
-        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally
-        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement
-        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement
-        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement
-        | :? IJumpStatement as jump -> reduceJumpStatement state jump
-        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration
-        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration
-        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement
-        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy
-        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize
-        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement
-        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement
-        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement
-        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering
-        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement
-        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement
-        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement
-        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement
-        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement
-        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn
+        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
+        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
+        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
+        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
+        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
+        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
+        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
+        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
+        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
+        | :? IJumpStatement as jump -> reduceJumpStatement state jump k
+        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
+        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
+        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
+        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
+        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
+        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
+        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
+        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
+        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
+        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
+        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
+        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
+        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
+        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
+        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
         | _ -> __notImplemented__()
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
 
-    and reduceAbstractGotoStatement state (ast : IAbstractGotoStatement) =
+    and reduceAbstractGotoStatement state (ast : IAbstractGotoStatement) k =
         match ast with
-        | :? IBreakStatement as breakStatement -> reduceBreakStatement state breakStatement
-        | :? IContinueStatement as continueStatement -> reduceContinueStatement state continueStatement
-        | :? IGotoCaseStatement as gotoCaseStatement -> reduceGotoCaseStatement state gotoCaseStatement 
-        | :? IGotoDefaultStatement as gotoDefaultStatement -> reduceGotoDefaultStatement state gotoDefaultStatement
-        | :? IGotoStatement as gotoStatement -> reduceGotoStatement state gotoStatement
-        | :? IYieldBreakStatement as yieldBreakStatement -> reduceYieldBreakStatement state yieldBreakStatement
+        | :? IBreakStatement as breakStatement -> reduceBreakStatement state breakStatement k
+        | :? IContinueStatement as continueStatement -> reduceContinueStatement state continueStatement k
+        | :? IGotoCaseStatement as gotoCaseStatement -> reduceGotoCaseStatement state gotoCaseStatement k
+        | :? IGotoDefaultStatement as gotoDefaultStatement -> reduceGotoDefaultStatement state gotoDefaultStatement k
+        | :? IGotoStatement as gotoStatement -> reduceGotoStatement state gotoStatement k
+        | :? IYieldBreakStatement as yieldBreakStatement -> reduceYieldBreakStatement state yieldBreakStatement k
         | _ -> __notImplemented__()
 
-    and reduceBreakStatement state (ast : IBreakStatement) =
+    and reduceBreakStatement state (ast : IBreakStatement) k =
         __notImplemented__()
 
-    and reduceContinueStatement state (ast : IContinueStatement) =
+    and reduceContinueStatement state (ast : IContinueStatement) k =
         __notImplemented__()
 
-    and reduceGotoCaseStatement state (ast : IGotoCaseStatement) =
+    and reduceGotoCaseStatement state (ast : IGotoCaseStatement) k =
         __notImplemented__()
 
-    and reduceGotoDefaultStatement state (ast : IGotoDefaultStatement) =
+    and reduceGotoDefaultStatement state (ast : IGotoDefaultStatement) k =
         __notImplemented__()
 
-    and reduceGotoStatement state (ast : IGotoStatement) =
+    and reduceGotoStatement state (ast : IGotoStatement) k =
         __notImplemented__()
 
-    and reduceYieldBreakStatement state (ast : IYieldBreakStatement) =
+    and reduceYieldBreakStatement state (ast : IYieldBreakStatement) k =
         __notImplemented__()
 
 // ------------------------------- IAbstractLoopStatement and inheritors -------------------------------
 
-    and reduceAbstractLoopStatement state (ast : IAbstractLoopStatement) =
+    and reduceAbstractLoopStatement state (ast : IAbstractLoopStatement) k =
         match ast with
-        | :? IForEachStatement as forEach -> reduceForEachStatement state forEach
-        | :? IForStatement as forStatement -> reduceForStatement state forStatement
-        | :? ILoopStatement as loop -> reduceLoopStatement state loop
+        | :? IForEachStatement as forEach -> reduceForEachStatement state forEach k
+        | :? IForStatement as forStatement -> reduceForStatement state forStatement k
+        | :? ILoopStatement as loop -> reduceLoopStatement state loop k
         | _ -> __notImplemented__()
 
-    and reduceForEachStatement state (ast : IForEachStatement) =
+    and reduceForEachStatement state (ast : IForEachStatement) k =
         __notImplemented__()
 
-    and reduceForStatement state (ast : IForStatement) =
+    and reduceForStatement state (ast : IForStatement) k =
         __notImplemented__()
 
-    and reduceLoopStatement state (ast : ILoopStatement) =
+    and reduceLoopStatement state (ast : ILoopStatement) k =
         __notImplemented__()
 
 // ------------------------------- Rest Statements-------------------------------
 
-    and reduceBlockStatement state (ast : IBlockStatement) =
-        let foldStatement (curTerm, curState) statement =
-            if Terms.IsVoid curTerm then reduceStatement curState statement
-            else (curTerm, curState)
-        ast.Statements |> Seq.fold foldStatement (Nop, state)
-        // TODO: Remove local variables declarations
-        // TODO: Actually branches of if statement may not be IBlockStatement, but arbitrary statement
-        // (including int x = ...). We should get rid of that local declarations too.
+    and reduceBlockStatement state (ast : IBlockStatement) k =
+        let rec handleStatement (curTerm, curState) xs k =
+            match xs with
+            | SeqEmpty  -> k (curTerm, curState)
+            | SeqNode(h, tail) -> 
+                if Terms.IsVoid curTerm 
+                then reduceStatement curState h (fun t -> handleStatement t tail k)
+                else handleStatement (curTerm, curState) tail k
 
-    and reduceCommentStatement state (ast : ICommentStatement) =
+        handleStatement (Nop, state) (ast.Statements :> seq<IStatement>) k
+        
+
+
+    and reduceCommentStatement state (ast : ICommentStatement) k =
         __notImplemented__()
 
-    and reduceEmptyStatement state (ast : IEmptyStatement) =
+    and reduceEmptyStatement state (ast : IEmptyStatement) k =
         __notImplemented__()
 
-    and reduceEndFinallyStatement state (ast : IEndFinallyStatement) =
+    and reduceEndFinallyStatement state (ast : IEndFinallyStatement) k =
         __notImplemented__()
 
-    and reduceExpressionStatement state (ast : IExpressionStatement) =
-        let term, newState = reduceExpression state ast.Expression
-        ((if Terms.IsError term then term else Nop), newState)
+    and reduceExpressionStatement state (ast : IExpressionStatement) k =
+        reduceExpression state ast.Expression (fun (term, newState) -> 
+            k ((if Terms.IsError term then term else Nop), newState))
+        
 
-    and reduceFixedStatement state (ast : IFixedStatement) =
+    and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
 
-    and reduceIfStatement state (ast : IIfStatement) =
-        let condition, conditionState = reduceExpression state ast.Condition
+    and reduceIfStatement state (ast : IIfStatement) k =
+        reduceExpression state ast.Condition (fun (condition, conditionState) ->  
         match condition with
-        | Terms.True ->  reduceStatement conditionState ast.Then
-        | Terms.False -> reduceStatement conditionState ast.Else
+        | Terms.True ->  reduceStatement conditionState ast.Then k
+        | Terms.False -> reduceStatement conditionState ast.Else k
         | _ ->
-            let thenVal, thenState = reduceStatement conditionState ast.Then
-            let elseVal, elseState = reduceStatement conditionState ast.Else
-            Merging.merge condition thenVal elseVal conditionState thenState elseState
+            reduceStatement conditionState ast.Then (fun (thenVal, thenState) -> 
+            reduceStatement conditionState ast.Else (fun (elseVal, elseState) -> 
+            Merging.merge condition thenVal elseVal conditionState thenState elseState 
+            |> k)))
 
-    and reduceJumpStatement state (ast : IJumpStatement) =
+    and reduceJumpStatement state (ast : IJumpStatement) k =
         __notImplemented__()
 
-    and reduceLabelDeclarationStatement state (ast : ILabelDeclarationStatement) =
+    and reduceLabelDeclarationStatement state (ast : ILabelDeclarationStatement) k =
         __notImplemented__()
 
-    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) =
+    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
         __notImplemented__()
 
-    and reduceLockStatement state (ast : ILockStatement) =
+    and reduceLockStatement state (ast : ILockStatement) k =
         __notImplemented__()
 
-    and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) =
+    and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) k =
         __notImplemented__()
 
-    and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) =
+    and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) k =
         __notImplemented__()
 
-    and reducePinStatement state (ast : IPinStatement) =
+    and reducePinStatement state (ast : IPinStatement) k =
         __notImplemented__()
 
-    and reduceRethrowStatement state (ast : IRethrowStatement) =
+    and reduceRethrowStatement state (ast : IRethrowStatement) k =
         __notImplemented__()
 
-    and reduceReturnStatement state (ast : IReturnStatement) =
-        reduceExpression state ast.Result
+    and reduceReturnStatement state (ast : IReturnStatement) k =
+        reduceExpression state ast.Result k
 
-    and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) =
+    and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) k =
         __notImplemented__()
 
-    and reduceSwitchStatement state (ast : ISwitchStatement) =
+    and reduceSwitchStatement state (ast : ISwitchStatement) k =
         __notImplemented__()
 
-    and reduceThrowStatement state (ast : IThrowStatement) =
+    and reduceThrowStatement state (ast : IThrowStatement) k =
         __notImplemented__()
 
-    and reduceTryStatement state (ast : ITryStatement) =
+    and reduceTryStatement state (ast : ITryStatement) k =
         __notImplemented__()
 
-    and reduceUnpinStatement state (ast : IUnpinStatement) =
+    and reduceUnpinStatement state (ast : IUnpinStatement) k =
         __notImplemented__()
 
-    and reduceUsingStatement state (ast : IUsingStatement) =
+    and reduceUsingStatement state (ast : IUsingStatement) k =
         __notImplemented__()
 
-    and reduceYieldReturnStatement state (ast : IYieldReturnStatement) =
+    and reduceYieldReturnStatement state (ast : IYieldReturnStatement) k =
         __notImplemented__()
 
 
 // ------------------------------- IExpression and inheritors -------------------------------
 
-    and reduceExpression state (ast : IExpression) =
+    and reduceExpression state (ast : IExpression) k =
         match ast with
-        | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation state expression
-        | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression state expression
-        | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression state expression
-        | :? IAddressOfExpression as expression -> reduceAddressOfExpression state expression
-        | :? IArgListCreationExpression as expression -> reduceArgListCreationExpression state expression
-        | :? IArgListReferenceExpression as expression -> reduceArgListReferenceExpression state expression
-        | :? IArrayElementAccessExpression as expression -> reduceArrayElementAccessExpression state expression
-        | :? IAwaitExpression as expression -> reduceAwaitExpression state expression
-        | :? IBaseReferenceExpression as expression -> reduceBaseReferenceExpression state expression
-        | :? IBoxExpression as expression -> reduceBoxExpression state expression
-        | :? ICheckCastExpression as expression -> reduceCheckCastExpression state expression
-        | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression state expression
-        | :? IConditionalExpression as expression -> reduceConditionalExpression state expression
-        | :? ICreationExpression as expression -> reduceCreationExpression state expression
-        | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression state expression
-        | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression state expression
-        | :? IDerefExpression as expression -> reduceDerefExpression state expression
-        | :? IExpressionList as expression -> reduceExpressionList state expression
-        | :? IFieldReferenceExpression as expression -> reduceFieldReferenceExpression state expression
-        | :? IFunctionPointerCallExpression as expression -> reduceFunctionPointerCallExpression state expression
-        | :? ILiteralExpression as expression -> reduceLiteralExpression state expression
-        | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression state expression
-        | :? IMakeRefExpression as expression -> reduceMakeRefExpression state expression
-        | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression state expression
-        | :? IMemberInitializerList as expression -> reduceMemberInitializerList state expression
-        | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression state expression
-        | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression state expression
-        | :? INestedInitializer as expression -> reduceNestedInitializer state expression
-        | :? IParameterModifierExpression as expression -> reduceParameterModifierExpression state expression
-        | :? IParameterReferenceExpression as expression -> reduceParameterReferenceExpression state expression
-        | :? IPointerElementAccessExpression as expression -> reducePointerElementAccessExpression state expression
-        | :? IPointerIndirectionExpression as expression -> reducePointerIndirectionExpression state expression
-        | :? IRefExpression as expression -> reduceRefExpression state expression
-        | :? IRefTypeExpression as expression -> reduceRefTypeExpression state expression
-        | :? IRefTypeTokenExpression as expression -> reduceRefTypeTokenExpression state expression
-        | :? IRefValueExpression as expression -> reduceRefValueExpression state expression
-        | :? ISizeOfExpression as expression -> reduceSizeOfExpression state expression
-        | :? IStackAllocExpression as expression -> reduceStackAllocExpression state expression
-        | :? IThisReferenceExpression as expression -> reduceThisReferenceExpression state expression
-        | :? ITryCastExpression as expression -> reduceTryCastExpression state expression
-        | :? ITypeOfExpression as expression -> reduceTypeOfExpression state expression
-        | :? ITypeReferenceExpression as expression -> reduceTypeReferenceExpression state expression
-        | :? IUnboxExpression as expression -> reduceUnboxExpression state expression
-        | :? IUntypedStackAllocExpression as expression -> reduceUntypedStackAllocExpression state expression
-        | :? IVirtualMethodPointerExpression as expression -> reduceVirtualMethodPointerExpression state expression
+        | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation state expression k
+        | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression state expression k
+        | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression state expression k
+        | :? IAddressOfExpression as expression -> reduceAddressOfExpression state expression k
+        | :? IArgListCreationExpression as expression -> reduceArgListCreationExpression state expression k
+        | :? IArgListReferenceExpression as expression -> reduceArgListReferenceExpression state expression k
+        | :? IArrayElementAccessExpression as expression -> reduceArrayElementAccessExpression state expression k
+        | :? IAwaitExpression as expression -> reduceAwaitExpression state expression k
+        | :? IBaseReferenceExpression as expression -> reduceBaseReferenceExpression state expression k
+        | :? IBoxExpression as expression -> reduceBoxExpression state expression k
+        | :? ICheckCastExpression as expression -> reduceCheckCastExpression state expression k
+        | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression state expression k
+        | :? IConditionalExpression as expression -> reduceConditionalExpression state expression k
+        | :? ICreationExpression as expression -> reduceCreationExpression state expression k
+        | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression state expression k
+        | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression state expression k
+        | :? IDerefExpression as expression -> reduceDerefExpression state expression k
+        | :? IExpressionList as expression -> reduceExpressionList state expression k
+        | :? IFieldReferenceExpression as expression -> reduceFieldReferenceExpression state expression k
+        | :? IFunctionPointerCallExpression as expression -> reduceFunctionPointerCallExpression state expression k
+        | :? ILiteralExpression as expression -> reduceLiteralExpression state expression k
+        | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression state expression k
+        | :? IMakeRefExpression as expression -> reduceMakeRefExpression state expression k
+        | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression state expression k
+        | :? IMemberInitializerList as expression -> reduceMemberInitializerList state expression k
+        | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression state expression k
+        | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression state expression k
+        | :? INestedInitializer as expression -> reduceNestedInitializer state expression k
+        | :? IParameterModifierExpression as expression -> reduceParameterModifierExpression state expression k
+        | :? IParameterReferenceExpression as expression -> reduceParameterReferenceExpression state expression k
+        | :? IPointerElementAccessExpression as expression -> reducePointerElementAccessExpression state expression k
+        | :? IPointerIndirectionExpression as expression -> reducePointerIndirectionExpression state expression k
+        | :? IRefExpression as expression -> reduceRefExpression state expression k
+        | :? IRefTypeExpression as expression -> reduceRefTypeExpression state expression k
+        | :? IRefTypeTokenExpression as expression -> reduceRefTypeTokenExpression state expression k
+        | :? IRefValueExpression as expression -> reduceRefValueExpression state expression k
+        | :? ISizeOfExpression as expression -> reduceSizeOfExpression state expression k
+        | :? IStackAllocExpression as expression -> reduceStackAllocExpression state expression k
+        | :? IThisReferenceExpression as expression -> reduceThisReferenceExpression state expression k
+        | :? ITryCastExpression as expression -> reduceTryCastExpression state expression k
+        | :? ITypeOfExpression as expression -> reduceTypeOfExpression state expression k
+        | :? ITypeReferenceExpression as expression -> reduceTypeReferenceExpression state expression k
+        | :? IUnboxExpression as expression -> reduceUnboxExpression state expression k
+        | :? IUntypedStackAllocExpression as expression -> reduceUntypedStackAllocExpression state expression k
+        | :? IVirtualMethodPointerExpression as expression -> reduceVirtualMethodPointerExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceAddressOfExpression state (ast : IAddressOfExpression) =
+    and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         __notImplemented__()
 
-    and reduceArgListCreationExpression state (ast : IArgListCreationExpression) =
+    and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
 
-    and reduceArgListReferenceExpression state (ast : IArgListReferenceExpression) =
+    and reduceArgListReferenceExpression state (ast : IArgListReferenceExpression) k =
         __notImplemented__()
 
-    and reduceArrayElementAccessExpression state (ast : IArrayElementAccessExpression) =
+    and reduceArrayElementAccessExpression state (ast : IArrayElementAccessExpression) k =
         __notImplemented__()
 
-    and reduceAwaitExpression state (ast : IAwaitExpression) =
+    and reduceAwaitExpression state (ast : IAwaitExpression) k =
         __notImplemented__()
 
-    and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) =
+    and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
         __notImplemented__()
 
-    and reduceBoxExpression state (ast : IBoxExpression) =
+    and reduceBoxExpression state (ast : IBoxExpression) k =
         __notImplemented__()
 
-    and reduceCheckCastExpression state (ast : ICheckCastExpression) =
+    and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
         __notImplemented__()
 
-    and reduceCheckFiniteExpression state (ast : ICheckFiniteExpression) =
+    and reduceCheckFiniteExpression state (ast : ICheckFiniteExpression) k =
         __notImplemented__()
 
-    and reduceConditionalExpression state (ast : IConditionalExpression) =
+    and reduceConditionalExpression state (ast : IConditionalExpression) k =
         __notImplemented__()
 
-    and reduceDefaultValueExpression state (ast : IDefaultValueExpression) =
+    and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
         __notImplemented__()
 
-    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) =
+    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
         __notImplemented__()
 
-    and reduceDerefExpression state (ast : IDerefExpression) =
+    and reduceDerefExpression state (ast : IDerefExpression) k =
         __notImplemented__()
 
-    and reduceExpressionList state (ast : IExpressionList) =
+    and reduceExpressionList state (ast : IExpressionList) k =
         __notImplemented__()
 
-    and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) =
+    and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
         __notImplemented__()
 
-    and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) =
+    and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) k =
         __notImplemented__()
 
-    and reduceLiteralExpression state (ast : ILiteralExpression) =
-        (Terms.MakeConcrete ast.Value.Value (System.Type.GetType(ast.Value.Type.AssemblyQualifiedName)), state)
+    and reduceLiteralExpression state (ast : ILiteralExpression) k =
+        let mType = System.Type.GetType(ast.Value.Type.AssemblyQualifiedName) in
+        k (Terms.MakeConcrete ast.Value.Value mType, state)
 
-    and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) =
+
+    and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         __notImplemented__()
 
-    and reduceMakeRefExpression state (ast : IMakeRefExpression) =
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
 
-    and reduceMemberInitializerList state (ast : IMemberInitializerList ) =
+    and reduceMemberInitializerList state (ast : IMemberInitializerList ) k =
         __notImplemented__()
 
-    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) =
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
         __notImplemented__()
 
-    and reduceNestedInitializer state (ast : INestedInitializer) =
+    and reduceNestedInitializer state (ast : INestedInitializer) k =
         __notImplemented__()
 
-    and reduceParameterModifierExpression state (ast : IParameterModifierExpression) =
+    and reduceParameterModifierExpression state (ast : IParameterModifierExpression) k =
         __notImplemented__()
 
-    and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) =
-        (State.eval state ast.Parameter.Name, state)
+    and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
+        let term = State.eval state ast.Parameter.Name in k (term, state)
 
-    and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) =
+    and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
 
-    and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) =
+    and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
         __notImplemented__()
 
-    and reduceRefExpression state (ast : IRefExpression) =
+    and reduceRefExpression state (ast : IRefExpression) k =
         __notImplemented__()
 
-    and reduceRefTypeExpression state (ast : IRefTypeExpression) =
+    and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
         __notImplemented__()
 
-    and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) =
+    and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) k =
         __notImplemented__()
 
-    and reduceRefValueExpression state (ast : IRefValueExpression) =
+    and reduceRefValueExpression state (ast : IRefValueExpression) k =
         __notImplemented__()
 
-    and reduceSizeOfExpression state (ast : ISizeOfExpression) =
+    and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
-    and reduceStackAllocExpression state (ast : IStackAllocExpression) =
+    and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
         __notImplemented__()
 
-    and reduceThisReferenceExpression state (ast : IThisReferenceExpression) =
+    and reduceThisReferenceExpression state (ast : IThisReferenceExpression) k =
         __notImplemented__()
 
-    and reduceTryCastExpression state (ast : ITryCastExpression) =
+    and reduceTryCastExpression state (ast : ITryCastExpression) k =
         __notImplemented__()
 
-    and reduceTypeOfExpression state (ast : ITypeOfExpression) =
+    and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
         __notImplemented__()
 
-    and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) =
+    and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) k =
         __notImplemented__()
 
-    and reduceUnboxExpression state (ast : IUnboxExpression) =
+    and reduceUnboxExpression state (ast : IUnboxExpression) k =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) =
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
         __notImplemented__()
 
-    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
         __notImplemented__()
 
 // ------------------------------- IAbstractBinaryOperationExpression and inheritors -------------------------------
 
-    and reduceAbstractBinaryOperation state (ast : IAbstractBinaryOperationExpression) =
+    and reduceAbstractBinaryOperation state (ast : IAbstractBinaryOperationExpression) k =
         match ast with
-        | :? IBinaryOperationExpression as binOp -> reduceBinaryOperationExpression state binOp
-        | :? IUserDefinedBinaryOperationExpression as userBinOp -> reduceUserDefinedBinaryOperationExpression state userBinOp
+        | :? IBinaryOperationExpression as binOp -> reduceBinaryOperationExpression state binOp k
+        | :? IUserDefinedBinaryOperationExpression as userBinOp -> reduceUserDefinedBinaryOperationExpression state userBinOp k
         | _ -> __notImplemented__()
 
-    and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) =
-        let op = ast.OperationType
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        let left, state1 = reduceExpression state ast.LeftArgument
-        let right, state2 = reduceExpression state1 ast.RightArgument
-        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
+
+    and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) k =
+        let op = ast.OperationType in
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
+        reduceExpression state ast.LeftArgument (fun (left, state1) -> 
+        reduceExpression state1 ast.RightArgument (fun (right, state2) ->
+        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in
         match t with
         | Bool -> __notImplemented__()
-        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2
-        | String -> (Strings.simplifyOperation op left right, state2)
-        | _ -> __notImplemented__()
+        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2 |> k
+        | String -> Strings.simplifyOperation op left right |> fun t -> k (t, state2)
+        | _ -> __notImplemented__()))
 
 
-    and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) =
+    and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         __notImplemented__()
 
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
 
-    and reduceAbstractTypeCastExpression state (ast : IAbstractTypeCastExpression) =
+    and reduceAbstractTypeCastExpression state (ast : IAbstractTypeCastExpression) k =
         match ast with
-        | :? ITypeCastExpression as expression -> reduceTypeCastExpression state expression
-        | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression
+        | :? ITypeCastExpression as expression -> reduceTypeCastExpression state expression k
+        | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceTypeCastExpression state (ast : ITypeCastExpression) =
+    and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         __notImplemented__()
 
-    and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) =
+    and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
         __notImplemented__()
 
 // ------------------------------- IAbstractUnaryOperationExpression and inheritors -------------------------------
 
-    and reduceAbstractUnaryOperationExpression state (ast : IAbstractUnaryOperationExpression) =
+    and reduceAbstractUnaryOperationExpression state (ast : IAbstractUnaryOperationExpression) k =
         match ast with
-        | :? IUnaryOperationExpression as expression -> reduceUnaryOperationExpression state expression
-        | :? IUserDefinedUnaryOperationExpression as expression -> reduceUserDefinedUnaryOperationExpression state expression
+        | :? IUnaryOperationExpression as expression -> reduceUnaryOperationExpression state expression k
+        | :? IUserDefinedUnaryOperationExpression as expression -> reduceUserDefinedUnaryOperationExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) =
-        let op = ast.OperationType
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        let arg, newState = reduceExpression state ast.Argument
-        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
-        let result =
-            match t with
-            | Bool -> __notImplemented__()
-            | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t
-            | String -> __notImplemented__()
-            | _ -> __notImplemented__()
-        (result, newState)
+    and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) k =
+        let op = ast.OperationType in
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled  in
+        reduceExpression state ast.Argument (fun (arg, newState) ->
+        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in      
+        match t with
+        | Bool -> __notImplemented__()
+        | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t
+        | String -> __notImplemented__()
+        | _ -> __notImplemented__()
+        |> fun result -> k (result, newState))
 
-    and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) =
+        
+
+    and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) k =
         __notImplemented__()
 
 // ------------------------------- ICreationExpression and inheritors -------------------------------
 
-    and reduceCreationExpression state (ast : ICreationExpression) =
+    and reduceCreationExpression state (ast : ICreationExpression) k =
         match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression
-        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression
-        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression state expression
-        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression
-        | :? ILambdaExpression as expression -> reduceLambdaExpression state expression
-        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression
+        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
+        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression k
+        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression state expression k
+        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression k
+        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
+        | :? ILambdaExpression as expression -> reduceLambdaExpression state expression k
+        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) =
+    and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
         __notImplemented__()
 
-    and reduceAnonymousObjectCreationExpression state (ast : IAnonymousObjectCreationExpression) =
+    and reduceAnonymousObjectCreationExpression state (ast : IAnonymousObjectCreationExpression) k =
         __notImplemented__()
 
-    and reduceArrayCreationExpression state (ast : IArrayCreationExpression) =
+    and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
         __notImplemented__()
 
-    and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) =
+    and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         __notImplemented__()
 
-    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) =
+    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         __notImplemented__()
 
-    and reduceLambdaExpression state (ast : ILambdaExpression) =
+    and reduceLambdaExpression state (ast : ILambdaExpression) k =
         __notImplemented__()
 
-    and reduceObjectCreationExpression state (ast : IObjectCreationExpression) =
+    and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
         __notImplemented__()
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
-    and reduceMemberAccessExpression state (ast : IMemberAccessExpression) =
+    and reduceMemberAccessExpression state (ast : IMemberAccessExpression) k =
         match ast with
-        | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression state expression
-        | :? IMemberCallExpression as expression -> reduceMemberCallExpression state expression
+        | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression state expression k
+        | :? IMemberCallExpression as expression -> reduceMemberAccessExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceFieldAccessExpression state (ast : IFieldAccessExpression) =
+    and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
         __notImplemented__()
 
 // ------------------------------- IMemberCallExpression and inheritors -------------------------------
 
-    and reduceMemberCallExpression state (ast : IMemberCallExpression) =
+    and reduceMemberCallExpression state (ast : IMemberCallExpression) k =
         match ast with
-        | :? IEventAccessExpression as expression -> reduceEventAccessExpression state expression
-        | :? IIndexerCallExpression as expression -> reduceIndexerCallExpression state expression
-        | :? IMethodCallExpression as expression -> reduceMethodCallExpression state expression
-        | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression
+        | :? IEventAccessExpression as expression -> reduceEventAccessExpression state expression k
+        | :? IIndexerCallExpression as expression -> reduceIndexerCallExpression state expression k
+        | :? IMethodCallExpression as expression -> reduceMethodCallExpression state expression k
+        | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceEventAccessExpression state (ast : IEventAccessExpression) =
+    and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         __notImplemented__()
 
-    and reduceIndexerCallExpression state (ast : IIndexerCallExpression) =
+    and reduceIndexerCallExpression state (ast : IIndexerCallExpression) k =
         __notImplemented__()
 
-    and reduceMethodCallExpression state (ast : IMethodCallExpression) =
+
+    and reduceMethodCallExpression state (ast : IMethodCallExpression) k =
         System.Console.WriteLine("reduceMethodCallExpression " + ast.ToString())
         match ast with
         | _ when ast.IsStatic ->
-            let args, newState = Seq.mapFold reduceExpression state ast.Arguments
-            System.Console.WriteLine("TARGET: " + (ast.Target = null).ToString())
-            Seq.head args, newState
+            Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, newState) ->
+                System.Console.WriteLine("TARGET: " + (ast.Target = null).ToString())
+                k (Seq.head args, newState))
         | _ -> __notImplemented__()
 
-    and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) =
+
+    and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         __notImplemented__()
