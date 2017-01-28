@@ -191,10 +191,10 @@ module Interpreter =
             | SeqEmpty  -> k (curTerm, curState)
             | SeqNode(h, tail) -> 
                 if Terms.IsVoid curTerm 
-                then reduceStatement curState h (fun t -> handleStatement t tail k)
+                then reduceStatement curState h (fun res -> handleStatement res tail k)
                 else handleStatement (curTerm, curState) tail k
 
-        handleStatement (Nop, state) (ast.Statements :> seq<IStatement>) k
+        handleStatement (Nop, state) ast.Statements k
         
 
 
@@ -552,7 +552,7 @@ module Interpreter =
     and reduceMemberAccessExpression state (ast : IMemberAccessExpression) k =
         match ast with
         | :? IFieldAccessExpression as expression -> reduceFieldAccessExpression state expression k
-        | :? IMemberCallExpression as expression -> reduceMemberAccessExpression state expression k
+        | :? IMemberCallExpression as expression -> reduceMemberCallExpression state expression k
         | _ -> __notImplemented__()
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
