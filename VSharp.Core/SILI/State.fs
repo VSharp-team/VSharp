@@ -18,7 +18,8 @@ module internal State =
     let internal appendPath ((e, p, a) : state) cond : state = (e, cond :: p, a)
 
     let internal assertions ((_, _, a) : state) = a
-    let internal addAssertion ((e, p, a) : state) cond : state = if List.contains cond a then (e, p, a) else (e, p, cond :: a)
+    let internal addAssertion ((e, p, a) : state) cond : state =
+        if Terms.IsTrue cond || List.contains cond a then (e, p, a) else (e, p, cond :: a)
     let internal withAssertions assertions ((e, p, _) : state) = (e, p, assertions)
     let internal uniteAssertions (a1 : assertions) (a2 : assertions) : assertions =
         // TODO: assertions should be Set (but Term should override comparison then)!

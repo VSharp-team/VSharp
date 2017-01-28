@@ -4,10 +4,11 @@ open JetBrains.Decompiler.Ast
 open System
 open VSharp.Core.Utils
 
-[<StructuralEquality;StructuralComparison>]
+[<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of string
+    | Cast of TermType * TermType
     | Cond
 
 [<StructuralEquality;NoComparison>]
@@ -34,8 +35,11 @@ type public Term =
                 if (List.length operands) <> count then
                     raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
                 else printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
-            | Application f -> printedOperands |> Wrappers.join ", " |> Wrappers.format2 "{0}({1})" f
-            | Cond -> printedOperands |> List.map box |> List.toArray |> Wrappers.format "(if {0} then {1} else {2})"
+            | Cast(orig, dest) ->
+                assert (List.length printedOperands = 1)
+                format2 "({0}){1}" (dest.ToString()) (List.head printedOperands)
+            | Application f -> printedOperands |> Wrappers.join ", " |> format2 "{0}({1})" f
+            | Cond -> printedOperands |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
         | Concrete(value, _) -> value.ToString()
         | Union(guardedTerms) ->
             let guardedToString (guard, term) =
@@ -116,8 +120,11 @@ module public Terms =
     let public FreshConstant name t =
         Constant(name, Types.FromPrimitiveDotNetType t)
 
-    let public MakeConcrete value t =
-        Concrete(value, Types.FromPrimitiveDotNetType t)
+    let public MakeConcrete value (t : System.Type) =
+        try
+            Concrete(Convert.ChangeType(value, t), Types.FromPrimitiveDotNetType t)
+        with
+        | e -> Error e
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
@@ -130,6 +137,22 @@ module public Terms =
     let public Negate term =
         assert(IsBool term)
         MakeUnary OperationType.Not term false Bool
+
+    let rec public TypeCast targetType term =
+        let cast src dst expr =
+            if src = dst then expr
+            else Expression(Cast(src, dst), [expr], dst)
+        in
+        match term with
+        | Error _ -> term
+        | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" (targetType.ToString())))
+        | Concrete(value, _) -> MakeConcrete value (Types.ToDotNetType targetType)
+        | Constant(name, t) -> cast t targetType term
+        | Expression(operation, operands, t) -> cast t targetType term
+        | Union(gvs) -> // TODO: merge result!
+            let gs, vs = List.unzip gvs in
+            let vs' = List.map (TypeCast targetType) vs in
+            Union (List.zip gs vs')
 
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None

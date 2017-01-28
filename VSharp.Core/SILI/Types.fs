@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open VSharp.Core.Utils
 
+[<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
     | Bool
@@ -51,6 +52,9 @@ module public Types =
         | n when numericTypes.Contains(n) -> Numeric n
         | b when b.Equals(typedefof<string>) -> String
         | _ -> Void
+
+    let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
+        Type.GetType(t.AssemblyQualifiedName)
 
     let public IsBool (t : TermType) =
         match t with
@@ -100,5 +104,5 @@ module public Types =
         let typeOption = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = typeKey) then Some(keyValue.Value) else None)
 
         match typeOption with
-        | Some t -> Type.GetType((t :?> JetBrains.Metadata.Reader.API.IMetadataType).AssemblyQualifiedName)
+        | Some t -> FromMetadataType(t :?> JetBrains.Metadata.Reader.API.IMetadataType)
         | None -> typedefof<obj>

@@ -205,5 +205,17 @@ namespace VSharp.CSharpUtils
             }
         }
 
+        public static int Compare(object x, object y)
+        {
+            if ((dynamic) x == (dynamic) y)
+            {
+                return 0;
+            }
+            if ((dynamic)x < (dynamic)y)
+            {
+                return -1;
+            }
+            return 1;
+        }
     }
 }

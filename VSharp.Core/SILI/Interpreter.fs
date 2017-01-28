@@ -45,9 +45,6 @@ module Interpreter =
         let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
         let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
         System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-        System.Console.WriteLine("DECOMPILED BODY: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod.Body))
-        System.Console.WriteLine("NOW TRACING:")
-        dbg 0 decompiledMethod
         reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod k
 
 // ------------------------------- INode and inheritors -------------------------------
@@ -68,7 +65,7 @@ module Interpreter =
 
     and reduceFunctionSignature state (ast : IFunctionSignature) k =
         let foldParam state (param : IMethodParameter) =
-            let freshConst = Terms.FreshConstant param.Name (System.Type.GetType(param.Type.FullName))
+            let freshConst = Terms.FreshConstant param.Name (Types.FromMetadataType param.Type)
             State.addTerm state param.Name freshConst
         ast.Parameters |> Seq.fold foldParam state |> k
 
@@ -188,15 +185,13 @@ module Interpreter =
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let rec handleStatement (curTerm, curState) xs k =
             match xs with
-            | SeqEmpty  -> k (curTerm, curState)
+            | SeqEmpty -> k (curTerm, curState)
             | SeqNode(h, tail) -> 
                 if Terms.IsVoid curTerm 
                 then reduceStatement curState h (fun res -> handleStatement res tail k)
                 else handleStatement (curTerm, curState) tail k
 
         handleStatement (Nop, state) ast.Statements k
-        
-
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         __notImplemented__()
@@ -210,7 +205,6 @@ module Interpreter =
     and reduceExpressionStatement state (ast : IExpressionStatement) k =
         reduceExpression state ast.Expression (fun (term, newState) -> 
             k ((if Terms.IsError term then term else Nop), newState))
-        
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -273,7 +267,6 @@ module Interpreter =
 
     and reduceYieldReturnStatement state (ast : IYieldReturnStatement) k =
         __notImplemented__()
-
 
 // ------------------------------- IExpression and inheritors -------------------------------
 
@@ -375,7 +368,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
-        let mType = System.Type.GetType(ast.Value.Type.AssemblyQualifiedName) in
+        let mType = Types.FromMetadataType ast.Value.Type in
         k (Terms.MakeConcrete ast.Value.Value mType, state)
 
 
@@ -462,17 +455,21 @@ module Interpreter =
         let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
         reduceExpression state ast.LeftArgument (fun (left, state1) -> 
         reduceExpression state1 ast.RightArgument (fun (right, state2) ->
-        let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in
-        match t with
-        | Bool -> __notImplemented__()
-        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2 k
-        | String -> Strings.simplifyOperation op left right |> fun t -> k (t, state2)
+        let t = Types.GetTypeOfNode ast in
+        let t1 = Terms.TypeOf left in
+        let t2 = Terms.TypeOf right in
+        match op with
+        | op when Propositional.isLogicalOperation op -> 
+            Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
+        | op when Arithmetics.isArithmeticalOperation op t1 t2 -> 
+            Arithmetics.simplifyBinaryOperation op left right isChecked t state2 k
+        | op when Strings.isStringOperation op t1 t2 -> 
+            Strings.simplifyOperation op left right |> (withSnd state2 >> k)
         | _ -> __notImplemented__()))
 
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         __notImplemented__()
-
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
 
@@ -483,7 +480,9 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        __notImplemented__()
+        let targetType = Types.FromPrimitiveDotNetType (Types.FromMetadataType ast.TargetType) in
+        reduceExpression state ast.Argument (fun (argument, newState) ->
+        Terms.TypeCast targetType argument |> (withSnd newState >> k))
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
         __notImplemented__()

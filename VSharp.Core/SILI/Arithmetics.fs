@@ -99,23 +99,23 @@ module internal Arithmetics =
                 simplifyMultiplication (MakeConcrete aPlusC t) b false t matched
         | _ -> unmatched ()
 
-    and private simplifyAdditionToCondition a b c y t matched unmatched =
-        // Simplifying (if c then a else b) + y at this step
-        match a, b, y with
-        // (if c then a else b) + y = (if c then (a + y) else (b + y)) when a, b and y are concrete
-        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
-            let aPlusY = simplifyConcreteAddition a y false (Types.ToDotNetType at)
-            let bPlusY = simplifyConcreteAddition b y false (Types.ToDotNetType bt)
-            // TODO: Merge it?
-            Expression(Cond, [c; aPlusY; bPlusY], Types.FromPrimitiveDotNetType t) |> matched
-        | _ -> unmatched ()
+//    and private simplifyAdditionToCondition a b c y t matched unmatched =
+//        // Simplifying (if c then a else b) + y at this step
+//        match a, b, y with
+//        // (if c then a else b) + y = (if c then (a + y) else (b + y)) when a, b and y are concrete
+//        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
+//            let aPlusY = simplifyConcreteAddition a y false (Types.ToDotNetType at)
+//            let bPlusY = simplifyConcreteAddition b y false (Types.ToDotNetType bt)
+//            // TODO: Merge it?
+//            Expression(Cond, [c; aPlusY; bPlusY], Types.FromPrimitiveDotNetType t) |> matched
+//        | _ -> unmatched ()
 
     and private simplifyAdditionToExpression x y t matched unmatched =
         match x with
         | Add(a, b, false, _) -> simplifyAdditionToSum a b y t matched unmatched
         | UnaryMinus(x, false, _) -> simplifyAdditionToUnaryMinus x y t matched unmatched
         | Mul(a, b, false, _) -> simplifyAdditionToProduct a b y t matched unmatched
-        | If(a, b, c, _) -> simplifyAdditionToCondition a b c y t matched unmatched
+//        | If(a, b, c, _) -> simplifyAdditionToCondition a b c y t matched unmatched
         | _ -> unmatched ()
 
     and private simplifyAdditionExt x y isChecked t matched unmatched =
@@ -212,22 +212,22 @@ module internal Arithmetics =
         | a, Mul(c, d, false, _), y when d = y -> simplifyDivision a c false t matched
         | _ -> unmatched ()
 
-    and private simplifyMultiplicationOfCondition a b c y t matched unmatched =
-        // Simplifying (if c then a else b) * y at this step
-        match a, b, y with
-        // (if c then a else b) * y = (if c then (a * y) else (b * y)) when a, b and y are concrete
-        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
-            let aMulY = simplifyConcreteMultiplication a y false (Types.ToDotNetType at) in
-            let bMulY = simplifyConcreteMultiplication b y false (Types.ToDotNetType bt) in
-            // TODO: Merge it?
-                Expression(Cond, [c; aMulY; bMulY], Types.FromPrimitiveDotNetType t) |> matched
-        | _ -> unmatched ()
-
+//    and private simplifyMultiplicationOfCondition a b c y t matched unmatched =
+//        // Simplifying (if c then a else b) * y at this step
+//        match a, b, y with
+//        // (if c then a else b) * y = (if c then (a * y) else (b * y)) when a, b and y are concrete
+//        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
+//            let aMulY = simplifyConcreteMultiplication a y false (Types.ToDotNetType at) in
+//            let bMulY = simplifyConcreteMultiplication b y false (Types.ToDotNetType bt) in
+//            // TODO: Merge it?
+//                Expression(Cond, [c; aMulY; bMulY], Types.FromPrimitiveDotNetType t) |> matched
+//        | _ -> unmatched ()
+//
     and private simplifyMultiplicationOfExpression x y t matched unmatched =
         match x with
         | Mul(a, b, false, _) -> simplifyMultiplicationOfProduct a b y t matched unmatched
         | Div(a, b, false, _) -> simplifyMultiplicationOfDivision a b y t matched unmatched
-        | If(a, b, c, _) -> simplifyMultiplicationOfCondition a b c y t matched unmatched
+//        | If(a, b, c, _) -> simplifyMultiplicationOfCondition a b c y t matched unmatched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationExt x y isChecked t matched unmatched =
@@ -284,17 +284,17 @@ module internal Arithmetics =
             let bMulY = simplifyConcreteMultiplication b y false t
             simplifyDivision a bMulY false t k
         // (if a then b else c) / y = (if a then (b/y) else (c/y)) if unchecked and b, c and y concrete
-        | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
-            let bDivY = simplifyConcreteDivision b y false t in
-            let cDivY = simplifyConcreteDivision c y false t in
-                // TODO: merge instead of Cond
-                Expression(Cond, [a; bDivY; cDivY], Types.FromPrimitiveDotNetType t) |> k
+//        | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
+//            let bDivY = simplifyConcreteDivision b y false t in
+//            let cDivY = simplifyConcreteDivision c y false t in
+//                // TODO: merge instead of Cond
+//                Expression(Cond, [a; bDivY; cDivY], Types.FromPrimitiveDotNetType t) |> k
         // x / (if a then b else c) = (if a then (x/a) else (x/b)) if unchecked and x, b and c concrete
-        | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
-            let xDivB = simplifyConcreteDivision x b false t in
-            let xDivC = simplifyConcreteDivision x c false t in
-                // TODO: merge instead of Cond
-                Expression(Cond, [a; xDivB; xDivC], Types.FromPrimitiveDotNetType t) |> k
+//        | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
+//            let xDivB = simplifyConcreteDivision x b false t in
+//            let xDivC = simplifyConcreteDivision x c false t in
+//                // TODO: merge instead of Cond
+//                Expression(Cond, [a; xDivB; xDivC], Types.FromPrimitiveDotNetType t) |> k
         | _ -> MakeBinary OperationType.Divide x y isChecked (Types.FromPrimitiveDotNetType t) |> k)
 
     and private simplifyDivisionAndUpdateState x y isChecked t state k =
@@ -354,29 +354,52 @@ module internal Arithmetics =
 
 // ------------------------------- Simplification of "!=" -------------------------------
 
-    and private simplifyNotEqual x y k = MakeBinary OperationType.NotEqual x y false Bool |> k
+    and private simplifyConcreteComparison operator x y tx ty =
+        MakeConcrete (Calculator.Compare(x, y) |> operator) typedefof<bool>
+
+    and private simplifyComparison op x y concrete sameIsTrue k =
+        simplifyGenericBinary "comparison" x y k concrete (fun () ->
+        match x, y with
+        | _, x -> MakeConcrete sameIsTrue typedefof<bool> |> k
+        | Add(Concrete(c, t), y, false, _), _ -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) concrete sameIsTrue k
+        | _, Add(Concrete(c, t), y, false, _) -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) concrete sameIsTrue k
+        | _ -> MakeBinary op x y false Bool |> k)
+
+    and private simplifyEqual x y k =
+        simplifyComparison OperationType.Equal x y (simplifyConcreteComparison ((=) 0)) true k
+    and private simplifyNotEqual x y k =
+        simplifyComparison OperationType.Equal x y (simplifyConcreteComparison ((=) 0)) true ((!!) >> k)
+    and private simplifyLess x y k =
+        simplifyComparison OperationType.Less x y (simplifyConcreteComparison ((<) 0)) false k
+    and private simplifyLessOrEqual x y k =
+        simplifyComparison OperationType.LessOrEqual x y (simplifyConcreteComparison ((<=) 0)) true k
+    and private simplifyGreater x y k =
+        simplifyComparison OperationType.LessOrEqual x y (simplifyConcreteComparison ((<=) 0)) true ((!!) >> k)
+    and private simplifyGreaterOrEqual x y k =
+        simplifyComparison OperationType.Less x y (simplifyConcreteComparison ((<=) 0)) false ((!!) >> k)
 
 // ------------------------------- General functions -------------------------------
 
     let private withState state x = (x, state)
 
     let internal simplifyBinaryOperation op x y isChecked t state k =
+        let kws = withState state >> k in
         match op with
-        | OperationType.Add -> simplifyAddition x y isChecked t (withState state >> k)
+        | OperationType.Add -> simplifyAddition x y isChecked t kws
         | OperationType.Subtract ->
             simplifyUnaryMinus y false t (fun minusY ->
-            simplifyAddition x minusY isChecked t (withState state >> k))
-        | OperationType.Multiply -> simplifyMultiplication x y isChecked t (withState state >> k)
+            simplifyAddition x minusY isChecked t kws)
+        | OperationType.Multiply -> simplifyMultiplication x y isChecked t kws
         | OperationType.Divide -> simplifyDivisionAndUpdateState x y isChecked t state k
         | OperationType.Remainder -> simplifyRemainderAndUpdateState x y isChecked t state k
         | OperationType.ShiftLeft
-        | OperationType.ShiftRight
-        | OperationType.Equal
-        | OperationType.NotEqual
-        | OperationType.Greater
-        | OperationType.GreaterOrEqual
-        | OperationType.Less
-        | OperationType.LessOrEqual
+        | OperationType.ShiftRight -> raise(new System.NotImplementedException())
+        | OperationType.Equal -> simplifyEqual x y kws
+        | OperationType.NotEqual -> simplifyNotEqual x y kws
+        | OperationType.Greater -> simplifyGreater x y kws
+        | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y kws
+        | OperationType.Less -> simplifyLess x y kws
+        | OperationType.LessOrEqual -> simplifyLessOrEqual x y kws
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor
@@ -389,3 +412,28 @@ module internal Arithmetics =
         | OperationType.UnaryMinus -> simplifyUnaryMinus x isChecked t k
         | OperationType.UnaryPlus -> k x
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary arithmetic operator"))
+
+    let internal isArithmeticalOperation op t1 t2 =
+        Types.IsNumeric t1 && Types.IsNumeric t2 &&
+        match op with
+        | OperationType.Add
+        | OperationType.Subtract
+        | OperationType.Multiply
+        | OperationType.Divide
+        | OperationType.Remainder
+        | OperationType.ShiftLeft
+        | OperationType.ShiftRight
+        | OperationType.Equal
+        | OperationType.NotEqual
+        | OperationType.Greater
+        | OperationType.GreaterOrEqual
+        | OperationType.Less
+        | OperationType.LessOrEqual
+        | OperationType.LogicalAnd
+        | OperationType.LogicalOr
+        | OperationType.LogicalXor
+        | OperationType.NullCoalescing
+        | OperationType.LogicalNeg
+        | OperationType.UnaryMinus
+        | OperationType.UnaryPlus -> true
+        | _ -> false

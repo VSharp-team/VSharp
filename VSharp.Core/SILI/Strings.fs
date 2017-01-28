@@ -17,3 +17,12 @@ module internal Strings =
         | OperationType.NotEqual
         | OperationType.NullCoalescing
         | _ -> raise(new System.NotImplementedException())
+
+    let internal isStringOperation op t1 t2 =
+        Types.IsString t1 && Types.IsString t2 &&
+        match op with
+        | OperationType.Add
+        | OperationType.Equal
+        | OperationType.NotEqual
+        | OperationType.NullCoalescing -> true
+        | _ -> false
