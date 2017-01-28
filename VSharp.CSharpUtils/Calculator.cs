@@ -147,9 +147,18 @@ namespace VSharp.CSharpUtils
         /// <summary>
         /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
-        public static object Rem(object x, object y, Type targetType)
+        public static object Rem(object x, object y, Type targetType, out bool success)
         {
-            return Convert.ChangeType((dynamic) x % (dynamic) y, targetType);
+            success = true;
+            try
+            {
+                return Convert.ChangeType((dynamic) x%(dynamic) y, targetType);
+            }
+            catch (DivideByZeroException e)
+            {
+                success = false;
+                return e;
+            }
         }
 
         /// <summary>

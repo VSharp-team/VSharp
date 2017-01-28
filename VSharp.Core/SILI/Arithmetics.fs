@@ -302,6 +302,54 @@ module internal Arithmetics =
         simplifyDivision x y isChecked t (fun d ->
         k (d, State.addAssertion state yIsNotZero)))
 
+// ------------------------------- Simplification of "%" -------------------------------
+
+    and simplifyConcreteRemainder x y isChecked t =
+        let success = ref true
+        let result =
+            if isChecked then Calculator.RemChecked(x, y, t, success)
+            else Calculator.Rem(x, y, t, success)
+        if !success then MakeConcrete result t
+        else Error (result :?> System.Exception)
+
+    and private simplifyRemainder x y isChecked t k =
+        let defaultCase () =
+            let sorted = if (IsConcrete y) then (y, x) else (x, y)
+            makeProduct isChecked t (fst sorted) (snd sorted) |> k
+        simplifyGenericBinary "remainder" x y k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun () ->
+        match x, y with
+        // 0 % y = 0
+        | Concrete(x, _), _ when Calculator.IsZero(x) -> MakeConcrete 0 t |> k
+        // x % 1 = 0
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> MakeConcrete 0 t |> k
+        // x % -1 = 0
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> MakeConcrete 0 t |> k
+        // x % x = 0
+        | x, y when not isChecked && x = y -> MakeConcrete 0 t |> k
+        // x % -x = 0 if unchecked
+        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> MakeConcrete 0 t |> k
+        // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
+        | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && (a :?> int64) % (y :?> int64) = int64(0) ->
+             MakeConcrete 0 t |> k
+        // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
+        | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
+            let bModY = simplifyConcreteRemainder b y false t in
+            let cModY = simplifyConcreteRemainder c y false t in
+                // TODO: merge instead of Cond
+                Expression(Cond, [a; bModY; cModY], Types.FromPrimitiveDotNetType t) |> k
+        // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
+        | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
+            let xModB = simplifyConcreteRemainder x b false t in
+            let xModC = simplifyConcreteRemainder x c false t in
+                // TODO: merge instead of Cond
+                Expression(Cond, [a; xModB; xModC], Types.FromPrimitiveDotNetType t) |> k
+        | _ -> MakeBinary OperationType.Remainder x y isChecked (Types.FromPrimitiveDotNetType t) |> k)
+
+    and private simplifyRemainderAndUpdateState x y isChecked t state k =
+        simplifyNotEqual y (Concrete(0, TypeOf y)) (fun yIsNotZero ->
+        simplifyRemainder x y isChecked t (fun d ->
+        k (d, State.addAssertion state yIsNotZero)))
+
 // TODO: IMPLEMENT THE REST!
 
 // ------------------------------- Simplification of "!=" -------------------------------
@@ -320,7 +368,7 @@ module internal Arithmetics =
             simplifyAddition x minusY isChecked t (withState state >> k))
         | OperationType.Multiply -> simplifyMultiplication x y isChecked t (withState state >> k)
         | OperationType.Divide -> simplifyDivisionAndUpdateState x y isChecked t state k
-        | OperationType.Remainder
+        | OperationType.Remainder -> simplifyRemainderAndUpdateState x y isChecked t state k
         | OperationType.ShiftLeft
         | OperationType.ShiftRight
         | OperationType.Equal
