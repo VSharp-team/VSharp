@@ -28,8 +28,8 @@ type public Term =
             let printedOperands = operands |> List.map Wrappers.toString
             match operation with
             | Operator(operator, isChecked) ->
-                let format = Operators.operatorToStringFormat operator
-                let count = Operators.operatorArity operator
+                let format = Operations.operationToStringFormat operator
+                let count = Operations.operationArity operator
                 let checkedFormat = if isChecked then format + "✓" else format
                 if (List.length operands) <> count then
                     raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
@@ -120,11 +120,11 @@ module public Terms =
         Concrete(value, Types.FromPrimitiveDotNetType t)
 
     let public MakeBinary operation x y isChecked t =
-        assert(Operators.isBinary operation)
+        assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
 
     let public MakeUnary operation x isChecked t =
-        assert(Operators.isUnary operation)
+        assert(Operations.isUnary operation)
         Expression(Operator(operation, isChecked), [x], t)
 
     let public Negate term =
@@ -133,6 +133,11 @@ module public Terms =
 
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
+
+    let (|GuardedValues|_|) term =
+        match term with
+        | Union(gvs) -> Some(GuardedValues(List.unzip gvs))
+        | _ -> None
 
     let (|UnaryMinus|_|) term =
         match term with

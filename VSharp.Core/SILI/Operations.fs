@@ -2,8 +2,8 @@
 
 open JetBrains.Decompiler.Ast
 
-module internal Operators =
-    let internal operatorArity op =
+module internal Operations =
+    let internal operationArity op =
         match op with
         | OperationType.LogicalNeg       | OperationType.Not
         | OperationType.PostfixIncrement | OperationType.PostfixDecrement
@@ -12,7 +12,7 @@ module internal Operators =
             -> 1
         | _ -> 2
 
-    let internal operatorToStringFormat op =
+    let internal operationToStringFormat op =
         match op with
         | OperationType.Add -> "({0} + {1})"
         | OperationType.Assignment -> "({0} = {1})"
@@ -54,8 +54,8 @@ module internal Operators =
         | OperationType.UnaryPlus -> "(+{0})"
         | _ -> ""
 
-    let internal isUnary op = operatorArity op = 1
-    let internal isBinary op = operatorArity op = 2
+    let internal isUnary op = operationArity op = 1
+    let internal isBinary op = operationArity op = 2
 
     let internal isAssignment = (=) OperationType.Assignment
 

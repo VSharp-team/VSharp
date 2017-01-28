@@ -455,7 +455,7 @@ module Interpreter =
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType
         match t with
         | Bool -> __notImplemented__()
-        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2
+        | Numeric t -> Arithmetics.simplifyBinaryOperation op left right isChecked t state2 id
         | String -> (Strings.simplifyOperation op left right, state2)
         | _ -> __notImplemented__()
 
@@ -494,7 +494,7 @@ module Interpreter =
         let result =
             match t with
             | Bool -> __notImplemented__()
-            | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t
+            | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t id
             | String -> __notImplemented__()
             | _ -> __notImplemented__()
         (result, newState)

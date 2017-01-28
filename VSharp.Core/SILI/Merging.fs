@@ -2,7 +2,6 @@ namespace VSharp.Core.Symbolic
 
 open VSharp.Core.Symbolic
 open VSharp.Core.Symbolic.Terms
-open VSharp.Core.Symbolic.Propositional
 
 module internal Merging =
 
@@ -18,7 +17,7 @@ module internal Merging =
         match t with
         | Bool -> b &&& u ||| !!b &&& v
         | Numeric _
-        | String -> ite b u v
+        | String -> Unions.makeIte b u v
         | _ -> raise(new System.NotImplementedException())
 
     let private mergeSameType b u v =
@@ -63,9 +62,9 @@ module internal Merging =
         | True, _, _ -> u
         | False, _, _ -> v
         | _, _, _ when mergeable u v -> mergeSameType b u v
-        | _, Union us, _ when not (IsUnion v) -> mergeOneUnion b us v |> Unions.make
-        | _, _, Union vs when not (IsUnion u) -> mergeOneUnion !!b vs u |> Unions.make
         | _, Union us, Union vs -> mergeBothUnions b us vs |> Unions.make
+        | _, Union us, _ -> mergeOneUnion b us v |> Unions.make
+        | _, _, Union vs -> mergeOneUnion !!b vs u |> Unions.make
         | _ -> __notImplemented__()
 
     let private mergeStates condition baseState state1 state2 =
