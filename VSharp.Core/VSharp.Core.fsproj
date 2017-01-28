@@ -53,7 +53,9 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Utils\IdGenerator.fs" />
+    <Compile Include="Utils\ActivePatterns.fs" />
     <Compile Include="Utils\Wrappers.fs" />
+    <Compile Include="Utils\Cps.fs" />
     <Compile Include="SILI\Operations.fs" />
     <Compile Include="SILI\Types.fs" />
     <Compile Include="SILI\Terms.fs" />
