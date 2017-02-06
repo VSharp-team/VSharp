@@ -22,7 +22,7 @@ module Cps =
         let rec foldlk f a xs k =
             match xs with
             | [] -> k a
-            | x::xs' -> f x a (fun a' -> (foldlk f a' xs' (k)))
+            | x::xs' -> f a x (fun a' -> (foldlk f a' xs' (k)))
 
         let rec foldr f a xs k =
             match xs with
@@ -67,7 +67,7 @@ module Cps =
         let rec foldlk f a xs k =
             match xs with
             | SeqEmpty -> k a
-            | SeqNode(x, xs') -> f x a (fun a' -> (foldlk f a' xs' (k)))
+            | SeqNode(x, xs') -> f a x (fun a' -> foldlk f a' xs' k)
 
         let rec foldr f a xs k =
             match xs with

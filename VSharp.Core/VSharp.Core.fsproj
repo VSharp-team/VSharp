@@ -66,6 +66,7 @@
     <Compile Include="SILI\Simplify.fs" />
     <Compile Include="SILI\Arithmetics.fs" />
     <Compile Include="SILI\Strings.fs" />
+    <Compile Include="SILI\ControlFlow.fs" />
     <Compile Include="SILI\Interpreter.fs" />
     <Compile Include="Common\SmtDeclarations.fs" />
     <Compile Include="Common\TypePrinter.fs" />

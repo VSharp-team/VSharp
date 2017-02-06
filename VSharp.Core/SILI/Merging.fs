@@ -56,7 +56,7 @@ module internal Merging =
 
 // ------------------------------- General functions -------------------------------
 
-    let private mergeTerms b u v =
+    let internal mergeTerms b u v =
         match b, u, v with
         | _, _, _ when u = v -> u
         | True, _, _ -> u
@@ -67,11 +67,8 @@ module internal Merging =
         | _, _, Union vs -> mergeOneUnion !!b vs u |> Unions.make
         | _ -> __notImplemented__()
 
-    let private mergeStates condition baseState state1 state2 =
+    let internal mergeStates condition baseState state1 state2 =
         baseState
             |> State.map (fun id _ -> mergeTerms condition (State.eval state1 id) (State.eval state2 id))
             |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
             // Do we need to merge rest objects from then and else branches? Seems like no, but we'll see.
-
-    let internal merge condition thenValue elseValue conditionState thenState elseState  =
-        (mergeTerms condition thenValue elseValue, mergeStates condition conditionState thenState elseState)

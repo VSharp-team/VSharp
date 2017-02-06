@@ -4,7 +4,6 @@ open JetBrains.Decompiler.Ast
 open System
 open VSharp.Core.Utils
 
-// TODO: use CPS jedi...
 module Interpreter =
 
     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
@@ -49,17 +48,6 @@ module Interpreter =
 
 // ------------------------------- INode and inheritors -------------------------------
 
-    and reduceNode state (ast : INode) k =
-        match ast with
-        | :? IStatement as statement -> reduceStatement state statement k
-        | :? IExpression as expression -> reduceExpression state expression k
-        | :? ICatchClause as catch -> reduceCatchClause state catch k
-        | :? IFunctionSignature as signature -> reduceFunctionSignature state signature (fun t -> k (Nop, t))
-        | :? ILocalVariableDeclarationScopeOwner as owner -> reduceLocalVariableDeclarationScopeOwner state owner k
-        | :? IMemberInitializer as initializer -> reduceMemberInitializer state initializer k
-        | :? ISwitchCase as switchCase -> reduceSwitchCase state switchCase k
-        | _ -> __notImplemented__()
-
     and reduceCatchClause state (ast : ICatchClause) k =
         __notImplemented__()
 
@@ -83,7 +71,9 @@ module Interpreter =
         | _ -> __notImplemented__()
 
     and reduceDecompiledMethod state (ast : IDecompiledMethod) k : unit = 
-        reduceFunctionSignature state ast.Signature (fun newState -> reduceBlockStatement newState ast.Body k)
+        reduceFunctionSignature state ast.Signature (fun state ->
+        reduceBlockStatement state ast.Body (fun (result, state) ->
+        k (ControlFlow.resultToTerm result, state)))
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -183,15 +173,9 @@ module Interpreter =
 // ------------------------------- Rest Statements-------------------------------
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
-        let rec handleStatement (curTerm, curState) xs k =
-            match xs with
-            | SeqEmpty -> k (curTerm, curState)
-            | SeqNode(h, tail) -> 
-                if Terms.IsVoid curTerm 
-                then reduceStatement curState h (fun res -> handleStatement res tail k)
-                else handleStatement (curTerm, curState) tail k
-
-        handleStatement (Nop, state) ast.Statements k
+        let compose (result, state) statement k =
+            reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes, newState))
+        Cps.Seq.foldlk compose (NoResult, state) ast.Statements k
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         __notImplemented__()
@@ -203,22 +187,23 @@ module Interpreter =
         __notImplemented__()
 
     and reduceExpressionStatement state (ast : IExpressionStatement) k =
-        reduceExpression state ast.Expression (fun (term, newState) -> 
-            k ((if Terms.IsError term then term else Nop), newState))
+        reduceExpression state ast.Expression (fun (term, newState) ->
+            k ((if Terms.IsError term then Return term else NoResult), newState))
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
 
     and reduceIfStatement state (ast : IIfStatement) k =
-        reduceExpression state ast.Condition (fun (condition, conditionState) ->  
+        reduceExpression state ast.Condition (fun (condition, conditionState) ->
         match condition with
         | Terms.True ->  reduceStatement conditionState ast.Then k
         | Terms.False -> reduceStatement conditionState ast.Else k
         | _ ->
-            reduceStatement conditionState ast.Then (fun (thenVal, thenState) -> 
-            reduceStatement conditionState ast.Else (fun (elseVal, elseState) -> 
-            Merging.merge condition thenVal elseVal conditionState thenState elseState 
-            |> k)))
+            reduceStatement conditionState ast.Then (fun (thenResult, thenState) ->
+            reduceStatement conditionState ast.Else (fun (elseResult, elseState) ->
+            let result = ControlFlow.mergeResults condition thenResult elseResult in
+            let state = Merging.mergeStates condition conditionState thenState elseState in
+            k (result, state))))
 
     and reduceJumpStatement state (ast : IJumpStatement) k =
         __notImplemented__()
@@ -245,7 +230,7 @@ module Interpreter =
         __notImplemented__()
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
-        reduceExpression state ast.Result k
+        reduceExpression state ast.Result (fun (term, state) -> k (Return term, state))
 
     and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) k =
         __notImplemented__()
