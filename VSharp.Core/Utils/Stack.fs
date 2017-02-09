@@ -21,6 +21,8 @@ module public Stack =
 
     let push stack element = StackNode(element, stack)
 
+    let update stack newHd = push (pop stack) newHd
+
     let empty = EmptyStack
 
     let singleton x = push empty x

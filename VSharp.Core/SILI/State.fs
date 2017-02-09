@@ -30,13 +30,20 @@ module internal State =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
         (e.Add(name, Stack.push existing term), Stack.push (Stack.pop f) (name::(Stack.peak f)), p, a)
 
+    let internal hasEntry ((e, _, _, _) : state) id = e.ContainsKey(id)
     let internal eval ((e, _, _, _) : state) id = e.[id] |> Stack.peak
     let internal mapKeys mapping ((e, f, p, a) : state) : state =
-        let updateOne id vals =
-            (Stack.push (Stack.pop vals) (mapping id))
+        let updateOne id vals = Stack.update vals (mapping id (Stack.peak vals))
         (e |> Map.map updateOne, f, p, a)
+    let internal union ((other, _, _, _) : state) ((e, f, p, a) : state) =
+        let updateOne (e : environment) id v =
+            if e.ContainsKey(id) then e else e.Add(id, v)
+        let newEnv = other |> Map.fold updateOne e in
+        (newEnv, f, p, a)
+
 
     let internal path ((_, _, p, _) : state) = p
+    let internal frames ((_, f, _, _) : state) = f
     let internal appendPath ((e, f, p, a) : state) cond : state = (e, f, cond :: p, a)
 
     let internal assertions ((_, _, _, a) : state) = a

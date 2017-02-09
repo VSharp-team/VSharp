@@ -203,7 +203,7 @@ module Interpreter =
             reduceStatement conditionState ast.Then (fun (thenResult, thenState) ->
             reduceStatement conditionState ast.Else (fun (elseResult, elseState) ->
             let result = ControlFlow.mergeResults condition thenResult elseResult in
-            let state = Merging.mergeStates condition conditionState thenState elseState in
+            let state = Merging.mergeStates condition thenState elseState in
             k (result, state))))
 
     and reduceJumpStatement state (ast : IJumpStatement) k =

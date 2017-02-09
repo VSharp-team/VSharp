@@ -49,53 +49,43 @@ type public Term =
 
 module public Terms =
 
-    let public IsVoid term =
-        match term with
+    let public IsVoid = function
         | Nop -> true
         | _ -> false
 
-    let public IsError term =
-        match term with
+    let public IsError = function
         | Error _ -> true
         | _ -> false
 
-    let public IsConcrete term =
-        match term with
+    let public IsConcrete = function
         | Concrete _ -> true
         | _ -> false
 
-    let public IsExpression term =
-        match term with
+    let public IsExpression = function
         | Expression _ -> true
         | _ -> false
 
-    let public IsUnion term =
-        match term with
+    let public IsUnion = function
         | Union _ -> true
         | _ -> false
 
-    let public IsTrue term =
-        match term with
+    let public IsTrue = function
         | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
         | _ -> false
 
-    let public IsFalse term =
-        match term with
+    let public IsFalse = function
         | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
         | _ -> false
 
-    let public OperationOf term =
-        match term with
+    let public OperationOf = function
         | Expression(op, _, _) -> op
-        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
-    let public ArgumentsOf term =
-        match term with
+    let public ArgumentsOf = function
         | Expression(_, args, _) -> args
-        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
-    let rec public TypeOf term =
-        match term with
+    let rec public TypeOf = function
         | Error _
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
@@ -125,6 +115,12 @@ module public Terms =
             Concrete(Convert.ChangeType(value, t), Types.FromPrimitiveDotNetType t)
         with
         | e -> Error e
+
+    let public MakeTrue =
+        Concrete(true :> obj, Bool)
+
+    let public MakeFalse =
+        Concrete(false :> obj, Bool)
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
@@ -157,42 +153,34 @@ module public Terms =
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
 
-    let (|GuardedValues|_|) term =
-        match term with
+    let (|GuardedValues|_|) = function
         | Union(gvs) -> Some(GuardedValues(List.unzip gvs))
         | _ -> None
 
-    let (|UnaryMinus|_|) term =
-        match term with
+    let (|UnaryMinus|_|) = function
         | Expression(Operator(OperationType.UnaryMinus, isChecked), [x], t) -> Some(UnaryMinus(x, isChecked, t))
         | _ -> None
 
-    let (|Add|_|) term =
-        match term with
+    let (|Add|_|) = function
         | Expression(Operator(OperationType.Add, isChecked), [x;y], t) -> Some(Add(x, y, isChecked, t))
         | _ -> None
 
-    let (|Sub|_|) term =
-        match term with
+    let (|Sub|_|) = function
         | Expression(Operator(OperationType.Subtract, isChecked), [x;y], t) -> Some(Sub(x, y, isChecked, t))
         | _ -> None
 
-    let (|Mul|_|) term =
-        match term with
+    let (|Mul|_|) = function
         | Expression(Operator(OperationType.Multiply, isChecked), [x;y], t) -> Some(Mul(x, y, isChecked, t))
         | _ -> None
 
-    let (|Div|_|) term =
-        match term with
+    let (|Div|_|) = function
         | Expression(Operator(OperationType.Divide, isChecked), [x;y], t) -> Some(Div(x, y, isChecked, t))
         | _ -> None
 
-    let (|Rem|_|) term =
-        match term with
+    let (|Rem|_|) = function
         | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
         | _ -> None
 
-    let (|If|_|) term =
-        match term with
+    let (|If|_|) = function
         | Expression(Cond, [x;y;z], t) -> Some(If(x, y, z, t))
         | _ -> None

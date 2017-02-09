@@ -5,70 +5,79 @@ open VSharp.Core.Symbolic.Terms
 
 module internal Merging =
 
-    let private __notImplemented__() = raise (new System.NotImplementedException())
+    let private boolMerge = function
+        | [] -> []
+        | [_] as gvs -> gvs
+        | [(g1, v1); (g2, v2)] -> [(g1 ||| g2, (g1 &&& v1) ||| (g2 &&& v2))]
+        | (g, v)::gvs ->
+            let guard = List.fold (|||) g (List.map fst gvs) in
+            let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
+            [(guard, value)]
 
-// ------------------------------- Typed merging -------------------------------
-
-    let private mergeable u v =
-        let ut, vt = TypeOf u, TypeOf v
-        u = v || Types.IsPrimitive ut && ut = vt || false //TODO: lists of equal length go here
-
-    let private mergePrimitive b u v t =
+    let private typedMerge gvs t =
         match t with
-        | Bool -> b &&& u ||| !!b &&& v
+        | Bool -> boolMerge gvs
         | Numeric _
-        | String -> Unions.makeIte b u v
-        | _ -> raise(new System.NotImplementedException())
+        | String -> gvs
+        | _ -> raise (new System.NotImplementedException())
 
-    let private mergeSameType b u v =
-        let ut, vt = TypeOf u, TypeOf v
-        match u, v with
-        | _, _ when u = v -> u
-        | _, _ when Types.IsPrimitive ut && ut = vt -> mergePrimitive b u v ut
-        // TODO: here should follow lists with equal lengths
-        | _ -> __notImplemented__()
+    let private simplify gvs =
+        let rec loop gvs out =
+            match gvs with
+            | [] -> out
+            | (Terms.True, v)::gvs' -> [List.head gvs]
+            | (Terms.False, v)::gvs' -> loop gvs' out
+            | (g, Union us)::gvs' when not (List.isEmpty us) ->
+                List.append (Unions.guardWith g us) out
+            | gv::gvs' -> loop gvs' (gv::out)
+        loop gvs []
 
-// ------------------------------- Union merging -------------------------------
+    let internal mergeSame = function
+        | [] -> []
+        | [_] as xs -> xs
+        | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
+        | gvs ->
+            let rec loop gvs out =
+                match gvs with
+                | [] -> out
+                | (g, v)::gvs' ->
+                    let eq, rest = List.partition (snd >> (=) v) gvs' in
+                    let joined = List.fold (|||) g (List.map fst eq)
+                    if Terms.IsTrue joined then [(joined, v)]
+                    else loop rest ((joined, v)::out)
+            loop gvs []
 
-    let private mergeOneUnion b us v =
-        let equal, rest = us |> List.partition (snd >> mergeable v)
-        let uPrime = Unions.guardWith b rest
-        let vPrime =
-            match equal with
-            | [] -> !!b, v
-            | [(g, u)] -> !!b ||| g, mergeSameType b u v
-            | _ -> raise(new System.InvalidOperationException("Every union should have at most one element of each category"))
-        vPrime :: uPrime
+    let private compress = function
+        | [] -> []
+        | [_] as gvs -> gvs
+        | [(_, v1); (_, v2)] as gvs when TypeOf v1 = TypeOf v2 -> typedMerge (mergeSame gvs) (TypeOf v1)
+        | [_; _] as gvs -> gvs
+        | gvs -> List.groupBy (snd >> TypeOf) gvs |> List.map (fun (t, gvs) -> typedMerge gvs t) |> List.concat
 
-    let private mergeWithDifferentGuards b (gu, u) (gv, v) =
-        (b &&& gu ||| !!b &&& gv, mergeSameType b u v)
+    let internal merge gvs state =
+        match compress (simplify gvs) with
+        | [(g, v)] -> (v, State.addAssertion state g)
+        | _ -> (Union gvs, state)
 
-    let private mergeBothUnions b us vs =
-        let hasMergeableWith xs y = List.exists (snd >> mergeable (snd y)) xs
-        let findMergeableWith xs y = List.pick (fun x -> if mergeable (snd x) (snd y) then Some x else None) xs
-        let findAndMerge ys x = findMergeableWith ys x |> mergeWithDifferentGuards b x
-
-        let uEqual, uPrime = us |> List.partition (hasMergeableWith vs)
-        let vEqual, vPrime = vs |> List.partition (hasMergeableWith us)
-
-        let w = uEqual |> List.map (findAndMerge vEqual)
-        List.append uPrime vPrime |> List.append w
-
-// ------------------------------- General functions -------------------------------
-
-    let internal mergeTerms b u v =
+    let internal merge2Terms b u v =
         match b, u, v with
         | _, _, _ when u = v -> u
         | True, _, _ -> u
         | False, _, _ -> v
-        | _, _, _ when mergeable u v -> mergeSameType b u v
-        | _, Union us, Union vs -> mergeBothUnions b us vs |> Unions.make
-        | _, Union us, _ -> mergeOneUnion b us v |> Unions.make
-        | _, _, Union vs -> mergeOneUnion !!b vs u |> Unions.make
-        | _ -> __notImplemented__()
+        | _ -> merge [(b, u); (!!b, v)] State.empty |> fst
 
-    let internal mergeStates condition baseState state1 state2 =
-        baseState
-            |> State.mapKeys (fun id -> mergeTerms condition (State.eval state1 id) (State.eval state2 id))
-            |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
-            // Do we need to merge rest objects from then and else branches? Seems like no, but we'll see.
+    let internal mergeStates condition state1 state2 =
+        match condition with
+        | True -> state1
+        | False -> state2
+        | _ ->
+            assert(State.path state1 = State.path state2)
+            assert(State.frames state1 = State.frames state2)
+            let mergeIfShould id u =
+                if State.hasEntry state2 id
+                then merge2Terms condition u (State.eval state2 id)
+                else u
+            state1
+                |> State.mapKeys mergeIfShould
+                |> State.union state2
+                |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
