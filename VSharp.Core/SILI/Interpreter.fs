@@ -15,21 +15,8 @@ module Interpreter =
         ast.Children |> Seq.iter (dbg (indent + 1))
 
 // ------------------------------- Decompilation -------------------------------
-    let rec decompileAndReduceMethod (meth : JetBrains.ReSharper.Psi.IMethod) k =
-        let isValid = (meth <> null) && (meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null)
-
-        let qualifiedTypeName =
-            if isValid then meth.GetContainingType().GetClrName().FullName
-            else raise(new System.ArgumentException("What have I done..."))
-            //else (invocation.InvokedExpression :?> IReferenceExpression).GetExtensionQualifier().GetText()
-        let methodName = if isValid then meth.ShortName else "NahSon"//invocation.InvocationExpressionReference.GetName()
-
-        let path =
-            match meth.GetContainingType().Module with
-            | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
-            | _ -> raise(new System.Exception("Shit happens"))
-
-        let metadataAssembly = assemblyLoader.LoadFrom(path, fun x -> true)
+    let rec decompileAndReduceMethod state parameters qualifiedTypeName methodName assemblyPath k =
+        let metadataAssembly = assemblyLoader.LoadFrom(assemblyPath, fun _ -> true)
 
         let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
         metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> Console.WriteLine("Loaded from " + assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true).Location.ToString()))
@@ -44,19 +31,30 @@ module Interpreter =
         let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
         let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
         System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-        reduceDecompiledMethod VSharp.Core.Symbolic.State.empty decompiledMethod k
+        reduceDecompiledMethod state parameters decompiledMethod (fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
 
     and reduceCatchClause state (ast : ICatchClause) k =
         __notImplemented__()
 
-    and reduceFunctionSignature state (ast : IFunctionSignature) k =
-        let foldParam state (param : IMethodParameter) =
-            let freshConst = Terms.FreshConstant param.Name (Types.FromMetadataType param.Type)
-            State.addTerm state param.Name freshConst
-        ast.Parameters |> Seq.fold foldParam state |> k
-
+    and reduceFunctionSignature state (ast : IFunctionSignature) values k =
+        let rec map2 f xs1 xs2 =
+            match xs1, xs2 with
+            | SeqEmpty, [] -> []
+            | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2 f xs1 xs2'
+            | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2 f xs1' xs2
+            | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'
+        let valueOrFreshConst (param : Option<IMethodParameter>) value =
+            match param, value with
+            | None, _ -> failwith "Internal error: parameters list is longer than expected!"
+            | Some param, None ->
+                if param.MetadataParameter.HasDefaultValue
+                then (param.Name, Terms.MakeConcrete (param.MetadataParameter.GetDefaultValue()) (Types.FromMetadataType param.Type))
+                else (param.Name, Terms.FreshConstant param.Name (Types.FromMetadataType param.Type))
+            | Some param, Some value -> (param.Name, value)
+        let parameters = map2 valueOrFreshConst ast.Parameters values in
+        State.push state parameters |> k
 
     and reduceSwitchCase state (ast : ISwitchCase) k =
         __notImplemented__()
@@ -66,12 +64,13 @@ module Interpreter =
     and reduceLocalVariableDeclarationScopeOwner state (ast : ILocalVariableDeclarationScopeOwner) k =
         match ast with
         | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
-        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state expression k
+        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state [] expression k
         | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceDecompiledMethod state (ast : IDecompiledMethod) k : unit = 
-        reduceFunctionSignature state ast.Signature (fun state ->
+    and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k : unit =
+        Console.WriteLine("reducing method: " + ast.ToString())
+        reduceFunctionSignature state ast.Signature parameters (fun state ->
         reduceBlockStatement state ast.Body (fun (result, state) ->
         k (ControlFlow.resultToTerm result, state)))
 
@@ -93,33 +92,35 @@ module Interpreter =
 // ------------------------------- IStatement and inheritors -------------------------------
 
     and reduceStatement state (ast : IStatement) k =
-        match ast with
-        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
-        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
-        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
-        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
-        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
-        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
-        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
-        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
-        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
-        | :? IJumpStatement as jump -> reduceJumpStatement state jump k
-        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
-        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
-        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
-        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
-        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
-        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
-        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
-        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
-        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
-        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
-        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
-        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
-        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
-        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
-        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
-        | _ -> __notImplemented__()
+        if ast = null then k (NoResult, state)
+        else
+            match ast with
+            | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
+            | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
+            | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
+            | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
+            | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
+            | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
+            | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
+            | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
+            | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
+            | :? IJumpStatement as jump -> reduceJumpStatement state jump k
+            | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
+            | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
+            | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
+            | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
+            | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
+            | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
+            | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
+            | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
+            | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
+            | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
+            | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
+            | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
+            | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
+            | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
+            | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
+            | _ -> __notImplemented__()
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
@@ -174,8 +175,8 @@ module Interpreter =
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose (result, state) statement k =
-            reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes, newState))
-        Cps.Seq.foldlk compose (NoResult, state) ast.Statements k
+            reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
+        Cps.Seq.foldlk compose (NoResult, (State.push state [])) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         __notImplemented__()
@@ -557,12 +558,13 @@ module Interpreter =
 
 
     and reduceMethodCallExpression state (ast : IMethodCallExpression) k =
-        System.Console.WriteLine("reduceMethodCallExpression " + ast.ToString())
         match ast with
         | _ when ast.IsStatic ->
             Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, newState) ->
-                System.Console.WriteLine("TARGET: " + (ast.Target = null).ToString())
-                k (Seq.head args, newState))
+            let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.OwnerType.AssemblyQualifiedName in
+            let methodName = ast.MethodInstantiation.MethodSpecification.Method.Name in
+            let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location
+            decompileAndReduceMethod newState args qualifiedTypeName methodName assemblyPath k)
         | _ -> __notImplemented__()
 
 

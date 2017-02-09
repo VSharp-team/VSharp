@@ -69,6 +69,6 @@ module internal Merging =
 
     let internal mergeStates condition baseState state1 state2 =
         baseState
-            |> State.map (fun id _ -> mergeTerms condition (State.eval state1 id) (State.eval state2 id))
+            |> State.mapKeys (fun id -> mergeTerms condition (State.eval state1 id) (State.eval state2 id))
             |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
             // Do we need to merge rest objects from then and else branches? Seems like no, but we'll see.

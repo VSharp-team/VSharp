@@ -23,15 +23,19 @@ module internal ControlFlow =
             | v -> List.singleton (guard(g), v)
         gvs |> List.map mergeOne |> List.concat
 
-    let rec composeSequentially newRes oldRes =
-        match oldRes, newRes with
-        | NoResult, _ -> newRes
-        | Break, _
-        | Continue, _
-        | Return _, _ -> oldRes
-        | Guarded gvs, _ ->
+    let rec composeSequentially oldRes newRes oldState newState =
+        let rec composeSequentiallyNonGuarded newRes oldRes =
+            match oldRes with
+            | NoResult -> newRes
+            | _ -> oldRes
+        match oldRes with
+        | NoResult -> newRes, newState
+        | Break
+        | Continue
+        | Return _ -> oldRes, oldState
+        | Guarded gvs ->
             let gs, vs = List.unzip gvs in
-            Guarded (List.zip gs (List.map (composeSequentially newRes) vs))
+            Guarded (List.zip gs (List.map (composeSequentiallyNonGuarded newRes) vs)), newState//Merge it!!!!
 
     let resultToTerm result = 
         match result with

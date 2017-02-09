@@ -11,3 +11,4 @@ module internal Wrappers =
     let internal cons x xs = x :: xs
     let internal withFst x = fun y -> (x, y)
     let internal withSnd y = fun x -> (x, y)
+    let internal mapAdd (map : Map<'a, 'b>) key value = map.Add(key, value)

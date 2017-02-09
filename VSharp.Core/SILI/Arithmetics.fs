@@ -312,6 +312,10 @@ module internal Arithmetics =
         if !success then MakeConcrete result t
         else Error (result :?> System.Exception)
 
+    and isRemainderZero x y t =
+        let success = ref true
+        Calculator.IsZero(Calculator.Rem(x, y, t, success)) && !success
+
     and private simplifyRemainder x y isChecked t k =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
@@ -329,7 +333,7 @@ module internal Arithmetics =
         // x % -x = 0 if unchecked
         | x, UnaryMinus(y, false, _) when not isChecked && x = y -> MakeConcrete 0 t |> k
         // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
-        | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && (a :?> int64) % (y :?> int64) = int64(0) ->
+        | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && isRemainderZero a y t ->
              MakeConcrete 0 t |> k
         // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
         | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
@@ -352,7 +356,7 @@ module internal Arithmetics =
 
 // TODO: IMPLEMENT THE REST!
 
-// ------------------------------- Simplification of "!=" -------------------------------
+// ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
     and private simplifyConcreteComparison operator x y tx ty =
         MakeConcrete (Calculator.Compare(x, y) |> operator) typedefof<bool>
@@ -360,9 +364,9 @@ module internal Arithmetics =
     and private simplifyComparison op x y concrete sameIsTrue k =
         simplifyGenericBinary "comparison" x y k concrete (fun () ->
         match x, y with
-        | _, x -> MakeConcrete sameIsTrue typedefof<bool> |> k
-        | Add(Concrete(c, t), y, false, _), _ -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) concrete sameIsTrue k
-        | _, Add(Concrete(c, t), y, false, _) -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) concrete sameIsTrue k
+        | x, y when x = y -> MakeConcrete sameIsTrue typedefof<bool> |> k
+        | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) concrete sameIsTrue k
+        | x, Add(Concrete(c, t), y, false, _) when x = y -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) concrete sameIsTrue k
         | _ -> MakeBinary op x y false Bool |> k)
 
     and private simplifyEqual x y k =
