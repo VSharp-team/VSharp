@@ -57,7 +57,7 @@ module internal Merging =
     let internal merge gvs state =
         match compress (simplify gvs) with
         | [(g, v)] -> (v, State.addAssertion state g)
-        | _ -> (Union gvs, state)
+        | gvs' -> (Union gvs', state)
 
     let internal merge2Terms b u v =
         match b, u, v with

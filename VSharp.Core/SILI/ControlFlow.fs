@@ -52,7 +52,26 @@ module internal ControlFlow =
             in
             Guarded result, Merging.mergeStates conservativeGuard oldState newState
 
-    let resultToTerm result = 
+    let resultToTerm (result, state) =
+        let isReturn = function
+            | Return _ -> true
+            | _ -> false
+        let same v1 (_, v2) =
+            match v1, v2 with
+            | Return _, Return _ -> true
+            | NoResult, NoResult -> true
+            | _, _ -> false
+        let getTerm = function
+            | g, Return t -> g, t
+            | g, _ -> g, Nop
         match result with
-        | Return term -> term
-        | _ -> Nop
+        | Return term -> (term, state)
+        | Guarded gvs ->
+            match gvs with
+            | [] -> (Nop, state)
+            | (g, v)::gvs' ->
+                assert(List.forall (same v) gvs')
+                if isReturn v
+                then Merging.merge (List.map getTerm gvs) state
+                else (Nop, state)
+        | _ -> (Nop, state)

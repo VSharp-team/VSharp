@@ -43,7 +43,7 @@ type public Term =
         | Concrete(value, _) -> value.ToString()
         | Union(guardedTerms) ->
             let guardedToString (guard, term) =
-                String.Format("| {0} -> {1}", guard, term)
+                String.Format("| {0} ~> {1}", guard, term)
             let printed = guardedTerms |> Seq.map guardedToString
             String.Format("UNION\n\t{0}", String.Join("\n\t", printed))
 
@@ -90,10 +90,10 @@ module public Terms =
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
-        | Expression(_, _,  t) -> t
+        | Expression(_, _, t) -> t
         | Union ts ->
             if List.isEmpty ts then TermType.Void
-            else (fst >> TypeOf) (List.head ts)
+            else (snd >> TypeOf) (List.head ts)
 
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger

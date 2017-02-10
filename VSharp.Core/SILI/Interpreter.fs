@@ -71,8 +71,7 @@ module Interpreter =
     and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k : unit =
         Console.WriteLine("reducing method: " + ast.ToString())
         reduceFunctionSignature state ast.Signature parameters (fun state ->
-        reduceBlockStatement state ast.Body (fun (result, state) ->
-        k (ControlFlow.resultToTerm result, state)))
+        reduceBlockStatement state ast.Body (ControlFlow.resultToTerm >> k))
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
