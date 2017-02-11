@@ -136,7 +136,7 @@ module internal Arithmetics =
                 makeAddition isChecked t (fst sorted) (snd sorted) |> k
         simplifyGenericBinary "addition" x y k
                               (fun x y _ _ -> simplifyConcreteAddition x y isChecked t)
-                              (fun () -> simplifyAdditionExt x y isChecked t k defaultCase)
+                              (fun x y k -> simplifyAdditionExt x y isChecked t k defaultCase)
 
 // ------------------------------- Simplification of unary "-" -------------------------------
 
@@ -150,7 +150,7 @@ module internal Arithmetics =
             MakeConcrete (Calculator.UnaryMinus(x, t)) t
 
     and private simplifyUnaryMinus x isChecked t k =
-        simplifyGenericUnary "unary minus" x k (fun x _ -> simplifyConcreteUnaryMinus x isChecked t) (fun () -> 
+        simplifyGenericUnary "unary minus" x k (fun x _ -> simplifyConcreteUnaryMinus x isChecked t) (fun x k ->
         match x with
         // -(-(x)) = x if both unchecked
         | UnaryMinus(x, false, t) when not isChecked -> x |> k
@@ -251,7 +251,7 @@ module internal Arithmetics =
             makeProduct isChecked t (fst sorted) (snd sorted) |> k
         simplifyGenericBinary "product" x y k
                               (fun x y _ _ -> simplifyConcreteMultiplication x y isChecked t)
-                              (fun () -> simplifyMultiplicationExt x y isChecked t k defaultCase)
+                              (fun x y k -> simplifyMultiplicationExt x y isChecked t k defaultCase)
 
 // ------------------------------- Simplification of "/" -------------------------------
 
@@ -267,7 +267,7 @@ module internal Arithmetics =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
             makeProduct isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "division" x y k (fun x y _ _ -> simplifyConcreteDivision x y isChecked t) (fun () ->
+        simplifyGenericBinary "division" x y k (fun x y _ _ -> simplifyConcreteDivision x y isChecked t) (fun x y k ->
         match x, y with
         // 0 / y = 0
         | Concrete(x, _), _ when Calculator.IsZero(x) -> MakeConcrete 0 t |> k
@@ -320,7 +320,7 @@ module internal Arithmetics =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
             makeProduct isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "remainder" x y k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun () ->
+        simplifyGenericBinary "remainder" x y k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun x y k ->
         match x, y with
         // 0 % y = 0
         | Concrete(x, _), _ when Calculator.IsZero(x) -> MakeConcrete 0 t |> k
@@ -362,7 +362,7 @@ module internal Arithmetics =
         MakeConcrete (Calculator.Compare(x, y) |> operator) typedefof<bool>
 
     and private simplifyComparison op x y concrete sameIsTrue k =
-        simplifyGenericBinary "comparison" x y k concrete (fun () ->
+        simplifyGenericBinary "comparison" x y k concrete (fun x y k ->
         match x, y with
         | x, y when x = y -> MakeConcrete sameIsTrue typedefof<bool> |> k
         | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) concrete sameIsTrue k

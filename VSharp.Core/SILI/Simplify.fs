@@ -14,7 +14,7 @@ module internal Simplify =
         | GuardedValues(guards, values) -> // TODO: generic merge here?
             Cps.List.mapk (fun term matched -> simplifyGenericUnary name term matched concrete unmatched) values (fun values' ->
                 Unions.make2 guards values' |> matched)
-        | _ -> unmatched()
+        | _ -> unmatched x matched
 
     let rec internal simplifyGenericBinary name x y matched concrete unmatched =
         match x, y with
@@ -33,4 +33,4 @@ module internal Simplify =
         | _, GuardedValues(guardsY, valuesY) -> // TODO: generic merge here?
             Cps.List.mapk (fun y matched -> simplifyGenericBinary name x y matched concrete unmatched) valuesY (fun values' ->
             Unions.make2 guardsY values' |> matched)
-        | _ -> unmatched ()
+        | _ -> unmatched x y matched
