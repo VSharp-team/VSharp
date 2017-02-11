@@ -7,14 +7,23 @@ open VSharp.Core.Symbolic.Terms
 module internal Propositional =
 
 // ------------------------------- Simplification of logical operations -------------------------------
-
-    let internal simplifyNegation x =
-        // TODO!
-        Terms.MakeUnary OperationType.Not x false Bool
+    let internal x2b (x : obj) = x :?> bool
 
     let internal simplifyConnective operation opposite x y stopValue ignoreValue =
         // TODO!
         Terms.MakeBinary operation x y false Bool
+
+    let rec internal simplifyNegation x k =
+        match x with
+        | Union _ -> assert false 
+        | Concrete(b,t) -> not (x2b b) |> fun b' -> Concrete(b',t) |> k
+        | Negation (x, _)  -> k x
+        | Conjunction(x, y, _) -> 
+            simplifyNegation x 
+                (fun x' -> simplifyNegation y 
+                    (fun y' -> simplifyConnective OperationType.AssignmentLogicalOr OperationType.AssignmentLogicalAnd x' y' Terms False))
+        | Disjunction(x, y, _) -> 
+        | _ -> Terms.MakeUnary OperationType.Not x false Bool
 
 // ------------------------------- Simplification of logical operations -------------------------------
 

@@ -168,3 +168,19 @@ module public Terms =
         match term with
         | Expression(Cond, [x;y;z], t) -> Some(If(x, y, z, t))
         | _ -> None
+
+    let (|Negation|_|) term =
+        match term with
+        | Expression(Operator(OperationType.LogicalNeg, _), [x], t) -> Some(Negation(x, t))
+        | _ -> None
+
+    let (|Conjunction|_|) term =
+        match term with
+        | Expression(Operator(OperationType.LogicalAnd, _), [x;y], t) -> Some(Conjunction(x, y, t))
+        | _ -> None
+
+    
+    let (|Disjunction|_|) term =
+        match term with
+        | Expression(Operator(OperationType.LogicalOr, _), [x;y], t) -> Some(Disjunction(x, y, t))
+        | _ -> None

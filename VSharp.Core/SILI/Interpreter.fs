@@ -502,7 +502,7 @@ module Interpreter =
         reduceExpression state ast.Argument (fun (arg, newState) ->
         let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in      
         match t with
-        | Bool -> __notImplemented__()
+        | Bool -> Propositional.simplifyUnaryOperation op arg
         | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t
         | String -> __notImplemented__()
         | _ -> __notImplemented__()

@@ -4,6 +4,7 @@ open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
 open VSharp.Core.Symbolic
 open VSharp.Core.Symbolic.Terms
+open VSharp.Core.Symbolic.Propositional
 
 module internal Arithmetics =
 
@@ -341,7 +342,7 @@ module internal Arithmetics =
 
     let internal simplifyUnaryOperation op x isChecked t =
         match op with
-        | OperationType.LogicalNeg -> raise(new System.NotImplementedException())
+        | OperationType.LogicalNeg -> simplifyNegation x
         | OperationType.UnaryMinus -> simplifyUnaryMinus x isChecked t
         | OperationType.UnaryPlus -> x
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary arithmetic operator"))

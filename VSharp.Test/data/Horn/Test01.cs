@@ -31,15 +31,17 @@ namespace Test
             //int fib2 = Fib2(n);
             ////int fib3 = Fib3(n);
             //if (fib1 <= 0 || fib2 <= 0 /*|| fib3 <= 0*/)
-            VSharp.CSharpUtils.Tests.Arithmetics.Add7(35, 42);
+            //VSharp.CSharpUtils.Tests.Arithmetics.Add7(35, 42);
             //VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1();
             //VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2();
             //todo failed!
             //VSharp.CSharpUtils.Tests.Arithmetics.SomeShit1(35);
-            Math.Max(2, 1);
-            VSharp.CSharpUtils.Tests.Branching.IsMaxOdd(n, 2 * n, 3 * n);
+            //Math.Max(2, 1);
+            //VSharp.CSharpUtils.Tests.Branching.IsMaxOdd(n, 2 * n, 3 * n);
             //else
             //Console.WriteLine("We do not actually need 3 lines above");
+            //VSharp.CSharpUtils.Tests.Arithmetics.Negation1();
+            VSharp.CSharpUtils.Tests.Arithmetics.Negation2();
         }
     }
 }

@@ -28,5 +28,15 @@ namespace VSharp.CSharpUtils.Tests
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
         }
+
+        public static bool Negation1()
+        {
+            return !true;
+        }
+
+        public static bool Negation2(bool b)
+        {
+            return !b;
+        }
     }
 }
