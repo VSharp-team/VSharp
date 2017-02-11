@@ -30,8 +30,8 @@ module internal Simplify =
                     let toReduce = List.append (List.rev acc) ys in
                     // TODO: care about different types...
                     (toReduce |> List.reduce reduce, state) |> matched
-            | x :: xs ->
-                combineOne x ys [] state (fun res ys state -> combine xs ys (res :: acc) state)
+            | x::xs ->
+                combineOne x ys [] state (fun res ys state -> combine xs ys (res::acc) state)
 
         combine xs ys [] state
 

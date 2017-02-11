@@ -67,7 +67,7 @@ module internal Arithmetics =
         // (a * b) + (c * b) = (a + c) * b if unchecked and a and c are concrete
         | Concrete(a, _), _, Mul(Concrete(c, _), d, false, _) when d = b ->
             let aPlusC = simplifyConcreteAddition a c false t in
-                simplifyMultiplication (MakeConcrete aPlusC t) b state false t matched
+                simplifyMultiplication aPlusC b state false t matched
         | _ -> unmatched state
 
     and private simplifyAdditionToExpression x y state t matched unmatched =
