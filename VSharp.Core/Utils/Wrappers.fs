@@ -1,5 +1,6 @@
 ﻿namespace VSharp.Core.Utils
 
+[<AutoOpen>]
 module internal Wrappers =
     let internal toString x = x.ToString()
     let internal format f objs = System.String.Format(f, objs)
@@ -8,3 +9,6 @@ module internal Wrappers =
     let internal format3 f (obj1 : obj) (obj2 : obj) (obj3 : obj) = System.String.Format(f, obj1, obj2, obj3)
     let internal join s (ss : seq<string>) = System.String.Join(s, ss)
     let internal cons x xs = x :: xs
+    let internal withFst x = fun y -> (x, y)
+    let internal withSnd y = fun x -> (x, y)
+    let internal mapAdd (map : Map<'a, 'b>) key value = map.Add(key, value)

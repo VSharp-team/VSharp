@@ -17,7 +17,20 @@ type HornSolverDaemonStageProcess(daemonProcess : IDaemonProcess, file : ICSharp
                 let processInvocationExpression (invocation : IInvocationExpression) =
                     let resolved = (invocation.InvokedExpression :?> IReferenceExpression).Reference.Resolve()
                     let meth = resolved.DeclaredElement :?> IMethod
-                    VSharp.Core.Symbolic.Interpreter.decompileAndReduceMethod meth (fun (term, env) -> 
+                    let isValid = (meth <> null) && (meth.GetContainingType() <> null) && (meth.GetContainingType().GetClrName() <> null)
+
+                    let qualifiedTypeName =
+                        if isValid then meth.GetContainingType().GetClrName().FullName
+                        else raise(new System.ArgumentException("What have I done..."))
+                        //else (invocation.InvokedExpression :?> IReferenceExpression).GetExtensionQualifier().GetText()
+                    let methodName = if isValid then meth.ShortName else "NahSon"//invocation.InvocationExpressionReference.GetName()
+
+                    let path =
+                        match meth.GetContainingType().Module with
+                        | :? JetBrains.ReSharper.Psi.Modules.IAssemblyPsiModule as assemblyModule -> assemblyModule.Assembly.Location
+                        | _ -> raise(new System.Exception("Shit happens"))
+
+                    VSharp.Core.Symbolic.Interpreter.decompileAndReduceMethod VSharp.Core.Symbolic.State.empty [] qualifiedTypeName methodName path (fun (term, env) ->
                         Console.WriteLine("=========== Results: ===========")
                         Console.WriteLine("SVM term: " + term.ToString())
                         Console.WriteLine("SVM environment: " + env.ToString()))

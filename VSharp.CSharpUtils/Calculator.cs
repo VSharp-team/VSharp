@@ -147,9 +147,18 @@ namespace VSharp.CSharpUtils
         /// <summary>
         /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/>.
         /// </summary>
-        public static object Rem(object x, object y, Type targetType)
+        public static object Rem(object x, object y, Type targetType, out bool success)
         {
-            return Convert.ChangeType((dynamic) x % (dynamic) y, targetType);
+            success = true;
+            try
+            {
+                return Convert.ChangeType((dynamic) x%(dynamic) y, targetType);
+            }
+            catch (DivideByZeroException e)
+            {
+                success = false;
+                return e;
+            }
         }
 
         /// <summary>
@@ -196,5 +205,17 @@ namespace VSharp.CSharpUtils
             }
         }
 
+        public static int Compare(object x, object y)
+        {
+            if ((dynamic) x == (dynamic) y)
+            {
+                return 0;
+            }
+            if ((dynamic)x < (dynamic)y)
+            {
+                return -1;
+            }
+            return 1;
+        }
     }
 }

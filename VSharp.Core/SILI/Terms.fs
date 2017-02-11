@@ -4,10 +4,11 @@ open JetBrains.Decompiler.Ast
 open System
 open VSharp.Core.Utils
 
-[<StructuralEquality;StructuralComparison>]
+[<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of string
+    | Cast of TermType * TermType
     | Cond
 
 [<StructuralEquality;NoComparison>]
@@ -28,78 +29,71 @@ type public Term =
             let printedOperands = operands |> List.map Wrappers.toString
             match operation with
             | Operator(operator, isChecked) ->
-                let format = Operators.operatorToStringFormat operator
-                let count = Operators.operatorArity operator
+                let format = Operations.operationToStringFormat operator
+                let count = Operations.operationArity operator
                 let checkedFormat = if isChecked then format + "✓" else format
                 if (List.length operands) <> count then
                     raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
                 else printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
-            | Application f -> printedOperands |> Wrappers.join ", " |> Wrappers.format2 "{0}({1})" f
-            | Cond -> printedOperands |> List.map box |> List.toArray |> Wrappers.format "(if {0} then {1} else {2})"
+            | Cast(orig, dest) ->
+                assert (List.length printedOperands = 1)
+                format2 "({0}){1}" (dest.ToString()) (List.head printedOperands)
+            | Application f -> printedOperands |> Wrappers.join ", " |> format2 "{0}({1})" f
+            | Cond -> printedOperands |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
         | Concrete(value, _) -> value.ToString()
         | Union(guardedTerms) ->
             let guardedToString (guard, term) =
-                String.Format("| {0} -> {1}", guard, term)
+                String.Format("| {0} ~> {1}", guard, term)
             let printed = guardedTerms |> Seq.map guardedToString
             String.Format("UNION\n\t{0}", String.Join("\n\t", printed))
 
 module public Terms =
 
-    let public IsVoid term =
-        match term with
+    let public IsVoid = function
         | Nop -> true
         | _ -> false
 
-    let public IsError term =
-        match term with
+    let public IsError = function
         | Error _ -> true
         | _ -> false
 
-    let public IsConcrete term =
-        match term with
+    let public IsConcrete = function
         | Concrete _ -> true
         | _ -> false
 
-    let public IsExpression term =
-        match term with
+    let public IsExpression = function
         | Expression _ -> true
         | _ -> false
 
-    let public IsUnion term =
-        match term with
+    let public IsUnion = function
         | Union _ -> true
         | _ -> false
 
-    let public IsTrue term =
-        match term with
+    let public IsTrue = function
         | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
         | _ -> false
 
-    let public IsFalse term =
-        match term with
+    let public IsFalse = function
         | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
         | _ -> false
 
-    let public OperationOf term =
-        match term with
+    let public OperationOf = function
         | Expression(op, _, _) -> op
-        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
-    let public ArgumentsOf term =
-        match term with
+    let public ArgumentsOf = function
         | Expression(_, args, _) -> args
-        | _ -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
-    let rec public TypeOf term =
-        match term with
+    let rec public TypeOf = function
         | Error _
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
-        | Expression(_, _,  t) -> t
+        | Expression(_, _, t) -> t
         | Union ts ->
             if List.isEmpty ts then TermType.Void
-            else (fst >> TypeOf) (List.head ts)
+            else (snd >> TypeOf) (List.head ts)
 
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
@@ -116,56 +110,78 @@ module public Terms =
     let public FreshConstant name t =
         Constant(name, Types.FromPrimitiveDotNetType t)
 
-    let public MakeConcrete value t =
-        Concrete(value, Types.FromPrimitiveDotNetType t)
+    let public MakeConcrete value (t : System.Type) =
+        try
+            Concrete(Convert.ChangeType(value, t), Types.FromPrimitiveDotNetType t)
+        with
+        | e -> Error e
+
+    let public MakeTrue =
+        Concrete(true :> obj, Bool)
+
+    let public MakeFalse =
+        Concrete(false :> obj, Bool)
 
     let public MakeBinary operation x y isChecked t =
-        assert(Operators.isBinary operation)
+        assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
 
     let public MakeUnary operation x isChecked t =
-        assert(Operators.isUnary operation)
+        assert(Operations.isUnary operation)
         Expression(Operator(operation, isChecked), [x], t)
 
     let public Negate term =
         assert(IsBool term)
         MakeUnary OperationType.Not term false Bool
 
+    let rec public TypeCast targetType term =
+        let cast src dst expr =
+            if src = dst then expr
+            else Expression(Cast(src, dst), [expr], dst)
+        in
+        match term with
+        | Error _ -> term
+        | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" (targetType.ToString())))
+        | Concrete(value, _) -> MakeConcrete value (Types.ToDotNetType targetType)
+        | Constant(name, t) -> cast t targetType term
+        | Expression(operation, operands, t) -> cast t targetType term
+        | Union(gvs) -> // TODO: merge result!
+            let gs, vs = List.unzip gvs in
+            let vs' = List.map (TypeCast targetType) vs in
+            Union (List.zip gs vs')
+
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
 
-    let (|UnaryMinus|_|) term =
-        match term with
+    let (|GuardedValues|_|) = function
+        | Union(gvs) -> Some(GuardedValues(List.unzip gvs))
+        | _ -> None
+
+    let (|UnaryMinus|_|) = function
         | Expression(Operator(OperationType.UnaryMinus, isChecked), [x], t) -> Some(UnaryMinus(x, isChecked, t))
         | _ -> None
 
-    let (|Add|_|) term =
-        match term with
+    let (|Add|_|) = function
         | Expression(Operator(OperationType.Add, isChecked), [x;y], t) -> Some(Add(x, y, isChecked, t))
         | _ -> None
 
-    let (|Sub|_|) term =
-        match term with
+    let (|Sub|_|) = function
         | Expression(Operator(OperationType.Subtract, isChecked), [x;y], t) -> Some(Sub(x, y, isChecked, t))
         | _ -> None
 
-    let (|Mul|_|) term =
-        match term with
+    let (|Mul|_|) = function
         | Expression(Operator(OperationType.Multiply, isChecked), [x;y], t) -> Some(Mul(x, y, isChecked, t))
         | _ -> None
 
-    let (|Div|_|) term =
-        match term with
+    let (|Div|_|) = function
         | Expression(Operator(OperationType.Divide, isChecked), [x;y], t) -> Some(Div(x, y, isChecked, t))
         | _ -> None
 
-    let (|Rem|_|) term =
-        match term with
+    let (|Rem|_|) = function
         | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
         | _ -> None
 
-    let (|If|_|) term =
-        match term with
+    let (|If|_|) = function
         | Expression(Cond, [x;y;z], t) -> Some(If(x, y, z, t))
         | _ -> None
 

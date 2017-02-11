@@ -22,7 +22,7 @@ module Cps =
         let rec foldlk f a xs k =
             match xs with
             | [] -> k a
-            | x::xs' -> f x a (fun a' -> (foldlk f a' xs' (k)))
+            | x::xs' -> f a x (fun a' -> (foldlk f a' xs' (k)))
 
         let rec foldr f a xs k =
             match xs with
@@ -51,13 +51,13 @@ module Cps =
     module Seq =
         let rec map f xs k =
             match xs with
-            | SeqEmpty -> k Seq.empty
-            | SeqNode(x, xs') -> map f xs' (k << Seq.append [(f x)])
+            | SeqEmpty -> k []
+            | SeqNode(x, xs') -> map f xs' (k << cons (f x))
 
         let rec mapk f xs k = 
             match xs with
-            | SeqEmpty -> k Seq.empty
-            | SeqNode(x, xs') -> f x (fun y -> (mapk f xs' (k << Seq.append [y])))
+            | SeqEmpty -> k []
+            | SeqNode(x, xs') -> f x (fun y -> (mapk f xs' (k << cons y)))
 
         let rec foldl f a xs k =
             match xs with
@@ -67,7 +67,7 @@ module Cps =
         let rec foldlk f a xs k =
             match xs with
             | SeqEmpty -> k a
-            | SeqNode(x, xs') -> f x a (fun a' -> (foldlk f a' xs' (k)))
+            | SeqNode(x, xs') -> f a x (fun a' -> foldlk f a' xs' k)
 
         let rec foldr f a xs k =
             match xs with
@@ -81,14 +81,14 @@ module Cps =
 
         let rec mapFold f a xs k =
             match xs with
-            | SeqEmpty -> k (Seq.empty, a)
+            | SeqEmpty -> k ([], a)
             | SeqNode(x, xs') -> 
                 let (x', a') = f a x in
-                    mapFold f a' xs' (fun (ys, b) -> k (Seq.append [x'] ys, b))
+                    mapFold f a' xs' (fun (ys, b) -> k (x'::ys, b))
 
         let rec mapFoldk f a xs k =
             match xs with
-            | SeqEmpty -> k (Seq.empty, a)
-            | SeqNode(x, xs') -> 
-                f a x (fun (x', a') -> 
-                    mapFoldk f a' xs' (fun (ys, b) -> k (Seq.append [x'] ys, b)))
+            | SeqEmpty -> k ([], a)
+            | SeqNode(x, xs') ->
+                f a x (fun (x', a') ->
+                    mapFoldk f a' xs' (fun (ys, b) -> k (x'::ys, b)))
