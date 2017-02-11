@@ -14,35 +14,6 @@ module internal Arithmetics =
     let private makeProduct isChecked t x y =
         MakeBinary OperationType.Multiply x y false (Types.FromPrimitiveDotNetType t)
 
-    // Trying to simplify pairwise combinations of x- and y-operands.
-    // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
-    // by successively trying to combine (a * c), (a * d), (b * c) and (b * d).
-    let private simplifyPairwiseCombinations xs ys t simplify reduce matched unmatched =
-        let initialYs = ys
-
-        let rec combineOne x ys failed cps =
-            match ys with
-            | [] -> cps x failed
-            | h :: tl ->
-                simplify x h false t
-                    (fun x ->  combineOne x tl failed cps)
-                    (fun () -> combineOne x tl (h :: failed) cps)
-
-        let rec combine xs ys acc =
-            match xs with
-            | [] ->
-                // Here we traversed all xs, checking for something matched...
-                if List.length ys = List.length initialYs then unmatched () // Nothing matched, the whole process is failed
-                else
-                    // Something matched, the work is done, just combining results together...
-                    let toReduce = List.append (List.rev acc) ys
-                    // TODO: care about different types...
-                    toReduce |> List.reduce reduce |> matched
-            | x :: xs ->
-                combineOne x ys [] (fun res ys -> combine xs ys (res :: acc))
-
-        combine xs ys []
-
 // ------------------------------- Simplification of "+" -------------------------------
 
     let private simplifyConcreteAddition x y isChecked t =
@@ -54,89 +25,77 @@ module internal Arithmetics =
         else
             MakeConcrete (Calculator.Add(x, y, t)) t
 
-    let rec private simplifyAdditionToSum a b y t matched unmatched =
+    let rec private simplifyAdditionToSum a b y state t matched unmatched =
         // Simplifying (a + b) + y at this step
         match a, b, y with
         // (a + b) + y = (a + y) + b if a and y concrete and unchecked
-        | Concrete(a, at), _, Concrete(y, yt) -> simplifyAddition (simplifyConcreteAddition a y false t) b false t matched
+        | Concrete(a, at), _, Concrete(y, yt) -> simplifyAddition (simplifyConcreteAddition a y false t) b state false t matched
         // ((-y) + b) + y = b if unchecked
-        | UnaryMinus(a, false, _), b, _ when a = y -> matched b
+        | UnaryMinus(a, false, _), b, _ when a = y -> matched (b, state)
         // (a + (-y)) + y = a if unchecked
-        | a, UnaryMinus(b, false, _), _ when b = y -> matched a
+        | a, UnaryMinus(b, false, _), _ when b = y -> matched (a, state)
         // (a + b) + (-a) = b if unchecked
-        | _, _, UnaryMinus(y, false, _) when a = y -> matched b
+        | _, _, UnaryMinus(y, false, _) when a = y -> matched (b, state)
         // (a + b) + (-b) = a if unchecked
-        | _, _, UnaryMinus(y, false, _) when b = y -> matched a
+        | _, _, UnaryMinus(y, false, _) when b = y -> matched (a, state)
         | _ ->
             // Trying to simplify pairwise combinations of x- and y-summands
             let summandsOfY =
                 match y with
                 | Add(c, d, false, yt) -> [c; d]
                 | _ -> [y]
-            simplifyPairwiseCombinations [a; b] summandsOfY t simplifyAdditionExt (makeAddition false t) matched unmatched
+            simplifyPairwiseCombinations [a; b] summandsOfY state t simplifyAdditionExt (makeAddition false t) matched unmatched
 
-    and private simplifyAdditionToUnaryMinus x y t matched unmatched =
+    and private simplifyAdditionToUnaryMinus x y state t matched unmatched =
         // Simplifying (-x) + y at this step
         match x with
         // (-y) + y = 0
-        | _ when x = y -> MakeConcrete 0 t |> matched
+        | _ when x = y -> (MakeConcrete 0 t, state) |> matched
         // -(y + b) = -b
-        | Add(a, b, false, _) when a = y -> matched b
+        | Add(a, b, false, _) when a = y -> matched (b, state)
         // -(a + y) = -a
-        | Add(a, b, false, _) when b = y -> matched a
-        | _ -> unmatched ()
+        | Add(a, b, false, _) when b = y -> matched (a, state)
+        | _ -> unmatched state
 
-    and private simplifyAdditionToProduct a b y t matched unmatched =
+    and private simplifyAdditionToProduct a b y state t matched unmatched =
         // Simplifying (a * b) + y at this step
         match a, b, y with
         // (a * y) + y = (a + 1) * y if unckecked and a is concrete
         | Concrete(a, at), _, _ when b = y ->
             let aPlusOne = simplifyConcreteAddition a 1 false (Types.ToDotNetType at) in
-                simplifyMultiplication aPlusOne y false t matched
+                simplifyMultiplication aPlusOne y state false t matched
         // (a * b) + (c * b) = (a + c) * b if unchecked and a and c are concrete
         | Concrete(a, _), _, Mul(Concrete(c, _), d, false, _) when d = b ->
             let aPlusC = simplifyConcreteAddition a c false t in
-                simplifyMultiplication (MakeConcrete aPlusC t) b false t matched
-        | _ -> unmatched ()
+                simplifyMultiplication (MakeConcrete aPlusC t) b state false t matched
+        | _ -> unmatched state
 
-//    and private simplifyAdditionToCondition a b c y t matched unmatched =
-//        // Simplifying (if c then a else b) + y at this step
-//        match a, b, y with
-//        // (if c then a else b) + y = (if c then (a + y) else (b + y)) when a, b and y are concrete
-//        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
-//            let aPlusY = simplifyConcreteAddition a y false (Types.ToDotNetType at)
-//            let bPlusY = simplifyConcreteAddition b y false (Types.ToDotNetType bt)
-//            // TODO: Merge it?
-//            Expression(Cond, [c; aPlusY; bPlusY], Types.FromPrimitiveDotNetType t) |> matched
-//        | _ -> unmatched ()
-
-    and private simplifyAdditionToExpression x y t matched unmatched =
+    and private simplifyAdditionToExpression x y state t matched unmatched =
         match x with
-        | Add(a, b, false, _) -> simplifyAdditionToSum a b y t matched unmatched
-        | UnaryMinus(x, false, _) -> simplifyAdditionToUnaryMinus x y t matched unmatched
-        | Mul(a, b, false, _) -> simplifyAdditionToProduct a b y t matched unmatched
-//        | If(a, b, c, _) -> simplifyAdditionToCondition a b c y t matched unmatched
-        | _ -> unmatched ()
+        | Add(a, b, false, _) -> simplifyAdditionToSum a b y state t matched unmatched
+        | UnaryMinus(x, false, _) -> simplifyAdditionToUnaryMinus x y state t matched unmatched
+        | Mul(a, b, false, _) -> simplifyAdditionToProduct a b y state t matched unmatched
+        | _ -> unmatched state
 
-    and private simplifyAdditionExt x y isChecked t matched unmatched =
+    and private simplifyAdditionExt x y state isChecked t matched unmatched =
         match x, y with
-        | Concrete(x, typeOfX), Concrete(y, typeOfY) -> simplifyConcreteAddition x y isChecked t |> matched
-        | Concrete(x, typeOfX), _ when Calculator.IsZero(x) -> matched y
-        | _, Concrete(y, typeOfY) when Calculator.IsZero(y) -> matched x
+        | Concrete(x, typeOfX), Concrete(y, typeOfY) -> (simplifyConcreteAddition x y isChecked t, state) |> matched
+        | Concrete(x, typeOfX), _ when Calculator.IsZero(x) -> matched (y, state)
+        | _, Concrete(y, typeOfY) when Calculator.IsZero(y) -> matched (x, state)
         | Expression _, Expression _ when not isChecked ->
-            simplifyAdditionToExpression x y t matched (fun () ->
-            simplifyAdditionToExpression y x t matched unmatched)
-        | Expression _, _ when not isChecked -> simplifyAdditionToExpression x y t matched unmatched
-        | _, Expression _ when not isChecked -> simplifyAdditionToExpression y x t matched unmatched
-        | _ -> unmatched ()
+            simplifyAdditionToExpression x y state t matched (fun state ->
+            simplifyAdditionToExpression y x state t matched unmatched)
+        | Expression _, _ when not isChecked -> simplifyAdditionToExpression x y state t matched unmatched
+        | _, Expression _ when not isChecked -> simplifyAdditionToExpression y x state t matched unmatched
+        | _ -> unmatched state
 
-    and private simplifyAddition x y isChecked t k =
-        let defaultCase () =
+    and private simplifyAddition x y state isChecked t k =
+        let defaultCase state =
             let sorted = if (IsConcrete y) then (y, x) else (x, y) in
-                makeAddition isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "addition" x y k
+                (makeAddition isChecked t (fst sorted) (snd sorted), state) |> k
+        simplifyGenericBinary "addition" x y state k
                               (fun x y _ _ -> simplifyConcreteAddition x y isChecked t)
-                              (fun x y k -> simplifyAdditionExt x y isChecked t k defaultCase)
+                              (fun x y state k -> simplifyAdditionExt x y state isChecked t k defaultCase)
 
 // ------------------------------- Simplification of unary "-" -------------------------------
 
@@ -149,21 +108,21 @@ module internal Arithmetics =
         else
             MakeConcrete (Calculator.UnaryMinus(x, t)) t
 
-    and private simplifyUnaryMinus x isChecked t k =
-        simplifyGenericUnary "unary minus" x k (fun x _ -> simplifyConcreteUnaryMinus x isChecked t) (fun x k ->
+    and private simplifyUnaryMinus x state isChecked t k =
+        simplifyGenericUnary "unary minus" x state k (fun x _ -> simplifyConcreteUnaryMinus x isChecked t) (fun x state k ->
         match x with
         // -(-(x)) = x if both unchecked
-        | UnaryMinus(x, false, t) when not isChecked -> x |> k
+        | UnaryMinus(x, false, t) when not isChecked -> (x, state) |> k
         // -(a + b) = (-a) + (-b) if all unchecked
         | Add(a, b, false, _) when not isChecked ->
-            simplifyUnaryMinus a false t (fun minusA ->
-            simplifyUnaryMinus b false t (fun minusB ->
-            simplifyAddition minusA minusB false t k))
+            simplifyUnaryMinus a state false t (fun (minusA, state) ->
+            simplifyUnaryMinus b state false t (fun (minusB, state) ->
+            simplifyAddition minusA minusB state false t k))
          // -(a * x) = (-a) * x if both unchecked
         | Mul(Concrete(a, at), y, false, _) when not isChecked ->
-            simplifyUnaryMinus (Concrete(a, at)) isChecked (Types.ToDotNetType at) (fun minusA ->
-            simplifyMultiplication minusA y false t k)
-        | _ -> MakeUnary OperationType.UnaryMinus x isChecked (Types.FromPrimitiveDotNetType t) |> k)
+            simplifyUnaryMinus (Concrete(a, at)) state isChecked (Types.ToDotNetType at) (fun (minusA, state) ->
+            simplifyMultiplication minusA y state false t k)
+        | _ -> (MakeUnary OperationType.UnaryMinus x isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
 
 // ------------------------------- Simplification of "*" -------------------------------
 
@@ -176,82 +135,70 @@ module internal Arithmetics =
         else
             MakeConcrete (Calculator.Mul(x, y, t)) t
 
-    and private simplifyMultiplicationOfProduct a b y t matched unmatched =
+    and private simplifyMultiplicationOfProduct a b y state t matched unmatched =
         // Simplifying (a * b) * y at this step
         match a, b, y with
         // (a * b) * y = (a * y) * b if a and y concrete and unchecked
-        | Concrete(a, at), _, Concrete(y, yt) -> simplifyMultiplication (simplifyConcreteMultiplication a y false t) b false t matched
+        | Concrete(a, at), _, Concrete(y, yt) -> simplifyMultiplication (simplifyConcreteMultiplication a y false t) b state false t matched
         // ((a / y) * b) * y = a * b if unchecked
-        | Div(a, c, false, _), b, _ when c = y -> simplifyMultiplication a b false t matched
+        | Div(a, c, false, _), b, _ when c = y -> simplifyMultiplication a b state false t matched
         // (a * (b / y)) * y = a * b if unchecked
-        | a, Div(b, c, false, _), _ when c = y -> simplifyMultiplication a b false t matched
+        | a, Div(b, c, false, _), _ when c = y -> simplifyMultiplication a b state false t matched
         // (a * b) * (c / a) = b * c if unchecked
-        | _, _, Div(c, d, false, _) when d = a -> simplifyMultiplication b c false t matched
+        | _, _, Div(c, d, false, _) when d = a -> simplifyMultiplication b c state false t matched
         // (a * b) * (c / b) = a * c if unchecked
-        | _, _, Div(c, d, false, _) when d = b -> simplifyMultiplication a c false t matched
+        | _, _, Div(c, d, false, _) when d = b -> simplifyMultiplication a c state false t matched
         | _ ->
             // Trying to simplify pairwise combinations of x- and y-factors
             let factorsOfY =
                 match y with
                 | Mul(c, d, false, yt) -> [c; d]
                 | _ -> [y]
-            simplifyPairwiseCombinations [a; b] factorsOfY t simplifyMultiplicationExt (makeProduct false t) matched unmatched
+            simplifyPairwiseCombinations [a; b] factorsOfY state t simplifyMultiplicationExt (makeProduct false t) matched unmatched
 
-    and private simplifyMultiplicationOfDivision a b y t matched unmatched =
+    and private simplifyMultiplicationOfDivision a b y state t matched unmatched =
         // Simplifying (a / b) * y at this step
         match a, b, y with
         // (a / b) * y = (a * y) / b if a and y are concrete and unckecked
         | Concrete(a, at), b, Concrete(y, yt) ->
             let aMulY = simplifyConcreteMultiplication a y false t
-            simplifyDivision aMulY b false t matched
+            simplifyDivision aMulY b state false t matched
         // (a / y) * y = a if unchecked
-        | a, b, y when b = y -> matched a
+        | a, b, y when b = y -> matched (a, state)
         // (a / (y * d)) * y = a/d if unchecked
-        | a, Mul(c, d, false, _), y when c = y -> simplifyDivision a d false t matched
+        | a, Mul(c, d, false, _), y when c = y -> simplifyDivision a d state false t matched
         // (a / (c * y)) * y = a/c if unchecked
-        | a, Mul(c, d, false, _), y when d = y -> simplifyDivision a c false t matched
-        | _ -> unmatched ()
+        | a, Mul(c, d, false, _), y when d = y -> simplifyDivision a c state false t matched
+        | _ -> unmatched state
 
-//    and private simplifyMultiplicationOfCondition a b c y t matched unmatched =
-//        // Simplifying (if c then a else b) * y at this step
-//        match a, b, y with
-//        // (if c then a else b) * y = (if c then (a * y) else (b * y)) when a, b and y are concrete
-//        | Concrete(a, at), Concrete(b, bt), Concrete(y, yt) ->
-//            let aMulY = simplifyConcreteMultiplication a y false (Types.ToDotNetType at) in
-//            let bMulY = simplifyConcreteMultiplication b y false (Types.ToDotNetType bt) in
-//            // TODO: Merge it?
-//                Expression(Cond, [c; aMulY; bMulY], Types.FromPrimitiveDotNetType t) |> matched
-//        | _ -> unmatched ()
-//
-    and private simplifyMultiplicationOfExpression x y t matched unmatched =
+    and private simplifyMultiplicationOfExpression x y state t matched unmatched =
         match x with
-        | Mul(a, b, false, _) -> simplifyMultiplicationOfProduct a b y t matched unmatched
-        | Div(a, b, false, _) -> simplifyMultiplicationOfDivision a b y t matched unmatched
-//        | If(a, b, c, _) -> simplifyMultiplicationOfCondition a b c y t matched unmatched
-        | _ -> unmatched ()
+        | Mul(a, b, false, _) -> simplifyMultiplicationOfProduct a b y state t matched unmatched
+        | Div(a, b, false, _) -> simplifyMultiplicationOfDivision a b y state t matched unmatched
+        | _ -> unmatched state
 
-    and private simplifyMultiplicationExt x y isChecked t matched unmatched =
+    and private simplifyMultiplicationExt x y state isChecked t matched unmatched =
         match x, y with
-        | Concrete(x, typeOfX), _ when Calculator.IsZero(x) -> matched (MakeConcrete 0 t)
-        | _, Concrete(y, typeOfY) when Calculator.IsZero(y) -> matched (MakeConcrete 0 t)
-        | Concrete(x, typeOfX), _ when Calculator.FuzzyEqual(x, 1) -> matched y
-        | _, Concrete(y, typeOfY) when Calculator.FuzzyEqual(y, 1) -> matched x
-        | Concrete(x, typeOfX), _ when Calculator.FuzzyEqual(x, -1) -> simplifyUnaryMinus y isChecked t matched
-        | _, Concrete(y, typeOfY) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x isChecked t matched
+        | Concrete(x, typeOfX), _ when Calculator.IsZero(x) -> matched (MakeConcrete 0 t, state)
+        | _, Concrete(y, typeOfY) when Calculator.IsZero(y) -> matched (MakeConcrete 0 t, state)
+        | Concrete(x, typeOfX), _ when Calculator.FuzzyEqual(x, 1) -> matched (y, state)
+        | _, Concrete(y, typeOfY) when Calculator.FuzzyEqual(y, 1) -> matched (x, state)
+        | Concrete(x, typeOfX), _ when Calculator.FuzzyEqual(x, -1) -> simplifyUnaryMinus y state isChecked t matched
+        | _, Concrete(y, typeOfY) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x state isChecked t matched
         | Expression _, Expression _ when not isChecked ->
-            simplifyMultiplicationOfExpression x y t matched (fun () ->
-            simplifyMultiplicationOfExpression y x t matched unmatched)
-        | Expression _, _ when not isChecked -> simplifyMultiplicationOfExpression x y t matched unmatched
-        | _, Expression _ when not isChecked -> simplifyMultiplicationOfExpression y x t matched unmatched
-        | _ -> unmatched ()
+            simplifyMultiplicationOfExpression x y state t matched (fun state ->
+            simplifyMultiplicationOfExpression y x state t matched unmatched)
+        | Expression _, _ when not isChecked -> simplifyMultiplicationOfExpression x y state t matched unmatched
+        | _, Expression _ when not isChecked -> simplifyMultiplicationOfExpression y x state t matched unmatched
+        | _ -> unmatched state
 
-    and private simplifyMultiplication x y isChecked t k =
-        let defaultCase () =
+    and private simplifyMultiplication x y state isChecked t k =
+        let defaultCase state =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "product" x y k
+            (makeProduct isChecked t (fst sorted) (snd sorted), state) |> k
+        simplifyGenericBinary "product" x y state k
                               (fun x y _ _ -> simplifyConcreteMultiplication x y isChecked t)
-                              (fun x y k -> simplifyMultiplicationExt x y isChecked t k defaultCase)
+                              (fun x y state k -> simplifyMultiplicationExt x y state isChecked t k defaultCase)
 
 // ------------------------------- Simplification of "/" -------------------------------
 
@@ -263,43 +210,31 @@ module internal Arithmetics =
         if !success then MakeConcrete result t
         else Error (result :?> System.Exception)
 
-    and private simplifyDivision x y isChecked t k =
-        let defaultCase () =
+    and private simplifyDivision x y state isChecked t k =
+        let defaultCase state =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "division" x y k (fun x y _ _ -> simplifyConcreteDivision x y isChecked t) (fun x y k ->
+            (makeProduct isChecked t (fst sorted) (snd sorted), state) |> k
+        simplifyGenericBinary "division" x y state k (fun x y _ _ -> simplifyConcreteDivision x y isChecked t) (fun x y state k ->
         match x, y with
         // 0 / y = 0
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> MakeConcrete 0 t |> k
+        | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
         // x / 1 = x
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> x |> k
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (x, state) |> k
         // x / -1 = -x
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x isChecked t k
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x state isChecked t k
         // x / x = 1 if unchecked
-        | x, y when not isChecked && x = y -> MakeConcrete 1 t |> k
+        | x, y when not isChecked && x = y -> (MakeConcrete 1 t, state) |> k
         // x / -x = -1 if unchecked
-        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> MakeConcrete -1 t |> k
+        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete -1 t, state) |> k
         // (a / b) / y = a / (b * y) if unchecked and b and y concrete
         | Div(a, Concrete(b, _), false, _), Concrete(y, _) when not isChecked ->
-            let bMulY = simplifyConcreteMultiplication b y false t
-            simplifyDivision a bMulY false t k
-        // (if a then b else c) / y = (if a then (b/y) else (c/y)) if unchecked and b, c and y concrete
-//        | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
-//            let bDivY = simplifyConcreteDivision b y false t in
-//            let cDivY = simplifyConcreteDivision c y false t in
-//                // TODO: merge instead of Cond
-//                Expression(Cond, [a; bDivY; cDivY], Types.FromPrimitiveDotNetType t) |> k
-        // x / (if a then b else c) = (if a then (x/a) else (x/b)) if unchecked and x, b and c concrete
-//        | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
-//            let xDivB = simplifyConcreteDivision x b false t in
-//            let xDivC = simplifyConcreteDivision x c false t in
-//                // TODO: merge instead of Cond
-//                Expression(Cond, [a; xDivB; xDivC], Types.FromPrimitiveDotNetType t) |> k
-        | _ -> MakeBinary OperationType.Divide x y isChecked (Types.FromPrimitiveDotNetType t) |> k)
+            let bMulY = simplifyConcreteMultiplication b y false t in
+            simplifyDivision a bMulY state false t k
+        | _ -> (MakeBinary OperationType.Divide x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
 
-    and private simplifyDivisionAndUpdateState x y isChecked t state k =
-        simplifyNotEqual y (Concrete(0, TypeOf y)) (fun yIsNotZero ->
-        simplifyDivision x y isChecked t (fun d ->
+    and private simplifyDivisionAndUpdateState x y state isChecked t k =
+        simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->
+        simplifyDivision x y state isChecked t (fun (d, state) ->
         k (d, State.addAssertion state yIsNotZero)))
 
 // ------------------------------- Simplification of "%" -------------------------------
@@ -316,42 +251,42 @@ module internal Arithmetics =
         let success = ref true
         Calculator.IsZero(Calculator.Rem(x, y, t, success)) && !success
 
-    and private simplifyRemainder x y isChecked t k =
-        let defaultCase () =
+    and private simplifyRemainder x y state isChecked t k =
+        let defaultCase state =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
-        simplifyGenericBinary "remainder" x y k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun x y k ->
+            (makeProduct isChecked t (fst sorted) (snd sorted), state) |> k
+        simplifyGenericBinary "remainder" x y state k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun x y state k ->
         match x, y with
         // 0 % y = 0
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> MakeConcrete 0 t |> k
+        | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
         // x % 1 = 0
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> MakeConcrete 0 t |> k
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (MakeConcrete 0 t, state) |> k
         // x % -1 = 0
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> MakeConcrete 0 t |> k
+        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> (MakeConcrete 0 t, state) |> k
         // x % x = 0
-        | x, y when not isChecked && x = y -> MakeConcrete 0 t |> k
+        | x, y when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
         // x % -x = 0 if unchecked
-        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> MakeConcrete 0 t |> k
+        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
         // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
         | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && isRemainderZero a y t ->
-             MakeConcrete 0 t |> k
+             (MakeConcrete 0 t, state) |> k
         // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
         | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
             let bModY = simplifyConcreteRemainder b y false t in
             let cModY = simplifyConcreteRemainder c y false t in
                 // TODO: merge instead of Cond
-                Expression(Cond, [a; bModY; cModY], Types.FromPrimitiveDotNetType t) |> k
+                (Expression(Cond, [a; bModY; cModY], Types.FromPrimitiveDotNetType t), state) |> k
         // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
         | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
             let xModB = simplifyConcreteRemainder x b false t in
             let xModC = simplifyConcreteRemainder x c false t in
                 // TODO: merge instead of Cond
-                Expression(Cond, [a; xModB; xModC], Types.FromPrimitiveDotNetType t) |> k
-        | _ -> MakeBinary OperationType.Remainder x y isChecked (Types.FromPrimitiveDotNetType t) |> k)
+                (Expression(Cond, [a; xModB; xModC], Types.FromPrimitiveDotNetType t), state) |> k
+        | _ -> (MakeBinary OperationType.Remainder x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
 
-    and private simplifyRemainderAndUpdateState x y isChecked t state k =
-        simplifyNotEqual y (Concrete(0, TypeOf y)) (fun yIsNotZero ->
-        simplifyRemainder x y isChecked t (fun d ->
+    and private simplifyRemainderAndUpdateState x y state isChecked t k =
+        simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->
+        simplifyRemainder x y state isChecked t (fun (d, state) ->
         k (d, State.addAssertion state yIsNotZero)))
 
 // TODO: IMPLEMENT THE REST!
@@ -361,60 +296,61 @@ module internal Arithmetics =
     and private simplifyConcreteComparison operator x y tx ty =
         MakeConcrete (Calculator.Compare(x, y) |> operator) typedefof<bool>
 
-    and private simplifyComparison op x y concrete sameIsTrue k =
-        simplifyGenericBinary "comparison" x y k concrete (fun x y k ->
+    and private simplifyComparison op x y state concrete sameIsTrue k =
+        simplifyGenericBinary "comparison" x y state k concrete (fun x y state k ->
         match x, y with
-        | x, y when x = y -> MakeConcrete sameIsTrue typedefof<bool> |> k
-        | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) concrete sameIsTrue k
-        | x, Add(Concrete(c, t), y, false, _) when x = y -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) concrete sameIsTrue k
-        | _ -> MakeBinary op x y false Bool |> k)
+        | x, y when x = y -> (MakeConcrete sameIsTrue typedefof<bool>, state) |> k
+        | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) state concrete sameIsTrue k
+        | x, Add(Concrete(c, t), y, false, _) when x = y -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) state concrete sameIsTrue k
+        | _ -> (MakeBinary op x y false Bool, state) |> k)
 
-    and private simplifyEqual x y k =
-        simplifyComparison OperationType.Equal x y (simplifyConcreteComparison ((=) 0)) true k
-    and private simplifyNotEqual x y k =
-        simplifyComparison OperationType.Equal x y (simplifyConcreteComparison ((=) 0)) true ((!!) >> k)
-    and private simplifyLess x y k =
-        simplifyComparison OperationType.Less x y (simplifyConcreteComparison ((<) 0)) false k
-    and private simplifyLessOrEqual x y k =
-        simplifyComparison OperationType.LessOrEqual x y (simplifyConcreteComparison ((<=) 0)) true k
-    and private simplifyGreater x y k =
-        simplifyComparison OperationType.LessOrEqual x y (simplifyConcreteComparison ((<=) 0)) true ((!!) >> k)
-    and private simplifyGreaterOrEqual x y k =
-        simplifyComparison OperationType.Less x y (simplifyConcreteComparison ((<=) 0)) false ((!!) >> k)
+    and private negate k (x, state) = k (!!x, state)
+
+    and private simplifyEqual x y state k =
+        simplifyComparison OperationType.Equal x y state (simplifyConcreteComparison ((=) 0)) true k
+    and private simplifyNotEqual x y state k =
+        simplifyComparison OperationType.Equal x y state (simplifyConcreteComparison ((=) 0)) true (negate k)
+    and private simplifyLess x y state k =
+        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((<) 0)) false k
+    and private simplifyLessOrEqual x y state k =
+        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((<=) 0)) true k
+    and private simplifyGreater x y state k =
+        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((<=) 0)) true (negate k)
+    and private simplifyGreaterOrEqual x y state k =
+        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((<=) 0)) false (negate k)
 
 // ------------------------------- General functions -------------------------------
 
     let private withState state x = (x, state)
 
-    let internal simplifyBinaryOperation op x y isChecked t state k =
-        let kws = withState state >> k in
+    let internal simplifyBinaryOperation op x y state isChecked t k =
         match op with
-        | OperationType.Add -> simplifyAddition x y isChecked t kws
+        | OperationType.Add -> simplifyAddition x y state isChecked t k
         | OperationType.Subtract ->
-            simplifyUnaryMinus y false t (fun minusY ->
-            simplifyAddition x minusY isChecked t kws)
-        | OperationType.Multiply -> simplifyMultiplication x y isChecked t kws
-        | OperationType.Divide -> simplifyDivisionAndUpdateState x y isChecked t state k
-        | OperationType.Remainder -> simplifyRemainderAndUpdateState x y isChecked t state k
+            simplifyUnaryMinus y state false t (fun (minusY, state) ->
+            simplifyAddition x minusY state isChecked t k)
+        | OperationType.Multiply -> simplifyMultiplication x y state isChecked t k
+        | OperationType.Divide -> simplifyDivisionAndUpdateState x y state isChecked t k
+        | OperationType.Remainder -> simplifyRemainderAndUpdateState x y state isChecked t k
         | OperationType.ShiftLeft
         | OperationType.ShiftRight -> raise(new System.NotImplementedException())
-        | OperationType.Equal -> simplifyEqual x y kws
-        | OperationType.NotEqual -> simplifyNotEqual x y kws
-        | OperationType.Greater -> simplifyGreater x y kws
-        | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y kws
-        | OperationType.Less -> simplifyLess x y kws
-        | OperationType.LessOrEqual -> simplifyLessOrEqual x y kws
+        | OperationType.Equal -> simplifyEqual x y state k
+        | OperationType.NotEqual -> simplifyNotEqual x y state k
+        | OperationType.Greater -> simplifyGreater x y state k
+        | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y state k
+        | OperationType.Less -> simplifyLess x y state k
+        | OperationType.LessOrEqual -> simplifyLessOrEqual x y state k
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor
         | OperationType.NullCoalescing -> raise(new System.NotImplementedException())
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not a binary arithmetic operator"))
 
-    let internal simplifyUnaryOperation op x isChecked t k =
+    let internal simplifyUnaryOperation op x state isChecked t k =
         match op with
         | OperationType.LogicalNeg -> raise(new System.NotImplementedException())
-        | OperationType.UnaryMinus -> simplifyUnaryMinus x isChecked t k
-        | OperationType.UnaryPlus -> k x
+        | OperationType.UnaryMinus -> simplifyUnaryMinus x state isChecked t k
+        | OperationType.UnaryPlus -> k (x, state)
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary arithmetic operator"))
 
     let internal isArithmeticalOperation op t1 t2 =

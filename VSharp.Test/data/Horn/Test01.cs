@@ -37,7 +37,7 @@ namespace Test
             //todo failed!
             //VSharp.CSharpUtils.Tests.Arithmetics.SomeShit1(35);
             Math.Max(2, 1);
-            VSharp.CSharpUtils.Tests.Branching.IsMaxOdd(n, 2 * n, 3 * n);
+            VSharp.CSharpUtils.Tests.Branching.IsMaxEven(n, 2 * n, 3 * n);
             //else
             //Console.WriteLine("We do not actually need 3 lines above");
         }

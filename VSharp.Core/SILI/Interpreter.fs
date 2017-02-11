@@ -448,7 +448,7 @@ module Interpreter =
         | op when Propositional.isLogicalOperation op -> 
             Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 -> 
-            Arithmetics.simplifyBinaryOperation op left right isChecked t state2 k
+            Arithmetics.simplifyBinaryOperation op left right state2 isChecked t k
         | op when Strings.isStringOperation op t1 t2 -> 
             Strings.simplifyOperation op left right |> (withSnd state2 >> k)
         | _ -> __notImplemented__()))
@@ -488,7 +488,7 @@ module Interpreter =
             let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in
                 match t with
                 | Bool -> __notImplemented__()
-                | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t (k << withSnd newState)
+                | Numeric t -> Arithmetics.simplifyUnaryOperation op arg newState isChecked t k
                 | String -> __notImplemented__()
                 | _ -> __notImplemented__())
 
