@@ -1,8 +1,6 @@
-﻿namespace VSharp.Core.Symbolic
+﻿namespace VSharp
 
-open VSharp
-open VSharp.Core.Symbolic
-open VSharp.Core.Symbolic.Terms
+open VSharp.Terms
 
 module internal Simplify =
 

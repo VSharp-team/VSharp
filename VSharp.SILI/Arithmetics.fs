@@ -1,10 +1,9 @@
-namespace VSharp.Core.Symbolic
+namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
-open VSharp.Core.Symbolic
-open VSharp.Core.Symbolic.Simplify
-open VSharp.Core.Symbolic.Terms
+open VSharp.Simplify
+open VSharp.Terms
 
 module internal Arithmetics =
 

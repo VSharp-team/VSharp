@@ -1,8 +1,8 @@
-namespace VSharp.Core.Symbolic
+namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
-open VSharp.Core.Symbolic.Terms
+open VSharp.Terms
 
 [<AutoOpen>]
 module internal Propositional =

@@ -65,6 +65,7 @@
     <Compile Include="Strings.fs" />
     <Compile Include="ControlFlow.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="SVM.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">

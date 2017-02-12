@@ -2,7 +2,7 @@
 
 namespace VSharp.CSharpUtils.Tests
 {
-    public class Arithmetics
+    public sealed class Arithmetics
     {
         // 7 + n
         public static int ArithmeticsMethod1(int n, int m)

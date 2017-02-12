@@ -1,11 +1,11 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace VSharp.Test
 {
-    [TestFixture]
+    [TestClass]
     public sealed class UtilsTests
     {
-        [Test]
+        [TestMethod]
         public void IdGeneratorTest1()
         {
             string v1 = IdGenerator.newId();
@@ -23,7 +23,7 @@ namespace VSharp.Test
             Assert.AreEqual(f3, "Foo1!!1");
         }
 
-        [Test]
+        [TestMethod]
         public void IdGeneratorTest2()
         {
             string v4 = IdGenerator.newId();

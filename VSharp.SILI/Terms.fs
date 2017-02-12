@@ -1,8 +1,7 @@
-﻿namespace VSharp.Core.Symbolic
+﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open System
-open VSharp
 
 [<StructuralEquality;NoComparison>]
 type public Operation =

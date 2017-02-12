@@ -1,6 +1,4 @@
-namespace VSharp.Core.Symbolic
-
-open VSharp.Core.Symbolic
+namespace VSharp
 
 module internal Unions =
     let internal make = Union

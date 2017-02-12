@@ -1,8 +1,7 @@
-namespace VSharp.Core.Symbolic
+namespace VSharp
 
 open System
 open System.Collections.Generic
-open VSharp
 
 [<StructuralEquality;NoComparison>]
 type public TermType =

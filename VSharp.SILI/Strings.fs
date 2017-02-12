@@ -1,7 +1,6 @@
-﻿namespace VSharp.Core.Symbolic
+﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
-open VSharp.Core.Symbolic
 
 module internal Strings =
 

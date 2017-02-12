@@ -1,6 +1,4 @@
-﻿namespace VSharp.Core.Symbolic
-
-open VSharp.Core.Symbolic
+﻿namespace VSharp
 
 type StatementResult = NoResult | Break | Continue | Return of Term | Guarded of (Term * StatementResult) list
 

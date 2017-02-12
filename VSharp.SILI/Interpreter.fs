@@ -1,10 +1,9 @@
-﻿namespace VSharp.Core.Symbolic
+﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open System
-open VSharp
 
-module public Interpreter =
+module internal Interpreter =
 
     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private __notImplemented__() = raise (new System.NotImplementedException())
@@ -22,17 +21,17 @@ module public Interpreter =
         let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
         metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> Console.WriteLine("Loaded from " + assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true).Location.ToString()))
         let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
-        System.Console.WriteLine("METADATA ASS: " + metadataAssembly.Location.FullPath + " " + metadataAssembly.IsResolved.ToString())
-        System.Console.WriteLine("TYPE: " + metadataTypeInfo.ToString())
-        let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.pick (fun m -> if m.Name.Equals(methodName) then Some(m) else None)
-
-        let lifetime = JetBrains.DataFlow.Lifetimes.Define()
-        let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
-        let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
-        let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
-        let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
-        System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-        reduceDecompiledMethod state parameters decompiledMethod (fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
+        let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.tryPick (fun m -> if m.Name.Equals(methodName) then Some(m) else None) in
+        match metadataMethod with
+        | None -> k (Nop, State.empty)
+        | Some metadataMethod ->
+            let lifetime = JetBrains.DataFlow.Lifetimes.Define()
+            let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
+            let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
+            let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
+            let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
+            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            reduceDecompiledMethod state parameters decompiledMethod (fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
 
@@ -570,11 +569,3 @@ module public Interpreter =
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         __notImplemented__()
-
-// ------------------------------- Interface part -------------------------------
-
-    let public interpret qualifiedTypeName methodName assemblyPath =
-        decompileAndReduceMethod VSharp.Core.Symbolic.State.empty [] qualifiedTypeName methodName assemblyPath (fun (term, state) ->
-        Console.WriteLine("=========== Results: ===========")
-        Console.WriteLine("SVM term: " + term.ToString())
-        Console.WriteLine("SVM environment: " + state.ToString()))
