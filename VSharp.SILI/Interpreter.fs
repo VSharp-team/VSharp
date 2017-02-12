@@ -19,7 +19,7 @@ module internal Interpreter =
         let metadataAssembly = assemblyLoader.LoadFrom(assemblyPath, fun _ -> true)
 
         let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
-        metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> Console.WriteLine("Loaded from " + assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true).Location.ToString()))
+        metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> (*Console.WriteLine("Loaded from " + *)assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true) |> ignore(*.Location.ToString())*))
         let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
         let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.tryPick (fun m -> if m.Name.Equals(methodName) then Some(m) else None) in
         match metadataMethod with
@@ -30,8 +30,8 @@ module internal Interpreter =
             let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
             let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
             let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
-            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-            reduceDecompiledMethod state parameters decompiledMethod (fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
+//            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            reduceDecompiledMethod state parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
 
@@ -69,9 +69,8 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k =
-        Console.WriteLine("reducing method: " + ast.ToString())
         reduceFunctionSignature state ast.Signature parameters (fun state ->
-        reduceBlockStatement state ast.Body (ControlFlow.resultToTerm >> k))
+        reduceBlockStatement state ast.Body (fun (term, state) -> ControlFlow.resultToTerm (term, State.pop state) |> k))
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -174,7 +173,9 @@ module internal Interpreter =
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose (result, state) statement k =
-            reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
+            if ControlFlow.calculationDone result then k (result, state)
+            else
+                reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
         Cps.Seq.foldlk compose (NoResult, (State.push state [])) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
@@ -212,7 +213,9 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
-        __notImplemented__()
+        reduceExpression state ast.Initializer (fun (initializer, state) ->
+        let name = ast.VariableReference.Variable.Name in
+        k (NoResult, State.introduce state name initializer))
 
     and reduceLockStatement state (ast : ILockStatement) k =
         __notImplemented__()
@@ -562,7 +565,7 @@ module internal Interpreter =
             Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, newState) ->
             let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.OwnerType.AssemblyQualifiedName in
             let methodName = ast.MethodInstantiation.MethodSpecification.Method.Name in
-            let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location
+            let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location in
             decompileAndReduceMethod newState args qualifiedTypeName methodName assemblyPath k)
         | _ -> __notImplemented__()
 

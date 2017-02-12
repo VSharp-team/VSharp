@@ -310,13 +310,13 @@ module internal Arithmetics =
     and private simplifyNotEqual x y state k =
         simplifyComparison OperationType.Equal x y state (simplifyConcreteComparison ((=) 0)) true (negate k)
     and private simplifyLess x y state k =
-        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((<) 0)) false k
+        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((>) 0)) false k
     and private simplifyLessOrEqual x y state k =
-        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((<=) 0)) true k
+        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((>=) 0)) true k
     and private simplifyGreater x y state k =
-        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((<=) 0)) true (negate k)
+        simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((>=) 0)) true (negate k)
     and private simplifyGreaterOrEqual x y state k =
-        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((<=) 0)) false (negate k)
+        simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((>) 0)) false (negate k)
 
 // ------------------------------- General functions -------------------------------
 

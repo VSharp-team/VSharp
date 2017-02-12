@@ -1,6 +1,4 @@
-﻿//using System.Windows.Forms;
-
-namespace VSharp.CSharpUtils.Tests
+﻿namespace VSharp.CSharpUtils.Tests
 {
     public sealed class Arithmetics
     {

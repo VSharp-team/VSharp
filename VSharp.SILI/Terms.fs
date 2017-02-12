@@ -73,7 +73,7 @@ module public Terms =
         | _ -> false
 
     let public IsFalse = function
-        | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
+        | Concrete(b, t) when Types.IsBool t && not (b :?> bool) -> true
         | _ -> false
 
     let public OperationOf = function

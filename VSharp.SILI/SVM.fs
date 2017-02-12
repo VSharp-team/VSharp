@@ -13,7 +13,8 @@ module public SVM =
 
     let private runType assemblyPath (t : System.Type) =
         let qualifiedTypeName = t.FullName in
-        if not(qualifiedTypeName.Contains("Calculator")) then
+        let disabledTests = ["Calculator"(*; "Branching"; "Arithmetics"; "Fibonacci"*)] in
+        if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
             t.GetMethods() |> Array.iter (interpret assemblyPath qualifiedTypeName)
 
     let public Run (assembly : Assembly) =

@@ -24,10 +24,12 @@ module internal ControlFlow =
             | v -> List.singleton (guard(g), v)
         gvs |> List.map mergeOne |> List.concat
 
+    let calculationDone = function
+        | NoResult
+        | Guarded _ -> false
+        | _ -> true
+
     let rec composeSequentially oldRes newRes oldState newState =
-        let conservative = function
-            | NoResult -> false
-            | _ -> true
         let rec composeFlat newRes oldRes =
             match oldRes with
             | NoResult -> newRes
@@ -38,7 +40,7 @@ module internal ControlFlow =
         | Continue, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
-            let conservativeGuard = List.fold (fun acc (g, v) -> if conservative v then acc &&& g else acc) Terms.MakeTrue gvs in
+            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) Terms.MakeTrue gvs in
             let result =
                 match newRes with
                 | Guarded gvs' ->
