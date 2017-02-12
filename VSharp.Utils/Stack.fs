@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core.Utils
+﻿namespace VSharp
 
 module public Stack =
     type 'a stack =

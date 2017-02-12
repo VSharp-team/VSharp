@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core.Utils
+﻿namespace VSharp
 
 open System
 open System.Collections.Generic
@@ -6,7 +6,7 @@ open System.Collections.Generic
 /// <summary>
 /// Generates string identifiers unique per application domain.
 /// </summary>
-module IdGenerator =
+module public IdGenerator =
     let private defaultPrefix = "v#!"
     let private values = new Dictionary<string, uint32>()
     let mutable boundVariableIndex = 0u

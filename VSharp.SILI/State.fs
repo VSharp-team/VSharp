@@ -1,6 +1,6 @@
 ﻿namespace VSharp.Core.Symbolic
 
-open VSharp.Core.Utils
+open VSharp
 
 module internal State =
     type private environment = Map<string, Stack.stack<Term>>

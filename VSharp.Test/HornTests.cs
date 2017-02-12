@@ -14,9 +14,7 @@ namespace VSharp.Test
 
         protected override IEnumerable<string> GetReferencedAssemblies(PlatformID platformId)
         {
-            var result = base.GetReferencedAssemblies(platformId).Concat(System.Reflection.Assembly.Load("VSharp.CSharpUtils").Location).ToList();
-            System.Console.WriteLine("RESULT IS: " + string.Join("\n", result));
-            return result;
+            return base.GetReferencedAssemblies(platformId).Concat(System.Reflection.Assembly.Load("VSharp.CSharpUtils").Location).ToList();
         }
 
         [Test]

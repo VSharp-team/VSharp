@@ -31,11 +31,10 @@ namespace Test
             //int fib2 = Fib2(n);
             ////int fib3 = Fib3(n);
             //if (fib1 <= 0 || fib2 <= 0 /*|| fib3 <= 0*/)
-            VSharp.CSharpUtils.Tests.Arithmetics.Add7(35, 42);
-            //VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1();
-            //VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2();
-            //todo failed!
-            //VSharp.CSharpUtils.Tests.Arithmetics.SomeShit1(35);
+            VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1();
+            VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2();
+            VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod3();
+            VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4();
             Math.Max(2, 1);
             VSharp.CSharpUtils.Tests.Branching.IsMaxEven(n, 2 * n, 3 * n);
             //else

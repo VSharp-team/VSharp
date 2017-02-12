@@ -1,7 +1,6 @@
 namespace VSharp.Core.Symbolic
 
 open VSharp.Core.Symbolic
-open VSharp.Core.Symbolic.Propositional
 
 module internal Unions =
     let internal make = Union

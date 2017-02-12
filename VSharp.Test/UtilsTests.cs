@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using VSharp.Core.Utils;
 
 namespace VSharp.Test
 {

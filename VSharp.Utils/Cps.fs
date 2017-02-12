@@ -1,9 +1,9 @@
-﻿namespace VSharp.Core.Utils
+﻿namespace VSharp
 
-open VSharp.Core.Utils.Wrappers
+open VSharp.Wrappers
 
-module Cps =
-    module List =
+module public Cps =
+    module public List =
         let rec map f xs k =
             match xs with
             | [] -> k []
@@ -48,7 +48,7 @@ module Cps =
                 f a x (fun (x', a') -> 
                     mapFoldk f a' xs' (fun (ys, b) -> k (x' :: ys, b)))
 
-    module Seq =
+    module public Seq =
         let rec map f xs k =
             match xs with
             | SeqEmpty -> k []

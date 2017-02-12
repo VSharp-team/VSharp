@@ -2,9 +2,9 @@
 
 open JetBrains.Decompiler.Ast
 open System
-open VSharp.Core.Utils
+open VSharp
 
-module Interpreter =
+module public Interpreter =
 
     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private __notImplemented__() = raise (new System.NotImplementedException())
@@ -69,7 +69,7 @@ module Interpreter =
         | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k : unit =
+    and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k =
         Console.WriteLine("reducing method: " + ast.ToString())
         reduceFunctionSignature state ast.Signature parameters (fun state ->
         reduceBlockStatement state ast.Body (ControlFlow.resultToTerm >> k))
@@ -570,3 +570,11 @@ module Interpreter =
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         __notImplemented__()
+
+// ------------------------------- Interface part -------------------------------
+
+    let public interpret qualifiedTypeName methodName assemblyPath =
+        decompileAndReduceMethod VSharp.Core.Symbolic.State.empty [] qualifiedTypeName methodName assemblyPath (fun (term, state) ->
+        Console.WriteLine("=========== Results: ===========")
+        Console.WriteLine("SVM term: " + term.ToString())
+        Console.WriteLine("SVM environment: " + state.ToString()))

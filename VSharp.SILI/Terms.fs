@@ -2,7 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 open System
-open VSharp.Core.Utils
+open VSharp
 
 [<StructuralEquality;NoComparison>]
 type public Operation =

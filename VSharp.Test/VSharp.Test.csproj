@@ -174,10 +174,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\VSharp.Core\VSharp.Core.fsproj">
-      <Project>{92626722-6b2f-4917-8af6-acc612490c76}</Project>
-      <Name>VSharp.Core</Name>
-    </ProjectReference>
     <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
       <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
       <Name>VSharp.CSharpUtils</Name>
@@ -185,6 +181,14 @@
     <ProjectReference Include="..\VSharp.Integration\VSharp.Integration.csproj">
       <Project>{00977017-c9b6-44ed-9102-6a37f219a908}</Project>
       <Name>VSharp.Integration</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
+      <Project>{6a6742b3-e86e-4fa5-afe1-361f38dce4c3}</Project>
+      <Name>VSharp.SILI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
+      <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
+      <Name>VSharp.Utils</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

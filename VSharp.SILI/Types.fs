@@ -2,7 +2,7 @@ namespace VSharp.Core.Symbolic
 
 open System
 open System.Collections.Generic
-open VSharp.Core.Utils
+open VSharp
 
 [<StructuralEquality;NoComparison>]
 type public TermType =
@@ -19,7 +19,7 @@ type public TermType =
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
-        | Product ts -> ts |> List.map Wrappers.toString |> Wrappers.join ", " |> box |> Wrappers.format1 "({0})"
+        | Product ts -> ts |> List.map toString |> join ", " |> box |> format1 "({0})"
         | Func(domain, range) -> String.Format("{0} -> {1}", domain, range)
 
 module public Types =
