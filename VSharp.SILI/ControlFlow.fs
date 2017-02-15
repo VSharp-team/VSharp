@@ -7,7 +7,7 @@ module internal ControlFlow =
     let rec internal mergeResults condition thenRes elseRes =
         match thenRes, elseRes with
         | _, _ when thenRes = elseRes -> thenRes
-        | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition thenVal elseVal)
+        | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition !!condition thenVal elseVal)
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
@@ -50,7 +50,7 @@ module internal ControlFlow =
                     let gs, vs = List.unzip gvs in
                     List.zip gs (List.map (composeFlat newRes) vs)
             in
-            Guarded result, Merging.mergeStates conservativeGuard oldState newState
+            Guarded result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
     let resultToTerm (result, state) =
         let isReturn = function

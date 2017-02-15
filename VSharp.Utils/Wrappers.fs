@@ -2,6 +2,7 @@
 
 [<AutoOpen>]
 module public Wrappers =
+    let public __notImplemented__() = raise (new System.NotImplementedException())
     let public toString x = x.ToString()
     let public format f objs = System.String.Format(f, objs)
     let public format1 f (obj : obj) = System.String.Format(f, obj)

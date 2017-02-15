@@ -6,20 +6,28 @@ open System.Collections.Generic
 [<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
+    | Object
     | Bool
     | Numeric of System.Type
     | String
     | Product of TermType list
-    | Func of TermType * TermType
+    | Resolved of System.Type
+    | Unresolved of JetBrains.Metadata.Reader.API.IMetadataType
+    | Func of TermType list * TermType
+    | Unknown
 
     override this.ToString() =
         match this with
         | Void -> "void"
+        | Object -> "object"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
         | Product ts -> ts |> List.map toString |> join ", " |> box |> format1 "({0})"
-        | Func(domain, range) -> String.Format("{0} -> {1}", domain, range)
+        | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
+        | Resolved t -> t.ToString()
+        | Unresolved t -> t.AssemblyQualifiedName
+        | Unknown -> "<unknown or dynamic type>"
 
 module public Types =
     let private integerTypes =
@@ -40,20 +48,42 @@ module public Types =
 
     let public ToDotNetType t =
         match t with
+        | Object -> typedefof<obj>
         | Bool -> typedefof<bool>
         | Numeric res -> res
         | String -> typedefof<string>
+        | Resolved t -> t
         | _ -> typedefof<obj>
 
-    let public FromPrimitiveDotNetType t =
+    let rec public FromDotNetType t =
         match t with
+        | o when o.Equals(typedefof<obj>) -> Object
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
-        | b when b.Equals(typedefof<string>) -> String
-        | _ -> Void
+        | s when s.Equals(typedefof<string>) -> String
+        | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
+            let methodInfo = f.GetMethod("Invoke") in
+            let returnType = methodInfo.ReturnType |> FromDotNetType in
+            let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
+            Func(List.ofArray parameters, returnType)
+        | _ -> Resolved t
 
     let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
-        Type.GetType(t.AssemblyQualifiedName)
+        if t = null then Unknown
+        else
+            match t.AssemblyQualifiedName with
+            | "__Null" -> Object
+            | _ as qtn ->
+                let dotNetType = Type.GetType(qtn) in
+                if dotNetType = null then Unresolved t
+                else FromDotNetType dotNetType
+
+    let public FromFunctionSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : JetBrains.Metadata.Reader.API.IMetadataType) =
+        let returnType = FromMetadataType returnMetadataType in
+        let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
+            param.Type |> FromMetadataType
+        let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
+        Func(args, returnType)
 
     let public IsBool (t : TermType) =
         match t with
@@ -64,44 +94,49 @@ module public Types =
 
     let public IsReal = ToDotNetType >> realTypes.Contains
 
-    let public IsNumeric t =
-        match t with
+    let public IsNumeric = function
         | Numeric _ -> true
         | _ -> false
 
-    let public IsString t =
-        match t with
+    let public IsString = function
         | String -> true
+        | _ -> false
+
+    let public IsFunction = function
+        | Func _ -> true
+        | _ -> false
+
+    let public IsObject = function
+        | Object _ -> true
         | _ -> false
 
     let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
     let public IsPrimitiveSolvable = ToDotNetType >> primitiveSolvableTypes.Contains
 
-    let rec public IsSolvable t =
-        match t with
+    let rec public IsSolvable = function
         | Product ts -> ts |> Seq.forall IsSolvable
-        | Func(domain, range) -> IsSolvable domain && IsSolvable range
-        | _ -> IsPrimitiveSolvable t
+        | Func(domain, range) -> List.forall IsSolvable domain && IsSolvable range
+        | t -> IsPrimitiveSolvable t
 
-    let public (-->) domain range = Func(domain, range)
-
-    let public DomainOf t =
-        match t with
+    let public DomainOf = function
         | Func(domain, _) -> domain
-        | _ -> Void
+        | _ -> []
 
-    let public RangeOf t =
-        match t with
+    let public RangeOf = function
         | Func(_, range) -> range
-        | _ -> t
+        | t -> t
 
     let public IsRelation = RangeOf >> IsBool
 
-    let public GetTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
+    let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         // node.Data.TryGetValue is poorly implemented (it checks reference equality of keys), so searching manually...
-        let typeKey = "Type"
-        let typeOption = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = typeKey) then Some(keyValue.Value) else None)
-
+        let typeKey = "Type" in
+        let typeOption = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = typeKey) then Some(keyValue.Value) else None) in
         match typeOption with
-        | Some t -> FromMetadataType(t :?> JetBrains.Metadata.Reader.API.IMetadataType)
-        | None -> typedefof<obj>
+        | Some t -> t :?> JetBrains.Metadata.Reader.API.IMetadataType
+        | None -> null
+
+    let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
+        let mt = GetMetadataTypeOfNode node in
+        if mt = null then typedefof<obj>
+        else ToDotNetType (FromMetadataType mt)

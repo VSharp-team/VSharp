@@ -6,12 +6,12 @@ open System
 module internal Interpreter =
 
     let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
-    let private __notImplemented__() = raise (new System.NotImplementedException())
 
     let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
         System.Console.Write(new System.String('\t', indent))
         System.Console.WriteLine(ast.GetType().ToString())
         ast.Children |> Seq.iter (dbg (indent + 1))
+
 
 // ------------------------------- Decompilation -------------------------------
 
@@ -30,7 +30,7 @@ module internal Interpreter =
             let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
             let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
             let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
-//            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
@@ -50,8 +50,8 @@ module internal Interpreter =
             | None, _ -> failwith "Internal error: parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
-                then (param.Name, Terms.MakeConcrete (param.MetadataParameter.GetDefaultValue()) (Types.FromMetadataType param.Type))
-                else (param.Name, Terms.FreshConstant param.Name (Types.FromMetadataType param.Type))
+                then (param.Name, Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
+                else (param.Name, Term.Constant(param.Name, (Types.FromMetadataType param.Type)))
             | Some param, Some value -> (param.Name, value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
         State.push state parameters |> k
@@ -68,9 +68,12 @@ module internal Interpreter =
         | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | _ -> __notImplemented__()
 
+    and reduceFunction state parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
+        reduceFunctionSignature state signature parameters (fun state ->
+        reduceBlockStatement state body (fun (term, state) -> ControlFlow.resultToTerm (term, State.pop state) |> k))
+
     and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k =
-        reduceFunctionSignature state ast.Signature parameters (fun state ->
-        reduceBlockStatement state ast.Body (fun (term, state) -> ControlFlow.resultToTerm (term, State.pop state) |> k))
+        reduceFunction state parameters ast.Signature ast.Body k
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -164,7 +167,18 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceForStatement state (ast : IForStatement) k =
+        Transformations.forStatementToRecursion ast
         __notImplemented__()
+//        let rec iterate result state k =
+//            reduceExpression state ast.Condition (fun (condition, state) ->
+//            match condition with
+//            | True ->
+//                
+//            | False -> k (NoResult, state)
+//            | _ ->
+//                printfn "WARNING: preventing infinite symbolic loop...")
+//        reduceStatement (State.push state []) ast.Initializer (fun (_, state) ->
+//        iterate NoResult state (fun (result, state) -> k (result, State.pop state)))
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
         __notImplemented__()
@@ -203,7 +217,7 @@ module internal Interpreter =
             reduceStatement conditionState ast.Then (fun (thenResult, thenState) ->
             reduceStatement conditionState ast.Else (fun (elseResult, elseState) ->
             let result = ControlFlow.mergeResults condition thenResult elseResult in
-            let state = Merging.mergeStates condition thenState elseState in
+            let state = Merging.merge2States condition !!condition thenState elseState in
             k (result, state))))
 
     and reduceJumpStatement state (ast : IJumpStatement) k =
@@ -335,13 +349,36 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceConditionalExpression state (ast : IConditionalExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Condition (fun (condition, conditionState) ->
+        match condition with
+        | Terms.True ->  reduceExpression conditionState ast.Then k
+        | Terms.False -> reduceExpression conditionState ast.Else k
+        | _ ->
+            reduceExpression conditionState ast.Then (fun (thenResult, thenState) ->
+            reduceExpression conditionState ast.Else (fun (elseResult, elseState) ->
+            let result = Merging.merge2Terms condition !!condition thenResult elseResult in
+            let state = Merging.merge2States condition !!condition thenState elseState in
+            k (result, state))))
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
         __notImplemented__()
 
     and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
-        __notImplemented__()
+        Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
+        reduceExpression state ast.Delegate (fun (deleg, state) ->
+        let invoke deleg k =
+            match deleg with
+                | Terms.Lambda(signature, body) -> reduceFunction state args signature body k
+                | Concrete(obj, _) -> (Error(new InvalidCastException("Cannot apply non-function type")), state) |> k
+                | _ -> __notImplemented__()
+        in
+        match deleg with
+        | Union(gvs) ->
+            let gs, vs = List.unzip gvs in
+            Cps.List.mapk invoke vs (fun results ->
+            let terms, states = List.unzip results in
+            Merging.merge (List.zip gs terms) (Merging.mergeStates gs states) |> k)
+        | _ -> invoke deleg k))
 
     and reduceDerefExpression state (ast : IDerefExpression) k =
         __notImplemented__()
@@ -357,11 +394,11 @@ module internal Interpreter =
 
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
         let mType = Types.FromMetadataType ast.Value.Type in
-        k (Terms.MakeConcrete ast.Value.Value mType, state)
+        k (Concrete(ast.Value.Value, mType), state)
 
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
-        __notImplemented__()
+        let term = State.eval state ast.Variable.Name in k (term, state)
 
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
@@ -440,24 +477,43 @@ module internal Interpreter =
 
     and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) k =
         let op = ast.OperationType in
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
-        reduceExpression state ast.LeftArgument (fun (left, state1) -> 
-        reduceExpression state1 ast.RightArgument (fun (right, state2) ->
-        let t = Types.GetTypeOfNode ast in
-        let t1 = Terms.TypeOf left in
-        let t2 = Terms.TypeOf right in
         match op with
-        | op when Propositional.isLogicalOperation op -> 
-            Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
-        | op when Arithmetics.isArithmeticalOperation op t1 t2 -> 
-            Arithmetics.simplifyBinaryOperation op left right state2 isChecked t k
-        | op when Strings.isStringOperation op t1 t2 -> 
-            Strings.simplifyOperation op left right |> (withSnd state2 >> k)
-        | _ -> __notImplemented__()))
-
+        | OperationType.Assignment -> reduceAssignment state ast.LeftArgument ast.RightArgument k
+        | _ when Operations.isOperationAssignment op ->
+            Transformations.transformOperationAssignment ast
+            assert(ast.OperationType = OperationType.Assignment)
+            reduceAssignment state ast.LeftArgument ast.RightArgument k
+        | _ ->
+            let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
+            reduceBinaryOperation state ast.OperationType ast.LeftArgument ast.RightArgument isChecked (Types.GetSystemTypeOfNode ast) k
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         __notImplemented__()
+
+    and reduceAssignment state (left : IExpression) (right : IExpression) k =
+        reduceExpression state right (fun (right, state) -> reduceAssignmentReduced state left right k)
+
+    and reduceAssignmentReduced state (left : IExpression) right k =
+        match left with
+        | :? IParameterReferenceExpression as paramRef -> (right, State.update state paramRef.Parameter.Name right) |> k
+        | :? ILocalVariableReferenceExpression as varRef -> (right, State.update state varRef.Variable.Name right) |> k
+        | :? IPropertyAccessExpression
+        | :? IIndexerCallExpression
+        | _ -> __notImplemented__()
+
+    and reduceBinaryOperation state op leftArgument rightArgument isChecked t k =
+        reduceExpression state leftArgument (fun (left, state1) -> 
+        reduceExpression state1 rightArgument (fun (right, state2) ->
+        let t1 = Terms.TypeOf left in
+        let t2 = Terms.TypeOf right in
+        match op with
+        | op when Propositional.isLogicalOperation op ->
+            Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
+        | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
+            Arithmetics.simplifyBinaryOperation op left right state2 isChecked t k
+        | op when Strings.isStringOperation op t1 t2 ->
+            Strings.simplifyOperation op left right |> (withSnd state2 >> k)
+        | _ -> __notImplemented__()))
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
 
@@ -468,9 +524,34 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        let targetType = Types.FromPrimitiveDotNetType (Types.FromMetadataType ast.TargetType) in
+        let targetType = Types.FromMetadataType ast.TargetType in
         reduceExpression state ast.Argument (fun (argument, newState) ->
-        Terms.TypeCast targetType argument |> (withSnd newState >> k))
+        typeCast newState argument targetType |> k)
+
+    and typeCast state term targetType =
+        if Types.IsObject targetType then (term, state)
+        else
+            let cast src dst expr =
+                if src = dst then expr
+                else Expression(Cast(src, dst), [expr], dst)
+            in
+            let rec castSimple = function
+                | Error _ -> term
+                | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" targetType))
+                | Concrete(value, _) ->
+                    if Terms.IsFunction term && Types.IsFunction targetType
+                    then Concrete(value, targetType)
+                    else Terms.MakeConcrete value (Types.ToDotNetType targetType)
+                | Constant(name, t) -> cast t targetType term
+                | Expression(operation, operands, t) -> cast t targetType term
+                | _ -> __notImplemented__()
+            in
+            match term with
+            | Union(gvs) ->
+                let gs, vs = List.unzip gvs in
+                let vs' = List.map castSimple vs in
+                Merging.merge (List.zip gs vs') state
+            | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
         __notImplemented__()
@@ -485,17 +566,35 @@ module internal Interpreter =
 
     and reduceUnaryOperationExpression state (ast : IUnaryOperationExpression) k =
         let op = ast.OperationType in
-        let isChecked = (ast.OverflowCheck = OverflowCheckType.Enabled) in
+        match op with
+        | OperationType.PrefixIncrement
+        | OperationType.PrefixDecrement -> reducePrefixIncrement state ast k
+        | _ ->
+            let isChecked = (ast.OverflowCheck = OverflowCheckType.Enabled) in
             reduceExpression state ast.Argument (fun (arg, newState) ->
-            let t = Types.GetTypeOfNode ast |> Types.FromPrimitiveDotNetType in
-                match t with
-                | Bool -> __notImplemented__()
-                | Numeric t -> Arithmetics.simplifyUnaryOperation op arg newState isChecked t k
-                | String -> __notImplemented__()
-                | _ -> __notImplemented__())
+            let dotNetType = Types.GetSystemTypeOfNode ast in
+            match op with
+            | OperationType.PostfixDecrement -> reducePostfixIncrement state ast.Argument arg (Terms.MakeConcrete -1 dotNetType) isChecked dotNetType k
+            | OperationType.PostfixIncrement -> reducePostfixIncrement state ast.Argument arg (Terms.MakeConcrete 1 dotNetType) isChecked dotNetType k
+            | _ ->
+                let t = dotNetType |> Types.FromDotNetType in
+                    match t with
+                    | Bool -> Propositional.simplifyUnaryConnective op arg (withSnd newState >> k)
+                    | Numeric t -> Arithmetics.simplifyUnaryOperation op arg newState isChecked t k
+                    | String -> __notImplemented__()
+                    | _ -> __notImplemented__())
 
     and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) k =
         __notImplemented__()
+
+    and reducePrefixIncrement state ast k =
+        let assignment = Transformations.transformPrefixCrement ast in
+        reduceAssignment state assignment.LeftArgument assignment.RightArgument k
+
+    and reducePostfixIncrement state leftAst left right isChecked t k =
+        Arithmetics.simplifyBinaryOperation OperationType.Add left right state isChecked t (fun (sum, state) ->
+        reduceAssignmentReduced state leftAst sum (fun (_, state) ->
+        (left, state) |> k))
 
 // ------------------------------- ICreationExpression and inheritors -------------------------------
 
@@ -523,7 +622,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
-        __notImplemented__()
+        let typ = Types.FromFunctionSignature ast.Signature null in
+        k (Concrete ((ast.Signature, ast.Body), typ), state)
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         __notImplemented__()

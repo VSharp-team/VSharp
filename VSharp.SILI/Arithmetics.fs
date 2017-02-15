@@ -8,10 +8,10 @@ open VSharp.Terms
 module internal Arithmetics =
 
     let private makeAddition isChecked t x y =
-        MakeBinary OperationType.Add x y false (Types.FromPrimitiveDotNetType t)
+        MakeBinary OperationType.Add x y false (Types.FromDotNetType t)
 
     let private makeProduct isChecked t x y =
-        MakeBinary OperationType.Multiply x y false (Types.FromPrimitiveDotNetType t)
+        MakeBinary OperationType.Multiply x y false (Types.FromDotNetType t)
 
 // ------------------------------- Simplification of "+" -------------------------------
 
@@ -121,7 +121,7 @@ module internal Arithmetics =
         | Mul(Concrete(a, at), y, false, _) when not isChecked ->
             simplifyUnaryMinus (Concrete(a, at)) state isChecked (Types.ToDotNetType at) (fun (minusA, state) ->
             simplifyMultiplication minusA y state false t k)
-        | _ -> (MakeUnary OperationType.UnaryMinus x isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+        | _ -> (MakeUnary OperationType.UnaryMinus x isChecked (Types.FromDotNetType t), state) |> k)
 
 // ------------------------------- Simplification of "*" -------------------------------
 
@@ -229,7 +229,7 @@ module internal Arithmetics =
         | Div(a, Concrete(b, _), false, _), Concrete(y, _) when not isChecked ->
             let bMulY = simplifyConcreteMultiplication b y false t in
             simplifyDivision a bMulY state false t k
-        | _ -> (MakeBinary OperationType.Divide x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+        | _ -> (MakeBinary OperationType.Divide x y isChecked (Types.FromDotNetType t), state) |> k)
 
     and private simplifyDivisionAndUpdateState x y state isChecked t k =
         simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->
@@ -274,14 +274,14 @@ module internal Arithmetics =
             let bModY = simplifyConcreteRemainder b y false t in
             let cModY = simplifyConcreteRemainder c y false t in
                 // TODO: merge instead of Cond
-                (Expression(Cond, [a; bModY; cModY], Types.FromPrimitiveDotNetType t), state) |> k
+                (Expression(Cond, [a; bModY; cModY], Types.FromDotNetType t), state) |> k
         // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
         | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
             let xModB = simplifyConcreteRemainder x b false t in
             let xModC = simplifyConcreteRemainder x c false t in
                 // TODO: merge instead of Cond
-                (Expression(Cond, [a; xModB; xModC], Types.FromPrimitiveDotNetType t), state) |> k
-        | _ -> (MakeBinary OperationType.Remainder x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+                (Expression(Cond, [a; xModB; xModC], Types.FromDotNetType t), state) |> k
+        | _ -> (MakeBinary OperationType.Remainder x y isChecked (Types.FromDotNetType t), state) |> k)
 
     and private simplifyRemainderAndUpdateState x y state isChecked t k =
         simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->

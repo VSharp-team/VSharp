@@ -39,9 +39,10 @@
     <Compile Include="Calculator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\Arithmetics.cs" />
-    <Compile Include="Tests\Branching.cs" />
+    <Compile Include="Tests\Conditional.cs" />
     <Compile Include="Tests\Fibonacci.cs" />
     <Compile Include="Tests\GCD.cs" />
+    <Compile Include="Tests\Lambdas.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
