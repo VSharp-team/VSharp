@@ -38,5 +38,21 @@ namespace VSharp.CSharpUtils.Tests
         {
             return !b;
         }
+
+        public static bool Negation3(bool b)
+        {
+            b = !b;
+            return !b;
+        }
+
+        public static bool Negation4(bool b)
+        {
+            return Negation2(!b);
+        }
+
+        public static bool Negation5(bool b)
+        {
+            return Negation2(Negation2(b));
+        }
     }
 }

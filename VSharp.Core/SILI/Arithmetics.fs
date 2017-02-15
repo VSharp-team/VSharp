@@ -438,7 +438,7 @@ module internal Arithmetics =
         | OperationType.LogicalOr
         | OperationType.LogicalXor
         | OperationType.NullCoalescing
-        | OperationType.LogicalNeg
+        | OperationType.Not
         | OperationType.UnaryMinus
         | OperationType.UnaryPlus -> true
         | _ -> false

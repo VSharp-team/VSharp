@@ -41,7 +41,9 @@ namespace Test
             //else
             //Console.WriteLine("We do not actually need 3 lines above");
             //VSharp.CSharpUtils.Tests.Arithmetics.Negation1();
-            VSharp.CSharpUtils.Tests.Arithmetics.Negation2();
+            //VSharp.CSharpUtils.Tests.Arithmetics.Negation2();
+            //VSharp.CSharpUtils.Tests.Arithmetics.Negation3();
+            //VSharp.CSharpUtils.Tests.Arithmetics.Negation4();
         }
     }
 }
