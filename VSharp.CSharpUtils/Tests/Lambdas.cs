@@ -24,11 +24,13 @@ namespace VSharp.CSharpUtils.Tests
             return result;
         }
 
-        //public static int Always18()
-        //{
-        //    return Mult2(9);
-        //}
+        // Expecting 18
+        public static int Always18()
+        {
+            return Mult2(9);
+        }
 
+        // Expecting always true
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;
