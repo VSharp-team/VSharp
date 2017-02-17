@@ -5,8 +5,6 @@ open System
 
 module internal Interpreter =
 
-    let assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
-
     let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
         System.Console.Write(new System.String('\t', indent))
         System.Console.WriteLine(ast.GetType().ToString())
@@ -16,21 +14,13 @@ module internal Interpreter =
 // ------------------------------- Decompilation -------------------------------
 
     let rec decompileAndReduceMethod state parameters qualifiedTypeName methodName assemblyPath k =
-        let metadataAssembly = assemblyLoader.LoadFrom(assemblyPath, fun _ -> true)
-
-        let rp = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent
-        metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun ass -> (*Console.WriteLine("Loaded from " + *)assemblyLoader.LoadFrom(JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(rp, ass), fun x -> true) |> ignore(*.Location.ToString())*))
-        let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
-        let metadataMethod = metadataTypeInfo.GetMethods() |> Seq.tryPick (fun m -> if m.Name.Equals(methodName) then Some(m) else None) in
-        match metadataMethod with
-        | None -> k (Nop, State.empty)
-        | Some metadataMethod ->
-            let lifetime = JetBrains.DataFlow.Lifetimes.Define()
-            let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
-            let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)
-            let decompiler = new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector)
-            let decompiledMethod = decompiler.Decompile(metadataTypeInfo, metadataMethod)
-            System.Console.WriteLine("DECOMPILED: " + JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+        let decompiledMethod = DecompilerServices.decompile qualifiedTypeName methodName assemblyPath
+        match decompiledMethod with
+        | None ->
+            printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName methodName
+            k (Nop, State.empty)
+        | Some decompiledMethod ->
+            printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
@@ -167,18 +157,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceForStatement state (ast : IForStatement) k =
-        Transformations.forStatementToRecursion ast
-        __notImplemented__()
-//        let rec iterate result state k =
-//            reduceExpression state ast.Condition (fun (condition, state) ->
-//            match condition with
-//            | True ->
-//                
-//            | False -> k (NoResult, state)
-//            | _ ->
-//                printfn "WARNING: preventing infinite symbolic loop...")
-//        reduceStatement (State.push state []) ast.Initializer (fun (_, state) ->
-//        iterate NoResult state (fun (result, state) -> k (result, State.pop state)))
+        let lambdaBlock = Transformations.forStatementToRecursion ast in
+        reduceBlockStatement state lambdaBlock k
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
         __notImplemented__()

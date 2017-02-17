@@ -78,6 +78,8 @@ module public Types =
                 if dotNetType = null then Unresolved t
                 else FromDotNetType dotNetType
 
+    let public MetadataToDotNetType (t : JetBrains.Metadata.Reader.API.IMetadataType) = t |> FromMetadataType |> ToDotNetType
+
     let public FromFunctionSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : JetBrains.Metadata.Reader.API.IMetadataType) =
         let returnType = FromMetadataType returnMetadataType in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =

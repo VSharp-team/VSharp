@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="DecompilerServices.fs" />
     <Compile Include="Operations.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Terms.fs" />
