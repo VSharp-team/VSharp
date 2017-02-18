@@ -131,12 +131,7 @@ module public Types =
     let public IsRelation = RangeOf >> IsBool
 
     let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        // node.Data.TryGetValue is poorly implemented (it checks reference equality of keys), so searching manually...
-        let typeKey = "Type" in
-        let typeOption = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = typeKey) then Some(keyValue.Value) else None) in
-        match typeOption with
-        | Some t -> t :?> JetBrains.Metadata.Reader.API.IMetadataType
-        | None -> null
+        DecompilerServices.getPropertyOfNode node "Type" null :?> JetBrains.Metadata.Reader.API.IMetadataType
 
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in

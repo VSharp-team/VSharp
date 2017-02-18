@@ -60,10 +60,10 @@ module internal Interpreter =
 
     and reduceFunction state parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
         reduceFunctionSignature state signature parameters (fun state ->
-        reduceBlockStatement state body (fun (term, state) -> ControlFlow.resultToTerm (term, State.pop state) |> k))
+        reduceBlockStatement state body (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
 
     and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k =
-        reduceFunction state parameters ast.Signature ast.Body k
+        reduceFunction state parameters ast.Signature ast.Body (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -73,10 +73,10 @@ module internal Interpreter =
         | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer k
         | _ -> __notImplemented__()
 
-    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) k=
+    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) k =
         __notImplemented__()
 
-    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) k=
+    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) k =
         __notImplemented__()
 
 
@@ -127,10 +127,10 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceBreakStatement state (ast : IBreakStatement) k =
-        __notImplemented__()
+        k (Break, state)
 
     and reduceContinueStatement state (ast : IContinueStatement) k =
-        __notImplemented__()
+        k (Continue, state)
 
     and reduceGotoCaseStatement state (ast : IGotoCaseStatement) k =
         __notImplemented__()
@@ -167,8 +167,13 @@ module internal Interpreter =
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose (result, state) statement k =
-            if ControlFlow.calculationDone result then k (result, state)
+            if ControlFlow.calculationDone statement result then k (result, state)
             else
+                let result =
+                    if Transformations.isContinueConsumer statement
+                    then ControlFlow.consumeContinue result
+                    else result
+                in
                 reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
         Cps.Seq.foldlk compose (NoResult, (State.push state [])) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
@@ -182,8 +187,12 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceExpressionStatement state (ast : IExpressionStatement) k =
-        reduceExpression state ast.Expression (fun (term, newState) ->
-            k ((if Terms.IsError term then Return term else NoResult), newState))
+        if Transformations.isInlinedCall ast
+        then
+            reduceInlinedDelegateCallStatement state (ast.Expression :?> IDelegateCallExpression) k
+        else
+            reduceExpression state ast.Expression (fun (term, newState) ->
+                k ((if Terms.IsError term then Return term else NoResult), newState))
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -344,20 +353,27 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
+        reduceDelegateCall state ast (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
+
+    and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
+        reduceDelegateCall state ast k
+
+    and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         reduceExpression state ast.Delegate (fun (deleg, state) ->
         let invoke deleg k =
             match deleg with
                 | Terms.Lambda(signature, body) -> reduceFunction state args signature body k
-                | Concrete(obj, _) -> (Error(new InvalidCastException("Cannot apply non-function type")), state) |> k
+                | Concrete(obj, _) -> (Return(Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
                 | _ -> __notImplemented__()
         in
         match deleg with
         | Union(gvs) ->
             let gs, vs = List.unzip gvs in
             Cps.List.mapk invoke vs (fun results ->
-            let terms, states = List.unzip results in
-            Merging.merge (List.zip gs terms) (Merging.mergeStates gs states) |> k)
+            let terms, states = results |> List.map ControlFlow.resultToTerm |> List.unzip in
+            let term, state = Merging.merge (List.zip gs terms) (Merging.mergeStates gs states) in
+            (Return term, state) |> k)
         | _ -> invoke deleg k))
 
     and reduceDerefExpression state (ast : IDerefExpression) k =

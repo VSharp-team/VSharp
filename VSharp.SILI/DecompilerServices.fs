@@ -30,3 +30,10 @@ module internal DecompilerServices =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)) in
         if assembly = null then null
         else assembly.GetTypeFromQualifiedName(typ.AssemblyQualifiedName, false)
+
+    let getPropertyOfNode (node : JetBrains.Decompiler.Ast.INode) key defaultValue =
+        // node.Data.TryGetValue is poorly implemented (it checks reference equality of keys), so searching manually...
+        let option = node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = key) then Some(keyValue.Value) else None) in
+        match option with
+        | Some t -> t
+        | None -> defaultValue

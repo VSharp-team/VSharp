@@ -26,5 +26,46 @@ namespace VSharp.CSharpUtils.Tests
         {
             return Mult2(9);
         }
+
+        private static int AlwaysN(int n)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                if (i > 6)
+                {
+                    return n + 1;
+                }
+                if (i > 5)
+                {
+                    break;
+                }
+                if (i <= 5)
+                {
+                    continue;
+                }
+                n = 100;
+            }
+            return n;
+        }
+
+        public static int EnsureAlwaysN(int n)
+        {
+            return AlwaysN(n);
+        }
+
+        private static int FirstEvenGreaterThen(int n)
+        {
+            for (int i = 0; i >= 0; i+=1)
+            {
+                if (i > n && i%2 == 0)
+                    return i;
+            }
+            return 100500;
+        }
+
+        public static int FirstEvenGreaterThen15()
+        {
+            return FirstEvenGreaterThen(15);
+        }
     }
 }

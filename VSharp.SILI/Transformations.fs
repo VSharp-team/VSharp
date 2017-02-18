@@ -118,9 +118,15 @@ module Transformations =
 
         let recursiveCall = AstFactory.CreateDelegateCall(lambdaReference, null, Array.ofList indexerVariables, null) in
         let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, null) in
-        let externalBody = AstFactory.CreateBlockStatement([internalBody; iterator; recursiveCallStatement]) in
+        let internalBodyContent =
+            if internalBody :? IBlockStatement
+            then (internalBody :?> IBlockStatement).Statements :> seq<_>
+            else [internalBody] :> seq<_>
+        let externalBody = AstFactory.CreateBlockStatement(Seq.append internalBodyContent [iterator; recursiveCallStatement]) in
         let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null) in
         let body = AstFactory.CreateBlockStatement([ifStatement]) in
+        // Continue consumers should only belong to block statements
+        iterator.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("ContinueConsumer"), true)
 
         let signature = AstFactory.CreateFunctionSignature() in
         let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null) in
@@ -136,7 +142,8 @@ module Transformations =
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in
         let block = AstFactory.CreateBlockStatement([declaration; lambdaBlockAssignmentStatement; callStatement]) in
 
-        let parentDbg = forStatement.Parent
+        recursiveCallStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
+        callStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
         match forStatement.Parent with
         | null -> ()
         | :? IBlockStatement as parentBlock ->
@@ -149,3 +156,9 @@ module Transformations =
             parentBlock.ReplaceWith(newParent)
         | parent -> parent.ReplaceChild(forStatement, block)
         block
+
+    let isInlinedCall (statement : IExpressionStatement) =
+        statement.Expression :? IDelegateCallExpression && DecompilerServices.getPropertyOfNode statement "InlinedCall" false :?> bool
+
+    let isContinueConsumer (node : INode) =
+        DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool

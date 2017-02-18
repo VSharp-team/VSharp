@@ -24,12 +24,27 @@ module internal ControlFlow =
             | v -> List.singleton (guard(g), v)
         gvs |> List.map mergeOne |> List.concat
 
-    let calculationDone = function
-        | NoResult
-        | Guarded _ -> false
+    let rec calculationDone (statement : JetBrains.Decompiler.Ast.IStatement) = function
+        | NoResult -> false
+        | Continue -> Transformations.isContinueConsumer statement
+        | Guarded gvs ->
+            List.forall (snd >> (calculationDone statement)) gvs
         | _ -> true
 
+    let rec consumeContinue = function
+        | Continue -> NoResult
+        | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeContinue v)) |> Guarded
+        | r -> r
+
+    let rec consumeBreak = function
+        | Break -> NoResult
+        | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeBreak v)) |> Guarded
+        | r -> r
+
     let rec composeSequentially oldRes newRes oldState newState =
+        let calculationDone = function
+            | NoResult -> true
+            | _ -> false
         let rec composeFlat newRes oldRes =
             match oldRes with
             | NoResult -> newRes
