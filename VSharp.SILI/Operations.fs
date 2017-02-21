@@ -59,8 +59,7 @@ module internal Operations =
 
     let internal isAssignment = (=) OperationType.Assignment
 
-    let internal isOperationAssignment op =
-        match op with
+    let internal isOperationAssignment = function
         | OperationType.AssignmentAdd
         | OperationType.AssignmentDivide
         | OperationType.AssignmentLogicalAnd
@@ -77,8 +76,7 @@ module internal Operations =
         | OperationType.PrefixDecrement -> true
         | _ -> false
 
-    let internal getAssignmentOperation op =
-        match op with
+    let internal getAssignmentOperation = function
         | OperationType.AssignmentAdd -> OperationType.Add
         | OperationType.AssignmentDivide -> OperationType.Divide
         | OperationType.AssignmentLogicalAnd -> OperationType.LogicalAnd
@@ -89,4 +87,4 @@ module internal Operations =
         | OperationType.AssignmentShiftLeft -> OperationType.ShiftLeft
         | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
         | OperationType.AssignmentSubtract -> OperationType.Subtract
-        | _ -> raise(new System.ArgumentException(op.ToString() + " is not an assignment operation"))
+        | op -> raise(new System.ArgumentException("Internal error: " + op.ToString() + " is not an assignment operation"))

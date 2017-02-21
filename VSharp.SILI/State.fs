@@ -26,7 +26,7 @@ module internal State =
         (e.Add(name, Stack.push (Stack.pop e.[name]) term), f, p, a)
     let internal introduce ((e, f, p, a) : state) name term : state =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
-        (e.Add(name, Stack.push existing term), Stack.push (Stack.pop f) (name::(Stack.peak f)), p, a)
+        (e.Add(name, Stack.push existing term), Stack.update f (name::(Stack.peak f)), p, a)
 
     let internal hasEntry ((e, _, _, _) : state) id = e.ContainsKey(id)
     let internal eval ((e, _, _, _) : state) id = e.[id] |> Stack.peak

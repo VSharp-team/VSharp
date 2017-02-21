@@ -25,5 +25,20 @@
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
         }
+
+        // Expecting true
+        public static bool IncrementsWorkCorrect(int x)
+        {
+            int xorig = x;
+            x = x++;
+            int x1 = x;
+            x++;
+            int x2 = x;
+            x = ++x;
+            int x3 = x;
+            ++x;
+            int x4 = x;
+            return x1 == xorig && x2 == xorig + 1 && x3 == xorig + 2 && x4 == xorig + 3;
+        }
     }
 }

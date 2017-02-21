@@ -8,10 +8,10 @@ open VSharp.Terms
 module internal Arithmetics =
 
     let private makeAddition isChecked t x y =
-        MakeBinary OperationType.Add x y false (Types.FromPrimitiveDotNetType t)
+        MakeBinary OperationType.Add x y false (Types.FromDotNetType t)
 
     let private makeProduct isChecked t x y =
-        MakeBinary OperationType.Multiply x y false (Types.FromPrimitiveDotNetType t)
+        MakeBinary OperationType.Multiply x y false (Types.FromDotNetType t)
 
 // ------------------------------- Simplification of "+" -------------------------------
 
@@ -95,6 +95,7 @@ module internal Arithmetics =
         simplifyGenericBinary "addition" x y state k
                               (fun x y _ _ -> simplifyConcreteAddition x y isChecked t)
                               (fun x y state k -> simplifyAdditionExt x y state isChecked t k defaultCase)
+                              (fun x y state k -> simplifyAddition x y state isChecked t k)
 
 // ------------------------------- Simplification of unary "-" -------------------------------
 
@@ -121,7 +122,7 @@ module internal Arithmetics =
         | Mul(Concrete(a, at), y, false, _) when not isChecked ->
             simplifyUnaryMinus (Concrete(a, at)) state isChecked (Types.ToDotNetType at) (fun (minusA, state) ->
             simplifyMultiplication minusA y state false t k)
-        | _ -> (MakeUnary OperationType.UnaryMinus x isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+        | _ -> (MakeUnary OperationType.UnaryMinus x isChecked (Types.FromDotNetType t), state) |> k)
 
 // ------------------------------- Simplification of "*" -------------------------------
 
@@ -198,6 +199,7 @@ module internal Arithmetics =
         simplifyGenericBinary "product" x y state k
                               (fun x y _ _ -> simplifyConcreteMultiplication x y isChecked t)
                               (fun x y state k -> simplifyMultiplicationExt x y state isChecked t k defaultCase)
+                              (fun x y state k -> simplifyMultiplication x y state isChecked t k)
 
 // ------------------------------- Simplification of "/" -------------------------------
 
@@ -211,25 +213,29 @@ module internal Arithmetics =
 
     and private simplifyDivision x y state isChecked t k =
         let defaultCase state =
-            let sorted = if (IsConcrete y) then (y, x) else (x, y)
+            let sorted = if (IsConcrete y) then (y, x) else (x, y) in
             (makeProduct isChecked t (fst sorted) (snd sorted), state) |> k
-        simplifyGenericBinary "division" x y state k (fun x y _ _ -> simplifyConcreteDivision x y isChecked t) (fun x y state k ->
-        match x, y with
-        // 0 / y = 0
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
-        // x / 1 = x
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (x, state) |> k
-        // x / -1 = -x
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x state isChecked t k
-        // x / x = 1 if unchecked
-        | x, y when not isChecked && x = y -> (MakeConcrete 1 t, state) |> k
-        // x / -x = -1 if unchecked
-        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete -1 t, state) |> k
-        // (a / b) / y = a / (b * y) if unchecked and b and y concrete
-        | Div(a, Concrete(b, _), false, _), Concrete(y, _) when not isChecked ->
-            let bMulY = simplifyConcreteMultiplication b y false t in
-            simplifyDivision a bMulY state false t k
-        | _ -> (MakeBinary OperationType.Divide x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+        in
+        simplifyGenericBinary "division" x y state k
+            (fun x y _ _ -> simplifyConcreteDivision x y isChecked t)
+            (fun x y state k ->
+                match x, y with
+                // 0 / y = 0
+                | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
+                // x / 1 = x
+                | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (x, state) |> k
+                // x / -1 = -x
+                | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> simplifyUnaryMinus x state isChecked t k
+                // x / x = 1 if unchecked
+                | x, y when not isChecked && x = y -> (MakeConcrete 1 t, state) |> k
+                // x / -x = -1 if unchecked
+                | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete -1 t, state) |> k
+                // (a / b) / y = a / (b * y) if unchecked and b and y concrete
+                | Div(a, Concrete(b, _), false, _), Concrete(y, _) when not isChecked ->
+                    let bMulY = simplifyConcreteMultiplication b y false t in
+                    simplifyDivision a bMulY state false t k
+                | _ -> (MakeBinary OperationType.Divide x y isChecked (Types.FromDotNetType t), state) |> k)
+            (fun x y state k -> simplifyDivision x y state isChecked t k)
 
     and private simplifyDivisionAndUpdateState x y state isChecked t k =
         simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->
@@ -254,34 +260,37 @@ module internal Arithmetics =
         let defaultCase state =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
             (makeProduct isChecked t (fst sorted) (snd sorted), state) |> k
-        simplifyGenericBinary "remainder" x y state k (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t) (fun x y state k ->
-        match x, y with
-        // 0 % y = 0
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
-        // x % 1 = 0
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (MakeConcrete 0 t, state) |> k
-        // x % -1 = 0
-        | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> (MakeConcrete 0 t, state) |> k
-        // x % x = 0
-        | x, y when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
-        // x % -x = 0 if unchecked
-        | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
-        // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
-        | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && isRemainderZero a y t ->
-             (MakeConcrete 0 t, state) |> k
-        // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
-        | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
-            let bModY = simplifyConcreteRemainder b y false t in
-            let cModY = simplifyConcreteRemainder c y false t in
-                // TODO: merge instead of Cond
-                (Expression(Cond, [a; bModY; cModY], Types.FromPrimitiveDotNetType t), state) |> k
-        // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
-        | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
-            let xModB = simplifyConcreteRemainder x b false t in
-            let xModC = simplifyConcreteRemainder x c false t in
-                // TODO: merge instead of Cond
-                (Expression(Cond, [a; xModB; xModC], Types.FromPrimitiveDotNetType t), state) |> k
-        | _ -> (MakeBinary OperationType.Remainder x y isChecked (Types.FromPrimitiveDotNetType t), state) |> k)
+        simplifyGenericBinary "remainder" x y state k
+            (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t)
+            (fun x y state k ->
+                match x, y with
+                // 0 % y = 0
+                | Concrete(x, _), _ when Calculator.IsZero(x) -> (MakeConcrete 0 t, state) |> k
+                // x % 1 = 0
+                | x, Concrete(y, _) when Calculator.FuzzyEqual(y, 1) -> (MakeConcrete 0 t, state) |> k
+                // x % -1 = 0
+                | x, Concrete(y, _) when Calculator.FuzzyEqual(y, -1) -> (MakeConcrete 0 t, state) |> k
+                // x % x = 0
+                | x, y when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
+                // x % -x = 0 if unchecked
+                | x, UnaryMinus(y, false, _) when not isChecked && x = y -> (MakeConcrete 0 t, state) |> k
+                // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
+                | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && isRemainderZero a y t ->
+                     (MakeConcrete 0 t, state) |> k
+                // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
+                | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
+                    let bModY = simplifyConcreteRemainder b y false t in
+                    let cModY = simplifyConcreteRemainder c y false t in
+                        // TODO: merge instead of Cond
+                        (Expression(Cond, [a; bModY; cModY], Types.FromDotNetType t), state) |> k
+                // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
+                | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
+                    let xModB = simplifyConcreteRemainder x b false t in
+                    let xModC = simplifyConcreteRemainder x c false t in
+                        // TODO: merge instead of Cond
+                        (Expression(Cond, [a; xModB; xModC], Types.FromDotNetType t), state) |> k
+                | _ -> (MakeBinary OperationType.Remainder x y isChecked (Types.FromDotNetType t), state) |> k)
+            (fun x y state k -> simplifyRemainder x y state isChecked t k)
 
     and private simplifyRemainderAndUpdateState x y state isChecked t k =
         simplifyNotEqual y (Concrete(0, TypeOf y)) state (fun (yIsNotZero, state) ->
@@ -296,12 +305,14 @@ module internal Arithmetics =
         MakeConcrete (Calculator.Compare(x, y) |> operator) typedefof<bool>
 
     and private simplifyComparison op x y state concrete sameIsTrue k =
-        simplifyGenericBinary "comparison" x y state k concrete (fun x y state k ->
-        match x, y with
-        | x, y when x = y -> (MakeConcrete sameIsTrue typedefof<bool>, state) |> k
-        | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) state concrete sameIsTrue k
-        | x, Add(Concrete(c, t), y, false, _) when x = y -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) state concrete sameIsTrue k
-        | _ -> (MakeBinary op x y false Bool, state) |> k)
+        simplifyGenericBinary "comparison" x y state k concrete
+            (fun x y state k ->
+                match x, y with
+                | x, y when x = y -> (MakeConcrete sameIsTrue typedefof<bool>, state) |> k
+                | Add(Concrete(c, t), x, false, _), y when x = y -> simplifyComparison op (Concrete(c, t)) (Concrete(0, t)) state concrete sameIsTrue k
+                | x, Add(Concrete(c, t), y, false, _) when x = y -> simplifyComparison op (Concrete(0, t)) (Concrete(c, t)) state concrete sameIsTrue k
+                | _ -> (MakeBinary op x y false Bool, state) |> k)
+            (fun x y state k -> simplifyComparison op x y state concrete sameIsTrue k)
 
     and private negate k (x, state) = k (!!x, state)
 

@@ -92,28 +92,31 @@ module public Terms =
         | Expression(_, _, t) -> t
         | Union ts ->
             if List.isEmpty ts then TermType.Void
-            else (snd >> TypeOf) (List.head ts)
+            else List.head ts |> snd |> TypeOf
 
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal
-    let public IsNumeric t =            TypeOf >> Types.IsNumeric
-    let public IsString t =             TypeOf >> Types.IsString
+    let public IsNumeric =              TypeOf >> Types.IsNumeric
+    let public IsString =               TypeOf >> Types.IsString
+    let public IsFunction =             TypeOf >> Types.IsFunction
     let public IsPrimitive =            TypeOf >> Types.IsPrimitive
     let public IsPrimitiveSolvable =    TypeOf >> Types.IsPrimitiveSolvable
-    let public IsSolvable t =           TypeOf >> Types.IsSolvable
+    let public IsSolvable =             TypeOf >> Types.IsSolvable
     let public DomainOf =               TypeOf >> Types.DomainOf
     let public RangeOf =                TypeOf >> Types.RangeOf
     let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public FreshConstant name t =
-        Constant(name, Types.FromPrimitiveDotNetType t)
+        Constant(name, Types.FromDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
         try
-            Concrete(Convert.ChangeType(value, t), Types.FromPrimitiveDotNetType t)
+            Concrete(Convert.ChangeType(value, t), Types.FromDotNetType t)
         with
-        | e -> Error e
+        | e ->
+            failwith "Typecast error occured!" // TODO: this is for debug, remove it when becomes relevant!
+            Error e
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)
@@ -132,22 +135,6 @@ module public Terms =
     let public Negate term =
         assert(IsBool term)
         MakeUnary OperationType.Not term false Bool
-
-    let rec public TypeCast targetType term =
-        let cast src dst expr =
-            if src = dst then expr
-            else Expression(Cast(src, dst), [expr], dst)
-        in
-        match term with
-        | Error _ -> term
-        | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" (targetType.ToString())))
-        | Concrete(value, _) -> MakeConcrete value (Types.ToDotNetType targetType)
-        | Constant(name, t) -> cast t targetType term
-        | Expression(operation, operands, t) -> cast t targetType term
-        | Union(gvs) -> // TODO: merge result!
-            let gs, vs = List.unzip gvs in
-            let vs' = List.map (TypeCast targetType) vs in
-            Union (List.zip gs vs')
 
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
@@ -203,3 +190,9 @@ module public Terms =
         match term with
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
+
+    let (|Lambda|_|) = function
+        | Concrete(pair, t) when Types.IsFunction t && (pair :? IFunctionSignature * IBlockStatement) ->
+            Some(Lambda(pair :?> IFunctionSignature * IBlockStatement))
+        | _ -> None
+

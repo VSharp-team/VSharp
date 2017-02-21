@@ -34,51 +34,6 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\VSharp.SILI.XML</DocumentationFile>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="JetBrains.Decompiler.Core">
-      <HintPath>..\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="JetBrains.Platform.Metadata">
-      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Metadata.dll</HintPath>
-    </Reference>
-    <Reference Include="JetBrains.Platform.Util">
-      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Operations.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="Terms.fs" />
-    <Compile Include="State.fs" />
-    <Compile Include="Propositional.fs" />
-    <Compile Include="Union.fs" />
-    <Compile Include="Merging.fs" />
-    <Compile Include="Simplify.fs" />
-    <Compile Include="Arithmetics.fs" />
-    <Compile Include="Strings.fs" />
-    <Compile Include="ControlFlow.fs" />
-    <Compile Include="Interpreter.fs" />
-    <Compile Include="SVM.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
-      <Name>VSharp.CSharpUtils</Name>
-      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
-      <Name>VSharp.Utils</Name>
-      <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
@@ -95,6 +50,52 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
+  <ItemGroup>
+    <Content Include="packages.config" />
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="DecompilerServices.fs" />
+    <Compile Include="Operations.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="Terms.fs" />
+    <Compile Include="State.fs" />
+    <Compile Include="Propositional.fs" />
+    <Compile Include="Union.fs" />
+    <Compile Include="Merging.fs" />
+    <Compile Include="Simplify.fs" />
+    <Compile Include="Arithmetics.fs" />
+    <Compile Include="Strings.fs" />
+    <Compile Include="Transformations.fs" />
+    <Compile Include="ControlFlow.fs" />
+    <Compile Include="Interpreter.fs" />
+    <Compile Include="SVM.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="JetBrains.Decompiler.Core">
+      <HintPath>..\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Platform.Metadata">
+      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Metadata.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Platform.Util">
+      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
+    </Reference>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
+      <Name>VSharp.CSharpUtils</Name>
+      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
+      <Name>VSharp.Utils</Name>
+      <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

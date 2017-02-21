@@ -7,7 +7,7 @@ module internal ControlFlow =
     let rec internal mergeResults condition thenRes elseRes =
         match thenRes, elseRes with
         | _, _ when thenRes = elseRes -> thenRes
-        | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition thenVal elseVal)
+        | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition !!condition thenVal elseVal)
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
@@ -24,12 +24,27 @@ module internal ControlFlow =
             | v -> List.singleton (guard(g), v)
         gvs |> List.map mergeOne |> List.concat
 
-    let calculationDone = function
-        | NoResult
-        | Guarded _ -> false
+    let rec calculationDone (statement : JetBrains.Decompiler.Ast.IStatement) = function
+        | NoResult -> false
+        | Continue -> Transformations.isContinueConsumer statement
+        | Guarded gvs ->
+            List.forall (snd >> (calculationDone statement)) gvs
         | _ -> true
 
+    let rec consumeContinue = function
+        | Continue -> NoResult
+        | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeContinue v)) |> Guarded
+        | r -> r
+
+    let rec consumeBreak = function
+        | Break -> NoResult
+        | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeBreak v)) |> Guarded
+        | r -> r
+
     let rec composeSequentially oldRes newRes oldState newState =
+        let calculationDone = function
+            | NoResult -> true
+            | _ -> false
         let rec composeFlat newRes oldRes =
             match oldRes with
             | NoResult -> newRes
@@ -50,7 +65,7 @@ module internal ControlFlow =
                     let gs, vs = List.unzip gvs in
                     List.zip gs (List.map (composeFlat newRes) vs)
             in
-            Guarded result, Merging.mergeStates conservativeGuard oldState newState
+            Guarded result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
     let resultToTerm (result, state) =
         let isReturn = function
