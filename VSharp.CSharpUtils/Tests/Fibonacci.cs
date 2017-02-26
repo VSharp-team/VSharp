@@ -18,10 +18,5 @@
         {
             return FibRec(5);
         }
-
-        public static int Fib7()
-        {
-            return FibRec(7);
-        }
     }
 }

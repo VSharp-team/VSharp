@@ -316,17 +316,17 @@ module internal Arithmetics =
 
     and private negate k (x, state) = k (!!x, state)
 
-    and private simplifyEqual x y state k =
+    and internal simplifyEqual x y state k =
         simplifyComparison OperationType.Equal x y state (simplifyConcreteComparison ((=) 0)) true k
-    and private simplifyNotEqual x y state k =
+    and internal simplifyNotEqual x y state k =
         simplifyComparison OperationType.Equal x y state (simplifyConcreteComparison ((=) 0)) true (negate k)
-    and private simplifyLess x y state k =
+    and internal simplifyLess x y state k =
         simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((>) 0)) false k
-    and private simplifyLessOrEqual x y state k =
+    and internal simplifyLessOrEqual x y state k =
         simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((>=) 0)) true k
-    and private simplifyGreater x y state k =
+    and internal simplifyGreater x y state k =
         simplifyComparison OperationType.LessOrEqual x y state (simplifyConcreteComparison ((>=) 0)) true (negate k)
-    and private simplifyGreaterOrEqual x y state k =
+    and internal simplifyGreaterOrEqual x y state k =
         simplifyComparison OperationType.Less x y state (simplifyConcreteComparison ((>) 0)) false (negate k)
 
 // ------------------------------- General functions -------------------------------
@@ -364,7 +364,7 @@ module internal Arithmetics =
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary arithmetic operator"))
 
     let internal isArithmeticalOperation op t1 t2 =
-        Types.IsNumeric t1 && Types.IsNumeric t2 &&
+        (Types.IsNumeric t1 || Types.IsVoid t1) && (Types.IsNumeric t2 || Types.IsVoid t2) &&
         match op with
         | OperationType.Add
         | OperationType.Subtract

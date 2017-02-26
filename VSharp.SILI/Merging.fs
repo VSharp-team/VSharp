@@ -65,6 +65,7 @@ module internal Merging =
         | False, _, _, _ -> v
         | _, True, _, _ -> v
         | _, False, _, _ -> u
+        | Error _, _, _, _ -> g
         | _ -> merge [(g, u); (h, v)] State.empty |> fst
 
     let internal merge2States condition1 condition2 state1 state2 =
@@ -73,17 +74,7 @@ module internal Merging =
         | False, _ -> state2
         | _, True -> state2
         | _, False -> state1
-        | _ ->
-            assert(State.path state1 = State.path state2)
-            assert(State.frames state1 = State.frames state2)
-            let mergeIfShould id u =
-                if State.hasEntry state2 id
-                then merge2Terms condition1 condition2 u (State.eval state2 id)
-                else u
-            state1
-                |> State.mapKeys mergeIfShould
-                |> State.union state2
-                |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
+        | _ -> State.merge state1 state2 (merge2Terms condition1 condition2)
 
     let internal mergeStates conditions states =
         let gcs = List.zip conditions states in

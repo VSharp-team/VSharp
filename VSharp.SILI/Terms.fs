@@ -17,6 +17,9 @@ type public Term =
     | Concrete of Object * TermType
     | Constant of string * TermType
     | Expression of (Operation * Term list * TermType)
+    | Struct of Map<string, Term> * TermType
+    | StackRef of string * int * string list * TermType
+    | HeapRef of Term * string list * TermType
     | Union of (Term * Term) list
 
     override this.ToString() =
@@ -39,7 +42,15 @@ type public Term =
                 format2 "({0}){1}" (dest.ToString()) (List.head printedOperands)
             | Application f -> printedOperands |> Wrappers.join ", " |> format2 "{0}({1})" f
             | Cond -> printedOperands |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
-        | Concrete(value, _) -> value.ToString()
+        | Concrete(value, _) -> if value = null then "null" else value.ToString()
+        | Struct(fields, t) ->
+            let fieldToString name term =
+                String.Format("| {0} ~> {1}", name, term)
+            let printed = fields |> Map.map fieldToString
+            String.Format("STRUCT {0}[\n\t{1}]", t.ToString(), String.Join("\n\t", printed))
+        | StackRef(name, frame, path, _) -> String.Format("(StackRef {0})", (name, frame, path).ToString())
+        | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", addr.ToString())
+        | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", addr.ToString(), path.ToString())
         | Union(guardedTerms) ->
             let guardedToString (guard, term) =
                 String.Format("| {0} ~> {1}", guard, term)
@@ -76,6 +87,23 @@ module public Terms =
         | Concrete(b, t) when Types.IsBool t && not (b :?> bool) -> true
         | _ -> false
 
+    let rec public Just predicate = function
+        | t when predicate t -> true
+        | Union gvs -> List.forall predicate (snd (List.unzip gvs))
+        | _ -> false
+
+    let public IsNull = function
+        | Concrete(null, _) -> true
+        | _ -> false
+
+    let public IsStackRef = function
+        | StackRef _ -> true
+        | _ -> false
+
+    let public IsHeapRef = function
+        | HeapRef _ -> true
+        | _ -> false
+
     let public OperationOf = function
         | Expression(op, _, _) -> op
         | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
@@ -90,6 +118,9 @@ module public Terms =
         | Concrete(_, t) -> t
         | Constant(_, t) -> t
         | Expression(_, _, t) -> t
+        | Struct(_, t) -> t
+        | StackRef(_, _, _, t) -> t
+        | HeapRef(_, _, t) -> t
         | Union ts ->
             if List.isEmpty ts then TermType.Void
             else List.head ts |> snd |> TypeOf
@@ -101,8 +132,6 @@ module public Terms =
     let public IsString =               TypeOf >> Types.IsString
     let public IsFunction =             TypeOf >> Types.IsFunction
     let public IsPrimitive =            TypeOf >> Types.IsPrimitive
-    let public IsPrimitiveSolvable =    TypeOf >> Types.IsPrimitiveSolvable
-    let public IsSolvable =             TypeOf >> Types.IsSolvable
     let public DomainOf =               TypeOf >> Types.DomainOf
     let public RangeOf =                TypeOf >> Types.RangeOf
     let public IsRelation =             TypeOf >> Types.IsRelation
@@ -124,6 +153,9 @@ module public Terms =
     let public MakeFalse =
         Concrete(false :> obj, Bool)
 
+    let public MakeNull typ =
+        MakeConcrete null typ
+
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
@@ -138,6 +170,7 @@ module public Terms =
 
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
+    let (|Null|_|) term = if IsNull term then Some Null else None
 
     let (|GuardedValues|_|) = function
         | Union(gvs) -> Some(GuardedValues(List.unzip gvs))
