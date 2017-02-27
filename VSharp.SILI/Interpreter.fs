@@ -512,17 +512,17 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceBinaryOperation state op leftArgument rightArgument isChecked t k =
-        reduceExpression state leftArgument (fun (left, state1) -> 
-        reduceExpression state1 rightArgument (fun (right, state2) ->
+        reduceExpression state leftArgument (fun (left, state) ->
+        reduceExpression state rightArgument (fun (right, state) ->
         let t1 = Terms.TypeOf left in
         let t2 = Terms.TypeOf right in
         match op with
         | op when Propositional.isLogicalOperation op ->
-            Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
+            Propositional.simplifyBinaryConnective op left right (withSnd state >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation op left right state2 isChecked t k
+            Arithmetics.simplifyBinaryOperation op left right isChecked t (withSnd state >> k)
         | op when Strings.isStringOperation op t1 t2 ->
-            Strings.simplifyOperation op left right |> (withSnd state2 >> k)
+            Strings.simplifyOperation op left right |> (withSnd state >> k)
         | _ -> __notImplemented__()))
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
@@ -591,7 +591,7 @@ module internal Interpreter =
                 let t = dotNetType |> Types.FromDotNetType in
                     match t with
                     | Bool -> Propositional.simplifyUnaryConnective op arg (withSnd newState >> k)
-                    | Numeric t -> Arithmetics.simplifyUnaryOperation op arg newState isChecked t k
+                    | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t (withSnd newState >> k)
                     | String -> __notImplemented__()
                     | _ -> __notImplemented__())
 
@@ -603,7 +603,7 @@ module internal Interpreter =
         reduceAssignment state assignment.LeftArgument assignment.RightArgument k
 
     and reducePostfixIncrement state leftAst left right isChecked t k =
-        Arithmetics.simplifyBinaryOperation OperationType.Add left right state isChecked t (fun (sum, state) ->
+        Arithmetics.simplifyBinaryOperation OperationType.Add left right isChecked t (fun sum ->
         reduceAssignmentReduced state leftAst sum (fun (_, state) ->
         (left, state) |> k))
 

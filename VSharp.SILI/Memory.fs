@@ -13,9 +13,9 @@ module internal Memory =
         | Constant(name, _) -> SymbolicAddress name
         | term -> failwith ("Internal error: expected primitive heap address " + (toString term))
 
-    let private stackValue ((e, _, _, _, _) : state) name = e.[name] |> Stack.peak
-    let private stackDeref ((e, _, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
-    let private heapDeref ((_, h, _, _, _) : state) addr = h.[addr]
+    let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
+    let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
+    let private heapDeref ((_, h, _, _) : state) addr = h.[addr]
 
     let internal npe () = Error(new System.NullReferenceException()) in
 
@@ -102,11 +102,11 @@ module internal Memory =
         pointer := !pointer + 1
         !pointer
 
-    let internal allocateOnStack ((e, h, f, p, a) : state) name term : state =
+    let internal allocateOnStack ((e, h, f, p) : state) name term : state =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
-        (e.Add(name, Stack.push existing term), h, Stack.updateHead f (name::(Stack.peak f)), p, a)
+        (e.Add(name, Stack.push existing term), h, Stack.updateHead f (name::(Stack.peak f)), p)
 
-    let internal allocateInHeap ((e, h, f, p, a) : state) term isSymbolic : Term * state =
+    let internal allocateInHeap ((e, h, f, p) : state) term isSymbolic : Term * state =
         let pointer, address =
             match isSymbolic with
             | true ->
@@ -115,7 +115,7 @@ module internal Memory =
             | false ->
                 let address = freshAddress()
                 HeapRef (Concrete(address, pointerType), [], Terms.TypeOf term), ConcreteAddress address
-        (pointer, (e, h.Add(address, term), f, p, a))
+        (pointer, (e, h.Add(address, term), f, p))
 
     let rec internal allocateStruct state t dotNetType =
         let fields, state = Types.GetFieldsOf dotNetType |> mapFoldMap allocateSymbolicInstance state in
@@ -131,17 +131,17 @@ module internal Memory =
 
 // ------------------------------- Mutation -------------------------------
 
-    let private mutateTop ((e, h, f, p, a) : state) name term : state =
+    let private mutateTop ((e, h, f, p) : state) name term : state =
         assert (e.ContainsKey(name))
-        (e.Add(name, Stack.updateHead e.[name] term), h, f, p, a)
+        (e.Add(name, Stack.updateHead e.[name] term), h, f, p)
 
-    let private mutateMiddle ((e, h, f, p, a) : state) name idx term : state =
+    let private mutateMiddle ((e, h, f, p) : state) name idx term : state =
         assert (e.ContainsKey(name))
-        (e.Add(name, Stack.updateMiddle e.[name] idx term), h, f, p, a)
+        (e.Add(name, Stack.updateMiddle e.[name] idx term), h, f, p)
 
-    let private mutateHeap ((e, h, f, p, a) : state) addr term : state =
+    let private mutateHeap ((e, h, f, p) : state) addr term : state =
         assert (h.ContainsKey(addr))
-        (e, h.Add(addr, term), f, p, a)
+        (e, h.Add(addr, term), f, p)
 
     let rec private mutateField state path update term =
         match path with

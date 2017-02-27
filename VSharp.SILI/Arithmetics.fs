@@ -237,10 +237,10 @@ module internal Arithmetics =
                 | _ -> MakeBinary OperationType.Divide x y isChecked (Types.FromDotNetType t) |> k)
             (fun x y k -> simplifyDivision x y isChecked t k)
 
-    and private simplifyDivisionAndUpdateState x y state isChecked t k =
-        simplifyNotEqual y (Concrete(0, TypeOf y)) (fun yIsNotZero ->
+    and private simplifyDivisionAndCheckNotZero x y isChecked t k =
+        simplifyEqual y (Concrete(0, TypeOf y)) (fun yIsZero ->
         simplifyDivision x y isChecked t (fun d ->
-        k (d, State.addAssertion state yIsNotZero)))
+        Merging.merge2Terms yIsZero !!yIsZero (Error (new System.DivideByZeroException())) d |> k))
 
 // ------------------------------- Simplification of "%" -------------------------------
 
@@ -292,10 +292,10 @@ module internal Arithmetics =
                 | _ -> MakeBinary OperationType.Remainder x y isChecked (Types.FromDotNetType t) |> k)
             (fun x y k -> simplifyRemainder x y isChecked t k)
 
-    and private simplifyRemainderAndUpdateState x y state isChecked t k =
-        simplifyNotEqual y (Concrete(0, TypeOf y)) (fun yIsNotZero ->
+    and private simplifyRemainderAndCheckNotZero x y isChecked t k =
+        simplifyEqual y (Concrete(0, TypeOf y)) (fun yIsZero ->
         simplifyRemainder x y isChecked t (fun d ->
-        k (d, State.addAssertion state yIsNotZero)))
+        (Merging.merge2Terms yIsZero !!yIsZero (Error (new System.DivideByZeroException())) d) |> k))
 
 // TODO: IMPLEMENT THE REST!
 
@@ -329,35 +329,34 @@ module internal Arithmetics =
 
 // ------------------------------- General functions -------------------------------
 
-    let internal simplifyBinaryOperation op x y state isChecked t k =
-        let kws = withSnd state >> k in
+    let internal simplifyBinaryOperation op x y isChecked t k =
         match op with
-        | OperationType.Add -> simplifyAddition x y isChecked t kws
+        | OperationType.Add -> simplifyAddition x y isChecked t k
         | OperationType.Subtract ->
             simplifyUnaryMinus y false t (fun minusY ->
-            simplifyAddition x minusY isChecked t kws)
-        | OperationType.Multiply -> simplifyMultiplication x y isChecked t kws
-        | OperationType.Divide -> simplifyDivisionAndUpdateState x y state isChecked t k
-        | OperationType.Remainder -> simplifyRemainderAndUpdateState x y state isChecked t k
+            simplifyAddition x minusY isChecked t k)
+        | OperationType.Multiply -> simplifyMultiplication x y isChecked t k
+        | OperationType.Divide -> simplifyDivisionAndCheckNotZero x y isChecked t k
+        | OperationType.Remainder -> simplifyRemainderAndCheckNotZero x y isChecked t k
         | OperationType.ShiftLeft
         | OperationType.ShiftRight -> raise(new System.NotImplementedException())
-        | OperationType.Equal -> simplifyEqual x y kws
-        | OperationType.NotEqual -> simplifyNotEqual x y kws
-        | OperationType.Greater -> simplifyGreater x y kws
-        | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y kws
-        | OperationType.Less -> simplifyLess x y kws
-        | OperationType.LessOrEqual -> simplifyLessOrEqual x y kws
+        | OperationType.Equal -> simplifyEqual x y k
+        | OperationType.NotEqual -> simplifyNotEqual x y k
+        | OperationType.Greater -> simplifyGreater x y k
+        | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y k
+        | OperationType.Less -> simplifyLess x y k
+        | OperationType.LessOrEqual -> simplifyLessOrEqual x y k
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor
-        | OperationType.NullCoalescing -> raise(new System.NotImplementedException())
+        | OperationType.NullCoalescing -> __notImplemented__()
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not a binary arithmetic operator"))
 
-    let internal simplifyUnaryOperation op x state isChecked t k =
+    let internal simplifyUnaryOperation op x isChecked t k =
         match op with
-        | OperationType.LogicalNeg -> raise(new System.NotImplementedException())
-        | OperationType.UnaryMinus -> simplifyUnaryMinus x isChecked t (withSnd state >> k)
-        | OperationType.UnaryPlus -> k (x, state)
+        | OperationType.LogicalNeg -> __notImplemented__()
+        | OperationType.UnaryMinus -> simplifyUnaryMinus x isChecked t k
+        | OperationType.UnaryPlus -> k x
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary arithmetic operator"))
 
     let internal isArithmeticalOperation op t1 t2 =
