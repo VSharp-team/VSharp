@@ -189,7 +189,7 @@ module internal Interpreter =
             reduceInlinedDelegateCallStatement state (ast.Expression :?> IDelegateCallExpression) k
         else
             reduceExpression state ast.Expression (fun (term, newState) ->
-                k ((if Terms.IsError term then Return term else NoResult), newState))
+                k (ControlFlow.throwOrIgnore term, newState))
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -375,7 +375,7 @@ module internal Interpreter =
         let invoke deleg k =
             match deleg with
                 | Terms.Lambda(signature, body) -> reduceFunction state None args signature body k
-                | Concrete(obj, _) -> (Return(Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
+                | Concrete(obj, _) -> (Throw (Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
                 | _ -> __notImplemented__()
         in
         match deleg with

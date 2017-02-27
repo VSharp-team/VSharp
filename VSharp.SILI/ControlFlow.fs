@@ -1,6 +1,12 @@
 ﻿namespace VSharp
 
-type StatementResult = NoResult | Break | Continue | Return of Term | Guarded of (Term * StatementResult) list
+type StatementResult =
+    | NoResult
+    | Break
+    | Continue
+    | Return of Term
+    | Throw of Term
+    | Guarded of (Term * StatementResult) list
 
 module internal ControlFlow =
 
@@ -8,6 +14,7 @@ module internal ControlFlow =
         match thenRes, elseRes with
         | _, _ when thenRes = elseRes -> thenRes
         | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition !!condition thenVal elseVal)
+        | Throw thenVal, Throw elseVal -> Throw (Merging.merge2Terms condition !!condition thenVal elseVal)
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
@@ -41,6 +48,11 @@ module internal ControlFlow =
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeBreak v)) |> Guarded
         | r -> r
 
+    let rec throwOrIgnore = function
+        | Error _ as t -> Throw t
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
+        | t -> NoResult
+
     let rec composeSequentially oldRes newRes oldState newState =
         let calculationDone = function
             | NoResult -> true
@@ -53,6 +65,7 @@ module internal ControlFlow =
         | NoResult, _ -> newRes, newState
         | Break, _
         | Continue, _
+        | Throw _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) Terms.MakeTrue gvs in
@@ -67,26 +80,10 @@ module internal ControlFlow =
             in
             Guarded result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
-    let resultToTerm result =
-        let isReturn = function
-            | Return _ -> true
-            | _ -> false
-        let same v1 (_, v2) =
-            match v1, v2 with
-            | Return _, Return _ -> true
-            | NoResult, NoResult -> true
-            | _, _ -> false
-        let getTerm = function
-            | g, Return t -> g, t
-            | g, _ -> g, Nop
-        match result with
+    let rec resultToTerm = function
         | Return term -> term
+        | Throw err -> err
         | Guarded gvs ->
-            match gvs with
-            | [] -> Nop
-            | (g, v)::gvs' ->
-                assert(List.forall (same v) gvs')
-                if isReturn v
-                then Merging.merge (List.map getTerm gvs)
-                else Nop
+            let gs, vs = List.unzip gvs in
+            vs |> List.map resultToTerm |> List.zip gs |> Merging.merge
         | _ -> Nop
