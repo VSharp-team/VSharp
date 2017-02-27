@@ -113,7 +113,7 @@ module public Terms =
         | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
 
     let rec public TypeOf = function
-        | Error _
+        | Error _ -> TermType.Bottom
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
         | Constant(_, t) -> t

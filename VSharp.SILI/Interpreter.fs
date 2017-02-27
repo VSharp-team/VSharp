@@ -18,7 +18,7 @@ module internal Interpreter =
         match decompiledMethod with
         | None ->
             printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName methodName
-            k (Nop, State.empty)
+            k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName methodName)), State.empty)
         | Some decompiledMethod ->
             // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
@@ -60,7 +60,7 @@ module internal Interpreter =
         reduceBlockStatement state body (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        reduceFunction state (Some this) parameters ast.Signature ast.Body (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
+        reduceFunction state (Some this) parameters ast.Signature ast.Body (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -364,7 +364,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
-        reduceDelegateCall state ast (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
+        reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
 
     and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
         reduceDelegateCall state ast k
@@ -379,11 +379,11 @@ module internal Interpreter =
                 | _ -> __notImplemented__()
         in
         match deleg with
-        | Union(gvs) ->
-            let gs, vs = List.unzip gvs in
+        | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk invoke vs (fun results ->
-            let terms, states = results |> List.map ControlFlow.resultToTerm |> List.unzip in
-            let term, state = Merging.merge (List.zip gs terms) (Merging.mergeStates gs states) in
+            let terms, states = List.unzip results in
+            let term = terms |> List.map ControlFlow.resultToTerm |> List.zip gs |> Merging.merge in
+            let state = Merging.mergeStates gs states
             (Return term, state) |> k)
         | _ -> invoke deleg k))
 
@@ -548,7 +548,7 @@ module internal Interpreter =
             in
             let rec castSimple = function
                 | Error _ -> term
-                | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" targetType))
+                | Nop -> Error (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
                 | Concrete(value, _) ->
                     if Terms.IsFunction term && Types.IsFunction targetType
                     then Concrete(value, targetType)
@@ -561,7 +561,7 @@ module internal Interpreter =
             | Union(gvs) ->
                 let gs, vs = List.unzip gvs in
                 let vs' = List.map castSimple vs in
-                Merging.merge (List.zip gs vs') state
+                (Merging.merge (List.zip gs vs'), state)
             | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =

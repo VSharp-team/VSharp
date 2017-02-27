@@ -7,6 +7,7 @@ open System.Reflection
 [<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
+    | Bottom
     | Object
     | Bool
     | Numeric of System.Type
@@ -18,6 +19,7 @@ type public TermType =
     override this.ToString() =
         match this with
         | Void -> "void"
+        | Bottom -> "exception"
         | Object -> "object"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
@@ -111,6 +113,10 @@ module public Types =
 
     let public IsVoid = function
         | Void -> true
+        | _ -> false
+
+    let public IsBottom = function
+        | Bottom -> true
         | _ -> false
 
     let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains

@@ -21,16 +21,16 @@ module internal Memory =
 
     let rec internal isNull = function
         | Error _ as e -> e
-        | HeapRef(addr, _, t) -> Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) State.empty id |> fst
-        | Terms.GuardedValues(gs, vs) -> Merging.merge (vs |> List.map isNull |> List.zip gs) State.empty |> fst
+        | HeapRef(addr, _, t) -> Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map isNull |> List.zip gs |> Merging.merge
         | _ -> Terms.MakeFalse
 
     let rec internal npeIfNull = function
         | Error _ as e -> e
         | HeapRef(addr, _, t) as reference ->
-            let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) State.empty id |> fst in
+            let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             Merging.merge2Terms isNull !!isNull (npe()) reference
-        | Terms.GuardedValues(gs, vs) -> Merging.merge (vs |> List.map npeIfNull |> List.zip gs) State.empty |> fst
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map npeIfNull |> List.zip gs |> Merging.merge
         | t -> t
 
     let rec private structDeref path term =
@@ -43,21 +43,21 @@ module internal Memory =
                 if not (fields.ContainsKey(name)) then failwith (format2 "Internal error: {0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
             | Terms.GuardedValues(gs, vs) ->
-                Merging.merge (vs |> List.map (structDeref path) |> List.zip gs) State.empty |> fst
+                vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
             | t -> failwith ("Internal error: expected struct, but got " + (toString t))
 
     let rec internal deref state = function
         | Error _ as e -> e
         | StackRef(name, idx, path, _) -> structDeref (List.rev path) (stackDeref state name idx)
         | HeapRef(addr, path, t) ->
-            let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) state id |> fst in
+            let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             match isNull with
             | Terms.False -> structDeref (List.rev path) (heapDeref state (extractHeapAddress addr))
             | Terms.True -> npe()
             | _ ->
                 let derefed = structDeref (List.rev path) (heapDeref state (extractHeapAddress addr)) in
                 Merging.merge2Terms isNull !!isNull (npe()) derefed
-        | Terms.GuardedValues(gs, vs) -> Merging.merge (vs |> List.map (deref state) |> List.zip gs) state |> fst
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (deref state) |> List.zip gs |> Merging.merge
         | t -> failwith ("Internal error: deref expected reference, but got " + (toString t))
 
     let internal valueOf = stackValue
@@ -76,7 +76,7 @@ module internal Memory =
         | Error _ as e -> e
         | StackRef _ as r -> r
         | HeapRef _ as r when followHeapRefs -> r
-        | Terms.GuardedValues(gs, vs) -> Merging.merge (List.map (referenceTerm state name followHeapRefs) vs |> List.zip gs) state |> fst
+        | Terms.GuardedValues(gs, vs) -> List.map (referenceTerm state name followHeapRefs) vs |> List.zip gs |> Merging.merge
         | term -> StackRef(name, (Stack.size (environment state).[name]) - 1, [], Terms.TypeOf term)
 
     let internal referenceToVariable state name followHeapRefs =
@@ -89,7 +89,7 @@ module internal Memory =
             HeapRef(addr, name::path, t)
         | Struct _ -> addFieldToPath name parentRef
         | Terms.GuardedValues(gs, vs) ->
-            Merging.merge (vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs) state |> fst
+            vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
         | t -> failwith ("Internal error: expected reference or struct, but got " + (toString t))
 
     let rec internal referenceToField state name parentRef =
@@ -153,13 +153,13 @@ module internal Memory =
                 let newField = mutateField state path' update fields.[name] in
                 Struct(fields.Add(name, newField), t)
             | Terms.GuardedValues(gs, vs) ->
-                Merging.merge (vs |> List.map (mutateField state path update) |> List.zip gs) state |> fst
+                vs |> List.map (mutateField state path update) |> List.zip gs |> Merging.merge
             | t -> failwith ("Internal error: expected struct, but got " + (toString t))
 
     let rec private errorOr term = function
         | Error _ as e -> e
         | Terms.GuardedValues(gs, vs) ->
-            Merging.merge (vs |> List.map (errorOr term) |> List.zip gs) State.empty |> fst
+            vs |> List.map (errorOr term) |> List.zip gs |> Merging.merge
         | _ -> term
 
     let private mutateStackPath state path name idx update result =
@@ -188,5 +188,5 @@ module internal Memory =
             in
             let results, state = List.mapFold mutateOneGuarded state gvs in
             let gs = List.unzip gvs |> fst in
-            Merging.merge (List.zip gs results) state
+            (List.zip gs results |> Merging.merge, state)
         | t -> failwith ("Internal error: expected reference, but got " + (toString t))
