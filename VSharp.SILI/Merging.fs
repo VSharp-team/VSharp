@@ -20,14 +20,14 @@ module internal Merging =
         | String
         | _ -> gvs
 
-    let private simplify gvs =
+    let rec private simplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
             | (Terms.True, v)::gvs' -> [List.head gvs]
             | (Terms.False, v)::gvs' -> loop gvs' out
             | (g, Union us)::gvs' when not (List.isEmpty us) ->
-                loop gvs' (List.append (Unions.guardWith g us) out)
+                loop gvs' (List.append (simplify (Unions.guardWith g us)) out)
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
@@ -42,8 +42,10 @@ module internal Merging =
                 | (g, v)::gvs' ->
                     let eq, rest = List.partition (snd >> (=) v) gvs' in
                     let joined = List.fold (|||) g (List.map fst eq)
-                    if Terms.IsTrue joined then [(joined, v)]
-                    else loop rest ((joined, v)::out)
+                    match joined with
+                    | True -> [(joined, v)]
+                    | False -> loop rest out
+                    | _ -> loop rest ((joined, v)::out)
             loop gvs []
 
     let private compress = function
@@ -53,7 +55,10 @@ module internal Merging =
         | [_; _] as gvs -> gvs
         | gvs -> List.groupBy (snd >> TypeOf) gvs |> List.map (fun (t, gvs) -> typedMerge gvs t) |> List.concat
 
-    let internal merge gvs = Union (compress (simplify gvs))
+    let internal merge gvs =
+        match compress (simplify gvs) with
+        | [True, v] -> v
+        | gvs' -> Union gvs'
 
     let internal merge2Terms g h u v =
         match g, h, u, v with
