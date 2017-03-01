@@ -107,6 +107,14 @@ module public Types =
         | Func _ -> true
         | _ -> false
 
+    let public IsClass = function
+        | ClassType _ -> true
+        | _ -> false
+
+    let public IsStruct = function
+        | StructType _ -> true
+        | _ -> false
+
     let public IsObject = function
         | Object _ -> true
         | _ -> false
@@ -118,6 +126,8 @@ module public Types =
     let public IsBottom = function
         | Bottom -> true
         | _ -> false
+
+    let public IsReference t = IsClass t || IsObject t || IsFunction t
 
     let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
 

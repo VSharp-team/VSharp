@@ -117,15 +117,27 @@ module internal Memory =
                 HeapRef (Concrete(address, pointerType), [], Terms.TypeOf term), ConcreteAddress address
         (pointer, (e, h.Add(address, term), f, p))
 
-    let rec internal allocateStruct state t dotNetType =
+    let rec defaultOf = function
+        | Object -> Terms.MakeNull typedefof<obj>
+        | Bool -> Terms.MakeFalse
+        | Numeric t -> Terms.MakeConcrete 0 t
+        | String -> Terms.MakeNull typedefof<string>
+        | ClassType _ -> Terms.MakeNull typedefof<obj>
+        | Func _ -> Terms.MakeNull typedefof<obj>
+        | StructType dnt as tt ->
+            let fields = Types.GetFieldsOf dnt in
+            Struct(Map.map (fun _ t -> defaultOf t) fields, tt)
+        | _ -> __notImplemented__()
+
+    let rec internal allocateSymbolicStruct state t dotNetType =
         let fields, state = Types.GetFieldsOf dotNetType |> mapFoldMap allocateSymbolicInstance state in
         (Struct(fields, t), state)
 
     and internal allocateSymbolicInstance name state = function
         | t when Types.IsPrimitive t -> (Constant(name, t), state)
-        | StructType dotNetType as t -> allocateStruct state t dotNetType
+        | StructType dotNetType as t -> allocateSymbolicStruct state t dotNetType
         | ClassType dotNetType as t ->
-            let value, state = allocateStruct state t dotNetType in
+            let value, state = allocateSymbolicStruct state t dotNetType in
             allocateInHeap state value true
         | _ -> __notImplemented__()
 

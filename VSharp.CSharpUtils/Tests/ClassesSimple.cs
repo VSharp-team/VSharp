@@ -1,8 +1,14 @@
 ﻿namespace VSharp.CSharpUtils.Tests
 {
-    public class A
+    internal class A
     {
-        private B _b;
+        private B _b = new B { _c = new C { _n = 13 } };
+        private int _intField = 100500;
+
+        public A()
+        {
+            _intField = 100501;
+        }
 
         public A(int n)
         {
@@ -22,11 +28,11 @@
 
         public int GetN()
         {
-            return this._b.GetN() - 1;
+            return this._b.GetN();
         }
     }
 
-    public struct B
+    internal struct B
     {
         public C _c;
 

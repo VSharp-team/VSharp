@@ -13,12 +13,12 @@ module internal Interpreter =
 
 // ------------------------------- Decompilation -------------------------------
 
-    let rec decompileAndReduceMethod state this parameters qualifiedTypeName methodName assemblyPath k =
-        let decompiledMethod = DecompilerServices.decompile qualifiedTypeName methodName assemblyPath
+    let rec decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
+        let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
         match decompiledMethod with
         | None ->
-            printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName methodName
-            k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName methodName)), State.empty)
+            printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name
+            k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
             // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
@@ -64,51 +64,52 @@ module internal Interpreter =
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
-    and reduceMemberInitializer state (ast : IMemberInitializer) k =
+    and reduceMemberInitializer this state (ast : IMemberInitializer) k =
         match ast with
-        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer state initializer k
-        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer k
+        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer this state initializer k
+        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer this state initializer k
         | _ -> __notImplemented__()
 
-    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) k =
-        __notImplemented__()
+    and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
+        reduceExpression state ast.Value (fun (term, state) ->
+        let fieldReference = Memory.referenceToField state ast.Field.Name this in
+        Memory.mutate state fieldReference term |> snd |> k)
 
-    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) k =
+    and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
         __notImplemented__()
 
 
 // ------------------------------- IStatement and inheritors -------------------------------
 
     and reduceStatement state (ast : IStatement) k =
-        if ast = null then k (NoResult, state)
-        else
-            match ast with
-            | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
-            | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
-            | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
-            | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
-            | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
-            | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
-            | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
-            | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
-            | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
-            | :? IJumpStatement as jump -> reduceJumpStatement state jump k
-            | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
-            | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
-            | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
-            | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
-            | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
-            | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
-            | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
-            | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
-            | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
-            | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
-            | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
-            | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
-            | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
-            | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
-            | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
-            | _ -> __notImplemented__()
+        match ast with
+        | null -> k (NoResult, state)
+        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
+        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
+        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
+        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
+        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
+        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
+        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
+        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
+        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
+        | :? IJumpStatement as jump -> reduceJumpStatement state jump k
+        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
+        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
+        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
+        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
+        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
+        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
+        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
+        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
+        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
+        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
+        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
+        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
+        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
+        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
+        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
+        | _ -> __notImplemented__()
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
@@ -261,6 +262,7 @@ module internal Interpreter =
 
     and reduceExpression state (ast : IExpression) k =
         match ast with
+        | null -> k (Nop, state)
         | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation state expression k
         | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression state expression k
         | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression state expression k
@@ -285,7 +287,6 @@ module internal Interpreter =
         | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression state expression k
         | :? IMakeRefExpression as expression -> reduceMakeRefExpression state expression k
         | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression state expression k
-        | :? IMemberInitializerList as expression -> reduceMemberInitializerList state expression k
         | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression state expression k
         | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression state expression k
         | :? INestedInitializer as expression -> reduceNestedInitializer state expression k
@@ -361,7 +362,7 @@ module internal Interpreter =
             k (result, state))))
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
-        __notImplemented__()
+        (Memory.defaultOf (Types.FromMetadataType ast.Type), state) |> k
 
     and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
         reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
@@ -410,8 +411,9 @@ module internal Interpreter =
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
 
-    and reduceMemberInitializerList state (ast : IMemberInitializerList ) k =
-        __notImplemented__()
+    and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
+        if ast = null then k state
+        else Cps.Seq.foldlk (reduceMemberInitializer initializedObject) state ast.Initializers k
 
     and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
@@ -640,7 +642,37 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
-        __notImplemented__()
+        // TODO: support collection initializers
+        let qualifiedTypeName = ast.ConstructedType.AssemblyQualifiedName in
+        let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
+        let fields = DecompilerServices.getDefaultFieldValuesOf assemblyPath qualifiedTypeName in
+        let names, typesAndInitializers = List.unzip fields in
+        let types, initializers = List.unzip typesAndInitializers in
+        Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
+        let fields = List.map2 (fun t -> function | Nop -> Memory.defaultOf (Types.FromMetadataType t) | v -> v) types initializers
+                        |> List.zip names |> Map.ofList in
+        let t = Types.FromMetadataType ast.ConstructedType in
+        let freshValue = Struct(fields, t) in
+        let isReference = Types.IsReference t in
+        let reference, state =
+            if isReference
+            then Memory.allocateInHeap state freshValue false
+            else
+                let tempVar = "constructed instance" in
+                let state = State.push state [(tempVar, freshValue)] in
+                (Memory.referenceToVariable state tempVar false, state)
+        in
+        let finish (_, state) =
+            reduceMemberInitializerList reference state ast.ObjectInitializer (fun state ->
+            if not isReference
+            then k (Memory.deref state reference, State.pop state)
+            else k (reference, state))
+        in
+        if ast.ConstructorSpecification = null
+        then finish (Nop, state)
+        else
+            Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
+            decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath finish))
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
@@ -677,9 +709,9 @@ module internal Interpreter =
         if Terms.Just Terms.IsError target then k (target, state)
         else
             let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.OwnerType.AssemblyQualifiedName in
-            let methodName = ast.MethodInstantiation.MethodSpecification.Method.Name in
+            let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
             let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location in
-            decompileAndReduceMethod state target args qualifiedTypeName methodName assemblyPath k))
+            decompileAndReduceMethod state target args qualifiedTypeName metadataMethod assemblyPath k))
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         __notImplemented__()
