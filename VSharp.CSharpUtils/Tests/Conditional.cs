@@ -22,10 +22,10 @@ namespace VSharp.CSharpUtils.Tests
             return result;
         }
 
-        public static int Always18()
-        {
-            return Mult2(9);
-        }
+        //public static int Always18()
+        //{
+        //    return Mult2(9);
+        //}
 
         private static int AlwaysN(int n)
         {
@@ -48,24 +48,24 @@ namespace VSharp.CSharpUtils.Tests
             return n;
         }
 
-        public static int EnsureAlwaysN(int n)
-        {
-            return AlwaysN(n);
-        }
+        //public static int EnsureAlwaysN(int n)
+        //{
+        //    return AlwaysN(n);
+        //}
 
-        private static int FirstEvenGreaterThen(int n)
-        {
-            for (int i = 0; i >= 0; i+=1)
-            {
-                if (i > n && i%2 == 0)
-                    return i;
-            }
-            return 100500;
-        }
+        //private static int FirstEvenGreaterThen(int n)
+        //{
+        //    for (int i = 0; i >= 0; i+=1)
+        //    {
+        //        if (i > n & i%2 == 0)
+        //            return i;
+        //    }
+        //    return 100500;
+        //}
 
-        public static int FirstEvenGreaterThen15()
-        {
-            return FirstEvenGreaterThen(15);
-        }
+        //public static int FirstEvenGreaterThen15()
+        //{
+        //    return FirstEvenGreaterThen(15);
+        //}
     }
 }

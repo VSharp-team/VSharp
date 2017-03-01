@@ -27,13 +27,17 @@ type public Term =
         | Expression(operation, operands, _) ->
             let printedOperands = operands |> List.map Wrappers.toString
             match operation with
-            | Operator(operator, isChecked) ->
+            | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
+                assert (List.length operands = 1) 
                 let format = Operations.operationToStringFormat operator
-                let count = Operations.operationArity operator
                 let checkedFormat = if isChecked then format + "✓" else format
-                if (List.length operands) <> count then
-                    raise(new ArgumentException(String.Format("Wrong number of arguments for {0}: expected {1}, got {2}", operator.ToString(), count, List.length operands)))
-                else printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
+                printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
+            | Operator(operator, isChecked) ->
+                if List.length operands < 2 then 
+                    printf " "
+                else printf ""
+                assert (List.length operands >= 2) 
+                printedOperands |> String.concat (Operations.operationToStringFormat operator) |> sprintf (if isChecked then "(%s)✓" else"(%s)")
             | Cast(orig, dest) ->
                 assert (List.length printedOperands = 1)
                 format2 "({0}){1}" (dest.ToString()) (List.head printedOperands)
@@ -128,13 +132,20 @@ module public Terms =
         assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
 
+    let public MakeBinaryOverList operation x isChecked t =
+        assert(Operations.isBinary operation)
+        match x with 
+        | [] -> raise(new ArgumentException("List of args should be not empty"))
+        | [x] -> x
+        | _ -> Expression(Operator(operation, isChecked), x, t)
+
     let public MakeUnary operation x isChecked t =
         assert(Operations.isUnary operation)
         Expression(Operator(operation, isChecked), [x], t)
 
     let public Negate term =
         assert(IsBool term)
-        MakeUnary OperationType.Not term false Bool
+        MakeUnary OperationType.LogicalNeg term false Bool
 
     let (|True|_|) term = if IsTrue term then Some True else None
     let (|False|_|) term = if IsFalse term then Some False else None
@@ -181,9 +192,19 @@ module public Terms =
         | Expression(Operator(OperationType.LogicalAnd, _), [x;y], t) -> Some(Conjunction(x, y, t))
         | _ -> None
 
+    let (|ConjunctionList|_|) term =
+        match term with
+        | Expression(Operator(OperationType.LogicalAnd, _), x, t) -> Some(ConjunctionList(x, t))
+        | _ -> None
+
     let (|Disjunction|_|) term =
         match term with
         | Expression(Operator(OperationType.LogicalOr, _), [x;y], t) -> Some(Disjunction(x, y, t))
+        | _ -> None
+
+    let (|DisjunctionList|_|) term =
+        match term with
+        | Expression(Operator(OperationType.LogicalOr, _), x, t) -> Some(DisjunctionList(x, t))
         | _ -> None
 
     let (|Xor|_|) term =
@@ -195,4 +216,3 @@ module public Terms =
         | Concrete(pair, t) when Types.IsFunction t && (pair :? IFunctionSignature * IBlockStatement) ->
             Some(Lambda(pair :?> IFunctionSignature * IBlockStatement))
         | _ -> None
-
