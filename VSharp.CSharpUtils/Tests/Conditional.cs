@@ -63,9 +63,9 @@ namespace VSharp.CSharpUtils.Tests
             return 100500;
         }
 
-        public static int FirstEvenGreaterThen15()
+        public static int FirstEvenGreaterThen7()
         {
-            return FirstEvenGreaterThen(15);
+            return FirstEvenGreaterThen(7);
         }
     }
 }

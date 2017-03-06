@@ -2,32 +2,31 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
+open System.Reflection
 
 [<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
+    | Bottom
     | Object
     | Bool
     | Numeric of System.Type
     | String
-    | Product of TermType list
-    | Resolved of System.Type
-    | Unresolved of JetBrains.Metadata.Reader.API.IMetadataType
+    | StructType of System.Type
+    | ClassType of System.Type
     | Func of TermType list * TermType
-    | Unknown
 
     override this.ToString() =
         match this with
         | Void -> "void"
+        | Bottom -> "exception"
         | Object -> "object"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
-        | Product ts -> ts |> List.map toString |> join ", " |> box |> format1 "({0})"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
-        | Resolved t -> t.ToString()
-        | Unresolved t -> t.AssemblyQualifiedName
-        | Unknown -> "<unknown or dynamic type>"
+        | StructType t -> t.ToString()
+        | ClassType t -> t.ToString()
 
 module public Types =
     let private integerTypes =
@@ -42,9 +41,7 @@ module public Types =
 
     let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
 
-    let private primitiveSolvableTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
-
-    let private primitiveTypes = new HashSet<Type>(Seq.append primitiveSolvableTypes [typedefof<string>])
+    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
 
     let public ToDotNetType t =
         match t with
@@ -52,12 +49,12 @@ module public Types =
         | Bool -> typedefof<bool>
         | Numeric res -> res
         | String -> typedefof<string>
-        | Resolved t -> t
+        | StructType t -> t
+        | ClassType t -> t
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType t =
         match t with
-        | o when o.Equals(typedefof<obj>) -> Object
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
@@ -66,16 +63,18 @@ module public Types =
             let returnType = methodInfo.ReturnType |> FromDotNetType in
             let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
             Func(List.ofArray parameters, returnType)
-        | _ -> Resolved t
+        | s when s.IsValueType -> StructType t
+        | c when c.IsClass -> ClassType t
+        | _ -> __notImplemented__()
 
     let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
-        if t = null then Unknown
+        if t = null then Object
         else
             match t.AssemblyQualifiedName with
             | "__Null" -> Object
             | _ as qtn ->
                 let dotNetType = Type.GetType(qtn) in
-                if dotNetType = null then Unresolved t
+                if dotNetType = null then __notImplemented__()
                 else FromDotNetType dotNetType
 
     let public MetadataToDotNetType (t : JetBrains.Metadata.Reader.API.IMetadataType) = t |> FromMetadataType |> ToDotNetType
@@ -108,17 +107,29 @@ module public Types =
         | Func _ -> true
         | _ -> false
 
+    let public IsClass = function
+        | ClassType _ -> true
+        | _ -> false
+
+    let public IsStruct = function
+        | StructType _ -> true
+        | _ -> false
+
     let public IsObject = function
         | Object _ -> true
         | _ -> false
 
-    let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
-    let public IsPrimitiveSolvable = ToDotNetType >> primitiveSolvableTypes.Contains
+    let public IsVoid = function
+        | Void -> true
+        | _ -> false
 
-    let rec public IsSolvable = function
-        | Product ts -> ts |> Seq.forall IsSolvable
-        | Func(domain, range) -> List.forall IsSolvable domain && IsSolvable range
-        | t -> IsPrimitiveSolvable t
+    let public IsBottom = function
+        | Bottom -> true
+        | _ -> false
+
+    let public IsReference t = IsClass t || IsObject t || IsFunction t
+
+    let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
 
     let public DomainOf = function
         | Func(domain, _) -> domain
@@ -137,3 +148,7 @@ module public Types =
         let mt = GetMetadataTypeOfNode node in
         if mt = null then typedefof<obj>
         else ToDotNetType (FromMetadataType mt)
+
+    let public GetFieldsOf (t : System.Type) =
+        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic) in
+        fields |> Array.map (fun (field : FieldInfo) -> (field.Name, FromDotNetType field.FieldType)) |> Map.ofArray

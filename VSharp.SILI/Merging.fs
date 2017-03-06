@@ -20,14 +20,14 @@ module internal Merging =
         | String
         | _ -> gvs
 
-    let private simplify gvs =
+    let rec private simplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
             | (Terms.True, v)::gvs' -> [List.head gvs]
             | (Terms.False, v)::gvs' -> loop gvs' out
             | (g, Union us)::gvs' when not (List.isEmpty us) ->
-                loop gvs' (List.append (Unions.guardWith g us) out)
+                loop gvs' (List.append (simplify (Unions.guardWith g us)) out)
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
@@ -42,8 +42,10 @@ module internal Merging =
                 | (g, v)::gvs' ->
                     let eq, rest = List.partition (snd >> (=) v) gvs' in
                     let joined = List.fold (|||) g (List.map fst eq)
-                    if Terms.IsTrue joined then [(joined, v)]
-                    else loop rest ((joined, v)::out)
+                    match joined with
+                    | True -> [(joined, v)]
+                    | False -> loop rest out
+                    | _ -> loop rest ((joined, v)::out)
             loop gvs []
 
     let private compress = function
@@ -53,10 +55,10 @@ module internal Merging =
         | [_; _] as gvs -> gvs
         | gvs -> List.groupBy (snd >> TypeOf) gvs |> List.map (fun (t, gvs) -> typedMerge gvs t) |> List.concat
 
-    let internal merge gvs state =
+    let internal merge gvs =
         match compress (simplify gvs) with
-        | [(g, v)] -> (v, State.addAssertion state g)
-        | gvs' -> (Union gvs', state)
+        | [True, v] -> v
+        | gvs' -> Union gvs'
 
     let internal merge2Terms g h u v =
         match g, h, u, v with
@@ -65,7 +67,8 @@ module internal Merging =
         | False, _, _, _ -> v
         | _, True, _, _ -> v
         | _, False, _, _ -> u
-        | _ -> merge [(g, u); (h, v)] State.empty |> fst
+        | Error _, _, _, _ -> g
+        | _ -> merge [(g, u); (h, v)]
 
     let internal merge2States condition1 condition2 state1 state2 =
         match condition1, condition2 with
@@ -73,17 +76,7 @@ module internal Merging =
         | False, _ -> state2
         | _, True -> state2
         | _, False -> state1
-        | _ ->
-            assert(State.path state1 = State.path state2)
-            assert(State.frames state1 = State.frames state2)
-            let mergeIfShould id u =
-                if State.hasEntry state2 id
-                then merge2Terms condition1 condition2 u (State.eval state2 id)
-                else u
-            state1
-                |> State.mapKeys mergeIfShould
-                |> State.union state2
-                |> State.withAssertions (State.uniteAssertions (State.assertions state1) (State.assertions state2))
+        | _ -> State.merge state1 state2 (merge2Terms condition1 condition2)
 
     let internal mergeStates conditions states =
         let gcs = List.zip conditions states in
