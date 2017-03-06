@@ -1,32 +1,34 @@
 ﻿namespace VSharp
 
 module public Stack =
-    type 'a stack =
-        | EmptyStack
-        | StackNode of 'a * 'a stack
-        override this.ToString() =
-            let rec toString = function
-                | EmptyStack -> ""
-                | StackNode(hd, EmptyStack) -> hd.ToString()
-                | StackNode(hd, tl) -> hd.ToString() + " -> " + toString tl
-            "{ " + toString this + " }"
+    type 'a stack = 'a list
 
     let peak = function
-        | EmptyStack -> failwith "Empty stack"
-        | StackNode(hd, tl) -> hd
+        | [] -> failwith "Attempt to peak head of an empty stack"
+        | hd::tl -> hd
 
     let pop = function
-        | EmptyStack -> failwith "Empty stack"
-        | StackNode(hd, tl) -> tl
+        | [] -> failwith "Attempt to pop an empty stack"
+        | hd::tl -> tl
 
-    let push stack element = StackNode(element, stack)
+    let push stack element = element::stack
 
-    let update stack newHd = push (pop stack) newHd
+    let updateHead stack newHd = push (pop stack) newHd
 
-    let empty = EmptyStack
+    let updateMiddle stack idx newVal =
+        let rec updateMiddleRec xs idx acc =
+            match xs with
+            | [] -> acc
+            | x::xs' when idx = 0 -> updateMiddleRec xs' (idx - 1) (newVal::acc)
+            | x::xs' -> updateMiddleRec xs' (idx - 1) (x::acc)
+        updateMiddleRec stack ((List.length stack) - idx - 1) [] |> List.rev
 
-    let singleton x = push empty x
+    let empty = List.empty
 
-    let isEmpty = function
-        | EmptyStack -> true
-        | _ -> false
+    let singleton = List.singleton
+
+    let isEmpty = List.isEmpty
+
+    let middle idx stack = List.item ((List.length stack) - idx - 1) stack
+
+    let size = List.length

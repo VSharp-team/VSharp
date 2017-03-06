@@ -13,22 +13,22 @@ module internal Interpreter =
 
 // ------------------------------- Decompilation -------------------------------
 
-    let rec decompileAndReduceMethod state parameters qualifiedTypeName methodName assemblyPath k =
-        let decompiledMethod = DecompilerServices.decompile qualifiedTypeName methodName assemblyPath
+    let rec decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
+        let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
         match decompiledMethod with
         | None ->
-            printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName methodName
-            k (Nop, State.empty)
+            printfn "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name
+            k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-            reduceDecompiledMethod state parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
+            // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
 // ------------------------------- INode and inheritors -------------------------------
 
     and reduceCatchClause state (ast : ICatchClause) k =
         __notImplemented__()
 
-    and reduceFunctionSignature state (ast : IFunctionSignature) values k =
+    and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
         let rec map2 f xs1 xs2 =
             match xs1, xs2 with
             | SeqEmpty, [] -> []
@@ -44,74 +44,72 @@ module internal Interpreter =
                 else (param.Name, Term.Constant(param.Name, (Types.FromMetadataType param.Type)))
             | Some param, Some value -> (param.Name, value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
-        State.push state parameters |> k
+        let parametersAndThis =
+            match this with
+            | Some term -> ("this", term)::parameters
+            | None -> parameters
+        State.push state parametersAndThis |> k
 
     and reduceSwitchCase state (ast : ISwitchCase) k =
         __notImplemented__()
 
 // ------------------------------- ILocalVariableDeclarationScopeOwner and inheritors -------------------------------
 
-    and reduceLocalVariableDeclarationScopeOwner state (ast : ILocalVariableDeclarationScopeOwner) k =
-        match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
-        | :? IDecompiledMethod as expression -> reduceDecompiledMethod state [] expression k
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
-        | _ -> __notImplemented__()
-
-    and reduceFunction state parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
-        reduceFunctionSignature state signature parameters (fun state ->
+    and reduceFunction state this parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
+        reduceFunctionSignature state signature this parameters (fun state ->
         reduceBlockStatement state body (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
 
-    and reduceDecompiledMethod state parameters (ast : IDecompiledMethod) k =
-        reduceFunction state parameters ast.Signature ast.Body (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
+    and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
+        reduceFunction state (Some this) parameters ast.Signature ast.Body (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
-    and reduceMemberInitializer state (ast : IMemberInitializer) k =
+    and reduceMemberInitializer this state (ast : IMemberInitializer) k =
         match ast with
-        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer state initializer k
-        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer state initializer k
+        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer this state initializer k
+        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer this state initializer k
         | _ -> __notImplemented__()
 
-    and reduceFieldMemberInitializer state (ast : IFieldMemberInitializer) k =
-        __notImplemented__()
+    and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
+        reduceExpression state ast.Value (fun (term, state) ->
+        let fieldReference = Memory.referenceToField state ast.Field.Name this in
+        Memory.mutate state fieldReference term |> snd |> k)
 
-    and reducePropertyMemberInitializer state (ast : IPropertyMemberInitializer) k =
+    and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
         __notImplemented__()
 
 
 // ------------------------------- IStatement and inheritors -------------------------------
 
     and reduceStatement state (ast : IStatement) k =
-        if ast = null then k (NoResult, state)
-        else
-            match ast with
-            | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
-            | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
-            | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
-            | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
-            | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
-            | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
-            | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
-            | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
-            | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
-            | :? IJumpStatement as jump -> reduceJumpStatement state jump k
-            | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
-            | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
-            | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
-            | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
-            | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
-            | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
-            | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
-            | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
-            | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
-            | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
-            | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
-            | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
-            | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
-            | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
-            | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
-            | _ -> __notImplemented__()
+        match ast with
+        | null -> k (NoResult, state)
+        | :? IAbstractGotoStatement as abstractGoto -> reduceAbstractGotoStatement state abstractGoto k
+        | :? IAbstractLoopStatement as abstractLoop -> reduceAbstractLoopStatement state abstractLoop k
+        | :? IBlockStatement as blockStatement -> reduceBlockStatement state blockStatement k
+        | :? ICommentStatement as commentStatement -> reduceCommentStatement state commentStatement k
+        | :? IEmptyStatement as emptyStatement -> reduceEmptyStatement state emptyStatement k
+        | :? IEndFinallyStatement as endFinally -> reduceEndFinallyStatement state endFinally k
+        | :? IExpressionStatement as expressionStatement -> reduceExpressionStatement state expressionStatement k
+        | :? IFixedStatement as fixedStatement -> reduceFixedStatement state fixedStatement k
+        | :? IIfStatement as ifStatement -> reduceIfStatement state ifStatement k
+        | :? IJumpStatement as jump -> reduceJumpStatement state jump k
+        | :? ILabelDeclarationStatement as labelDeclaration -> reduceLabelDeclarationStatement state labelDeclaration k
+        | :? ILocalVariableDeclarationStatement as localVariableDeclaration -> reduceLocalVariableDeclarationStatement state localVariableDeclaration k
+        | :? ILockStatement as lockStatement -> reduceLockStatement state lockStatement k
+        | :? IMemoryCopyStatement as memoryCopy -> reduceMemoryCopyStatement state memoryCopy k
+        | :? IMemoryInitializeStatement as memoryInitialize -> reduceMemoryInitializeStatement state memoryInitialize k
+        | :? IPinStatement as pinStatement -> reducePinStatement state pinStatement k
+        | :? IRethrowStatement as rethrowStatement -> reduceRethrowStatement state rethrowStatement k
+        | :? IReturnStatement as returnStatement -> reduceReturnStatement state returnStatement k
+        | :? ISuccessfulFilteringStatement as filtering -> reduceSuccessfulFilteringStatement state filtering k
+        | :? ISwitchStatement as switchStatement -> reduceSwitchStatement state switchStatement k
+        | :? IThrowStatement as throwStatement -> reduceThrowStatement state throwStatement k
+        | :? ITryStatement as tryStatement -> reduceTryStatement state tryStatement k
+        | :? IUnpinStatement as unpinStatement -> reduceUnpinStatement state unpinStatement k
+        | :? IUsingStatement as usingStatement -> reduceUsingStatement state usingStatement k
+        | :? IYieldReturnStatement as yieldReturn -> reduceYieldReturnStatement state yieldReturn k
+        | _ -> __notImplemented__()
 
 
 // ------------------------------- IAbstractGotoStatement and inheritors -------------------------------
@@ -192,7 +190,7 @@ module internal Interpreter =
             reduceInlinedDelegateCallStatement state (ast.Expression :?> IDelegateCallExpression) k
         else
             reduceExpression state ast.Expression (fun (term, newState) ->
-                k ((if Terms.IsError term then Return term else NoResult), newState))
+                k (ControlFlow.throwOrIgnore term, newState))
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -202,6 +200,7 @@ module internal Interpreter =
         match condition with
         | Terms.True ->  reduceStatement conditionState ast.Then k
         | Terms.False -> reduceStatement conditionState ast.Else k
+        | e when Terms.Just Terms.IsError e -> k (Return e, conditionState)
         | _ ->
             reduceStatement conditionState ast.Then (fun (thenResult, thenState) ->
             reduceStatement conditionState ast.Else (fun (elseResult, elseState) ->
@@ -218,7 +217,7 @@ module internal Interpreter =
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
         reduceExpression state ast.Initializer (fun (initializer, state) ->
         let name = ast.VariableReference.Variable.Name in
-        k (NoResult, State.introduce state name initializer))
+        k (NoResult, Memory.allocateOnStack state name initializer))
 
     and reduceLockStatement state (ast : ILockStatement) k =
         __notImplemented__()
@@ -263,6 +262,7 @@ module internal Interpreter =
 
     and reduceExpression state (ast : IExpression) k =
         match ast with
+        | null -> k (Nop, state)
         | :? IAbstractBinaryOperationExpression as expression -> reduceAbstractBinaryOperation state expression k
         | :? IAbstractTypeCastExpression as expression -> reduceAbstractTypeCastExpression state expression k
         | :? IAbstractUnaryOperationExpression as expression -> reduceAbstractUnaryOperationExpression state expression k
@@ -287,7 +287,6 @@ module internal Interpreter =
         | :? ILocalVariableReferenceExpression as expression -> reduceLocalVariableReferenceExpression state expression k
         | :? IMakeRefExpression as expression -> reduceMakeRefExpression state expression k
         | :? IMemberAccessExpression as expression -> reduceMemberAccessExpression state expression k
-        | :? IMemberInitializerList as expression -> reduceMemberInitializerList state expression k
         | :? IMethodPointerExpression as expression -> reduceMethodPointerExpression state expression k
         | :? IMethodReferenceExpression as expression -> reduceMethodReferenceExpression state expression k
         | :? INestedInitializer as expression -> reduceNestedInitializer state expression k
@@ -309,6 +308,19 @@ module internal Interpreter =
         | :? IUntypedStackAllocExpression as expression -> reduceUntypedStackAllocExpression state expression k
         | :? IVirtualMethodPointerExpression as expression -> reduceVirtualMethodPointerExpression state expression k
         | _ -> __notImplemented__()
+
+    and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
+        if ast = null then k (Concrete(null, VSharp.Object), state)
+        else
+            match ast with
+            | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Variable.Name followHeapRefs, state)
+            | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Parameter.Name followHeapRefs, state)
+            | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
+            | :? IFieldAccessExpression as expression ->
+                reduceExpressionToRef state true expression.Target (fun (target, state) ->
+                k (Memory.referenceToField state expression.FieldSpecification.Field.Name target, state))
+            | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
+            | _ -> reduceExpression state ast k
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         __notImplemented__()
@@ -350,10 +362,10 @@ module internal Interpreter =
             k (result, state))))
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
-        __notImplemented__()
+        (Memory.defaultOf (Types.FromMetadataType ast.Type), state) |> k
 
     and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
-        reduceDelegateCall state ast (fun (result, state) -> ControlFlow.resultToTerm (result, state) |> k)
+        reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
 
     and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
         reduceDelegateCall state ast k
@@ -363,21 +375,22 @@ module internal Interpreter =
         reduceExpression state ast.Delegate (fun (deleg, state) ->
         let invoke deleg k =
             match deleg with
-                | Terms.Lambda(signature, body) -> reduceFunction state args signature body k
-                | Concrete(obj, _) -> (Return(Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
+                | Terms.Lambda(signature, body) -> reduceFunction state None args signature body k
+                | Concrete(obj, _) -> (Throw (Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
                 | _ -> __notImplemented__()
         in
         match deleg with
-        | Union(gvs) ->
-            let gs, vs = List.unzip gvs in
+        | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk invoke vs (fun results ->
-            let terms, states = results |> List.map ControlFlow.resultToTerm |> List.unzip in
-            let term, state = Merging.merge (List.zip gs terms) (Merging.mergeStates gs states) in
+            let terms, states = List.unzip results in
+            let term = terms |> List.map ControlFlow.resultToTerm |> List.zip gs |> Merging.merge in
+            let state = Merging.mergeStates gs states
             (Return term, state) |> k)
         | _ -> invoke deleg k))
 
     and reduceDerefExpression state (ast : IDerefExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Argument (fun (reference, state) ->
+        k (Memory.deref state reference, state))
 
     and reduceExpressionList state (ast : IExpressionList) k =
         __notImplemented__()
@@ -392,15 +405,15 @@ module internal Interpreter =
         let mType = Types.FromMetadataType ast.Value.Type in
         k (Concrete(ast.Value.Value, mType), state)
 
-
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
-        let term = State.eval state ast.Variable.Name in k (term, state)
+        k (Memory.valueOf state ast.Variable.Name, state)
 
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
 
-    and reduceMemberInitializerList state (ast : IMemberInitializerList ) k =
-        __notImplemented__()
+    and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
+        if ast = null then k state
+        else Cps.Seq.foldlk (reduceMemberInitializer initializedObject) state ast.Initializers k
 
     and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
@@ -415,7 +428,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
-        let term = State.eval state ast.Parameter.Name in k (term, state)
+        k (Memory.valueOf state ast.Parameter.Name, state)
 
     and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
@@ -442,7 +455,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceThisReferenceExpression state (ast : IThisReferenceExpression) k =
-        __notImplemented__()
+        k (Memory.valueOf state "this", state)
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
         __notImplemented__()
@@ -491,24 +504,27 @@ module internal Interpreter =
 
     and reduceAssignmentReduced state (left : IExpression) right k =
         match left with
-        | :? IParameterReferenceExpression as paramRef -> (right, State.update state paramRef.Parameter.Name right) |> k
-        | :? ILocalVariableReferenceExpression as varRef -> (right, State.update state varRef.Variable.Name right) |> k
+        | :? IParameterReferenceExpression
+        | :? ILocalVariableReferenceExpression
+        | :? IFieldAccessExpression as field ->
+            reduceExpressionToRef state false left (fun (targetRef, state) ->
+            Memory.mutate state targetRef right |> k)
         | :? IPropertyAccessExpression
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
     and reduceBinaryOperation state op leftArgument rightArgument isChecked t k =
-        reduceExpression state leftArgument (fun (left, state1) -> 
-        reduceExpression state1 rightArgument (fun (right, state2) ->
+        reduceExpression state leftArgument (fun (left, state) ->
+        reduceExpression state rightArgument (fun (right, state) ->
         let t1 = Terms.TypeOf left in
         let t2 = Terms.TypeOf right in
         match op with
         | op when Propositional.isLogicalOperation op ->
-            Propositional.simplifyBinaryConnective op left right (withSnd state2 >> k)
+            Propositional.simplifyBinaryConnective op left right (withSnd state >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation op left right state2 isChecked t k
+            Arithmetics.simplifyBinaryOperation op left right isChecked t (withSnd state >> k)
         | op when Strings.isStringOperation op t1 t2 ->
-            Strings.simplifyOperation op left right |> (withSnd state2 >> k)
+            Strings.simplifyOperation op left right |> (withSnd state >> k)
         | _ -> __notImplemented__()))
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
@@ -525,6 +541,7 @@ module internal Interpreter =
         typeCast newState argument targetType |> k)
 
     and typeCast state term targetType =
+        // TODO: refs and structs should still be refs after cast!
         if Types.IsObject targetType then (term, state)
         else
             let cast src dst expr =
@@ -533,7 +550,7 @@ module internal Interpreter =
             in
             let rec castSimple = function
                 | Error _ -> term
-                | Nop -> Error (new InvalidCastException(format1 "Casting void to {0}!" targetType))
+                | Nop -> Error (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
                 | Concrete(value, _) ->
                     if Terms.IsFunction term && Types.IsFunction targetType
                     then Concrete(value, targetType)
@@ -546,7 +563,7 @@ module internal Interpreter =
             | Union(gvs) ->
                 let gs, vs = List.unzip gvs in
                 let vs' = List.map castSimple vs in
-                Merging.merge (List.zip gs vs') state
+                (Merging.merge (List.zip gs vs'), state)
             | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
@@ -576,7 +593,7 @@ module internal Interpreter =
                 let t = dotNetType |> Types.FromDotNetType in
                     match t with
                     | Bool -> Propositional.simplifyUnaryConnective op arg (withSnd newState >> k)
-                    | Numeric t -> Arithmetics.simplifyUnaryOperation op arg newState isChecked t k
+                    | Numeric t -> Arithmetics.simplifyUnaryOperation op arg isChecked t (withSnd newState >> k)
                     | String -> __notImplemented__()
                     | _ -> __notImplemented__())
 
@@ -588,7 +605,7 @@ module internal Interpreter =
         reduceAssignment state assignment.LeftArgument assignment.RightArgument k
 
     and reducePostfixIncrement state leftAst left right isChecked t k =
-        Arithmetics.simplifyBinaryOperation OperationType.Add left right state isChecked t (fun (sum, state) ->
+        Arithmetics.simplifyBinaryOperation OperationType.Add left right isChecked t (fun sum ->
         reduceAssignmentReduced state leftAst sum (fun (_, state) ->
         (left, state) |> k))
 
@@ -625,7 +642,37 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
-        __notImplemented__()
+        // TODO: support collection initializers
+        let qualifiedTypeName = ast.ConstructedType.AssemblyQualifiedName in
+        let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
+        let fields = DecompilerServices.getDefaultFieldValuesOf assemblyPath qualifiedTypeName in
+        let names, typesAndInitializers = List.unzip fields in
+        let types, initializers = List.unzip typesAndInitializers in
+        Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
+        let fields = List.map2 (fun t -> function | Nop -> Memory.defaultOf (Types.FromMetadataType t) | v -> v) types initializers
+                        |> List.zip names |> Map.ofList in
+        let t = Types.FromMetadataType ast.ConstructedType in
+        let freshValue = Struct(fields, t) in
+        let isReference = Types.IsReference t in
+        let reference, state =
+            if isReference
+            then Memory.allocateInHeap state freshValue false
+            else
+                let tempVar = "constructed instance" in
+                let state = State.push state [(tempVar, freshValue)] in
+                (Memory.referenceToVariable state tempVar false, state)
+        in
+        let finish (_, state) =
+            reduceMemberInitializerList reference state ast.ObjectInitializer (fun state ->
+            if not isReference
+            then k (Memory.deref state reference, State.pop state)
+            else k (reference, state))
+        in
+        if ast.ConstructorSpecification = null
+        then finish (Nop, state)
+        else
+            Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
+            decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath finish))
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
@@ -636,7 +683,8 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Target (fun (target, state) ->
+        k (Memory.fieldOf target ast.FieldSpecification.Field.Name, state))
 
 // ------------------------------- IMemberCallExpression and inheritors -------------------------------
 
@@ -654,17 +702,16 @@ module internal Interpreter =
     and reduceIndexerCallExpression state (ast : IIndexerCallExpression) k =
         __notImplemented__()
 
-
     and reduceMethodCallExpression state (ast : IMethodCallExpression) k =
-        match ast with
-        | _ when ast.IsStatic ->
-            Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, newState) ->
+        reduceExpressionToRef state true ast.Target (fun (target, state) ->
+        Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
+        let target = Memory.npeIfNull target in
+        if Terms.Just Terms.IsError target then k (target, state)
+        else
             let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.OwnerType.AssemblyQualifiedName in
-            let methodName = ast.MethodInstantiation.MethodSpecification.Method.Name in
+            let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
             let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location in
-            decompileAndReduceMethod newState args qualifiedTypeName methodName assemblyPath k)
-        | _ -> __notImplemented__()
-
+            decompileAndReduceMethod state target args qualifiedTypeName metadataMethod assemblyPath k))
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         __notImplemented__()

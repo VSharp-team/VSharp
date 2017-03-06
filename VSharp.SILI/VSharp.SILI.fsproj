@@ -64,6 +64,7 @@
     <Compile Include="Simplify.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
+    <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
     <Compile Include="Interpreter.fs" />
