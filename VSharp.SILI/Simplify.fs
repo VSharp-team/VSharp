@@ -4,34 +4,7 @@ open VSharp.Terms
 
 module internal Simplify =
 
-    // Trying to simplify pairwise combinations of x- and y-operands.
-    // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
-    // by successively trying to combine (a * c), (a * d), (b * c) and (b * d).
-    let internal simplifyPairwiseCombinations xs ys t simplify reduce matched unmatched =
-        let initialYs = ys
-
-        let rec combineOne x ys failed k =
-            match ys with
-            | [] -> k x failed
-            | h :: tl ->
-                simplify x h false t
-                    (fun x  -> combineOne x tl failed k)
-                    (fun () -> combineOne x tl (h::failed) k)
-
-        let rec combine xs ys acc =
-            match xs with
-            | [] ->
-                // Here we traversed all xs, checking for something matched...
-                if List.length ys = List.length initialYs then unmatched () // Nothing matched, the whole process is failed
-                else
-                    // Something matched, the work is done, just combining results together...
-                    let toReduce = List.append (List.rev acc) ys in
-                    // TODO: care about different types...
-                    toReduce |> List.reduce reduce |> matched
-            | x::xs ->
-                combineOne x ys [] (fun res ys -> combine xs ys (res::acc))
-
-        combine xs ys []
+    let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
     let rec internal simplifyGenericUnary name x matched concrete unmatched =
         match x with

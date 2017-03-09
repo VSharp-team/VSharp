@@ -22,10 +22,10 @@ namespace VSharp.CSharpUtils.Tests
             return result;
         }
 
-        //public static int Always18()
-        //{
-        //    return Mult2(9);
-        //}
+        public static int Always18()
+        {
+            return Mult2(9);
+        }
 
         private static int AlwaysN(int n)
         {

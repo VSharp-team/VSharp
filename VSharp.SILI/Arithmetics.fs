@@ -7,11 +7,11 @@ open VSharp.Terms
 
 module internal Arithmetics =
 
-    let private makeAddition isChecked t x y =
-        MakeBinary OperationType.Add x y false (Types.FromDotNetType t)
+    let private makeAddition isChecked t x y k =
+        MakeBinary OperationType.Add x y false (Types.FromDotNetType t) |> k
 
-    let private makeProduct isChecked t x y =
-        MakeBinary OperationType.Multiply x y false (Types.FromDotNetType t)
+    let private makeProduct isChecked t x y k =
+        MakeBinary OperationType.Multiply x y false (Types.FromDotNetType t) |> k
 
 // ------------------------------- Simplification of "+" -------------------------------
 
@@ -91,7 +91,7 @@ module internal Arithmetics =
     and private simplifyAddition x y isChecked t k =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y) in
-                makeAddition isChecked t (fst sorted) (snd sorted) |> k
+                makeAddition isChecked t (fst sorted) (snd sorted) k
         simplifyGenericBinary "addition" x y k
                               (fun x y _ _ -> simplifyConcreteAddition x y isChecked t)
                               (fun x y k -> simplifyAdditionExt x y isChecked t k defaultCase)
@@ -195,7 +195,7 @@ module internal Arithmetics =
     and private simplifyMultiplication x y isChecked t k =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
+            makeProduct isChecked t (fst sorted) (snd sorted) k
         simplifyGenericBinary "product" x y k
                               (fun x y _ _ -> simplifyConcreteMultiplication x y isChecked t)
                               (fun x y k -> simplifyMultiplicationExt x y isChecked t k defaultCase)
@@ -214,7 +214,7 @@ module internal Arithmetics =
     and private simplifyDivision x y isChecked t k =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y) in
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
+            makeProduct isChecked t (fst sorted) (snd sorted) k
         in
         simplifyGenericBinary "division" x y k
             (fun x y _ _ -> simplifyConcreteDivision x y isChecked t)
@@ -259,7 +259,7 @@ module internal Arithmetics =
     and private simplifyRemainder x y isChecked t k =
         let defaultCase () =
             let sorted = if (IsConcrete y) then (y, x) else (x, y)
-            makeProduct isChecked t (fst sorted) (snd sorted) |> k
+            makeProduct isChecked t (fst sorted) (snd sorted) k
         simplifyGenericBinary "remainder" x y k
             (fun x y _ _ -> simplifyConcreteRemainder x y isChecked t)
             (fun x y k ->

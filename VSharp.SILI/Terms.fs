@@ -13,7 +13,7 @@ type public Operation =
 [<StructuralEquality;NoComparison>]
 type public Term =
     | Error of System.Exception
-    | Nop // TODO: should we get rid of it?
+    | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
     | Expression of (Operation * Term list * TermType)
@@ -36,9 +36,6 @@ type public Term =
                 let checkedFormat = if isChecked then format + "✓" else format
                 printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
             | Operator(operator, isChecked) ->
-                if List.length operands < 2 then 
-                    printf " "
-                else printf ""
                 assert (List.length operands >= 2) 
                 printedOperands |> String.concat (Operations.operationToStringFormat operator) |> sprintf (if isChecked then "(%s)✓" else"(%s)")
             | Cast(orig, dest) ->

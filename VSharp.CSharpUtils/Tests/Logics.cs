@@ -27,11 +27,11 @@
             return !b;
         }
 
-        //public static bool Negation3(bool b)
-        //{
-        //    b = !b;
-        //    return !b;
-        //}
+        public static bool Negation3(bool b)
+        {
+            b = !b;
+            return !b;
+        }
 
         public static bool Negation4(bool b)
         {
