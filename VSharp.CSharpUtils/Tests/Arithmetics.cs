@@ -38,7 +38,7 @@
             int x3 = x;
             ++x;
             int x4 = x;
-            return x1 == xorig && x2 == xorig + 1 && x3 == xorig + 2 && x4 == xorig + 3;
+            return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
     }
 }

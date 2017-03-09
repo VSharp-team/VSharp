@@ -28,8 +28,16 @@ module public SVM =
             printfn "SVM environment: %s" (toString state))
 
     let private runType assemblyPath (t : System.Type) =
-        let qualifiedTypeName = t.AssemblyQualifiedName in
-        let disabledTests = ["Calculator"(*; "Conditional"; "Arithmetics"; "Fibonacci"; "Lambdas"; "GCD"; "ClassesSimple"*)] in
+        let qualifiedTypeName = t.FullName in
+        let disabledTests = [
+            "Calculator";
+//            "Logics";
+//            "Conditional";
+//            "Arithmetics";
+//            "Fibonacci";
+//            "Lambdas";
+//            "GCD"
+            ] in
         if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
             t.GetMethods() |> Array.iter (interpret assemblyPath qualifiedTypeName)
 

@@ -48,6 +48,18 @@ module public Cps =
                 f a x (fun (x', a') -> 
                     mapFoldk f a' xs' (fun (ys, b) -> k (x' :: ys, b)))
 
+        let rec reduce f xs k =
+            match xs with
+            | [] -> raise(System.ArgumentException("List should be not empty"))
+            | [x] -> k x
+            | x::xs-> foldl f x xs k
+
+        let rec reducek f xs k =
+            match xs with
+            | [] -> raise(System.ArgumentException("List should be not empty"))
+            | [x] -> k x
+            | x::xs-> foldlk f x xs k
+
     module public Seq =
         let rec map f xs k =
             match xs with

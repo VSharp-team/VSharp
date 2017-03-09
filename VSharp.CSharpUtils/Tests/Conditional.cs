@@ -55,9 +55,9 @@ namespace VSharp.CSharpUtils.Tests
 
         private static int FirstEvenGreaterThen(int n)
         {
-            for (int i = 0; i >= 0; i+=1)
+            for (int i = 0; i >= 0; i += 1)
             {
-                if (i > n && i%2 == 0)
+                if (i > n & i % 2 == 0)
                     return i;
             }
             return 100500;
