@@ -312,6 +312,45 @@
             bool e = true;
             return a | (a & b & c & d & e);
         }
-        
+
+        public static bool Xor1(bool a, bool b, bool c, bool d)
+        {
+            return AlwaysTrue() ^ AlwaysTrue();
+        }
+
+        public static bool Xor2(bool a, bool b, bool c, bool d)
+        {
+            return AlwaysFalse() ^ AlwaysTrue();
+        }
+
+        public static bool Xor3(bool a, bool b, bool c, bool d)
+        {
+            return a ^ b;
+        }
+
+        public static bool Xor4(bool a, bool b, bool c, bool d)
+        {
+            return a ^ AlwaysTrue();
+        }
+
+        public static bool Xor5(bool a, bool b, bool c, bool d)
+        {
+            return a ^ AlwaysFalse();
+        }
+
+        public static bool Xor6(bool a, bool b, bool c, bool d)
+        {
+            return a ^ !a;
+        }
+
+        public static bool Xor7(bool a, bool b, bool c, bool d)
+        {
+            return a ^ b ^ c ^ !a;
+        }
+
+        public static bool Xor8(bool a, bool b, bool c, bool d)
+        {
+            return (a ^ b) ^ (b ^ a);
+        }
     }
 }

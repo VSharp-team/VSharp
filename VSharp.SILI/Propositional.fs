@@ -8,13 +8,29 @@ open VSharp.Terms
 module internal Propositional =
 
 // ------------------------------- Simplification of logical operations -------------------------------
-    let internal makeBin op x y = MakeBinary op x y false Bool
+    let internal makeBin operation x y = 
+        match x, y with
+        | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
+            Terms.MakeBinaryOverList operation (List.append list' list'') false Bool
+        | Expression(Operator(op', false), list', _), Constant _ when op' = operation ->
+            Terms.MakeBinaryOverList operation (y::list') false Bool
+        | Expression(Operator(op', false), list', _), Negation _ when op' = operation ->
+            Terms.MakeBinaryOverList operation (y::list') false Bool
+        | Constant _, Expression(Operator(op', false), list', _) when op' = operation ->
+            Terms.MakeBinaryOverList operation (x::list') false Bool
+        | Negation _, Expression(Operator(op', false), list', _) when op' = operation ->
+            Terms.MakeBinaryOverList operation (x::list') false Bool
+        | Expression(Operator(op', false), list', _), _ when list'.IsEmpty -> y
+        | _, Expression(Operator(op', false), list', _) when list'.IsEmpty -> y
+        | _ -> Terms.MakeBinaryOverList operation [x; y] false Bool
 
-    let internal makeBinaryTerm x list listOp op = 
+
+    let internal makeCoOpBinaryTerm x list listOp op = 
         match list with
         | [] -> x
         | [y] -> makeBin op x y
         | _ -> makeBin op (Expression(Operator(listOp, false), list, Bool)) x
+
 
     let public (|IntersectionExceptOne|_|) list1 list2 = 
         if List.length list1 = List.length list2 then
@@ -27,6 +43,13 @@ module internal Propositional =
             | [Negation(y,_); x] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
             | _ -> None
         else None
+
+    let internal shuffled list1 list2 =
+        if List.length list1 <> List.length list2 then false
+        else
+            let s1 = System.Collections.Generic.HashSet<Term>(list1) in
+            let s2 = System.Collections.Generic.HashSet<Term>(list2) in
+            s1.SymmetricExceptWith(s2); Seq.isEmpty s1
 
     // Trying to simplify pairwise combinations of x- and y-operands.
     // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
@@ -58,21 +81,7 @@ module internal Propositional =
         combine xs ys []
 
     let rec private simplifyConnective operation opposite stopValue ignoreValue x y k =
-        let defaultCase () = 
-            match x, y with
-            | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
-                Terms.MakeBinaryOverList operation (List.append list' list'') false Bool |> k
-            | Expression(Operator(op', false), list', _), Constant _ when op' = operation ->
-                Terms.MakeBinaryOverList operation (y::list') false Bool |> k
-            | Expression(Operator(op', false), list', _), Negation _ when op' = operation ->
-                Terms.MakeBinaryOverList operation (y::list') false Bool |> k
-            | Constant _, Expression(Operator(op', false), list', _) when op' = operation ->
-                Terms.MakeBinaryOverList operation (x::list') false Bool |> k
-            | Negation _, Expression(Operator(op', false), list', _) when op' = operation ->
-                Terms.MakeBinaryOverList operation (x::list') false Bool |> k
-            | Expression(Operator(op', false), list', _), _ when list'.IsEmpty -> k y
-            | _, Expression(Operator(op', false), list', _) when list'.IsEmpty -> k y
-            | _ -> Terms.MakeBinaryOverList operation [x; y] false Bool |> k
+        let defaultCase () = makeBin operation x y |> k
 
         match x, y with
         | Error _, _ -> k x
@@ -125,11 +134,13 @@ module internal Propositional =
         // Co(... y ...) op y
         | _ when List.contains y list -> matched y
         // Co(... y ...) op !y
-        | _, Negation(y,_) when List.contains y list -> matched (makeBinaryTerm (Negate y) (List.except [y] list) co op)
+        | _, Negation(y,_) when List.contains y list -> matched (makeCoOpBinaryTerm (Negate y) (List.except [y] list) co op)
         // Co(... !y ...) op y
-        | _ when List.contains (Negate y) list -> matched (makeBinaryTerm y (List.except [Negate y] list) co op)
+        | _ when List.contains (Negate y) list -> matched (makeCoOpBinaryTerm y (List.except [Negate y] list) co op)
         // Co(!x xs) op Co(x xs) -> ys
-        | _, Expression(Operator(co', false), IntersectionExceptOne list ys, _)  when co' = co-> matched (MakeBinaryOverList co ys false Bool)
+        | _, Expression(Operator(co', false), IntersectionExceptOne list ys, _)  when co' = co -> matched (MakeBinaryOverList co ys false Bool)
+        // Co(list) op Co(shuffled list) -> x
+        | _, Expression(Operator(co', false), ys, _)  when co' = co && shuffled list ys -> matched x
         // Co(...) op OP(...) -> pairwise
         | _, Expression(Operator(op', false), y', _) when op = op'->
             // Trying to simplify pairwise combinations of x- and y-summands
@@ -177,7 +188,9 @@ module internal Propositional =
         match op with
         | OperationType.LogicalAnd -> simplifyAnd x y k
         | OperationType.LogicalOr -> simplifyOr x y k
-        | OperationType.LogicalXor -> raise(new System.NotImplementedException())
+        | OperationType.LogicalXor ->
+            simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
+            simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not a binary logical operator"))
 
     let internal simplifyUnaryConnective op x k =
