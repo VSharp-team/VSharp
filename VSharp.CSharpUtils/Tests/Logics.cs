@@ -352,5 +352,87 @@
         {
             return (a ^ b) ^ (b ^ a);
         }
+
+        public static bool CondAnd1(int x)
+        {
+            var xOrig = x;
+            var x1 = ++x;
+            var x2 = ++x;
+            return x1 == xOrig && x2 == xOrig + 1 && x2 == xOrig + 2;
+        }
+
+        public static bool CondAnd2(int x)
+        {
+            var x1 = x + 1;
+            var x2 = x + 2;
+            return true && x2 == x1 + 1 && x2 - x1 == 1 && x2 - x1 == 3;
+        }
+
+        public static bool CondAnd3(int x)
+        {
+            var x1 = x + 1;
+            var x2 = x + 2;
+            return true && x2 == x1 + 1 && x2 - x1 == 1 && AlwaysFalse();
+        }
+
+        public static bool CondOr1(int x)
+        {
+            var xOrig = x;
+            var x1 = ++x;
+            var x2 = ++x;
+            return x1 != xOrig || x2 != xOrig + 1 || x2 == xOrig + 2;
+        }
+
+        public static bool CondOr2(int x)
+        {
+            var x1 = x + 1;
+            var x2 = x + 2;
+            return false || x2 != x1 + 1 || x2 - x1 != 1 || x2 - x1 == 3;
+        }
+
+        public static bool CondOr3(int x)
+        {
+            var x1 = x + 1;
+            var x2 = x + 2;
+            return false || x2 == x1 + 1 || x2 - x1 == 1 || AlwaysTrue();
+        }
+
+        public static bool Equal1(bool a, bool b, bool c, bool d)
+        {
+            var x1 = a && b;
+            var x2 = b && a;
+            return x1 == x2;
+        }
+
+        //  ((a & b) | ((!b) & (!a)))
+        public static bool Equal2(bool a, bool b, bool c, bool d)
+        {
+            var x1 = a && b;
+            var x2 = b || a;
+            return x1 == x2;
+        }
+
+        // True
+        public static bool Equal3(bool a, bool b, bool c, bool d)
+        {
+            var x1 = a && b && c;
+            var x2 = !(!b || !a || !c);
+            return x1 == x2;
+        }
+
+        // ((a & (!b)) | ((!a) & b))
+        public static bool NotEqual1(bool a, bool b, bool c, bool d)
+        {
+            return a != b;
+        }
+
+        // False
+        public static bool NotEqual2(bool a, bool b, bool c, bool d)
+        {
+            var x1 = a && b;
+            var x2 = a && b;
+            return x1 != x2;
+        }
+
     }
 }

@@ -184,6 +184,13 @@ module internal Propositional =
     let internal (|||) x y =
         simplifyOr x y id
 
+    let internal (===) x y =
+        simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' id))
+
+    let internal (!==) x y =
+        !! (x === y)
+
+
     let internal simplifyBinaryConnective op x y k =
         match op with
         | OperationType.LogicalAnd -> simplifyAnd x y k
@@ -191,6 +198,8 @@ module internal Propositional =
         | OperationType.LogicalXor ->
             simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
             simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
+        | OperationType.Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
+        | OperationType.NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not a binary logical operator"))
 
     let internal simplifyUnaryConnective op x k =
@@ -198,10 +207,19 @@ module internal Propositional =
         | OperationType.LogicalNeg -> simplifyNegation x k
         | _ -> raise(new System.ArgumentException(op.ToString() + " is not an unary logical operator"))
 
-    let internal isLogicalOperation op =
+    let internal isLogicalOperation op t1 t2 =
+        Types.IsBool t1 && Types.IsBool t2 &&
         match op with
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor
-        | OperationType.LogicalNeg -> true
+        | OperationType.LogicalNeg
+        | OperationType.Equal
+        | OperationType.NotEqual -> true
+        | _ -> false
+
+    let internal isConditionalOperation op =
+        match op with
+        | OperationType.ConditionalAnd
+        | OperationType.ConditionalOr -> true
         | _ -> false

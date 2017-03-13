@@ -86,17 +86,16 @@ module public Types =
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
         Func(args, returnType)
 
-    let public IsBool (t : TermType) =
-        match t with
-        | Bool -> true
-        | _ -> false
-
     let public IsInteger = ToDotNetType >> integerTypes.Contains
 
     let public IsReal = ToDotNetType >> realTypes.Contains
 
     let public IsNumeric = function
         | Numeric _ -> true
+        | _ -> false
+
+    let public IsBool = function
+        | Bool -> true
         | _ -> false
 
     let public IsString = function

@@ -492,6 +492,8 @@ module internal Interpreter =
             Transformations.transformOperationAssignment ast
             assert(ast.OperationType = OperationType.Assignment)
             reduceAssignment state ast.LeftArgument ast.RightArgument k
+        | _ when Propositional.isConditionalOperation op->
+            reduceConditionalOperation state ast.OperationType ast.LeftArgument ast.RightArgument k
         | _ ->
             let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
             reduceBinaryOperation state ast.OperationType ast.LeftArgument ast.RightArgument isChecked (Types.GetSystemTypeOfNode ast) k
@@ -514,18 +516,41 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceBinaryOperation state op leftArgument rightArgument isChecked t k =
-        reduceExpression state leftArgument (fun (left, state) ->
-        reduceExpression state rightArgument (fun (right, state) ->
+        reduceExpression state leftArgument (fun (left, state0) ->
+        reduceExpression state rightArgument (fun (right, state1) ->
         let t1 = Terms.TypeOf left in
         let t2 = Terms.TypeOf right in
         match op with
-        | op when Propositional.isLogicalOperation op ->
-            Propositional.simplifyBinaryConnective op left right (withSnd state >> k)
+        | op when Propositional.isLogicalOperation op t1 t2 ->
+            Propositional.simplifyBinaryConnective op left right (withSnd state1 >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation op left right isChecked t (withSnd state >> k)
+            Arithmetics.simplifyBinaryOperation op left right isChecked t (withSnd state1 >> k)
         | op when Strings.isStringOperation op t1 t2 ->
-            Strings.simplifyOperation op left right |> (withSnd state >> k)
+            Strings.simplifyOperation op left right |> (withSnd state1 >> k)
         | _ -> __notImplemented__()))
+
+    and reduceConditionalOperation state op leftArgument rightArgument k =
+        let handleOp state op stopValue ignoreValue leftArgument rightArgument k =
+            reduceExpression state leftArgument (fun (left, state') ->
+                match left with
+                | _ when left = ignoreValue -> reduceExpression state' rightArgument k
+                | e when Terms.Just Terms.IsError e -> k (e, state')
+                | _ when left = stopValue -> (stopValue, state') |> k
+                | _ when op = OperationType.ConditionalAnd -> reduceExpression state' rightArgument (fun (right, state'') ->
+                    let res = left &&& right in
+                    let state = Merging.merge2States left !!left state'' state' in
+                    k (res, state))
+                | _ when op = OperationType.ConditionalOr -> reduceExpression state' rightArgument (fun (right, state'') ->
+                    let res = left ||| right in
+                    let state = Merging.merge2States left !!left state' state'' in
+                    k (res, state))
+                | _ -> __notImplemented__())
+        in
+
+        match op with
+        | OperationType.ConditionalAnd -> handleOp state op Terms.MakeFalse Terms.MakeTrue leftArgument rightArgument k
+        | OperationType.ConditionalOr  -> handleOp state op Terms.MakeTrue Terms.MakeFalse leftArgument rightArgument k
+        | _ -> raise(System.ArgumentException("Wrong operator"))
 
 // ------------------------------- IAbstractTypeCastExpression and inheritors -------------------------------
 
