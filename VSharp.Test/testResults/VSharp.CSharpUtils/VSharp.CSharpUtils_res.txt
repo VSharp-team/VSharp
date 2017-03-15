@@ -1,0 +1,529 @@
+Running assembly VSharp.CSharpUtils, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null...
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(0 == m) ~> 7 + n
+	| 0 == m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2: ===========
+=========== Results: ===========
+SVM result: 0
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod3: ===========
+=========== Results: ===========
+SVM result: -11 + c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(0 == m * m * m) ~> -126826 + n + n + n + n + n + n
+	| 0 == m * m * m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.IncrementsWorkCorrect: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.Decreasing: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.CheckedUnchecked: ===========
+=========== Results: ===========
+SVM result: checked(x0 + unchecked(checked(x2 + x3 + x4) + x1) + unchecked(-(x6 * x7) + x5))
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Arithmetics.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Arithmetics.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Arithmetics.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Arithmetics.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Arithmetics.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Negation1: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Negation2: ===========
+=========== Results: ===========
+SVM result: !b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Negation3: ===========
+=========== Results: ===========
+SVM result: b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Negation4: ===========
+=========== Results: ===========
+SVM result: b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Negation5: ===========
+=========== Results: ===========
+SVM result: b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And1: ===========
+=========== Results: ===========
+SVM result: a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And2: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And3: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And4: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And5: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And6: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And7: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And8: ===========
+=========== Results: ===========
+SVM result: a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.And9: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or1: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or2: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or3: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or4: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or5: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or6: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or7: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or8: ===========
+=========== Results: ===========
+SVM result: a | b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or9: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Or10: ===========
+=========== Results: ===========
+SVM result: a | b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr0: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr1: ===========
+=========== Results: ===========
+SVM result: b & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr2: ===========
+=========== Results: ===========
+SVM result: !b & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr3: ===========
+=========== Results: ===========
+SVM result: b | c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr4: ===========
+=========== Results: ===========
+SVM result: !b | c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr5: ===========
+=========== Results: ===========
+SVM result: a & b & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr6: ===========
+=========== Results: ===========
+SVM result: !a & b | a & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr7: ===========
+=========== Results: ===========
+SVM result: (a | b) & (a | c)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr8: ===========
+=========== Results: ===========
+SVM result: a & b | a & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr9: ===========
+=========== Results: ===========
+SVM result: (a | b) & (a | c)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr10: ===========
+=========== Results: ===========
+SVM result: a & b | a & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr11: ===========
+=========== Results: ===========
+SVM result: !a | !b | !c | d
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr12: ===========
+=========== Results: ===========
+SVM result: !a & (!a & b | a & c)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr13: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr14: ===========
+=========== Results: ===========
+SVM result: !a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr15: ===========
+=========== Results: ===========
+SVM result: (!a | !b) & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr16: ===========
+=========== Results: ===========
+SVM result: !b | a | c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr17: ===========
+=========== Results: ===========
+SVM result: !b & a | a & c | (!b | !c) & a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr18: ===========
+=========== Results: ===========
+SVM result: !c | (!a | b) & (!b & a | c)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr19: ===========
+=========== Results: ===========
+SVM result: a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr20: ===========
+=========== Results: ===========
+SVM result: a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr21: ===========
+=========== Results: ===========
+SVM result: !a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr22: ===========
+=========== Results: ===========
+SVM result: !b & a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr23: ===========
+=========== Results: ===========
+SVM result: !a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr24: ===========
+=========== Results: ===========
+SVM result: (!a | !b | !c) & (!a | b) & (!c | a)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.AndOr25: ===========
+=========== Results: ===========
+SVM result: a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor1: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor2: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor3: ===========
+=========== Results: ===========
+SVM result: (!a | !b) & (a | b)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor4: ===========
+=========== Results: ===========
+SVM result: !a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor5: ===========
+=========== Results: ===========
+SVM result: a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor6: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor7: ===========
+=========== Results: ===========
+SVM result: (!a | (!a & !b | !c | a & b) & ((!a | !b) & (a | b) | c)) & (!c & (!a & !b | a & b) | (!a | !b) & (a | b) & c | a)
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Xor8: ===========
+=========== Results: ===========
+SVM result: (!a & !b | a & b) & ((!a | !b) & (a | b) | (!a | !b) & (a | b))
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondAnd1: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondAnd2: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondAnd3: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondOr1: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondOr2: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.CondOr3: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Equal1: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Equal2: ===========
+=========== Results: ===========
+SVM result: !a & !b | a & b
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Equal3: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.NotEqual1: ===========
+=========== Results: ===========
+SVM result: !a & b | !b & a
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.NotEqual2: ===========
+=========== Results: ===========
+SVM result: False
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Order1: ===========
+=========== Results: ===========
+SVM result: a & b & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Order2: ===========
+=========== Results: ===========
+SVM result: a & b & c
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Order3: ===========
+=========== Results: ===========
+SVM result: -b + a + -c == 0
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Order4: ===========
+=========== Results: ===========
+SVM result: -b + a + -c == 0
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Logics.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Logics.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Logics.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Logics.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Logics.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.A.IncN: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(0 == addr1) ~> <VOID>
+	| 0 == addr1 ~> <ERROR: System.NullReferenceException: Object reference not set to an instance of an object.>]
+SVM environment: (map [], map [(addr1, STRUCT VSharp.CSharpUtils.Tests.A[
+	| _b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| _n ~> UNION[
+				| !(0 == addr1) ~> 1 + _n
+				| 0 == addr1 ~> _n]]]
+	| _intField ~> _intField])], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.A.DecN: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(0 == addr2) ~> <VOID>
+	| 0 == addr2 ~> <ERROR: System.NullReferenceException: Object reference not set to an instance of an object.>]
+SVM environment: (map [], map [(addr2, STRUCT VSharp.CSharpUtils.Tests.A[
+	| _b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| _n ~> UNION[
+				| !(0 == addr2) ~> -1 + _n
+				| 0 == addr2 ~> _n]]]
+	| _intField ~> _intField])], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.A.GetN: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(0 == addr3) ~> _n
+	| 0 == addr3 ~> <ERROR: System.NullReferenceException: Object reference not set to an instance of an object.>]
+SVM environment: (map [], map [(addr3, STRUCT VSharp.CSharpUtils.Tests.A[
+	| _b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| _n ~> _n]]
+	| _intField ~> _intField])], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.A.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.A.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.A.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.A.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.A.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.A.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.A.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.A.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.B.GetN: ===========
+=========== Results: ===========
+SVM result: _n
+SVM environment: (map [(external data, [STRUCT VSharp.CSharpUtils.Tests.B[
+	| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+		| _n ~> _n]]])], map [], [[external data]], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.B.SetN: ===========
+=========== Results: ===========
+SVM result: <VOID>
+SVM environment: (map [(external data, [STRUCT VSharp.CSharpUtils.Tests.B[
+	| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+		| _n ~> n]]])], map [], [[external data]], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.B.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.B.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.B.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.B.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.B.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.B.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.B.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.B.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.C.SetN: ===========
+=========== Results: ===========
+SVM result: <VOID>
+SVM environment: (map [(external data, [STRUCT VSharp.CSharpUtils.Tests.C[
+	| _n ~> n]])], map [], [[external data]], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.C.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.C.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.C.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.C.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.C.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.C.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.C.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.C.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.ClassesSimple.Test1: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [(1, STRUCT VSharp.CSharpUtils.Tests.A[
+	| _b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| _c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| _n ~> n]]
+	| _intField ~> 100500])], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.ClassesSimple.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.ClassesSimple.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.ClassesSimple.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.ClassesSimple.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.ClassesSimple.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.ClassesSimple.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.ClassesSimple.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.ClassesSimple.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.IsMaxEven: ===========
+=========== Results: ===========
+SVM result: UNION[
+	| !(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z | (!(2 * x < 2 * y) | 2 * y < z) & (!(2 * x < z) | !(2 * y < z)) ~> !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * x < 2 * y) | 2 * y < z) & (!(2 * x < z) | !(2 * y < z)) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 2 * y < z & 0 == z % 2]
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.Always18: ===========
+=========== Results: ===========
+SVM result: 18
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.EnsureAlwaysN: ===========
+=========== Results: ===========
+SVM result: n
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.FirstEvenGreaterThen7: ===========
+=========== Results: ===========
+SVM result: 8
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Conditional.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Conditional.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Conditional.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Conditional.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Conditional.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.Fib2: ===========
+=========== Results: ===========
+SVM result: 2
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.Fib5: ===========
+=========== Results: ===========
+SVM result: 8
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Fibonacci.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Fibonacci.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Fibonacci.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Fibonacci.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Fibonacci.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.Gcd1: ===========
+=========== Results: ===========
+SVM result: 1
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.Gcd15: ===========
+=========== Results: ===========
+SVM result: 15
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.GCD.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.GCD.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.GCD.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.GCD.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.GCD.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.Always18: ===========
+=========== Results: ===========
+SVM result: 18
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.DoubleValue: ===========
+=========== Results: ===========
+SVM result: True
+SVM environment: (map [], map [], [], [])
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_0.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass0_1.GetType not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.ToString: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.ToString not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.Equals: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.Equals not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.GetHashCode: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.GetHashCode not found!
+=========== Interpreting VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.GetType: ===========
+WARNING: metadata method for VSharp.CSharpUtils.Tests.Lambdas+<>c__DisplayClass2_0.GetType not found!
