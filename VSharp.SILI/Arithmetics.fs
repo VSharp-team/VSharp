@@ -8,10 +8,10 @@ open VSharp.Terms
 module internal Arithmetics =
 
     let private makeAddition isChecked t x y k =
-        MakeBinary OperationType.Add x y false (Types.FromDotNetType t) |> k
+        MakeBinary OperationType.Add x y isChecked (Types.FromDotNetType t) |> k
 
     let private makeProduct isChecked t x y k =
-        MakeBinary OperationType.Multiply x y false (Types.FromDotNetType t) |> k
+        MakeBinary OperationType.Multiply x y isChecked (Types.FromDotNetType t) |> k
 
 // ------------------------------- Simplification of "+" -------------------------------
 
@@ -277,18 +277,6 @@ module internal Arithmetics =
                 // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
                 | Mul(Concrete(a, _), b, false, _), Concrete(y, _) when not isChecked && isRemainderZero t a y ->
                      MakeConcrete 0 t |> k
-                // (if a then b else c) % y = (if a then (b%y) else (c%y)) if unchecked and b, c and y concrete
-                | If(a, Concrete(b, _), Concrete(c, _), _), Concrete(y, _) when not isChecked ->
-                    let bModY = simplifyConcreteRemainder false t b y in
-                    let cModY = simplifyConcreteRemainder false t c y in
-                        // TODO: merge instead of Cond
-                        Expression(Cond, [a; bModY; cModY], Types.FromDotNetType t) |> k
-                // x % (if a then b else c) = (if a then (x%a) else (x%b)) if unchecked and x, b and c concrete
-                | Concrete(x, _), If(a, Concrete(b, _), Concrete(c, _), _) when not isChecked ->
-                    let xModB = simplifyConcreteRemainder false t x b in
-                    let xModC = simplifyConcreteRemainder false t x c in
-                        // TODO: merge instead of Cond
-                        Expression(Cond, [a; xModB; xModC], Types.FromDotNetType t) |> k
                 | _ -> MakeBinary OperationType.Remainder x y isChecked (Types.FromDotNetType t) |> k)
             (fun x y k -> simplifyRemainder isChecked t x y k)
 
@@ -333,7 +321,7 @@ module internal Arithmetics =
         match op with
         | OperationType.Add -> simplifyAddition isChecked t x y k
         | OperationType.Subtract ->
-            simplifyUnaryMinus false t y (fun minusY ->
+            simplifyUnaryMinus isChecked t y (fun minusY ->
             simplifyAddition isChecked t x minusY k)
         | OperationType.Multiply -> simplifyMultiplication isChecked t x y k
         | OperationType.Divide -> simplifyDivisionAndCheckNotZero isChecked t x y k

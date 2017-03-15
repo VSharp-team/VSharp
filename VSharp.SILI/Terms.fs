@@ -7,15 +7,13 @@ open System
 type public Operation =
     | Operator of OperationType * bool
     | Application of string
-    | Cast of TermType * TermType
-    | Cond
+    | Cast of TermType * TermType * bool
 
     member this.priority =
         match this with
         | Operator (op, _) -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
-        | Cond -> Operations.maxPriority - 13
 
 [<StructuralEquality;NoComparison>]
 type public Term =
@@ -30,9 +28,14 @@ type public Term =
     | Union of (Term * Term) list
 
     override this.ToString() =
-        let b2str = function
-            | true -> "checked"
-            | _ -> "unchecked"
+        let checkExpression curChecked parentChecked priority parentPriority str = 
+            match curChecked, parentChecked with 
+            | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
+            | false, _ when curChecked <> parentChecked -> sprintf "unchecked(%s)" str
+            | _ when priority < parentPriority -> sprintf "(%s)" str
+            | _ -> str
+
+        let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
 
         let rec toStr parentPriority parentChecked indent term =
             match term with
@@ -44,30 +47,20 @@ type public Term =
                 match operation with
                 | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
-                    let opStr = Operations.operationToString operator
-                    let checkedOp =
-                        if isChecked <> parentChecked
-                        then sprintf "%s(%s)" (b2str isChecked) opStr
-                        else if operation.priority < parentPriority then sprintf "(%s)" opStr else opStr
-                    let curCheck = if isChecked <> parentChecked then isChecked else parentChecked
-                    let printedOperands = operands |> List.map (toStr operation.priority curCheck indent)
-                    printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedOp
+                    let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority in
+                    let printedOperands = operands |> List.map (toStr operation.priority (isCheckNeed isChecked parentChecked) indent) in
+                    printedOperands |> List.map box |> List.toArray |> Wrappers.format opStr
                 | Operator(operator, isChecked) ->
                     assert (List.length operands >= 2)
-                    let opStr = Operations.operationToString operator
-                    let curCheck = if isChecked <> parentChecked then isChecked else parentChecked
-                    let printedOperands = operands |> List.map (toStr operation.priority curCheck indent)
-                    let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
-                    let checkedOp = if isChecked <> parentChecked then sprintf "%s(%s)" (b2str isChecked) opStr else opStr
-                    let gluedPperands = sortedOperands |> String.concat opStr
-                    if isChecked <> parentChecked then sprintf "%s(%s)" (b2str isChecked) gluedPperands
-                    else if operation.priority < parentPriority then sprintf "(%s)" gluedPperands else gluedPperands
-                | Cast(orig, dest) ->
+                    let printedOperands = operands |> List.map (toStr operation.priority (isCheckNeed isChecked parentChecked) indent)
+                    let sortedOperands = if Operations.isCommutative operator && not isChecked then List.sort printedOperands else printedOperands
+                    sortedOperands |> String.concat (Operations.operationToString operator)
+                        |> checkExpression isChecked parentChecked operation.priority parentPriority
+                | Cast(orig, dest, isChecked) ->
                     assert (List.length operands = 1)
-                    let format = if operation.priority < parentPriority then "(({0}){1})" else "({0}){1}"
-                    format2 "({0}){1}" (dest.ToString()) (toStr operation.priority parentChecked indent (List.head operands))
+                    let format = checkExpression isChecked parentChecked operation.priority parentPriority "({0}){1}" in
+                    format2 format (dest.ToString()) (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands))
                 | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> Wrappers.join ", " |> format2 "{0}({1})" f
-                | Cond -> operands |> List.map (toStr 0 parentChecked indent) |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
             | Struct(fields, t) ->
                 let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
                 let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort
@@ -230,10 +223,6 @@ module public Terms =
 
     let (|Rem|_|) = function
         | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
-        | _ -> None
-
-    let (|If|_|) = function
-        | Expression(Cond, [x;y;z], t) -> Some(If(x, y, z, t))
         | _ -> None
 
     let (|Negation|_|) term =

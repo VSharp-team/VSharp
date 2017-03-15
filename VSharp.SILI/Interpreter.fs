@@ -563,15 +563,15 @@ module internal Interpreter =
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         let targetType = Types.FromMetadataType ast.TargetType in
         reduceExpression state ast.Argument (fun (argument, newState) ->
-        typeCast newState argument targetType |> k)
+        typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
-    and typeCast state term targetType =
+    and typeCast isChecked state term targetType =
         // TODO: refs and structs should still be refs after cast!
         if Types.IsObject targetType then (term, state)
         else
             let cast src dst expr =
                 if src = dst then expr
-                else Expression(Cast(src, dst), [expr], dst)
+                else Expression(Cast(src, dst, isChecked), [expr], dst)
             in
             let rec castSimple = function
                 | Error _ -> term
