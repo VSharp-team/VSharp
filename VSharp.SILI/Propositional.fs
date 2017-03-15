@@ -61,7 +61,7 @@ module internal Propositional =
             match ys with
             | [] -> k x failed
             | h :: tl ->
-                simplify x h false t
+                simplify false t x h
                     (fun x  -> combineOne x tl failed k)
                     (fun () -> combineOne x tl (h::failed) k)
 
@@ -170,7 +170,7 @@ module internal Propositional =
         | Union _ -> failwith "Unexpected symbolic union in boolean operation (negation)"
         | _ -> Terms.MakeUnary OperationType.LogicalNeg x false Bool |> k
 
-    and private simplifyExtWithType op co stopValue ignoreValue x y isChecked t matched unmatched =
+    and private simplifyExtWithType op co stopValue ignoreValue isChecked t x y matched unmatched =
         simplifyExt op co stopValue ignoreValue x y matched unmatched
 
 // ------------------------------- General functions -------------------------------

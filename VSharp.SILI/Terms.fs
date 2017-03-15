@@ -10,6 +10,13 @@ type public Operation =
     | Cast of TermType * TermType
     | Cond
 
+    member this.priority =
+        match this with
+        | Operator (op, _) -> Operations.operationPriority op
+        | Application _ -> Operations.maxPriority
+        | Cast _ -> Operations.maxPriority - 1
+        | Cond -> Operations.maxPriority - 13
+
 [<StructuralEquality;NoComparison>]
 type public Term =
     | Error of System.Exception
@@ -23,40 +30,57 @@ type public Term =
     | Union of (Term * Term) list
 
     override this.ToString() =
-        match this with
-        | Error e -> String.Format("<ERROR: {0}>", e)
-        | Nop -> "<VOID>"
-        | Constant(name, _) -> name
-        | Expression(operation, operands, _) ->
-            let printedOperands = operands |> List.map Wrappers.toString
-            match operation with
-            | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
-                assert (List.length operands = 1) 
-                let format = Operations.operationToStringFormat operator
-                let checkedFormat = if isChecked then format + "✓" else format
-                printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedFormat
-            | Operator(operator, isChecked) ->
-                assert (List.length operands >= 2) 
-                printedOperands |> String.concat (Operations.operationToStringFormat operator) |> sprintf (if isChecked then "(%s)✓" else"(%s)")
-            | Cast(orig, dest) ->
-                assert (List.length printedOperands = 1)
-                format2 "({0}){1}" (dest.ToString()) (List.head printedOperands)
-            | Application f -> printedOperands |> Wrappers.join ", " |> format2 "{0}({1})" f
-            | Cond -> printedOperands |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
-        | Concrete(value, _) -> if value = null then "null" else value.ToString()
-        | Struct(fields, t) ->
-            let fieldToString name term =
-                String.Format("| {0} ~> {1}", name, term)
-            let printed = fields |> Map.map fieldToString
-            String.Format("STRUCT {0}[\n\t{1}]", t.ToString(), String.Join("\n\t", printed))
-        | StackRef(name, frame, path, _) -> String.Format("(StackRef {0})", (name, frame, path).ToString())
-        | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", addr.ToString())
-        | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", addr.ToString(), path.ToString())
-        | Union(guardedTerms) ->
-            let guardedToString (guard, term) =
-                String.Format("| {0} ~> {1}", guard, term)
-            let printed = guardedTerms |> Seq.map guardedToString
-            String.Format("UNION\n\t{0}", String.Join("\n\t", printed))
+        let b2str = function
+            | true -> "checked"
+            | _ -> "unchecked"
+
+        let rec toStr parentPriority parentChecked indent term =
+            match term with
+            | Error e -> String.Format("<ERROR: {0}>", e)
+            | Nop -> "<VOID>"
+            | Constant(name, _) -> name
+            | Concrete(value, _) -> if value = null then "null" else value.ToString()
+            | Expression(operation, operands, _) ->
+                match operation with
+                | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
+                    assert (List.length operands = 1)
+                    let opStr = Operations.operationToString operator
+                    let checkedOp =
+                        if isChecked <> parentChecked
+                        then sprintf "%s(%s)" (b2str isChecked) opStr
+                        else if operation.priority < parentPriority then sprintf "(%s)" opStr else opStr
+                    let curCheck = if isChecked <> parentChecked then isChecked else parentChecked
+                    let printedOperands = operands |> List.map (toStr operation.priority curCheck indent)
+                    printedOperands |> List.map box |> List.toArray |> Wrappers.format checkedOp
+                | Operator(operator, isChecked) ->
+                    assert (List.length operands >= 2)
+                    let opStr = Operations.operationToString operator
+                    let curCheck = if isChecked <> parentChecked then isChecked else parentChecked
+                    let printedOperands = operands |> List.map (toStr operation.priority curCheck indent)
+                    let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
+                    let checkedOp = if isChecked <> parentChecked then sprintf "%s(%s)" (b2str isChecked) opStr else opStr
+                    let gluedPperands = sortedOperands |> String.concat opStr
+                    if isChecked <> parentChecked then sprintf "%s(%s)" (b2str isChecked) gluedPperands
+                    else if operation.priority < parentPriority then sprintf "(%s)" gluedPperands else gluedPperands
+                | Cast(orig, dest) ->
+                    assert (List.length operands = 1)
+                    let format = if operation.priority < parentPriority then "(({0}){1})" else "({0}){1}"
+                    format2 "({0}){1}" (dest.ToString()) (toStr operation.priority parentChecked indent (List.head operands))
+                | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> Wrappers.join ", " |> format2 "{0}({1})" f
+                | Cond -> operands |> List.map (toStr 0 parentChecked indent) |> List.map box |> List.toArray |> format "(if {0} then {1} else {2})"
+            | Struct(fields, t) ->
+                let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
+                let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort
+                String.Format("STRUCT {0}[\n" + indent + "{1}]", t.ToString(), String.Join("\n" + indent, printed))
+            | StackRef(name, frame, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (name, frame, path).ToString())
+            | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", toStr -1 false indent addr)
+            | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", toStr -1 false indent addr, (List.sort path).ToString())
+            | Union(guardedTerms) ->
+                let guardedToString (guard, term) = String.Format("| {0} ~> {1}", toStr -1 false indent guard, toStr -1 false indent term)
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
+                String.Format("UNION[\n" + indent + "{0}]", String.Join("\n" + indent, printed))
+
+        toStr -1 false "\t" this
 
 module public Terms =
 

@@ -434,5 +434,24 @@
             return x1 != x2;
         }
 
+        public static bool Order1(bool a, bool b, bool c, bool d)
+        {
+            return a & b & c;
+        }
+
+        public static bool Order2(bool a, bool b, bool c, bool d)
+        {
+            return b & a & c;
+        }
+
+        public static bool Order3(int a, int b, int c, int d)
+        {
+            return a - b - c == 0;
+        }
+
+        public static bool Order4(int a, int b, int c, int d)
+        {
+            return -b + a - c == 0;
+        }
     }
 }

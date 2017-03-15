@@ -40,5 +40,13 @@
             int x4 = x;
             return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
+
+        // Expecting true
+        public static bool Decreasing(int x)
+        {
+            int x1 = x + 1;
+            int x2 = x + 2;
+            return x2 - x1 == 1;
+        }
     }
 }
