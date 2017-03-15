@@ -12,7 +12,7 @@ module public Cps =
         let rec mapk f xs k = 
             match xs with
             | [] -> k []
-            | x::xs' -> f x (fun y -> (mapk f xs' (k << cons y)))
+            | x::xs' -> f x (fun y -> mapk f xs' (k << cons y))
 
         let rec foldl f a xs k =
             match xs with
@@ -22,7 +22,7 @@ module public Cps =
         let rec foldlk f a xs k =
             match xs with
             | [] -> k a
-            | x::xs' -> f a x (fun a' -> (foldlk f a' xs' (k)))
+            | x::xs' -> f a x (fun a' -> foldlk f a' xs' k)
 
         let rec foldr f a xs k =
             match xs with
@@ -69,7 +69,7 @@ module public Cps =
         let rec mapk f xs k = 
             match xs with
             | SeqEmpty -> k []
-            | SeqNode(x, xs') -> f x (fun y -> (mapk f xs' (k << cons y)))
+            | SeqNode(x, xs') -> f x (fun y -> mapk f xs' (k << cons y))
 
         let rec foldl f a xs k =
             match xs with

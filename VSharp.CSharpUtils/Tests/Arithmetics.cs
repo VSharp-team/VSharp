@@ -40,5 +40,18 @@
             int x4 = x;
             return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
+
+        // Expecting true
+        public static bool Decreasing(int x)
+        {
+            int x1 = x + 1;
+            int x2 = x + 2;
+            return x2 - x1 == 1;
+        }
+
+        public static int CheckedUnchecked(int x0, int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9)
+        {
+            return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
+        }
     }
 }

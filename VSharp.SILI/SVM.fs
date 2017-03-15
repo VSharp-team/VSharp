@@ -34,6 +34,7 @@ module public SVM =
 //            "Logics";
 //            "Conditional";
 //            "Arithmetics";
+//            "ClassesSimple"
 //            "Fibonacci";
 //            "Lambdas";
 //            "GCD"
