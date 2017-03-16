@@ -210,3 +210,6 @@ FakesAssemblies/
 GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
+
+# Custom files
+VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll
