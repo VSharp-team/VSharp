@@ -22,6 +22,11 @@
             return !true;
         }
 
+        public static bool Negation1(int a)
+        {
+            return !true;
+        }
+
         public static bool Negation2(bool b)
         {
             return !b;
