@@ -48,7 +48,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>echo f | xcopy  "$(TargetDir)$(ProjectName).dll" "$(SolutionDir)VSharp.Test\testSources\$(ProjectName)\$(ProjectName).dll" /Y</PostBuildEvent>
+    <PostBuildEvent>echo f | xcopy  "$(TargetDir)$(ProjectName).dll" "$(SolutionDir)VSharp.Test\Tests\$(ProjectName)\$(ProjectName).dll" /Y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

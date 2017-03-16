@@ -1,16 +1,16 @@
 ﻿namespace VSharp
 
+open System.Collections.Generic
 open System.Reflection
 
 module public SVM =
 
-    let private interpret assemblyPath qualifiedTypeName (m : MethodInfo) =
-        let res = new System.Text.StringBuilder((sprintf "=========== Interpreting %s.%s: ===========\n" qualifiedTypeName m.Name))
+    let private interpret (dictionary : System.Collections.IDictionary) assemblyPath qualifiedTypeName (m : MethodInfo) =
         let state = State.empty in
         let declaringType = Types.FromDotNetType(m.DeclaringType) in
         let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
         match metadataMethodOption with
-        | None -> res.Append(sprintf "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name).ToString()
+        | None -> printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
         | Some metadataMethod ->
             let this, state =
                 match m with
@@ -22,29 +22,18 @@ module public SVM =
                         let key = "external data" in
                         let state = State.push state [(key, instance)] in
                         (Memory.referenceToVariable state key true, state)
-            Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (term, state) ->
-            res.Append((sprintf "=========== Results: ===========\nSVM result: %s\nSVM environment: %s" (toString term) (toString state))).ToString())
+            Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun res ->
+            dictionary.Add(m, res))
 
-    let private runType assemblyPath (t : System.Type) =
-        let res = new System.Text.StringBuilder()
+
+    let private runType ignoreList dictionary assemblyPath (t : System.Type) =
         let qualifiedTypeName = t.FullName in
-        let disabledTests = [
-            "Calculator";
-//            "Logics";
-//            "Conditional";
-//            "Arithmetics";
-//            "ClassesSimple"
-//            "Fibonacci";
-//            "Lambdas";
-//            "GCD"
-            ] in
-        if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
-            t.GetMethods() |> Array.fold (fun (acc : System.Text.StringBuilder) elem -> acc.AppendLine((interpret assemblyPath qualifiedTypeName elem))) res
-            |> fun (sb : System.Text.StringBuilder) -> sb.ToString()
-        else ""
+        if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) ignoreList then
+            t.GetMethods() |> Array.iter (fun m -> (interpret dictionary assemblyPath qualifiedTypeName m))
 
-    let public Run (assembly : Assembly) =
-        let res = new System.Text.StringBuilder((sprintf "Running assembly %s...\n" assembly.FullName))
+    let public Run (assembly : Assembly) (ignoreList : List<_>) =
+        let ignoreList = List.ofSeq ignoreList
+        let dictionary = new Dictionary<MethodInfo, Term * State.state>()
         let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location) in
-        assembly.GetTypes() |> Array.fold (fun (acc : System.Text.StringBuilder) elem -> acc.Append((runType path elem))) res
-        |> fun (sb : System.Text.StringBuilder) -> sb.ToString()
+        assembly.GetTypes() |> Array.iter (fun elem -> runType ignoreList dictionary path elem) |> ignore
+        System.Linq.Enumerable.ToDictionary(dictionary :> IEnumerable<_>, (fun kvp -> kvp.Key), fun (kvp : KeyValuePair<_, _>) -> kvp.Value.ToString()) :> IDictionary<_, _>
