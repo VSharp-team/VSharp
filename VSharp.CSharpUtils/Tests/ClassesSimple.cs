@@ -47,7 +47,7 @@
         }
     }
 
-    public struct C
+    internal struct C
     {
         public int _n;
 

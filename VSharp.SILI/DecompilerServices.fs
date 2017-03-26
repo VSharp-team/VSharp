@@ -46,12 +46,20 @@ module internal DecompilerServices =
         if typ = null then __notImplemented__()
         JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)
 
-    let public getDefaultFieldValuesOf assemblyPath qualifiedTypeName =
+    let public getDefaultFieldValuesOf isStatic qualifiedTypeName =
+        let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         let extractFieldInfo (f : JetBrains.Decompiler.Ast.IDecompiledField) =
             (f.MetadataField.Name, (f.MetadataField.Type, f.Initializer))
+        let isFieldStatic required (f : JetBrains.Decompiler.Ast.IDecompiledField) =
+            f.MetadataField.IsStatic = required
         in
-        decompiledClass.Fields |> Seq.map extractFieldInfo |> List.ofSeq
+        decompiledClass.Fields |> Seq.filter (isFieldStatic isStatic) |> Seq.map extractFieldInfo |> List.ofSeq
+
+    let public getStaticConstructorOf qualifiedTypeName =
+        let assemblyPath = locationOfType qualifiedTypeName in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        decompiledClass.Methods |> Seq.tryFind (fun (m : JetBrains.Decompiler.Ast.IDecompiledMethod) -> m.MetadataMethod.IsStatic && m.MetadataMethod.Name = ".cctor")
 
     let public methodInfoToMetadataMethod assemblyPath qualifiedTypeName (methodInfo : System.Reflection.MethodInfo) =
         let assembly = loadAssembly assemblyPath in

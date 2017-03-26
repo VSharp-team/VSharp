@@ -9,14 +9,16 @@ module public SVM =
         let state = State.empty in
         let declaringType = Types.FromDotNetType(m.DeclaringType) in
         let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
+        Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
         match metadataMethodOption with
         | None -> printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
         | Some metadataMethod ->
             let this, state =
                 match m with
-                | _ when m.IsStatic -> (Concrete(null, declaringType), state)
+                | _ when m.IsStatic ->
+                (Concrete(null, declaringType), state)
                 | _ ->
-                    let instance, state = Memory.allocateSymbolicInstance "" state declaringType in
+                    let instance, state = Memory.allocateSymbolicInstance false "" state declaringType in
                     if Terms.IsHeapRef instance then (instance, state)
                     else
                         let key = "external data" in
@@ -25,7 +27,7 @@ module public SVM =
             Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (term, state) ->
             printfn "=========== Results: ==========="
             printfn "SVM result: %s" (toString term)
-            printfn "SVM environment: %s" (toString state))
+            printfn "SVM environment: %s" (toString state)))
 
     let private runType assemblyPath (t : System.Type) =
         let qualifiedTypeName = t.FullName in
@@ -36,9 +38,11 @@ module public SVM =
 //            "Arithmetics";
 //            "Fibonacci";
 //            "Lambdas";
-//            "GCD"
+//            "GCD";
+//            "ClassesSimple";
+            //"StaticMembers"
             ] in
-        if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
+        if t.IsPublic && List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
             t.GetMethods() |> Array.iter (interpret assemblyPath qualifiedTypeName)
 
     let public Run (assembly : Assembly) =

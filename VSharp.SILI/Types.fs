@@ -67,6 +67,8 @@ module public Types =
         | c when c.IsClass -> ClassType t
         | _ -> __notImplemented__()
 
+    let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
+
     let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
         if t = null then Object
         else
@@ -149,6 +151,7 @@ module public Types =
         if mt = null then typedefof<obj>
         else ToDotNetType (FromMetadataType mt)
 
-    let public GetFieldsOf (t : System.Type) =
-        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic) in
+    let public GetFieldsOf (t : System.Type) isStatic =
+        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
+        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag) in
         fields |> Array.map (fun (field : FieldInfo) -> (field.Name, FromDotNetType field.FieldType)) |> Map.ofArray

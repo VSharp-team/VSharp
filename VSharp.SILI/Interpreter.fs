@@ -176,7 +176,7 @@ module internal Interpreter =
         Cps.Seq.foldlk compose (NoResult, (State.push state [])) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
-        __notImplemented__()
+        k (NoResult, state)
 
     and reduceEmptyStatement state (ast : IEmptyStatement) k =
         __notImplemented__()
@@ -317,8 +317,11 @@ module internal Interpreter =
             | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Parameter.Name followHeapRefs, state)
             | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
             | :? IFieldAccessExpression as expression ->
-                reduceExpressionToRef state true expression.Target (fun (target, state) ->
-                k (Memory.referenceToField state expression.FieldSpecification.Field.Name target, state))
+                if expression.IsStatic then
+                    k (Memory.referenceToStaticField state expression.FieldSpecification.Field.Name expression.FieldSpecification.OwnerType.AssemblyQualifiedName, state)
+                else
+                    reduceExpressionToRef state true expression.Target (fun (target, state) ->
+                    k (Memory.referenceToField state expression.FieldSpecification.Field.Name target, state))
             | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
             | _ -> reduceExpression state ast k
 
@@ -641,11 +644,34 @@ module internal Interpreter =
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         __notImplemented__()
 
+    and initializeStaticMembersIfNeed state qualifiedTypeName k =
+        if State.staticMembersInitialized state qualifiedTypeName then
+            k state
+        else
+            let t = Types.FromQualifiedTypeName qualifiedTypeName in
+            match Options.StaticFieldsValuation with
+            | Options.Interpret ->
+                let fields = DecompilerServices.getDefaultFieldValuesOf true qualifiedTypeName in
+                let instance = fields |> List.map (fun (n, (t, _)) -> (n, Memory.defaultOf (Types.FromMetadataType t))) |> Map.ofList |> withSnd t |> Struct in
+                let state = Memory.allocateInStaticMemory state qualifiedTypeName instance in
+                let initOneField state (name, (typ, expression)) k =
+                    let address = Memory.referenceToStaticField state name qualifiedTypeName in
+                    reduceExpression state expression (fun (value, state) ->
+                    Memory.mutate state address value |> snd |> k)
+                Cps.List.foldlk initOneField state fields (fun state ->
+                match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
+                | Some constr ->
+                    reduceDecompiledMethod state (Concrete(null, t)) [] constr (snd >> k)
+                | None -> k state)
+            | Options.Overapproximate ->
+                let instance, state = Memory.allocateSymbolicStruct true state t (System.Type.GetType(qualifiedTypeName)) in
+                Memory.allocateInStaticMemory state qualifiedTypeName instance |> k
+
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
         // TODO: support collection initializers
         let qualifiedTypeName = ast.ConstructedType.AssemblyQualifiedName in
-        let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
-        let fields = DecompilerServices.getDefaultFieldValuesOf assemblyPath qualifiedTypeName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        let fields = DecompilerServices.getDefaultFieldValuesOf false qualifiedTypeName in
         let names, typesAndInitializers = List.unzip fields in
         let types, initializers = List.unzip typesAndInitializers in
         Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
@@ -672,7 +698,8 @@ module internal Interpreter =
         then finish (Nop, state)
         else
             Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
-            decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath finish))
+            let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
+            decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath finish)))
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
@@ -683,8 +710,14 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
-        reduceExpression state ast.Target (fun (target, state) ->
-        k (Memory.fieldOf target ast.FieldSpecification.Field.Name, state))
+        let qualifiedTypeName = ast.FieldSpecification.Field.DeclaringType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        if ast.FieldSpecification.Field.IsStatic then
+            let reference = Memory.referenceToStaticField state ast.FieldSpecification.Field.Name ast.FieldSpecification.OwnerType.AssemblyQualifiedName in
+            k (Memory.deref state reference, state)
+        else
+            reduceExpression state ast.Target (fun (target, state) ->
+            k (Memory.fieldOf target ast.FieldSpecification.Field.Name, state)))
 
 // ------------------------------- IMemberCallExpression and inheritors -------------------------------
 
@@ -697,12 +730,18 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
-        __notImplemented__()
+        let qualifiedTypeName = ast.EventSpecification.OwnerType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        __notImplemented__())
 
     and reduceIndexerCallExpression state (ast : IIndexerCallExpression) k =
-        __notImplemented__()
+        let qualifiedTypeName = ast.PropertySpecification.OwnerType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        __notImplemented__())
 
     and reduceMethodCallExpression state (ast : IMethodCallExpression) k =
+        let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.Method.DeclaringType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
         reduceExpressionToRef state true ast.Target (fun (target, state) ->
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         let target = Memory.npeIfNull target in
@@ -711,7 +750,9 @@ module internal Interpreter =
             let qualifiedTypeName = ast.MethodInstantiation.MethodSpecification.OwnerType.AssemblyQualifiedName in
             let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
             let assemblyPath = ast.MethodInstantiation.MethodSpecification.OwnerType.Type.Assembly.Location in
-            decompileAndReduceMethod state target args qualifiedTypeName metadataMethod assemblyPath k))
+            decompileAndReduceMethod state target args qualifiedTypeName metadataMethod assemblyPath k)))
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
-        __notImplemented__()
+        let qualifiedTypeName = ast.PropertySpecification.OwnerType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        __notImplemented__())
