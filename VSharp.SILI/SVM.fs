@@ -40,7 +40,8 @@ module public SVM =
 //            "Lambdas";
 //            "GCD";
 //            "ClassesSimple";
-            //"StaticMembers"
+            "StaticClass";
+            "StaticMembers"
             ] in
         if t.IsPublic && List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) disabledTests then
             t.GetMethods() |> Array.iter (interpret assemblyPath qualifiedTypeName)

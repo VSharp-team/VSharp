@@ -20,23 +20,23 @@ namespace VSharp.CSharpUtils.Tests
         static StaticClass()
         {
             _a += 100;
-            //throw new Exception();
+            throw new Exception();
         }
     }
 
-    //public static class Program
-    //{
-    //    public static bool CheckStatic()
-    //    {
-    //        var t = typeof(StaticClass);
-    //        try
-    //        {
-    //            return StaticClass.GetA() == 100600;
-    //        }
-    //        catch (Exception)
-    //        {
-    //            return t.ToString() == "VSharp.CSharpUtils.Tests.StaticClass";
-    //        }
-    //    }
-    //}
+    public static class Program
+    {
+        public static bool CheckStatic()
+        {
+            var t = typeof(StaticClass);
+            try
+            {
+                return StaticClass.GetA() == 100600;
+            }
+            catch (Exception)
+            {
+                return t.ToString() == "VSharp.CSharpUtils.Tests.StaticClass";
+            }
+        }
+    }
 }

@@ -64,7 +64,8 @@ module public Types =
             let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
             Func(List.ofArray parameters, returnType)
         | s when s.IsValueType -> StructType t
-        | c when c.IsClass -> ClassType t
+        // Actually interface is not nessesary reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+        | c when c.IsClass || c.IsInterface -> ClassType t
         | _ -> __notImplemented__()
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
@@ -144,7 +145,7 @@ module public Types =
     let public IsRelation = RangeOf >> IsBool
 
     let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        DecompilerServices.getPropertyOfNode node "Type" null :?> JetBrains.Metadata.Reader.API.IMetadataType
+        DecompilerServices.getTypeOfNode node
 
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in
