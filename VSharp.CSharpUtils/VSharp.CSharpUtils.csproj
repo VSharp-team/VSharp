@@ -45,6 +45,7 @@
     <Compile Include="Tests\Fibonacci.cs" />
     <Compile Include="Tests\GCD.cs" />
     <Compile Include="Tests\Lambdas.cs" />
+    <Compile Include="Tests\StaticMembers.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

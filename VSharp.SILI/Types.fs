@@ -64,8 +64,11 @@ module public Types =
             let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
             Func(List.ofArray parameters, returnType)
         | s when s.IsValueType -> StructType t
-        | c when c.IsClass -> ClassType t
+        // Actually interface is not nessesary reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+        | c when c.IsClass || c.IsInterface -> ClassType t
         | _ -> __notImplemented__()
+
+    let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
     let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
         if t = null then Object
@@ -141,13 +144,14 @@ module public Types =
     let public IsRelation = RangeOf >> IsBool
 
     let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        DecompilerServices.getPropertyOfNode node "Type" null :?> JetBrains.Metadata.Reader.API.IMetadataType
+        DecompilerServices.getTypeOfNode node
 
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in
         if mt = null then typedefof<obj>
         else ToDotNetType (FromMetadataType mt)
 
-    let public GetFieldsOf (t : System.Type) =
-        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic) in
+    let public GetFieldsOf (t : System.Type) isStatic =
+        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
+        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag) in
         fields |> Array.map (fun (field : FieldInfo) -> (field.Name, FromDotNetType field.FieldType)) |> Map.ofArray

@@ -6,12 +6,6 @@ open System.Reflection
 
 module Transformations =
 
-    let private setTypeOfNode (node : INode) (t : JetBrains.Metadata.Reader.API.IMetadataType) =
-        node.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<JetBrains.Metadata.Reader.API.IMetadataType>("Type"), t)
-
-    let private copyTypeTo (src : INode) (dst : INode) =
-        setTypeOfNode dst (Types.GetMetadataTypeOfNode src)
-
     let private createLocalVariable name typ (sibling : INode) =
         let rec findDeclarationScope (node : INode) =
             match node with
@@ -41,31 +35,17 @@ module Transformations =
         methodParameterClass.InvokeMember("Type", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|typ|]) |> ignore
         instance :?> IMethodParameter
 
-    let transformOperationAssignment (ast : IBinaryOperationExpression) =
-        let operator = Operations.getAssignmentOperation ast.OperationType in
-        let target = ast.LeftArgument in
-        let rightOperand = ast.RightArgument in
-        let leftOperand = target.TypedClone<IExpression>() in
-        ast.ReplaceChild(rightOperand, null)
-        let binOp = AstFactory.CreateBinaryOperation(operator, leftOperand, rightOperand, null, ast.OverflowCheck) in
-        copyTypeTo ast binOp
-        ast.OperationType <- OperationType.Assignment
-        ast.RightArgument <- binOp :> IExpression
-
     let transformPrefixCrement (unaryOperation : IUnaryOperationExpression) =
         let op =
             match unaryOperation.OperationType with
-            | OperationType.PrefixIncrement -> OperationType.Add
-            | OperationType.PrefixDecrement -> OperationType.Subtract
+            | OperationType.PrefixIncrement -> OperationType.AssignmentAdd
+            | OperationType.PrefixDecrement -> OperationType.AssignmentSubtract
             | _ -> __notImplemented__()
         let leftArgument = unaryOperation.Argument in
         unaryOperation.ReplaceChild(leftArgument, null)
         let rightArgument = AstFactory.CreateLiteral(Constant.FromValueAndType(1, Types.GetMetadataTypeOfNode unaryOperation), null) in
-        let target = leftArgument.TypedClone<IExpression>() in
-        let sum = AstFactory.CreateBinaryOperation(op, leftArgument, rightArgument, null, unaryOperation.OverflowCheck) in
-        let assignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, target, sum, null, unaryOperation.OverflowCheck) in
-        copyTypeTo unaryOperation sum
-        copyTypeTo unaryOperation assignment
+        let assignment = AstFactory.CreateBinaryOperation(op, leftArgument, rightArgument, null, unaryOperation.OverflowCheck) in
+        DecompilerServices.copyTypeTo unaryOperation assignment
         unaryOperation.ReplaceWith(assignment)
         assignment
 
@@ -136,7 +116,7 @@ module Transformations =
             let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index in
             signature.Parameters.Add(parameter)
         List.iteri addParameterToSignature indexers
-        setTypeOfNode lambdaBlockAssignment lambdaType
+        DecompilerServices.setTypeOfNode lambdaBlockAssignment lambdaType
 
         let call = AstFactory.CreateDelegateCall(lambdaReference, null, Array.ofList indexerInitializers, null) in
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in

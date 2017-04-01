@@ -47,6 +47,8 @@ namespace VSharp.Test
                 //, "Fibonacci"
                 //, "Lambdas"
                 //, "GCD"
+                //, "StaticClass"
+                //, "StaticMembers"
             };
 
             bool failed = false;
