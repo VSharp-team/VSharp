@@ -42,11 +42,13 @@ namespace VSharp.Test
             List<string> disabledTests = new List<string>
             {
                 "Calculator"
-                //, "Conditional"
                 //, "Arithmetics"
+                //, "Logics"
+                //, "Conditional"
                 //, "Fibonacci"
-                //, "Lambdas"
                 //, "GCD"
+                //, "Lambdas"
+                //, "ClassesSimple"
                 //, "StaticClass"
                 //, "StaticMembers"
             };
@@ -64,7 +66,7 @@ namespace VSharp.Test
                     string libName = Path.GetFileNameWithoutExtension(lib);
                     if (string.IsNullOrEmpty(libName))
                     {
-                        Console.WriteLine("smth wrong happend with tested lib file");
+                        Console.WriteLine("Something wrong happend with tested library!");
                         Assert.Fail();
                     }
 
@@ -81,7 +83,7 @@ namespace VSharp.Test
                         catch (IOException e)
                         {
                             failed = true;
-                            Console.WriteLine($"Can't open file with results. Exception: {e.Message}");
+                            Console.WriteLine($"Can't open gold file! Exception: {e.Message}");
                         }
                     }
 
@@ -103,12 +105,12 @@ namespace VSharp.Test
                         {
                             if (string.Equals(actualValue, keyValuePair.Value)) continue;
                             failed = true;
-                            Console.WriteLine($"{MethodSeparator}{keyMethod}\nEXPECTED: {actualValue}\nGOT: {keyValuePair.Value}");
+                            Console.WriteLine($"{MethodSeparator}{keyMethod}\nEXPECTED: {actualValue}\nGOT:      {keyValuePair.Value}");
                         }
                         else
                         {
                             failed = true;
-                            Console.WriteLine($"Result does not contain this {keyMethod}");
+                            Console.WriteLine($"Gold file does not contain ideal values for {keyMethod}!");
                         }
                     }
                 }

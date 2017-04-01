@@ -35,30 +35,52 @@ module internal DecompilerServices =
         then AstFactory.CreateDeref(this, null, true) :> IExpression
         else this :> IExpression
 
+    // For some reason DotPeek poorly handles Mono-compiled auto-properties. Backing field is not initialized,
+    // the property is not an auto-one, but body is still null!
+    let private hackBuggyAutoProperty (property : IDecompiledProperty) embodier =
+        printfn "Warning: hacking buggy auto-property %s.%s" property.OwnerClass.TypeInfo.FullyQualifiedName property.MetadataProperty.Name
+        let fieldNameIs name (field : IMetadataField) = field.Name = name
+        let backingField =
+            property.OwnerClass.TypeInfo.GetFields()
+                |> Array.tryFind (fieldNameIs (sprintf "<%s>k__BackingField" property.MetadataProperty.Name))
+        in
+        match backingField with
+        | Some field ->
+            embodier property field
+        | None -> ()
+
+    let private embodyAutoGetter (property : IDecompiledProperty) (backingField : IMetadataField) =
+        let fieldSpecification = new FieldSpecification(backingField) in
+        let this = if property.Getter.MetadataMethod.IsStatic then null else createThisOf property.OwnerClass.TypeInfo in
+        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
+        let returnStatement = AstFactory.CreateReturn(fieldReference :> IExpression, null) in
+        let blockStatement = AstFactory.CreateBlockStatement([returnStatement]) in
+        property.Getter.Body <- blockStatement
+
+    let private embodyAutoSetter (property : IDecompiledProperty) (backingField : IMetadataField) =
+        let fieldSpecification = new FieldSpecification(backingField) in
+        let this = if property.Getter.MetadataMethod.IsStatic then null else AstFactory.CreateThisReference(null) in
+        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
+        let valueParameter = property.Setter.Signature.Parameters.Item(0) in
+        let valueParameterReference = AstFactory.CreateParameterReference(valueParameter, null) in
+        let assignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, fieldReference, valueParameterReference, null) in
+        setTypeOfNode assignment valueParameter.Type
+        let assignmentStatement = AstFactory.CreateExpressionStatement(assignment, null) in
+        let blockStatement = AstFactory.CreateBlockStatement([assignmentStatement]) in
+        property.Setter.Body <- blockStatement
+
     let private embodyGetter (property : IDecompiledProperty) =
-        if property.Getter <> null && property.IsAuto && property.Getter.Body = null then
-            let fieldSpecification = new FieldSpecification(property.BackingField) in
-            // TODO: deref?
-            let this = if property.Getter.MetadataMethod.IsStatic then null else createThisOf property.OwnerClass.TypeInfo in
-            let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
-            let returnStatement = AstFactory.CreateReturn(fieldReference :> IExpression, null) in
-            let blockStatement = AstFactory.CreateBlockStatement([returnStatement]) in
-            property.Getter.Body <- blockStatement
+        if property.Getter <> null && not property.IsAuto && property.Getter.Body = null then
+            hackBuggyAutoProperty property embodyAutoGetter
+        else if property.Getter <> null && property.IsAuto && property.Getter.Body = null then
+            embodyAutoGetter property property.BackingField
         property.Getter
 
     let private embodySetter (property : IDecompiledProperty) =
-        if property.Setter <> null && property.IsAuto && property.Setter.Body = null then
-            let fieldSpecification = new FieldSpecification(property.BackingField) in
-            // TODO: deref?
-            let this = if property.Getter.MetadataMethod.IsStatic then null else AstFactory.CreateThisReference(null) in
-            let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
-            let valueParameter = property.Setter.Signature.Parameters.Item(0) in
-            let valueParameterReference = AstFactory.CreateParameterReference(valueParameter, null) in
-            let assignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, fieldReference, valueParameterReference, null) in
-            setTypeOfNode assignment valueParameter.Type
-            let assignmentStatement = AstFactory.CreateExpressionStatement(assignment, null) in
-            let blockStatement = AstFactory.CreateBlockStatement([assignmentStatement]) in
-            property.Setter.Body <- blockStatement
+        if property.Setter <> null && not property.IsAuto && property.Setter.Body = null then
+            hackBuggyAutoProperty property embodyAutoSetter
+        else if property.Setter <> null && property.IsAuto && property.Setter.Body = null then
+            embodyAutoSetter property property.BackingField
         property.Setter
 
     let public decompileClass assemblyPath qualifiedTypeName =
@@ -101,7 +123,7 @@ module internal DecompilerServices =
         let isDecompiledFieldStatic required (f : IDecompiledField) =
             f.MetadataField.IsStatic = required
         let extractBackingFieldInfo (f : IDecompiledProperty) =
-            (f.BackingField.Name, (f.BackingField.Type, null))
+            (f.BackingField.Name, (f.BackingField.Type, f.Initializer))
         let isStaticBackingField required (p : IDecompiledProperty) =
             p.IsAuto && p.BackingField.IsStatic = required
         in
