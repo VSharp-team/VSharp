@@ -4,11 +4,11 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 
 namespace VSharp.Test
 {
-    [TestClass]
+    [TestFixture]
     public sealed class SiliTests
     {
         private const string MethodSeparator = "METHOD: ";
@@ -36,7 +36,7 @@ namespace VSharp.Test
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
         }
 
-        [TestMethod]
+        [Test]
         public void RunCSharpTests()
         {
             List<string> disabledTests = new List<string>
@@ -50,7 +50,7 @@ namespace VSharp.Test
             };
 
             bool failed = false;
-            string pathToTests = Path.Combine(Path.GetFullPath(@"..\..\"), TestsDirectoryName);
+            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)
             {

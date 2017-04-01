@@ -96,6 +96,9 @@
       <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <Reference Include="JetBrains.Annotations">
+      <HintPath>..\packages\JetBrains.Annotations.10.1.4\lib\net20\JetBrains.Annotations.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
