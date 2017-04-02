@@ -468,7 +468,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
-        __notImplemented__()
+        let instance = Types.MetadataToDotNetType ast.Type in
+        k (Terms.MakeConcrete instance typedefof<Type>, state)
 
     and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) k =
         __notImplemented__()

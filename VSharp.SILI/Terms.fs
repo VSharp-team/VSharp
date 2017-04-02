@@ -158,11 +158,20 @@ module public Terms =
         Constant(name, Types.FromDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
+        let actualType = value.GetType() in
         try
-            Concrete(Convert.ChangeType(value, t), Types.FromDotNetType t)
+            if actualType = t then Concrete(value, Types.FromDotNetType t)
+            else
+                if typedefof<IConvertible>.IsAssignableFrom(actualType)
+                then Concrete(Convert.ChangeType(value, t), Types.FromDotNetType t)
+                else
+                    if t.IsAssignableFrom(actualType)
+                    then Concrete(value, Types.FromDotNetType t)
+                    else raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
         with
         | e ->
-            failwith "Typecast error occured!" // TODO: this is for debug, remove it when becomes relevant!
+            // TODO: this is for debug, remove it when becomes relevant!
+            raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
             Error e
 
     let public MakeTrue =
