@@ -115,21 +115,27 @@ module internal DecompilerServices =
         if typ = null then __notImplemented__()
         JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)
 
-    let public getDefaultFieldValuesOf isStatic qualifiedTypeName =
+    let idOfMetadataField (field : IMetadataField) =
+        sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
+
+    let rec getDefaultFieldValuesOf isStatic qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         let extractDecompiledFieldInfo (f : IDecompiledField) =
-            (f.MetadataField.Name, (f.MetadataField.Type, f.Initializer))
+            (idOfMetadataField f.MetadataField, (f.MetadataField.Type, f.Initializer))
         let isDecompiledFieldStatic required (f : IDecompiledField) =
             f.MetadataField.IsStatic = required
         let extractBackingFieldInfo (f : IDecompiledProperty) =
-            (f.BackingField.Name, (f.BackingField.Type, f.Initializer))
+            (idOfMetadataField f.BackingField, (f.BackingField.Type, f.Initializer))
         let isStaticBackingField required (p : IDecompiledProperty) =
             p.IsAuto && p.BackingField.IsStatic = required
         in
-        let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo in
-        let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo in
-        Seq.append regularFields backingFields |> List.ofSeq
+        let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
+        let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
+        let parentFields =
+            if isStatic || decompiledClass.TypeInfo.Base = null then []
+            else getDefaultFieldValuesOf false decompiledClass.TypeInfo.Base.AssemblyQualifiedName
+        List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
@@ -140,3 +146,10 @@ module internal DecompilerServices =
         let assembly = loadAssembly assemblyPath in
         let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
         typ.GetMethods() |> Array.tryPick (fun m -> if m.Token.Value = uint32 methodInfo.MetadataToken then Some(m) else None)
+
+    let rec private baseClassesChainAcc acc = function
+        | null -> acc
+        | (t : IMetadataType) -> baseClassesChainAcc (t::acc) (t.GetBaseType())
+
+    let public baseClassesChain (t : IMetadataType) =
+        baseClassesChainAcc [] t

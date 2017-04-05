@@ -379,10 +379,11 @@ module internal Interpreter =
             | _ -> reduceExpression state ast k
 
     and referenceToField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
+        let id = DecompilerServices.idOfMetadataField field in
         if field.IsStatic then
-            k (Memory.referenceToStaticField state field.Name field.DeclaringType.AssemblyQualifiedName, state)
+            k (Memory.referenceToStaticField state id field.DeclaringType.AssemblyQualifiedName, state)
         else
-            k (Memory.referenceToField state field.Name target, state)
+            k (Memory.referenceToField state id target, state)
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         __notImplemented__()
@@ -826,18 +827,22 @@ module internal Interpreter =
                 let state = State.push state [(tempVar, freshValue)] in
                 (Memory.referenceToVariable state tempVar false, state)
         in
-        let finish (_, state) =
+        let finish state =
             reduceMemberInitializerList reference state ast.ObjectInitializer (fun state ->
             if not isReference
             then k (Memory.deref state reference, State.pop state)
             else k (reference, state))
         in
-        if ast.ConstructorSpecification = null
-        then finish (Nop, state)
-        else
-            Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
-            let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
-            decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath finish)))
+        let baseClasses = DecompilerServices.baseClassesChain ast.ConstructedType in
+        let reduceConstructor state (t : JetBrains.Metadata.Reader.API.IMetadataType) k =
+            if ast.ConstructorSpecification = null
+            then k state
+            else
+                Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
+                let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
+                decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath (snd >> k))
+        in
+        Cps.List.foldlk reduceConstructor state baseClasses finish))
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
