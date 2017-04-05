@@ -20,13 +20,8 @@ module internal Interpreter =
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
             // k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
-
-// ------------------------------- INode and inheritors -------------------------------
-
-    and reduceCatchClause state (ast : ICatchClause) k =
-        __notImplemented__()
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
         let rec map2 f xs1 xs2 =
@@ -49,9 +44,6 @@ module internal Interpreter =
             | Some term -> ("this", term)::parameters
             | None -> parameters
         State.push state parametersAndThis |> k
-
-    and reduceSwitchCase state (ast : ISwitchCase) k =
-        __notImplemented__()
 
 // ------------------------------- ILocalVariableDeclarationScopeOwner and inheritors -------------------------------
 
@@ -195,18 +187,25 @@ module internal Interpreter =
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
 
-    and reduceIfStatement state (ast : IIfStatement) k =
-        reduceExpression state ast.Condition (fun (condition, conditionState) ->
+    and reduceConditionalExecution state conditionInvocation thenBranch elseBranch k =
+        conditionInvocation state (fun (condition, conditionState) ->
         match condition with
-        | Terms.True ->  reduceStatement conditionState ast.Then k
-        | Terms.False -> reduceStatement conditionState ast.Else k
+        | Terms.True ->  thenBranch conditionState k
+        | Terms.False -> elseBranch conditionState k
         | e when Terms.Just Terms.IsError e -> k (Return e, conditionState)
         | _ ->
-            reduceStatement conditionState ast.Then (fun (thenResult, thenState) ->
-            reduceStatement conditionState ast.Else (fun (elseResult, elseState) ->
+            thenBranch conditionState (fun (thenResult, thenState) ->
+            elseBranch conditionState (fun (elseResult, elseState) ->
             let result = ControlFlow.mergeResults condition thenResult elseResult in
             let state = Merging.merge2States condition !!condition thenState elseState in
             k (result, state))))
+
+    and reduceIfStatement state (ast : IIfStatement) k =
+        reduceConditionalExecution state
+            (fun state k -> reduceExpression state ast.Condition k)
+            (fun state k -> reduceStatement state ast.Then k)
+            (fun state k -> reduceStatement state ast.Else k)
+            k
 
     and reduceJumpStatement state (ast : IJumpStatement) k =
         __notImplemented__()
@@ -243,12 +242,68 @@ module internal Interpreter =
     and reduceSwitchStatement state (ast : ISwitchStatement) k =
         __notImplemented__()
 
+    and reduceSwitchCase state (ast : ISwitchCase) k =
+        __notImplemented__()
+
     and reduceThrowStatement state (ast : IThrowStatement) k =
         reduceExpression state ast.Argument (fun (arg, state) ->
         k (Throw arg, state))
 
     and reduceTryStatement state (ast : ITryStatement) k =
-        __notImplemented__()
+        reduceBlockStatement state ast.Body (fun (result, state) ->
+        reduceCatchBlock state result ast.CatchClauses (fun (result, state) ->
+        reduceFinally state result ast.Finally (fun (result, state) ->
+        reduceFault state result ast.Fault k)))
+
+    and reduceCatchBlock state statementResult (clauses : ICatchClause[]) k =
+        if Array.isEmpty clauses then k (statementResult, state)
+        else
+            let thrown, normal = ControlFlow.pickOutExceptions statementResult in
+            match thrown with
+            | None -> k (statementResult, state)
+            | Some(guard, exn) ->
+                reduceConditionalExecution state
+                    (fun state k -> k (guard, state))
+                    (fun state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
+                    (fun state k -> k (Guarded normal, state))
+                    k
+
+    and reduceCatchClauses exn state clauses k =
+        match clauses with
+        | SeqEmpty -> k (Throw exn, state)
+        | SeqNode(clause, rest) ->
+            reduceConditionalExecution state
+                (fun state k -> reduceCatchCondition exn state clause k)
+                (fun state k -> reduceBlockStatement state clause.Body (fun (result, state) -> k (result, State.pop state)))
+                (fun state k -> reduceCatchClauses exn (State.pop state) rest k)
+                k
+
+    and reduceCatchCondition exn state (ast : ICatchClause) k =
+        assert(ast.VariableReference <> null)
+        let typeMatches = is exn ast.VariableReference.Variable.Type in
+        let state = State.push state [(ast.VariableReference.Variable.Name, exn)] in
+        match typeMatches with
+        | Terms.False -> k (typeMatches, state)
+        | _ ->
+            if ast.Filter = null then k (typeMatches, state)
+            else __notImplemented__()//reduceBlockStatement state ast.Filter k
+
+    and reduceFinally state statementResult (ast : IBlockStatement) k =
+        if ast = null then k (statementResult, state)
+        else reduceBlockStatement state ast (fun (_, state) -> k (statementResult, state))
+
+    and reduceFault state statementResult (ast : IBlockStatement) k =
+        if ast = null then k (statementResult, state)
+        else
+            let thrown, normal = ControlFlow.pickOutExceptions statementResult in
+            match thrown with
+            | None -> k (statementResult, state)
+            | Some(guard, exn) ->
+                reduceConditionalExecution state
+                    (fun state k -> k (guard, state))
+                    (fun state k -> reduceBlockStatement state ast (fun (_, state) -> k (NoResult, state)))
+                    (fun state k -> k (NoResult, state))
+                    (fun (_, state) -> k (statementResult, state))
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
         __notImplemented__()
@@ -491,7 +546,6 @@ module internal Interpreter =
         | :? IUserDefinedBinaryOperationExpression as userBinOp -> reduceUserDefinedBinaryOperationExpression state userBinOp k
         | _ -> __notImplemented__()
 
-
     and reduceBinaryOperationExpression state (ast : IBinaryOperationExpression) k =
         let op = ast.OperationType in
         match op with
@@ -621,6 +675,11 @@ module internal Interpreter =
         let targetType = Types.FromMetadataType ast.TargetType in
         reduceExpression state ast.Argument (fun (argument, newState) ->
         typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
+
+    and is term typ =
+        // TODO: here we should use more sophisticated type constraints processing, but for now...
+        let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
+        Concrete(justInherits, Bool)
 
     and typeCast isChecked state term targetType =
         // TODO: refs and structs should still be refs after cast!

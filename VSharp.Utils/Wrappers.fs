@@ -18,14 +18,25 @@ module public Wrappers =
     let public withFst x = fun y -> (x, y)
     let public withSnd y = fun x -> (x, y)
     let public mapAdd (map : Map<'a, 'b>) key value = map.Add(key, value)
+
     let public getDictValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
             let newVal = fallback() in
             dict.Add(key, newVal)
             newVal
+
     let mapFoldMap mapping state table =
         let mapFolder (map, state) key value =
             let newValue, newState = mapping key state value in
             (Map.add key newValue map, newState)
         Map.fold mapFolder (Map.empty, state) table
+
+    let mappedPartition f xs =
+        let rec mappedPartitionAcc f left right = function
+            | [] -> (List.rev left, List.rev right)
+            | x::xs ->
+                match f x with
+                | Some m -> mappedPartitionAcc f (m::left) right xs
+                | None -> mappedPartitionAcc f left (x::right) xs
+        mappedPartitionAcc f [] [] xs

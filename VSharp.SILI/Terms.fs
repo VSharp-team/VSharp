@@ -158,7 +158,7 @@ module public Terms =
         Constant(name, Types.FromDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
-        let actualType = value.GetType() in
+        let actualType = if (value :> obj) = null then t else value.GetType() in
         try
             if actualType = t then Concrete(value, Types.FromDotNetType t)
             else

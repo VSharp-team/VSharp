@@ -87,3 +87,14 @@ module internal ControlFlow =
             let gs, vs = List.unzip gvs in
             vs |> List.map resultToTerm |> List.zip gs |> Merging.merge
         | _ -> Nop
+
+    let pickOutExceptions result =
+        let gvs =
+            match result with
+            | Throw e -> [(Terms.MakeTrue, result)]
+            | Guarded gvs -> gvs
+            | _ -> [(Terms.MakeTrue, result)]
+        in
+        let (thrown, normal) = mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
+        assert(List.length thrown <= 1)
+        if List.isEmpty thrown then (None, normal) else (Some(thrown.Item(0)), normal)
