@@ -793,7 +793,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
-        __notImplemented__()
+        // TODO: implement it!
+        k (Terms.MakeNull(Types.MetadataToDotNetType(ast.ArrayType)), state)
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         __notImplemented__()

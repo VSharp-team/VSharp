@@ -140,12 +140,11 @@ module public Terms =
         | StackRef(_, _, _, t) -> t
         | HeapRef(_, _, t) -> t
         | Union gvs ->
-            match gvs with
-            | [] -> TermType.Void
-            | (_, v)::gvs' ->
-                let typeOfFirst = TypeOf v in
-                let allSame = List.forall (fun (_, v) -> typeOfFirst = TypeOf v) gvs'
-                if allSame then typeOfFirst
+            match (List.filter (Types.IsBottom >> not) (List.map (snd >> TypeOf) gvs)) with
+            | [] -> TermType.Bottom
+            | t::ts ->
+                let allSame = List.forall ((=) t) ts in
+                if allSame then t
                 else
                     // TODO: return union of types!
                     __notImplemented__()

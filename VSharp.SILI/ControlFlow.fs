@@ -55,14 +55,14 @@ module internal ControlFlow =
 
     let rec throwOrReturn = function
         | Error t -> Throw t
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded
         | Nop -> NoResult
         | t -> Return t
 
     let rec consumeErrorOrReturn consumer = function
         | Error t -> consumer t
         | Nop -> NoResult
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded
         | t -> Return t
 
     let rec composeSequentially oldRes newRes oldState newState =
