@@ -271,8 +271,3 @@ module public Terms =
         match term with
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
-
-    let (|Lambda|_|) = function
-        | Concrete(pair, t) when Types.IsFunction t && (pair :? IFunctionSignature * IBlockStatement) ->
-            Some(Lambda(pair :?> IFunctionSignature * IBlockStatement))
-        | _ -> None

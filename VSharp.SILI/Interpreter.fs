@@ -10,7 +10,6 @@ module internal Interpreter =
         System.Console.WriteLine(ast.GetType().ToString())
         ast.Children |> Seq.iter (dbg (indent + 1))
 
-
 // ------------------------------- Decompilation -------------------------------
 
     let rec decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
@@ -449,12 +448,12 @@ module internal Interpreter =
     and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
         reduceDelegateCall state ast k
 
-    and reduceDelegateCall state (ast : IDelegateCallExpression) k =
+    and reduceDelegateCall state (ast : IDelegateCallExpression) (k : StatementResult * State.state -> unit) =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         reduceExpression state ast.Delegate (fun (deleg, state) ->
         let invoke deleg k =
             match deleg with
-                | Terms.Lambda(signature, body) -> reduceFunction state None args signature body k
+                | Lambdas.Lambda(lambda) -> lambda state args k
                 | Concrete(obj, _) ->
                     let exn = new InvalidCastException("Cannot apply non-function type") in
                     let exnTerm = Terms.MakeConcrete exn (exn.GetType()) in
@@ -800,8 +799,9 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
-        let typ = Types.FromFunctionSignature ast.Signature null in
-        k (Concrete ((ast.Signature, ast.Body), typ), state)
+        let invoke state args k =
+            reduceFunction state None args ast.Signature ast.Body k
+        k (Lambdas.Make ast.Signature null invoke, state)
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         __notImplemented__()
