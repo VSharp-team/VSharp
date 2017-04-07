@@ -142,3 +142,11 @@ module Transformations =
 
     let isContinueConsumer (node : INode) =
         DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool
+
+    let extractExceptionFilter (ast : IBlockStatement) =
+        if ast.Statements.Count <> 1 then __notImplemented__()
+        let filterStatement = ast.Statements.First in
+        match filterStatement with
+        | :? IIfStatement as cond
+            when (cond.Then :? ISuccessfulFilteringStatement) && (cond.Else :? IRethrowStatement) -> cond.Condition
+        | _ -> __notImplemented__()

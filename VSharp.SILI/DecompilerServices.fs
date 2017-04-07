@@ -20,6 +20,9 @@ module internal DecompilerServices =
         | Some t -> t
         | None -> defaultValue
 
+    let public setPropertyOfNode (node : INode) property value =
+        node.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<obj>(property), value :> obj)
+
     let public getTypeOfNode (node : INode) =
         getPropertyOfNode node "Type" null :?> JetBrains.Metadata.Reader.API.IMetadataType
 

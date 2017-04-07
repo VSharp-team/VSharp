@@ -17,7 +17,7 @@ type public Operation =
 
 [<StructuralEquality;NoComparison>]
 type public Term =
-    | Error of System.Exception
+    | Error of Term
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
@@ -39,7 +39,7 @@ type public Term =
 
         let rec toStr parentPriority parentChecked indent term =
             match term with
-            | Error e -> String.Format("<ERROR: {0}>", e)
+            | Error e -> String.Format("<ERROR: {0}>", (toString e))
             | Nop -> "<VOID>"
             | Constant(name, _) -> name
             | Concrete(value, _) -> if value = null then "null" else value.ToString()
@@ -139,9 +139,16 @@ module public Terms =
         | Struct(_, t) -> t
         | StackRef(_, _, _, t) -> t
         | HeapRef(_, _, t) -> t
-        | Union ts ->
-            if List.isEmpty ts then TermType.Void
-            else List.head ts |> snd |> TypeOf
+        | Union gvs ->
+            match gvs with
+            | [] -> TermType.Void
+            | (_, v)::gvs' ->
+                let typeOfFirst = TypeOf v in
+                let allSame = List.forall (fun (_, v) -> typeOfFirst = TypeOf v) gvs'
+                if allSame then typeOfFirst
+                else
+                    // TODO: return union of types!
+                    __notImplemented__()
 
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
@@ -172,7 +179,7 @@ module public Terms =
         | e ->
             // TODO: this is for debug, remove it when becomes relevant!
             raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
-            Error e
+            Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)
@@ -183,12 +190,14 @@ module public Terms =
     let public MakeNull typ =
         MakeConcrete null typ
 
+    let public MakeError exn =
+        Error (MakeConcrete exn (exn.GetType()))
+
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
 
-    let public MakeBinaryOverList operation x isChecked t =
-        assert(Operations.isBinary operation)
+    let public MakeNAry operation x isChecked t =
         match x with 
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x

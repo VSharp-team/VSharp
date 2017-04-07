@@ -57,7 +57,8 @@ module internal Merging =
 
     let internal merge gvs =
         match compress (simplify gvs) with
-        | [True, v] -> v
+        | [(True, v)] -> v
+        | [(g, v)] when Terms.IsBool v -> g &&& v
         | gvs' -> Union gvs'
 
     let internal merge2Terms g h u v =

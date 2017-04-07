@@ -18,7 +18,7 @@ module internal Memory =
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
     let private heapDeref ((_, h, _, _) : state) addr = h.[addr]
 
-    let internal npe () = Error(new System.NullReferenceException()) in
+    let internal npe () = Terms.MakeError(new System.NullReferenceException()) in
 
     let rec internal isNull = function
         | Error _ as e -> e

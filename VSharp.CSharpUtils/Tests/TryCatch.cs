@@ -34,7 +34,7 @@ namespace VSharp.CSharpUtils
             }
             catch (InvalidOperationException) when (n <= 0)
             {
-                return MakeOdd(-n);
+                n = -n + 1;//return MakeOdd(-n);
             }
             catch
             {

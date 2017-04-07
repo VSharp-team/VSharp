@@ -231,10 +231,17 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceRethrowStatement state (ast : IRethrowStatement) k =
-        __notImplemented__()
+        let rec findException (node : INode) =
+            if node = null then failwith "Internal error: exception register not found for rethowing!"
+            match DecompilerServices.getPropertyOfNode node "Thrown" null with
+            | null -> findException node.Parent
+            | exn -> exn :?> Term
+        in
+        let exn = findException ast in
+        k (Throw exn, state)
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
-        reduceExpression state ast.Result (fun (term, state) -> k (Return term, state))
+        reduceExpression state ast.Result (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
 
     and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) k =
         __notImplemented__()
@@ -265,7 +272,7 @@ module internal Interpreter =
                 reduceConditionalExecution state
                     (fun state k -> k (guard, state))
                     (fun state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
-                    (fun state k -> k (Guarded normal, state))
+                    (fun state k -> k (Guarded ((guard, NoResult)::normal), state))
                     k
 
     and reduceCatchClauses exn state clauses k =
@@ -279,14 +286,23 @@ module internal Interpreter =
                 k
 
     and reduceCatchCondition exn state (ast : ICatchClause) k =
-        assert(ast.VariableReference <> null)
-        let typeMatches = is exn ast.VariableReference.Variable.Type in
-        let state = State.push state [(ast.VariableReference.Variable.Name, exn)] in
-        match typeMatches with
-        | Terms.False -> k (typeMatches, state)
-        | _ ->
+        if ast.VariableReference = null then k (Terms.MakeTrue, State.push state []) // just catch {...} case
+        else
+            DecompilerServices.setPropertyOfNode ast "Thrown" exn
+            // catch (...) {...} case
+            let typeMatches = is ast.VariableReference.Variable.Type exn in
+            let state = State.push state [(ast.VariableReference.Variable.Name, exn)] in
             if ast.Filter = null then k (typeMatches, state)
-            else __notImplemented__()//reduceBlockStatement state ast.Filter k
+            else
+                let filteringExpression = Transformations.extractExceptionFilter ast.Filter in
+                reduceConditionalExecution state
+                    (fun state k -> k (typeMatches, state))
+                    (fun state k -> reduceExpression state filteringExpression
+                                        (fun (filterResult, state) ->
+                                            k (ControlFlow.consumeErrorOrReturn
+                                                (fun _ -> Return Terms.MakeFalse) filterResult, state)))
+                    (fun state k -> k (Return typeMatches, state))
+                    (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
 
     and reduceFinally state statementResult (ast : IBlockStatement) k =
         if ast = null then k (statementResult, state)
@@ -439,7 +455,10 @@ module internal Interpreter =
         let invoke deleg k =
             match deleg with
                 | Terms.Lambda(signature, body) -> reduceFunction state None args signature body k
-                | Concrete(obj, _) -> (Throw (Error(new InvalidCastException("Cannot apply non-function type"))), state) |> k
+                | Concrete(obj, _) ->
+                    let exn = new InvalidCastException("Cannot apply non-function type") in
+                    let exnTerm = Terms.MakeConcrete exn (exn.GetType()) in
+                    (Throw exnTerm, state) |> k
                 | _ -> __notImplemented__()
         in
         match deleg with
@@ -677,10 +696,13 @@ module internal Interpreter =
         reduceExpression state ast.Argument (fun (argument, newState) ->
         typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
-    and is term typ =
-        // TODO: here we should use more sophisticated type constraints processing, but for now...
-        let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
-        Concrete(justInherits, Bool)
+    and is typ = function
+        | Terms.GuardedValues(gs, vs) ->
+            vs |> List.map (is typ) |> List.zip gs |> Merging.merge
+        | term ->
+            // TODO: here we should use more sophisticated type constraints processing, but for now...
+            let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
+            Concrete(justInherits, Bool)
 
     and typeCast isChecked state term targetType =
         // TODO: refs and structs should still be refs after cast!
@@ -692,7 +714,7 @@ module internal Interpreter =
             in
             let rec castSimple = function
                 | Error _ -> term
-                | Nop -> Error (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
+                | Nop -> Terms.MakeError (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
                 | Concrete(value, _) ->
                     if Terms.IsFunction term && Types.IsFunction targetType
                     then Concrete(value, targetType)
