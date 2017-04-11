@@ -106,6 +106,8 @@ module internal Memory =
     let private freshAddress () =
         pointer := !pointer + 1
         !pointer
+    let public resetHeap () =
+        pointer := 0
 
     let internal allocateOnStack ((e, h, f, p) : state) name term : state =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
@@ -147,7 +149,7 @@ module internal Memory =
         | StructType dotNetType as t -> allocateSymbolicStruct isStatic state t dotNetType
         | ClassType dotNetType as t ->
             let value, state = allocateSymbolicStruct isStatic state t dotNetType in
-            allocateInHeap state value true
+            allocateInHeap state value false
         | _ -> __notImplemented__()
 
 // ------------------------------- Mutation -------------------------------

@@ -75,5 +75,8 @@ Global
 		$4.SpaceBeforeArgument = True
 		$4.SpaceBeforeColon = True
 		$3.scope = text/x-fsharp
+		$0.DotNetNamingPolicy = $5
+		$5.DirectoryNamespaceAssociation = None
+		$5.ResourceNamePolicy = FileFormatDefault
 	EndGlobalSection
 EndGlobal

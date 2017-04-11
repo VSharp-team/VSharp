@@ -115,3 +115,6 @@ module internal ControlFlow =
             let mergedGuard = List.fold (|||) Terms.MakeFalse gs in
             let mergedValue = Merging.merge gvs in
             Some(mergedGuard, mergedValue), normal
+
+    let npe () =
+        Throw(Terms.MakeConcrete (new System.NullReferenceException()) typedefof<System.NullReferenceException>)

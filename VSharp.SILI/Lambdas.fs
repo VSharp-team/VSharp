@@ -6,8 +6,12 @@ open JetBrains.Metadata.Reader.API
 module Lambdas =
     type SymbolicLambda<'a> = State.state -> Term list -> (StatementResult * State.state -> 'a) -> 'a
 
-    let public Make (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromFunctionSignature signature returnMetadataType in
+    let public Make (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
+        let typ = Types.FromMetadataMethodSignature metadataMethod in
+        Concrete(lambda, typ)
+
+    let public Make2 (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
+        let typ = Types.FromDecompiledSignature signature returnMetadataType in
         Concrete(lambda, typ)
 
     let (|Lambda|_|) = function

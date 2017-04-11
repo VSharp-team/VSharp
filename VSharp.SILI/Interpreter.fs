@@ -15,11 +15,14 @@ module internal Interpreter =
     let rec decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
         match decompiledMethod with
+        | None when DecompilerServices.isConstructor metadataMethod ->
+            // Got default constructor ignored by decompiler
+            k (NoResult, state)
         | None ->
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
             // k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            //printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
@@ -51,7 +54,7 @@ module internal Interpreter =
         reduceBlockStatement state body (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        reduceFunction state (Some this) parameters ast.Signature ast.Body (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
+        reduceFunction state (Some this) parameters ast.Signature ast.Body k
 
 // ------------------------------- IMemberInitializer and inheritors -------------------------------
 
@@ -63,7 +66,7 @@ module internal Interpreter =
 
     and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
         reduceExpression state ast.Value (fun (term, state) ->
-        let fieldReference = Memory.referenceToField state ast.Field.Name this in
+        let fieldReference = Memory.referenceToField state (DecompilerServices.idOfMetadataField ast.Field) this in
         Memory.mutate state fieldReference term |> snd |> k)
 
     and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
@@ -198,6 +201,19 @@ module internal Interpreter =
             let result = ControlFlow.mergeResults condition thenResult elseResult in
             let state = Merging.merge2States condition !!condition thenState elseState in
             k (result, state))))
+
+    and npeOrInvokeStatement state isStatic reference statement k =
+        if isStatic then statement state k
+        else
+            reduceConditionalExecution state
+                (fun state k -> k (Memory.isNull reference, state))
+                (fun state k -> k (ControlFlow.npe(), state))
+                statement
+                k
+
+    and npeOrInvokeExpression state isStatic reference expression k =
+        npeOrInvokeStatement state isStatic reference expression
+            (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
 
     and reduceIfStatement state (ast : IIfStatement) k =
         reduceConditionalExecution state
@@ -381,17 +397,16 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
-        if ast = null then k (Concrete(null, VSharp.Object), state)
-        else
-            match ast with
-            | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Variable.Name followHeapRefs, state)
-            | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Parameter.Name followHeapRefs, state)
-            | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
-            | :? IFieldAccessExpression as expression ->
-                reduceExpressionToRef state true expression.Target (fun (target, state) ->
-                referenceToField state target expression.FieldSpecification.Field k)
-            | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
-            | _ -> reduceExpression state ast k
+        match ast with
+        | null -> k (Concrete(null, VSharp.Object), state)
+        | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Variable.Name followHeapRefs, state)
+        | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Parameter.Name followHeapRefs, state)
+        | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
+        | :? IFieldAccessExpression as expression ->
+            reduceExpressionToRef state true expression.Target (fun (target, state) ->
+            referenceToField state target expression.FieldSpecification.Field k)
+        | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
+        | _ -> reduceExpression state ast k
 
     and referenceToField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field in
@@ -448,7 +463,7 @@ module internal Interpreter =
     and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
         reduceDelegateCall state ast k
 
-    and reduceDelegateCall state (ast : IDelegateCallExpression) (k : StatementResult * State.state -> unit) =
+    and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         reduceExpression state ast.Delegate (fun (deleg, state) ->
         let invoke deleg k =
@@ -796,12 +811,22 @@ module internal Interpreter =
         k (Terms.MakeNull(Types.MetadataToDotNetType(ast.ArrayType)), state)
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
-        __notImplemented__()
+        let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
+        let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        reduceExpressionToRef state true ast.Target (fun (targetTerm, state) ->
+        let invoke state args k =
+            let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
+            decompileAndReduceMethod state targetTerm args qualifiedTypeName metadataMethod assemblyPath k
+        in
+        let delegateTerm = Lambdas.Make metadataMethod invoke in
+        let returnDelegateTerm state k = k (Return delegateTerm, state) in
+        npeOrInvokeExpression state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let invoke state args k =
             reduceFunction state None args ast.Signature ast.Body k
-        k (Lambdas.Make ast.Signature null invoke, state)
+        k (Lambdas.Make2 ast.Signature null invoke, state)
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         __notImplemented__()
@@ -882,11 +907,16 @@ module internal Interpreter =
         readField state target ast.FieldSpecification.Field k))
 
     and readField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
+        let fieldName = DecompilerServices.idOfMetadataField field in
         if field.IsStatic then
-            let reference = Memory.referenceToStaticField state field.Name field.DeclaringType.AssemblyQualifiedName in
+            let reference = Memory.referenceToStaticField state fieldName field.DeclaringType.AssemblyQualifiedName in
             k (Memory.deref state reference, state)
         else
-            k (Memory.fieldOf target field.Name, state)
+            if (Terms.IsRef target) then
+                Console.WriteLine("Warning: got field access without explicit dereferencing: " + (field.ToString()))
+                k (Memory.fieldOf (Memory.deref state target) fieldName, state)
+            else
+                k (Memory.fieldOf target fieldName, state)
 
 // ------------------------------- IMemberCallExpression and inheritors -------------------------------
 
@@ -913,16 +943,17 @@ module internal Interpreter =
         initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
         target state (fun (targetTerm, state) ->
         Cps.Seq.mapFoldk (fun state arg k -> arg state k) state arguments (fun (args, state) ->
-        let nonNullTargetTerm = Memory.npeIfNull targetTerm in
-        if Terms.Just Terms.IsError nonNullTargetTerm then k (nonNullTargetTerm, state)
-        else
+        let invoke state k =
             let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
-            decompileAndReduceMethod state nonNullTargetTerm args qualifiedTypeName metadataMethod assemblyPath k)))
+            decompileAndReduceMethod state targetTerm args qualifiedTypeName metadataMethod assemblyPath k
+        in
+        npeOrInvokeExpression state metadataMethod.IsStatic targetTerm invoke k)))
 
     and reduceMethodCallExpression state (ast : IMethodCallExpression) k =
         let reduceTarget state k = reduceExpressionToRef state true ast.Target k in
         let reduceArg arg = fun state k -> reduceExpression state arg k in
-        reduceMethodCall state reduceTarget ast.MethodInstantiation.MethodSpecification.Method (List.map reduceArg (List.ofSeq ast.Arguments)) k
+        let reduceArgs = ast.Arguments |> List.ofSeq |> List.map reduceArg in
+        reduceMethodCall state reduceTarget ast.MethodInstantiation.MethodSpecification.Method reduceArgs k
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         let obtainTarget state k = reduceExpressionToRef state true ast.Target k in

@@ -122,6 +122,12 @@ module public Terms =
         | HeapRef _ -> true
         | _ -> false
 
+    let rec public IsRef = function
+        | HeapRef _
+        | StackRef _ -> true
+        | Union gvs -> List.forall (snd >> IsRef) gvs
+        | _ -> false
+
     let public OperationOf = function
         | Expression(op, _, _) -> op
         | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))

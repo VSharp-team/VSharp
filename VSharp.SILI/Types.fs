@@ -82,11 +82,18 @@ module public Types =
 
     let public MetadataToDotNetType (t : JetBrains.Metadata.Reader.API.IMetadataType) = t |> FromMetadataType |> ToDotNetType
 
-    let public FromFunctionSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : JetBrains.Metadata.Reader.API.IMetadataType) =
+    let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : JetBrains.Metadata.Reader.API.IMetadataType) =
         let returnType = FromMetadataType returnMetadataType in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
             param.Type |> FromMetadataType
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
+        Func(args, returnType)
+
+    let public FromMetadataMethodSignature (m : JetBrains.Metadata.Reader.API.IMetadataMethod) =
+        let returnType = FromMetadataType m.ReturnValue.Type in
+        let paramToType (param : JetBrains.Metadata.Reader.API.IMetadataParameter) =
+            param.Type |> FromMetadataType
+        let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
 
     let public IsInteger = ToDotNetType >> integerTypes.Contains
@@ -153,5 +160,8 @@ module public Types =
 
     let public GetFieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
-        let fields = t.GetFields(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag) in
-        fields |> Array.map (fun (field : FieldInfo) -> (field.Name, FromDotNetType field.FieldType)) |> Map.ofArray
+        let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag in
+        let fields = t.GetFields(flags) in
+        let extractFieldInfo (field : FieldInfo) =
+            (sprintf "%s.%s" field.DeclaringType.FullName field.Name, FromDotNetType field.FieldType)
+        fields |> Array.map extractFieldInfo |> Map.ofArray

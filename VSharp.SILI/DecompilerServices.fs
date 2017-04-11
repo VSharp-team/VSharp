@@ -156,3 +156,6 @@ module internal DecompilerServices =
 
     let public baseClassesChain (t : IMetadataType) =
         baseClassesChainAcc [] t
+
+    let public isConstructor (m : IMetadataMethod) =
+        m.Name = ".ctor"

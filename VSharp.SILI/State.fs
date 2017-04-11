@@ -9,7 +9,7 @@ module internal State =
         override this.ToString() =
             match this with
             | ConcreteAddress a -> a.ToString()
-            | StaticAddress a -> a
+            | StaticAddress a -> System.Type.GetType(a).FullName
             | SymbolicAddress a -> a
 
     type internal environment = Map<string, Stack.stack<Term>>
@@ -57,3 +57,9 @@ module internal State =
 
     let internal staticMembersInitialized ((_, h, _, _) : state) typeName =
         h.ContainsKey(StaticAddress typeName)
+
+    let internal dumpHeap ((_, h, _, _) : state) =
+        let elements = h |> Map.toList |> List.map (fun (key, value) ->
+            key.ToString() + " ==> " + value.ToString())
+        in
+        List.sort elements |> join "\n"
