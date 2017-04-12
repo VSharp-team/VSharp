@@ -124,8 +124,16 @@ module internal DecompilerServices =
     let rec getDefaultFieldValuesOf isStatic qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let initializerOf (f : IDecompiledField) =
+            let mf = f.MetadataField in
+            if mf.IsLiteral
+            then
+                let literal = AstFactory.CreateLiteral(Constant.FromValueAndType(mf.GetLiteralValue(), mf.Type), null) :> IExpression
+                setTypeOfNode literal mf.Type
+                literal
+            else f.Initializer
         let extractDecompiledFieldInfo (f : IDecompiledField) =
-            (idOfMetadataField f.MetadataField, (f.MetadataField.Type, f.Initializer))
+            (idOfMetadataField f.MetadataField, (f.MetadataField.Type, initializerOf f))
         let isDecompiledFieldStatic required (f : IDecompiledField) =
             f.MetadataField.IsStatic = required
         let extractBackingFieldInfo (f : IDecompiledProperty) =

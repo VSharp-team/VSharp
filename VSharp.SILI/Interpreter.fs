@@ -841,12 +841,19 @@ module internal Interpreter =
             match Options.StaticFieldsValuation with
             | Options.Interpret ->
                 let fields = DecompilerServices.getDefaultFieldValuesOf true qualifiedTypeName in
-                let instance = fields |> List.map (fun (n, (t, _)) -> (n, Memory.defaultOf (Types.FromMetadataType t))) |> Map.ofList |> withSnd t |> Struct in
+                let instance =
+                    fields
+                        |> List.map (fun (n, (t, _)) -> (n, Memory.defaultOf (Types.FromMetadataType t)))
+                        |> Map.ofList
+                        |> withSnd t
+                        |> Struct
+                in
                 let state = Memory.allocateInStaticMemory state qualifiedTypeName instance in
                 let initOneField state (name, (typ, expression)) k =
                     let address = Memory.referenceToStaticField state name qualifiedTypeName in
                     reduceExpression state expression (fun (value, state) ->
                     Memory.mutate state address value |> snd |> k)
+                in
                 Cps.List.foldlk initOneField state fields (fun state ->
                 match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
                 | Some constr ->
