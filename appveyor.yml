@@ -1,3 +1,5 @@
 before_build:
   - nuget restore
- 
+
+test_script:
+  - nunit-console-x86 VSharp.Test\bin\Debug\VSharp.Test.dll

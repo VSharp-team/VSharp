@@ -17,7 +17,7 @@ type public Operation =
 
 [<StructuralEquality;NoComparison>]
 type public Term =
-    | Error of System.Exception
+    | Error of Term
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
@@ -39,7 +39,7 @@ type public Term =
 
         let rec toStr parentPriority parentChecked indent term =
             match term with
-            | Error e -> String.Format("<ERROR: {0}>", e)
+            | Error e -> String.Format("<ERROR: {0}>", (toString e))
             | Nop -> "<VOID>"
             | Constant(name, _) -> name
             | Concrete(value, _) -> if value = null then "null" else value.ToString()
@@ -122,6 +122,12 @@ module public Terms =
         | HeapRef _ -> true
         | _ -> false
 
+    let rec public IsRef = function
+        | HeapRef _
+        | StackRef _ -> true
+        | Union gvs -> List.forall (snd >> IsRef) gvs
+        | _ -> false
+
     let public OperationOf = function
         | Expression(op, _, _) -> op
         | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
@@ -139,9 +145,15 @@ module public Terms =
         | Struct(_, t) -> t
         | StackRef(_, _, _, t) -> t
         | HeapRef(_, _, t) -> t
-        | Union ts ->
-            if List.isEmpty ts then TermType.Void
-            else List.head ts |> snd |> TypeOf
+        | Union gvs ->
+            match (List.filter (Types.IsBottom >> not) (List.map (snd >> TypeOf) gvs)) with
+            | [] -> TermType.Bottom
+            | t::ts ->
+                let allSame = List.forall ((=) t) ts in
+                if allSame then t
+                else
+                    // TODO: return union of types!
+                    __notImplemented__()
 
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
@@ -158,12 +170,26 @@ module public Terms =
         Constant(name, Types.FromDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
+        let actualType = if (value :> obj) = null then t else value.GetType() in
         try
-            Concrete(Convert.ChangeType(value, t), Types.FromDotNetType t)
+            if actualType = t then Concrete(value, Types.FromDotNetType t)
+            else
+                if typedefof<IConvertible>.IsAssignableFrom(actualType)
+                then
+                    let casted =
+                        if t.IsPointer
+                        then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
+                        else Convert.ChangeType(value, t) in
+                    Concrete(casted, Types.FromDotNetType t)
+                else
+                    if t.IsAssignableFrom(actualType)
+                    then Concrete(value, Types.FromDotNetType t)
+                    else raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
         with
         | e ->
-            failwith "Typecast error occured!" // TODO: this is for debug, remove it when becomes relevant!
-            Error e
+            // TODO: this is for debug, remove it when becomes relevant!
+            raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
+            Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)
@@ -174,12 +200,14 @@ module public Terms =
     let public MakeNull typ =
         MakeConcrete null typ
 
+    let public MakeError exn =
+        Error (MakeConcrete exn (exn.GetType()))
+
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
         Expression(Operator(operation, isChecked), [x; y], t)
 
-    let public MakeBinaryOverList operation x isChecked t =
-        assert(Operations.isBinary operation)
+    let public MakeNAry operation x isChecked t =
         match x with 
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x
@@ -253,9 +281,4 @@ module public Terms =
     let (|Xor|_|) term =
         match term with
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
-        | _ -> None
-
-    let (|Lambda|_|) = function
-        | Concrete(pair, t) when Types.IsFunction t && (pair :? IFunctionSignature * IBlockStatement) ->
-            Some(Lambda(pair :?> IFunctionSignature * IBlockStatement))
         | _ -> None

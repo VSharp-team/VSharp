@@ -1,4 +1,6 @@
-﻿namespace VSharp.CSharpUtils.Tests
+﻿using System.Runtime.Remoting.Messaging;
+
+namespace VSharp.CSharpUtils.Tests
 {
     internal class A
     {
@@ -47,13 +49,25 @@
         }
     }
 
-    public struct C
+    internal struct C
     {
         public int _n;
+        public int _m2;
+
+        public int M2 {
+            get { return _m2; }
+            set { _m2 = value; }
+        }
+        public int M1 { get; set; }
 
         public void SetN(int n)
         {
             _n = n;
+            M1 = 50;
+            M2 = M1 * 2;
+            M2++;
+            ++M2;
+            M1 -= 8;
         }
     }
 

@@ -10,6 +10,7 @@ module internal Memory =
 
     let private extractHeapAddress = function
         | Concrete(address, t) when Types.IsNumeric t -> ConcreteAddress (address :?> int)
+        | Concrete(typeName, t) when Types.IsString t -> StaticAddress (typeName :?> string)
         | Constant(name, _) -> SymbolicAddress name
         | term -> failwith ("Internal error: expected primitive heap address " + (toString term))
 
@@ -17,7 +18,7 @@ module internal Memory =
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
     let private heapDeref ((_, h, _, _) : state) addr = h.[addr]
 
-    let internal npe () = Error(new System.NullReferenceException()) in
+    let internal npe () = Terms.MakeError(new System.NullReferenceException()) in
 
     let rec internal isNull = function
         | Error _ as e -> e
@@ -49,7 +50,8 @@ module internal Memory =
     let rec internal deref state = function
         | Error _ as e -> e
         | StackRef(name, idx, path, _) -> structDeref (List.rev path) (stackDeref state name idx)
-        | HeapRef(addr, path, t) ->
+        | HeapRef(Concrete(typeName, t), path, _) when Types.IsString t -> structDeref (List.rev path) (heapDeref state (StaticAddress (typeName :?> string)))
+        | HeapRef(addr, path, _) ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             match isNull with
             | Terms.False -> structDeref (List.rev path) (heapDeref state (extractHeapAddress addr))
@@ -92,8 +94,11 @@ module internal Memory =
             vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
         | t -> failwith ("Internal error: expected reference or struct, but got " + (toString t))
 
-    let rec internal referenceToField state name parentRef =
+    let internal referenceToField state name parentRef =
         referenceToFieldOf state name parentRef (deref state parentRef)
+
+    let rec internal referenceToStaticField state fieldName typeName =
+        HeapRef(Concrete(typeName, String), [fieldName], String)
 
 // ------------------------------- Allocation -------------------------------
 
@@ -101,6 +106,8 @@ module internal Memory =
     let private freshAddress () =
         pointer := !pointer + 1
         !pointer
+    let public resetHeap () =
+        pointer := 0
 
     let internal allocateOnStack ((e, h, f, p) : state) name term : state =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
@@ -117,6 +124,10 @@ module internal Memory =
                 HeapRef (Concrete(address, pointerType), [], Terms.TypeOf term), ConcreteAddress address
         (pointer, (e, h.Add(address, term), f, p))
 
+    let internal allocateInStaticMemory ((e, h, f, p) : state) typeName term =
+        let address = StaticAddress typeName in
+        (e, h.Add(address, term), f, p)
+
     let rec defaultOf = function
         | Object -> Terms.MakeNull typedefof<obj>
         | Bool -> Terms.MakeFalse
@@ -125,20 +136,20 @@ module internal Memory =
         | ClassType _ -> Terms.MakeNull typedefof<obj>
         | Func _ -> Terms.MakeNull typedefof<obj>
         | StructType dnt as tt ->
-            let fields = Types.GetFieldsOf dnt in
+            let fields = Types.GetFieldsOf dnt false in
             Struct(Map.map (fun _ t -> defaultOf t) fields, tt)
         | _ -> __notImplemented__()
 
-    let rec internal allocateSymbolicStruct state t dotNetType =
-        let fields, state = Types.GetFieldsOf dotNetType |> mapFoldMap allocateSymbolicInstance state in
+    let rec internal allocateSymbolicStruct isStatic state t dotNetType =
+        let fields, state = Types.GetFieldsOf dotNetType isStatic |> mapFoldMap (allocateSymbolicInstance false) state in
         (Struct(fields, t), state)
 
-    and internal allocateSymbolicInstance name state = function
+    and internal allocateSymbolicInstance isStatic name state = function
         | t when Types.IsPrimitive t -> (Constant(name, t), state)
-        | StructType dotNetType as t -> allocateSymbolicStruct state t dotNetType
+        | StructType dotNetType as t -> allocateSymbolicStruct isStatic state t dotNetType
         | ClassType dotNetType as t ->
-            let value, state = allocateSymbolicStruct state t dotNetType in
-            allocateInHeap state value true
+            let value, state = allocateSymbolicStruct isStatic state t dotNetType in
+            allocateInHeap state value false
         | _ -> __notImplemented__()
 
 // ------------------------------- Mutation -------------------------------

@@ -20,7 +20,7 @@ module internal Arithmetics =
             let success = ref true
             let result = Calculator.AddChecked(x, y, t, success)
             if !success then MakeConcrete result t
-            else Error (result :?> System.Exception)
+            else Terms.MakeError result
         else
             MakeConcrete (Calculator.Add(x, y, t)) t
 
@@ -104,7 +104,7 @@ module internal Arithmetics =
             let success = ref true
             let result = Calculator.UnaryMinusChecked(x, t, success)
             if !success then MakeConcrete result t
-            else Error (result :?> System.Exception)
+            else Terms.MakeError result
         else
             MakeConcrete (Calculator.UnaryMinus(x, t)) t
 
@@ -131,7 +131,7 @@ module internal Arithmetics =
             let success = ref true
             let result = Calculator.MulChecked(x, y, t, success)
             if !success then MakeConcrete result t
-            else Error (result :?> System.Exception)
+            else Terms.MakeError result
         else
             MakeConcrete (Calculator.Mul(x, y, t)) t
 
@@ -209,7 +209,7 @@ module internal Arithmetics =
             if isChecked then Calculator.DivChecked(x, y, t, success)
             else Calculator.Div(x, y, t, success)
         if !success then MakeConcrete result t
-        else Error (result :?> System.Exception)
+        else Terms.MakeError result
 
     and private simplifyDivision isChecked t x y k =
         let defaultCase () =
@@ -240,7 +240,7 @@ module internal Arithmetics =
     and private simplifyDivisionAndCheckNotZero isChecked t x y k =
         simplifyEqual y (Concrete(0, TypeOf y)) (fun yIsZero ->
         simplifyDivision isChecked t x y (fun d ->
-        Merging.merge2Terms yIsZero !!yIsZero (Error (new System.DivideByZeroException())) d |> k))
+        Merging.merge2Terms yIsZero !!yIsZero (Terms.MakeError (new System.DivideByZeroException())) d |> k))
 
 // ------------------------------- Simplification of "%" -------------------------------
 
@@ -250,7 +250,7 @@ module internal Arithmetics =
             if isChecked then Calculator.RemChecked(x, y, t, success)
             else Calculator.Rem(x, y, t, success)
         if !success then MakeConcrete result t
-        else Error (result :?> System.Exception)
+        else Terms.MakeError result
 
     and isRemainderZero t x y =
         let success = ref true
@@ -283,7 +283,7 @@ module internal Arithmetics =
     and private simplifyRemainderAndCheckNotZero isChecked t x y k =
         simplifyEqual y (Concrete(0, TypeOf y)) (fun yIsZero ->
         simplifyRemainder isChecked t x y (fun d ->
-        (Merging.merge2Terms yIsZero !!yIsZero (Error (new System.DivideByZeroException())) d) |> k))
+        (Merging.merge2Terms yIsZero !!yIsZero (Terms.MakeError (new System.DivideByZeroException())) d) |> k))
 
 // TODO: IMPLEMENT THE REST!
 

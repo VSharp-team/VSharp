@@ -1,0 +1,669 @@
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1(System.Int32, System.Int32)
+RESULT: UNION[
+	| !(0 == m) ~> 7 + n
+	| 0 == m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2(System.Int32, System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod3(System.Int32, System.Int32, System.Int32)
+RESULT: -11 + c
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4(System.Int32, System.Int32)
+RESULT: UNION[
+	| !(0 == m * m * m) ~> -126826 + n + n + n + n + n + n
+	| 0 == m * m * m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Arithmetics.IncrementsWorkCorrect(System.Int32)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Arithmetics.Decreasing(System.Int32)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckedUnchecked(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: checked(x0 + unchecked(checked(x2 + x3 + x4) + x1) + unchecked(-(x6 * x7) + x5))
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1()
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1(System.Int32)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation2(System.Boolean)
+RESULT: !b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation3(System.Boolean)
+RESULT: b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation4(System.Boolean)
+RESULT: b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation5(System.Boolean)
+RESULT: b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And1(System.Boolean, System.Boolean)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And2(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And3(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And4(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And5(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And6(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And7(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And8(System.Boolean, System.Boolean)
+RESULT: a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And9(System.Boolean, System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or1(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or2(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or3(System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or4(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or5(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or6(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or7(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or8(System.Boolean, System.Boolean)
+RESULT: a | b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or9(System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or10(System.Boolean, System.Boolean, System.Boolean)
+RESULT: a | b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr0(System.Boolean, System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr1(System.Boolean, System.Boolean, System.Boolean)
+RESULT: b & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr2(System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr3(System.Boolean, System.Boolean, System.Boolean)
+RESULT: b | c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr4(System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b | c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr5(System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr6(System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & b | a & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr7(System.Boolean, System.Boolean, System.Boolean)
+RESULT: (a | b) & (a | c)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr8(System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b | a & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr9(System.Boolean, System.Boolean, System.Boolean)
+RESULT: (a | b) & (a | c)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr10(System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b | a & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr11(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a | !b | !c | d
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr12(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & (!a & b | a & c)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr13(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr14(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr15(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: (!a | !b) & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr16(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b | a | c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr17(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b & a | (!b | !c) & a | a & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr18(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !c | (!a | b) & (!b & a | c)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr19(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr20(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr21(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr22(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b & a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr23(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr24(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: (!a | !b | !c) & (!a | b) & (!c | a)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr25(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor3(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: (!a | !b) & (a | b)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor4(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor5(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor6(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor7(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: (!a | (!a & !b | !c | a & b) & ((!a | !b) & (a | b) | c)) & (!c & (!a & !b | a & b) | (!a | !b) & (a | b) & c | a)
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor8(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: (!a & !b | a & b) & ((!a | !b) & (a | b) | (!a | !b) & (a | b))
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd1(System.Int32)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd2(System.Int32)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd3(System.Int32)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr1(System.Int32)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr2(System.Int32)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr3(System.Int32)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & !b | a & b
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal3(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.NotEqual1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !a & b | !b & a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.NotEqual2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: False
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: a & b & c
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order3(System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: -b + a + -c == 0
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order4(System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: -b + a + -c == 0
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.A.IncN()
+RESULT: <VOID>
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+			| VSharp.CSharpUtils.Tests.C._n ~> 1 + VSharp.CSharpUtils.Tests.C._n]]
+	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
+VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	]
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.A.DecN()
+RESULT: <VOID>
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+			| VSharp.CSharpUtils.Tests.C._n ~> -1 + VSharp.CSharpUtils.Tests.C._n]]
+	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
+VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	]
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.A.GetN()
+RESULT: VSharp.CSharpUtils.Tests.C._n
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+			| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]]
+	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
+VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	]
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.B.GetN()
+RESULT: VSharp.CSharpUtils.Tests.C._n
+HEAP:
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.B.SetN(System.Int32)
+RESULT: <VOID>
+HEAP:
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M2()
+RESULT: VSharp.CSharpUtils.Tests.C._m2
+HEAP:
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M2(System.Int32)
+RESULT: <VOID>
+HEAP:
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M1()
+RESULT: VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+HEAP:
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M1(System.Int32)
+RESULT: <VOID>
+HEAP:
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.C.SetN(System.Int32)
+RESULT: <VOID>
+HEAP:
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
+RESULT: True
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
+		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> 42
+			| VSharp.CSharpUtils.Tests.C._m2 ~> 102
+			| VSharp.CSharpUtils.Tests.C._n ~> n]]
+	| VSharp.CSharpUtils.Tests.A._intField ~> 100500]
+VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+	]
+VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	]
+VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
+RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2 & 2 * y < z
+HEAP:
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> <VOID>
+	| System.Math.PI ~> <VOID>
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> <VOID>
+	| System.Math.roundPower10Double ~> null]
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.Always18()
+RESULT: 18
+HEAP:
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.EnsureAlwaysN(System.Int32)
+RESULT: n
+HEAP:
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.FirstEvenGreaterThen7()
+RESULT: 8
+HEAP:
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib2()
+RESULT: 2
+HEAP:
+VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib5()
+RESULT: 8
+HEAP:
+VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd1()
+RESULT: 1
+HEAP:
+VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd15()
+RESULT: 15
+HEAP:
+VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
+RESULT: 18
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0[
+	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0.n ~> 9
+	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0.result ~> 18]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1[
+	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1.<>f__ref$0 ~> (HeapRef 1)
+	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1.loop ~> VSharp.Interpreter+invoke]
+VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
+	]
+VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0[
+	]
+VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
+RESULT: True
+HEAP:
+1 ==> UNION[
+	| !flag ~> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2[
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.a ~> n
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.b ~> 0
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.c ~> n]
+	| flag ~> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2[
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.a ~> n
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.b ~> n
+	| VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2.c ~> 0]]
+VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
+	]
+VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<DoubleValue>c__AnonStorey2[
+	]
+METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
+RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
+HEAP:
+1 ==> STRUCT System.ArgumentException[
+	| System.ArgumentException.m_paramName ~> null
+	| System.Exception._HResult ~> -2147024809
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> UNION[
+	| !(0 == n) ~> STRUCT VSharp.CSharpUtils.TryCatch[
+	]
+	| 0 == n ~> STRUCT System.Object[
+	]]
+3 ==> STRUCT System.InvalidOperationException[
+	| System.Exception._HResult ~> -2146233079
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+4 ==> STRUCT System.Exception[
+	| System.Exception._HResult ~> -2146233088
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> Not odd!
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+System.ArgumentException ==> STRUCT System.ArgumentException[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> <VOID>
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.InvalidOperationException ==> STRUCT System.InvalidOperationException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> <VOID>]
+VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
+	]

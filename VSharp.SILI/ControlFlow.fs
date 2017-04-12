@@ -21,7 +21,7 @@ module internal ControlFlow =
                 |> List.concat
                 |> Guarded
         | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes snd fst |> Guarded
-        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes fst snd |> Guarded
+        | _, Guarded gvs2 -> mergeGuarded gvs2 !!condition id thenRes fst snd |> Guarded
         | _, _ -> Guarded [(condition, thenRes); (!!condition, elseRes)]
 
     and private mergeGuarded gvs cond guard other thenArg elseArg =
@@ -49,14 +49,26 @@ module internal ControlFlow =
         | r -> r
 
     let rec throwOrIgnore = function
-        | Error _ as t -> Throw t
+        | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
         | t -> NoResult
 
+    let rec throwOrReturn = function
+        | Error t -> Throw t
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded
+        | Nop -> NoResult
+        | t -> Return t
+
+    let rec consumeErrorOrReturn consumer = function
+        | Error t -> consumer t
+        | Nop -> NoResult
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded
+        | t -> Return t
+
     let rec composeSequentially oldRes newRes oldState newState =
         let calculationDone = function
-            | NoResult -> true
-            | _ -> false
+            | NoResult -> false
+            | _ -> true
         let rec composeFlat newRes oldRes =
             match oldRes with
             | NoResult -> newRes
@@ -72,7 +84,7 @@ module internal ControlFlow =
             let result =
                 match newRes with
                 | Guarded gvs' ->
-                    let composeOne (g, v) = List.map (fun (g', v') -> (g &&& g', composeFlat v v')) gvs' in
+                    let composeOne (g, v) = List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs' in
                     gvs |> List.map composeOne |> List.concat |> Merging.mergeSame
                 | _ ->
                     let gs, vs = List.unzip gvs in
@@ -82,8 +94,27 @@ module internal ControlFlow =
 
     let rec resultToTerm = function
         | Return term -> term
-        | Throw err -> err
+        | Throw err -> Error err
         | Guarded gvs ->
             let gs, vs = List.unzip gvs in
             vs |> List.map resultToTerm |> List.zip gs |> Merging.merge
         | _ -> Nop
+
+    let pickOutExceptions result =
+        let gvs =
+            match result with
+            | Throw e -> [(Terms.MakeTrue, result)]
+            | Guarded gvs -> gvs
+            | _ -> [(Terms.MakeTrue, result)]
+        in
+        let thrown, normal = mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
+        match thrown with
+        | [] -> None, normal
+        | gvs ->
+            let gs, vs = List.unzip gvs in
+            let mergedGuard = List.fold (|||) Terms.MakeFalse gs in
+            let mergedValue = Merging.merge gvs in
+            Some(mergedGuard, mergedValue), normal
+
+    let npe () =
+        Throw(Terms.MakeConcrete (new System.NullReferenceException()) typedefof<System.NullReferenceException>)

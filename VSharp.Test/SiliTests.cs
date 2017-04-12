@@ -4,19 +4,19 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 
 namespace VSharp.Test
 {
-    [TestClass]
+    [TestFixture]
     public sealed class SiliTests
     {
         private const string MethodSeparator = "METHOD: ";
         private const string ResultSeparator = "RESULT: ";
         private const string TestsDirectoryName = "Tests";
-        private const string ExtensionOfIdealTestFile = ".gold";
+        private const string IdealTestFilePattern = "*.gold";
 
-        private void WriteResultToFile(string path, IDictionary<MethodInfo, string> result)
+        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
         {
             if (File.Exists(path))
             {
@@ -36,85 +36,120 @@ namespace VSharp.Test
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
         }
 
-        [TestMethod]
+        private IDictionary<string, string> ParseIdealValues(string resultPath, System.Text.StringBuilder failReason)
+        {
+            string resultText = "";
+            if (File.Exists(resultPath))
+            {
+                try
+                {
+                    resultText = File.ReadAllText(resultPath);
+                }
+                catch (IOException e)
+                {
+                    failReason.AppendFormat("Can't read gold file! Exception: {0}\n\n", e.Message);
+                }
+            }
+
+            if (string.IsNullOrEmpty(resultText))
+            {
+                return null;
+            }
+
+            IEnumerable<string> methodsWithResults = Regex.Split(resultText, $"^{MethodSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s));
+            var resultsDictionary = new Dictionary<string, string>();
+            foreach (string str in methodsWithResults)
+            {
+                IList<string> methodsAndResults = Regex.Split(str, $"^{ResultSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Trim('\n', '\r'));
+            }
+
+            return resultsDictionary;
+        }
+
+        private IEnumerable<IDictionary<string, string>> ReadAllIdealValues(string testDir, System.Text.StringBuilder failReason)
+        {
+            var result = new List<IDictionary<string, string>>();
+            var idealFiles = Directory.GetFiles(testDir, IdealTestFilePattern);
+            foreach (string file in idealFiles)
+            {
+                IDictionary<string, string> values = ParseIdealValues(file, failReason);
+                if (values != null)
+                {
+                    result.Add(values);
+                }
+            }
+            return result;
+        }
+
+        [Test]
         public void RunCSharpTests()
         {
-            List<string> disabledTests = new List<string>
+            var disabledTests = new List<string>
             {
                 "Calculator"
-                //, "Conditional"
                 //, "Arithmetics"
+                //, "Logics"
+                //, "Conditional"
                 //, "Fibonacci"
-                //, "Lambdas"
                 //, "GCD"
+                //, "Lambdas"
+                //, "ClassesSimple"
+                //, "StaticClass"
+                //, "StaticMembers"
+                //, "TryCatch"
             };
 
-            bool failed = false;
-            string pathToTests = Path.Combine(Path.GetFullPath(@"..\..\"), TestsDirectoryName);
+            var failReason = new System.Text.StringBuilder();
+            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)
             {
                 var libEntries = Directory.GetFiles(testDir);
                 foreach (string lib in libEntries)
                 {
-                    if (lib.EndsWith(ExtensionOfIdealTestFile)) continue;
-                    IDictionary<MethodInfo, string> testDictionary = SVM.Run(Assembly.LoadFile(lib), disabledTests);
-                    string libName = Path.GetFileNameWithoutExtension(lib);
-                    if (string.IsNullOrEmpty(libName))
+                    if (!lib.EndsWith(".dll", StringComparison.Ordinal))
                     {
-                        Console.WriteLine("smth wrong happend with tested lib file");
-                        Assert.Fail();
+                        continue;
                     }
 
-                    string resultPath = Path.Combine(testDir, libName) + ExtensionOfIdealTestFile;
-                    // Uncomment this line to overwrite ideal results with current tests run
-                    // WriteResultToFile(resultPath, testDictionary);
-                    string resultText = "";
-                    if (File.Exists(resultPath))
+                    IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), disabledTests);
+
+                    IEnumerable<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
+                    if (expected.Count() == 0)
                     {
-                        try
-                        {
-                            resultText = File.ReadAllText(resultPath);
-                        }
-                        catch (IOException e)
-                        {
-                            failed = true;
-                            Console.WriteLine($"Can't open file with results. Exception: {e.Message}");
-                        }
+                        Assert.Fail($"Could not find or parse ideal values for {lib}");
+                        break;
                     }
 
-                    if (string.IsNullOrEmpty(resultText)) continue;
-                    // todo split by regexp
-                    IEnumerable<string> methodsWithResults = Regex.Split(resultText, $"^{MethodSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s));
-                    var resultsDictionary = new Dictionary<string, string>();
-                    foreach (string str in methodsWithResults)
-                    {
-                        IList<string> methodsAndResults = Regex.Split(str, $"^{ResultSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                        resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Trim('\n', '\r'));
-                    }
-
-                    foreach (KeyValuePair<MethodInfo, string> keyValuePair in testDictionary)
+                    foreach (KeyValuePair<MethodInfo, string> keyValuePair in got)
                     {
                         string keyMethod = MethodInfoToString(keyValuePair.Key);
-                        string actualValue;
-                        if (resultsDictionary.TryGetValue(keyMethod, out actualValue))
+                        string actualValue = "";
+                        if (expected.All(dict =>
                         {
-                            if (string.Equals(actualValue, keyValuePair.Value)) continue;
-                            failed = true;
-                            Console.WriteLine($"{MethodSeparator}{keyMethod}\nEXPECTED: {actualValue}\nGOT: {keyValuePair.Value}");
-                        }
-                        else
+                            if (dict.TryGetValue(keyMethod, out actualValue))
+                            {
+                                return !string.Equals(actualValue, keyValuePair.Value);
+                            }
+                            else
+                            {
+                                failReason.AppendFormat("Gold file does not contain ideal values for {0}!\n", keyMethod);
+                                failReason.AppendFormat("FYI, got value\n{0}\n\n", keyValuePair.Value);
+                                return true;
+                            }
+                        }))
                         {
-                            failed = true;
-                            Console.WriteLine($"Result does not contain this {keyMethod}");
+                            failReason.AppendFormat("{0}{1}\nEXPECTED: {2}\nGOT:      {3}\n\n", MethodSeparator, keyMethod, actualValue, keyValuePair.Value);
                         }
                     }
                 }
             }
 
-            if (failed)
+            string fail = failReason.ToString();
+            if (!string.IsNullOrEmpty(fail))
             {
-                Assert.Fail();
+                Assert.Fail(fail);
             }
         }
     }

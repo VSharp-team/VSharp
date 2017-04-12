@@ -4,10 +4,12 @@ module internal State =
     [<StructuralEquality;StructuralComparison>]
     type internal HeapKey =
         | ConcreteAddress of int
+        | StaticAddress of string
         | SymbolicAddress of string
         override this.ToString() =
             match this with
             | ConcreteAddress a -> a.ToString()
+            | StaticAddress a -> System.Type.GetType(a).FullName
             | SymbolicAddress a -> a
 
     type internal environment = Map<string, Stack.stack<Term>>
@@ -52,3 +54,12 @@ module internal State =
         assert(p1 = p2)
         assert(f1 = f2)
         (mergeMaps e1 e2 Stack.peak Stack.updateHead resolve, mergeMaps h1 h2 id id2 resolve, f1, p1)
+
+    let internal staticMembersInitialized ((_, h, _, _) : state) typeName =
+        h.ContainsKey(StaticAddress typeName)
+
+    let internal dumpHeap ((_, h, _, _) : state) =
+        let elements = h |> Map.toList |> List.map (fun (key, value) ->
+            key.ToString() + " ==> " + value.ToString())
+        in
+        List.sort elements |> join "\n"

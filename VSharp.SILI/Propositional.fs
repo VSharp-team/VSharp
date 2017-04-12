@@ -8,21 +8,18 @@ open VSharp.Terms
 module internal Propositional =
 
 // ------------------------------- Simplification of logical operations -------------------------------
+
     let internal makeBin operation x y = 
         match x, y with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
-            Terms.MakeBinaryOverList operation (List.append list' list'') false Bool
-        | Expression(Operator(op', false), list', _), Constant _ when op' = operation ->
-            Terms.MakeBinaryOverList operation (y::list') false Bool
-        | Expression(Operator(op', false), list', _), Negation _ when op' = operation ->
-            Terms.MakeBinaryOverList operation (y::list') false Bool
-        | Constant _, Expression(Operator(op', false), list', _) when op' = operation ->
-            Terms.MakeBinaryOverList operation (x::list') false Bool
-        | Negation _, Expression(Operator(op', false), list', _) when op' = operation ->
-            Terms.MakeBinaryOverList operation (x::list') false Bool
+            Terms.MakeNAry operation (List.append list' list'') false Bool
         | Expression(Operator(op', false), list', _), _ when list'.IsEmpty -> y
         | _, Expression(Operator(op', false), list', _) when list'.IsEmpty -> y
-        | _ -> Terms.MakeBinaryOverList operation [x; y] false Bool
+        | Expression(Operator(op', false), list', _), _ when op' = operation ->
+            Terms.MakeNAry operation (y::list') false Bool
+        | _, Expression(Operator(op', false), list', _) when op' = operation ->
+            Terms.MakeNAry operation (x::list') false Bool
+        | _ -> Terms.MakeNAry operation [x; y] false Bool
 
 
     let internal makeCoOpBinaryTerm x list listOp op = 
@@ -138,7 +135,7 @@ module internal Propositional =
         // Co(... !y ...) op y
         | _ when List.contains (Negate y) list -> matched (makeCoOpBinaryTerm y (List.except [Negate y] list) co op)
         // Co(!x xs) op Co(x xs) -> ys
-        | _, Expression(Operator(co', false), IntersectionExceptOne list ys, _)  when co' = co -> matched (MakeBinaryOverList co ys false Bool)
+        | _, Expression(Operator(co', false), IntersectionExceptOne list ys, _)  when co' = co -> matched (MakeNAry co ys false Bool)
         // Co(list) op Co(shuffled list) -> x
         | _, Expression(Operator(co', false), ys, _)  when co' = co && shuffled list ys -> matched x
         // Co(...) op OP(...) -> pairwise
@@ -165,8 +162,8 @@ module internal Propositional =
         match x with
         | Concrete(b, t) -> Concrete(not (b :?> bool),t) |> k
         | Negation(x, _)  -> k x
-        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeBinaryOverList OperationType.LogicalOr l false Bool |> k)
-        | DisjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeBinaryOverList OperationType.LogicalAnd l false Bool |> k)
+        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr l false Bool |> k)
+        | DisjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalAnd l false Bool |> k)
         | Union _ -> failwith "Unexpected symbolic union in boolean operation (negation)"
         | _ -> Terms.MakeUnary OperationType.LogicalNeg x false Bool |> k
 
