@@ -22,7 +22,7 @@ module internal Interpreter =
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
             // k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            //printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
@@ -745,7 +745,9 @@ module internal Interpreter =
             | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        __notImplemented__()
+        let reduceTarget state k = k (Terms.MakeNull typedefof<obj>, state) in
+        let reduceArg state k = reduceExpression state ast.Argument k in
+        reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
 // ------------------------------- IAbstractUnaryOperationExpression and inheritors -------------------------------
 

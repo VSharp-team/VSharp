@@ -50,7 +50,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">echo f | xcopy  "$(SolutionDir)\VSharp.CSharpUtils\bin\$(Configuration)\VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test\Tests\CSharpUtils\CSharpUtils.dll" /Y</PostBuildEvent>
+    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">echo f | xcopy  "$(SolutionDir)\VSharp.CSharpUtils\bin\$(Configuration)\VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test\Tests\VSharp.CSharpUtils\VSharp.CSharpUtils.dll" /Y</PostBuildEvent>
     <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">cp "$(SolutionDir)/VSharp.CSharpUtils/bin/$(Configuration)/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"</PostBuildEvent>
   </PropertyGroup>
 </Project>

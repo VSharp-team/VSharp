@@ -175,7 +175,12 @@ module public Terms =
             if actualType = t then Concrete(value, Types.FromDotNetType t)
             else
                 if typedefof<IConvertible>.IsAssignableFrom(actualType)
-                then Concrete(Convert.ChangeType(value, t), Types.FromDotNetType t)
+                then
+                    let casted =
+                        if t.IsPointer
+                        then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
+                        else Convert.ChangeType(value, t) in
+                    Concrete(casted, Types.FromDotNetType t)
                 else
                     if t.IsAssignableFrom(actualType)
                     then Concrete(value, Types.FromDotNetType t)
