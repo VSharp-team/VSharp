@@ -32,9 +32,12 @@ module public SVM =
         if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) ignoreList then
             t.GetMethods() |> Array.iter (interpret dictionary assemblyPath qualifiedTypeName)
 
+    let private replaceLambdaLines str =
+        System.Text.RegularExpressions.Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")
+
     let private resultToString (kvp : KeyValuePair<_, _>) =
         let term, state = kvp.Value in
-        sprintf "%s\nHEAP:\n%s" (toString term) (State.dumpHeap state)
+        sprintf "%s\nHEAP:\n%s" (toString term) (replaceLambdaLines (State.dumpHeap state))
 
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList

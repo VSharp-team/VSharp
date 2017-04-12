@@ -564,7 +564,7 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0.result ~> 18]
 2 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1[
 	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1.<>f__ref$0 ~> (HeapRef 1)
-	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1.loop ~> VSharp.Interpreter+invoke@819-2[Microsoft.FSharp.Core.Unit]]
+	| VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey1.loop ~> VSharp.Interpreter+invoke]
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0 ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas+<Mult2>c__AnonStorey0[
