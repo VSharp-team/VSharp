@@ -43,7 +43,7 @@ Global
 		$1.FileWidth = 120
 		$1.inheritsSet = VisualStudio
 		$1.inheritsScope = text/plain
-		$1.scope = text/x-csharp
+		$1.scope = text/x-fsharp
 		$0.CSharpFormattingPolicy = $2
 		$2.IndentSwitchSection = True
 		$2.NewLinesForBracesInProperties = True
