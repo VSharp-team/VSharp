@@ -82,10 +82,30 @@ namespace VSharp.Test
             return result;
         }
 
+        private static string _currentTestDirectory = "";
+
+        private static Assembly LoadFromTestFolder(object sender, ResolveEventArgs args)
+        {
+            // This handler is called only when the common language runtime tries to bind to the assembly and fails.
+            string name = new AssemblyName(args.Name).Name;
+            string additionalPath = _currentTestDirectory + Path.DirectorySeparatorChar + name + ".dll";
+            if (File.Exists(additionalPath))
+            {
+                return Assembly.LoadFrom(additionalPath);
+            }
+
+            return null;
+        }
+
         [Test]
         public void RunCSharpTests()
         {
-            var disabledTests = new List<string>
+            var ignoredLibs = new List<string>
+            {
+                //"VSharp.CSharpUtils.dll",
+                "ChessDotNet.dll"
+            };
+            var ignoredTypes = new List<string>
             {
                 "Calculator"
                 //, "Arithmetics"
@@ -105,15 +125,19 @@ namespace VSharp.Test
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)
             {
-                var libEntries = Directory.GetFiles(testDir);
+                string[] libEntries = Directory.GetFiles(testDir);
                 foreach (string lib in libEntries)
                 {
-                    if (!lib.EndsWith(".dll", StringComparison.Ordinal))
+                    if (!lib.EndsWith(".dll", StringComparison.Ordinal) || ignoredLibs.Exists(i => lib.EndsWith(i)))
                     {
                         continue;
                     }
 
-                    IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), disabledTests);
+                    _currentTestDirectory = testDir;
+                    AppDomain currentDomain = AppDomain.CurrentDomain;
+                    currentDomain.AssemblyResolve += LoadFromTestFolder;
+
+                    IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
 
                     IEnumerable<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
                     if (expected.Count() == 0)

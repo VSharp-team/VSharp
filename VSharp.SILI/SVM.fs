@@ -5,8 +5,9 @@ open System.Reflection
 
 module public SVM =
 
-    let private interpret (dictionary : System.Collections.IDictionary) assemblyPath qualifiedTypeName (m : MethodInfo) =
+    let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
         let state = State.empty in
+        let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
         let declaringType = Types.FromDotNetType(m.DeclaringType) in
         let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
         Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
@@ -28,9 +29,8 @@ module public SVM =
             dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
-        let qualifiedTypeName = t.FullName in
-        if List.forall (fun keyword -> not(qualifiedTypeName.Contains(keyword))) ignoreList then
-            t.GetMethods() |> Array.iter (interpret dictionary assemblyPath qualifiedTypeName)
+        if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList then
+            t.GetMethods() |> Array.iter (interpret dictionary assemblyPath)
 
     let private replaceLambdaLines str =
         System.Text.RegularExpressions.Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")

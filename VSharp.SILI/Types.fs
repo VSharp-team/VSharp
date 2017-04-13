@@ -53,8 +53,7 @@ module public Types =
         | ClassType t -> t
         | _ -> typedefof<obj>
 
-    let rec public FromDotNetType t =
-        match t with
+    let rec public FromDotNetType = function
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
@@ -63,9 +62,9 @@ module public Types =
             let returnType = methodInfo.ReturnType |> FromDotNetType in
             let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
             Func(List.ofArray parameters, returnType)
-        | s when s.IsValueType -> StructType t
+        | s when s.IsValueType -> StructType s
         // Actually interface is not nessesary reference type, but if the implementation is unknown we consider it to be class (to check non-null).
-        | c when c.IsClass || c.IsInterface -> ClassType t
+        | c when c.IsClass || c.IsInterface -> ClassType c
         | _ -> __notImplemented__()
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
@@ -76,7 +75,7 @@ module public Types =
             match t.AssemblyQualifiedName with
             | "__Null" -> Object
             | _ as qtn ->
-                let dotNetType = Type.GetType(qtn) in
+                let dotNetType = Type.GetType(qtn, true) in
                 if dotNetType = null then __notImplemented__()
                 else FromDotNetType dotNetType
 

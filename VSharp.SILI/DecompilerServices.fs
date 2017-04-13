@@ -10,8 +10,16 @@ module internal DecompilerServices =
     let private decompilers = new Dictionary<string, JetBrains.Decompiler.ClassDecompiler>()
     let private decompiledClasses = new Dictionary<string, IDecompiledClass>()
 
-    let private loadAssembly (path : JetBrains.Util.FileSystemPath) =
-        getDictValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true))
+    let rec loadAssemblyByName (name : string) =
+        let path = System.Reflection.Assembly.Load(name).Location in
+        if not(assemblies.ContainsKey(path)) then
+            let jbPath = JetBrains.Util.FileSystemPath.Parse(path) in
+            loadAssembly jbPath |> ignore
+
+    and loadAssembly (path : JetBrains.Util.FileSystemPath) =
+        let assembly = getDictValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true)) in
+        assembly.ReferencedAssembliesNames |> Seq.iter (fun reference -> loadAssemblyByName reference.FullName)
+        assembly
 
     let public getPropertyOfNode (node : INode) key defaultValue =
         // node.Data.TryGetValue is poorly implemented (it checks reference equality of keys), so searching manually...
@@ -90,7 +98,6 @@ module internal DecompilerServices =
         getDictValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
             let metadataAssembly = loadAssembly assemblyPath in
             let parentPath = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent in
-            metadataAssembly.ReferencedAssembliesNames |> Seq.iter (fun name -> loadAssembly (JetBrains.Metadata.Utils.AssemblyNameMetadataExtensions.FindAssemblyFile(parentPath, name)) |> ignore)
             let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
             let decompiler = getDictValueOrUpdate decompilers (assemblyPath.ToString()) (fun () ->
                 let lifetime = JetBrains.DataFlow.Lifetimes.Define()
