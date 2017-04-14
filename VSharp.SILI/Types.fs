@@ -69,10 +69,15 @@ module public Types =
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
+    let private QualifiedNameOfMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
+        match t with
+        | :? JetBrains.Metadata.Reader.API.IMetadataClassType as c -> c.Type.AssemblyQualifiedName
+        | t -> t.AssemblyQualifiedName
+
     let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
         if t = null then Object
         else
-            match t.AssemblyQualifiedName with
+            match QualifiedNameOfMetadataType t with
             | "__Null" -> Object
             | _ as qtn ->
                 let dotNetType = Type.GetType(qtn, true) in

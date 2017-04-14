@@ -20,14 +20,30 @@ module internal Memory =
 
     let internal npe () = Terms.MakeError(new System.NullReferenceException()) in
 
+    let rec private refToInt = function
+        | Error _ as e -> e
+        | Concrete(null, _) -> Concrete(0, pointerType)
+        | HeapRef(addr, _, t) -> addr
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map refToInt |> List.zip gs |> Merging.merge
+        | t -> t
+
+    let rec internal referenceEqual p1 p2 =
+        let addr1 = refToInt p1 in
+        let addr2 = refToInt p2 in
+        if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
+            failwith "Internal error: reference comparing non-reference types"
+        Arithmetics.simplifyEqual addr1 addr2 id
+
     let rec internal isNull = function
         | Error _ as e -> e
+        | Concrete(null, _) -> Terms.MakeTrue
         | HeapRef(addr, _, t) -> Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
         | Terms.GuardedValues(gs, vs) -> vs |> List.map isNull |> List.zip gs |> Merging.merge
         | _ -> Terms.MakeFalse
 
     let rec internal npeIfNull = function
         | Error _ as e -> e
+        | Concrete(null, _) -> npe()
         | HeapRef(addr, _, t) as reference ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             Merging.merge2Terms isNull !!isNull (npe()) reference

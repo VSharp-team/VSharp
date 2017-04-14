@@ -22,7 +22,7 @@ module internal Interpreter =
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
             // k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            // printfn "DECOMPILED:\n%s" (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
@@ -533,7 +533,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceRefExpression state (ast : IRefExpression) k =
-        __notImplemented__()
+        reduceExpressionToRef state false ast.Argument k
 
     and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
         __notImplemented__()
@@ -554,7 +554,8 @@ module internal Interpreter =
         k (Memory.valueOf state "this", state)
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Argument (fun (term, state) ->
+        k (tryCast ast.Type term, state))
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
         let instance = Types.MetadataToDotNetType ast.Type in
@@ -672,7 +673,13 @@ module internal Interpreter =
             Arithmetics.simplifyBinaryOperation op left right isChecked t (withSnd state >> k)
         | op when Strings.isStringOperation op t1 t2 ->
             Strings.simplifyOperation op left right |> (withSnd state >> k)
-        | _ -> __notImplemented__()
+        | _ ->
+            match op with
+            | OperationType.Equal -> Memory.referenceEqual left right |> (withSnd state >> k)
+            | OperationType.NotEqual ->
+                let equal = Memory.referenceEqual left right in
+                Propositional.simplifyNegation equal (withSnd state >> k)
+            | _ -> __notImplemented__()
 
     and reduceConditionalOperation state op leftArgument rightArgument k =
         let handleOp state op stopValue ignoreValue leftArgument rightArgument k =
@@ -717,6 +724,10 @@ module internal Interpreter =
             // TODO: here we should use more sophisticated type constraints processing, but for now...
             let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
             Concrete(justInherits, Bool)
+
+    and tryCast typ term =
+        let casted = is typ term in
+        Merging.merge2Terms casted !!casted term (Concrete(null, Types.FromMetadataType typ))
 
     and typeCast isChecked state term targetType =
         // TODO: refs and structs should still be refs after cast!

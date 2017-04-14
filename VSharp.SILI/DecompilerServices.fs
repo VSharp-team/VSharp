@@ -97,8 +97,10 @@ module internal DecompilerServices =
     let public decompileClass assemblyPath qualifiedTypeName =
         getDictValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
             let metadataAssembly = loadAssembly assemblyPath in
-            let parentPath = JetBrains.Util.FileSystemPath.Parse(typeof<System.String>.Assembly.Location).Parent in
-            let metadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
+            let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
+            let metadataTypeInfo =
+                if possiblyUnresolvedMetadataTypeInfo.IsResolved then possiblyUnresolvedMetadataTypeInfo
+                else metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName.Substring(0, qualifiedTypeName.IndexOf(",")), false)
             let decompiler = getDictValueOrUpdate decompilers (assemblyPath.ToString()) (fun () ->
                 let lifetime = JetBrains.DataFlow.Lifetimes.Define()
                 let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()

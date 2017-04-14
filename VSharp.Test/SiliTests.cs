@@ -2,8 +2,10 @@
 using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using NUnit.Framework;
 
 namespace VSharp.Test
@@ -100,6 +102,7 @@ namespace VSharp.Test
         [Test]
         public void RunCSharpTests()
         {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-GB", false);
             var ignoredLibs = new List<string>
             {
                 //"VSharp.CSharpUtils.dll",
@@ -107,7 +110,8 @@ namespace VSharp.Test
             };
             var ignoredTypes = new List<string>
             {
-                "Calculator"
+                "Calculator",
+                //"AnonymousType"
                 //, "Arithmetics"
                 //, "Logics"
                 //, "Conditional"
@@ -148,23 +152,22 @@ namespace VSharp.Test
 
                     foreach (KeyValuePair<MethodInfo, string> keyValuePair in got)
                     {
-                        string keyMethod = MethodInfoToString(keyValuePair.Key);
-                        string actualValue = "";
+                        string method = MethodInfoToString(keyValuePair.Key);
+                        string gotValue = keyValuePair.Value;
+                        string expectedValue = "";
                         if (expected.All(dict =>
                         {
-                            if (dict.TryGetValue(keyMethod, out actualValue))
+                            if (dict.TryGetValue(method, out expectedValue))
                             {
-                                return !string.Equals(actualValue, keyValuePair.Value);
+                                return !string.Equals(expectedValue, gotValue);
                             }
-                            else
-                            {
-                                failReason.AppendFormat("Gold file does not contain ideal values for {0}!\n", keyMethod);
-                                failReason.AppendFormat("FYI, got value\n{0}\n\n", keyValuePair.Value);
-                                return true;
-                            }
+
+                            failReason.AppendFormat("Gold file does not contain ideal values for {0}!\n", method);
+                            failReason.AppendFormat("FYI, got value\n{0}\n\n", gotValue);
+                            return true;
                         }))
                         {
-                            failReason.AppendFormat("{0}{1}\nEXPECTED: {2}\nGOT:      {3}\n\n", MethodSeparator, keyMethod, actualValue, keyValuePair.Value);
+                            failReason.AppendFormat("{0}{1}\nEXPECTED: {2}\nGOT:      {3}\n\n", MethodSeparator, method, expectedValue, gotValue);
                         }
                     }
                 }

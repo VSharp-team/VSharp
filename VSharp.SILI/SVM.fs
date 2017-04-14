@@ -26,6 +26,7 @@ module public SVM =
                         (Memory.referenceToVariable state key true, state)
             Memory.resetHeap()
             Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
+            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
             dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
