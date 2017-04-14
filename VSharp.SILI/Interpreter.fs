@@ -593,7 +593,10 @@ module internal Interpreter =
             reduceBinaryOperation state ast.OperationType ast.LeftArgument ast.RightArgument isChecked (Types.GetSystemTypeOfNode ast) k
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
-        __notImplemented__()
+        let reduceTarget state k = k (Terms.MakeNull typedefof<obj>, state) in
+        let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
+        let reduceRightArg state k = reduceExpression state ast.RightArgument k in
+        reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
 
     and reduceAssignment state (left : IExpression) (right : IExpression) k =
         let targetReducer =
@@ -845,6 +848,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and initializeStaticMembersIfNeed state qualifiedTypeName k =
+        Console.WriteLine("Initializing static members of " + qualifiedTypeName)
         if State.staticMembersInitialized state qualifiedTypeName then
             k state
         else

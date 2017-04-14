@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open JetBrains.Metadata.Reader.API
 
 [<StructuralEquality;NoComparison>]
 type public TermType =
@@ -14,6 +15,7 @@ type public TermType =
     | String
     | StructType of System.Type
     | ClassType of System.Type
+    | ArrayType of TermType * int
     | Func of TermType list * TermType
 
     override this.ToString() =
@@ -27,6 +29,7 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType t -> t.ToString()
         | ClassType t -> t.ToString()
+        | ArrayType(t, dim) -> t.ToString() + "[" + new string(',', dim) + "]"
 
 module public Types =
     let private integerTypes =
@@ -34,7 +37,8 @@ module public Types =
                           [typedefof<byte>; typedefof<sbyte>;
                            typedefof<int16>; typedefof<uint16>;
                            typedefof<int32>; typedefof<uint32>;
-                           typedefof<int64>; typedefof<uint64>])
+                           typedefof<int64>; typedefof<uint64>;
+                           typedefof<char>])
 
     let private realTypes =
         new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
@@ -43,7 +47,7 @@ module public Types =
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
 
-    let public ToDotNetType t =
+    let rec public ToDotNetType t =
         match t with
         | Object -> typedefof<obj>
         | Bool -> typedefof<bool>
@@ -51,6 +55,7 @@ module public Types =
         | String -> typedefof<string>
         | StructType t -> t
         | ClassType t -> t
+        | ArrayType(t, dim) -> (ToDotNetType t).MakeArrayType(dim)
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function
@@ -62,6 +67,7 @@ module public Types =
             let returnType = methodInfo.ReturnType |> FromDotNetType in
             let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
             Func(List.ofArray parameters, returnType)
+        | a when a.IsArray -> ArrayType(FromDotNetType(a.GetElementType()), a.GetArrayRank())
         | s when s.IsValueType -> StructType s
         // Actually interface is not nessesary reference type, but if the implementation is unknown we consider it to be class (to check non-null).
         | c when c.IsClass || c.IsInterface -> ClassType c
@@ -69,33 +75,39 @@ module public Types =
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
-    let private QualifiedNameOfMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
-        match t with
-        | :? JetBrains.Metadata.Reader.API.IMetadataClassType as c -> c.Type.AssemblyQualifiedName
-        | t -> t.AssemblyQualifiedName
-
-    let public FromMetadataType (t : JetBrains.Metadata.Reader.API.IMetadataType) =
+    let rec public FromMetadataType (t : IMetadataType) =
         if t = null then Object
         else
-            match QualifiedNameOfMetadataType t with
-            | "__Null" -> Object
-            | _ as qtn ->
-                let dotNetType = Type.GetType(qtn, true) in
-                if dotNetType = null then __notImplemented__()
-                else FromDotNetType dotNetType
+            match t with
+            | _ when t.AssemblyQualifiedName = "__Null" -> Object
+            | _ when t.FullName = "System.Object" -> Object
+            | :? IMetadataGenericArgumentReferenceType as g ->
+                let constraints = g.Argument.TypeConstraints in
+                if not(Array.isEmpty constraints) then
+                    __notImplemented__()
+                Object
+            | :? IMetadataArrayType as a ->
+                let elementType = FromMetadataType a.ElementType in
+                ArrayType(elementType, int(a.Rank))
+            | :? IMetadataClassType as c ->
+                Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
+            | _ ->
+                if (t.FullName = "T" || t.FullName = ".T") then
+                    Console.WriteLine(t.GetType())
+                Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-    let public MetadataToDotNetType (t : JetBrains.Metadata.Reader.API.IMetadataType) = t |> FromMetadataType |> ToDotNetType
+    let public MetadataToDotNetType (t : IMetadataType) = t |> FromMetadataType |> ToDotNetType
 
-    let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : JetBrains.Metadata.Reader.API.IMetadataType) =
+    let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
         let returnType = FromMetadataType returnMetadataType in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
             param.Type |> FromMetadataType
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
         Func(args, returnType)
 
-    let public FromMetadataMethodSignature (m : JetBrains.Metadata.Reader.API.IMetadataMethod) =
+    let public FromMetadataMethodSignature (m : IMetadataMethod) =
         let returnType = FromMetadataType m.ReturnValue.Type in
-        let paramToType (param : JetBrains.Metadata.Reader.API.IMetadataParameter) =
+        let paramToType (param : IMetadataParameter) =
             param.Type |> FromMetadataType
         let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
@@ -126,6 +138,10 @@ module public Types =
 
     let public IsStruct = function
         | StructType _ -> true
+        | _ -> false
+
+    let public IsArray = function
+        | ArrayType _ -> true
         | _ -> false
 
     let public IsObject = function

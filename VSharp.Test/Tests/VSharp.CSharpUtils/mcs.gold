@@ -610,7 +610,7 @@ HEAP:
 2 ==> UNION[
 	| !(0 == n) ~> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
-	| 0 == n ~> STRUCT System.Object[
+	| 0 == n ~> STRUCT object[
 	]]
 3 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
