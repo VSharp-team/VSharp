@@ -163,7 +163,6 @@ namespace VSharp.Test
                             }
 
                             failReason.AppendFormat("Gold file does not contain ideal values for {0}!\n", method);
-                            failReason.AppendFormat("FYI, got value\n{0}\n\n", gotValue);
                             return true;
                         }))
                         {

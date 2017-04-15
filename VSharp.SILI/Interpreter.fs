@@ -262,10 +262,25 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceSwitchStatement state (ast : ISwitchStatement) k =
-        __notImplemented__()
+        reduceExpression state ast.Expression (fun (arg, state) ->
+        let reduceDefault state k = reduceBlockStatement state ast.Default (fun (result, state) -> k (ControlFlow.consumeBreak result, state)) in
+        reduceSwitchCases state arg reduceDefault (List.ofArray ast.Cases) k)
 
-    and reduceSwitchCase state (ast : ISwitchCase) k =
-        __notImplemented__()
+    and reduceSwitchCases state arg dflt (cases : ISwitchCase list) k =
+        let t = Terms.TypeOf arg |> Types.ToDotNetType in
+        let compareArg (result, state) expression k =
+            reduceExpression state expression (fun (value, state) ->
+            performBinaryOperation state OperationType.Equal arg value false t (fun (equal, state) ->
+            k (result ||| equal, state)))
+        in
+        match cases with
+        | [] -> dflt state k
+        | case::rest ->
+            reduceConditionalExecution state
+                (fun state k -> Cps.Seq.foldlk compareArg (Terms.MakeFalse, state) case.Values k)
+                (fun state k -> reduceBlockStatement state case.Body (fun (result, state) -> k (ControlFlow.consumeBreak result, state)))
+                (fun state k -> reduceSwitchCases state arg dflt rest k)
+                k
 
     and reduceThrowStatement state (ast : IThrowStatement) k =
         reduceExpression state ast.Argument (fun (arg, state) ->

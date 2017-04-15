@@ -67,5 +67,33 @@ namespace VSharp.CSharpUtils.Tests
         {
             return FirstEvenGreaterThen(7);
         }
+
+        public static bool TestSwitch(char c)
+        {
+            int result;
+            switch(c)
+            {
+                case 'A':
+                    result = 1;
+                    break;
+                case 'B':
+                    result = 2;
+                    break;
+                case 'C':
+                    result = 3;
+                    break;
+                case 'D':
+                    result = 4;
+                    break;
+                case 'T':
+                    throw new ArgumentException("Hey! Gimme number!");
+                case 'R':
+                    return false;
+                default:
+                    result = 0;
+                    break;
+            }
+            return result < 5;
+        }
     }
 }

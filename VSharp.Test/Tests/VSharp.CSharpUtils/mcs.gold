@@ -667,3 +667,36 @@ System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
+RESULT: UNION[
+	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> !(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c) | !(R == c) & D == c & T == c | D == c & R == c]
+HEAP:
+1 ==> STRUCT System.ArgumentException[
+	| System.ArgumentException.m_paramName ~> null
+	| System.Exception._HResult ~> -2147024809
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT object[
+	]
+System.ArgumentException ==> STRUCT System.ArgumentException[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+	]
