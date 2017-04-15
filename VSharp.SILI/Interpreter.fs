@@ -431,7 +431,7 @@ module internal Interpreter =
             k (Memory.referenceToField state id target, state)
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
-        __notImplemented__()
+        reduceExpressionToRef state true ast.Argument k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
@@ -764,6 +764,10 @@ module internal Interpreter =
                     else Terms.MakeConcrete value (Types.ToDotNetType targetType)
                 | Constant(name, t) -> cast t targetType term
                 | Expression(operation, operands, t) -> cast t targetType term
+                | StackRef _ as r ->
+                    printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
+                    r
+                | HeapRef _ as r -> r // TODO
                 | _ -> __notImplemented__()
             in
             match term with

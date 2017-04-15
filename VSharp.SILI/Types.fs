@@ -62,6 +62,7 @@ module public Types =
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
+        | e when e.IsEnum -> Numeric e
         | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
             let methodInfo = f.GetMethod("Invoke") in
             let returnType = methodInfo.ReturnType |> FromDotNetType in
@@ -158,7 +159,9 @@ module public Types =
 
     let public IsReference t = IsClass t || IsObject t || IsFunction t
 
-    let public IsPrimitive = ToDotNetType >> primitiveTypes.Contains
+    let public IsPrimitive t =
+        let dotNetType = ToDotNetType t in
+        primitiveTypes.Contains dotNetType || dotNetType.IsEnum
 
     let public DomainOf = function
         | Func(domain, _) -> domain
