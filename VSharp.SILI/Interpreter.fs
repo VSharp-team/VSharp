@@ -446,7 +446,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
-        __notImplemented__()
+        k (Memory.valueOf state "this", state)
 
     and reduceBoxExpression state (ast : IBoxExpression) k =
         __notImplemented__()

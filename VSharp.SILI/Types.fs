@@ -92,10 +92,7 @@ module public Types =
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as c ->
                 Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
-            | _ ->
-                if (t.FullName = "T" || t.FullName = ".T") then
-                    Console.WriteLine(t.GetType())
-                Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
+            | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
     let public MetadataToDotNetType (t : IMetadataType) = t |> FromMetadataType |> ToDotNetType
 
@@ -186,5 +183,6 @@ module public Types =
         let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag in
         let fields = t.GetFields(flags) in
         let extractFieldInfo (field : FieldInfo) =
-            (sprintf "%s.%s" field.DeclaringType.FullName field.Name, FromDotNetType field.FieldType)
+            let fieldName = sprintf "%s.%s" (DecompilerServices.removeGenericParameters field.DeclaringType.FullName) field.Name in
+            (fieldName, FromDotNetType field.FieldType)
         fields |> Array.map extractFieldInfo |> Map.ofArray

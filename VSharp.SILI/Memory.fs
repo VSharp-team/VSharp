@@ -147,6 +147,7 @@ module internal Memory =
 
     let rec defaultOf = function
         | Bool -> Terms.MakeFalse
+        | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
         | Numeric t -> Terms.MakeConcrete 0 t
         | String -> Concrete(null, String)
         | ClassType _ as t -> Concrete(null, t)
