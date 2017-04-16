@@ -146,7 +146,7 @@ module public Terms =
         | StackRef(_, _, _, t) -> t
         | HeapRef(_, _, t) -> t
         | Union gvs ->
-            match (List.filter (Types.IsBottom >> not) (List.map (snd >> TypeOf) gvs)) with
+            match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
             | [] -> TermType.Bottom
             | t::ts ->
                 let allSame = List.forall ((=) t) ts in

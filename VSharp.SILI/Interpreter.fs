@@ -262,10 +262,25 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceSwitchStatement state (ast : ISwitchStatement) k =
-        __notImplemented__()
+        reduceExpression state ast.Expression (fun (arg, state) ->
+        let reduceDefault state k = reduceBlockStatement state ast.Default (fun (result, state) -> k (ControlFlow.consumeBreak result, state)) in
+        reduceSwitchCases state arg reduceDefault (List.ofArray ast.Cases) k)
 
-    and reduceSwitchCase state (ast : ISwitchCase) k =
-        __notImplemented__()
+    and reduceSwitchCases state arg dflt (cases : ISwitchCase list) k =
+        let t = Terms.TypeOf arg |> Types.ToDotNetType in
+        let compareArg (result, state) expression k =
+            reduceExpression state expression (fun (value, state) ->
+            performBinaryOperation state OperationType.Equal arg value false t (fun (equal, state) ->
+            k (result ||| equal, state)))
+        in
+        match cases with
+        | [] -> dflt state k
+        | case::rest ->
+            reduceConditionalExecution state
+                (fun state k -> Cps.Seq.foldlk compareArg (Terms.MakeFalse, state) case.Values k)
+                (fun state k -> reduceBlockStatement state case.Body (fun (result, state) -> k (ControlFlow.consumeBreak result, state)))
+                (fun state k -> reduceSwitchCases state arg dflt rest k)
+                k
 
     and reduceThrowStatement state (ast : IThrowStatement) k =
         reduceExpression state ast.Argument (fun (arg, state) ->
@@ -416,7 +431,7 @@ module internal Interpreter =
             k (Memory.referenceToField state id target, state)
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
-        __notImplemented__()
+        reduceExpressionToRef state true ast.Argument k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
@@ -431,7 +446,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
-        __notImplemented__()
+        k (Memory.valueOf state "this", state)
 
     and reduceBoxExpression state (ast : IBoxExpression) k =
         __notImplemented__()
@@ -593,7 +608,10 @@ module internal Interpreter =
             reduceBinaryOperation state ast.OperationType ast.LeftArgument ast.RightArgument isChecked (Types.GetSystemTypeOfNode ast) k
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
-        __notImplemented__()
+        let reduceTarget state k = k (Terms.MakeNull typedefof<obj>, state) in
+        let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
+        let reduceRightArg state k = reduceExpression state ast.RightArgument k in
+        reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
 
     and reduceAssignment state (left : IExpression) (right : IExpression) k =
         let targetReducer =
@@ -746,6 +764,10 @@ module internal Interpreter =
                     else Terms.MakeConcrete value (Types.ToDotNetType targetType)
                 | Constant(name, t) -> cast t targetType term
                 | Expression(operation, operands, t) -> cast t targetType term
+                | StackRef _ as r ->
+                    printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
+                    r
+                | HeapRef _ as r -> r // TODO
                 | _ -> __notImplemented__()
             in
             match term with
@@ -845,6 +867,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and initializeStaticMembersIfNeed state qualifiedTypeName k =
+        Console.WriteLine("Initializing static members of " + qualifiedTypeName)
         if State.staticMembersInitialized state qualifiedTypeName then
             k state
         else

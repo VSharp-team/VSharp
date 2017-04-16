@@ -37,7 +37,8 @@ module internal Memory =
     let rec internal isNull = function
         | Error _ as e -> e
         | Concrete(null, _) -> Terms.MakeTrue
-        | HeapRef(addr, _, t) -> Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
+        | HeapRef(addr, _, t) when Terms.IsInteger addr ->
+            Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
         | Terms.GuardedValues(gs, vs) -> vs |> List.map isNull |> List.zip gs |> Merging.merge
         | _ -> Terms.MakeFalse
 
@@ -145,15 +146,17 @@ module internal Memory =
         (e, h.Add(address, term), f, p)
 
     let rec defaultOf = function
-        | Object -> Terms.MakeNull typedefof<obj>
         | Bool -> Terms.MakeFalse
+        | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
         | Numeric t -> Terms.MakeConcrete 0 t
-        | String -> Terms.MakeNull typedefof<string>
-        | ClassType _ -> Terms.MakeNull typedefof<obj>
-        | Func _ -> Terms.MakeNull typedefof<obj>
-        | StructType dnt as tt ->
-            let fields = Types.GetFieldsOf dnt false in
-            Struct(Map.map (fun _ t -> defaultOf t) fields, tt)
+        | String -> Concrete(null, String)
+        | ClassType _ as t -> Concrete(null, t)
+        | ArrayType _ as t -> Concrete(null, t)
+        | Object -> Concrete(null, Object)
+        | Func _ -> Concrete(null, Object)
+        | StructType dotNetType as t ->
+            let fields = Types.GetFieldsOf dotNetType false in
+            Struct(Map.map (fun _ -> defaultOf) fields, t)
         | _ -> __notImplemented__()
 
     let rec internal allocateSymbolicStruct isStatic state t dotNetType =
@@ -166,6 +169,9 @@ module internal Memory =
         | ClassType dotNetType as t ->
             let value, state = allocateSymbolicStruct isStatic state t dotNetType in
             allocateInHeap state value false
+        | ArrayType _ as t ->
+            // TODO!!!
+            (Concrete(null, t), state)
         | _ -> __notImplemented__()
 
 // ------------------------------- Mutation -------------------------------
