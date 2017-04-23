@@ -5,6 +5,7 @@ open VSharp.CSharpUtils
 open VSharp.Simplify
 open VSharp.Terms
 
+[<AutoOpen>]
 module internal Arithmetics =
 
     let private makeAddition isChecked t x y k =
@@ -316,6 +317,12 @@ module internal Arithmetics =
         simplifyComparison OperationType.Less x y (simplifyConcreteComparison ((>) 0)) false ((!!) >> k)
 
 // ------------------------------- General functions -------------------------------
+
+    let (+++) x y =
+        simplifyAddition false (Types.ToDotNetType (Terms.TypeOf x)) x y id
+
+    let ( *** ) x y =
+        simplifyMultiplication false (Types.ToDotNetType (Terms.TypeOf x)) x y id
 
     let internal simplifyBinaryOperation op x y isChecked t k =
         match op with

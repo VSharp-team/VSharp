@@ -1,18 +1,57 @@
 ﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
+open JetBrains.Metadata.Reader.API
 open System
+open System.Collections.Generic
+open System.Reflection
+
+type ImplementsAttribute(name : string) =
+    inherit System.Attribute()
+    member this.Name = name
 
 module internal Interpreter =
 
-    let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
-        System.Console.Write(new System.String('\t', indent))
-        System.Console.WriteLine(ast.GetType().ToString())
-        ast.Children |> Seq.iter (dbg (indent + 1))
+// ------------------------------- Environment -------------------------------
+
+    let externalImplementations =
+        let dict = new Dictionary<string, MethodInfo>() in
+        let (|||) = FSharp.Core.Operators.(|||) in
+        let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public in
+        let modules = Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule (Assembly.GetExecutingAssembly().GetTypes()) in
+        modules |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
+            match m.GetCustomAttributes(typedefof<ImplementsAttribute>) with
+            | SeqEmpty -> ()
+            | SeqNode(attr, _) ->
+                let key = (attr :?> ImplementsAttribute).Name in
+                dict.Add(key, m.MakeGenericMethod(typedefof<unit>, typedefof<unit>))))
+        dict
+
+    let rec internalCall m (e, h, f, p) k =
+        let state = (e, h, f, p) in
+        let fullMethodName = DecompilerServices.metadataMethodToString m in
+        if externalImplementations.ContainsKey(fullMethodName) then
+            let k' (result, state) = k (result, State.pop state) in
+            let methodInfo = externalImplementations.[fullMethodName] in
+            let args =
+                m.Parameters
+                    |> Array.map (fun p -> Memory.valueOf state p.Name)
+                    |> List.ofArray
+            in
+            let argsAndThis = if m.IsStatic then args else (Memory.valueOf state "this")::args in
+            let parameters : obj[] =
+                // Sometimes F# compiler merges tuple with the rest arguments!
+                match methodInfo.GetParameters().Length with
+                | 3 -> [| state; argsAndThis; k' |]
+                | 6 -> [| e; h; f; p; argsAndThis; k' |]
+                | _ -> __notImplemented__()
+            methodInfo.Invoke(null, parameters) |> ignore
+            failwith "Internal error: implementation should be in contibuation-passing style!"
+        else __notImplemented__()
 
 // ------------------------------- Decompilation -------------------------------
 
-    let rec decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
+    and decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
         match decompiledMethod with
         | None when DecompilerServices.isConstructor metadataMethod ->
@@ -20,10 +59,14 @@ module internal Interpreter =
             k (NoResult, state)
         | None ->
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
-            // k (Error (new InvalidOperationException(sprintf "Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)), state)
         | Some decompiledMethod ->
-            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-            reduceDecompiledMethod state this parameters decompiledMethod k//(fun res -> printfn "For %s got %s" methodName (res.ToString()); k res)
+            if metadataMethod.IsInternalCall then
+                printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
+                reduceFunctionSignature state decompiledMethod.Signature (Some this) parameters (fun state ->
+                internalCall metadataMethod state k)
+            else
+                printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+                reduceDecompiledMethod state this parameters decompiledMethod k
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
         let rec map2 f xs1 xs2 =
@@ -504,7 +547,9 @@ module internal Interpreter =
         k (Memory.deref state reference, state))
 
     and reduceExpressionList state (ast : IExpressionList) k =
-        __notImplemented__()
+        if ast = null then k (Concrete(null, VSharp.Void), state)
+        else Cps.Seq.mapFoldk reduceExpression state ast.Expressions (fun (terms, state) ->
+        k (Concrete(terms, VSharp.Void), state))
 
     and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
         __notImplemented__()
@@ -842,8 +887,14 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
-        // TODO: implement it!
-        k (Terms.MakeNull(Types.MetadataToDotNetType(ast.ArrayType)), state)
+        let typ = Types.FromMetadataType ast.ArrayType in
+        Cps.Seq.mapFoldk reduceExpression state ast.Dimensions (fun (dimensions, state) ->
+        reduceExpressionList state ast.Initializer (fun (initializer, state) ->
+        let result =
+            match initializer with
+            | Concrete(null, _) -> Array.makeDefault Memory.defaultOf dimensions typ (Array.zeroLowerBound dimensions.Length)
+            | _ -> Array.fromInitializer (int(ast.ArrayType.Rank)) typ initializer
+        Memory.allocateInHeap state result false |> k))
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in

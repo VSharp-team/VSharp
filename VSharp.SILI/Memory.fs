@@ -169,9 +169,9 @@ module internal Memory =
         | ClassType dotNetType as t ->
             let value, state = allocateSymbolicStruct isStatic state t dotNetType in
             allocateInHeap state value false
-        | ArrayType _ as t ->
-            // TODO!!!
-            (Concrete(null, t), state)
+        | ArrayType(e, d) as t ->
+            let value = Array.fresh d t name in
+            allocateInHeap state value false
         | _ -> __notImplemented__()
 
 // ------------------------------- Mutation -------------------------------

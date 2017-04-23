@@ -168,6 +168,10 @@ module public Types =
         | Func(_, range) -> range
         | t -> t
 
+    let public elementType = function
+        | ArrayType(t, _) -> t
+        | t -> failwith (sprintf "Internal error: expected array type, but got %s" (toString t))
+
     let public IsRelation = RangeOf >> IsBool
 
     let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =

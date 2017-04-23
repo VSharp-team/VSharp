@@ -167,6 +167,14 @@ module internal DecompilerServices =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         decompiledClass.Methods |> Seq.tryFind (fun (m : IDecompiledMethod) -> m.MetadataMethod.IsStatic && m.MetadataMethod.Name = ".cctor")
 
+    let public metadataMethodToString (m : IMetadataMethod) =
+        sprintf "%s %s.%s(%s%s)"
+            m.Signature.ReturnType.FullName
+            m.DeclaringType.FullyQualifiedName
+            m.Name
+            (if m.Signature.HasThis then "this, " else "")
+            (m.Parameters |> Array.map (fun p -> p.Type.FullName) |> join ", ")
+
     let public methodInfoToMetadataMethod assemblyPath qualifiedTypeName (methodInfo : System.Reflection.MethodInfo) =
         let assembly = loadAssembly assemblyPath in
         let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in

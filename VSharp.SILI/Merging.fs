@@ -27,7 +27,8 @@ module internal Merging =
             | (Terms.True, v)::gvs' -> [List.head gvs]
             | (Terms.False, v)::gvs' -> loop gvs' out
             | (g, Union us)::gvs' when not (List.isEmpty us) ->
-                loop gvs' (List.append (simplify (Unions.guardWith g us)) out)
+                let guarded = us |> List.map (fun (g', v) -> (g &&& g', v)) in
+                loop gvs' (List.append (simplify guarded) out)
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
