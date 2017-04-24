@@ -24,7 +24,8 @@ module internal Interpreter =
             | SeqEmpty -> ()
             | SeqNode(attr, _) ->
                 let key = (attr :?> ImplementsAttribute).Name in
-                dict.Add(key, m.MakeGenericMethod(typedefof<unit>, typedefof<unit>))))
+                let genericArgs = Array.init (m.GetGenericArguments().Length) (fun _ -> typedefof<unit>) in
+                dict.Add(key, m.MakeGenericMethod(genericArgs))))
         dict
 
     let rec internalCall m (e, h, f, p) k =
@@ -46,7 +47,7 @@ module internal Interpreter =
                 | 6 -> [| e; h; f; p; argsAndThis; k' |]
                 | _ -> __notImplemented__()
             methodInfo.Invoke(null, parameters) |> ignore
-            failwith "Internal error: implementation should be in contibuation-passing style!"
+            internalfail "implementation should be in contibuation-passing style!"
         else __notImplemented__()
 
 // ------------------------------- Decompilation -------------------------------
@@ -77,7 +78,7 @@ module internal Interpreter =
             | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'
         let valueOrFreshConst (param : Option<IMethodParameter>) value =
             match param, value with
-            | None, _ -> failwith "Internal error: parameters list is longer than expected!"
+            | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then (param.Name, Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
@@ -290,7 +291,7 @@ module internal Interpreter =
 
     and reduceRethrowStatement state (ast : IRethrowStatement) k =
         let rec findException (node : INode) =
-            if node = null then failwith "Internal error: exception register not found for rethowing!"
+            if node = null then internalfail "exception register not found for rethowing!"
             match DecompilerServices.getPropertyOfNode node "Thrown" null with
             | null -> findException node.Parent
             | exn -> exn :?> Term

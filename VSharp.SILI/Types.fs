@@ -29,7 +29,7 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType t -> t.ToString()
         | ClassType t -> t.ToString()
-        | ArrayType(t, dim) -> t.ToString() + "[" + new string(',', dim) + "]"
+        | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
 
 module public Types =
     let private integerTypes =
@@ -55,7 +55,7 @@ module public Types =
         | String -> typedefof<string>
         | StructType t -> t
         | ClassType t -> t
-        | ArrayType(t, dim) -> (ToDotNetType t).MakeArrayType(dim)
+        | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function
@@ -170,7 +170,7 @@ module public Types =
 
     let public elementType = function
         | ArrayType(t, _) -> t
-        | t -> failwith (sprintf "Internal error: expected array type, but got %s" (toString t))
+        | t -> internalfail (sprintf "expected array type, but got %s" (toString t))
 
     let public IsRelation = RangeOf >> IsBool
 

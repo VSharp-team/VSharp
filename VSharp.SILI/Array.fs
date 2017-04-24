@@ -3,8 +3,8 @@
 open FSharpx.Collections
 
 module Array =
-    let private lengthType = typedefof<int>
-    let private lengthTermType = Numeric lengthType in
+    let internal lengthType = typedefof<int>
+    let internal lengthTermType = Numeric lengthType in
 
     let internal zeroLowerBound rank =
         Array.init rank (fun _ -> Concrete(0, lengthTermType))
@@ -16,7 +16,7 @@ module Array =
         | Array(_, _, _, ds, _) -> dimensionsToLength ds
         | Terms.GuardedValues(gs, vs) ->
             vs |> List.map length |> List.zip gs |> Merging.merge
-        | _ -> failwith "Internal error: computing length of non-array object"
+        | _ -> internalfail "computing length of non-array object"
 
     let internal makeSymbolic dimensions typ name lowerBounds =
         let length = dimensionsToLength dimensions in
@@ -39,7 +39,7 @@ module Array =
         let makeArray dimensions =
             let length = dimensionsToLength dimensions in
             match length with
-            | Terms.GuardedValues(gs, vs) -> failwith "Internal error: unexpected union in array length!"
+            | Terms.GuardedValues(gs, vs) -> internalfail "unexpected union in array length!"
             | _ ->
                 Array(lowerBounds, None, PersistentHashMap<Term, Term>.Empty(), dimensions, typ)
         in

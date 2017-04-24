@@ -12,7 +12,7 @@ module internal Memory =
         | Concrete(address, t) when Types.IsNumeric t -> ConcreteAddress (address :?> int)
         | Concrete(typeName, t) when Types.IsString t -> StaticAddress (typeName :?> string)
         | Constant(name, _) -> SymbolicAddress name
-        | term -> failwith ("Internal error: expected primitive heap address " + (toString term))
+        | term -> internalfail ("expected primitive heap address " + (toString term))
 
     let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
@@ -31,7 +31,7 @@ module internal Memory =
         let addr1 = refToInt p1 in
         let addr2 = refToInt p2 in
         if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
-            failwith "Internal error: reference comparing non-reference types"
+            internalfail "reference comparing non-reference types"
         Arithmetics.simplifyEqual addr1 addr2 id
 
     let rec internal isNull = function
@@ -58,11 +58,11 @@ module internal Memory =
             match term with
             | Error _ -> term
             | Struct(fields, _) as s ->
-                if not (fields.ContainsKey(name)) then failwith (format2 "Internal error: {0} does not contain field {1}" s name)
+                if not (fields.ContainsKey(name)) then internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
-            | t -> failwith ("Internal error: expected struct, but got " + (toString t))
+            | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec internal deref state = function
         | Error _ as e -> e
@@ -77,7 +77,7 @@ module internal Memory =
                 let derefed = structDeref (List.rev path) (heapDeref state (extractHeapAddress addr)) in
                 Merging.merge2Terms isNull !!isNull (npe()) derefed
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (deref state) |> List.zip gs |> Merging.merge
-        | t -> failwith ("Internal error: deref expected reference, but got " + (toString t))
+        | t -> internalfail ("deref expected reference, but got " + (toString t))
 
     let internal valueOf = stackValue
     let internal fieldOf term name = structDeref [name] term
@@ -89,7 +89,7 @@ module internal Memory =
         | StackRef(var, idx, path, t) -> StackRef(var, idx, name::path, t)
         | HeapRef(addr, path, t) -> HeapRef(addr, name::path, t)
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (addFieldToPath name) |> List.zip gs |> Union
-        | t -> failwith ("Internal error: expected reference, but got " + (toString t))
+        | t -> internalfail ("expected reference, but got " + (toString t))
 
     let rec private referenceTerm state name followHeapRefs = function
         | Error _ as e -> e
@@ -109,7 +109,7 @@ module internal Memory =
         | Struct _ -> addFieldToPath name parentRef
         | Terms.GuardedValues(gs, vs) ->
             vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
-        | t -> failwith ("Internal error: expected reference or struct, but got " + (toString t))
+        | t -> internalfail ("expected reference or struct, but got " + (toString t))
 
     let internal referenceToField state name parentRef =
         referenceToFieldOf state name parentRef (deref state parentRef)
@@ -199,7 +199,7 @@ module internal Memory =
                 Struct(fields.Add(name, newField), t)
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (mutateField state path update) |> List.zip gs |> Merging.merge
-            | t -> failwith ("Internal error: expected struct, but got " + (toString t))
+            | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec private errorOr term = function
         | Error _ as e -> e
@@ -229,9 +229,9 @@ module internal Memory =
                 | Error _ -> (v, state)
                 | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g term) term
                 | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g term) term
-                | t -> failwith ("Internal error: expected union of references, but got " + (toString t))
+                | t -> internalfail ("expected union of references, but got " + (toString t))
             in
             let results, state = List.mapFold mutateOneGuarded state gvs in
             let gs = List.unzip gvs |> fst in
             (List.zip gs results |> Merging.merge, state)
-        | t -> failwith ("Internal error: expected reference, but got " + (toString t))
+        | t -> internalfail ("expected reference, but got " + (toString t))
