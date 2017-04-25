@@ -24,8 +24,7 @@ module internal Interpreter =
             | SeqEmpty -> ()
             | SeqNode(attr, _) ->
                 let key = (attr :?> ImplementsAttribute).Name in
-                let genericArgs = Array.init (m.GetGenericArguments().Length) (fun _ -> typedefof<unit>) in
-                dict.Add(key, m.MakeGenericMethod(genericArgs))))
+                dict.Add(key, m)))
         dict
 
     let rec internalCall m (e, h, f, p) k =
@@ -43,11 +42,13 @@ module internal Interpreter =
             let parameters : obj[] =
                 // Sometimes F# compiler merges tuple with the rest arguments!
                 match methodInfo.GetParameters().Length with
-                | 3 -> [| state; argsAndThis; k' |]
-                | 6 -> [| e; h; f; p; argsAndThis; k' |]
+                | 2 -> [| state; argsAndThis |]
+                | 5 -> [| e; h; f; p; argsAndThis |]
                 | _ -> __notImplemented__()
-            methodInfo.Invoke(null, parameters) |> ignore
-            internalfail "implementation should be in contibuation-passing style!"
+            let result = methodInfo.Invoke(null, parameters) in
+            match result with
+            | :? (StatementResult * State.state) as r -> k' r
+            | _ -> internalfail "internal call should return tuple StatementResult * State!"
         else __notImplemented__()
 
 // ------------------------------- Decompilation -------------------------------
@@ -99,22 +100,6 @@ module internal Interpreter =
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
         reduceFunction state (Some this) parameters ast.Signature ast.Body k
-
-// ------------------------------- IMemberInitializer and inheritors -------------------------------
-
-    and reduceMemberInitializer this state (ast : IMemberInitializer) k =
-        match ast with
-        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer this state initializer k
-        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer this state initializer k
-        | _ -> __notImplemented__()
-
-    and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
-        reduceExpression state ast.Value (fun (term, state) ->
-        let fieldReference = Memory.referenceToField state (DecompilerServices.idOfMetadataField ast.Field) this in
-        Memory.mutate state fieldReference term |> snd |> k)
-
-    and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
-        __notImplemented__()
 
 
 // ------------------------------- IStatement and inheritors -------------------------------
@@ -201,6 +186,14 @@ module internal Interpreter =
 
 // ------------------------------- Rest Statements-------------------------------
 
+    and composeSequentially (result, state) statement k =
+        if ControlFlow.calculationDone null result then k (result, state)
+        else
+            statement state (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
+
+    and reduceSequentially state statements k =
+        Cps.Seq.foldlk composeSequentially (NoResult, State.push state []) statements (fun (res, state) -> k (res, State.pop state))
+
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose (result, state) statement k =
             if ControlFlow.calculationDone statement result then k (result, state)
@@ -211,7 +204,7 @@ module internal Interpreter =
                     else result
                 in
                 reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
-        Cps.Seq.foldlk compose (NoResult, (State.push state [])) ast.Statements (fun (res, state) -> k (res, State.pop state))
+        Cps.Seq.foldlk compose (NoResult, State.push state []) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         k (NoResult, state)
@@ -463,16 +456,16 @@ module internal Interpreter =
         | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
         | :? IFieldAccessExpression as expression ->
             reduceExpressionToRef state true expression.Target (fun (target, state) ->
-            referenceToField state target expression.FieldSpecification.Field k)
+            referenceToField state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
         | _ -> reduceExpression state ast k
 
-    and referenceToField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
+    and referenceToField state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field in
         if field.IsStatic then
-            k (Memory.referenceToStaticField state id field.DeclaringType.AssemblyQualifiedName, state)
+            k (Memory.referenceToStaticField state followHeapRefs id field.DeclaringType.AssemblyQualifiedName, state)
         else
-            k (Memory.referenceToField state id target, state)
+            k (Memory.referenceToField state followHeapRefs id target, state)
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
@@ -568,10 +561,6 @@ module internal Interpreter =
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
 
-    and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
-        if ast = null then k state
-        else Cps.Seq.foldlk (reduceMemberInitializer initializedObject) state ast.Initializers k
-
     and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
@@ -665,6 +654,8 @@ module internal Interpreter =
             | :? IParameterReferenceExpression
             | :? ILocalVariableReferenceExpression -> fun state k -> k (Nop, state)
             | :? IMemberAccessExpression as memberAccess -> fun state k -> reduceExpressionToRef state true memberAccess.Target k
+            | :? IArrayElementAccessExpression as arrayAccess ->
+                __notImplemented__()
             | _ -> __notImplemented__()
         in
         let rightReducer state k = reduceExpression state right k in
@@ -713,7 +704,7 @@ module internal Interpreter =
         | :? IFieldAccessExpression as field ->
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
-            referenceToField state targetTerm field.FieldSpecification.Field (fun (fieldRef, state) ->
+            referenceToField state false targetTerm field.FieldSpecification.Field (fun (fieldRef, state) ->
             Memory.mutate state fieldRef rightTerm |> k)))
         | :? IPropertyAccessExpression as property ->
             target state (fun (targetTerm, state) ->
@@ -936,7 +927,7 @@ module internal Interpreter =
                 in
                 let state = Memory.allocateInStaticMemory state qualifiedTypeName instance in
                 let initOneField state (name, (typ, expression)) k =
-                    let address = Memory.referenceToStaticField state name qualifiedTypeName in
+                    let address = Memory.referenceToStaticField state false name qualifiedTypeName in
                     reduceExpression state expression (fun (value, state) ->
                     Memory.mutate state address value |> snd |> k)
                 in
@@ -970,22 +961,71 @@ module internal Interpreter =
                 let state = State.push state [(tempVar, freshValue)] in
                 (Memory.referenceToVariable state tempVar false, state)
         in
-        let finish state =
-            reduceMemberInitializerList reference state ast.ObjectInitializer (fun state ->
-            if not isReference
-            then k (Memory.deref state reference, State.pop state)
-            else k (reference, state))
+        let finish r =
+            composeSequentially r
+                (fun state k ->
+                    if not isReference
+                    then k (Return (Memory.deref state reference), State.pop state)
+                    else k (Return reference, state))
+                (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
+        in
+        let invokeInitializers r =
+            composeSequentially r (fun state k ->
+                if ast.ObjectInitializer <> null then
+                    reduceMemberInitializerList reference state ast.ObjectInitializer k
+                else if ast.CollectionInitializer <> null then
+                    reduceCollectionInitializerList ast.ConstructedType reference state ast.CollectionInitializer k
+            ) finish
         in
         let baseClasses = DecompilerServices.baseClassesChain ast.ConstructedType in
-        let reduceConstructor state (t : JetBrains.Metadata.Reader.API.IMetadataType) k =
+        let reduceConstructor (t : JetBrains.Metadata.Reader.API.IMetadataType) state k =
             if ast.ConstructorSpecification = null
-            then k state
+            then k (NoResult, state)
             else
                 Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
-                decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath (snd >> k))
+                decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath k)
         in
-        Cps.List.foldlk reduceConstructor state baseClasses finish))
+        let reduceConstructors = baseClasses |> List.map reduceConstructor in
+        reduceSequentially state reduceConstructors invokeInitializers))
+
+    and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
+        let initializers = ast.Initializers |> Seq.map (reduceMemberInitializer initializedObject) in
+        reduceSequentially state initializers k
+
+    and reduceMemberInitializer this (ast : IMemberInitializer) state k =
+        match ast with
+        | :? IFieldMemberInitializer as initializer -> reduceFieldMemberInitializer this state initializer k
+        | :? IPropertyMemberInitializer as initializer -> reducePropertyMemberInitializer this state initializer k
+        | _ -> __notImplemented__()
+
+    and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
+        reduceExpression state ast.Value (fun (value, state) ->
+        let fieldReference = Memory.referenceToField state false (DecompilerServices.idOfMetadataField ast.Field) this in
+        let result, state = Memory.mutate state fieldReference value in
+        k (ControlFlow.throwOrIgnore result, state))
+
+    and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
+        __notImplemented__()
+
+    and reduceCollectionInitializerList constructedType initializedObject state (ast : IExpressionList) k =
+        let intializers = ast.Expressions |> Seq.map (reduceCollectionInitializer constructedType initializedObject) in
+        reduceSequentially state intializers k
+
+    and reduceCollectionInitializer constructedType initializedObject (ast : IExpression) state k =
+        let args =
+            match ast with
+            | :? IExpressionList as es -> es.Expressions :> seq<IExpression>
+            | e -> [e] :> seq<IExpression>
+        in
+        let argTypes = Seq.map DecompilerServices.getTypeOfNode args in
+        Cps.Seq.mapFoldk reduceExpression state args (fun (argValues, state) ->
+        let bestOverload = DecompilerServices.resolveAdd argTypes constructedType in
+        let reduceTarget state k = k (initializedObject, state) in
+        let reduceArg arg = (fun state k -> k (arg, state)) in
+        let reduceArgs = argValues |> List.ofSeq |> List.map reduceArg in
+        reduceMethodCall state reduceTarget bestOverload reduceArgs (fun (result, state) ->
+        k (ControlFlow.throwOrIgnore result, state)))
 
 // ------------------------------- IMemberAccessExpression and inheritors -------------------------------
 
@@ -1004,7 +1044,7 @@ module internal Interpreter =
     and readField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let fieldName = DecompilerServices.idOfMetadataField field in
         if field.IsStatic then
-            let reference = Memory.referenceToStaticField state fieldName field.DeclaringType.AssemblyQualifiedName in
+            let reference = Memory.referenceToStaticField state false fieldName field.DeclaringType.AssemblyQualifiedName in
             k (Memory.deref state reference, state)
         else
             if (Terms.IsRef target) then

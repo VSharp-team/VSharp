@@ -69,6 +69,7 @@
     <Compile Include="ControlFlow.fs" />
     <Compile Include="Lambdas.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Extern.fsi" />
     <Compile Include="Extern.fs" />
     <Compile Include="SVM.fs" />
   </ItemGroup>

@@ -15,12 +15,11 @@ module private System =
             Interpreter.reduceConditionalExecution state
                 (fun state k -> k (inBounds, state))
                 fits
-                (fun state k -> k (Throw(Terms.MakeConcrete(new IndexOutOfRangeException()) typedefof<IndexOutOfRangeException>), state))
+                (fun state k -> k (ControlFlow.throw(new IndexOutOfRangeException()), state))
                 k)))
 
-        [<Implements("System.Int32 System.Array.GetLength(this, System.Int32)")>]
-        let GetLength (state : State.state) (args : Term list) (k : StatementResult * State.state -> 'a) =
-            let this, dimension = args.[0], args.[1] in
+        let GetLength state args =
+            let this, dimension = List.item 0 args, List.item 1 args in
             let array = Memory.deref state this in
             let rec getLength dimension = function
                 | Array(_, _, _, lengths, _) ->
@@ -40,8 +39,7 @@ module private System =
                                 in
                                 let result = List.zip guards (List.ofArray lengths) |> Merging.merge in
                                 k (Return result, state))
-                            (fun (result, _) -> ControlFlow.resultToTerm result)
-
+                            (fst >> ControlFlow.resultToTerm)
                 | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
             in
             let result =
@@ -49,13 +47,12 @@ module private System =
                 | Terms.GuardedValues(gs, vs) ->
                     vs |> List.map (getLength dimension) |> List.zip gs |> Merging.merge
                 | _ -> getLength dimension array
-            in k (ControlFlow.throwOrReturn result, state)
+            in (ControlFlow.throwOrReturn result, state)
 
-        [<Implements("System.Int32 System.Array.GetRank(this)")>]
-        let GetRank (state : State.state) (args : Term list) (k : StatementResult * State.state -> 'a) =
-            let array = Memory.deref state args.[0] in
+        let GetRank state args =
+            let array = Memory.deref state (List.head args) in
             let rec getRank = function
                 | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
                 | Terms.GuardedValues(gs, vs) -> vs |> List.map getRank |> List.zip gs |> Merging.merge
                 | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
-            in k (Return (getRank array), state)
+            in (Return (getRank array), state)

@@ -111,11 +111,23 @@ module internal Memory =
             vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
         | t -> internalfail ("expected reference or struct, but got " + (toString t))
 
-    let internal referenceToField state name parentRef =
-        referenceToFieldOf state name parentRef (deref state parentRef)
+    let rec private followOrReturnReference state reference =
+        match deref state reference with
+        | Error _ as e -> e
+        | StackRef _ as r -> r
+        | HeapRef _ as r -> r
+        | Terms.GuardedValues(gs, vs) -> List.map (followOrReturnReference state) vs |> List.zip gs |> Merging.merge
+        | term -> reference
 
-    let rec internal referenceToStaticField state fieldName typeName =
-        HeapRef(Concrete(typeName, String), [fieldName], String)
+    let internal referenceToField state followHeapRefs name parentRef =
+        let reference = referenceToFieldOf state name parentRef (deref state parentRef) in
+        if followHeapRefs then followOrReturnReference state reference
+        else reference
+
+    let rec internal referenceToStaticField state followHeapRefs fieldName typeName =
+        let reference = HeapRef(Concrete(typeName, String), [fieldName], String) in
+        if followHeapRefs then followOrReturnReference state reference
+        else reference
 
 // ------------------------------- Allocation -------------------------------
 

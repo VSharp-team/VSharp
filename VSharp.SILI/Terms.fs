@@ -80,10 +80,10 @@ type public Term =
                 let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
                 let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort
                 String.Format("STRUCT {0}[\n" + indent + "{1}]", t.ToString(), String.Join("\n" + indent, printed))
-            | Array(_, None, contents, _, _) ->
-                String.Format("[| {0} ... default ... |]", dictToString contents ": " "; ")
-            | Array(_, Some constant, contents, _, _) ->
-                String.Format("{0}: [| {1} |]", toString constant, dictToString contents ": " "; ")
+            | Array(_, None, contents, dimensions, _) ->
+                String.Format("[| {0} ... {1} ... |]", dictToString contents ": " "; ", Array.map toString dimensions |> join " x ")
+            | Array(_, Some constant, contents, dimensions, _) ->
+                String.Format("{0}: [| {1} ({2}) |]", toString constant, dictToString contents ": " "; ", Array.map toString dimensions |> join " x ")
             | StackRef(name, frame, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (name, frame, path).ToString())
             | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", toStr -1 false indent addr)
             | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", toStr -1 false indent addr, (List.sort path).ToString())

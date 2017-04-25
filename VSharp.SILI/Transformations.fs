@@ -141,7 +141,7 @@ module Transformations =
         statement.Expression :? IDelegateCallExpression && DecompilerServices.getPropertyOfNode statement "InlinedCall" false :?> bool
 
     let isContinueConsumer (node : INode) =
-        DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool
+        node <> null && DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool
 
     let extractExceptionFilter (ast : IBlockStatement) =
         if ast.Statements.Count <> 1 then __notImplemented__()

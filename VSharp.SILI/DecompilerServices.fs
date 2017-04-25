@@ -190,3 +190,17 @@ module internal DecompilerServices =
 
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
+
+    let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
+        | :? IMetadataClassType as t ->
+            let argsCount = Seq.length argTypes in
+            let overloads =
+                t.Type.GetMethods()
+                    |> Array.filter (fun m -> m.Name = "Add" && m.Parameters.Length = argsCount)
+                    |> List.ofArray
+            in
+            match overloads with
+            | [] -> internalfail "suitable overload of Add not found in collection!"
+            | [x] -> x
+            | _ -> __notImplemented__() // TODO: args should be matched typewise
+        | _ -> __notImplemented__()
