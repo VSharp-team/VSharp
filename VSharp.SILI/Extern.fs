@@ -56,3 +56,7 @@ module private System =
                 | Terms.GuardedValues(gs, vs) -> vs |> List.map getRank |> List.zip gs |> Merging.merge
                 | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
             in (Return (getRank array), state)
+
+        let get_Length state args =
+            let array = Memory.deref state (List.head args) in
+            (Return (Array.length array), state)
