@@ -612,7 +612,7 @@ VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
-RESULT: !(2 * y < z) | 0 == z % 2 | 2 * x < z
+RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2 & 2 * y < z
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
