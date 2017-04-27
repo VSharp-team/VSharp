@@ -98,6 +98,10 @@ module internal Arithmetics =
                               (fun x y k -> simplifyAdditionExt isChecked t x y k defaultCase)
                               (fun x y k -> simplifyAddition isChecked t x y k)
 
+    and private simplifySubtraction isChecked t x y k =
+        simplifyUnaryMinus isChecked t y (fun minusY ->
+        simplifyAddition isChecked t x minusY k)
+
 // ------------------------------- Simplification of unary "-" -------------------------------
 
     and private simplifyConcreteUnaryMinus isChecked t x =
@@ -321,15 +325,16 @@ module internal Arithmetics =
     let (+++) x y =
         simplifyAddition false (Types.ToDotNetType (Terms.TypeOf x)) x y id
 
+    let (---) x y =
+        simplifySubtraction false (Types.ToDotNetType (Terms.TypeOf x)) x y id
+
     let ( *** ) x y =
         simplifyMultiplication false (Types.ToDotNetType (Terms.TypeOf x)) x y id
 
     let internal simplifyBinaryOperation op x y isChecked t k =
         match op with
         | OperationType.Add -> simplifyAddition isChecked t x y k
-        | OperationType.Subtract ->
-            simplifyUnaryMinus isChecked t y (fun minusY ->
-            simplifyAddition isChecked t x minusY k)
+        | OperationType.Subtract -> simplifySubtraction isChecked t x y k
         | OperationType.Multiply -> simplifyMultiplication isChecked t x y k
         | OperationType.Divide -> simplifyDivisionAndCheckNotZero isChecked t x y k
         | OperationType.Remainder -> simplifyRemainderAndCheckNotZero isChecked t x y k

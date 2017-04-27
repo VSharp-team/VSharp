@@ -9,12 +9,14 @@ type public Operation =
     | Operator of OperationType * bool
     | Application of string
     | Cast of TermType * TermType * bool
+    | Indexer
 
     member this.priority =
         match this with
         | Operator (op, _) -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
+        | Indexer -> Operations.maxPriority
 
 type public BlockAccess = FieldAccess of string | ArrayAccess of int
 
@@ -24,11 +26,11 @@ type public Term =
     | Nop
     | Concrete of Object * TermType
     | Constant of string * TermType
-    | Array of Term array                       // Lower bounds
-                * Term option                   // Symbolic constant (or None if array has default contents)
-                * PersistentHashMap<Term, Term> // Contents
-                * Term array                    // Lengths of dimensions
-                * TermType                      // Type
+    | Array of Term array               // Lower bounds
+                * Term option           // Symbolic constant (or None if array has default contents)
+                * (Term * Term) list    // Contents: index ~> mutation timestamp * value
+                * Term array            // Lengths of dimensions
+                * TermType              // Type
     | Expression of (Operation * Term list * TermType)
     | Struct of Map<string, Term> * TermType
     | StackRef of string * int * string list * TermType
@@ -45,8 +47,8 @@ type public Term =
 
         let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
 
-        let dictToString (dict : PersistentHashMap<_,_>) innerSeparator outerSeparator =
-            dict
+        let arrayContentsToString contents innerSeparator outerSeparator =
+            contents
                 |> Seq.map (fun kvp -> (toString (fst kvp), toString (snd kvp)))
                 |> Seq.sortBy fst
                 |> Seq.map (fun (k, v) -> k + innerSeparator + v)
@@ -76,14 +78,18 @@ type public Term =
                     let format = checkExpression isChecked parentChecked operation.priority parentPriority "({0}){1}" in
                     format2 format (dest.ToString()) (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands))
                 | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> Wrappers.join ", " |> format2 "{0}({1})" f
+                | Indexer ->
+                    assert(List.length operands >= 2)
+                    let array, indeces = List.head operands, List.tail operands in
+                    String.Format("{0}[{1}]", toString array, operands |> List.map toString |> join ", ")
             | Struct(fields, t) ->
                 let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
                 let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort
                 String.Format("STRUCT {0}[\n" + indent + "{1}]", t.ToString(), String.Join("\n" + indent, printed))
             | Array(_, None, contents, dimensions, _) ->
-                String.Format("[| {0} ... {1} ... |]", dictToString contents ": " "; ", Array.map toString dimensions |> join " x ")
+                String.Format("[| {0} ... {1} ... |]", arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
-                String.Format("{0}: [| {1} ({2}) |]", toString constant, dictToString contents ": " "; ", Array.map toString dimensions |> join " x ")
+                String.Format("{0}: [| {1} ({2}) |]", toString constant, arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
             | StackRef(name, frame, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (name, frame, path).ToString())
             | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", toStr -1 false indent addr)
             | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", toStr -1 false indent addr, (List.sort path).ToString())
@@ -91,7 +97,7 @@ type public Term =
                 let guardedToString (guard, term) = String.Format("| {0} ~> {1}", toStr -1 false indent guard, toStr -1 false indent term)
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
                 String.Format("UNION[\n" + indent + "{0}]", String.Join("\n" + indent, printed))
-
+        in
         toStr -1 false "\t" this
 
 module public Terms =
