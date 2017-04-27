@@ -615,10 +615,11 @@ module internal Interpreter =
         let targetReducer =
             match left with
             | :? IParameterReferenceExpression
-            | :? ILocalVariableReferenceExpression -> fun state k -> k (Nop, state)
-            | :? IMemberAccessExpression as memberAccess -> fun state k -> reduceExpressionToRef state true memberAccess.Target k
-            | :? IArrayElementAccessExpression as arrayAccess ->
-                __notImplemented__()
+            | :? ILocalVariableReferenceExpression
+            | :? IArrayElementAccessExpression ->
+                fun state k -> k (Nop, state)
+            | :? IMemberAccessExpression as memberAccess ->
+                fun state k -> reduceExpressionToRef state true memberAccess.Target k
             | _ -> __notImplemented__()
         in
         let rightReducer state k = reduceExpression state right k in
@@ -673,6 +674,11 @@ module internal Interpreter =
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
             reduceMethodCall state target property.PropertySpecification.Property.Setter [right] k))
+        | :? IArrayElementAccessExpression as arrayAccess ->
+            reduceExpression state arrayAccess.Array (fun (array, state) ->
+            Cps.Seq.mapFoldk reduceExpression state arrayAccess.Indexes (fun (indices, state) ->
+            right state (fun (rightTerm, state) ->
+            Memory.mutateArray state array indices rightTerm |> k)))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 

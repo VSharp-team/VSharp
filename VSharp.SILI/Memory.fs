@@ -230,20 +230,32 @@ module internal Memory =
         let mutatedValue = mutateField state (List.rev path) update originalValue in
         (errorOr result mutatedValue, mutateHeap state heapKey mutatedValue)
 
-    let internal mutate state reference term =
+    let internal mutate state reference value =
         match reference with
         | Error _ as e -> (e, state)
-        | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (always term) term
-        | HeapRef(addr, path, _) -> mutateHeapPath state path addr (always term) term
+        | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (always value) value
+        | HeapRef(addr, path, _) -> mutateHeapPath state path addr (always value) value
         | Union gvs ->
             let mutateOneGuarded state (g, v) =
                 match v with
                 | Error _ -> (v, state)
-                | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g term) term
-                | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g term) term
+                | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g value) value
+                | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g value) value
                 | t -> internalfail ("expected union of references, but got " + (toString t))
             in
             let results, state = List.mapFold mutateOneGuarded state gvs in
             let gs = List.unzip gvs |> fst in
             (List.zip gs results |> Merging.merge, state)
         | t -> internalfail ("expected reference, but got " + (toString t))
+
+    let internal mutateArray state reference indices value =
+        let originalArray = deref state reference in
+        let mutatedArray = Array.write originalArray indices value in
+        let rec refine = function
+            | Error _ -> originalArray
+            | Terms.GuardedValues(gs, vs) ->
+                vs |> List.map refine |> List.zip gs |> Merging.merge
+            | t -> t
+        let resultingArray = refine mutatedArray in
+        let _, state = mutate state reference resultingArray in
+        (mutatedArray, state)

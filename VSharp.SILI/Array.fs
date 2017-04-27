@@ -99,9 +99,12 @@ module Array =
             let inBounds = Seq.fold (&&&) Terms.MakeTrue bounds in
             let normalizedIndices = List.map2 (---) indices (List.ofArray lowerBounds) in
             let facticalAddress = List.fold ( *** ) (Concrete(1, lengthTermType)) normalizedIndices in
-            let exn = Terms.MakeError(new System.IndexOutOfRangeException()) in
-            let result = doJob lowerBounds constant contents dimensions elementType facticalAddress
-            in Merging.merge2Terms inBounds !!inBounds result exn
+            match facticalAddress with
+            | Error _ -> facticalAddress
+            | _ ->
+                let exn = Terms.MakeError(new System.IndexOutOfRangeException()) in
+                let result = doJob lowerBounds constant contents dimensions elementType facticalAddress
+                in Merging.merge2Terms inBounds !!inBounds result exn
         | t -> internalfail (sprintf "expected array, but %s got!" (toString t))
 
     let private accessUnguardedArray doJob guards indices array =
@@ -110,10 +113,10 @@ module Array =
     let rec private accessArrayAt array indices doJob =
         let guards, unguardedIndices = guardsProduct indices |> List.unzip in
         match array with
+        | Error _ -> array
         | Terms.GuardedValues(gs, vs) ->
             vs |> List.map (accessUnguardedArray doJob guards unguardedIndices) |> List.zip gs |> Merging.merge
         | _ -> accessUnguardedArray doJob guards unguardedIndices array
-
 
     let rec internal read defaultOf array indices =
         accessArrayAt array indices (fun lowerBounds constant contents dimensions elementType address ->
@@ -136,8 +139,8 @@ module Array =
                 in
                 List.append matchedContents [(g, defaultValue)] |> Merging.merge)
 
-    let rec private write array indices value =
+    let rec internal write array indices value =
         accessArrayAt array indices (fun lowerBounds constant contents dimensions elementType address ->
-            let filteredContents = contents |> List.filter (fst >> ((=) address)) in
+            let filteredContents = contents |> List.filter (fst >> ((=) address) >> not) in
             let typ = ArrayType(elementType, dimensions.Length) in
             Array(lowerBounds, constant, (address, value)::filteredContents, dimensions, typ))
