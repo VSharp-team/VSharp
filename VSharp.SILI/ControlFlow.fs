@@ -116,5 +116,8 @@ module internal ControlFlow =
             let mergedValue = Merging.merge gvs in
             Some(mergedGuard, mergedValue), normal
 
+    let throw exn =
+        Throw(Terms.MakeConcrete exn (exn.GetType()))
+
     let npe () =
-        Throw(Terms.MakeConcrete (new System.NullReferenceException()) typedefof<System.NullReferenceException>)
+        throw (new System.NullReferenceException())

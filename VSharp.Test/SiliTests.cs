@@ -110,8 +110,8 @@ namespace VSharp.Test
             };
             var ignoredTypes = new List<string>
             {
-                "Calculator",
-                //"AnonymousType"
+                "Calculator"
+                //,"AnonymousType"
                 //, "Arithmetics"
                 //, "Logics"
                 //, "Conditional"
@@ -122,6 +122,7 @@ namespace VSharp.Test
                 //, "StaticClass"
                 //, "StaticMembers"
                 //, "TryCatch"
+                //, "Lists"
             };
 
             var failReason = new System.Text.StringBuilder();

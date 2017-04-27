@@ -167,6 +167,15 @@ module internal DecompilerServices =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         decompiledClass.Methods |> Seq.tryFind (fun (m : IDecompiledMethod) -> m.MetadataMethod.IsStatic && m.MetadataMethod.Name = ".cctor")
 
+    let public metadataMethodToString (m : IMetadataMethod) =
+        let parameters = m.Parameters |> Array.map (fun p -> p.Type.FullName) |> List.ofArray in
+        let parametersAndThis = if m.Signature.HasThis then "this"::parameters else parameters in
+        sprintf "%s %s.%s(%s)"
+            m.Signature.ReturnType.FullName
+            m.DeclaringType.FullyQualifiedName
+            m.Name
+            (join ", " parametersAndThis)
+
     let public methodInfoToMetadataMethod assemblyPath qualifiedTypeName (methodInfo : System.Reflection.MethodInfo) =
         let assembly = loadAssembly assemblyPath in
         let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
@@ -181,3 +190,17 @@ module internal DecompilerServices =
 
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
+
+    let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
+        | :? IMetadataClassType as t ->
+            let argsCount = Seq.length argTypes in
+            let overloads =
+                t.Type.GetMethods()
+                    |> Array.filter (fun m -> m.Name = "Add" && m.Parameters.Length = argsCount)
+                    |> List.ofArray
+            in
+            match overloads with
+            | [] -> internalfail "suitable overload of Add not found in collection!"
+            | [x] -> x
+            | _ -> __notImplemented__() // TODO: args should be matched typewise
+        | _ -> __notImplemented__()

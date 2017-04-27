@@ -12,7 +12,7 @@ module internal Memory =
         | Concrete(address, t) when Types.IsNumeric t -> ConcreteAddress (address :?> int)
         | Concrete(typeName, t) when Types.IsString t -> StaticAddress (typeName :?> string)
         | Constant(name, _) -> SymbolicAddress name
-        | term -> failwith ("Internal error: expected primitive heap address " + (toString term))
+        | term -> internalfail ("expected primitive heap address " + (toString term))
 
     let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
@@ -31,7 +31,7 @@ module internal Memory =
         let addr1 = refToInt p1 in
         let addr2 = refToInt p2 in
         if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
-            failwith "Internal error: reference comparing non-reference types"
+            internalfail "reference comparing non-reference types"
         Arithmetics.simplifyEqual addr1 addr2 id
 
     let rec internal isNull = function
@@ -58,11 +58,11 @@ module internal Memory =
             match term with
             | Error _ -> term
             | Struct(fields, _) as s ->
-                if not (fields.ContainsKey(name)) then failwith (format2 "Internal error: {0} does not contain field {1}" s name)
+                if not (fields.ContainsKey(name)) then internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
-            | t -> failwith ("Internal error: expected struct, but got " + (toString t))
+            | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec internal deref state = function
         | Error _ as e -> e
@@ -77,7 +77,7 @@ module internal Memory =
                 let derefed = structDeref (List.rev path) (heapDeref state (extractHeapAddress addr)) in
                 Merging.merge2Terms isNull !!isNull (npe()) derefed
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (deref state) |> List.zip gs |> Merging.merge
-        | t -> failwith ("Internal error: deref expected reference, but got " + (toString t))
+        | t -> internalfail ("deref expected reference, but got " + (toString t))
 
     let internal valueOf = stackValue
     let internal fieldOf term name = structDeref [name] term
@@ -89,7 +89,7 @@ module internal Memory =
         | StackRef(var, idx, path, t) -> StackRef(var, idx, name::path, t)
         | HeapRef(addr, path, t) -> HeapRef(addr, name::path, t)
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (addFieldToPath name) |> List.zip gs |> Union
-        | t -> failwith ("Internal error: expected reference, but got " + (toString t))
+        | t -> internalfail ("expected reference, but got " + (toString t))
 
     let rec private referenceTerm state name followHeapRefs = function
         | Error _ as e -> e
@@ -109,13 +109,25 @@ module internal Memory =
         | Struct _ -> addFieldToPath name parentRef
         | Terms.GuardedValues(gs, vs) ->
             vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
-        | t -> failwith ("Internal error: expected reference or struct, but got " + (toString t))
+        | t -> internalfail ("expected reference or struct, but got " + (toString t))
 
-    let internal referenceToField state name parentRef =
-        referenceToFieldOf state name parentRef (deref state parentRef)
+    let rec private followOrReturnReference state reference =
+        match deref state reference with
+        | Error _ as e -> e
+        | StackRef _ as r -> r
+        | HeapRef _ as r -> r
+        | Terms.GuardedValues(gs, vs) -> List.map (followOrReturnReference state) vs |> List.zip gs |> Merging.merge
+        | term -> reference
 
-    let rec internal referenceToStaticField state fieldName typeName =
-        HeapRef(Concrete(typeName, String), [fieldName], String)
+    let internal referenceToField state followHeapRefs name parentRef =
+        let reference = referenceToFieldOf state name parentRef (deref state parentRef) in
+        if followHeapRefs then followOrReturnReference state reference
+        else reference
+
+    let rec internal referenceToStaticField state followHeapRefs fieldName typeName =
+        let reference = HeapRef(Concrete(typeName, String), [fieldName], String) in
+        if followHeapRefs then followOrReturnReference state reference
+        else reference
 
 // ------------------------------- Allocation -------------------------------
 
@@ -169,9 +181,9 @@ module internal Memory =
         | ClassType dotNetType as t ->
             let value, state = allocateSymbolicStruct isStatic state t dotNetType in
             allocateInHeap state value false
-        | ArrayType _ as t ->
-            // TODO!!!
-            (Concrete(null, t), state)
+        | ArrayType(e, d) as t ->
+            let value = Array.fresh d t name in
+            allocateInHeap state value false
         | _ -> __notImplemented__()
 
 // ------------------------------- Mutation -------------------------------
@@ -199,7 +211,7 @@ module internal Memory =
                 Struct(fields.Add(name, newField), t)
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (mutateField state path update) |> List.zip gs |> Merging.merge
-            | t -> failwith ("Internal error: expected struct, but got " + (toString t))
+            | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec private errorOr term = function
         | Error _ as e -> e
@@ -218,20 +230,32 @@ module internal Memory =
         let mutatedValue = mutateField state (List.rev path) update originalValue in
         (errorOr result mutatedValue, mutateHeap state heapKey mutatedValue)
 
-    let internal mutate state reference term =
+    let internal mutate state reference value =
         match reference with
         | Error _ as e -> (e, state)
-        | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (always term) term
-        | HeapRef(addr, path, _) -> mutateHeapPath state path addr (always term) term
+        | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (always value) value
+        | HeapRef(addr, path, _) -> mutateHeapPath state path addr (always value) value
         | Union gvs ->
             let mutateOneGuarded state (g, v) =
                 match v with
                 | Error _ -> (v, state)
-                | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g term) term
-                | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g term) term
-                | t -> failwith ("Internal error: expected union of references, but got " + (toString t))
+                | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g value) value
+                | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g value) value
+                | t -> internalfail ("expected union of references, but got " + (toString t))
             in
             let results, state = List.mapFold mutateOneGuarded state gvs in
             let gs = List.unzip gvs |> fst in
             (List.zip gs results |> Merging.merge, state)
-        | t -> failwith ("Internal error: expected reference, but got " + (toString t))
+        | t -> internalfail ("expected reference, but got " + (toString t))
+
+    let internal mutateArray state reference indices value =
+        let originalArray = deref state reference in
+        let mutatedArray = Array.write originalArray indices value in
+        let rec refine = function
+            | Error _ -> originalArray
+            | Terms.GuardedValues(gs, vs) ->
+                vs |> List.map refine |> List.zip gs |> Merging.merge
+            | t -> t
+        let resultingArray = refine mutatedArray in
+        let _, state = mutate state reference resultingArray in
+        (mutatedArray, state)

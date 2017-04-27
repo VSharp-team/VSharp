@@ -152,10 +152,10 @@ module internal Propositional =
             simplifyCoOp op co stopValue ignoreValue x xs y matched unmatched
         | _ -> unmatched ()
 
-    and private simplifyAnd x y k =
+    and internal simplifyAnd x y k =
         simplifyConnective OperationType.LogicalAnd OperationType.LogicalOr Terms.MakeFalse Terms.MakeTrue x y k
 
-    and private simplifyOr x y k =
+    and internal simplifyOr x y k =
         simplifyConnective OperationType.LogicalOr OperationType.LogicalAnd Terms.MakeTrue Terms.MakeFalse x y k
 
     and internal simplifyNegation x k =

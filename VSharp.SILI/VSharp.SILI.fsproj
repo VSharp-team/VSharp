@@ -59,16 +59,18 @@
     <Compile Include="Terms.fs" />
     <Compile Include="State.fs" />
     <Compile Include="Propositional.fs" />
-    <Compile Include="Union.fs" />
     <Compile Include="Merging.fs" />
     <Compile Include="Simplify.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
+    <Compile Include="Array.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
     <Compile Include="Lambdas.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Extern.fsi" />
+    <Compile Include="Extern.fs" />
     <Compile Include="SVM.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -99,6 +101,9 @@
     </ProjectReference>
     <Reference Include="JetBrains.Annotations">
       <HintPath>..\packages\JetBrains.Annotations.10.1.4\lib\net20\JetBrains.Annotations.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharpx.Collections">
+      <HintPath>..\packages\FSharpx.Collections.1.15.2\lib\net40\FSharpx.Collections.dll</HintPath>
     </Reference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
