@@ -59,6 +59,8 @@ module public Types =
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function
+        | null ->
+            internalfail "unresolved type!"
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
@@ -70,7 +72,7 @@ module public Types =
             Func(List.ofArray parameters, returnType)
         | a when a.IsArray -> ArrayType(FromDotNetType(a.GetElementType()), a.GetArrayRank())
         | s when s.IsValueType -> StructType s
-        // Actually interface is not nessesary reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+        // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
         | c when c.IsClass || c.IsInterface -> ClassType c
         | _ -> __notImplemented__()
 

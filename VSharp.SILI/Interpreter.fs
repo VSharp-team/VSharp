@@ -92,12 +92,16 @@ module internal Interpreter =
             | None -> parameters
         State.push state parametersAndThis |> k
 
-    and reduceFunction state this parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
+    and reduceFunction state this parameters (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature state signature this parameters (fun state ->
-        reduceBlockStatement state body (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
+        invoke state (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
+
+    and reduceFunctionWithBlockBody state this parameters (signature : IFunctionSignature) (body : IBlockStatement) k =
+        let invoke state k = reduceBlockStatement state body k in
+        reduceFunction state this parameters signature invoke k
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        reduceFunction state (Some this) parameters ast.Signature ast.Body k
+        reduceFunctionWithBlockBody state (Some this) parameters ast.Signature ast.Body k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName in
@@ -151,8 +155,9 @@ module internal Interpreter =
     and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         reduceExpression state ast.Delegate (fun (deleg, state) ->
-        let invoke deleg k =
+        let rec invoke deleg k =
             match deleg with
+                | HeapRef _ as r -> invoke (Memory.deref state r) k
                 | Lambdas.Lambda(lambda) -> lambda state args k
                 | Concrete(obj, _) ->
                     let exn = new InvalidCastException("Cannot apply non-function type") in
@@ -178,17 +183,23 @@ module internal Interpreter =
             let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
             decompileAndReduceMethod state targetTerm args qualifiedTypeName metadataMethod assemblyPath k
         in
-        let delegateTerm = Lambdas.Make metadataMethod invoke in
+        let delegateTerm, state = Lambdas.Make state metadataMethod invoke in
         let returnDelegateTerm state k = k (Return delegateTerm, state) in
         npeOrInvokeExpression state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let invoke state args k =
-            reduceFunction state None args ast.Signature ast.Body k
-        k (Lambdas.Make2 ast.Signature null invoke, state)
+            reduceFunctionWithBlockBody state None args ast.Signature ast.Body k
+        Lambdas.Make2 state ast.Signature null invoke |> k
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
-        __notImplemented__()
+        let invokeBody state k =
+            reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
+        in
+        let invoke state args k =
+            reduceFunction state None args ast.Signature invokeBody k
+        in
+        Lambdas.Make2 state ast.Signature null invoke |> k
 
     and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
         __notImplemented__()
@@ -866,10 +877,10 @@ module internal Interpreter =
         Memory.allocateInHeap state result false |> k))
 
     and initializeStaticMembersIfNeed state qualifiedTypeName k =
-        Console.WriteLine("Initializing static members of " + qualifiedTypeName)
         if State.staticMembersInitialized state qualifiedTypeName then
             k state
         else
+            Console.WriteLine("Initializing static members of " + qualifiedTypeName)
             let t = Types.FromQualifiedTypeName qualifiedTypeName in
             match Options.StaticFieldsValuation with
             | Options.Interpret ->

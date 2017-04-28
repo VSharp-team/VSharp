@@ -525,16 +525,19 @@ VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditi
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.Always18()
 RESULT: 18
 HEAP:
+1 ==> <Lambda Expression int32 -> object>
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.EnsureAlwaysN(System.Int32)
 RESULT: n
 HEAP:
+1 ==> <Lambda Expression int32 -> object>
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.FirstEvenGreaterThen7()
 RESULT: 8
 HEAP:
+1 ==> <Lambda Expression int32 -> object>
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib2()
@@ -705,6 +708,10 @@ METHOD: System.Boolean VSharp.CSharpUtils.Lists.Construct()
 RESULT: True
 HEAP:
 1 ==> [|  ... 0 ... |]
+10 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
+11 ==> <Lambda Expression int32 -> object>
+12 ==> <Lambda Expression int32 -> object>
+13 ==> <Lambda Expression int32 -> object>
 2 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> 4
@@ -712,8 +719,11 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 4]
 3 ==> [|  ... 4 ... |]
 4 ==> [| 0: 1; 1: 2; 2: 3; 3: 4 ... 4 ... |]
-5 ==> [|  ... 4 x 1 ... |]
-6 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
+5 ==> <Lambda Expression int32 -> object>
+6 ==> <Lambda Expression int32 -> object>
+7 ==> <Lambda Expression int32 -> object>
+8 ==> <Lambda Expression int32 -> object>
+9 ==> [|  ... 4 x 1 ... |]
 System.Array ==> STRUCT System.Array[
 	]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][

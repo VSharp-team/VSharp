@@ -59,6 +59,7 @@ type public Term =
             | Error e -> String.Format("<ERROR: {0}>", (toString e))
             | Nop -> "<VOID>"
             | Constant(name, _) -> name
+            | Concrete(lambda, t) when Types.IsFunction t -> String.Format("<Lambda Expression {0}>", t)
             | Concrete(value, _) -> if value = null then "null" else value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
