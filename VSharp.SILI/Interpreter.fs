@@ -545,7 +545,10 @@ module internal Interpreter =
             k (Memory.referenceToField state followHeapRefs id target, state)
 
     and reduceArrayElementAccessExpression state (ast : IArrayElementAccessExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Array (fun (arrayRef, state) ->
+        Cps.Seq.mapFoldk reduceExpression state ast.Indexes (fun (indices, state) ->
+        let array = Memory.deref state arrayRef in
+        (Array.read Memory.defaultOf array indices, state) |> k))
 
     and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
         k (Memory.valueOf state "this", state)
@@ -844,7 +847,8 @@ module internal Interpreter =
         k (tryCast ast.Type term, state))
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
-        __notImplemented__()
+        reduceExpression state ast.Argument (fun (term, state) ->
+        k (is ast.Type term, state))
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
         let instance = Types.MetadataToDotNetType ast.Type in
@@ -909,7 +913,7 @@ module internal Interpreter =
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
         // TODO: support collection initializers
-        let qualifiedTypeName = ast.ConstructedType.AssemblyQualifiedName in
+        let qualifiedTypeName = DecompilerServices.assemblyQualifiedName ast.ConstructedType in
         initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
         let fields = DecompilerServices.getDefaultFieldValuesOf false qualifiedTypeName in
         let names, typesAndInitializers = List.unzip fields in

@@ -159,7 +159,7 @@ module internal DecompilerServices =
         let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
         let parentFields =
             if isStatic || decompiledClass.TypeInfo.Base = null then []
-            else getDefaultFieldValuesOf false decompiledClass.TypeInfo.Base.AssemblyQualifiedName
+            else getDefaultFieldValuesOf false decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
         List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
@@ -204,3 +204,7 @@ module internal DecompilerServices =
             | [x] -> x
             | _ -> __notImplemented__() // TODO: args should be matched typewise
         | _ -> __notImplemented__()
+
+    let public assemblyQualifiedName : IMetadataType -> string = function
+        | :? IMetadataClassType as t -> t.Type.AssemblyQualifiedName
+        | t -> t.AssemblyQualifiedName

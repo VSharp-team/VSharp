@@ -9,7 +9,8 @@ module public SVM =
         let state = State.empty in
         let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
         let declaringType = Types.FromDotNetType(m.DeclaringType) in
-        let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
+        let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
+        Memory.resetHeap()
         Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
         match metadataMethodOption with
         | None -> printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
@@ -24,7 +25,6 @@ module public SVM =
                         let key = "external data" in
                         let state = State.push state [(key, instance)] in
                         (Memory.referenceToVariable state key true, state)
-            Memory.resetHeap()
             Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
             System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
             dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
