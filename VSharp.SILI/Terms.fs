@@ -9,14 +9,12 @@ type public Operation =
     | Operator of OperationType * bool
     | Application of string
     | Cast of TermType * TermType * bool
-    | Indexer
 
     member this.priority =
         match this with
         | Operator (op, _) -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
-        | Indexer -> Operations.maxPriority
 
 type public BlockAccess = FieldAccess of string | ArrayAccess of int
 
@@ -79,10 +77,6 @@ type public Term =
                     let format = checkExpression isChecked parentChecked operation.priority parentPriority "({0}){1}" in
                     format2 format (dest.ToString()) (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands))
                 | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> Wrappers.join ", " |> format2 "{0}({1})" f
-                | Indexer ->
-                    assert(List.length operands >= 2)
-                    let array, indeces = List.head operands, List.tail operands in
-                    String.Format("{0}[{1}]", toString array, operands |> List.map toString |> join ", ")
             | Struct(fields, t) ->
                 let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
                 let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort

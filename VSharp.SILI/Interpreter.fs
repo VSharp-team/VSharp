@@ -548,7 +548,9 @@ module internal Interpreter =
         reduceExpression state ast.Array (fun (arrayRef, state) ->
         Cps.Seq.mapFoldk reduceExpression state ast.Indexes (fun (indices, state) ->
         let array = Memory.deref state arrayRef in
-        (Array.read Memory.defaultOf array indices, state) |> k))
+        let result, newArray, state = Array.read Memory.defaultOf (Memory.allocateSymbolicInstance false) state array indices in
+        let _, state = Memory.mutate state arrayRef newArray in
+        (result, state) |> k))
 
     and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
         k (Memory.valueOf state "this", state)

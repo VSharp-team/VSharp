@@ -78,15 +78,28 @@ module internal Propositional =
         combine xs ys []
 
     let rec private simplifyConnective operation opposite stopValue ignoreValue x y k =
-        let defaultCase () = makeBin operation x y |> k
-
+        let defaultCase () = makeBin operation x y |> k in
         match x, y with
         | Error _, _ -> k x
         | _, Error _ -> k y
         | Nop, _ -> raise(new System.ArgumentException(sprintf "Invalid left operand of %s!" (operation.ToString())))
         | _, Nop -> raise(new System.ArgumentException(sprintf "Invalid right operand of %s!" (operation.ToString())))
-        | Union _, _ -> failwith (sprintf "Unexpected symbolic union in boolean operation (%s)" (operation.ToString()))
-        | _, Union _ -> failwith (sprintf "Unexpected symbolic union in boolean operation (%s)" (operation.ToString()))
+        | Union gvs1, Union gvs2 ->
+            Cps.List.mapk
+                (fun (g1, v1) k ->
+                    Cps.List.mapk
+                        (fun (g2, v2) k ->
+                            simplifyConnective OperationType.LogicalAnd OperationType.LogicalOr Terms.MakeFalse Terms.MakeTrue g1 g2 (fun g ->
+                            simplifyConnective operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
+                        gvs2 k)
+                gvs1
+                (fun gvss -> List.concat gvss |> Union |> k)
+        | Terms.GuardedValues(gs, vs), _ ->
+            Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue y) vs (fun xys ->
+            List.zip gs xys |> Union |> k)
+        | _, Terms.GuardedValues(gs, vs) ->
+            Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue x) vs (fun xys ->
+            List.zip gs xys |> Union |> k)
         | _ -> simplifyExt operation opposite stopValue ignoreValue x y k defaultCase
 
     and private simplifyExt op co stopValue ignoreValue x y matched unmatched =
@@ -160,11 +173,14 @@ module internal Propositional =
 
     and internal simplifyNegation x k =
         match x with
+        | Error _ -> k x
         | Concrete(b, t) -> Concrete(not (b :?> bool),t) |> k
         | Negation(x, _)  -> k x
         | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr l false Bool |> k)
         | DisjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalAnd l false Bool |> k)
-        | Union _ -> failwith "Unexpected symbolic union in boolean operation (negation)"
+        | Terms.GuardedValues(gs, vs) ->
+            Cps.List.mapk simplifyNegation vs (fun nvs ->
+            List.zip gs nvs |> Union |> k)
         | _ -> Terms.MakeUnary OperationType.LogicalNeg x false Bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue isChecked t x y matched unmatched =

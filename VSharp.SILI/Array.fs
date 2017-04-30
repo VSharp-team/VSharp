@@ -84,7 +84,7 @@ module Array =
 
 // ------------------------------- Reading/writing -------------------------------
 
-    let private unguardedAccess doJob array indices =
+    let private unguardedAccess doJob returnValue merge2 array indices =
         match array with
         | Array(lowerBounds, constant, contents, dimensions, ArrayType(elementType, _)) ->
             assert(List.length indices = Array.length dimensions)
@@ -101,47 +101,63 @@ module Array =
             let normalizedIndices = List.map2 (---) indices (List.ofArray lowerBounds) in
             let facticalAddress = List.fold ( *** ) (Concrete(1, lengthTermType)) normalizedIndices in
             match facticalAddress with
-            | Error _ -> facticalAddress
+            | Error _ -> returnValue facticalAddress
             | _ ->
                 let exn = Terms.MakeError(new System.IndexOutOfRangeException()) in
                 let result = doJob lowerBounds constant contents dimensions elementType facticalAddress
-                in Merging.merge2Terms inBounds !!inBounds result exn
+                in merge2 inBounds !!inBounds result exn
         | t -> internalfail (sprintf "expected array, but %s got!" (toString t))
 
-    let private accessUnguardedArray doJob guards indices array =
-        indices |> List.map (unguardedAccess doJob array) |> List.zip guards |> Merging.merge
+    let private accessUnguardedArray doJob merge merge2 returnValue guards indices array =
+        indices |> List.map (unguardedAccess doJob returnValue merge2 array) |> merge guards
 
-    let rec private accessArrayAt array indices doJob =
+    let rec private accessArrayAt array indices returnValue merge merge2 doJob =
         let guards, unguardedIndices = guardsProduct indices |> List.unzip in
         match array with
-        | Error _ -> array
+        | Error _ -> returnValue array
         | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (accessUnguardedArray doJob guards unguardedIndices) |> List.zip gs |> Merging.merge
-        | _ -> accessUnguardedArray doJob guards unguardedIndices array
+            vs |> List.map (accessUnguardedArray doJob merge merge2 returnValue guards unguardedIndices) |> merge gs
+        | _ -> accessUnguardedArray doJob merge merge2 returnValue guards unguardedIndices array
 
-    let rec internal read defaultOf array indices =
-        accessArrayAt array indices (fun lowerBounds constant contents dimensions elementType address ->
+    let rec internal read defaultOf createSymbolic state array indices =
+        accessArrayAt array indices
+            (fun v -> (v, array, state))
+            (fun guards triples ->
+                let values, arrays, states = List.unzip3 triples in
+                let mergedValues = Merging.merge (List.zip guards values) in
+                let mergedArrays = Merging.merge (List.zip guards arrays) in
+                let mergedStates = Merging.mergeStates guards states in
+                (mergedValues, mergedArrays, mergedStates))
+            (fun u1 u2 (v, a, s) w -> (Merging.merge2Terms u1 u2 v w, a, s))
+            (fun lowerBounds maybeConstant contents dimensions elementType address ->
             let readSymbolicIndex idx =
-                match constant with
-                | None -> defaultOf elementType
-                | Some constant -> Expression(Indexer, [constant; idx], elementType)
+                match maybeConstant with
+                | None -> (defaultOf elementType, array, state)
+                | Some constant ->
+                    let id = sprintf "%s[%s]" (toString constant) (toString idx) |> IdGenerator.startingWith in
+                    let value, state = createSymbolic id state elementType in
+                    let newContents = List.append contents [(idx, value)] in
+                    let typ = ArrayType(elementType, dimensions.Length) in
+                    let newArray = Array(lowerBounds, maybeConstant, newContents, dimensions, typ) in
+                    (value, newArray, state)
             in
             if Terms.IsConcrete address && List.forall (fst >> Terms.IsConcrete) contents
             then
                 match List.tryFind (fst >> ((=) address)) contents with
                 | None -> readSymbolicIndex address
-                | Some(_, value) -> value
+                | Some(_, value) -> (value, array, state)
             else
-                let defaultValue = readSymbolicIndex address in
+                let defaultValue, newArray, newState = readSymbolicIndex address in
                 let matchedContents, g =
                     contents |> (Terms.MakeTrue |> List.mapFold (fun g (idx, value) ->
                         let isIdx = Arithmetics.simplifyEqual address idx id in
                         (g &&& isIdx, value), g &&& !!isIdx))
                 in
-                List.append matchedContents [(g, defaultValue)] |> Merging.merge)
+                (List.append matchedContents [(g, defaultValue)] |> Merging.merge, newArray, newState))
 
     let rec internal write array indices value =
-        accessArrayAt array indices (fun lowerBounds constant contents dimensions elementType address ->
-            let filteredContents = contents |> List.filter (fst >> ((=) address) >> not) in
-            let typ = ArrayType(elementType, dimensions.Length) in
-            Array(lowerBounds, constant, (address, value)::filteredContents, dimensions, typ))
+        accessArrayAt array indices id (fun gs vs -> List.zip gs vs |> Merging.merge) Merging.merge2Terms
+            (fun lowerBounds constant contents dimensions elementType address ->
+                let filteredContents = contents |> List.filter (fst >> ((=) address) >> not) in
+                let typ = ArrayType(elementType, dimensions.Length) in
+                Array(lowerBounds, constant, (address, value)::filteredContents, dimensions, typ))
