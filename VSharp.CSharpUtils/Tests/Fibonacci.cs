@@ -9,14 +9,33 @@
             return FibRec(n - 1) + FibRec(n - 2);
         }
 
-        public static int Fib2()
-        {
-            return FibRec(2);
-        }
+        //public static int Fib2()
+        //{
+        //    return FibRec(2);
+        //}
 
-        public static int Fib5()
+        //public static int Fib5()
+        //{
+        //    return FibRec(5);
+        //}
+
+        private static int a = 0;
+        private static int b = 0;
+
+        public static void MutatingFib(int n)
         {
-            return FibRec(5);
+            if (n >= 2)
+            {
+                MutatingFib(n-1);
+                int c = a + b;
+                a = b;
+                b = c;
+            }
+            else
+            {
+                a = 1;
+                b = 1;
+            }
         }
     }
 }

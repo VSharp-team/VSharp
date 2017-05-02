@@ -5,9 +5,18 @@ open JetBrains.Decompiler.Ast
 open System
 
 [<StructuralEquality;NoComparison>]
+type FunctionIdentifier =
+    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
+    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    override this.ToString() =
+        match this with
+        | MetadataMethodIdentifier mm -> mm.Name
+        | DelegateIdentifier _ -> "<delegate>"
+
+[<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
-    | Application of string
+    | Application of FunctionIdentifier
     | Cast of TermType * TermType * bool
 
     member this.priority =
@@ -16,14 +25,12 @@ type public Operation =
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
 
-type public BlockAccess = FieldAccess of string | ArrayAccess of int
-
 [<StructuralEquality;NoComparison>]
 type public Term =
     | Error of Term
     | Nop
     | Concrete of Object * TermType
-    | Constant of string * TermType
+    | Constant of string * SymbolicConstantSource * TermType
     | Array of Term array               // Lower bounds
                 * Term option           // Symbolic constant (or None if array has default contents)
                 * (Term * Term) list    // Contents: index ~> mutation timestamp * value
@@ -56,7 +63,7 @@ type public Term =
             match term with
             | Error e -> String.Format("<ERROR: {0}>", (toString e))
             | Nop -> "<VOID>"
-            | Constant(name, _) -> name
+            | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> String.Format("<Lambda Expression {0}>", t)
             | Concrete(value, _) -> if value = null then "null" else value.ToString()
             | Expression(operation, operands, _) ->
@@ -94,6 +101,14 @@ type public Term =
                 String.Format("UNION[\n" + indent + "{0}]", String.Join("\n" + indent, printed))
         in
         toStr -1 false "\t" this
+
+and SymbolicConstantSource =
+    | LocationAccess of Term
+    | ArrayAccess of Term * Term
+    | FieldAccess of string * SymbolicConstantSource
+    | UnboundedRecursion of Term ref
+    | Symbolization of Term
+    | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
 
 module public Terms =
 
@@ -164,7 +179,7 @@ module public Terms =
         | Error _ -> TermType.Bottom
         | Nop -> TermType.Void
         | Concrete(_, t) -> t
-        | Constant(_, t) -> t
+        | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
         | StackRef(_, _, _, t) -> t
@@ -191,8 +206,8 @@ module public Terms =
     let public RangeOf =                TypeOf >> Types.RangeOf
     let public IsRelation =             TypeOf >> Types.IsRelation
 
-    let public FreshConstant name t =
-        Constant(name, Types.FromDotNetType t)
+    let public FreshConstant name source t =
+        Constant(name, source, Types.FromDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
         let actualType = if (value :> obj) = null then t else value.GetType() in
@@ -307,3 +322,44 @@ module public Terms =
         match term with
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
+
+    let rec private addConstants mapper acc = function
+        | Constant(name, source, t) as term ->
+            let acc =
+                match source with
+                | LocationAccess loc -> addConstants mapper acc loc
+                | ArrayAccess(arr, idx) -> addConstants mapper (addConstants mapper acc arr) idx
+                | FieldAccess(_, src) -> addConstants mapper acc (Constant(name, src, t))
+                | UnboundedRecursion app -> addConstants mapper acc !app
+                | Symbolization loc -> addConstants mapper acc loc
+                | SymbolicArrayLength(arr, _, _) -> addConstants mapper acc arr
+            in
+            match mapper acc term with
+            | Some value -> value::acc
+            | None -> acc
+        | Array(lowerBounds, constant, contents, lengths, _) ->
+            let indices, values = List.unzip contents
+            match constant with
+            | Some c -> addConstants mapper acc c
+            | None -> acc
+            |> addConstantsMany mapper (Seq.ofArray lowerBounds)
+            |> addConstantsMany mapper indices
+            |> addConstantsMany mapper values
+            |> addConstantsMany mapper lengths
+        | Expression(_, args, _) ->
+            addConstantsMany mapper args acc
+        | Struct(fields, _) ->
+            addConstantsMany mapper (fields |> Map.toList |> List.unzip |> snd) acc
+        | HeapRef(addr, _, _) ->
+            addConstants mapper acc addr
+        | GuardedValues(gs, vs) ->
+            addConstantsMany mapper gs acc |> addConstantsMany mapper vs
+        | Error e ->
+            addConstants mapper acc e
+        | _ -> acc
+
+    and private addConstantsMany mapper terms acc =
+        Seq.fold (addConstants mapper) acc terms
+
+    let public filterMapConstants mapper terms =
+        List.fold (addConstants mapper) [] terms

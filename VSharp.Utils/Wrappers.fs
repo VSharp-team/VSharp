@@ -27,6 +27,10 @@ module public Wrappers =
             dict.Add(key, newVal)
             newVal
 
+    let public tryGetDictValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+        if dict.ContainsKey(key) then dict.[key]
+        else defaultValue
+
     let mapFoldMap mapping state table =
         let mapFolder (map, state) key value =
             let newValue, newState = mapping key state value in

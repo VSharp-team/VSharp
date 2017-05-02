@@ -1,16 +1,30 @@
 ﻿namespace VSharp
 
 module internal State =
-    [<StructuralEquality;StructuralComparison>]
+    [<StructuralEquality;CustomComparison>]
     type internal HeapKey =
         | ConcreteAddress of int
         | StaticAddress of string
-        | SymbolicAddress of string
+        | SymbolicAddress of string * SymbolicConstantSource
+        with
+        interface System.IComparable with
+            member x.CompareTo y =
+                match y with
+                | :? HeapKey as k ->
+                    match x, k with
+                    | ConcreteAddress a1, ConcreteAddress a2 -> compare a1 a2
+                    | ConcreteAddress _, _ -> -1
+                    | StaticAddress _, ConcreteAddress _ -> 1
+                    | StaticAddress a1, StaticAddress a2 -> compare a1 a2
+                    | StaticAddress _, _ -> -1
+                    | SymbolicAddress(a1, _), SymbolicAddress(a2, _) -> compare a1 a2
+                    | SymbolicAddress _, _ -> 1
+                | t -> internalfail (sprintf "comparing heap key with %s" (toString t))
         override this.ToString() =
             match this with
             | ConcreteAddress a -> a.ToString()
             | StaticAddress a -> System.Type.GetType(a).FullName
-            | SymbolicAddress a -> a
+            | SymbolicAddress(a, _) -> a
 
     type internal environment = Map<string, Stack.stack<Term>>
     type internal heap = Map<HeapKey, Term>
@@ -34,9 +48,14 @@ module internal State =
         (List.fold popOne e names, h, Stack.pop f, p)
 
     let internal environment ((e, _, _, _) : state) = e
-    let internal path ((_, _, _, p) : state) = p
+    let internal pathCondition ((_, _, _, p) : state) = p
     let internal frames ((_, _, f, _) : state) = f
-    let internal appendPath ((e, h, f, p) : state) cond : state = (e, h, f, cond::p)
+
+    let internal withPathCondition ((e, h, f, p) : state) cond : state = (e, h, f, cond::p)
+    let internal popPathCondition ((e, h, f, p) : state) : state =
+        match p with
+        | [] -> internalfail "cannot pop empty path condition"
+        | _::p' -> (e, h, f, p')
 
     let private mergeMaps (map1 : Map<'a, 'b>) (map2 : Map<'a, 'b>) take update resolve =
         let resolveIfShould (map : Map<'a, 'b>) key value =

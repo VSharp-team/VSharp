@@ -19,7 +19,7 @@ module public SVM =
                 match m with
                 | _ when m.IsStatic -> (Concrete(null, declaringType), state)
                 | _ ->
-                    let instance, state = Memory.allocateSymbolicInstance false "" state declaringType in
+                    let instance, state = Memory.allocateSymbolicInstance false Memory.AllocateBoth (Symbolization Nop) "" state declaringType in
                     if Terms.IsHeapRef instance then (instance, state)
                     else
                         let key = "external data" in

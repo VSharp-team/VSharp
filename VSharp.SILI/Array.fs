@@ -11,13 +11,13 @@ module Array =
     let internal zeroLowerBound rank =
         Array.init rank (fun _ -> Concrete(0, lengthTermType))
 
-    let internal symbolicLowerBound arrayName rank =
-        match Options.SymbolicArrayLowerBoundStrategy with
+    let internal symbolicLowerBound array arrayName rank =
+        match Options.SymbolicArrayLowerBoundStrategy() with
         | Options.AlwaysZero -> zeroLowerBound rank
         | Options.AlwaysSymbolic ->
-            Array.init rank (fun _ ->
+            Array.init rank (fun i ->
                 let idOfBound = sprintf "lower bound of %s" arrayName |> IdGenerator.startingWith in
-                Constant(idOfBound, lengthTermType))
+                Constant(idOfBound, SymbolicArrayLength(array, i, false), lengthTermType))
 
     let internal dimensionsToLength =
         Array.fold ( *** ) (Concrete(1, lengthTermType))
@@ -28,10 +28,6 @@ module Array =
         | Terms.GuardedValues(gs, vs) ->
             vs |> List.map length |> List.zip gs |> Merging.merge
         | _ -> internalfail "computing length of non-array object"
-
-    let internal makeSymbolic dimensions typ name lowerBounds =
-        let length = dimensionsToLength dimensions in
-        Array(lowerBounds, Some(Constant(name, typ)), List.empty, dimensions, typ)
 
     let rec private guardsProduct = function
         | [] -> [(Terms.MakeTrue, [])]
@@ -56,10 +52,11 @@ module Array =
         in
         unguardedDimensions |> List.map (fun (g, ds) -> (g, makeArray (Array.ofList ds))) |> Merging.merge
 
-    let internal fresh rank typ name =
+    let internal makeSymbolic source rank typ name =
         let idOfLength = IdGenerator.startingWith (sprintf "|%s|" name) in
-        let lengths = Array.init rank (fun _ -> Constant(idOfLength, Numeric lengthType))
-        makeSymbolic lengths typ name (symbolicLowerBound name rank)
+        let constant = Constant(name, source, typ) in
+        let lengths = Array.init rank (fun i -> Constant(idOfLength, SymbolicArrayLength(constant, i, true), Numeric lengthType)) in
+        Array(symbolicLowerBound constant name rank, Some constant, List.empty, lengths, typ)
 
     let rec internal fromInitializer rank typ initializer =
         let rec flatten depth = function
@@ -135,7 +132,7 @@ module Array =
                 | None -> (defaultOf elementType, array, state)
                 | Some constant ->
                     let id = sprintf "%s[%s]" (toString constant) (toString idx) |> IdGenerator.startingWith in
-                    let value, state = createSymbolic id state elementType in
+                    let value, state = createSymbolic (ArrayAccess(constant, idx)) id state elementType in
                     let newContents = List.append contents [(idx, value)] in
                     let typ = ArrayType(elementType, dimensions.Length) in
                     let newArray = Array(lowerBounds, maybeConstant, newContents, dimensions, typ) in
