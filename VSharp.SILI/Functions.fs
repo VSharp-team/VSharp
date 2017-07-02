@@ -45,8 +45,9 @@ module Functions =
 
         let private findReadDependencies terms =
             let filterMapConstant deps = function
-            | Constant(_, Symbolization location, _) as term when not (List.exists (fst >> ((=) location)) deps) -> Some (location, term)
-            | _ -> None
+                | Constant(_, Symbolization location, _) as term when not (List.exists (fst >> ((=) location)) deps) ->
+                    Some (location, term)
+                | _ -> None
             let unsorted = Terms.filterMapConstants filterMapConstant terms in
             List.sortWith (fun (loc1, _) (loc2, _) -> Memory.compareRefs loc1 loc2) unsorted
 
@@ -95,6 +96,8 @@ module Functions =
 
         let internal isUnboundedApproximationStarted = unboundedFunctionResult.ContainsKey
 
+        let internal symbolizedState funcId = unboundedApproximationSymbolicState.[funcId]
+
         let internal startUnboundedApproximation state id returnType =
             let symbolicState = Memory.symbolizeState state in
             unboundedApproximationAttempts.[id] <- 0
@@ -108,7 +111,6 @@ module Functions =
                     let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
                     Memory.makeSymbolicInstance false (UnboundedRecursion (ref Nop)) resultName state returnType |> fst |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
-            symbolicState
 
         let public approximate id result state = //k =
             let attempt = unboundedApproximationAttempts.[id] + 1 in

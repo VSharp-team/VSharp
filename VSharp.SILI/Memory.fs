@@ -291,7 +291,7 @@ module internal Memory =
         let rec symbolizeValue name location v =
            makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (e, h, f, p) (Terms.TypeOf v) |> fst
         in
-        let e' = e |> Map.map (fun key values -> Stack.push (Stack.pop values) (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
+        let e' = e |> Map.map (fun key values -> Stack.updateHead values (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
         let h' = h |> Map.map (fun key value -> symbolizeValue (toString key) (heapKeyToTerm (key, value)) value) in
         (e', h', f, p)
 

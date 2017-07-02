@@ -338,7 +338,7 @@ module public Terms =
             | Some value -> value::acc
             | None -> acc
         | Array(lowerBounds, constant, contents, lengths, _) ->
-            let indices, values = List.unzip contents
+            let indices, values = List.unzip contents in
             match constant with
             | Some c -> addConstants mapper acc c
             | None -> acc

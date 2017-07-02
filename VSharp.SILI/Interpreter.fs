@@ -94,7 +94,7 @@ module internal Interpreter =
 
     and reduceFunction state this parameters returnType funcId (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature state signature this parameters (fun state ->
-        CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, State.pop state) |> k))
+        CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
     and reduceFunctionWithBlockBody state this parameters returnType funcId (signature : IFunctionSignature) (body : IBlockStatement) k =
         let invoke state k = reduceBlockStatement state body k in
