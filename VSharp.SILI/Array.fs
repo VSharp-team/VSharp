@@ -41,7 +41,6 @@ module Array =
             FSharpx.Collections.List.lift2 (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) current rest
 
     let rec internal makeDefault defaultOf dimensions typ lowerBounds =
-        let elementType = Types.elementType typ in
         let unguardedDimensions = guardsProduct dimensions in
         let makeArray dimensions =
             let length = dimensionsToLength dimensions in

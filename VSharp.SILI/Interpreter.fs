@@ -551,7 +551,7 @@ module internal Interpreter =
         reduceExpression state ast.Array (fun (arrayRef, state) ->
         Cps.Seq.mapFoldk reduceExpression state ast.Indexes (fun (indices, state) ->
         let array = Memory.deref state arrayRef in
-        let result, newArray, state = Array.read Memory.defaultOf (Memory.allocateSymbolicInstance false Memory.AllocatePointerOnly) state array indices in
+        let result, newArray, state = Array.read Memory.defaultOf (Memory.makeSymbolicInstance false) state array indices in
         let _, state = Memory.mutate state arrayRef newArray in
         (result, state) |> k))
 
@@ -914,7 +914,7 @@ module internal Interpreter =
                 | None -> k state)
             | Options.SymbolizeStaticFields ->
                 let addr = HeapRef(Concrete(qualifiedTypeName, VSharp.String), [], t) in
-                let instance, state = Memory.allocateSymbolicStruct true Memory.AllocateContentsOnly (Symbolization addr) state t (System.Type.GetType(qualifiedTypeName)) in
+                let instance, state = Memory.makeSymbolicStruct true (Symbolization addr) state t (System.Type.GetType(qualifiedTypeName)) in
                 Memory.allocateInStaticMemory state qualifiedTypeName instance |> k
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
@@ -929,7 +929,7 @@ module internal Interpreter =
                         |> List.zip names |> Map.ofList in
         let t = Types.FromMetadataType ast.ConstructedType in
         let freshValue = Struct(fields, t) in
-        let isReference = Types.IsReference t in
+        let isReference = Types.IsReferenceType t in
         let reference, state =
             if isReference
             then Memory.allocateInHeap state freshValue None

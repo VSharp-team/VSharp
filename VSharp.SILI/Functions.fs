@@ -61,11 +61,11 @@ module Functions =
             | Return Nop -> (NoResult, state)
             | Return term ->
                 let resultName = IdGenerator.startingWith(toString id + "%%res") in
-                let result, state = Memory.allocateSymbolicInstance false Memory.AllocatePointerOnly (UnboundedRecursion source) resultName state (Terms.TypeOf term) in
+                let result, state = Memory.makeSymbolicInstance false (UnboundedRecursion source) resultName state (Terms.TypeOf term) in
                 Return result, state
             | Throw e ->
                 let resultName = IdGenerator.startingWith(toString id + "%%err") in
-                let error, state = Memory.allocateSymbolicInstance false Memory.AllocatePointerOnly (UnboundedRecursion source) resultName state (Terms.TypeOf e) in
+                let error, state = Memory.makeSymbolicInstance false  (UnboundedRecursion source) resultName state (Terms.TypeOf e) in
                 Throw error, state
             | Guarded gvs ->
                 let guards, results = List.unzip gvs in
@@ -106,8 +106,9 @@ module Functions =
                 | Void -> NoResult
                 | _ ->
                     let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
-                    Memory.allocateSymbolicInstance false Memory.AllocatePointerOnly (UnboundedRecursion (ref Nop)) resultName state returnType |> fst |> Return
+                    Memory.makeSymbolicInstance false (UnboundedRecursion (ref Nop)) resultName state returnType |> fst |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
+            symbolicState
 
         let public approximate id result state = //k =
             let attempt = unboundedApproximationAttempts.[id] + 1 in

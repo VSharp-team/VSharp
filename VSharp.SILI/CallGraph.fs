@@ -20,7 +20,7 @@ module CallGraph =
     let rec private approximateIteratively state body funcId k (result, state') =
         match result with
         | Rollback funcId' when funcId' = funcId ->
-            body state (approximateIteratively state body funcId k)
+            body state' (approximateIteratively state' body funcId k)
         | _ when Functions.UnboundedRecursionCache.approximate funcId result state' ->
             callStack <- Stack.pop callStack
             k (result, state')
@@ -55,8 +55,8 @@ module CallGraph =
             if Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId then
                 Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
             else
-                Functions.UnboundedRecursionCache.startUnboundedApproximation state funcId returnType
-                k (Rollback funcId, state)
+                let symbolicState = Functions.UnboundedRecursionCache.startUnboundedApproximation state funcId returnType in
+                k (Rollback funcId, symbolicState)
         else
             callStack <- Stack.push callStack frame
             body state (approximateIteratively state body funcId k)

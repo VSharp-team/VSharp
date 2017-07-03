@@ -26,6 +26,10 @@ module internal Memory =
         | SymbolicAddress(addr, source) ->
             HeapRef(Constant(addr, source, pointerType), [], Terms.TypeOf value)
 
+    let private isStaticLocation = function
+        | HeapRef(Concrete(typeName, t), _, _) when Types.IsString t -> true
+        | _ -> false
+
     let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
     let private heapDeref ((_, h, _, _) : state) addr = h.[addr]
@@ -70,7 +74,8 @@ module internal Memory =
             match term with
             | Error _ -> term
             | Struct(fields, _) as s ->
-                if not (fields.ContainsKey(name)) then internalfail (format2 "{0} does not contain field {1}" s name)
+                if not (fields.ContainsKey(name)) then
+                    internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
@@ -182,39 +187,32 @@ module internal Memory =
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Map.map (fun _ -> defaultOf) fields, t)
         | _ -> __notImplemented__()
-
-    type internal SymbolicReferenceTypeAllocationStrategy = AllocateContentsOnly | AllocatePointerOnly | AllocateBoth
-
-    let rec internal allocateSymbolicStruct isStatic strategy source state t dotNetType =
-        let fields, state =
-            Types.GetFieldsOf dotNetType isStatic |> mapFoldMap (fun name state -> allocateSymbolicInstance false strategy (FieldAccess(name, source)) name state) state in
+        
+    // GZ: Drop state
+    let rec internal makeSymbolicStruct isStatic source state t dotNetType =
+        let fields, state = Types.GetFieldsOf dotNetType isStatic |> mapFoldMap (fun name state -> makeSymbolicInstance false (FieldAccess(name, source)) name state) state in
         (Struct(fields, t), state)
-
-    and internal allocateSymbolicInstance isStatic strategy source name state = function
+    
+    and internal makeSymbolicInstance isStatic source name state = function
         | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> (Constant(name, source, t), state)
-        | StructType dotNetType as t -> allocateSymbolicStruct isStatic strategy source state t dotNetType
-        | ClassType dotNetType as t ->
-            match strategy with
-            | AllocatePointerOnly ->
+        | StructType dotNetType as t -> makeSymbolicStruct isStatic source state t dotNetType
+        | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source state t dotNetType
+        | ArrayType(e, d) as t -> (Array.makeSymbolic source d t name, state)
+        | PointerType termType as t -> 
+            match termType with
+            | ClassType _
+            | ArrayType _ ->
                 let address = IdGenerator.startingWith("addr") in
                 HeapRef (Constant(address, source, pointerType), [], t), state
-            | AllocateContentsOnly ->
-                allocateSymbolicStruct isStatic strategy source state t dotNetType
-            | AllocateBoth ->
-                let value, state = allocateSymbolicStruct isStatic strategy source state t dotNetType in
-                allocateInHeap state value None
-        | ArrayType(e, d) as t ->
-            match strategy with
-            | AllocatePointerOnly ->
-                let address = IdGenerator.startingWith("addr") in
-                HeapRef (Constant(address, source, pointerType), [], pointerType), state
-            | AllocateContentsOnly ->
-                (Array.makeSymbolic source d t name, state)
-            | AllocateBoth ->
-                let value = Array.makeSymbolic source d t name in
-                allocateInHeap state value None
+            | StructType _ -> internalfail "symbolization of PointerType of StructType"
+            | _ -> __notImplemented__()
         | _ -> __notImplemented__()
-
+        
+        
+    and internal allocateSymbolicInstance isStatic source name state t =
+        let value, state = makeSymbolicInstance isStatic source name state t in
+        allocateInHeap state value None
+        
 // ------------------------------- Mutation -------------------------------
 
     let private mutateTop ((e, h, f, p) : state) name term : state =
@@ -291,7 +289,7 @@ module internal Memory =
 
     let symbolizeState ((e, h, f, p) : state) : state =
         let rec symbolizeValue name location v =
-            allocateSymbolicInstance false AllocatePointerOnly (Symbolization location) name (e, h, f, p) (Terms.TypeOf v) |> fst
+           makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (e, h, f, p) (Terms.TypeOf v) |> fst
         in
         let e' = e |> Map.map (fun key values -> Stack.push (Stack.pop values) (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
         let h' = h |> Map.map (fun key value -> symbolizeValue (toString key) (heapKeyToTerm (key, value)) value) in
@@ -306,11 +304,11 @@ module internal Memory =
             | Mutation(location, _) ->
                 let v = deref state location in
                 let name = IdGenerator.startingWith (toString location) in
-                let result, state = allocateSymbolicInstance false AllocatePointerOnly (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf v)
+                let result, state = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf v) in
                 mutate state location result // TODO: raw mutate here after refactoring!
             | Allocation(location, value) ->
                 let name = IdGenerator.startingWith (toString location) in
-                allocateSymbolicInstance true AllocateBoth (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf value)
+                allocateSymbolicInstance false (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf value)
         in
         List.mapFold symbolizeValue state locations
 
