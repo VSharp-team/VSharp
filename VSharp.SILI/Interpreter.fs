@@ -155,7 +155,13 @@ module internal Interpreter =
 
     and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
-        reduceExpression state ast.Delegate (fun (deleg, state) ->
+
+        let curDelegate = Transformations.currentLambdaExpression ast |> function
+            | null -> ast.Delegate
+            | d -> d
+        in
+
+        reduceExpression state curDelegate (fun (deleg, state) ->
         let rec invoke deleg k =
             match deleg with
                 | HeapRef _ as r -> invoke (Memory.deref state r) k
@@ -316,7 +322,7 @@ module internal Interpreter =
 
     and reduceForStatement state (ast : IForStatement) k =
         let lambdaBlock = Transformations.forStatementToRecursion ast in
-        reduceBlockStatement state lambdaBlock k
+        reduceExpressionStatement state lambdaBlock k
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
         __notImplemented__()
