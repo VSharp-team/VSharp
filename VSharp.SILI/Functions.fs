@@ -112,17 +112,18 @@ module Functions =
                     Memory.makeSymbolicInstance false (UnboundedRecursion (ref Nop)) resultName state returnType |> fst |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
 
-        let public approximate id result state = //k =
-            let attempt = unboundedApproximationAttempts.[id] + 1 in
-            if attempt > Options.WriteDependenciesApproximationTreshold() then
-                failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
-            else
-                unboundedApproximationAttempts.[id] <- attempt
-                let symbolicState = unboundedApproximationSymbolicState.[id] in
-                let writeDependencies = Memory.diff symbolicState state in
-                let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
-                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
-                let approximationDone = overwriteReadWriteDependencies id readDependencies writeDependencies in
-                if approximationDone then
-                    unboundedFunctionResult.[id] <- result
-                approximationDone
+        let internal approximate id result state = //k =
+            not (isUnboundedApproximationStarted id ) ||
+                let attempt = unboundedApproximationAttempts.[id] + 1 in
+                if attempt > Options.WriteDependenciesApproximationTreshold() then
+                    failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
+                else
+                    unboundedApproximationAttempts.[id] <- attempt
+                    let symbolicState = unboundedApproximationSymbolicState.[id] in
+                    let writeDependencies = Memory.diff symbolicState state in
+                    let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
+                    let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
+                    let approximationDone = overwriteReadWriteDependencies id readDependencies writeDependencies in
+                    if approximationDone then
+                        unboundedFunctionResult.[id] <- result
+                    approximationDone
