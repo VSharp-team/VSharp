@@ -188,29 +188,28 @@ module internal Memory =
             Struct(Map.map (fun _ -> defaultOf) fields, t)
         | _ -> __notImplemented__()
         
-    // GZ: Drop state
-    let rec internal makeSymbolicStruct isStatic source state t dotNetType =
-        let fields, state = Types.GetFieldsOf dotNetType isStatic |> mapFoldMap (fun name state -> makeSymbolicInstance false (FieldAccess(name, source)) name state) state in
-        (Struct(fields, t), state)
+    let rec internal makeSymbolicStruct isStatic source t dotNetType =
+        let fields = Types.GetFieldsOf dotNetType isStatic |> Map.map (fun name -> makeSymbolicInstance false (FieldAccess(name, source)) name) in
+        Struct(fields, t)
     
-    and internal makeSymbolicInstance isStatic source name state = function
-        | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> (Constant(name, source, t), state)
-        | StructType dotNetType as t -> makeSymbolicStruct isStatic source state t dotNetType
-        | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source state t dotNetType
-        | ArrayType(e, d) as t -> (Array.makeSymbolic source d t name, state)
+    and internal makeSymbolicInstance isStatic source name = function
+        | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> Constant(name, source, t)
+        | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
+        | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
         | PointerType termType as t -> 
             match termType with
             | ClassType _
             | ArrayType _ ->
                 let address = IdGenerator.startingWith("addr") in
-                HeapRef (Constant(address, source, pointerType), [], t), state
+                HeapRef (Constant(address, source, pointerType), [], t)
             | StructType _ -> internalfail "symbolization of PointerType of StructType"
             | _ -> __notImplemented__()
         | _ -> __notImplemented__()
         
         
     and internal allocateSymbolicInstance isStatic source name state t =
-        let value, state = makeSymbolicInstance isStatic source name state t in
+        let value = makeSymbolicInstance isStatic source name t in
         allocateInHeap state value None
         
 // ------------------------------- Mutation -------------------------------
@@ -289,7 +288,7 @@ module internal Memory =
 
     let symbolizeState ((e, h, f, p) : state) : state =
         let rec symbolizeValue name location v =
-           makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (e, h, f, p) (Terms.TypeOf v) |> fst
+           makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (Terms.TypeOf v)
         in
         let e' = e |> Map.map (fun key values -> Stack.updateHead values (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
         let h' = h |> Map.map (fun key value -> symbolizeValue (toString key) (heapKeyToTerm (key, value)) value) in
@@ -299,16 +298,16 @@ module internal Memory =
         | Mutation of Term * Term
         | Allocation of Term * Term
 
-    let symbolizeLocations state locations =
+    let symbolizeLocations state sourceRef locations =
         let rec symbolizeValue state = function
             | Mutation(location, _) ->
                 let v = deref state location in
                 let name = IdGenerator.startingWith (toString location) in
-                let result, state = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf v) in
-                mutate state location result // TODO: raw mutate here after refactoring!
+                let result = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (TermRef sourceRef)) name (Terms.TypeOf v) in
+                mutate state location result
             | Allocation(location, value) ->
                 let name = IdGenerator.startingWith (toString location) in
-                allocateSymbolicInstance false (UnboundedRecursion (ref Nop)) name state (Terms.TypeOf value)
+                allocateSymbolicInstance false (UnboundedRecursion (TermRef sourceRef)) name state (Terms.TypeOf value)
         in
         List.mapFold symbolizeValue state locations
 

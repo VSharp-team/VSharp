@@ -914,7 +914,7 @@ module internal Interpreter =
                 | None -> k state)
             | Options.SymbolizeStaticFields ->
                 let addr = HeapRef(Concrete(qualifiedTypeName, VSharp.String), [], t) in
-                let instance, state = Memory.makeSymbolicStruct true (Symbolization addr) state t (System.Type.GetType(qualifiedTypeName)) in
+                let instance = Memory.makeSymbolicStruct true (Symbolization addr) t (System.Type.GetType(qualifiedTypeName)) in
                 Memory.allocateInStaticMemory state qualifiedTypeName instance |> k
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =

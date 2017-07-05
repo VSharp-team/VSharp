@@ -131,7 +131,7 @@ module Array =
                 | None -> (defaultOf elementType, array, state)
                 | Some constant ->
                     let id = sprintf "%s[%s]" (toString constant) (toString idx) |> IdGenerator.startingWith in
-                    let value, state = createSymbolic (ArrayAccess(constant, idx)) id state elementType in
+                    let value = createSymbolic (ArrayAccess(constant, idx)) id elementType in
                     let newContents = List.append contents [(idx, value)] in
                     let typ = ArrayType(elementType, dimensions.Length) in
                     let newArray = Array(lowerBounds, maybeConstant, newContents, dimensions, typ) in
