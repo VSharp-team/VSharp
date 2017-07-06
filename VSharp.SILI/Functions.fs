@@ -78,7 +78,7 @@ module Functions =
             let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
             let writeDepsLocations = writeDependencies.[id] in
             let readDeps = readDepsLocations |> List.map (Memory.deref state) in
-            let writeDeps, state = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
+            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
 
             let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in
             let isSymbolizedConstant _ = function
@@ -90,7 +90,7 @@ module Functions =
 
             let applicationTerm = Expression(Application id, List.append readDeps allResults, Bool) in
             sourceRef := applicationTerm
-            k (result, state)
+            k (result, state')
 
         let internal isUnboundedApproximationStarted = unboundedFunctionResult.ContainsKey
 
@@ -111,15 +111,14 @@ module Functions =
             in unboundedFunctionResult.[id] <- symbolicResult
 
         let internal approximate id result state =
-            not (isUnboundedApproximationStarted id ) ||
-                let attempt = unboundedApproximationAttempts.[id] + 1 in
-                if attempt > Options.WriteDependenciesApproximationTreshold() then
-                    failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
-                else
-                    unboundedApproximationAttempts.[id] <- attempt
-                    let symbolicState = unboundedApproximationSymbolicState.[id] in
-                    let writeDependencies = Memory.diff symbolicState state in
-                    let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
-                    let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
-                    unboundedFunctionResult.[id] <- result
-                    overwriteReadWriteDependencies id readDependencies writeDependencies
+            let attempt = unboundedApproximationAttempts.[id] + 1 in
+            if attempt > Options.WriteDependenciesApproximationTreshold() then
+                failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
+            else
+                unboundedApproximationAttempts.[id] <- attempt
+                let symbolicState = unboundedApproximationSymbolicState.[id] in
+                let writeDependencies = Memory.diff symbolicState state in
+                let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
+                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
+                unboundedFunctionResult.[id] <- result
+                overwriteReadWriteDependencies id readDependencies writeDependencies

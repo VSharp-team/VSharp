@@ -15,20 +15,28 @@ module internal Memory =
         | term -> internalfail ("expected primitive heap address " + (toString term))
 
     let private stackKeyToTerm (name, vals) =
-        StackRef(name, (Stack.size vals) - 1, [], Terms.TypeOf (Stack.peak vals))
+        StackRef(name, (Stack.size vals) - 1, [], Terms.TypeOf (Stack.peak vals) |> PointerType)
 
     let private heapKeyToTerm (key, value) =
+        let t = Terms.TypeOf value |> PointerType in
         match key with
         | ConcreteAddress addr ->
-            HeapRef(Concrete(addr, pointerType), [], Terms.TypeOf value)
+            HeapRef(Concrete(addr, pointerType), [], t)
         | StaticAddress addr ->
-            HeapRef(Concrete(addr, String), [], Terms.TypeOf value)
+            HeapRef(Concrete(addr, String), [], t)
         | SymbolicAddress(addr, source) ->
-            HeapRef(Constant(addr, source, pointerType), [], Terms.TypeOf value)
+            HeapRef(Constant(addr, source, pointerType), [], t)
 
     let private isStaticLocation = function
         | HeapRef(Concrete(typeName, t), _, _) when Types.IsString t -> true
         | _ -> false
+
+    let private nameOfLocation = function
+        | HeapRef(_, x::xs, _) -> x
+        | HeapRef(_, _, t) -> toString t
+        | StackRef(name, _, x::xs, _) -> sprintf "%s.%s" name x
+        | StackRef(name, _, _, _) -> name
+        | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
     let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
@@ -302,11 +310,11 @@ module internal Memory =
         let rec symbolizeValue state = function
             | Mutation(location, _) ->
                 let v = deref state location in
-                let name = IdGenerator.startingWith (toString location) in
+                let name = nameOfLocation location |> IdGenerator.startingWith in
                 let result = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (TermRef sourceRef)) name (Terms.TypeOf v) in
                 mutate state location result
             | Allocation(location, value) ->
-                let name = IdGenerator.startingWith (toString location) in
+                let name = nameOfLocation location |> IdGenerator.startingWith in
                 allocateSymbolicInstance false (UnboundedRecursion (TermRef sourceRef)) name state (Terms.TypeOf value)
         in
         List.mapFold symbolizeValue state locations

@@ -17,16 +17,22 @@ module CallGraph =
             | Options.AlwaysEnableUnrolling -> false
             | _ -> true
 
-    let rec private approximateIteratively state body funcId k (result, state') =
+    let rec private approximateIteratively initialState symbolicState body funcId k (result, finalState) =
         match result with
         | Rollback funcId' when funcId' = funcId ->
             let symbolicState = Functions.UnboundedRecursionCache.symbolizedState funcId in
-            body symbolicState (approximateIteratively symbolicState body funcId k)
-        | _ when Functions.UnboundedRecursionCache.approximate funcId result state' ->
+            body symbolicState (approximateIteratively initialState symbolicState body funcId k)
+        | _ when not (Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId) ->
             callStack <- Stack.pop callStack
-            k (result, State.pop state')
+            k (result, State.pop finalState)
+        | _ when Functions.UnboundedRecursionCache.approximate funcId result finalState ->
+            callStack <- Stack.pop callStack
+            Functions.UnboundedRecursionCache.invokeUnboundedRecursion
+                initialState
+                funcId
+                (fun (result, state) -> k (result, State.pop finalState))
         | _ ->
-            body state (approximateIteratively state body funcId k)
+            body symbolicState (approximateIteratively initialState symbolicState body funcId k)
 
     let internal call state funcId body returnType k =
         // This is one of the most important moments for the unbound recursion encoding.
@@ -60,4 +66,4 @@ module CallGraph =
                 k (Rollback funcId, state)
         else
             callStack <- Stack.push callStack frame
-            body state (approximateIteratively state body funcId k)
+            body state (approximateIteratively state State.empty body funcId k)
