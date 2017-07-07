@@ -17,20 +17,26 @@ module CallGraph =
             | Options.AlwaysEnableUnrolling -> false
             | _ -> true
 
+    let finalizeApproximation state id k =
+        callStack <- Stack.pop callStack
+        Functions.UnboundedRecursionCache.invokeUnboundedRecursion state id (fun (result, state) -> k (result, State.pop state))
+
     let rec private approximateIteratively initialState returnType symbolicState body funcId k (result, finalState) =
         match result with
         | Rollback funcId' when funcId' = funcId ->
-            let symbolicState = Functions.UnboundedRecursionCache.startUnboundedApproximation initialState funcId returnType in
-            body symbolicState (approximateIteratively initialState returnType symbolicState body funcId k)
-        | _ when not (Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId) ->
+            match Functions.UnboundedRecursionCache.unboundedApproximationState funcId with
+            | Functions.UnboundedRecursionCache.NotStarted ->
+                let symbolicState = Functions.UnboundedRecursionCache.startUnboundedApproximation initialState funcId returnType in
+                body symbolicState (approximateIteratively initialState returnType symbolicState body funcId k)
+            | Functions.UnboundedRecursionCache.Ready ->
+                finalizeApproximation initialState funcId k
+            | Functions.UnboundedRecursionCache.InProgress ->
+                internalfail "unexpected state of the unbounded approximation!"
+        | _ when Functions.UnboundedRecursionCache.unboundedApproximationState funcId = Functions.UnboundedRecursionCache.NotStarted ->
             callStack <- Stack.pop callStack
             k (result, State.pop finalState)
         | _ when Functions.UnboundedRecursionCache.approximate funcId result finalState ->
-            callStack <- Stack.pop callStack
-            Functions.UnboundedRecursionCache.invokeUnboundedRecursion
-                initialState
-                funcId
-                (fun (result, state) -> k (result, State.pop state))
+            finalizeApproximation initialState funcId k
         | _ ->
             body symbolicState (approximateIteratively initialState returnType symbolicState body funcId k)
 
@@ -59,10 +65,12 @@ module CallGraph =
         let frame = (funcId, pathCondition) in
         let shouldStopUnrolling = detectUnboundRecursion frame in
         if shouldStopUnrolling then
-            if Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId then
-                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
-            else
+            match Functions.UnboundedRecursionCache.unboundedApproximationState funcId with
+            | Functions.UnboundedRecursionCache.NotStarted
+            | Functions.UnboundedRecursionCache.Ready ->
                 k (Rollback funcId, state)
+            | Functions.UnboundedRecursionCache.InProgress ->
+                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
         else
             callStack <- Stack.push callStack frame
             body state (approximateIteratively state returnType State.empty body funcId k)

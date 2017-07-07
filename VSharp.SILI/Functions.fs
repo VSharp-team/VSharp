@@ -27,7 +27,9 @@ module Functions =
         | _ -> None
 
     module UnboundedRecursionCache =
+        type UnboundedApproximationState = NotStarted | InProgress | Ready
 
+        let private unboundedApproximationFinished = new Dictionary<FunctionIdentifier, bool>()
         let private unboundedApproximationAttempts = new Dictionary<FunctionIdentifier, int>()
         let private unboundedApproximationSymbolicState = new Dictionary<FunctionIdentifier, State.state>()
         let private unboundedFunctionResult = new Dictionary<FunctionIdentifier, StatementResult>()
@@ -53,7 +55,9 @@ module Functions =
             let currentWriteDeps = writeDependencies.[id] in
             readDependencies.[id] <- readDeps
             writeDependencies.[id] <- writeDeps
-            List.length currentWriteDeps = List.length writeDeps
+            let result = List.length currentWriteDeps = List.length writeDeps
+            unboundedApproximationFinished.[id] <- result
+            result
 
         let rec private symbolizeUnboundedResult source id = function
             | NoResult
@@ -92,9 +96,14 @@ module Functions =
             sourceRef := applicationTerm
             k (result, state')
 
-        let internal isUnboundedApproximationStarted = unboundedFunctionResult.ContainsKey
+        let internal unboundedApproximationState id =
+            if unboundedApproximationFinished.ContainsKey(id) then
+                if (unboundedApproximationFinished.[id]) then Ready
+                else InProgress
+            else NotStarted
 
         let internal startUnboundedApproximation state id returnType =
+            unboundedApproximationFinished.[id] <- false
             let symbolicState = Memory.symbolizeState state in
             unboundedApproximationAttempts.[id] <- 0
             unboundedApproximationSymbolicState.[id] <- symbolicState
