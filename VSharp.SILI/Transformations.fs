@@ -59,10 +59,12 @@ module Transformations =
                   if (condition) {        <--- ifStatement
                       body                <--- internalBody
                       iterator
-                      callLambda(var)     <--- recursiveCallStatement: some hack
+                      currentLambda(var)  <--- recursiveCallStatement (hacked call)
                   }                       <--- externalBody (endof)
              }(val);
-        Note that it isn't valid c# code
+        Note that isn't a valid c# code: anonymous functions can't be recursively called
+        without giving it a name. The interpreter must consider "CurrentLambdaExpression"
+        property of delegate calls to invoke this!
         *)
         let indexers =
             match forStatement.Initializer with
@@ -100,7 +102,7 @@ module Transformations =
         let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null) in
         let body = AstFactory.CreateBlockStatement([ifStatement]) in
         // Continue consumers should only belong to block statements
-        iterator.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("ContinueConsumer"), true)
+        DecompilerServices.setPropertyOfNode recursiveCall "ContinueConsumer" true
 
         let signature = AstFactory.CreateFunctionSignature() in
         let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null) in
@@ -114,9 +116,9 @@ module Transformations =
         let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null) in
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in
 
-        recursiveCall.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<IExpression>("CurrentLambdaExpression"), lambdaBlock :> IExpression)
-        recursiveCallStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
-        callStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
+        DecompilerServices.setPropertyOfNode recursiveCall "CurrentLambdaExpression" lambdaBlock
+        DecompilerServices.setPropertyOfNode recursiveCallStatement "InlinedCall" true
+        DecompilerServices.setPropertyOfNode callStatement "InlinedCall" true
         match forStatement.Parent with
         | null -> ()
         | :? IBlockStatement as parentBlock ->

@@ -32,7 +32,7 @@ module internal ControlFlow =
             match mergeResults cond (thenArg (v, other)) (elseArg (v, other)) with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard(g &&& g2), v2))
             | v -> List.singleton (guard(g), v)
-        gvs |> List.map mergeOne |> List.concat
+        gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not)
 
     let rec private createImplicitPathCondition (statement : JetBrains.Decompiler.Ast.IStatement) accTerm (term, statementResult) =
         match statementResult with
@@ -88,7 +88,9 @@ module internal ControlFlow =
             | NoResult -> newRes
             | _ -> oldRes
         match oldRes, newRes with
-        | NoResult, _ -> newRes, newState
+        | NoResult, _
+        | _, Rollback _ ->
+            newRes, newState
         | Break, _
         | Continue, _
         | Throw _, _
@@ -100,7 +102,7 @@ module internal ControlFlow =
                 match newRes with
                 | Guarded gvs' ->
                     let composeOne (g, v) = List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs' in
-                    gvs |> List.map composeOne |> List.concat |> Merging.mergeSame
+                    gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not) |> Merging.mergeSame
                 | _ ->
                     let gs, vs = List.unzip gvs in
                     List.zip gs (List.map (composeFlat newRes) vs)
