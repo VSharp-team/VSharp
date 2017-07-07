@@ -55,15 +55,14 @@ module Transformations =
             for (type var = val; condition; iterator)
                 body
         into
-            Action<type> loop = null;     <--- declaration
-            loop= var => {                <--- lambda, assignment
+            var => {                      <--- lambda, assignment
                   if (condition) {        <--- ifStatement
                       body                <--- internalBody
                       iterator
-                      loop(var)           <--- recursiveCallStatement
+                      callLambda(var)     <--- recursiveCallStatement: some hack
                   }                       <--- externalBody (endof)
-             };
-             loop(val);
+             }(val);
+        Note that it isn't valid c# code
         *)
         let indexers =
             match forStatement.Initializer with
@@ -83,12 +82,6 @@ module Transformations =
 
         let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(Array.ofList indexerTypes) in
         let lambdaType = DecompilerServices.resolveType lambdaDotNetType in
-        let loopId = IdGenerator.startingWith "loop" in
-        let loopVariable = createLocalVariable loopId lambdaType forStatement in
-        let lambdaReference = AstFactory.CreateLocalVariableReference(loopVariable, null) in
-        let nullExpression = AstFactory.CreateLiteral(Constant.FromValueAndType(null, lambdaType), null) in
-        let declaration = AstFactory.CreateLocalVariableDeclaration(lambdaReference, null, nullExpression) in
-
         let condition = forStatement.Condition in
         let iterator = forStatement.Iterator in
         let internalBody = forStatement.Body in
@@ -96,8 +89,9 @@ module Transformations =
         forStatement.ReplaceChild(iterator, null)
         forStatement.ReplaceChild(internalBody, null)
 
-        let recursiveCall = AstFactory.CreateDelegateCall(lambdaReference, null, Array.ofList indexerVariables, null) in
+        let recursiveCall = AstFactory.CreateDelegateCall(null, null, Array.ofList indexerVariables, null) in
         let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, null) in
+
         let internalBodyContent =
             if internalBody :? IBlockStatement
             then (internalBody :?> IBlockStatement).Statements :> seq<_>
@@ -110,18 +104,17 @@ module Transformations =
 
         let signature = AstFactory.CreateFunctionSignature() in
         let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null) in
-        let lambdaBlockAssignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, lambdaReference, lambdaBlock, null, OverflowCheckType.DontCare) in
-        let lambdaBlockAssignmentStatement = AstFactory.CreateExpressionStatement(lambdaBlockAssignment, null) in
+        let lambdaBlockStatement = AstFactory.CreateExpressionStatement(lambdaBlock, null) in
         let addParameterToSignature index (variable : ILocalVariableDeclarationStatement) =
             let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index in
             signature.Parameters.Add(parameter)
         List.iteri addParameterToSignature indexers
-        DecompilerServices.setTypeOfNode lambdaBlockAssignment lambdaType
+        DecompilerServices.setTypeOfNode lambdaBlockStatement lambdaType
 
-        let call = AstFactory.CreateDelegateCall(lambdaReference, null, Array.ofList indexerInitializers, null) in
+        let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null) in
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in
-        let block = AstFactory.CreateBlockStatement([declaration; lambdaBlockAssignmentStatement; callStatement]) in
 
+        recursiveCall.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<IExpression>("CurrentLambdaExpression"), lambdaBlock :> IExpression)
         recursiveCallStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
         callStatement.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<bool>("InlinedCall"), true)
         match forStatement.Parent with
@@ -131,17 +124,21 @@ module Transformations =
             let forStatementIndex = Seq.findIndex ((=) (forStatement :> IStatement)) parentBlock.Statements in
             let newForStatement = Seq.item forStatementIndex newParent.Statements in
             let appendStatement statement = newParent.Statements.AddBefore(newForStatement, statement)
-            block.Statements |> Seq.iter appendStatement
+            appendStatement callStatement
             newParent.Statements.Remove(newForStatement) |> ignore
             parentBlock.ReplaceWith(newParent)
-        | parent -> parent.ReplaceChild(forStatement, block)
-        block
+        | parent -> parent.ReplaceChild(forStatement, callStatement)
+        callStatement
 
     let isInlinedCall (statement : IExpressionStatement) =
         statement.Expression :? IDelegateCallExpression && DecompilerServices.getPropertyOfNode statement "InlinedCall" false :?> bool
 
     let isContinueConsumer (node : INode) =
         node <> null && DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool
+
+    let currentLambdaExpression (node : INode) =
+        if node <> null then DecompilerServices.getPropertyOfNode node "CurrentLambdaExpression" null :?> IExpression
+        else null
 
     let extractExceptionFilter (ast : IBlockStatement) =
         if ast.Statements.Count <> 1 then __notImplemented__()

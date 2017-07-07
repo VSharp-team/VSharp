@@ -147,7 +147,7 @@ module internal Interpreter =
 
 // ------------------------------- Delegates and lambdas -------------------------------
 
-    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
+    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) (k) : Term = // TODO: Make CPS-types great again!
         reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
 
     and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
@@ -155,7 +155,13 @@ module internal Interpreter =
 
     and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
-        reduceExpression state ast.Delegate (fun (deleg, state) ->
+
+        let curDelegate = Transformations.currentLambdaExpression ast |> function
+            | null -> ast.Delegate
+            | d -> d
+        in
+
+        reduceExpression state curDelegate (fun (deleg, state) ->
         let rec invoke deleg k =
             match deleg with
                 | HeapRef _ as r -> invoke (Memory.deref state r) k
@@ -316,7 +322,7 @@ module internal Interpreter =
 
     and reduceForStatement state (ast : IForStatement) k =
         let lambdaBlock = Transformations.forStatementToRecursion ast in
-        reduceBlockStatement state lambdaBlock k
+        reduceExpressionStatement state lambdaBlock k
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
         __notImplemented__()
@@ -326,24 +332,30 @@ module internal Interpreter =
 
 // ------------------------------- Linear control flow-------------------------------
 
-    and composeSequentially (result, state) statement k =
-        if ControlFlow.calculationDone null result then k (result, state)
-        else
-            statement state (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
-
-    and reduceSequentially state statements k =
-        Cps.Seq.foldlk composeSequentially (NoResult, State.push state []) statements (fun (res, state) -> k (res, State.pop state))
-
-    and reduceBlockStatement state (ast : IBlockStatement) k =
-        let compose (result, state) statement k =
-            if ControlFlow.calculationDone statement result then k (result, state)
-            else
+    and composeSequentially isContinueConsumer (result, state) statement k =
+        let pathCondition = ControlFlow.currentCalculationPathCondition null result in
+        reduceConditionalExecution state
+            (fun state k -> k (pathCondition, state))
+            (fun state k ->
                 let result =
-                    if Transformations.isContinueConsumer statement
+                    if isContinueConsumer ()
                     then ControlFlow.consumeContinue result
                     else result
                 in
-                reduceStatement state statement (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
+                statement state (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState)))
+            (fun state k -> k (result, state))
+            k
+
+    and reduceSequentially state statements k =
+        Cps.Seq.foldlk 
+            (composeSequentially (fun () -> false))
+            (NoResult, State.push state []) 
+            statements
+            (fun (res, state) -> k (res, State.pop state))
+
+    and reduceBlockStatement state (ast : IBlockStatement) k =
+        let compose rs statement k =
+            composeSequentially (fun () -> Transformations.isContinueConsumer statement) rs (fun state -> reduceStatement state statement) k  
         Cps.Seq.foldlk compose (NoResult, State.push state []) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
@@ -939,7 +951,7 @@ module internal Interpreter =
                 (Memory.referenceToVariable state tempVar false, state)
         in
         let finish r =
-            composeSequentially r
+            composeSequentially (fun () -> false) r
                 (fun state k ->
                     if not isReference
                     then k (Return (Memory.deref state reference), State.pop state)
@@ -947,11 +959,12 @@ module internal Interpreter =
                 (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
         in
         let invokeInitializers r =
-            composeSequentially r (fun state k ->
+            composeSequentially (fun () -> false) r (fun state k ->
                 if ast.ObjectInitializer <> null then
                     reduceMemberInitializerList reference state ast.ObjectInitializer k
                 else if ast.CollectionInitializer <> null then
                     reduceCollectionInitializerList ast.ConstructedType reference state ast.CollectionInitializer k
+                else k (NoResult, state)
             ) finish
         in
         let baseClasses = DecompilerServices.baseClassesChain ast.ConstructedType in
@@ -963,7 +976,7 @@ module internal Interpreter =
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
                 decompileAndReduceMethod state reference arguments qualifiedTypeName ast.ConstructorSpecification.Method assemblyPath k)
         in
-        let reduceConstructors = baseClasses |> List.map reduceConstructor in
+        let reduceConstructors = baseClasses |> Seq.map reduceConstructor in
         reduceSequentially state reduceConstructors invokeInitializers))
 
     and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
