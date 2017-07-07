@@ -162,6 +162,7 @@ module public Types =
             match t with
             | _ when t.AssemblyQualifiedName = "__Null" -> Object
             | _ when t.FullName = "System.Object" -> Object
+            | _ when t.FullName = "System.Void" -> Void
             | :? IMetadataGenericArgumentReferenceType as g ->
                 let constraints = g.Argument.TypeConstraints in
                 if not(Array.isEmpty constraints) then

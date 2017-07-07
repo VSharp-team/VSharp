@@ -1,8 +1,8 @@
 ﻿namespace VSharp
 
-open FSharpx.Collections
 open JetBrains.Decompiler.Ast
 open System
+open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
 type FunctionIdentifier =
@@ -102,11 +102,22 @@ type public Term =
         in
         toStr -1 false "\t" this
 
+and
+    [<CustomEquality;NoComparison>]
+    TermRef =
+        | TermRef of Term ref
+        override this.GetHashCode() =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(this)
+        override this.Equals(o : obj) =
+            match o with
+            | :? TermRef as other -> this.GetHashCode() = other.GetHashCode()
+            | _ -> false
+
 and SymbolicConstantSource =
     | LocationAccess of Term
     | ArrayAccess of Term * Term
     | FieldAccess of string * SymbolicConstantSource
-    | UnboundedRecursion of Term ref
+    | UnboundedRecursion of TermRef
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
 
@@ -323,16 +334,17 @@ module public Terms =
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
 
-    let rec private addConstants mapper acc = function
-        | Constant(name, source, t) as term ->
+    let rec private addConstants mapper (visited : HashSet<Term>) acc = function
+        | Constant(name, source, t) as term when visited.Add(term) ->
+            Console.WriteLine("{0};;; ;;;{1}", term, visited);
             let acc =
                 match source with
-                | LocationAccess loc -> addConstants mapper acc loc
-                | ArrayAccess(arr, idx) -> addConstants mapper (addConstants mapper acc arr) idx
-                | FieldAccess(_, src) -> addConstants mapper acc (Constant(name, src, t))
-                | UnboundedRecursion app -> addConstants mapper acc !app
-                | Symbolization loc -> addConstants mapper acc loc
-                | SymbolicArrayLength(arr, _, _) -> addConstants mapper acc arr
+                | LocationAccess loc -> addConstants mapper visited acc loc
+                | ArrayAccess(arr, idx) -> addConstants mapper visited (addConstants mapper visited acc arr) idx
+                | FieldAccess(_, src) -> addConstants mapper visited acc (Constant(name, src, t))
+                | UnboundedRecursion (TermRef app) -> addConstants mapper visited acc !app
+                | Symbolization loc -> addConstants mapper visited acc loc
+                | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
             in
             match mapper acc term with
             | Some value -> value::acc
@@ -340,26 +352,26 @@ module public Terms =
         | Array(lowerBounds, constant, contents, lengths, _) ->
             let indices, values = List.unzip contents in
             match constant with
-            | Some c -> addConstants mapper acc c
+            | Some c -> addConstants mapper visited acc c
             | None -> acc
-            |> addConstantsMany mapper (Seq.ofArray lowerBounds)
-            |> addConstantsMany mapper indices
-            |> addConstantsMany mapper values
-            |> addConstantsMany mapper lengths
+            |> addConstantsMany mapper visited (Seq.ofArray lowerBounds)
+            |> addConstantsMany mapper visited indices
+            |> addConstantsMany mapper visited values
+            |> addConstantsMany mapper visited lengths
         | Expression(_, args, _) ->
-            addConstantsMany mapper args acc
+            addConstantsMany mapper visited args acc
         | Struct(fields, _) ->
-            addConstantsMany mapper (fields |> Map.toList |> List.unzip |> snd) acc
+            addConstantsMany mapper visited (fields |> Map.toList |> List.unzip |> snd) acc
         | HeapRef(addr, _, _) ->
-            addConstants mapper acc addr
+            addConstants mapper visited acc addr
         | GuardedValues(gs, vs) ->
-            addConstantsMany mapper gs acc |> addConstantsMany mapper vs
+            addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs
         | Error e ->
-            addConstants mapper acc e
+            addConstants mapper visited acc e
         | _ -> acc
 
-    and private addConstantsMany mapper terms acc =
-        Seq.fold (addConstants mapper) acc terms
+    and private addConstantsMany mapper visited terms acc =
+        Seq.fold (addConstants mapper visited) acc terms
 
     let public filterMapConstants mapper terms =
-        List.fold (addConstants mapper) [] terms
+        List.fold (addConstants mapper (new HashSet<Term>())) [] terms

@@ -27,13 +27,14 @@ module Functions =
         | _ -> None
 
     module UnboundedRecursionCache =
+        type UnboundedApproximationState = NotStarted | InProgress | Ready
 
+        let private unboundedApproximationFinished = new Dictionary<FunctionIdentifier, bool>()
         let private unboundedApproximationAttempts = new Dictionary<FunctionIdentifier, int>()
         let private unboundedApproximationSymbolicState = new Dictionary<FunctionIdentifier, State.state>()
         let private unboundedFunctionResult = new Dictionary<FunctionIdentifier, StatementResult>()
         let private readDependencies = new Dictionary<FunctionIdentifier, (Term * Term) list>()
         let private writeDependencies = new  Dictionary<FunctionIdentifier, Memory.StateDiff list>()
-//        let private unboundedFunctions = new Dictionary<FunctionIdentifier, obj>()
 
         let public clear () =
             unboundedApproximationAttempts.Clear()
@@ -41,7 +42,6 @@ module Functions =
             unboundedFunctionResult.Clear()
             readDependencies.Clear()
             writeDependencies.Clear()
-//            unboundedFunctions.Clear()
 
         let private findReadDependencies terms =
             let filterMapConstant deps = function
@@ -55,36 +55,38 @@ module Functions =
             let currentWriteDeps = writeDependencies.[id] in
             readDependencies.[id] <- readDeps
             writeDependencies.[id] <- writeDeps
-            List.length currentWriteDeps = List.length writeDeps
+            let result = List.length currentWriteDeps = List.length writeDeps
+            unboundedApproximationFinished.[id] <- result
+            result
 
-        let rec private symbolizeUnboundedResult source id state = function
+        let rec private symbolizeUnboundedResult source id = function
             | NoResult
-            | Return Nop -> (NoResult, state)
+            | Return Nop -> NoResult
             | Return term ->
                 let resultName = IdGenerator.startingWith(toString id + "%%res") in
-                let result, state = Memory.makeSymbolicInstance false (UnboundedRecursion source) resultName state (Terms.TypeOf term) in
-                Return result, state
+                let result = Memory.makeSymbolicInstance false source resultName (Terms.TypeOf term) in
+                Return result
             | Throw e ->
                 let resultName = IdGenerator.startingWith(toString id + "%%err") in
-                let error, state = Memory.makeSymbolicInstance false  (UnboundedRecursion source) resultName state (Terms.TypeOf e) in
-                Throw error, state
+                let error = Memory.makeSymbolicInstance false  source resultName (Terms.TypeOf e) in
+                Throw error
             | Guarded gvs ->
                 let guards, results = List.unzip gvs in
-                let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), UnboundedRecursion source, Bool)) guards in
-                let symbolizedResults, state = List.mapFold (symbolizeUnboundedResult source id) state results in
-                Guarded(List.zip symbolizedGuards symbolizedResults), state
+                let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), source, Bool)) guards in
+                let symbolizedResults = List.map (symbolizeUnboundedResult source id) results in
+                Guarded(List.zip symbolizedGuards symbolizedResults)
             | r -> internalfail ("unexpected result of the unbounded encoding " + toString r)
 
         let internal invokeUnboundedRecursion state id k =
+            let sourceRef = ref Nop in
             let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
             let writeDepsLocations = writeDependencies.[id] in
             let readDeps = readDepsLocations |> List.map (Memory.deref state) in
-            let writeDeps, state = writeDepsLocations |> Memory.symbolizeLocations state in
-            let sourceRef = ref Nop in
+            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
 
-            let result, state = symbolizeUnboundedResult sourceRef id state unboundedFunctionResult.[id] in
+            let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in
             let isSymbolizedConstant _ = function
-                | Constant (_, UnboundedRecursion r, _) as c when LanguagePrimitives.PhysicalEquality r sourceRef -> Some c
+                | Constant (_, UnboundedRecursion (TermRef r), _) as c when LanguagePrimitives.PhysicalEquality r sourceRef -> Some c
                 | _ -> None
             in
             let resultConstants = Terms.filterMapConstants isSymbolizedConstant [ControlFlow.resultToTerm result] in
@@ -92,13 +94,16 @@ module Functions =
 
             let applicationTerm = Expression(Application id, List.append readDeps allResults, Bool) in
             sourceRef := applicationTerm
-            k (result, state)
+            k (result, state')
 
-        let internal isUnboundedApproximationStarted = unboundedFunctionResult.ContainsKey
-
-        let internal symbolizedState funcId = unboundedApproximationSymbolicState.[funcId]
+        let internal unboundedApproximationState id =
+            if unboundedApproximationFinished.ContainsKey(id) then
+                if (unboundedApproximationFinished.[id]) then Ready
+                else InProgress
+            else NotStarted
 
         let internal startUnboundedApproximation state id returnType =
+            unboundedApproximationFinished.[id] <- false
             let symbolicState = Memory.symbolizeState state in
             unboundedApproximationAttempts.[id] <- 0
             unboundedApproximationSymbolicState.[id] <- symbolicState
@@ -109,21 +114,19 @@ module Functions =
                 | Void -> NoResult
                 | _ ->
                     let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
-                    Memory.makeSymbolicInstance false (UnboundedRecursion (ref Nop)) resultName state returnType |> fst |> Return
+                    Memory.makeSymbolicInstance false (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
+            symbolicState
 
-        let internal approximate id result state = //k =
-            not (isUnboundedApproximationStarted id ) ||
-                let attempt = unboundedApproximationAttempts.[id] + 1 in
-                if attempt > Options.WriteDependenciesApproximationTreshold() then
-                    failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
-                else
-                    unboundedApproximationAttempts.[id] <- attempt
-                    let symbolicState = unboundedApproximationSymbolicState.[id] in
-                    let writeDependencies = Memory.diff symbolicState state in
-                    let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
-                    let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
-                    let approximationDone = overwriteReadWriteDependencies id readDependencies writeDependencies in
-                    if approximationDone then
-                        unboundedFunctionResult.[id] <- result
-                    approximationDone
+        let internal approximate id result state =
+            let attempt = unboundedApproximationAttempts.[id] + 1 in
+            if attempt > Options.WriteDependenciesApproximationTreshold() then
+                failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
+            else
+                unboundedApproximationAttempts.[id] <- attempt
+                let symbolicState = unboundedApproximationSymbolicState.[id] in
+                let writeDependencies = Memory.diff symbolicState state in
+                let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
+                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
+                unboundedFunctionResult.[id] <- result
+                overwriteReadWriteDependencies id readDependencies writeDependencies
