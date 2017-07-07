@@ -197,7 +197,12 @@ module internal Memory =
         | _ -> __notImplemented__()
         
     let rec internal makeSymbolicStruct isStatic source t dotNetType =
-        let fields = Types.GetFieldsOf dotNetType isStatic |> Map.map (fun name -> makeSymbolicInstance false (FieldAccess(name, source)) name) in
+        let updateSource field =
+            match source with
+            | Symbolization(HeapRef(loc, path, t)) -> Symbolization(HeapRef(loc, field::path, t))
+            | Symbolization(StackRef(loc, n, path, t)) -> Symbolization(StackRef(loc, n, field::path, t))
+            | _ -> FieldAccess(field, source)
+        let fields = Types.GetFieldsOf dotNetType isStatic |> Map.map (fun name -> makeSymbolicInstance false (updateSource name) name) in
         Struct(fields, t)
     
     and internal makeSymbolicInstance isStatic source name = function
@@ -388,6 +393,10 @@ module internal Memory =
         | _ when ref1 = ref2 -> 0
         | StackRef _, HeapRef _ -> -1
         | HeapRef _, StackRef _ -> 1
-        | StackRef(name1, n1, _, _), StackRef(name2, n2, _, _) -> if name1 = name2 && n1 < n2 || name1 < name2 then -1 else 1
-        | HeapRef _, HeapRef _ -> if extractHeapAddress ref1 < extractHeapAddress ref2 then -1 else 1
+        | StackRef(name1, n1, path1, _), StackRef(name2, n2, path2, _) ->
+            if name1 < name2 || name1 = name2 && n1 < n2 || name1 = name2 && n1 = n2 && path1 < path2 then -1 else 1
+        | HeapRef(addr1, path1, _), HeapRef(addr2, path2, _) ->
+            let haddr1 = extractHeapAddress addr1 in
+            let haddr2 = extractHeapAddress addr2 in
+            if haddr1 < haddr2 || haddr1 = haddr2 && path1 < path2 then -1 else 1
         | _ -> internalfail "compareRefs called with non-reference terms"

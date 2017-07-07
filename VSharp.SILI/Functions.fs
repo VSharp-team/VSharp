@@ -94,8 +94,6 @@ module Functions =
 
         let internal isUnboundedApproximationStarted = unboundedFunctionResult.ContainsKey
 
-        let internal symbolizedState funcId = unboundedApproximationSymbolicState.[funcId]
-
         let internal startUnboundedApproximation state id returnType =
             let symbolicState = Memory.symbolizeState state in
             unboundedApproximationAttempts.[id] <- 0
@@ -109,6 +107,7 @@ module Functions =
                     let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
                     Memory.makeSymbolicInstance false (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
+            symbolicState
 
         let internal approximate id result state =
             let attempt = unboundedApproximationAttempts.[id] + 1 in

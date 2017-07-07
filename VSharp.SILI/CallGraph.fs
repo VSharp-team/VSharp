@@ -17,11 +17,11 @@ module CallGraph =
             | Options.AlwaysEnableUnrolling -> false
             | _ -> true
 
-    let rec private approximateIteratively initialState symbolicState body funcId k (result, finalState) =
+    let rec private approximateIteratively initialState returnType symbolicState body funcId k (result, finalState) =
         match result with
         | Rollback funcId' when funcId' = funcId ->
-            let symbolicState = Functions.UnboundedRecursionCache.symbolizedState funcId in
-            body symbolicState (approximateIteratively initialState symbolicState body funcId k)
+            let symbolicState = Functions.UnboundedRecursionCache.startUnboundedApproximation initialState funcId returnType in
+            body symbolicState (approximateIteratively initialState returnType symbolicState body funcId k)
         | _ when not (Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId) ->
             callStack <- Stack.pop callStack
             k (result, State.pop finalState)
@@ -30,9 +30,9 @@ module CallGraph =
             Functions.UnboundedRecursionCache.invokeUnboundedRecursion
                 initialState
                 funcId
-                (fun (result, state) -> k (result, State.pop finalState))
+                (fun (result, state) -> k (result, State.pop state))
         | _ ->
-            body symbolicState (approximateIteratively initialState symbolicState body funcId k)
+            body symbolicState (approximateIteratively initialState returnType symbolicState body funcId k)
 
     let internal call state funcId body returnType k =
         // This is one of the most important moments for the unbound recursion encoding.
@@ -62,8 +62,7 @@ module CallGraph =
             if Functions.UnboundedRecursionCache.isUnboundedApproximationStarted funcId then
                 Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
             else
-                Functions.UnboundedRecursionCache.startUnboundedApproximation state funcId returnType
                 k (Rollback funcId, state)
         else
             callStack <- Stack.push callStack frame
-            body state (approximateIteratively state State.empty body funcId k)
+            body state (approximateIteratively state returnType State.empty body funcId k)
