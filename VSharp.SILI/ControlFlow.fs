@@ -23,8 +23,8 @@ module internal ControlFlow =
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
                 |> List.concat
                 |> Guarded
-        | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes fst snd |> Guarded
-        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes snd fst |> Guarded
+        | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes fst snd |> Merging.mergeSame |> Guarded
+        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes snd fst |> Merging.mergeSame |> Guarded
         | _, _ -> Guarded [(condition, thenRes); (!!condition, elseRes)]
 
     and private mergeGuarded gvs cond guard other thenArg elseArg =

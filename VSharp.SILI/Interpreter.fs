@@ -156,9 +156,9 @@ module internal Interpreter =
     and reduceDelegateCall state (ast : IDelegateCallExpression) k =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
 
-        let curDelegate = Transformations.currentLambdaExpression ast |> function
-            | null -> ast.Delegate
-            | d -> d
+        let curDelegate = Transformations.inlinedCallTarget ast |> function
+            | None -> ast.Delegate
+            | Some d -> d
         in
 
         reduceExpression state curDelegate (fun (deleg, state) ->
@@ -334,17 +334,15 @@ module internal Interpreter =
 
     and composeSequentially curIStatement (result, state) statement k =
         let pathCondition = ControlFlow.currentCalculationPathCondition (curIStatement()) result in
-        reduceConditionalExecution state
-            (fun state k -> k (pathCondition, state))
-            (fun state k ->
-                let result =
-                    if Transformations.isContinueConsumer (curIStatement())
-                    then ControlFlow.consumeContinue result
-                    else result
-                in
-                statement state (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState)))
-            (fun state k -> k (result, state))
-            k
+        match pathCondition with
+        | Terms.True -> statement state (fun (newRes, newState) -> k (ControlFlow.composeSequentially result newRes state newState))
+        | Terms.False -> k (result, state)
+        | _ ->
+            statement
+                (State.withPathCondition state pathCondition)
+                (fun (newRes, newState) ->
+                    let newState = State.popPathCondition newState in
+                    k (ControlFlow.composeSequentially result newRes state newState))
 
     and reduceSequentially state statements k =
         Cps.Seq.foldlk 

@@ -16,10 +16,15 @@ module Functions =
         let term = Concrete(lambda, typ) in
         Memory.allocateInHeap state term None
 
-    let public MakeLambda2 state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
+    let public MakeLambdaTerm (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromDecompiledSignature signature returnMetadataType in
-        let term = Concrete(lambda, typ) in
-        Memory.allocateInHeap state term None
+        Concrete(lambda, typ)
+
+    let public MakeLambda2 state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
+        let term = MakeLambdaTerm signature returnMetadataType lambda in
+        if Transformations.isInlinedSignatureCall signature
+            then Memory.allocateInHeap state term None
+            else term, state
 
     let (|Lambda|_|) = function
         | Concrete(lambda, t) when Types.IsFunction t && (lambda :? SymbolicLambda<'a>) ->
@@ -59,8 +64,30 @@ module Functions =
             unboundedApproximationFinished.[id] <- result
             result
 
+        let private exceptionsFirst (xG, xS) (yG, yS) =
+            match xS, yS with
+            | _ when xS = yS -> 0
+            | Throw _, _ -> -1
+            | _, _ -> 1
+
+        let private bubbleUpExceptions = function
+            | Guarded gvs -> List.sortWith exceptionsFirst gvs |> Guarded
+            | r -> r
+
+        let rec private makeMutuallyExclusiveGuards acc res xs =
+            match xs with
+            | [] -> Terms.MakeNAry OperationType.LogicalAnd (List.map (fun t -> Terms.Negate t) acc) false Bool |> fun g -> g::res
+            | x::xs -> Terms.MakeNAry OperationType.LogicalAnd (x::(List.map (fun t -> Terms.Negate t) acc)) false Bool |> fun g -> makeMutuallyExclusiveGuards (x::acc) (g::res) xs
+
+        let private mutuallyExclusiveGuards guards =
+            match guards with
+            | [x] -> guards
+            | x::xs -> makeMutuallyExclusiveGuards [] [] (List.rev xs)
+            | _ -> internalfail "single guard in union"
+
         let rec private symbolizeUnboundedResult source id = function
             | NoResult
+            | Break
             | Return Nop -> NoResult
             | Return term ->
                 let resultName = IdGenerator.startingWith(toString id + "%%res") in
@@ -73,6 +100,7 @@ module Functions =
             | Guarded gvs ->
                 let guards, results = List.unzip gvs in
                 let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), source, Bool)) guards in
+                let symbolizedGuards = mutuallyExclusiveGuards symbolizedGuards in
                 let symbolizedResults = List.map (symbolizeUnboundedResult source id) results in
                 Guarded(List.zip symbolizedGuards symbolizedResults)
             | r -> internalfail ("unexpected result of the unbounded encoding " + toString r)
@@ -127,6 +155,7 @@ module Functions =
                 let symbolicState = unboundedApproximationSymbolicState.[id] in
                 let writeDependencies = Memory.diff symbolicState state in
                 let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
+                let result = bubbleUpExceptions result in
                 let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
                 unboundedFunctionResult.[id] <- result
                 overwriteReadWriteDependencies id readDependencies writeDependencies

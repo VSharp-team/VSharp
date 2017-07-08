@@ -9,15 +9,15 @@
             return FibRec(n - 1) + FibRec(n - 2);
         }
 
-        //public static int Fib2()
-        //{
-        //    return FibRec(2);
-        //}
+        public static int Fib2()
+        {
+            return FibRec(2);
+        }
 
-        //public static int Fib5()
-        //{
-        //    return FibRec(5);
-        //}
+        public static int Fib5()
+        {
+            return FibRec(5);
+        }
 
         private static int a = 0;
         private static int b = 0;
