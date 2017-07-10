@@ -116,7 +116,8 @@ module Transformations =
         let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null) in
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in
 
-        DecompilerServices.setPropertyOfNode recursiveCall "CurrentLambdaExpression" lambdaBlock
+        DecompilerServices.setPropertyOfNode recursiveCall "InlinedCallTarget" lambdaBlock
+        DecompilerServices.setPropertyOfNode signature "InlinedCall" true
         DecompilerServices.setPropertyOfNode recursiveCallStatement "InlinedCall" true
         DecompilerServices.setPropertyOfNode callStatement "InlinedCall" true
         match forStatement.Parent with
@@ -138,9 +139,14 @@ module Transformations =
     let isContinueConsumer (node : INode) =
         node <> null && DecompilerServices.getPropertyOfNode node "ContinueConsumer" false :?> bool
 
-    let currentLambdaExpression (node : INode) =
-        if node <> null then DecompilerServices.getPropertyOfNode node "CurrentLambdaExpression" null :?> IExpression
-        else null
+    let inlinedCallTarget (node : INode) =
+        DecompilerServices.getPropertyOfNode node "InlinedCallTarget" null :?> IExpression |> function
+        | null -> None
+        | expression -> Some expression
+
+    let isInlinedSignatureCall (signature : IFunctionSignature) =
+        if signature <> null then DecompilerServices.getPropertyOfNode signature "InlinedCall" false :?> bool |> not
+        else false
 
     let extractExceptionFilter (ast : IBlockStatement) =
         if ast.Statements.Count <> 1 then __notImplemented__()

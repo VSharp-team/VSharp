@@ -1,21 +1,16 @@
 METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
 RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
 HEAP:
-1 ==> UNION[
-	| !(0 == n) ~> STRUCT VSharp.CSharpUtils.TryCatch[
+1 ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
-	| 0 == n ~> STRUCT System.ArgumentException[
+2 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
 	| System.Exception._HResult ~> -2147024809
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -23,23 +18,15 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> 0
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]]
-2 ==> STRUCT object[
-	]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 3 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -47,20 +34,15 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> 0
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 4 ==> STRUCT System.Exception[
 	| System.Exception._HResult ~> -2146233088
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> <VOID>
 	| System.Exception._message ~> Not odd!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -68,10 +50,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
@@ -86,23 +66,20 @@ System.ArgumentException ==> STRUCT System.ArgumentException[
 	]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> <VOID>]
+	| System.Exception.s_EDILock ~> STRUCT object[
+		]]
 System.InvalidOperationException ==> STRUCT System.InvalidOperationException[
 	]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> <VOID>]
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1(System.Int32, System.Int32)
 RESULT: UNION[
 	| !(0 == m) ~> 7 + n
-	| 0 == m ~> <ERROR: System.DivideByZeroException: Попытка деления на нуль.>]
+	| 0 == m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
 HEAP:
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -119,7 +96,7 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4(System.Int32, System.Int32)
 RESULT: UNION[
 	| !(0 == m * m * m) ~> -126826 + n + n + n + n + n + n
-	| 0 == m * m * m ~> <ERROR: System.DivideByZeroException: Попытка деления на нуль.>]
+	| 0 == m * m * m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
 HEAP:
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -559,6 +536,11 @@ VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.B.GetN()
 RESULT: VSharp.CSharpUtils.Tests.C._n
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+		| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+		| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+		| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]]
 VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
 	]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
@@ -566,31 +548,56 @@ VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 METHOD: System.Void VSharp.CSharpUtils.Tests.B.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.B[
+	| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
+		| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+		| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+		| VSharp.CSharpUtils.Tests.C._n ~> n]]
 VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M2()
 RESULT: VSharp.CSharpUtils.Tests.C._m2
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M2(System.Int32)
 RESULT: <VOID>
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.C._m2 ~> value
+	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M1()
 RESULT: VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M1(System.Int32)
 RESULT: <VOID>
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> value
+	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
+	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.C.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
+	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> 42
+	| VSharp.CSharpUtils.Tests.C._m2 ~> 102
+	| VSharp.CSharpUtils.Tests.C._n ~> n]
 VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
@@ -642,12 +649,14 @@ METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib2()
 RESULT: 2
 HEAP:
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
-	]
+	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> 0
+	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> 0]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib5()
 RESULT: 8
 HEAP:
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
-	]
+	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> 0
+	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> 0]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd1()
 RESULT: 1
 HEAP:
@@ -661,17 +670,21 @@ VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
 RESULT: 18
 HEAP:
+1 ==> <Lambda Expression int32 -> object>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
+1 ==> <Lambda Expression int32 -> object>
+2 ==> <Lambda Expression int32 -> object>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
+
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
 	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> !(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c) | !(R == c) & D == c & T == c | D == c & R == c]
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) | !(R == c) & D == c & T == c | D == c & R == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c)]
 HEAP:
 1 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
@@ -679,12 +692,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -692,42 +701,43 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> 0
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
-2 ==> STRUCT object[
-	]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 System.ArgumentException ==> STRUCT System.ArgumentException[
 	]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
+	| System.Exception.s_EDILock ~> STRUCT object[
+		]]
 System.Object ==> STRUCT System.Object[
 	]
- VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Lists.Construct()
 RESULT: True
 HEAP:
-1 ==> [|  ... 0 ... |]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
+1 ==> STRUCT VSharp.CSharpUtils.Lists[
+	]
+2 ==> [|  ... 0 ... |]
+3 ==> STRUCT System.Collections.Generic.List`1[T][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 5)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 4]
-3 ==> [|  ... 4 ... |]
-4 ==> [| 0: 1; 1: 2; 2: 3; 3: 4 ... 4 ... |]
-5 ==> [|  ... 4 x 1 ... |]
-6 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
+4 ==> [|  ... 4 ... |]
+5 ==> [| 0: 1; 1: 2; 2: 3; 3: 4 ... 4 ... |]
+6 ==> [|  ... 4 x 1 ... |]
+7 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
 System.Array ==> STRUCT System.Array[
-	| System.Array.MaxArrayLength ~> 2146435071
-	| System.Array.MaxByteArrayLength ~> 2147483591]
+	]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> <VOID>]
-System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]] ==> STRUCT System.Collections.Generic.List`1[System.Int32][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 VSharp.CSharpUtils.Lists ==> STRUCT VSharp.CSharpUtils.Lists[
 	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.FibUnbound(System.Int32)
+RESULT: VSharp.CSharpUtils.Tests.Fibonacci.b4
+HEAP:
+VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
+	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> VSharp.CSharpUtils.Tests.Fibonacci.a4
+	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> VSharp.CSharpUtils.Tests.Fibonacci.b4]
