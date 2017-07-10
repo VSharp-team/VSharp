@@ -1,3 +1,10 @@
+METHOD: System.Int32 VSharp.CSharpUtils.TryCatch.SafeFunc(System.Int32)
+RESULT: 1
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.TryCatch[
+	]
+VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
+	]
 METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
 RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
 HEAP:
