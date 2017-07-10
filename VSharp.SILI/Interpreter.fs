@@ -346,14 +346,14 @@ module internal Interpreter =
 
     and reduceSequentially state statements k =
         Cps.Seq.foldlk 
-            (composeSequentially (fun () -> null))
+            (composeSequentially (fun () -> None))
             (NoResult, State.push state []) 
             statements
             (fun (res, state) -> k (res, State.pop state))
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose rs statement k =
-            composeSequentially (fun () -> statement) rs (fun state -> reduceStatement state statement) k
+            composeSequentially (fun () -> Some(statement)) rs (fun state -> reduceStatement state statement) k
         Cps.Seq.foldlk compose (NoResult, State.push state []) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
@@ -949,7 +949,7 @@ module internal Interpreter =
                 (Memory.referenceToVariable state tempVar false, state)
         in
         let finish r =
-            composeSequentially (fun () -> null) r
+            composeSequentially (fun () -> None) r
                 (fun state k ->
                     if not isReference
                     then k (Return (Memory.deref state reference), State.pop state)
@@ -957,7 +957,7 @@ module internal Interpreter =
                 (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
         in
         let invokeInitializers r =
-            composeSequentially (fun () -> null) r (fun state k ->
+            composeSequentially (fun () -> None) r (fun state k ->
                 if ast.ObjectInitializer <> null then
                     reduceMemberInitializerList reference state ast.ObjectInitializer k
                 else if ast.CollectionInitializer <> null then

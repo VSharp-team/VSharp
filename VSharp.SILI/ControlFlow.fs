@@ -34,15 +34,18 @@ module internal ControlFlow =
             | v -> List.singleton (guard(g), v)
         gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not)
 
-    let rec private createImplicitPathCondition (statement : JetBrains.Decompiler.Ast.IStatement) accTerm (term, statementResult) =
+    let rec private createImplicitPathCondition (statement : Option<JetBrains.Decompiler.Ast.IStatement>) accTerm (term, statementResult) =
         match statementResult with
         | NoResult -> term ||| accTerm
-        | Continue -> if Transformations.isContinueConsumer statement then term ||| accTerm else accTerm
+        | Continue ->
+            match statement with
+            | Some(statement) -> if Transformations.isContinueConsumer statement then term ||| accTerm else accTerm
+            | None -> accTerm
         | Guarded gvs ->
             List.fold (createImplicitPathCondition statement) accTerm gvs
         | _ -> accTerm
 
-    let internal currentCalculationPathCondition (statement : JetBrains.Decompiler.Ast.IStatement) statementResult =
+    let internal currentCalculationPathCondition (statement : Option<JetBrains.Decompiler.Ast.IStatement>) statementResult =
          createImplicitPathCondition statement Terms.MakeFalse (Terms.MakeTrue, statementResult)
 
     let internal isRollback = function
