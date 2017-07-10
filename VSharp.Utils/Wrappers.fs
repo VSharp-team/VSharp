@@ -45,3 +45,10 @@ module public Wrappers =
                 | Some m -> mappedPartitionAcc f (m::left) right xs
                 | None -> mappedPartitionAcc f left (x::right) xs
         mappedPartitionAcc f [] [] xs
+
+    let rec map2 f xs1 xs2 =
+        match xs1, xs2 with
+        | SeqEmpty, [] -> []
+        | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2 f xs1 xs2'
+        | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2 f xs1' xs2
+        | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'

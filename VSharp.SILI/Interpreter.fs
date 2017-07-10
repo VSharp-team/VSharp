@@ -71,19 +71,13 @@ module internal Interpreter =
                 reduceDecompiledMethod state this parameters decompiledMethod k
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
-        let rec map2 f xs1 xs2 =
-            match xs1, xs2 with
-            | SeqEmpty, [] -> []
-            | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2 f xs1 xs2'
-            | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2 f xs1' xs2
-            | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'
         let valueOrFreshConst (param : Option<IMethodParameter>) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then (param.Name, Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
-                else (param.Name, Term.Constant(param.Name, Symbolization Nop, Types.FromMetadataType param.Type))
+                else (param.Name, Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromMetadataType param.Type))
             | Some param, Some value -> (param.Name, value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -1083,6 +1077,7 @@ module internal Interpreter =
 
     and reducePinStatement state (ast : IPinStatement) k =
         __notImplemented__()
+
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
         __notImplemented__()
