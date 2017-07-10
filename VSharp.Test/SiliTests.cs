@@ -16,7 +16,7 @@ namespace VSharp.Test
         private const string MethodSeparator = "METHOD: ";
         private const string ResultSeparator = "RESULT: ";
         private const string TestsDirectoryName = "Tests";
-        private const string IdealTestFilePattern = "*.gold";
+        private const string IdealTestFileExtension = ".gold";
 
         private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
         {
@@ -71,16 +71,12 @@ namespace VSharp.Test
 
         private IEnumerable<IDictionary<string, string>> ReadAllIdealValues(string testDir, System.Text.StringBuilder failReason)
         {
+            string os = Environment.OSVersion.Platform.ToString();
+            string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
+            IDictionary<string, string> values = ParseIdealValues(goldFile, failReason);
             var result = new List<IDictionary<string, string>>();
-            var idealFiles = Directory.GetFiles(testDir, IdealTestFilePattern);
-            foreach (string file in idealFiles)
-            {
-                IDictionary<string, string> values = ParseIdealValues(file, failReason);
-                if (values != null)
-                {
-                    result.Add(values);
-                }
-            }
+            if (values != null)
+                result.Add(values);
             return result;
         }
 
