@@ -1,10 +1,9 @@
 METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
 RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
 HEAP:
-1 ==> UNION[
-	| !(0 == n) ~> STRUCT VSharp.CSharpUtils.TryCatch[
+1 ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
-	| 0 == n ~> STRUCT System.ArgumentException[
+2 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
 	| System.Exception._HResult ~> -2147024809
 	| System.Exception._className ~> null
@@ -26,10 +25,10 @@ HEAP:
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> 0
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]]
-2 ==> STRUCT object[
+		| System.IntPtr.m_value ~> null]]
+3 ==> STRUCT object[
 	]
-3 ==> STRUCT System.InvalidOperationException[
+4 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -51,7 +50,7 @@ HEAP:
 	| System.Exception._xcode ~> 0
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
-4 ==> STRUCT System.Exception[
+5 ==> STRUCT System.Exception[
 	| System.Exception._HResult ~> -2146233088
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -64,7 +63,7 @@ HEAP:
 	| System.Exception._message ~> Not odd!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 6)
+	| System.Exception._safeSerializationManager ~> (HeapRef 7)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -72,12 +71,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+7 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
@@ -86,7 +85,7 @@ System.ArgumentException ==> STRUCT System.ArgumentException[
 	]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> <VOID>]
 System.InvalidOperationException ==> STRUCT System.InvalidOperationException[
@@ -671,7 +670,7 @@ VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
 	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> !(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c) | !(R == c) & D == c & T == c | D == c & R == c]
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) | !(R == c) & D == c & T == c | D == c & R == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c)]
 HEAP:
 1 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
@@ -705,29 +704,28 @@ System.Exception ==> STRUCT System.Exception[
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[
 	]
- VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Lists.Construct()
 RESULT: True
 HEAP:
-1 ==> [|  ... 0 ... |]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
+1 ==> STRUCT VSharp.CSharpUtils.Lists[
+	]
+2 ==> [|  ... 0 ... |]
+3 ==> STRUCT System.Collections.Generic.List`1[T][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 5)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 4]
-3 ==> [|  ... 4 ... |]
-4 ==> [| 0: 1; 1: 2; 2: 3; 3: 4 ... 4 ... |]
-5 ==> [|  ... 4 x 1 ... |]
-6 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
+4 ==> [|  ... 4 ... |]
+5 ==> [| 0: 1; 1: 2; 2: 3; 3: 4 ... 4 ... |]
+6 ==> [|  ... 4 x 1 ... |]
+7 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> <VOID>]
-System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]] ==> STRUCT System.Collections.Generic.List`1[System.Int32][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 VSharp.CSharpUtils.Lists ==> STRUCT VSharp.CSharpUtils.Lists[
 	]

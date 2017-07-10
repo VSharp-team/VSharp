@@ -102,7 +102,7 @@ namespace VSharp.Test
         [Test]
         public void RunCSharpTests()
         {
-            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-GB", false);
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-GB");
             var ignoredLibs = new List<string>
             {
                 //"VSharp.CSharpUtils.dll",

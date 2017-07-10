@@ -105,6 +105,7 @@ module public Types =
 
     let public IsReferenceType = function
         | String
+        | Object
         | ClassType _
         | ArrayType _
         | Func _ -> true

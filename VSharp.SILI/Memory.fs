@@ -331,8 +331,8 @@ module internal Memory =
 
 // ------------------------------- Comparison -------------------------------
 
-    let private compareMaps m1 m2 =
-        assert(Map.count m1 <= Map.count m2)
+    let private compareMaps (m1 : Map<_, _>) (m2 : Map<_, _>) =
+        assert(m1.Count <= m2.Count)
         let oldValues, newValues = Map.partition (fun k _ -> Map.containsKey k m1) m2 in
         let _, changedValues = Map.partition (fun k v -> m1.[k] = v) oldValues in
         changedValues, newValues
