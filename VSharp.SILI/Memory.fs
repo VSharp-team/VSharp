@@ -28,7 +28,7 @@ module internal Memory =
             HeapRef(Constant(addr, source, pointerType), [], t)
 
     let private isStaticLocation = function
-        | HeapRef(Concrete(typeName, t), _, _) when Types.IsString t -> true
+        | HeapRef(Concrete(typeName, String), _, _) -> true
         | _ -> false
 
     let private nameOfLocation = function
@@ -319,10 +319,15 @@ module internal Memory =
                 let result = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (TermRef sourceRef)) name (Terms.TypeOf v) in
                 mutate state location result
             | Allocation(location, value) ->
-                let name = nameOfLocation location |> IdGenerator.startingWith in
-                allocateSymbolicInstance false (UnboundedRecursion (TermRef sourceRef)) name state (Terms.TypeOf value)
+                match location, state with
+                | HeapRef(Concrete(addr, String), [], _), (_, h, _, _) when h.ContainsKey(StaticAddress(addr :?> string)) ->
+                    Nop, state
+                | _ ->
+                    let name = nameOfLocation location |> IdGenerator.startingWith in
+                    allocateSymbolicInstance false (UnboundedRecursion (TermRef sourceRef)) name state (Terms.TypeOf value)
         in
-        List.mapFold symbolizeValue state locations
+        let terms, state = List.mapFold symbolizeValue state locations in
+        terms |> List.filter (Terms.IsVoid >> not), state
 
 // ------------------------------- Comparison -------------------------------
 
