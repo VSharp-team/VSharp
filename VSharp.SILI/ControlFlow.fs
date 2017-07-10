@@ -4,6 +4,7 @@ type StatementResult =
     | NoResult
     | Break
     | Continue
+    | Rollback of FunctionIdentifier
     | Return of Term
     | Throw of Term
     | Guarded of (Term * StatementResult) list
@@ -15,13 +16,15 @@ module internal ControlFlow =
         | _, _ when thenRes = elseRes -> thenRes
         | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition !!condition thenVal elseVal)
         | Throw thenVal, Throw elseVal -> Throw (Merging.merge2Terms condition !!condition thenVal elseVal)
+        | Rollback _, _ -> thenRes
+        | _, Rollback _ -> elseRes
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
                 |> List.concat
                 |> Guarded
-        | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes fst snd |> Guarded
-        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes snd fst |> Guarded
+        | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes fst snd |> Merging.mergeSame |> Guarded
+        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes snd fst |> Merging.mergeSame |> Guarded
         | _, _ -> Guarded [(condition, thenRes); (!!condition, elseRes)]
 
     and private mergeGuarded gvs cond guard other thenArg elseArg =
@@ -29,14 +32,22 @@ module internal ControlFlow =
             match mergeResults cond (thenArg (v, other)) (elseArg (v, other)) with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard(g &&& g2), v2))
             | v -> List.singleton (guard(g), v)
-        gvs |> List.map mergeOne |> List.concat
+        gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not)
 
-    let rec calculationDone (statement : JetBrains.Decompiler.Ast.IStatement) = function
-        | NoResult -> false
-        | Continue -> Transformations.isContinueConsumer statement
+    let rec private createImplicitPathCondition (statement : JetBrains.Decompiler.Ast.IStatement) accTerm (term, statementResult) =
+        match statementResult with
+        | NoResult -> term ||| accTerm
+        | Continue -> if Transformations.isContinueConsumer statement then term ||| accTerm else accTerm
         | Guarded gvs ->
-            List.forall (snd >> (calculationDone statement)) gvs
-        | _ -> true
+            List.fold (createImplicitPathCondition statement) accTerm gvs
+        | _ -> accTerm
+
+    let internal currentCalculationPathCondition (statement : JetBrains.Decompiler.Ast.IStatement) statementResult =
+         createImplicitPathCondition statement Terms.MakeFalse (Terms.MakeTrue, statementResult)
+
+    let internal isRollback = function
+        | Error(Concrete(:? FunctionIdentifier, Bottom)) -> true
+        | _ -> false
 
     let rec consumeContinue = function
         | Continue -> NoResult
@@ -49,17 +60,20 @@ module internal ControlFlow =
         | r -> r
 
     let rec throwOrIgnore = function
+        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
         | t -> NoResult
 
     let rec throwOrReturn = function
+        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded
         | Nop -> NoResult
         | t -> Return t
 
     let rec consumeErrorOrReturn consumer = function
+        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> consumer t
         | Nop -> NoResult
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded
@@ -74,10 +88,13 @@ module internal ControlFlow =
             | NoResult -> newRes
             | _ -> oldRes
         match oldRes, newRes with
-        | NoResult, _ -> newRes, newState
+        | NoResult, _
+        | _, Rollback _ ->
+            newRes, newState
         | Break, _
         | Continue, _
         | Throw _, _
+        | Rollback _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) Terms.MakeTrue gvs in
@@ -85,7 +102,7 @@ module internal ControlFlow =
                 match newRes with
                 | Guarded gvs' ->
                     let composeOne (g, v) = List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs' in
-                    gvs |> List.map composeOne |> List.concat |> Merging.mergeSame
+                    gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not) |> Merging.mergeSame
                 | _ ->
                     let gs, vs = List.unzip gvs in
                     List.zip gs (List.map (composeFlat newRes) vs)
@@ -98,6 +115,7 @@ module internal ControlFlow =
         | Guarded gvs ->
             let gs, vs = List.unzip gvs in
             vs |> List.map resultToTerm |> List.zip gs |> Merging.merge
+        | Rollback id -> Error(Concrete(id, Bottom)) // A bit hacky encoding of rollback to avoid introducing of special Term constructor
         | _ -> Nop
 
     let pickOutExceptions result =

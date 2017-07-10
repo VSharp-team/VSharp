@@ -11,8 +11,32 @@ module internal Memory =
     let private extractHeapAddress = function
         | Concrete(address, t) when Types.IsNumeric t -> ConcreteAddress (address :?> int)
         | Concrete(typeName, t) when Types.IsString t -> StaticAddress (typeName :?> string)
-        | Constant(name, _) -> SymbolicAddress name
+        | Constant(name, source, _) -> SymbolicAddress(name, source)
         | term -> internalfail ("expected primitive heap address " + (toString term))
+
+    let private stackKeyToTerm (name, vals) =
+        StackRef(name, (Stack.size vals) - 1, [], Terms.TypeOf (Stack.peak vals) |> PointerType)
+
+    let private heapKeyToTerm (key, value) =
+        let t = Terms.TypeOf value |> PointerType in
+        match key with
+        | ConcreteAddress addr ->
+            HeapRef(Concrete(addr, pointerType), [], t)
+        | StaticAddress addr ->
+            HeapRef(Concrete(addr, String), [], t)
+        | SymbolicAddress(addr, source) ->
+            HeapRef(Constant(addr, source, pointerType), [], t)
+
+    let private isStaticLocation = function
+        | HeapRef(Concrete(typeName, String), _, _) -> true
+        | _ -> false
+
+    let private nameOfLocation = function
+        | HeapRef(_, x::xs, _) -> x
+        | HeapRef(_, _, t) -> toString t
+        | StackRef(name, _, x::xs, _) -> sprintf "%s.%s" name x
+        | StackRef(name, _, _, _) -> name
+        | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
     let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
     let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
@@ -58,7 +82,8 @@ module internal Memory =
             match term with
             | Error _ -> term
             | Struct(fields, _) as s ->
-                if not (fields.ContainsKey(name)) then internalfail (format2 "{0} does not contain field {1}" s name)
+                if not (fields.ContainsKey(name)) then
+                    internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
             | Terms.GuardedValues(gs, vs) ->
                 vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
@@ -142,13 +167,13 @@ module internal Memory =
         let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
         (e.Add(name, Stack.push existing term), h, Stack.updateHead f (name::(Stack.peak f)), p)
 
-    let internal allocateInHeap ((e, h, f, p) : state) term isSymbolic : Term * state =
+    let internal allocateInHeap ((e, h, f, p) : state) term clusterSource : Term * state =
         let pointer, address =
-            match isSymbolic with
-            | true ->
-                let address = IdGenerator.startingWith("addr") in
-                HeapRef (Constant(address, pointerType), [], pointerType), SymbolicAddress address
-            | false ->
+            match clusterSource with
+            | Some source ->
+                let address = IdGenerator.startingWith("cluster") in
+                HeapRef(Constant(address, source, pointerType), [], Terms.TypeOf term), SymbolicAddress(address, source)
+            | None ->
                 let address = freshAddress()
                 HeapRef (Concrete(address, pointerType), [], Terms.TypeOf term), ConcreteAddress address
         (pointer, (e, h.Add(address, term), f, p))
@@ -170,22 +195,36 @@ module internal Memory =
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Map.map (fun _ -> defaultOf) fields, t)
         | _ -> __notImplemented__()
-
-    let rec internal allocateSymbolicStruct isStatic state t dotNetType =
-        let fields, state = Types.GetFieldsOf dotNetType isStatic |> mapFoldMap (allocateSymbolicInstance false) state in
-        (Struct(fields, t), state)
-
-    and internal allocateSymbolicInstance isStatic name state = function
-        | t when Types.IsPrimitive t -> (Constant(name, t), state)
-        | StructType dotNetType as t -> allocateSymbolicStruct isStatic state t dotNetType
-        | ClassType dotNetType as t ->
-            let value, state = allocateSymbolicStruct isStatic state t dotNetType in
-            allocateInHeap state value false
-        | ArrayType(e, d) as t ->
-            let value = Array.fresh d t name in
-            allocateInHeap state value false
+        
+    let rec internal makeSymbolicStruct isStatic source t dotNetType =
+        let updateSource field =
+            match source with
+            | Symbolization(HeapRef(loc, path, t)) -> Symbolization(HeapRef(loc, field::path, t))
+            | Symbolization(StackRef(loc, n, path, t)) -> Symbolization(StackRef(loc, n, field::path, t))
+            | _ -> FieldAccess(field, source)
+        let fields = Types.GetFieldsOf dotNetType isStatic |> Map.map (fun name -> makeSymbolicInstance false (updateSource name) name) in
+        Struct(fields, t)
+    
+    and internal makeSymbolicInstance isStatic source name = function
+        | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> Constant(name, source, t)
+        | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
+        | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
+        | PointerType termType as t -> 
+            match termType with
+            | ClassType _
+            | ArrayType _ ->
+                let address = IdGenerator.startingWith("addr") in
+                HeapRef (Constant(address, source, pointerType), [], t)
+            | StructType _ -> internalfail "symbolization of PointerType of StructType"
+            | _ -> __notImplemented__()
         | _ -> __notImplemented__()
-
+        
+        
+    and internal allocateSymbolicInstance isStatic source name state t =
+        let value = makeSymbolicInstance isStatic source name t in
+        allocateInHeap state value None
+        
 // ------------------------------- Mutation -------------------------------
 
     let private mutateTop ((e, h, f, p) : state) name term : state =
@@ -259,3 +298,110 @@ module internal Memory =
         let resultingArray = refine mutatedArray in
         let _, state = mutate state reference resultingArray in
         (mutatedArray, state)
+
+    let symbolizeState ((e, h, f, p) : state) : state =
+        let rec symbolizeValue name location v =
+           makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (Terms.TypeOf v)
+        in
+        let e' = e |> Map.map (fun key values -> Stack.updateHead values (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
+        let h' = h |> Map.map (fun key value -> symbolizeValue (toString key) (heapKeyToTerm (key, value)) value) in
+        (e', h', f, p)
+
+    type internal StateDiff =
+        | Mutation of Term * Term
+        | Allocation of Term * Term
+
+    let symbolizeLocations state sourceRef locations =
+        let rec symbolizeValue state = function
+            | Mutation(location, _) ->
+                let v = deref state location in
+                let name = nameOfLocation location |> IdGenerator.startingWith in
+                let result = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (TermRef sourceRef)) name (Terms.TypeOf v) in
+                mutate state location result
+            | Allocation(location, value) ->
+                match location, state with
+                | HeapRef(Concrete(addr, String), [], _), (_, h, _, _) when h.ContainsKey(StaticAddress(addr :?> string)) ->
+                    Nop, state
+                | _ ->
+                    let name = nameOfLocation location |> IdGenerator.startingWith in
+                    allocateSymbolicInstance false (UnboundedRecursion (TermRef sourceRef)) name state (Terms.TypeOf value)
+        in
+        let terms, state = List.mapFold symbolizeValue state locations in
+        terms |> List.filter (Terms.IsVoid >> not), state
+
+// ------------------------------- Comparison -------------------------------
+
+    let private compareMaps (m1 : Map<_, _>) (m2 : Map<_, _>) =
+        assert(m1.Count <= m2.Count)
+        let oldValues, newValues = Map.partition (fun k _ -> Map.containsKey k m1) m2 in
+        let _, changedValues = Map.partition (fun k v -> m1.[k] = v) oldValues in
+        changedValues, newValues
+
+    let private sortMap map mapper =
+        map |> Map.toList |> List.sortBy fst |> List.map mapper
+
+    let rec private structDiff key val1 val2 =
+        match val1, val2 with
+        | Struct(fields1, _), Struct(fields2, _) ->
+            let mutatedFields, addedFields = compareMaps fields1 fields2 in
+            let addFieldToKey key field =
+                match key with
+                | HeapRef(a, p, t) -> HeapRef(a, field::p, t)
+                | StackRef(a, n, p, t) -> StackRef(a, n, field::p, t)
+                | _ -> __notImplemented__()
+            in
+            let innerMutatedFields, innerAddedFields =
+                sortMap mutatedFields (fun (k, v) -> structDiff (addFieldToKey key k) fields1.[k] v) |> List.unzip
+            in
+            let overalMutatedFields = List.concat innerMutatedFields in
+            let overalAddedFields =
+                List.append
+                    (sortMap addedFields (fun (k, v) -> (addFieldToKey key k, v)))
+                    (List.concat innerAddedFields)
+            in
+            (overalMutatedFields, overalAddedFields)
+        | _ ->
+            [(key, val2)], []
+
+    let internal diff ((e1, h1, _, _) : state) ((e2, h2, _, _) : state) =
+        let mutatedStack, newStack = compareMaps e1 e2 in
+        let mutatedHeap,  newHeap  = compareMaps h1 h2 in
+        let stackKvpToTerms (name, vals) =
+            let oldTerm = Stack.peak e1.[name] in
+            let newTerm = Stack.peak vals in
+            let reference = stackKeyToTerm (name, vals) in
+            structDiff reference oldTerm newTerm
+        in
+        let heapKvpToTerms (key, value) =
+            let oldValue = h1.[key] in
+            let reference = heapKeyToTerm (key, value) in
+            structDiff reference oldValue value
+        in
+        let mutatedStackFieldss, newStackFieldss = sortMap mutatedStack stackKvpToTerms |> List.unzip in
+        let mutatedHeapFieldss,  newHeapFieldss  = sortMap mutatedHeap  heapKvpToTerms  |> List.unzip in
+        let overalMutatedValues =
+            List.append
+                (List.concat mutatedStackFieldss)
+                (List.concat mutatedHeapFieldss)
+        in
+        let overalAllocatedValues =
+            List.append
+                ((sortMap newStack (fun (k, v) -> (stackKeyToTerm (k, v), Stack.peak v)))::newStackFieldss |> List.concat)
+                ((sortMap newHeap  (fun (k, v) -> (heapKeyToTerm  (k, v), v)))::newHeapFieldss |> List.concat)
+        in
+        List.append
+            (List.map Mutation overalMutatedValues)
+            (List.map Allocation overalAllocatedValues)
+
+    let internal compareRefs ref1 ref2 =
+        match ref1, ref2 with
+        | _ when ref1 = ref2 -> 0
+        | StackRef _, HeapRef _ -> -1
+        | HeapRef _, StackRef _ -> 1
+        | StackRef(name1, n1, path1, _), StackRef(name2, n2, path2, _) ->
+            if name1 < name2 || name1 = name2 && n1 < n2 || name1 = name2 && n1 = n2 && path1 < path2 then -1 else 1
+        | HeapRef(addr1, path1, _), HeapRef(addr2, path2, _) ->
+            let haddr1 = extractHeapAddress addr1 in
+            let haddr2 = extractHeapAddress addr2 in
+            if haddr1 < haddr2 || haddr1 = haddr2 && path1 < path2 then -1 else 1
+        | _ -> internalfail "compareRefs called with non-reference terms"

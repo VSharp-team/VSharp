@@ -420,8 +420,8 @@
         // True
         public static bool Equal3(bool a, bool b, bool c, bool d)
         {
-            var x1 = a && b && c;
-            var x2 = !(!b || !a || !c);
+            var x1 = a & b & c;
+            var x2 = !(!b | !a | !c);
             return x1 == x2;
         }
 

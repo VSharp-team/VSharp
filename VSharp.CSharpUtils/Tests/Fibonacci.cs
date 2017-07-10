@@ -18,5 +18,32 @@
         {
             return FibRec(5);
         }
+
+//        private static int a = 0;
+//        private static int b = 0;
+//
+//        private static void MutatingFib(int n)
+//        {
+//            if (n >= 2)
+//            {
+//                MutatingFib(n-1);
+//                int c = a + b;
+//                a = b;
+//                b = c;
+//            }
+//            else
+//            {
+//                a = 1;
+//                b = 1;
+//            }
+//        }
+
+//        public static int FibUnbound(int n)
+//        {
+//            MutatingFib(n);
+//            MutatingFib(n + 1);
+//            MutatingFib(n + 2);
+//            return b;
+//        }
     }
 }

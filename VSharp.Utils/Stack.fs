@@ -32,3 +32,5 @@ module public Stack =
     let middle idx stack = List.item ((List.length stack) - idx - 1) stack
 
     let size = List.length
+
+    let tryFindBottom = List.tryFindBack

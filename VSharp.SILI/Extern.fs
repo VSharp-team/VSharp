@@ -22,8 +22,10 @@ module private System =
             let this, dimension = List.item 0 args, List.item 1 args in
             let array = Memory.deref state this in
             let rec getLength dimension = function
+                | Error _ as e -> e
                 | Array(_, _, _, lengths, _) ->
                     match dimension with
+                    | Error _ as e -> e
                     | Concrete(obj, _) ->
                         let d = obj :?> int in
                         if d < 0 || d >= lengths.Length then Terms.MakeError(new IndexOutOfRangeException())
@@ -52,6 +54,7 @@ module private System =
         let GetRank state args =
             let array = Memory.deref state (List.head args) in
             let rec getRank = function
+                | Error _ as e -> e
                 | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
                 | Terms.GuardedValues(gs, vs) -> vs |> List.map getRank |> List.zip gs |> Merging.merge
                 | term -> internalfail (sprintf "expected array, but %s got!" (toString term))

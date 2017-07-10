@@ -13,14 +13,24 @@ module internal Merging =
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
             [(guard, value)]
 
-    let private typedMerge gvs t =
-        match t with
-        | Bool -> boolMerge gvs
-        | Numeric _
-        | String
-        | _ -> gvs
+    let rec private structMerge t = function
+        | [] -> []
+        | [_] as gvs -> gvs
+        | gvs ->
+            let gs, vs = List.unzip gvs in
+            let extractFields = function
+                | Struct(fs, _) -> fs
+                | t -> "Expected struct, got " + (toString t) |> internalfail
+            let fss = vs |> List.map extractFields in
+            let keys = fss |> List.fold (fun st fs -> fs |> Map.toList |> List.unzip |> fst |> Set.ofList |> Set.union st) Set.empty in
+            let mergeOneKey k =
+                let vals = fss |> List.map (fun fs -> if Map.containsKey k fs then fs.[k] else Nop) in
+                (k, vals |> List.zip gs |> merge)
+            in
+            let result = keys |> Seq.map mergeOneKey |> Map.ofSeq in
+            [(Terms.MakeTrue, Struct(result, t))]
 
-    let rec private simplify gvs =
+    and private simplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
@@ -32,7 +42,7 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
-    let internal mergeSame = function
+    and internal mergeSame = function
         | [] -> []
         | [_] as xs -> xs
         | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
@@ -49,14 +59,25 @@ module internal Merging =
                     | _ -> loop rest ((joined, v)::out)
             loop gvs []
 
-    let private compress = function
+    and private typedMerge gvs t =
+        match t with
+        | Bool -> boolMerge gvs
+        // TODO: merge generalizations too
+        | StructType _
+        | ClassType _ ->
+            structMerge t gvs
+        | Numeric _
+        | String
+        | _ -> gvs
+
+    and private compress = function
         | [] -> []
         | [_] as gvs -> gvs
         | [(_, v1); (_, v2)] as gvs when TypeOf v1 = TypeOf v2 -> typedMerge (mergeSame gvs) (TypeOf v1)
         | [_; _] as gvs -> gvs
         | gvs -> List.groupBy (snd >> TypeOf) gvs |> List.map (fun (t, gvs) -> typedMerge gvs t) |> List.concat
 
-    let internal merge gvs =
+    and internal merge gvs =
         match compress (simplify gvs) with
         | [(True, v)] -> v
         | [(g, v)] when Terms.IsBool v -> g &&& v

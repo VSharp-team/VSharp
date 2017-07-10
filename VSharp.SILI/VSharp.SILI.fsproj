@@ -67,7 +67,8 @@
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
-    <Compile Include="Lambdas.fs" />
+    <Compile Include="Functions.fs" />
+    <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
     <Compile Include="Extern.fsi" />
     <Compile Include="Extern.fs" />

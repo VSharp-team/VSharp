@@ -4,6 +4,18 @@ namespace VSharp.CSharpUtils
 {
     public class TryCatch
     {
+        public int SafeFunc(int n)
+        {
+            try
+            {
+                return 1;
+            }
+            catch
+            {
+                throw new Exception();
+            }
+        }
+
         private void CheckPositiveAndOdd(int n)
         {
             if (n == 0)
@@ -42,5 +54,47 @@ namespace VSharp.CSharpUtils
             }
             return n % 2 == 1;
         }
+//
+//        public sealed class NotPositive : Exception
+//        {
+//        }
+//
+//        private int Fact(int n)
+//        {
+//            if (n <= 0)
+//                throw new NotPositive();
+//            try
+//            {
+//                return n * Fact(n - 1);
+//            }
+//            catch (NotPositive)
+//            {
+//                return 1;
+//            }
+//        }
+//
+//        public int CheckFactSafe(int n)
+//        {
+//            try
+//            {
+//                return Fact(n);
+//            }
+//            catch (NotPositive) when (n <= 0)
+//            {
+//                return 0;
+//            }
+//        }
+//
+//        public int CheckFactUnsafe(int n)
+//        {
+//            try
+//            {
+//                return Fact(n);
+//            }
+//            catch (NotPositive) when (n < 0)
+//            {
+//                return 0;
+//            }
+//        }
     }
 }
