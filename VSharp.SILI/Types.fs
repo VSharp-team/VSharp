@@ -166,7 +166,7 @@ module public Types =
         else
             match t with
             | _ when t.AssemblyQualifiedName = "__Null" -> Object
-            | _ when t.FullName = "System.Object" -> Object
+            | _ when t.FullName = "System.Object" -> ClassType typedefof<obj>
             | _ when t.FullName = "System.Void" -> Void
             | :? IMetadataGenericArgumentReferenceType as g ->
                 let constraints = g.Argument.TypeConstraints in
