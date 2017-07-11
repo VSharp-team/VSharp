@@ -26,7 +26,7 @@ HEAP:
 	| System.Exception._xcode ~> 0
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
-3 ==> STRUCT object[
+3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
@@ -735,7 +735,7 @@ HEAP:
 	| System.Exception._xcode ~> 0
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
-2 ==> STRUCT object[
+2 ==> STRUCT System.Object[
 	]
 System.ArgumentException ==> STRUCT System.ArgumentException[
 	]

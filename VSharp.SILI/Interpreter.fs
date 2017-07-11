@@ -339,9 +339,9 @@ module internal Interpreter =
                     k (ControlFlow.composeSequentially result newRes state newState))
 
     and reduceSequentially state statements k =
-        Cps.Seq.foldlk 
+        Cps.Seq.foldlk
             (composeSequentially (fun () -> null))
-            (NoResult, State.push state []) 
+            (NoResult, State.push state [])
             statements
             (fun (res, state) -> k (res, State.pop state))
 
@@ -365,9 +365,13 @@ module internal Interpreter =
                 k (ControlFlow.throwOrIgnore term, newState))
 
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
-        reduceExpression state ast.Initializer (fun (initializer, state) ->
         let name = ast.VariableReference.Variable.Name in
-        k (NoResult, Memory.allocateOnStack state name initializer))
+        let initialize k =
+            let t = Types.FromMetadataType ast.VariableReference.Variable.Type in
+            match t with
+            | StructType _ when ast.Initializer = null -> k (Memory.defaultOf t, state)
+            | _ -> reduceExpression state ast.Initializer k
+        initialize (fun (initializer, state) -> k (NoResult, Memory.allocateOnStack state name initializer))
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         reduceExpression state ast.Result (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
