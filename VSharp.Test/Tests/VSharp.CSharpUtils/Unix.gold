@@ -27,7 +27,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT object[
+3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
@@ -709,7 +709,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT object[
+2 ==> STRUCT System.Object[
 	]
 System.ArgumentException ==> STRUCT System.ArgumentException[
 	]
