@@ -15,6 +15,7 @@ type public TermType =
     | String
     | StructType of System.Type // some value type
     | ClassType of System.Type // some reference type
+    | SubType of System.Type
     | ArrayType of TermType * int
     | Func of TermType list * TermType
     | PointerType of TermType
@@ -30,6 +31,7 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType t -> t.ToString()
         | ClassType t -> t.ToString()
+        | SubType t -> "Subtype of " + t.ToString()
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
         | PointerType t -> "Reference of " + t.ToString()
 
@@ -108,7 +110,8 @@ module public Types =
         | Object
         | ClassType _
         | ArrayType _
-        | Func _ -> true
+        | Func _ 
+        | SubType _ -> true
         | _ -> false
 
     let public IsValueType = not << IsReferenceType
@@ -126,6 +129,7 @@ module public Types =
         | StructType t -> t
         | ClassType t -> t
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
+        | SubType t ->  t
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function
@@ -157,7 +161,7 @@ module public Types =
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
-    let rec public FromMetadataType (t : IMetadataType) =
+    let rec public FromMetadataTypeToConcrete (t : IMetadataType) =
         if t = null then Object
         else
             match t with
@@ -170,25 +174,46 @@ module public Types =
                     __notImplemented__()
                 Object
             | :? IMetadataArrayType as a ->
-                let elementType = FromMetadataType a.ElementType |> pointerFromReferenceType in
+                let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as c ->
                 Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-    let public MetadataToDotNetType (t : IMetadataType) = t |> FromMetadataType |> ToDotNetType
+    let rec public FromMetadataTypeToSymbolic (t : IMetadataType) =
+        if t = null then Object
+        else
+            match t with
+            | _ when t.AssemblyQualifiedName = "__Null" -> Object
+            | _ when t.FullName = "System.Object" -> Object
+            | _ when t.FullName = "System.Void" -> Void
+            | :? IMetadataGenericArgumentReferenceType as g ->
+                let constraints = g.Argument.TypeConstraints in
+                if not(Array.isEmpty constraints) then
+                    __notImplemented__()
+                Object
+            | :? IMetadataArrayType as a ->
+                let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
+                ArrayType(elementType, int(a.Rank))
+            | :? IMetadataClassType as ct ->
+                match Type.GetType(ct.Type.AssemblyQualifiedName, true) with
+                    | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> SubType c
+                    | c -> FromDotNetType c
+            | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
+
+    let public MetadataToDotNetType (t : IMetadataType) = t |> FromMetadataTypeToConcrete |> ToDotNetType
 
     let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = FromMetadataType returnMetadataType in
+        let returnType = FromMetadataTypeToConcrete returnMetadataType in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> FromMetadataType
+            param.Type |> FromMetadataTypeToConcrete
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
         Func(args, returnType)
 
     let public FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = FromMetadataType m.ReturnValue.Type in
+        let returnType = FromMetadataTypeToConcrete m.ReturnValue.Type in
         let paramToType (param : IMetadataParameter) =
-            param.Type |> FromMetadataType
+            param.Type |> FromMetadataTypeToConcrete
         let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
 
@@ -198,13 +223,13 @@ module public Types =
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in
         if mt = null then typedefof<obj>
-        else ToDotNetType (FromMetadataType mt)
+        else ToDotNetType (FromMetadataTypeToConcrete mt)
 
     let public GetFieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
         let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag in
         let fields = t.GetFields(flags) in
         let extractFieldInfo (field : FieldInfo) =
-            let fieldName = sprintf "%s.%s" (DecompilerServices.removeGenericParameters field.DeclaringType.FullName) field.Name in
+            let fieldName = sprintf "%s.%s" (DecompilerServices.removeGenericParameters (field.DeclaringType.FullName)) field.Name in
             (fieldName, FromDotNetType field.FieldType)
         fields |> Array.map extractFieldInfo |> Map.ofArray

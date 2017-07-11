@@ -209,6 +209,7 @@ module internal Memory =
         | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> Constant(name, source, t)
         | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
         | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | SubType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
         | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
         | PointerType termType as t -> 
             match termType with
