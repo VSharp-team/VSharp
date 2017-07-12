@@ -2,6 +2,7 @@
 using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -10,6 +11,44 @@ using NUnit.Framework;
 
 namespace VSharp.Test
 {
+    public class DumpStackTraceListener : TraceListener
+    {
+        public override void Write(string message)
+        {
+            Console.Write(message);
+        }
+
+        public override void WriteLine(string message)
+        {
+            Console.WriteLine(message);
+        }
+
+        public override void Fail(string message)
+        {
+            Fail(message, String.Empty);
+        }
+
+        public override void Fail(string message1, string message2)
+        {
+            Console.WriteLine("ASSERT FAILED");
+            Console.WriteLine("{0}: {1}", message1, message2);
+            Console.WriteLine("Stack Trace:");
+
+            StackTrace trace = new StackTrace( true );
+            foreach (StackFrame frame in trace.GetFrames())
+            {
+                MethodBase frameClass = frame.GetMethod();
+                Console.WriteLine("  {2}.{3} {0}:{1}",
+                    frame.GetFileName(),
+                    frame.GetFileLineNumber(),
+                    frameClass.DeclaringType,
+                    frameClass.Name);
+            }
+
+            Console.WriteLine("Exiting because Fail");
+        }
+    }
+
     [TestFixture]
     public sealed class SiliTests
     {
@@ -98,6 +137,7 @@ namespace VSharp.Test
         [Test]
         public void RunCSharpTests()
         {
+            Trace.Listeners.Add(new DumpStackTraceListener());
             Thread.CurrentThread.CurrentCulture = new CultureInfo("en-GB");
             var ignoredLibs = new List<string>
             {

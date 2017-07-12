@@ -25,8 +25,8 @@ module public SVM =
                     if Terms.IsHeapRef instance then (instance, state)
                     else
                         let key = "external data" in
-                        let state = State.push state [(key, instance)] in
-                        (Memory.referenceToVariable state key true, state)
+                        let state = State.push state [((key, metadataMethod.Token.ToString()), instance)] in
+                        (Memory.referenceToVariable state (key, metadataMethod.Token.ToString()) true, state)
             Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
             System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
             dictionary.Add(m, (ControlFlow.resultToTerm result, state))

@@ -2,7 +2,7 @@
 
 module CallGraph =
     type private Frame = FunctionIdentifier * Term list
-    let mutable callStack : Stack.stack<Frame> = Stack.empty
+    let mutable private callStack : Stack.stack<Frame> = Stack.empty
 
     let private detectUnboundRecursion (f, p) =
         let bottomOccurence = Stack.tryFindBottom (fst >> ((=) f)) callStack in
