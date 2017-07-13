@@ -4,6 +4,11 @@ open VSharp.Terms
 
 module internal Merging =
 
+    // TODO: This is a pretty performance-critical function. We should store the result into the union itself.
+    let internal guardOf = function
+        | Terms.GuardedValues(gs, _) -> disjunction gs
+        | _ -> Terms.MakeTrue
+
     let private boolMerge = function
         | [] -> []
         | [_] as gvs -> gvs
@@ -84,6 +89,8 @@ module internal Merging =
         | gvs' -> Union gvs'
 
     let internal merge2Terms g h u v =
+        let g = guardOf u &&& g in
+        let h = guardOf v &&& h in
         match g, h, u, v with
         | _, _, _, _ when u = v -> u
         | True, _, _, _ -> u

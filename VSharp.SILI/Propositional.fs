@@ -203,6 +203,15 @@ module internal Propositional =
     let internal (!==) x y =
         !! (x === y)
 
+    let internal conjunction = function
+        | [] -> Terms.MakeTrue
+        | [x] -> x
+        | x::xs -> List.fold (&&&) x xs
+
+    let internal disjunction = function
+        | [] -> Terms.MakeFalse
+        | [x] -> x
+        | x::xs -> List.fold (|||) x xs
 
     let internal simplifyBinaryConnective op x y k =
         match op with
