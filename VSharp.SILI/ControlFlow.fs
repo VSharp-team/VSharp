@@ -112,9 +112,7 @@ module internal ControlFlow =
     let rec resultToTerm = function
         | Return term -> term
         | Throw err -> Error err
-        | Guarded gvs ->
-            let gs, vs = List.unzip gvs in
-            vs |> List.map resultToTerm |> List.zip gs |> Merging.merge
+        | Guarded gvs -> Merging.guardedMap resultToTerm gvs
         | Rollback id -> Error(Concrete(id, Bottom)) // A bit hacky encoding of rollback to avoid introducing of special Term constructor
         | _ -> Nop
 

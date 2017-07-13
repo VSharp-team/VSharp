@@ -809,8 +809,7 @@ module internal Interpreter =
         typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
     and is typ = function
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (is typ) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (is typ) gvs
         | term ->
             // TODO: here we should use more sophisticated type constraints processing, but for now...
             let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
@@ -844,10 +843,7 @@ module internal Interpreter =
                 | _ -> __notImplemented__()
             in
             match term with
-            | Union(gvs) ->
-                let gs, vs = List.unzip gvs in
-                let vs' = List.map castSimple vs in
-                (Merging.merge (List.zip gs vs'), state)
+            | Union gvs -> (Merging.guardedMap castSimple gvs, state)
             | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
