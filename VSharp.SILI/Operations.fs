@@ -77,22 +77,22 @@ module internal Operations =
         | OperationType.LessOrEqual -> " <= "
         | OperationType.LogicalAnd -> " & "
         | OperationType.LogicalOr -> " | "
-        | OperationType.LogicalNeg -> "!{0}"
+        | OperationType.LogicalNeg -> "!%s"
         | OperationType.LogicalXor -> " ^ "
         | OperationType.Multiply ->" * "
-        | OperationType.Not -> "~{0}"
+        | OperationType.Not -> "~%s"
         | OperationType.NotEqual -> " != "
         | OperationType.NullCoalescing -> " ?? "
-        | OperationType.PostfixIncrement -> "{0}++"
-        | OperationType.PostfixDecrement -> "{0}--"
-        | OperationType.PrefixIncrement -> "++{0}"
-        | OperationType.PrefixDecrement -> "--{0}"
+        | OperationType.PostfixIncrement -> "%s++"
+        | OperationType.PostfixDecrement -> "%s--"
+        | OperationType.PrefixIncrement -> "++%s"
+        | OperationType.PrefixDecrement -> "--%s"
         | OperationType.Remainder -> " % "
         | OperationType.ShiftLeft -> " << "
         | OperationType.ShiftRight -> " >> "
         | OperationType.Subtract -> " - "
-        | OperationType.UnaryMinus -> "-{0}"
-        | OperationType.UnaryPlus -> "+{0}"
+        | OperationType.UnaryMinus -> "-%s"
+        | OperationType.UnaryPlus -> "+%s"
         | _ -> ""
 
     let internal isUnary op = operationArity op = 1
@@ -128,4 +128,4 @@ module internal Operations =
         | OperationType.AssignmentShiftLeft -> OperationType.ShiftLeft
         | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
         | OperationType.AssignmentSubtract -> OperationType.Subtract
-        | op -> raise(new System.ArgumentException("Internal error: " + op.ToString() + " is not an assignment operation"))
+        | op -> internalfail (toString op + " is not an assignment operation")

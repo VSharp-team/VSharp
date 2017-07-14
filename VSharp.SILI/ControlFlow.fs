@@ -126,7 +126,7 @@ module internal ControlFlow =
             | Guarded gvs -> gvs
             | _ -> [(Terms.MakeTrue, result)]
         in
-        let thrown, normal = mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
+        let thrown, normal = List.mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
         match thrown with
         | [] -> None, normal
         | gvs ->

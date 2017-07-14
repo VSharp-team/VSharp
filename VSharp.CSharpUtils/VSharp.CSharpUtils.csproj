@@ -46,6 +46,7 @@
     <Compile Include="Tests\GCD.cs" />
     <Compile Include="Tests\Lambdas.cs" />
     <Compile Include="Tests\StaticMembers.cs" />
+    <Compile Include="Tests\Tree.cs" />
     <Compile Include="Tests\TryCatch.cs" />
     <Compile Include="Tests\Lists.cs" />
   </ItemGroup>

@@ -17,7 +17,7 @@ module internal DecompilerServices =
             loadAssembly jbPath |> ignore
 
     and loadAssembly (path : JetBrains.Util.FileSystemPath) =
-        let assembly = getDictValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true)) in
+        let assembly = Dict.getValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true)) in
         assembly.ReferencedAssembliesNames |> Seq.iter (fun reference -> loadAssemblyByName reference.FullName)
         assembly
 
@@ -42,7 +42,7 @@ module internal DecompilerServices =
 
     let private createThisOf (typ : IMetadataTypeInfo) =
         let this = AstFactory.CreateThisReference(null) in
-        if typ.IsClass || typ.IsInterface 
+        if typ.IsClass || typ.IsInterface
         then AstFactory.CreateDeref(this, null, true) :> IExpression
         else this :> IExpression
 
@@ -100,13 +100,13 @@ module internal DecompilerServices =
 
     let public decompileClass assemblyPath qualifiedTypeName =
         let qualifiedTypeName = removeGenericParameters qualifiedTypeName in
-        getDictValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
+        Dict.getValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
             let metadataAssembly = loadAssembly assemblyPath in
             let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
             let metadataTypeInfo =
                 if possiblyUnresolvedMetadataTypeInfo.IsResolved then possiblyUnresolvedMetadataTypeInfo
                 else metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName.Substring(0, qualifiedTypeName.IndexOf(",")), false)
-            let decompiler = getDictValueOrUpdate decompilers (assemblyPath.ToString()) (fun () ->
+            let decompiler = Dict.getValueOrUpdate decompilers (assemblyPath.ToString()) (fun () ->
                 let lifetime = JetBrains.DataFlow.Lifetimes.Define()
                 let methodCollector = new JetBrains.Metadata.Utils.MethodCollectorStub()
                 let options = new JetBrains.Decompiler.ClassDecompilerOptions(true)

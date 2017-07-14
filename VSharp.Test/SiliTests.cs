@@ -44,8 +44,6 @@ namespace VSharp.Test
                     frameClass.DeclaringType,
                     frameClass.Name);
             }
-
-            Console.WriteLine("Exiting because Fail");
         }
     }
 
@@ -159,6 +157,7 @@ namespace VSharp.Test
 //                , "StaticMembers"
 //                , "TryCatch"
 //                , "Lists"
+                , "Tree"
             };
 
             var failReason = new System.Text.StringBuilder();

@@ -339,7 +339,7 @@ module internal Arithmetics =
         | OperationType.Divide -> simplifyDivisionAndCheckNotZero isChecked t x y k
         | OperationType.Remainder -> simplifyRemainderAndCheckNotZero isChecked t x y k
         | OperationType.ShiftLeft
-        | OperationType.ShiftRight -> raise(new System.NotImplementedException())
+        | OperationType.ShiftRight -> __notImplemented__()
         | OperationType.Equal -> simplifyEqual x y k
         | OperationType.NotEqual -> simplifyNotEqual x y k
         | OperationType.Greater -> simplifyGreater x y k

@@ -27,13 +27,9 @@ module internal Merging =
                 | Struct(fs, _) -> fs
                 | t -> "Expected struct, got " + (toString t) |> internalfail
             let fss = vs |> List.map extractFields in
-            let keys = fss |> List.fold (fun st fs -> fs |> Map.toList |> List.unzip |> fst |> Set.ofList |> Set.union st) Set.empty in
-            let mergeOneKey k =
-                let vals = fss |> List.map (fun fs -> if Map.containsKey k fs then fs.[k] else Nop) in
-                (k, vals |> List.zip gs |> merge)
-            in
-            let result = keys |> Seq.map mergeOneKey |> Map.ofSeq in
-            [(Terms.MakeTrue, Struct(result, t))]
+            let merged = Heap.merge gs fss merge in
+            let guard = disjunction gs in
+            [(guard, Struct(merged, t))]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -71,6 +67,7 @@ module internal Merging =
         | StructType _
         | ClassType _ ->
             structMerge t gvs
+        // TODO: merge arrays too
         | Numeric _
         | String
         | _ -> gvs
@@ -109,12 +106,7 @@ module internal Merging =
         | _ -> State.merge state1 state2 (merge2Terms condition1 condition2)
 
     let internal mergeStates conditions states =
-        let gcs = List.zip conditions states in
-        let merger (g1, s1) (g2, s2) = (g1 ||| g2, merge2States g1 g2 s1 s2) in
-        match gcs with
-        | [] -> State.empty
-        | [(_, s)] -> s
-        | _ -> List.reduce merger gcs |> snd
+        State.mergeMany conditions states merge
 
     let internal guardedMap mapper gvs =
         let gs, vs = List.unzip gvs in

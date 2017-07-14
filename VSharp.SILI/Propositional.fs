@@ -9,7 +9,7 @@ module internal Propositional =
 
 // ------------------------------- Simplification of logical operations -------------------------------
 
-    let internal makeBin operation x y = 
+    let internal makeBin operation x y =
         match x, y with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
             Terms.MakeNAry operation (List.append list' list'') false Bool
@@ -22,20 +22,20 @@ module internal Propositional =
         | _ -> Terms.MakeNAry operation [x; y] false Bool
 
 
-    let internal makeCoOpBinaryTerm x list listOp op = 
+    let internal makeCoOpBinaryTerm x list listOp op =
         match list with
         | [] -> x
         | [y] -> makeBin op x y
         | _ -> makeBin op (Expression(Operator(listOp, false), list, Bool)) x
 
 
-    let public (|IntersectionExceptOne|_|) list1 list2 = 
+    let public (|IntersectionExceptOne|_|) list1 list2 =
         if List.length list1 = List.length list2 then
             let s1 = System.Collections.Generic.HashSet<Term>(list1) in
             let s2 = System.Collections.Generic.HashSet<Term>(list2) in
             s1.SymmetricExceptWith(s2)
-            let symmetricExcept = List.ofSeq s1 in 
-            match symmetricExcept with 
+            let symmetricExcept = List.ofSeq s1 in
+            match symmetricExcept with
             | [x; Negation(y,_)] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
             | [Negation(y,_); x] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
             | _ -> None
@@ -130,7 +130,7 @@ module internal Propositional =
         // simplifying (OP list) op y at this step
         match list, y with
         | [x], y -> simplifyExt op co stopValue ignoreValue x y matched unmatched
-        | _ -> 
+        | _ ->
             // Trying to simplify pairwise combinations of x- and y-summands
             let summandsOfY =
                 match y with
@@ -158,7 +158,7 @@ module internal Propositional =
         | _ -> unmatched ()
 
     and private simplifyOpToExpr x y op co stopValue ignoreValue matched unmatched =
-        match x with 
+        match x with
         | Expression(Operator(op', false), xs, _) when op = op'->
             simplifyOpOp op co stopValue ignoreValue x xs y matched unmatched
         | Expression(Operator(op', false), xs, _) when co = op'->
@@ -174,9 +174,9 @@ module internal Propositional =
     and internal simplifyNegation x k =
         match x with
         | Error _ -> k x
-        | Concrete(b, t) -> Concrete(not (b :?> bool),t) |> k
+        | Concrete(b, t) -> Concrete(not (b :?> bool), t) |> k
         | Negation(x, _)  -> k x
-        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr l false Bool |> k)
+        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr  l false Bool |> k)
         | DisjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalAnd l false Bool |> k)
         | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk simplifyNegation vs (fun nvs ->
@@ -204,14 +204,16 @@ module internal Propositional =
         !! (x === y)
 
     let internal conjunction = function
-        | [] -> Terms.MakeTrue
-        | [x] -> x
-        | x::xs -> List.fold (&&&) x xs
+        | SeqNode(x, xs) ->
+            if Seq.isEmpty xs then x
+            else Seq.fold (&&&) x xs
+        | _ -> Terms.MakeTrue
 
     let internal disjunction = function
-        | [] -> Terms.MakeFalse
-        | [x] -> x
-        | x::xs -> List.fold (|||) x xs
+        | SeqNode(x, xs) ->
+            if Seq.isEmpty xs then x
+            else Seq.fold (|||) x xs
+        | _ -> Terms.MakeFalse
 
     let internal simplifyBinaryConnective op x y k =
         match op with

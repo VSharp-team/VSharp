@@ -99,7 +99,7 @@ module public Types =
 
     let public elementType = function
         | ArrayType(t, _) -> t
-        | t -> internalfail (sprintf "expected array type, but got %s" (toString t))
+        | t -> internalfail ("expected array type, but got " + toString t)
 
     let public IsRelation = RangeOf >> IsBool
 
@@ -112,7 +112,7 @@ module public Types =
         | _ -> false
 
     let public IsValueType = not << IsReferenceType
-    
+
     let public pointerFromReferenceType = function
         | t when IsReferenceType t -> (PointerType t)
         | t -> t
@@ -126,6 +126,7 @@ module public Types =
         | StructType t -> t
         | ClassType t -> t
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
+        | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function

@@ -18,7 +18,7 @@ module private System =
                 (fun state k -> k (ControlFlow.throw(new IndexOutOfRangeException()), state))
                 k)))
 
-        let GetLength state args =
+        let GetLength (state : State.state) args =
             let this, dimension = List.item 0 args, List.item 1 args in
             let array = Memory.deref state this in
             let rec getLength dimension = function
@@ -42,7 +42,7 @@ module private System =
                                 let result = List.zip guards (List.ofArray lengths) |> Merging.merge in
                                 k (Return result, state))
                             (fst >> ControlFlow.resultToTerm)
-                | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
+                | term -> internalfailf "expected array, but %O got!" term
             in
             let result =
                 match array with
@@ -50,15 +50,15 @@ module private System =
                 | _ -> getLength dimension array
             in (ControlFlow.throwOrReturn result, state)
 
-        let GetRank state args =
+        let GetRank (state : State.state) args =
             let array = Memory.deref state (List.head args) in
             let rec getRank = function
                 | Error _ as e -> e
                 | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
                 | Union gvs -> Merging.guardedMap getRank gvs
-                | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
+                | term -> internalfailf "expected array, but %O got!" term
             in (Return (getRank array), state)
 
-        let get_Length state args =
+        let get_Length (state : State.state) args =
             let array = Memory.deref state (List.head args) in
             (Return (Array.length array), state)

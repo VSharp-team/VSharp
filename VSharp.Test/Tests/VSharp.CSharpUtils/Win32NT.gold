@@ -650,7 +650,7 @@ VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.Class
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
 RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2 & 2 * y < z
 HEAP:
-1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+1 ==> [| 0: 1; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 1: 10; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
@@ -746,10 +746,10 @@ System.Object ==> STRUCT System.Object[
 	]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
-METHOD: System.Boolean VSharp.CSharpUtils.Lists.Construct()
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lists.Construct()
 RESULT: True
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Lists[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 2 ==> [|  ... 0 ... |]
 3 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -767,5 +767,5 @@ System.Array ==> STRUCT System.Array[
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
-VSharp.CSharpUtils.Lists ==> STRUCT VSharp.CSharpUtils.Lists[
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
