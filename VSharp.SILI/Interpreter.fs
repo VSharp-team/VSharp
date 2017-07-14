@@ -69,19 +69,13 @@ module internal Interpreter =
                 reduceDecompiledMethod state this parameters decompiledMethod k
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this values k =
-        let rec map2 f xs1 xs2 =
-            match xs1, xs2 with
-            | SeqEmpty, [] -> []
-            | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2 f xs1 xs2'
-            | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2 f xs1' xs2
-            | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'
         let valueOrFreshConst (param : Option<IMethodParameter>) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
-                else ((param.Name, getTokenBy (Choice1Of2 param)), Term.Constant(param.Name, Symbolization Nop, Types.FromMetadataType param.Type))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromMetadataType param.Type))
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -369,9 +363,13 @@ module internal Interpreter =
                 k (ControlFlow.throwOrIgnore term, newState))
 
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
-        reduceExpression state ast.Initializer (fun (initializer, state) ->
         let name = ast.VariableReference.Variable.Name in
-        k (NoResult, Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer))
+        let initialize k =
+            let t = Types.FromMetadataType ast.VariableReference.Variable.Type in
+            match t with
+            | StructType _ when ast.Initializer = null -> k (Memory.defaultOf t, state)
+            | _ -> reduceExpression state ast.Initializer k
+        initialize (fun (initializer, state) -> k (NoResult, Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer))
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         reduceExpression state ast.Result (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
@@ -810,8 +808,7 @@ module internal Interpreter =
         typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
     and is typ = function
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (is typ) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (is typ) gvs
         | term ->
             // TODO: here we should use more sophisticated type constraints processing, but for now...
             let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
@@ -845,10 +842,7 @@ module internal Interpreter =
                 | _ -> __notImplemented__()
             in
             match term with
-            | Union(gvs) ->
-                let gs, vs = List.unzip gvs in
-                let vs' = List.map castSimple vs in
-                (Merging.merge (List.zip gs vs'), state)
+            | Union gvs -> (Merging.guardedMap castSimple gvs, state)
             | _ -> (castSimple term, state)
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
@@ -1082,6 +1076,7 @@ module internal Interpreter =
 
     and reducePinStatement state (ast : IPinStatement) k =
         __notImplemented__()
+
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
         __notImplemented__()

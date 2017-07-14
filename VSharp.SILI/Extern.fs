@@ -46,8 +46,7 @@ module private System =
             in
             let result =
                 match array with
-                | Terms.GuardedValues(gs, vs) ->
-                    vs |> List.map (getLength dimension) |> List.zip gs |> Merging.merge
+                | Union gvs -> Merging.guardedMap (getLength dimension) gvs
                 | _ -> getLength dimension array
             in (ControlFlow.throwOrReturn result, state)
 
@@ -56,7 +55,7 @@ module private System =
             let rec getRank = function
                 | Error _ as e -> e
                 | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
-                | Terms.GuardedValues(gs, vs) -> vs |> List.map getRank |> List.zip gs |> Merging.merge
+                | Union gvs -> Merging.guardedMap getRank gvs
                 | term -> internalfail (sprintf "expected array, but %s got!" (toString term))
             in (Return (getRank array), state)
 

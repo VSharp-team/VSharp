@@ -47,7 +47,7 @@ module internal Memory =
         | Error _ as e -> e
         | Concrete(null, _) -> Concrete(0, pointerType)
         | HeapRef(addr, _, t) -> addr
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map refToInt |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap refToInt gvs
         | t -> t
 
     let rec internal referenceEqual p1 p2 =
@@ -62,7 +62,7 @@ module internal Memory =
         | Concrete(null, _) -> Terms.MakeTrue
         | HeapRef(addr, _, t) when Terms.IsInteger addr ->
             Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map isNull |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap isNull gvs
         | _ -> Terms.MakeFalse
 
     let rec internal npeIfNull = function
@@ -71,7 +71,7 @@ module internal Memory =
         | HeapRef(addr, _, t) as reference ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             Merging.merge2Terms isNull !!isNull (npe()) reference
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map npeIfNull |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap npeIfNull gvs
         | t -> t
 
     let rec private structDeref path term =
@@ -84,8 +84,7 @@ module internal Memory =
                 if not (fields.ContainsKey(name)) then
                     internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap (structDeref path) gvs
             | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec internal deref state = function
@@ -100,7 +99,7 @@ module internal Memory =
             | _ ->
                 let derefed = structDeref (List.rev path) (heapDeref state (extractHeapAddress addr)) in
                 Merging.merge2Terms isNull !!isNull (npe()) derefed
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map (deref state) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (deref state) gvs
         | t -> internalfail ("deref expected reference, but got " + (toString t))
 
     let internal valueOf = stackDeref
@@ -119,7 +118,7 @@ module internal Memory =
         | Error _ as e -> e
         | StackRef _ as r -> r
         | HeapRef _ as r when followHeapRefs -> r
-        | Terms.GuardedValues(gs, vs) -> List.map (referenceTerm state name followHeapRefs) vs |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (referenceTerm state name followHeapRefs) gvs
         | term -> StackRef(name, [], Terms.TypeOf term)
 
     let internal referenceToVariable state name followHeapRefs =
@@ -131,8 +130,7 @@ module internal Memory =
             assert(List.isEmpty path) // TODO: will this really be always empty?
             HeapRef(addr, name::path, t)
         | Struct _ -> addFieldToPath name parentRef
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (referenceToFieldOf state name parentRef) gvs
         | t -> internalfail ("expected reference or struct, but got " + (toString t))
 
     let rec private followOrReturnReference state reference =
@@ -140,7 +138,7 @@ module internal Memory =
         | Error _ as e -> e
         | StackRef _ as r -> r
         | HeapRef _ as r -> r
-        | Terms.GuardedValues(gs, vs) -> List.map (followOrReturnReference state) vs |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (followOrReturnReference state) gvs
         | term -> reference
 
     let internal referenceToField state followHeapRefs name parentRef =
@@ -242,14 +240,12 @@ module internal Memory =
             | Struct(fields, t) ->
                 let newField = mutateField state path' update fields.[name] in
                 Struct(fields.Add(name, newField), t)
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map (mutateField state path update) |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap (mutateField state path update) gvs
             | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec private errorOr term = function
         | Error _ as e -> e
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (errorOr term) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (errorOr term) gvs
         | _ -> term
 
     let private mutateStackPath state path key update result =
@@ -286,8 +282,7 @@ module internal Memory =
         let mutatedArray = Array.write originalArray indices value in
         let rec refine = function
             | Error _ -> originalArray
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map refine |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap refine gvs
             | t -> t
         let resultingArray = refine mutatedArray in
         let _, state = mutate state reference resultingArray in

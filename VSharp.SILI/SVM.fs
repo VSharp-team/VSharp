@@ -6,32 +6,34 @@ open System.Reflection
 module public SVM =
 
     let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
-        let state = State.empty in
-        let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
-        let declaringType = Types.FromDotNetType(m.DeclaringType) in
-        let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
-        Memory.resetHeap()
-        Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
-        match metadataMethodOption with
-        | None ->
-            printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
-            Nop // TODO: Make CPS-types great again!
-        | Some metadataMethod ->
-            let this, state =
-                match m with
-                | _ when m.IsStatic -> (Concrete(null, declaringType), state)
-                | _ ->
-                    let instance, state = Memory.allocateSymbolicInstance false (Symbolization Nop) "" state declaringType in
-                    if Terms.IsHeapRef instance then (instance, state)
-                    else
-                        let key = "external data" in
-                        let state = State.push state [((key, metadataMethod.Token.ToString()), instance)] in
-                        (Memory.referenceToVariable state (key, metadataMethod.Token.ToString()) true, state)
-            Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
-            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
-            dictionary.Add(m, (ControlFlow.resultToTerm result, state))
-            Nop // TODO: Make CPS-types great again!
-            )) |> ignore
+        if m.IsAbstract then ()
+        else
+            let state = State.empty in
+            let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
+            let declaringType = Types.FromDotNetType(m.DeclaringType) in
+            let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
+            Memory.resetHeap()
+            Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
+            match metadataMethodOption with
+            | None ->
+                printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
+                Nop // TODO: Make CPS-types great again!
+            | Some metadataMethod ->
+                let this, state =
+                    match m with
+                    | _ when m.IsStatic -> (Concrete(null, declaringType), state)
+                    | _ ->
+                        let instance, state = Memory.allocateSymbolicInstance false (Symbolization Nop) "" state declaringType in
+                        if Terms.IsHeapRef instance then (instance, state)
+                        else
+                            let key = "external data" in
+                            let state = State.push state [((key, metadataMethod.Token.ToString()), instance)] in
+                            (Memory.referenceToVariable state (key, metadataMethod.Token.ToString()) true, state)
+                Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
+                System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
+                dictionary.Add(m, (ControlFlow.resultToTerm result, state))
+                Nop // TODO: Make CPS-types great again!
+                )) |> ignore
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList then
