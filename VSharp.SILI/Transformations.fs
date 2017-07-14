@@ -107,11 +107,26 @@ module Transformations =
         let signature = AstFactory.CreateFunctionSignature() in
         let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null) in
         let lambdaBlockStatement = AstFactory.CreateExpressionStatement(lambdaBlock, null) in
+        let mapIndexerNameToMethodParameter = new System.Collections.Generic.Dictionary<string, IMethodParameter>()
         let addParameterToSignature index (variable : ILocalVariableDeclarationStatement) =
             let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index in
             signature.Parameters.Add(parameter)
+            mapIndexerNameToMethodParameter.Add(variable.VariableReference.Variable.Name, parameter)
         List.iteri addParameterToSignature indexers
         DecompilerServices.setTypeOfNode lambdaBlockStatement lambdaType
+
+        let indexerMethodParameters = signature.Parameters
+        let indexerVariableNames = List.map (fun (index: ILocalVariableDeclarationStatement) -> index.VariableReference.Variable.Name) indexers in
+        body.VisitPreorder(fun (node : INode) ->
+            match node with
+            | :? ILocalVariableReferenceExpression as localVar ->
+                if List.contains localVar.Variable.Name indexerVariableNames
+                then
+                    let methodParameter = mapIndexerNameToMethodParameter.[localVar.Variable.Name] in
+                    let parameterReference = AstFactory.CreateParameterReference(methodParameter, localVar.InstructionReference) in
+                    localVar.ReplaceWith(parameterReference)
+            | _ -> ()
+        )
 
         let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null) in
         let callStatement = AstFactory.CreateExpressionStatement(call, null) in

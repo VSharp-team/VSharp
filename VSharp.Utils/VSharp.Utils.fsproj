@@ -47,6 +47,7 @@
     <Compile Include="IdGenerator.fs" />
     <Compile Include="ActivePatterns.fs" />
     <Compile Include="Wrappers.fs" />
+    <Compile Include="MappedStack.fs" />
     <Compile Include="Cps.fs" />
     <Compile Include="Stack.fs" />
   </ItemGroup>
