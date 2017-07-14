@@ -81,9 +81,9 @@ module Functions =
 
         let private mutuallyExclusiveGuards guards =
             match guards with
+            | [] -> internalfail "empty guard"
             | [x] -> guards
             | x::xs -> makeMutuallyExclusiveGuards [] [] (List.rev xs)
-            | _ -> internalfail "single guard in union"
 
         let rec private symbolizeUnboundedResult source id = function
             | NoResult

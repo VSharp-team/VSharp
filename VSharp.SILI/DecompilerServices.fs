@@ -208,3 +208,13 @@ module internal DecompilerServices =
     let public assemblyQualifiedName : IMetadataType -> string = function
         | :? IMetadataClassType as t -> t.Type.AssemblyQualifiedName
         | t -> t.AssemblyQualifiedName
+
+    let internal getTokenBy (node : Choice<IMethodParameter, ILocalVariable>) =
+        match node with
+        | Choice1Of2 node -> sprintf "MethodParameter:%i" (Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(node))
+        | Choice2Of2 node -> sprintf "LocalVariable:%i" (node.DeclarationScope.ToString().GetHashCode())
+
+    let rec internal getThisTokenBy (node : INode) =
+        match node with
+        | :? IDecompiledMethod as method -> method.MetadataMethod.Token.ToString()
+        | _ -> getThisTokenBy node.Parent

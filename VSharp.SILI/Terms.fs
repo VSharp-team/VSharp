@@ -38,7 +38,7 @@ type public Term =
                 * TermType              // Type
     | Expression of (Operation * Term list * TermType)
     | Struct of Map<string, Term> * TermType
-    | StackRef of string * int * string list * TermType
+    | StackRef of (string * string) * string list * TermType
     | HeapRef of Term * string list * TermType
     | Union of (Term * Term) list
 
@@ -92,7 +92,7 @@ type public Term =
                 String.Format("[| {0} ... {1} ... |]", arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
                 String.Format("{0}: [| {1} ({2}) |]", toString constant, arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
-            | StackRef(name, frame, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (name, frame, path).ToString())
+            | StackRef(key, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (key, path).ToString())
             | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", toStr -1 false indent addr)
             | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", toStr -1 false indent addr, (List.sort path).ToString())
             | Union(guardedTerms) ->
@@ -193,7 +193,7 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | StackRef(_, _, _, t) -> t
+        | StackRef(_, _, t) -> t
         | HeapRef(_, _, t) -> t
         | Array(_, _, _, _, t) -> t
         | Union gvs ->

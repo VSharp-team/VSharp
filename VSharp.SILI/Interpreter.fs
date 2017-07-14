@@ -14,6 +14,9 @@ module internal Interpreter =
 
 // ------------------------------- Environment -------------------------------
 
+    let getTokenBy = DecompilerServices.getTokenBy
+    let getThisTokenBy = DecompilerServices.getThisTokenBy
+
     let externalImplementations =
         let dict = new Dictionary<string, MethodInfo>() in
         let (|||) = FSharp.Core.Operators.(|||) in
@@ -27,23 +30,18 @@ module internal Interpreter =
                 dict.Add(key, m)))
         dict
 
-    let rec internalCall m (e, h, f, p) k =
-        let state = (e, h, f, p) in
+    let rec internalCall m argsAndThis (s, h, f, p) k =
+        let state = (s, h, f, p) in
         let fullMethodName = DecompilerServices.metadataMethodToString m in
         if externalImplementations.ContainsKey(fullMethodName) then
             let k' (result, state) = k (result, State.pop state) in
             let methodInfo = externalImplementations.[fullMethodName] in
-            let args =
-                m.Parameters
-                    |> Array.map (fun p -> Memory.valueOf state p.Name)
-                    |> List.ofArray
-            in
-            let argsAndThis = if m.IsStatic then args else (Memory.valueOf state "this")::args in
+            let argsAndThis = List.map snd argsAndThis
             let parameters : obj[] =
                 // Sometimes F# compiler merges tuple with the rest arguments!
                 match methodInfo.GetParameters().Length with
                 | 2 -> [| state; argsAndThis |]
-                | 5 -> [| e; h; f; p; argsAndThis |]
+                | 5 -> [| s; h; f; p; argsAndThis |]
                 | _ -> __notImplemented__()
             let result = methodInfo.Invoke(null, parameters) in
             match result with
@@ -64,8 +62,8 @@ module internal Interpreter =
         | Some decompiledMethod ->
             if metadataMethod.IsInternalCall then
                 printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
-                reduceFunctionSignature state decompiledMethod.Signature (Some this) parameters (fun state ->
-                internalCall metadataMethod state k)
+                reduceFunctionSignature state decompiledMethod.Signature (Some this) parameters (fun (argsAndThis, state) ->
+                internalCall metadataMethod argsAndThis state k)
             else
                 printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
                 reduceDecompiledMethod state this parameters decompiledMethod k
@@ -76,18 +74,18 @@ module internal Interpreter =
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
-                then (param.Name, Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
-                else (param.Name, Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromMetadataType param.Type))
-            | Some param, Some value -> (param.Name, value)
+                then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromMetadataType param.Type))
+            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
             match this with
-            | Some term -> ("this", term)::parameters
+            | Some term -> (("this", getThisTokenBy ast), term)::parameters
             | None -> parameters
-        State.push state parametersAndThis |> k
+        k (parametersAndThis, State.push state parametersAndThis)
 
     and reduceFunction state this parameters returnType funcId (signature : IFunctionSignature) invoke k =
-        reduceFunctionSignature state signature this parameters (fun state ->
+        reduceFunctionSignature state signature this parameters (fun (_, state) ->
         CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
     and reduceFunctionWithBlockBody state this parameters returnType funcId (signature : IFunctionSignature) (body : IBlockStatement) k =
@@ -339,15 +337,15 @@ module internal Interpreter =
                     k (ControlFlow.composeSequentially result newRes state newState))
 
     and reduceSequentially state statements k =
-        Cps.Seq.foldlk
-            (composeSequentially (fun () -> null))
-            (NoResult, State.push state [])
+        Cps.Seq.foldlk 
+            (composeSequentially (fun () -> None))
+            (NoResult, State.push state []) 
             statements
             (fun (res, state) -> k (res, State.pop state))
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose rs statement k =
-            composeSequentially (fun () -> statement) rs (fun state -> reduceStatement state statement) k
+            composeSequentially (fun () -> Some(statement)) rs (fun state -> reduceStatement state statement) k
         Cps.Seq.foldlk compose (NoResult, State.push state []) ast.Statements (fun (res, state) -> k (res, State.pop state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
@@ -371,7 +369,7 @@ module internal Interpreter =
             match t with
             | StructType _ when ast.Initializer = null -> k (Memory.defaultOf t, state)
             | _ -> reduceExpression state ast.Initializer k
-        initialize (fun (initializer, state) -> k (NoResult, Memory.allocateOnStack state name initializer))
+        initialize (fun (initializer, state) -> k (NoResult, Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer))
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         reduceExpression state ast.Result (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
@@ -485,7 +483,8 @@ module internal Interpreter =
             DecompilerServices.setPropertyOfNode ast "Thrown" exn
             // catch (...) {...} case
             let typeMatches = is ast.VariableReference.Variable.Type exn in
-            let state = State.push state [(ast.VariableReference.Variable.Name, exn)] in
+            let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
+            let state = State.push state [(stackKey, exn)] in
             if ast.Filter = null then k (typeMatches, state)
             else
                 let filteringExpression = Transformations.extractExceptionFilter ast.Filter in
@@ -539,9 +538,9 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         match ast with
         | null -> k (Concrete(null, VSharp.Object), state)
-        | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Variable.Name followHeapRefs, state)
-        | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state expression.Parameter.Name followHeapRefs, state)
-        | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state "this" followHeapRefs, state)
+        | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
+        | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state (expression.Parameter.Name, getTokenBy (Choice1Of2 expression.Parameter)) followHeapRefs, state)
+        | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state ("this", getThisTokenBy expression) followHeapRefs, state)
         | :? IFieldAccessExpression as expression ->
             reduceExpressionToRef state true expression.Target (fun (target, state) ->
             referenceToField state followHeapRefs target expression.FieldSpecification.Field k)
@@ -564,7 +563,7 @@ module internal Interpreter =
         (result, state) |> k))
 
     and reduceBaseReferenceExpression state (ast : IBaseReferenceExpression) k =
-        k (Memory.valueOf state "this", state)
+        k (Memory.valueOf state ("this", getThisTokenBy ast), state)
 
     and reduceBoxExpression state (ast : IBoxExpression) k =
         __notImplemented__()
@@ -602,16 +601,16 @@ module internal Interpreter =
         k (Concrete(ast.Value.Value, mType), state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
-        k (Memory.valueOf state ast.Variable.Name, state)
+        k (Memory.valueOf state (ast.Variable.Name, getTokenBy (Choice2Of2 ast.Variable)), state)
 
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__()
 
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
-        k (Memory.valueOf state ast.Parameter.Name, state)
+        k (Memory.valueOf state (ast.Parameter.Name, getTokenBy (Choice1Of2 ast.Parameter)), state)
 
     and reduceThisReferenceExpression state (ast : IThisReferenceExpression) k =
-        k (Memory.valueOf state "this", state)
+        k (Memory.valueOf state ("this", getThisTokenBy ast), state)
 
 // ------------------------------- Binary operations -------------------------------
 
@@ -939,11 +938,11 @@ module internal Interpreter =
             then Memory.allocateInHeap state freshValue None
             else
                 let tempVar = "constructed instance" in
-                let state = State.push state [(tempVar, freshValue)] in
-                (Memory.referenceToVariable state tempVar false, state)
+                let state = State.push state [((tempVar, tempVar), freshValue)] in
+                (Memory.referenceToVariable state (tempVar, tempVar) false, state)
         in
         let finish r =
-            composeSequentially (fun () -> null) r
+            composeSequentially (fun () -> None) r
                 (fun state k ->
                     if not isReference
                     then k (Return (Memory.deref state reference), State.pop state)
@@ -951,7 +950,7 @@ module internal Interpreter =
                 (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
         in
         let invokeInitializers r =
-            composeSequentially (fun () -> null) r (fun state k ->
+            composeSequentially (fun () -> None) r (fun state k ->
                 if ast.ObjectInitializer <> null then
                     reduceMemberInitializerList reference state ast.ObjectInitializer k
                 else if ast.CollectionInitializer <> null then
