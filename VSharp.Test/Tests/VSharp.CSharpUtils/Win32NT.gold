@@ -678,12 +678,14 @@ METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib2()
 RESULT: 2
 HEAP:
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
-	]
+	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> 0
+	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> 0]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib5()
 RESULT: 8
 HEAP:
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
-	]
+	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> 0
+	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> 0]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd1()
 RESULT: 1
 HEAP:
