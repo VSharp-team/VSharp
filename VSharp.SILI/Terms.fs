@@ -1,7 +1,7 @@
 ﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
-open System
+open global.System
 open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]

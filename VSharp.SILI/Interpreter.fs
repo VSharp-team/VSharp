@@ -2,7 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 open JetBrains.Metadata.Reader.API
-open System
+open global.System
 open System.Collections.Generic
 open System.Reflection
 

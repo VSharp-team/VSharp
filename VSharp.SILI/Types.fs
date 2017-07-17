@@ -1,6 +1,6 @@
 namespace VSharp
 
-open System
+open global.System
 open System.Collections.Generic
 open System.Reflection
 open JetBrains.Metadata.Reader.API

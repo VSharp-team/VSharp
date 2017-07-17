@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
@@ -77,7 +78,7 @@ namespace VSharp.Test
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
         }
 
-        private IDictionary<string, string> ParseIdealValues(string resultPath, System.Text.StringBuilder failReason)
+        private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
         {
             string resultText = "";
             if (File.Exists(resultPath))
@@ -108,7 +109,7 @@ namespace VSharp.Test
             return resultsDictionary;
         }
 
-        private IEnumerable<IDictionary<string, string>> ReadAllIdealValues(string testDir, System.Text.StringBuilder failReason)
+        private IEnumerable<IDictionary<string, string>> ReadAllIdealValues(string testDir, StringBuilder failReason)
         {
             string os = Environment.OSVersion.Platform.ToString();
             string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
@@ -161,7 +162,7 @@ namespace VSharp.Test
 //                , "Lists"
             };
 
-            var failReason = new System.Text.StringBuilder();
+            var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)

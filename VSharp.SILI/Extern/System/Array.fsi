@@ -1,10 +1,9 @@
-﻿namespace VSharp
+namespace VSharp.System
 
-open System
+open global.System
+open VSharp
 
-// ------------------------------- mscorelib.System -------------------------------
-
-module private System =
+// ------------------------------- mscorelib.System.Array -------------------------------
 
     module Array =
 
