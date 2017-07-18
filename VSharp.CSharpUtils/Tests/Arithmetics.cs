@@ -53,5 +53,51 @@
         {
             return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
         }
+
+        // log(x)
+        public static double LogMethod1(double x)
+        {
+            return System.Math.Log(x);
+        }
+
+        // log(x + y)
+        public static double LogMethod2(double x, double y)
+        {
+            return System.Math.Log(x + y);
+        }
+
+        //0
+        public static double LogMethod3()
+        {
+            return System.Math.Log(1);
+        }
+
+        //log(1 + log(x))
+        public static double LogMethod4(double x)
+        {
+            return System.Math.Log(1 + System.Math.Log(x));
+        }
+
+        //-Infinity
+        public static double LogMethod5()
+        {
+            return System.Math.Log(0);
+        }
+
+        //Nop
+        public static double LogMethod6()
+        {
+            return System.Math.Log(-1);
+        }
+
+        public static double LogMethod7(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return System.Math.Log(y);
+        }
     }
 }

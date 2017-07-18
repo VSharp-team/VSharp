@@ -2,7 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 
-module internal Operations =
+module Operations =
     let internal operationArity op =
         match op with
         | OperationType.LogicalNeg       | OperationType.Not
@@ -129,3 +129,9 @@ module internal Operations =
         | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
         | OperationType.AssignmentSubtract -> OperationType.Subtract
         | op -> raise(new System.ArgumentException("Internal error: " + op.ToString() + " is not an assignment operation"))
+
+    type StandardFunction =
+        | Logarithm
+        override this.ToString() =
+            match this with
+            | Logarithm -> "log"

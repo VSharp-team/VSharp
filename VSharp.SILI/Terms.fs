@@ -8,10 +8,12 @@ open System.Collections.Generic
 type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
     override this.ToString() =
         match this with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
 
 [<StructuralEquality;NoComparison>]
 type public Operation =

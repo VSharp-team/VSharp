@@ -5,6 +5,7 @@ open VSharp
 
 // ------------------------------- mscorelib.System.Math -------------------------------
 
-module Math =
-    [<Implements("System.Int32 System.Math.Log(this)")>]
-        val Log : (State.state -> Term list -> StatementResult * State.state)
+    module Math =
+
+        [<Implements("System.Double System.Math.Log(System.Double)")>]
+        val Log : State.state -> Term list -> StatementResult * State.state
