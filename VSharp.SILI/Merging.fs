@@ -108,3 +108,7 @@ module internal Merging =
         | [] -> State.empty
         | [(_, s)] -> s
         | _ -> List.reduce merger gcs |> snd
+
+    let internal guardedMap mapper gvs =
+        let gs, vs = List.unzip gvs in
+        vs |> List.map mapper |> List.zip gs |> merge

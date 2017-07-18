@@ -25,8 +25,7 @@ module Array =
     let rec internal length = function
         | Error _ as e -> e
         | Array(_, _, _, ds, _) -> dimensionsToLength ds
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map length |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap length gvs
         | _ -> internalfail "computing length of non-array object"
 
     let rec private guardsProduct = function

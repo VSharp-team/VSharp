@@ -19,6 +19,7 @@ module public Wrappers =
     let public withFst x = fun y -> (x, y)
     let public withSnd y = fun x -> (x, y)
     let public mapAdd (map : Map<'a, 'b>) key value = map.Add(key, value)
+    let public makePair x y = (x, y)
 
     let public getDictValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
@@ -30,12 +31,6 @@ module public Wrappers =
     let public tryGetDictValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
-
-    let mapFoldMap mapping state table =
-        let mapFolder (map, state) key value =
-            let newValue, newState = mapping key state value in
-            (Map.add key newValue map, newState)
-        Map.fold mapFolder (Map.empty, state) table
 
     let mappedPartition f xs =
         let rec mappedPartitionAcc f left right = function
@@ -52,3 +47,18 @@ module public Wrappers =
         | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2 f xs1 xs2'
         | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2 f xs1' xs2
         | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2 f xs1' xs2'
+
+module public Map =
+    let foldMap mapping state table =
+        let mapFolder (map, state) key value =
+            let newValue, newState = mapping key state value in
+            (Map.add key newValue map, newState)
+        Map.fold mapFolder (Map.empty, state) table
+
+    let filterMap mapping map =
+        Map.fold
+            (fun m k v ->
+                match mapping k v with
+                | Some v' -> Map.add k v' m
+                | None -> m)
+            Map.empty map

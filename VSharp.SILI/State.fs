@@ -1,4 +1,5 @@
 ﻿namespace VSharp
+open VSharp.Utils
 
 module internal State =
     [<StructuralEquality;CustomComparison>]
@@ -26,53 +27,60 @@ module internal State =
             | StaticAddress a -> System.Type.GetType(a).FullName
             | SymbolicAddress(a, _) -> a
 
-    type internal environment = Map<string, Stack.stack<Term>>
+    type internal StackKey = string * string // name and token
+
+    type internal stack = MappedStack.stack<StackKey, Term>
     type internal heap = Map<HeapKey, Term>
-    type internal frames = Stack.stack<string list>
+    type internal frames = Stack.stack<StackKey list>
     type internal path = Term list
-    type internal state = environment * heap * frames * path
+    type internal state = stack * heap * frames * path
 
-    let internal empty : state = (Map.empty, Map.empty, Stack.empty, List.empty)
+    let internal empty : state = (MappedStack.empty, Map.empty, Stack.empty, List.empty)
 
-    let internal push ((e, h, f, p) : state) frame : state =
-        let pushOne (map : environment) (name, value) =
-            let current = if map.ContainsKey(name) then map.[name] else Stack.empty in
-            (name, map.Add(name, Stack.push current value))
-        let names, newEnv = frame |> List.mapFold pushOne e in
-        (newEnv, h, Stack.push f names, p)
-    let internal pop ((e, h, f, p) : state) : state =
-        let popOne (map : environment) name =
-            let vals = Stack.pop map.[name]
-            if Stack.isEmpty vals then map.Remove(name) else map.Add(name, vals)
+    let internal derefStack (s, _, _, _) key = MappedStack.find key s
+    let internal pushToStack (s, _, _, _) key value = MappedStack.push key value s
+    let internal mutateStack (s, _, _, _) key value = MappedStack.add key value s
+    let internal isAllocatedOnStack (s, _, _, _) key = MappedStack.containsKey key s
+    let internal stackMap f (s, _, _, _) = MappedStack.map f s
+    let internal compareStacks = MappedStack.compare
+
+    let internal push ((s, h, f, p) : state) frame : state =
+        let pushOne (map : stack) (key, value) = (key, MappedStack.push key value map)
+        let names, newStack = frame |> List.mapFold pushOne s in
+        (newStack, h, Stack.push f names, p)
+    let internal pop ((s, h, f, p) : state) : state =
+        let popOne (map : stack) name = MappedStack.remove map name
         let names = Stack.peak f in
-        (List.fold popOne e names, h, Stack.pop f, p)
+        (List.fold popOne s names, h, Stack.pop f, p)
 
-    let internal environment ((e, _, _, _) : state) = e
+    let internal stack ((s, _, _, _) : state) = s
     let internal pathCondition ((_, _, _, p) : state) = p
     let internal frames ((_, _, f, _) : state) = f
 
-    let internal withPathCondition ((e, h, f, p) : state) cond : state = (e, h, f, cond::p)
-    let internal popPathCondition ((e, h, f, p) : state) : state =
+    let internal withPathCondition ((s, h, f, p) : state) cond : state = (s, h, f, cond::p)
+    let internal popPathCondition ((s, h, f, p) : state) : state =
         match p with
         | [] -> internalfail "cannot pop empty path condition"
-        | _::p' -> (e, h, f, p')
+        | _::p' -> (s, h, f, p')
 
-    let private mergeMaps (map1 : Map<'a, 'b>) (map2 : Map<'a, 'b>) take update resolve =
-        let resolveIfShould (map : Map<'a, 'b>) key value =
-            if map.ContainsKey(key) then
-                let oldValue = take (map.[key]) in
-                let newValue = take value in
+    let private mergeMaps map1 map2 find add fold contains resolve =
+        let resolveIfShould map key value =
+            if contains key map then
+                let oldValue = find key map in
+                let newValue = value in
                 if oldValue = newValue then map
                 else
-                    map.Add(key, update value (resolve oldValue newValue))
+                    add key (resolve oldValue newValue) map
             else
-                map.Add(key, value)
-        Map.fold resolveIfShould map1 map2
+                add key value map
+        fold resolveIfShould map1 map2
 
-    let internal merge ((e1, h1, f1, p1) : state) ((e2, h2, f2, p2) : state) resolve : state =
+    let internal merge ((s1, h1, f1, p1) : state) ((s2, h2, f2, p2) : state) resolve : state =
         assert(p1 = p2)
         assert(f1 = f2)
-        (mergeMaps e1 e2 Stack.peak Stack.updateHead resolve, mergeMaps h1 h2 id id2 resolve, f1, p1)
+        let mergedStack = mergeMaps s1 s2 MappedStack.find MappedStack.add MappedStack.fold MappedStack.containsKey resolve in
+        let mergedHeap = mergeMaps h1 h2 Map.find Map.add Map.fold Map.containsKey resolve in
+        (mergedStack, mergedHeap, f1, p1)
 
     let internal staticMembersInitialized ((_, h, _, _) : state) typeName =
         h.ContainsKey(StaticAddress typeName)

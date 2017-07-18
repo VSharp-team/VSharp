@@ -14,8 +14,8 @@ module internal Memory =
         | Constant(name, source, _) -> SymbolicAddress(name, source)
         | term -> internalfail ("expected primitive heap address " + (toString term))
 
-    let private stackKeyToTerm (name, vals) =
-        StackRef(name, (Stack.size vals) - 1, [], Terms.TypeOf (Stack.peak vals) |> PointerType)
+    let private stackKeyToTerm (key, value) =
+        StackRef(key, [], Terms.TypeOf value |> PointerType)
 
     let private heapKeyToTerm (key, value) =
         let t = Terms.TypeOf value |> PointerType in
@@ -34,12 +34,11 @@ module internal Memory =
     let private nameOfLocation = function
         | HeapRef(_, x::xs, _) -> x
         | HeapRef(_, _, t) -> toString t
-        | StackRef(name, _, x::xs, _) -> sprintf "%s.%s" name x
-        | StackRef(name, _, _, _) -> name
+        | StackRef((name, _), x::xs, _) -> sprintf "%s.%s" name x
+        | StackRef((name, _), _, _) -> name
         | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
-    let private stackValue ((e, _, _, _) : state) name = e.[name] |> Stack.peak
-    let private stackDeref ((e, _, _, _) : state) name idx = e.[name] |> Stack.middle idx
+    let private stackDeref ((s, _, _, _) as state : state) key = derefStack state key
     let private heapDeref ((_, h, _, _) : state) addr = h.[addr]
 
     let internal npe () = Terms.MakeError(new System.NullReferenceException()) in
@@ -48,7 +47,7 @@ module internal Memory =
         | Error _ as e -> e
         | Concrete(null, _) -> Concrete(0, pointerType)
         | HeapRef(addr, _, t) -> addr
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map refToInt |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap refToInt gvs
         | t -> t
 
     let rec internal referenceEqual p1 p2 =
@@ -63,7 +62,7 @@ module internal Memory =
         | Concrete(null, _) -> Terms.MakeTrue
         | HeapRef(addr, _, t) when Terms.IsInteger addr ->
             Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map isNull |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap isNull gvs
         | _ -> Terms.MakeFalse
 
     let rec internal npeIfNull = function
@@ -72,7 +71,7 @@ module internal Memory =
         | HeapRef(addr, _, t) as reference ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             Merging.merge2Terms isNull !!isNull (npe()) reference
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map npeIfNull |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap npeIfNull gvs
         | t -> t
 
     let rec private structDeref path term =
@@ -85,13 +84,12 @@ module internal Memory =
                 if not (fields.ContainsKey(name)) then
                     internalfail (format2 "{0} does not contain field {1}" s name)
                 structDeref path' fields.[name]
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map (structDeref path) |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap (structDeref path) gvs
             | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec internal deref state = function
         | Error _ as e -> e
-        | StackRef(name, idx, path, _) -> structDeref (List.rev path) (stackDeref state name idx)
+        | StackRef(name, path, _) -> structDeref (List.rev path) (stackDeref state name)
         | HeapRef(Concrete(typeName, t), path, _) when Types.IsString t -> structDeref (List.rev path) (heapDeref state (StaticAddress (typeName :?> string)))
         | HeapRef(addr, path, _) ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
@@ -101,17 +99,17 @@ module internal Memory =
             | _ ->
                 let derefed = structDeref (List.rev path) (heapDeref state (extractHeapAddress addr)) in
                 Merging.merge2Terms isNull !!isNull (npe()) derefed
-        | Terms.GuardedValues(gs, vs) -> vs |> List.map (deref state) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (deref state) gvs
         | t -> internalfail ("deref expected reference, but got " + (toString t))
 
-    let internal valueOf = stackValue
+    let internal valueOf = stackDeref
     let internal fieldOf term name = structDeref [name] term
 
 // ------------------------------- Referencing -------------------------------
 
     let rec private addFieldToPath name = function
         | Error _ as e -> e
-        | StackRef(var, idx, path, t) -> StackRef(var, idx, name::path, t)
+        | StackRef(var, path, t) -> StackRef(var, name::path, t)
         | HeapRef(addr, path, t) -> HeapRef(addr, name::path, t)
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (addFieldToPath name) |> List.zip gs |> Union
         | t -> internalfail ("expected reference, but got " + (toString t))
@@ -120,11 +118,11 @@ module internal Memory =
         | Error _ as e -> e
         | StackRef _ as r -> r
         | HeapRef _ as r when followHeapRefs -> r
-        | Terms.GuardedValues(gs, vs) -> List.map (referenceTerm state name followHeapRefs) vs |> List.zip gs |> Merging.merge
-        | term -> StackRef(name, (Stack.size (environment state).[name]) - 1, [], Terms.TypeOf term)
+        | Union gvs -> Merging.guardedMap (referenceTerm state name followHeapRefs) gvs
+        | term -> StackRef(name, [], Terms.TypeOf term)
 
     let internal referenceToVariable state name followHeapRefs =
-        referenceTerm state name followHeapRefs (stackValue state name)
+        referenceTerm state name followHeapRefs (stackDeref state name)
 
     let rec private referenceToFieldOf state name parentRef = function
         | Error _ as e -> e
@@ -132,8 +130,7 @@ module internal Memory =
             assert(List.isEmpty path) // TODO: will this really be always empty?
             HeapRef(addr, name::path, t)
         | Struct _ -> addFieldToPath name parentRef
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (referenceToFieldOf state name parentRef) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (referenceToFieldOf state name parentRef) gvs
         | t -> internalfail ("expected reference or struct, but got " + (toString t))
 
     let rec private followOrReturnReference state reference =
@@ -141,7 +138,7 @@ module internal Memory =
         | Error _ as e -> e
         | StackRef _ as r -> r
         | HeapRef _ as r -> r
-        | Terms.GuardedValues(gs, vs) -> List.map (followOrReturnReference state) vs |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (followOrReturnReference state) gvs
         | term -> reference
 
     let internal referenceToField state followHeapRefs name parentRef =
@@ -163,11 +160,10 @@ module internal Memory =
     let public resetHeap () =
         pointer := 0
 
-    let internal allocateOnStack ((e, h, f, p) : state) name term : state =
-        let existing = if e.ContainsKey(name) then e.[name] else Stack.empty in
-        (e.Add(name, Stack.push existing term), h, Stack.updateHead f (name::(Stack.peak f)), p)
+    let internal allocateOnStack ((s, h, f, p) as state : state) key term : state =
+        (pushToStack state key term, h, Stack.updateHead f (key::(Stack.peak f)), p)
 
-    let internal allocateInHeap ((e, h, f, p) : state) term clusterSource : Term * state =
+    let internal allocateInHeap ((s, h, f, p) : state) term clusterSource : Term * state =
         let pointer, address =
             match clusterSource with
             | Some source ->
@@ -176,11 +172,11 @@ module internal Memory =
             | None ->
                 let address = freshAddress()
                 HeapRef (Concrete(address, pointerType), [], Terms.TypeOf term), ConcreteAddress address
-        (pointer, (e, h.Add(address, term), f, p))
+        (pointer, (s, h.Add(address, term), f, p))
 
-    let internal allocateInStaticMemory ((e, h, f, p) : state) typeName term =
+    let internal allocateInStaticMemory ((s, h, f, p) : state) typeName term =
         let address = StaticAddress typeName in
-        (e, h.Add(address, term), f, p)
+        (s, h.Add(address, term), f, p)
 
     let rec defaultOf = function
         | Bool -> Terms.MakeFalse
@@ -201,7 +197,7 @@ module internal Memory =
         let updateSource field =
             match source with
             | Symbolization(HeapRef(loc, path, t)) -> Symbolization(HeapRef(loc, field::path, t))
-            | Symbolization(StackRef(loc, n, path, t)) -> Symbolization(StackRef(loc, n, field::path, t))
+            | Symbolization(StackRef(loc, path, t)) -> Symbolization(StackRef(loc, field::path, t))
             | _ -> FieldAccess(field, source)
         let fields = Types.GetFieldsOf dotNetType isStatic |> Map.map (fun name -> makeSymbolicInstance false (updateSource name) name) in
         Struct(fields, t)
@@ -229,17 +225,13 @@ module internal Memory =
         
 // ------------------------------- Mutation -------------------------------
 
-    let private mutateTop ((e, h, f, p) : state) name term : state =
-        assert (e.ContainsKey(name))
-        (e.Add(name, Stack.updateHead e.[name] term), h, f, p)
+    let private mutateStack ((s, h, f, p) as state : state) key term : state =
+        assert (isAllocatedOnStack state key)
+        (mutateStack state key term, h, f, p)
 
-    let private mutateMiddle ((e, h, f, p) : state) name idx term : state =
-        assert (e.ContainsKey(name))
-        (e.Add(name, Stack.updateMiddle e.[name] idx term), h, f, p)
-
-    let private mutateHeap ((e, h, f, p) : state) addr term : state =
+    let private mutateHeap ((s, h, f, p) : state) addr term : state =
         assert (h.ContainsKey(addr))
-        (e, h.Add(addr, term), f, p)
+        (s, h.Add(addr, term), f, p)
 
     let rec private mutateField state path update term =
         match path with
@@ -250,20 +242,18 @@ module internal Memory =
             | Struct(fields, t) ->
                 let newField = mutateField state path' update fields.[name] in
                 Struct(fields.Add(name, newField), t)
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map (mutateField state path update) |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap (mutateField state path update) gvs
             | t -> internalfail ("expected struct, but got " + (toString t))
 
     let rec private errorOr term = function
         | Error _ as e -> e
-        | Terms.GuardedValues(gs, vs) ->
-            vs |> List.map (errorOr term) |> List.zip gs |> Merging.merge
+        | Union gvs -> Merging.guardedMap (errorOr term) gvs
         | _ -> term
 
-    let private mutateStackPath state path name idx update result =
-        let originalValue = stackDeref state name idx in
+    let private mutateStackPath state path key update result =
+        let originalValue = stackDeref state key in
         let mutatedValue = mutateField state (List.rev path) update originalValue in
-        (errorOr result mutatedValue, mutateMiddle state name idx mutatedValue)
+        (errorOr result mutatedValue, mutateStack state key mutatedValue)
 
     let private mutateHeapPath state path addr update result =
         let heapKey = extractHeapAddress addr in
@@ -274,13 +264,13 @@ module internal Memory =
     let internal mutate state reference value =
         match reference with
         | Error _ as e -> (e, state)
-        | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (always value) value
+        | StackRef(name, path, _) -> mutateStackPath state path name (always value) value
         | HeapRef(addr, path, _) -> mutateHeapPath state path addr (always value) value
         | Union gvs ->
             let mutateOneGuarded state (g, v) =
                 match v with
                 | Error _ -> (v, state)
-                | StackRef(name, idx, path, _) -> mutateStackPath state path name idx (Merging.merge2Terms g !!g value) value
+                | StackRef(name, path, _) -> mutateStackPath state path name (Merging.merge2Terms g !!g value) value
                 | HeapRef(addr, path, _) -> mutateHeapPath state path addr (Merging.merge2Terms g !!g value) value
                 | t -> internalfail ("expected union of references, but got " + (toString t))
             in
@@ -294,20 +284,19 @@ module internal Memory =
         let mutatedArray = Array.write originalArray indices value in
         let rec refine = function
             | Error _ -> originalArray
-            | Terms.GuardedValues(gs, vs) ->
-                vs |> List.map refine |> List.zip gs |> Merging.merge
+            | Union gvs -> Merging.guardedMap refine gvs
             | t -> t
         let resultingArray = refine mutatedArray in
         let _, state = mutate state reference resultingArray in
         (mutatedArray, state)
 
-    let symbolizeState ((e, h, f, p) : state) : state =
+    let symbolizeState ((s, h, f, p) as state : state) : state =
         let rec symbolizeValue name location v =
            makeSymbolicInstance (isStaticLocation location) (Symbolization location) name (Terms.TypeOf v)
         in
-        let e' = e |> Map.map (fun key values -> Stack.updateHead values (symbolizeValue key (stackKeyToTerm (key, values)) (Stack.peak values))) in
+        let s' = state |> stackMap (fun key value -> symbolizeValue (fst key) (stackKeyToTerm (key, value)) value) in
         let h' = h |> Map.map (fun key value -> symbolizeValue (toString key) (heapKeyToTerm (key, value)) value) in
-        (e', h', f, p)
+        (s', h', f, p)
 
     type internal StateDiff =
         | Mutation of Term * Term
@@ -349,7 +338,7 @@ module internal Memory =
             let addFieldToKey key field =
                 match key with
                 | HeapRef(a, p, t) -> HeapRef(a, field::p, t)
-                | StackRef(a, n, p, t) -> StackRef(a, n, field::p, t)
+                | StackRef(a, p, t) -> StackRef(a, field::p, t)
                 | _ -> __notImplemented__()
             in
             let innerMutatedFields, innerAddedFields =
@@ -365,13 +354,13 @@ module internal Memory =
         | _ ->
             [(key, val2)], []
 
-    let internal diff ((e1, h1, _, _) : state) ((e2, h2, _, _) : state) =
-        let mutatedStack, newStack = compareMaps e1 e2 in
+    let internal diff ((s1, h1, _, _) as state : state) ((s2, h2, _, _) : state) =
+        let mutatedStack = compareStacks s1 s2 in
         let mutatedHeap,  newHeap  = compareMaps h1 h2 in
-        let stackKvpToTerms (name, vals) =
-            let oldTerm = Stack.peak e1.[name] in
-            let newTerm = Stack.peak vals in
-            let reference = stackKeyToTerm (name, vals) in
+        let stackKvpToTerms (key, value) =
+            let oldTerm = derefStack state key in
+            let newTerm = value in
+            let reference = stackKeyToTerm (key, value) in
             structDiff reference oldTerm newTerm
         in
         let heapKvpToTerms (key, value) =
@@ -386,22 +375,18 @@ module internal Memory =
                 (List.concat mutatedStackFieldss)
                 (List.concat mutatedHeapFieldss)
         in
-        let overalAllocatedValues =
-            List.append
-                ((sortMap newStack (fun (k, v) -> (stackKeyToTerm (k, v), Stack.peak v)))::newStackFieldss |> List.concat)
-                ((sortMap newHeap  (fun (k, v) -> (heapKeyToTerm  (k, v), v)))::newHeapFieldss |> List.concat)
-        in
+        let allocatedValues = (sortMap newHeap  (fun (k, v) -> (heapKeyToTerm  (k, v), v)))::newHeapFieldss |> List.concat in
         List.append
             (List.map Mutation overalMutatedValues)
-            (List.map Allocation overalAllocatedValues)
+            (List.map Allocation allocatedValues)
 
     let internal compareRefs ref1 ref2 =
         match ref1, ref2 with
         | _ when ref1 = ref2 -> 0
         | StackRef _, HeapRef _ -> -1
         | HeapRef _, StackRef _ -> 1
-        | StackRef(name1, n1, path1, _), StackRef(name2, n2, path2, _) ->
-            if name1 < name2 || name1 = name2 && n1 < n2 || name1 = name2 && n1 = n2 && path1 < path2 then -1 else 1
+        | StackRef(name1, path1, _), StackRef(name2, path2, _) ->
+            if name1 < name2 || name1 = name2 && path1 < path2 then -1 else 1
         | HeapRef(addr1, path1, _), HeapRef(addr2, path2, _) ->
             let haddr1 = extractHeapAddress addr1 in
             let haddr2 = extractHeapAddress addr2 in

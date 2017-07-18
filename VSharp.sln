@@ -5,9 +5,9 @@ VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CSharpUtils", "VSharp.CSharpUtils\VSharp.CSharpUtils.csproj", "{783CA74C-2A2D-4866-9007-10B51F529423}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "VSharp.SILI", "VSharp.SILI\VSharp.SILI.fsproj", "{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.SILI", "VSharp.SILI\VSharp.SILI.fsproj", "{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "VSharp.Utils", "VSharp.Utils\VSharp.Utils.fsproj", "{6F686B61-8105-42F2-950E-BD6AEC0887CA}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.Utils", "VSharp.Utils\VSharp.Utils.fsproj", "{6F686B61-8105-42F2-950E-BD6AEC0887CA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Test", "VSharp.Test\VSharp.Test.csproj", "{A52177E6-B792-4866-A520-645173F1206A}"
 EndProject

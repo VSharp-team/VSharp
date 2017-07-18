@@ -2,7 +2,7 @@
 
 namespace VSharp.CSharpUtils.Tests
 {
-    internal class A
+   /*internal class A
     {
         private B _b = new B { _c = new C { _n = 13 } };
         private int _intField = 100500;
@@ -80,5 +80,5 @@ namespace VSharp.CSharpUtils.Tests
             a.DecN();
             return n == a.GetN();
         }
-    }
+    }*/
 }
