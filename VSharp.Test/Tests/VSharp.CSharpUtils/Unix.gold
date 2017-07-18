@@ -676,14 +676,14 @@ VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
 RESULT: 18
 HEAP:
-1 ==> <Lambda Expression int32 -> object>
+1 ==> <Lambda Expression int32 -> <Any object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
-1 ==> <Lambda Expression int32 -> object>
-2 ==> <Lambda Expression int32 -> object>
+1 ==> <Lambda Expression int32 -> <Any object>>
+2 ==> <Lambda Expression int32 -> <Any object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 

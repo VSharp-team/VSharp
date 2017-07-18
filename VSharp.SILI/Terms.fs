@@ -120,6 +120,7 @@ and SymbolicConstantSource =
     | UnboundedRecursion of TermRef
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
+    | SymblolicConstantType of TermType
 
 module public Terms =
 

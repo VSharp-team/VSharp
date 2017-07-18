@@ -9,13 +9,13 @@ open JetBrains.Metadata.Reader.API
 type public TermType =
     | Void
     | Bottom
-    | Object
+    | Object of string
     | Bool
     | Numeric of System.Type
     | String
     | StructType of System.Type // some value type
     | ClassType of System.Type // some reference type
-    | SubType of System.Type
+    | SubType of System.Type * string
     | ArrayType of TermType * int
     | Func of TermType list * TermType
     | PointerType of TermType
@@ -24,16 +24,16 @@ type public TermType =
         match this with
         | Void -> "void"
         | Bottom -> "exception"
-        | Object -> "object"
+        | Object name -> "<Any object>"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType t -> t.ToString()
         | ClassType t -> t.ToString()
-        | SubType t -> "Subtype of " + t.ToString()
+        | SubType (t, name) -> sprintf "<Subtype of %s>" (toString t)
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
-        | PointerType t -> "Reference of " + t.ToString()
+        | PointerType t -> sprintf "<Reference to %s>" (toString t)
 
 module public Types =
     let private integerTypes =
@@ -107,7 +107,7 @@ module public Types =
 
     let public IsReferenceType = function
         | String
-        | Object
+        | Object _
         | ClassType _
         | ArrayType _
         | Func _ 
@@ -122,14 +122,14 @@ module public Types =
 
     let rec public ToDotNetType t =
         match t with
-        | Object -> typedefof<obj>
+        | Object _ -> typedefof<obj>
         | Bool -> typedefof<bool>
         | Numeric res -> res
         | String -> typedefof<string>
         | StructType t -> t
         | ClassType t -> t
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
-        | SubType t ->  t
+        | SubType (t, _) ->  t
         | _ -> typedefof<obj>
 
     let rec public FromDotNetType = function
@@ -162,42 +162,45 @@ module public Types =
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
     let rec public FromMetadataTypeToConcrete (t : IMetadataType) =
-        if t = null then Object
+        if t = null then Object "null"
         else
             match t with
-            | _ when t.AssemblyQualifiedName = "__Null" -> Object
+            | _ when t.AssemblyQualifiedName = "__Null" -> Object "__null"
             | _ when t.FullName = "System.Object" -> ClassType typedefof<obj>
             | _ when t.FullName = "System.Void" -> Void
             | :? IMetadataGenericArgumentReferenceType as g ->
                 let constraints = g.Argument.TypeConstraints in
                 if not(Array.isEmpty constraints) then
                     __notImplemented__()
-                Object
+                ClassType typedefof<obj>
             | :? IMetadataArrayType as a ->
                 let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as c ->
                 Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
+            //| _ -> __notImplemented__()
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-    let rec public FromMetadataTypeToSymbolic (t : IMetadataType) =
-        if t = null then Object
+    let rec public FromMetadataTypeToSymbolic (t : IMetadataType) (isType : bool) =
+        if t = null then Object "null"
         else
             match t with
-            | _ when t.AssemblyQualifiedName = "__Null" -> Object
-            | _ when t.FullName = "System.Object" -> Object
+            | _ when t.AssemblyQualifiedName = "__Null" -> Object "__null"
+            | _ when t.FullName = "System.Object" -> Object (IdGenerator.startingWith typedefof<obj>.FullName)
             | _ when t.FullName = "System.Void" -> Void
             | :? IMetadataGenericArgumentReferenceType as g ->
                 let constraints = g.Argument.TypeConstraints in
                 if not(Array.isEmpty constraints) then
                     __notImplemented__()
-                Object
+                Object "generic"
             | :? IMetadataArrayType as a ->
                 let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as ct ->
                 match Type.GetType(ct.Type.AssemblyQualifiedName, true) with
-                    | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> SubType c
+                    | c when (c.IsClass && c.IsSealed) -> ClassType c
+                    | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
+                        if isType then SubType (c, c.FullName) else SubType (c, IdGenerator.startingWith c.FullName)
                     | c -> FromDotNetType c
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 

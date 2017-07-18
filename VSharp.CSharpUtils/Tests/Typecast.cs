@@ -49,7 +49,7 @@ namespace VSharp.CSharpUtils.Tests
             return fun(X, Y);
         }
     }
-    public class Piece : IComparable
+    public class Piece// : IComparable
     {
         private int _xCoord;
         private int _yCoord;
@@ -80,11 +80,21 @@ namespace VSharp.CSharpUtils.Tests
             return Rate;
         }
 
-        public int CompareTo(object obj)
+        public int IsCast(object obj)
+        {
+            bool a = obj is Piece;
+            if (a)
+            {
+                return 5;
+            }
+            return 6;
+        }
+
+        /*public int CompareTo(object obj)
         {
             var a = (Piece)obj;
-            return Rate.CompareTo(a.Rate);
-        }
+            return a.Rate;
+        }*/
     }
 
     public class Pawn : Piece
