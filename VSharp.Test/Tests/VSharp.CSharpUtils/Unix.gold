@@ -184,7 +184,7 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod6()
-RESULT: <VOID>
+RESULT: NaN
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -209,6 +209,170 @@ System.Math ==> STRUCT System.Math[
 	| System.Math.roundPower10Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod1(System.Double)
+RESULT: sqrt(x)
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod2()
+RESULT: 2
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod3(System.Double)
+RESULT: UNION[
+	| !(x < 0) ~> sqrt(x)
+	| x < 0 ~> sqrt(-x)]
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod4()
+RESULT: NaN
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod1()
+RESULT: 1
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod2(System.Double)
+RESULT: exp(x)
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod1(System.Double)
+RESULT: 1
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod2(System.Double)
+RESULT: 1
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod3()
+RESULT: 25
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod4(System.Double, System.Double)
+RESULT: pow(x, y)
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod5(System.Double)
+RESULT: UNION[
+	| !(x < 0) ~> pow(x, 2)
+	| x < 0 ~> pow(-x, 2)]
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod6(System.Double)
+RESULT: UNION[
+	| !(x < 0) ~> pow(x, x)
+	| !(x < 8) & x < 0 ~> pow(-x, -x)
+	| x < 0 & x < 8 ~> pow(-x, x)]
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod7(System.Double, System.Double)
+RESULT: x + y
+HEAP:
+1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> 2.71828182845905
+	| System.Math.PI ~> 3.14159265358979
+	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.maxRoundingDigits ~> 15
+	| System.Math.roundPower10Double ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1()
 RESULT: False
 HEAP:

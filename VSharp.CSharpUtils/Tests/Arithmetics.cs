@@ -66,25 +66,25 @@
             return System.Math.Log(x + y);
         }
 
-        //0
+        // 0
         public static double LogMethod3()
         {
             return System.Math.Log(1);
         }
 
-        //log(1 + log(x))
+        // log(1 + log(x))
         public static double LogMethod4(double x)
         {
             return System.Math.Log(1 + System.Math.Log(x));
         }
 
-        //-Infinity
+        // -Infinity
         public static double LogMethod5()
         {
             return System.Math.Log(0);
         }
 
-        //Nop
+        // NaN
         public static double LogMethod6()
         {
             return System.Math.Log(-1);
@@ -98,6 +98,97 @@
             else y = -x;
 
             return System.Math.Log(y);
+        }
+
+        // sqrt(x)
+        public static double SqrtMethod1(double x)
+        {
+            return System.Math.Sqrt(x);
+        }
+
+        // 2
+        public static double SqrtMethod2()
+        {
+            return System.Math.Sqrt(4);
+        }
+
+        public static double SqrtMethod3(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return System.Math.Sqrt(y);
+        }
+
+        // NaN
+        public static double SqrtMethod4()
+        {
+            return System.Math.Sqrt(-1);
+        }
+
+        // 1
+        public static double ExpMethod1()
+        {
+            return System.Math.Exp(0);
+        }
+
+        // exp(x)
+        public static double ExpMethod2(double x)
+        {
+            return System.Math.Exp(x);
+        }
+
+        // 1
+        public static double PowMethod1(double x)
+        {
+            return System.Math.Pow(x, 0);
+        }
+
+        // 1
+        public static double PowMethod2(double x)
+        {
+            return System.Math.Pow(1, x);
+        }
+
+        // 25
+        public static double PowMethod3()
+        {
+            return System.Math.Pow(5, 2);
+        }
+
+        //pow(x, y)
+        public static double PowMethod4(double x, double y)
+        {
+            return System.Math.Pow(x, y);
+        }
+
+        public static double PowMethod5(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return System.Math.Pow(y, 2);
+        }
+
+        public static double PowMethod6(double x)
+        {
+            double y;
+            double z;
+            if (x >= 0) y = x;
+            else y = -x;
+            if (x >= 8) z = y;
+            else z = x;
+            return System.Math.Pow(y, z);
+        }
+
+        // x + y
+        public static double PowMethod7(double x, double y)
+        {
+            return System.Math.Pow(x + y, 1);
         }
     }
 }

@@ -131,7 +131,15 @@ module Operations =
         | op -> raise(new System.ArgumentException("Internal error: " + op.ToString() + " is not an assignment operation"))
 
     type StandardFunction =
+        | SquareRoot
         | Logarithm
+        | Logarithm10
+        | Exponent
+        | Power
         override this.ToString() =
             match this with
+            | SquareRoot -> "sqrt"
             | Logarithm -> "log"
+            | Logarithm10 -> "log10"
+            | Exponent -> "exp"
+            | Power -> "pow"
