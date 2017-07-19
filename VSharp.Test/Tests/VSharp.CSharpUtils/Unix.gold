@@ -743,138 +743,138 @@ RESULT: -b + a + -c == 0
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.A.IncN()
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleA.IncN()
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
-	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
-		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-			| VSharp.CSharpUtils.Tests.C._n ~> 1 + VSharp.CSharpUtils.Tests.C._n]]
-	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
-VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> 1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.A.DecN()
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleA.DecN()
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
-	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
-		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-			| VSharp.CSharpUtils.Tests.C._n ~> -1 + VSharp.CSharpUtils.Tests.C._n]]
-	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
-VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> -1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.A.GetN()
-RESULT: VSharp.CSharpUtils.Tests.C._n
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleA.GetN()
+RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._n
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
-	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
-		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-			| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]]
-	| VSharp.CSharpUtils.Tests.A._intField ~> VSharp.CSharpUtils.Tests.A._intField]
-VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.B.GetN()
-RESULT: VSharp.CSharpUtils.Tests.C._n
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleB.GetN()
+RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._n
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.B[
-	| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-		| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-		| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.B.SetN(System.Int32)
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleB.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.B[
-	| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-		| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-		| VSharp.CSharpUtils.Tests.C._n ~> n]]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]]
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M2()
-RESULT: VSharp.CSharpUtils.Tests.C._m2
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M2()
+RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M2(System.Int32)
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M2(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.C._m2 ~> value
-	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> value
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.C.get_M1()
-RESULT: VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M1()
+RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.C.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.C.set_M1(System.Int32)
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M1(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> value
-	| VSharp.CSharpUtils.Tests.C._m2 ~> VSharp.CSharpUtils.Tests.C._m2
-	| VSharp.CSharpUtils.Tests.C._n ~> VSharp.CSharpUtils.Tests.C._n]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> value
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Void VSharp.CSharpUtils.Tests.C.SetN(System.Int32)
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> 42
-	| VSharp.CSharpUtils.Tests.C._m2 ~> 102
-	| VSharp.CSharpUtils.Tests.C._n ~> n]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> 42
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> 102
+	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
 RESULT: True
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.A[
-	| VSharp.CSharpUtils.Tests.A._b ~> STRUCT VSharp.CSharpUtils.Tests.B[
-		| VSharp.CSharpUtils.Tests.B._c ~> STRUCT VSharp.CSharpUtils.Tests.C[
-			| VSharp.CSharpUtils.Tests.C.<M1>k__BackingField ~> 42
-			| VSharp.CSharpUtils.Tests.C._m2 ~> 102
-			| VSharp.CSharpUtils.Tests.C._n ~> n]]
-	| VSharp.CSharpUtils.Tests.A._intField ~> 100500]
-VSharp.CSharpUtils.Tests.A ==> STRUCT VSharp.CSharpUtils.Tests.A[
-	]
-VSharp.CSharpUtils.Tests.B ==> STRUCT VSharp.CSharpUtils.Tests.B[
-	]
-VSharp.CSharpUtils.Tests.C ==> STRUCT VSharp.CSharpUtils.Tests.C[
-	]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> 42
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> 102
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]]
+	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> 100500]
 VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
 RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2 & 2 * y < z
@@ -940,7 +940,7 @@ VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
 	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) | !(R == c) & D == c & T == c | D == c & R == c) & (!(R == c) & !(T == c) | !(R == c) & <VOID> < 5 & T == c | <VOID> < 5 & R == c | A == c | B == c | C == c | D == c)]
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) | !(R == c) & D == c & T == c | D == c & R == c) & (!(R == c) & !(T == c) | (R == c | T == c) & <VOID> < 5 | A == c | B == c | C == c | D == c)]
 HEAP:
 1 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
