@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace VSharp.CSharpUtils
+namespace VSharp.CSharpUtils.Tests
 {
     public class Lists
     {
