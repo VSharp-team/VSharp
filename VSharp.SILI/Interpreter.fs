@@ -74,8 +74,8 @@ module internal Interpreter =
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
-                then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromMetadataType param.Type))
-                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromMetadataType param.Type))
+                then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromConcreteMetadataType param.Type))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType param.Type false))
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = map2 valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -93,7 +93,7 @@ module internal Interpreter =
         reduceFunction state this parameters returnType funcId signature invoke k
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        let returnType = Types.FromMetadataType(ast.MetadataMethod.Signature.ReturnType) in
+        let returnType = Types.FromSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) false in
         reduceFunctionWithBlockBody state (Some this) parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature ast.Body k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
@@ -365,7 +365,7 @@ module internal Interpreter =
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
         let name = ast.VariableReference.Variable.Name in
         let initialize k =
-            let t = Types.FromMetadataType ast.VariableReference.Variable.Type in
+            let t = Types.FromConcreteMetadataType ast.VariableReference.Variable.Type in
             match t with
             | StructType _ when ast.Initializer = null -> k (Memory.defaultOf t, state)
             | _ -> reduceExpression state ast.Initializer k
@@ -482,7 +482,8 @@ module internal Interpreter =
         else
             DecompilerServices.setPropertyOfNode ast "Thrown" exn
             // catch (...) {...} case
-            let typeMatches = is ast.VariableReference.Variable.Type exn in
+            let left = Types.FromSymbolicMetadataType ast.VariableReference.Variable.Type true in 
+            let typeMatches = checkCast exn left in
             let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
             let state = State.push state [(stackKey, exn)] in
             if ast.Filter = null then k (typeMatches, state)
@@ -537,7 +538,7 @@ module internal Interpreter =
 
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         match ast with
-        | null -> k (Concrete(null, VSharp.Object), state)
+        | null -> k (Concrete(null, VSharp.Object (IdGenerator.startingWith typedefof<obj>.FullName)), state)
         | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceToVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression -> k (Memory.referenceToVariable state (expression.Parameter.Name, getTokenBy (Choice1Of2 expression.Parameter)) followHeapRefs, state)
         | :? IThisReferenceExpression as expression -> k (Memory.referenceToVariable state ("this", getThisTokenBy expression) followHeapRefs, state)
@@ -572,7 +573,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
-        (Memory.defaultOf (Types.FromMetadataType ast.Type), state) |> k
+        (Memory.defaultOf (Types.FromConcreteMetadataType ast.Type), state) |> k
 
     and reduceDerefExpression state (ast : IDerefExpression) k =
         reduceExpression state ast.Argument (fun (reference, state) ->
@@ -597,7 +598,7 @@ module internal Interpreter =
                 k (Memory.fieldOf target fieldName, state)
 
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
-        let mType = Types.FromMetadataType ast.Value.Type in
+        let mType = Types.FromConcreteMetadataType ast.Value.Type in
         k (Concrete(ast.Value.Value, mType), state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
@@ -803,20 +804,50 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        let targetType = Types.FromMetadataType ast.TargetType in
+        let targetType = Types.FromSymbolicMetadataType ast.TargetType true in
         reduceExpression state ast.Argument (fun (argument, newState) ->
         typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
-    and is typ = function
-        | Union gvs -> Merging.guardedMap (is typ) gvs
-        | term ->
-            // TODO: here we should use more sophisticated type constraints processing, but for now...
-            let justInherits = (Types.MetadataToDotNetType typ).IsAssignableFrom(Types.ToDotNetType (Terms.TypeOf term)) in
-            Concrete(justInherits, Bool)
+    and is (leftType : TermType) (rightType : TermType) =
+            let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
+            in
+            let concreteIs (dotNetType : Type) =
+                let b = makeBoolConst dotNetType.FullName (ClassType dotNetType) in
+                function
+                    | Types.ReferenceType t
+                    | Types.StructureType t -> Terms.MakeBool (t = dotNetType)
+                    | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+                        makeBoolConst name termType ==> b
+                    | SubType(t, _) as termType when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+                    | Object name as termType -> b
+                    | _ -> __notImplemented__()
+            in
+            let subTypeIs (dotNetType: Type, rightName) =
+                let b = makeBoolConst rightName (SubType(dotNetType, rightName)) in
+                function
+                    | Types.ReferenceType t -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+                    | Types.StructureType t -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+                    | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+                    | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+                        makeBoolConst name termType ==> b
+                    | Object name as termType ->b
+                    | _ -> __notImplemented__()
+            in
+            match leftType, rightType with
+                | Void, _   | _, Void
+                | Bottom, _ | _, Bottom -> Terms.MakeFalse
+                | leftType, Types.StructureType t
+                | leftType, ClassType t ->  concreteIs t leftType
+                | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
+                | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
+                | PointerType left, PointerType right -> is left right
+                | term, PointerType right -> is term right
+                | PointerType left, term -> is left term
+                | _ -> __notImplemented__()
 
     and tryCast typ term =
-        let casted = is typ term in
-        Merging.merge2Terms casted !!casted term (Concrete(null, Types.FromMetadataType typ))
+        let casted = is (Terms.TypeOf term) (Types.FromSymbolicMetadataType typ true) in
+        Merging.merge2Terms casted !!casted term (Concrete(null, Types.FromConcreteMetadataType typ))
 
     and typeCast isChecked state term targetType =
         // TODO: refs and structs should still be refs after cast!
@@ -854,9 +885,16 @@ module internal Interpreter =
         reduceExpression state ast.Argument (fun (term, state) ->
         k (tryCast ast.Type term, state))
 
+    and checkCast term targetType =
+        match term with
+            | Union gvs -> Merging.guardedMap (fun t -> is (Terms.TypeOf t) targetType) gvs
+            | _ -> is (Terms.TypeOf term) targetType
+
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
+        let targetType = Types.FromSymbolicMetadataType ast.Type true in
         reduceExpression state ast.Argument (fun (term, state) ->
-        k (is ast.Type term, state))
+        let result = checkCast term targetType in
+        k (result, state))
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
         let instance = Types.MetadataToDotNetType ast.Type in
@@ -879,7 +917,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
-        let typ = Types.FromMetadataType ast.ArrayType in
+        let typ = Types.FromConcreteMetadataType ast.ArrayType in
         Cps.Seq.mapFoldk reduceExpression state ast.Dimensions (fun (dimensions, state) ->
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
         let result =
@@ -899,7 +937,7 @@ module internal Interpreter =
                 let fields = DecompilerServices.getDefaultFieldValuesOf true qualifiedTypeName in
                 let instance =
                     fields
-                        |> List.map (fun (n, (t, _)) -> (n, Memory.defaultOf (Types.FromMetadataType t)))
+                        |> List.map (fun (n, (t, _)) -> (n, Memory.defaultOf (Types.FromConcreteMetadataType t)))
                         |> Map.ofList
                         |> withSnd t
                         |> Struct
@@ -928,9 +966,9 @@ module internal Interpreter =
         let names, typesAndInitializers = List.unzip fields in
         let types, initializers = List.unzip typesAndInitializers in
         Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
-        let fields = List.map2 (fun t -> function | Nop -> Memory.defaultOf (Types.FromMetadataType t) | v -> v) types initializers
+        let fields = List.map2 (fun t -> function | Nop -> Memory.defaultOf (Types.FromConcreteMetadataType t) | v -> v) types initializers
                         |> List.zip names |> Map.ofList in
-        let t = Types.FromMetadataType ast.ConstructedType in
+        let t = Types.FromConcreteMetadataType ast.ConstructedType in
         let freshValue = Struct(fields, t) in
         let isReference = Types.IsReferenceType t in
         let reference, state =

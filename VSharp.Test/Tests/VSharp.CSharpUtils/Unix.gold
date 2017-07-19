@@ -926,14 +926,14 @@ VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
 RESULT: 18
 HEAP:
-1 ==> <Lambda Expression int32 -> object>
+1 ==> <Lambda Expression int32 -> <Any object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
-1 ==> <Lambda Expression int32 -> object>
-2 ==> <Lambda Expression int32 -> object>
+1 ==> <Lambda Expression int32 -> <Any object>>
+2 ==> <Lambda Expression int32 -> <Any object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 
@@ -970,10 +970,10 @@ System.Object ==> STRUCT System.Object[
 	]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
-METHOD: System.Boolean VSharp.CSharpUtils.Lists.Construct()
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lists.Construct()
 RESULT: True
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Lists[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 2 ==> [|  ... 0 ... |]
 3 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -990,7 +990,7 @@ System.Array ==> STRUCT System.Array[
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
-VSharp.CSharpUtils.Lists ==> STRUCT VSharp.CSharpUtils.Lists[
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.FibUnbound(System.Int32)
 RESULT: VSharp.CSharpUtils.Tests.Fibonacci.b4
@@ -998,3 +998,36 @@ HEAP:
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
 	| VSharp.CSharpUtils.Tests.Fibonacci.a ~> VSharp.CSharpUtils.Tests.Fibonacci.a4
 	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> VSharp.CSharpUtils.Tests.Fibonacci.b4]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.DownCastObject(System.Object)
+RESULT: UNION[
+	| !VSharp.CSharpUtils.Tests.Piece ~> 6
+	| VSharp.CSharpUtils.Tests.Piece ~> 5]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.UpCast()
+RESULT: 15
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Pawn[
+	| VSharp.CSharpUtils.Tests.Pawn._newField ~> 25
+	| VSharp.CSharpUtils.Tests.Piece.Rate ~> 1
+	| VSharp.CSharpUtils.Tests.Piece._xCoord ~> 0
+	| VSharp.CSharpUtils.Tests.Piece._yCoord ~> 0]
+VSharp.CSharpUtils.Tests.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Pawn[
+	]
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.DownCastPiece(VSharp.CSharpUtils.Tests.Piece)
+RESULT: UNION[
+	| !VSharp.CSharpUtils.Tests.Pawn & VSharp.CSharpUtils.Tests.Piece1 ~> 20
+	| !VSharp.CSharpUtils.Tests.Piece1 | VSharp.CSharpUtils.Tests.Pawn ~> 10]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Unboxing(System.Object)
+RESULT: UNION[
+	| !System.Int32 ~> 23
+	| System.Int32 ~> 13]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]

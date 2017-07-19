@@ -160,6 +160,19 @@ namespace VSharp.Test
 //                , "StaticMembers"
 //                , "TryCatch"
 //                , "Lists"
+//                , "Typecast"
+                , "IKeeper"
+                , "Bag"
+                , "Generic"
+                , "Celsius"
+                , "Fahrenheit"
+                , "INormalize"
+                , "Coord"
+                , "Piece"
+                , "Pawn"
+                , "IPromotion"
+                , "Employee"
+                , "Helper"
             };
 
             var failReason = new StringBuilder();
