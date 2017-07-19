@@ -202,9 +202,9 @@ module internal Propositional =
 
     let internal (!==) x y =
         !! (x === y)
-    
+
     let internal (==>) x y =
-        !!x ||| y 
+        !!x ||| y
 
 
     let internal simplifyBinaryConnective op x y k =

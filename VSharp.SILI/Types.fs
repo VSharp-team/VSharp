@@ -31,7 +31,7 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType t -> t.ToString()
         | ClassType t -> t.ToString()
-        | SubType (t, name) -> sprintf "<Subtype of %s>" (toString t)
+        | SubType(t, name) -> sprintf "<Subtype of %s>" (toString t)
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
         | PointerType t -> sprintf "<Reference to %s>" (toString t)
 
@@ -116,6 +116,17 @@ module public Types =
 
     let public IsValueType = not << IsReferenceType
     
+    let (|StructureType|_|) = function
+        | StructType t
+        | Numeric t -> Some(StructureType(t))
+        | Bool -> Some(StructureType(typedefof<bool>))
+        | _ -> None
+
+    let (|ReferenceType|_|) = function
+        | String -> Some(ReferenceType(typedefof<string>))
+        | ClassType t -> Some(ReferenceType(t))
+        | _ -> None
+
     let public pointerFromReferenceType = function
         | t when IsReferenceType t -> (PointerType t)
         | t -> t
@@ -129,26 +140,32 @@ module public Types =
         | StructType t -> t
         | ClassType t -> t
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
-        | SubType (t, _) ->  t
+        | SubType(t, _) ->  t
         | _ -> typedefof<obj>
 
-    let rec public FromDotNetType = function
+    let rec FromCommonDotNetType dotNetType k =
+        match dotNetType with
         | null ->
             internalfail "unresolved type!"
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
         | e when e.IsEnum -> Numeric e
-        | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
-            let methodInfo = f.GetMethod("Invoke") in
-            let returnType = methodInfo.ReturnType |> FromDotNetType in
-            let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
-            Func(List.ofArray parameters, returnType)
-        | a when a.IsArray -> ArrayType(FromDotNetType(a.GetElementType()) |> pointerFromReferenceType, a.GetArrayRank())
+        | a when a.IsArray -> ArrayType(FromCommonDotNetType(a.GetElementType()) k |> pointerFromReferenceType, a.GetArrayRank())
         | s when s.IsValueType -> StructType s
-        // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
-        | c when c.IsClass || c.IsInterface -> ClassType c
-        | _ -> __notImplemented__()
+        | _ -> k dotNetType
+
+    let rec public FromDotNetType dotNetType = 
+        FromCommonDotNetType dotNetType (fun concrete ->
+        match concrete with
+            | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
+                let methodInfo = f.GetMethod("Invoke") in
+                let returnType = methodInfo.ReturnType |> FromDotNetType in
+                let parameters = methodInfo.GetParameters() |> Array.map (fun (p : System.Reflection.ParameterInfo) -> FromDotNetType p.ParameterType) in
+                Func(List.ofArray parameters, returnType)
+            // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+            | c when c.IsClass || c.IsInterface -> ClassType c
+            | _ -> __notImplemented__())
 
     let public IsPrimitive t =
         let dotNetType = ToDotNetType t in
@@ -158,10 +175,9 @@ module public Types =
 
     let public IsReal = ToDotNetType >> realTypes.Contains
 
-
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 
-    let rec public FromMetadataTypeToConcrete (t : IMetadataType) =
+    let rec public FromConcreteMetadataType (t : IMetadataType) =
         if t = null then Object "null"
         else
             match t with
@@ -174,14 +190,13 @@ module public Types =
                     __notImplemented__()
                 ClassType typedefof<obj>
             | :? IMetadataArrayType as a ->
-                let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
+                let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as c ->
                 Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
-            //| _ -> __notImplemented__()
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-    let rec public FromMetadataTypeToSymbolic (t : IMetadataType) (isType : bool) =
+    let rec public FromSymbolicMetadataType (t : IMetadataType) (isUnique : bool) =
         if t = null then Object "null"
         else
             match t with
@@ -194,29 +209,31 @@ module public Types =
                     __notImplemented__()
                 Object "generic"
             | :? IMetadataArrayType as a ->
-                let elementType = FromMetadataTypeToConcrete a.ElementType |> pointerFromReferenceType in
+                let elementType = FromSymbolicMetadataType a.ElementType false |> pointerFromReferenceType in
                 ArrayType(elementType, int(a.Rank))
             | :? IMetadataClassType as ct ->
-                match Type.GetType(ct.Type.AssemblyQualifiedName, true) with
+                    let metadataType =  Type.GetType(ct.Type.AssemblyQualifiedName, true) in
+                    FromCommonDotNetType metadataType (fun symbolic ->
+                    match symbolic with
                     | c when (c.IsClass && c.IsSealed) -> ClassType c
                     | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
-                        if isType then SubType (c, c.FullName) else SubType (c, IdGenerator.startingWith c.FullName)
-                    | c -> FromDotNetType c
+                        if isUnique then SubType(c, c.FullName) else SubType(c, IdGenerator.startingWith c.FullName)
+                    | _ -> __notImplemented__())
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-    let public MetadataToDotNetType (t : IMetadataType) = t |> FromMetadataTypeToConcrete |> ToDotNetType
+    let public MetadataToDotNetType (t : IMetadataType) = t |> FromConcreteMetadataType |> ToDotNetType
 
     let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = FromMetadataTypeToConcrete returnMetadataType in
+        let returnType = FromSymbolicMetadataType returnMetadataType true in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> FromMetadataTypeToConcrete
+            param.Type |> (fun t -> FromSymbolicMetadataType t false) in
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
         Func(args, returnType)
 
     let public FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = FromMetadataTypeToConcrete m.ReturnValue.Type in
+        let returnType = FromSymbolicMetadataType m.ReturnValue.Type true in
         let paramToType (param : IMetadataParameter) =
-            param.Type |> FromMetadataTypeToConcrete
+            param.Type |> (fun t -> FromSymbolicMetadataType t false)
         let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
 
@@ -226,7 +243,7 @@ module public Types =
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in
         if mt = null then typedefof<obj>
-        else ToDotNetType (FromMetadataTypeToConcrete mt)
+        else ToDotNetType (FromConcreteMetadataType mt)
 
     let public GetFieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in

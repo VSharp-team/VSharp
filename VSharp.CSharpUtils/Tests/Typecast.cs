@@ -49,7 +49,36 @@ namespace VSharp.CSharpUtils.Tests
             return fun(X, Y);
         }
     }
-    public class Piece// : IComparable
+
+    public static class Typecast
+    {
+        public static int DownCastObject(object obj)
+        {
+            bool a = obj is Piece;
+            return a ? 5 : 6;
+        }
+
+        public static int UpCast()
+        {
+            Pawn a = new Pawn(1, 1, 25);
+            Object obj = a;
+            Piece b = a;
+            return DownCastObject(obj) + DownCastPiece(b);
+        }
+
+        public static int DownCastPiece(Piece piece)
+        {
+            bool a = piece is Pawn;
+            return a ? 10 : 20;
+        }
+
+        public static int Unboxing(Object obj)
+        {
+            return obj is int ? 13 : 23;
+        }
+    }
+
+    public class Piece : IComparable
     {
         private int _xCoord;
         private int _yCoord;
@@ -80,21 +109,11 @@ namespace VSharp.CSharpUtils.Tests
             return Rate;
         }
 
-        public int IsCast(object obj)
-        {
-            bool a = obj is Piece;
-            if (a)
-            {
-                return 5;
-            }
-            return 6;
-        }
-
-        /*public int CompareTo(object obj)
+        public int CompareTo(object obj)
         {
             var a = (Piece)obj;
             return a.Rate;
-        }*/
+        }
     }
 
     public class Pawn : Piece

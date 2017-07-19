@@ -120,7 +120,7 @@ and SymbolicConstantSource =
     | UnboundedRecursion of TermRef
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
-    | SymblolicConstantType of TermType
+    | SymbolicConstantType of TermType
 
 module public Terms =
 
@@ -243,12 +243,16 @@ module public Terms =
             raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
             Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
 
+
     let public MakeTrue =
         Concrete(true :> obj, Bool)
 
     let public MakeFalse =
         Concrete(false :> obj, Bool)
 
+    let public MakeBool predicate =
+        if predicate then MakeTrue else MakeFalse
+    
     let public MakeNull typ =
         MakeConcrete null typ
 
