@@ -209,6 +209,7 @@ module public Terms =
                     // TODO: return union of types!
                     __notImplemented__()
 
+
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal
@@ -260,6 +261,9 @@ module public Terms =
 
     let public MakeError exn =
         Error (MakeConcrete exn (exn.GetType()))
+
+    let public MakeNumber n =
+        Concrete(n, Numeric(n.GetType()))
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)

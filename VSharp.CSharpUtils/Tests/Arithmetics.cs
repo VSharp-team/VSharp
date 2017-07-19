@@ -1,4 +1,6 @@
-﻿namespace VSharp.CSharpUtils.Tests
+﻿using System;
+
+namespace VSharp.CSharpUtils.Tests
 {
     public sealed class Arithmetics
     {
@@ -57,37 +59,37 @@
         // log(x)
         public static double LogMethod1(double x)
         {
-            return System.Math.Log(x);
+            return Math.Log(x);
         }
 
         // log(x + y)
         public static double LogMethod2(double x, double y)
         {
-            return System.Math.Log(x + y);
+            return Math.Log(x + y);
         }
 
         // 0
         public static double LogMethod3()
         {
-            return System.Math.Log(1);
+            return Math.Log(1);
         }
 
         // log(1 + log(x))
         public static double LogMethod4(double x)
         {
-            return System.Math.Log(1 + System.Math.Log(x));
+            return Math.Log(1 + Math.Log(x));
         }
 
         // -Infinity
         public static double LogMethod5()
         {
-            return System.Math.Log(0);
+            return Math.Log(0);
         }
 
         // NaN
         public static double LogMethod6()
         {
-            return System.Math.Log(-1);
+            return Math.Log(-1);
         }
 
         public static double LogMethod7(double x)
@@ -97,19 +99,19 @@
             if(x >= 0) y = x;
             else y = -x;
 
-            return System.Math.Log(y);
+            return Math.Log(y);
         }
 
         // sqrt(x)
         public static double SqrtMethod1(double x)
         {
-            return System.Math.Sqrt(x);
+            return Math.Sqrt(x);
         }
 
         // 2
         public static double SqrtMethod2()
         {
-            return System.Math.Sqrt(4);
+            return Math.Sqrt(4);
         }
 
         public static double SqrtMethod3(double x)
@@ -119,49 +121,49 @@
             if(x >= 0) y = x;
             else y = -x;
 
-            return System.Math.Sqrt(y);
+            return Math.Sqrt(y);
         }
 
         // NaN
         public static double SqrtMethod4()
         {
-            return System.Math.Sqrt(-1);
+            return Math.Sqrt(-1);
         }
 
         // 1
         public static double ExpMethod1()
         {
-            return System.Math.Exp(0);
+            return Math.Exp(0);
         }
 
         // exp(x)
         public static double ExpMethod2(double x)
         {
-            return System.Math.Exp(x);
+            return Math.Exp(x);
         }
 
         // 1
         public static double PowMethod1(double x)
         {
-            return System.Math.Pow(x, 0);
+            return Math.Pow(x, Math.Log(1));
         }
 
         // 1
         public static double PowMethod2(double x)
         {
-            return System.Math.Pow(1, x);
+            return Math.Pow(1, x);
         }
 
         // 25
         public static double PowMethod3()
         {
-            return System.Math.Pow(5, 2);
+            return Math.Pow(5, 2);
         }
 
         //pow(x, y)
         public static double PowMethod4(double x, double y)
         {
-            return System.Math.Pow(x, y);
+            return Math.Pow(x, y);
         }
 
         public static double PowMethod5(double x)
@@ -171,7 +173,7 @@
             if(x >= 0) y = x;
             else y = -x;
 
-            return System.Math.Pow(y, 2);
+            return Math.Pow(y, 2);
         }
 
         public static double PowMethod6(double x)
@@ -182,13 +184,63 @@
             else y = -x;
             if (x >= 8) z = y;
             else z = x;
-            return System.Math.Pow(y, z);
+            return Math.Pow(y, z);
         }
 
         // x + y
         public static double PowMethod7(double x, double y)
         {
-            return System.Math.Pow(x + y, 1);
+            return Math.Pow(x + y, 1);
+        }
+
+        // pow(2, x)
+        public static double PowMethod8(double x)
+        {
+            return Math.Pow(2, x);
+        }
+
+        // NaN
+        public static double PowMethod9(double x)
+        {
+            return Math.Pow(Double.NaN, x);
+        }
+
+        // NaN
+        public static double PowMethod10(double x, double y)
+        {
+            return Math.Pow(x, Math.Log(-1));
+        }
+
+        public static double PowMethod11(double x)
+        {
+            return Math.Pow(0, x);
+        }
+
+        // 1
+        public static double PowMethod12()
+        {
+            return Math.Pow(Double.PositiveInfinity, 0);
+        }
+
+        // 0
+        public static double PowMethod13()
+        {
+            return Math.Pow(0, Double.PositiveInfinity);
+        }
+
+        public static double PowMethod14(double x)
+        {
+            return Math.Pow(Double.PositiveInfinity, 5);
+        }
+
+        public static double PowMethod15(double x)
+        {
+            return Math.Pow(Double.PositiveInfinity, x);
+        }
+
+        public static double PowMethod16(double x)
+        {
+            return Math.Pow(x, Double.NegativeInfinity);
         }
     }
 }
