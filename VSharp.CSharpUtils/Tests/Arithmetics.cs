@@ -211,6 +211,7 @@ namespace VSharp.CSharpUtils.Tests
             return Math.Pow(x, Math.Log(-1));
         }
 
+        // 0
         public static double PowMethod11(double x)
         {
             return Math.Pow(0, x);
@@ -228,19 +229,131 @@ namespace VSharp.CSharpUtils.Tests
             return Math.Pow(0, Double.PositiveInfinity);
         }
 
+        // Infinity
         public static double PowMethod14(double x)
         {
             return Math.Pow(Double.PositiveInfinity, 5);
         }
 
-        public static double PowMethod15(double x)
+        public static double PowMethod15(double x, double y)
         {
-            return Math.Pow(Double.PositiveInfinity, x);
+            return Math.Pow(Double.PositiveInfinity, x + y);
         }
 
         public static double PowMethod16(double x)
         {
             return Math.Pow(x, Double.NegativeInfinity);
+        }
+
+        // 0
+        public static double AcosMethod()
+        {
+            return Math.Acos(1);
+        }
+
+        // arcsin(x)
+        public static double AsinMethod(double x)
+        {
+            return Math.Asin(x);
+        }
+
+        // arctan(x - y)
+        public static double AtanMethod(double x, double y)
+        {
+            return Math.Atan(x - y);
+        }
+
+        // ceiling(x)
+        public static double CeilingMethod(double x)
+        {
+            return Math.Ceiling(x);
+        }
+
+        // NaN
+        public static double CosMethod()
+        {
+            return Math.Cos(Double.NaN);
+        }
+
+        // NaN
+        public static double CoshMethod()
+        {
+            return Math.Cosh(Math.Log(0));
+        }
+
+        // floor(x)
+        public static double FloorMethod(double x)
+        {
+            return Math.Floor(x);
+        }
+
+        // NaN
+        public static double SinMethod()
+        {
+            return Math.Sin(Double.PositiveInfinity);
+        }
+
+        // NaN
+        public static double TanMethod()
+        {
+            return Math.Tan(Double.NegativeInfinity);
+        }
+
+        public static double SinhMethod(double x)
+        {
+            double y;
+            if (x > 0)
+            {
+                y = x;
+            }
+            else
+            {
+                y = -x;
+            }
+
+            return Math.Sinh(y);
+        }
+
+        // tanh(x)
+        public static double TanhMethod(double x)
+        {
+            return Math.Tanh(x);
+        }
+
+        // 7
+        public static double RoundMethod()
+        {
+            return Math.Round(6.7);
+        }
+
+        // abs(x)
+        public static double AbsMethod(double x)
+        {
+            return Math.Abs(x);
+        }
+
+        // 5.9
+        public static float AbsSingleMethod()
+        {
+            return Math.Abs(Convert.ToSingle(-5.9));
+        }
+
+        // NaN
+        public static double Atan2Method1(double x)
+        {
+            return Math.Atan2(x, Double.NaN);
+        }
+
+        // NaN
+        public static double Atan2Method2()
+        {
+            return Math.Atan2(Double.PositiveInfinity, Double.NegativeInfinity);
+        }
+
+        // 0
+        public static double Atan2Method3()
+        {
+            return Math.Atan2(1, Double.PositiveInfinity);
         }
     }
 }
