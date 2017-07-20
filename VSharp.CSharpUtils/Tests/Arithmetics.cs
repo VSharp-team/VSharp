@@ -245,6 +245,12 @@ namespace VSharp.CSharpUtils.Tests
             return Math.Pow(x, Double.NegativeInfinity);
         }
 
+        // -Infinity
+        public static double PowMethod17()
+        {
+            return Math.Pow(Double.NegativeInfinity, 9);
+        }
+
         // 0
         public static double AcosMethod()
         {
@@ -345,9 +351,9 @@ namespace VSharp.CSharpUtils.Tests
         }
 
         // NaN
-        public static double Atan2Method2()
+        public static double Atan2Method2(double x)
         {
-            return Math.Atan2(Double.PositiveInfinity, Double.NegativeInfinity);
+            return Math.Atan2(Double.PositiveInfinity, x);
         }
 
         // 0

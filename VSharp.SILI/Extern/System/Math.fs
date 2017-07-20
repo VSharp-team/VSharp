@@ -24,10 +24,11 @@ module private MathImpl =
     let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete standFunc (state : State.state) args =
         let zero = convert 0.0 in
         let one = convert 1.0 in
+        let minusInf = convert -infinity in
         let zeroTerm = Terms.MakeNumber zero in
         let oneTerm = Terms.MakeNumber one in
-        let infTerm = convert infinity |> Terms.MakeNumber
-        let mOneTerm = convert -1.0 |> Terms.MakeNumber
+        let infTerm = convert infinity |> Terms.MakeNumber in
+        let minusOneTerm = convert -1.0 |> Terms.MakeNumber in
         let b, p = List.item 1 args, List.item 2 args in
         let rec power p = function
             | Error _ as e -> e
@@ -40,18 +41,27 @@ module private MathImpl =
                     | Constant(_, _, t)
                     | Expression(_, _, t) as p ->
                         match b with
-                        // TODO: if isNegInf b and p is odd then NegativeInfinity (now - PositiveInfinity)
-                        | b when isPosInf b || isNegInf b ->
+                        | b when b = zero ->
+                            let pIsLessZero = simplifyLess p zeroTerm id in
+                            let pIsZero = p === zeroTerm in
+                                Union([(pIsZero, oneTerm); (pIsLessZero, infTerm);
+                                       (!!pIsLessZero, zeroTerm)])
+                        | b when b = one -> oneTerm
+                        | b when isNaN b -> bConc
+                        | b when isPosInf b ->
                             let pIsZero = p === zeroTerm in
                             let pIsLessZero = simplifyLess p zeroTerm id in
                             Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
                                   (!!pIsZero &&& !!pIsLessZero, infTerm)])
-                        | b when isNaN b -> bConc
-                        | b when b = zero -> let pIsLessZero = simplifyLess p zeroTerm id in
-                                             let pIsZero = p === zeroTerm in
-                                             Union([(pIsZero, oneTerm); (pIsLessZero, infTerm);
-                                                   (!!pIsLessZero, zeroTerm)])
-                        | b when b = one -> oneTerm
+                        | b when isNegInf b ->
+                            let pIsZero = p === zeroTerm in
+                            let pIsLessZero = simplifyLess p zeroTerm id in
+                            if Types.IsInteger t then
+                                let pIsGreaterZeroAndEven = p %%% (Concrete(2, t)) === Terms.MakeNumber 0 in
+                                    Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm);
+                                           (!!pIsZero &&& !!pIsLessZero &&& !!pIsGreaterZeroAndEven, Terms.MakeNumber minusInf)])
+                            else Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
+                                        (!!pIsZero &&& !!pIsLessZero, infTerm)])
                         | _ -> Expression(Application(StandardFunctionIdentifier(standFunc)), [bConc; p], t)
                     | Union gvs -> Merging.guardedMap pow gvs
                     | term -> internalfail (sprintf "expected number for power, but %A got!" term)
@@ -62,25 +72,25 @@ module private MathImpl =
                     | Error _ as e -> e
                     | Concrete(pObj, _) as pConc ->
                         match pObj :?> 'a with
-                        | p when isPosInf p ->
-                            let bIsOne = b === oneTerm in
-                            let bIsMinusOne = b === mOneTerm in
-                            let bIsBetweenMinOneOne = simplifyLess mOneTerm b id
-                                                        &&& simplifyGreater oneTerm b id in
-                            Union([(bIsOne, oneTerm); (bIsMinusOne, Terms.MakeNumber nan);
-                                  (bIsBetweenMinOneOne, zeroTerm);
-                                  (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, infTerm)])
-                        | p when isNegInf p ->
-                            let bIsOne = b === oneTerm in
-                            let bIsMinusOne = b === mOneTerm in
-                            let bIsBetweenMinOneOne = simplifyLess mOneTerm b id
-                                                        &&& simplifyGreater oneTerm b id
-                            Union([(bIsOne, oneTerm); (bIsMinusOne, Terms.MakeNumber nan);
-                                  (bIsBetweenMinOneOne, infTerm);
-                                  (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, zeroTerm)])
-                        | p when isNaN p -> pConc
                         | p when p = zero -> oneTerm
                         | p when p = one -> b
+                        | p when isNaN p -> pConc
+                        | p when isPosInf p ->
+                            let bIsOne = b === oneTerm in
+                            let bIsMinusOne = b === minusOneTerm in
+                            let bIsBetweenMinOneOne = simplifyLess minusOneTerm b id
+                                                        &&& simplifyGreater oneTerm b id in
+                            Union([(bIsOne, oneTerm); (bIsMinusOne, Terms.MakeNumber nan);
+                                   (bIsBetweenMinOneOne, zeroTerm);
+                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, infTerm)])
+                        | p when isNegInf p ->
+                            let bIsOne = b === oneTerm in
+                            let bIsMinusOne = b === minusOneTerm in
+                            let bIsBetweenMinOneOne = simplifyLess minusOneTerm b id
+                                                        &&& simplifyGreater oneTerm b id
+                            Union([(bIsOne, oneTerm); (bIsMinusOne, Terms.MakeNumber nan);
+                                   (bIsBetweenMinOneOne, infTerm);
+                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, zeroTerm)])
                         | _ -> Expression(Application(StandardFunctionIdentifier
                                             (Operations.Power)), [b; pConc], t)
                     | Constant(_, _, t) | Expression(_, _, t) as p ->
@@ -135,7 +145,7 @@ module private MathImpl =
                     | term -> internalfail (sprintf "expected number for x, but %A got!" term) in
                 atanX x
             | Union gvs -> Merging.guardedMap (atanY x) gvs
-            | term -> internalfail (sprintf "expected number, but %A got!" term) in
+            | term -> internalfail (sprintf "expected number for y, but %A got!" term) in
         (Return (atanY x y), state)
 
 module Math =
