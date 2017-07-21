@@ -109,7 +109,7 @@ module Functions =
             let sourceRef = ref Nop in
             let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
             let writeDepsLocations = writeDependencies.[id] in
-            let readDeps = readDepsLocations |> List.map (Memory.deref state) in
+            let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst in
             let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
 
             let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in

@@ -10,6 +10,8 @@ module internal DecompilerServices =
     let private decompilers = new Dictionary<string, JetBrains.Decompiler.ClassDecompiler>()
     let private decompiledClasses = new Dictionary<string, IDecompiledClass>()
 
+    let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
+
     let rec loadAssemblyByName (name : string) =
         let path = System.Reflection.Assembly.Load(name).Location in
         if not(assemblies.ContainsKey(path)) then

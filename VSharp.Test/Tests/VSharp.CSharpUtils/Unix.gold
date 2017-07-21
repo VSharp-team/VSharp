@@ -87,8 +87,49 @@ VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1(System.Int32, System.Int32)
 RESULT: UNION[
 	| !(0 == m) ~> 7 + n
-	| 0 == m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+	| 0 == m ~> <ERROR: (HeapRef 1)>]
 HEAP:
+1 ==> STRUCT System.DivideByZeroException[
+	| System.Exception._HResult ~> -2147352558
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+3 ==> STRUCT System.DivideByZeroException[
+	| System.Exception._HResult ~> -2147352558
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2(System.Int32, System.Int32)
@@ -104,8 +145,33 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4(System.Int32, System.Int32)
 RESULT: UNION[
 	| !(0 == m * m * m) ~> -126826 + n + n + n + n + n + n
-	| 0 == m * m * m ~> <ERROR: System.DivideByZeroException: Attempted to divide by zero.>]
+	| 0 == m * m * m ~> <ERROR: (HeapRef 1)>]
 HEAP:
+1 ==> STRUCT System.DivideByZeroException[
+	| System.Exception._HResult ~> -2147352558
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Arithmetics.IncrementsWorkCorrect(System.Int32)
@@ -121,6 +187,104 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckedUnchecked(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)
 RESULT: checked(x0 + unchecked(checked(x2 + x3 + x4) + x1) + unchecked(-(x6 * x7) + x5))
 HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow1(System.Int32)
+RESULT: <ERROR: (HeapRef 1)>
+HEAP:
+1 ==> STRUCT System.OverflowException[
+	| System.Exception._HResult ~> -2146233066
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
+System.OverflowException ==> STRUCT System.OverflowException[
+	]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow2(System.Int32)
+RESULT: <ERROR: (HeapRef 1)>
+HEAP:
+1 ==> STRUCT System.OverflowException[
+	| System.Exception._HResult ~> -2146233066
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
+System.OverflowException ==> STRUCT System.OverflowException[
+	]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow3(System.Double)
+RESULT: Infinity + x1
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckDivideByZeroException0(System.Int32)
+RESULT: <ERROR: (HeapRef 1)>
+HEAP:
+1 ==> STRUCT System.DivideByZeroException[
+	| System.Exception._HResult ~> -2147352558
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+System.Byte ==> STRUCT byte[
+	| System.Byte.MaxValue ~> 255
+	| System.Byte.MinValue ~> 0]
+System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[
+	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1()
