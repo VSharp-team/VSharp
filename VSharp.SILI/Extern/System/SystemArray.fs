@@ -5,7 +5,7 @@ open VSharp
 
 // ------------------------------- mscorelib.System.Array -------------------------------
 
-module Array =
+module SystemArray =
 
     let checkBounds state lower upper x fits k =
             Arithmetics.simplifyGreaterOrEqual x lower (fun notTooSmall ->
