@@ -703,8 +703,8 @@ VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
-1 ==> <Lambda Expression int32 -> <Any object>>
-2 ==> <Lambda Expression int32 -> <Any object>>
+1 ==> <Lambda Expression int32 -> <Any object null>>
+2 ==> <Lambda Expression int32 -> <Any object null>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
@@ -799,6 +799,18 @@ METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Unboxing(System.Object)
 RESULT: UNION[
 	| !System.Int32 ~> 23
 	| System.Int32 ~> 13]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.TryCast(System.Object)
+RESULT: UNION[
+	| !VSharp.CSharpUtils.Tests.Piece ~> 42
+	| VSharp.CSharpUtils.Tests.Piece ~> 33]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.TryUpCast(VSharp.CSharpUtils.Tests.Piece)
+RESULT: 33
 HEAP:
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
