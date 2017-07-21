@@ -75,7 +75,12 @@ module internal Merging =
         | [_] as gvs -> gvs
         | [(_, v1); (_, v2)] as gvs when TypeOf v1 = TypeOf v2 -> typedMerge (mergeSame gvs) (TypeOf v1)
         | [_; _] as gvs -> gvs
-        | gvs -> List.groupBy (snd >> TypeOf) gvs |> List.map (fun (t, gvs) -> typedMerge gvs t) |> List.concat
+        | gvs ->
+            gvs
+                |> mergeSame
+                |> List.groupBy (snd >> TypeOf)
+                |> List.map (fun (t, gvs) -> typedMerge gvs t)
+                |> List.concat
 
     and internal merge gvs =
         match compress (simplify gvs) with

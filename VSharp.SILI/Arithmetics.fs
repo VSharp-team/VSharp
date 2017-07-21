@@ -331,6 +331,12 @@ module internal Arithmetics =
     let ( *** ) x y =
         simplifyMultiplication false (Types.ToDotNetType (Terms.TypeOf x)) x y id
 
+    let (%%%) x y =
+        simplifyRemainder false (Types.ToDotNetType (Terms.TypeOf x)) x y id
+
+    let (===) x y =
+        simplifyEqual x y id
+
     let internal simplifyBinaryOperation op x y isChecked t k =
         match op with
         | OperationType.Add -> simplifyAddition isChecked t x y k
