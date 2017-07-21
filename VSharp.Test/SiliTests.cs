@@ -139,7 +139,12 @@ namespace VSharp.Test
         public void RunCSharpTests()
         {
             Trace.Listeners.Add(new DumpStackTraceListener());
-            Thread.CurrentThread.CurrentCulture = new CultureInfo("en-GB");
+
+            CultureInfo ci = new CultureInfo("en-GB");
+            ci.NumberFormat.PositiveInfinitySymbol = "Infinity";
+            ci.NumberFormat.NegativeInfinitySymbol = "-Infinity";
+            Thread.CurrentThread.CurrentCulture = ci;
+
             var ignoredLibs = new List<string>
             {
                 //"VSharp.CSharpUtils.dll",
