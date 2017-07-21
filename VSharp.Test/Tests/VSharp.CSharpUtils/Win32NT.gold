@@ -193,7 +193,7 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod5()
-RESULT: -∞
+RESULT: -Infinity
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -433,7 +433,7 @@ METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod11(System.Do
 RESULT: UNION[
 	| !(x < 0) ~> 0
 	| 0 == x ~> 1
-	| x < 0 ~> ∞]
+	| x < 0 ~> Infinity]
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -469,7 +469,7 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod14(System.Double)
-RESULT: ∞
+RESULT: Infinity
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -482,7 +482,7 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod15(System.Double, System.Double)
 RESULT: UNION[
-	| !(0 == x + y) & !(x + y < 0) ~> ∞
+	| !(0 == x + y) & !(x + y < 0) ~> Infinity
 	| 0 == x + y ~> 1
 	| x + y < 0 ~> 0]
 HEAP:
@@ -498,7 +498,7 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod16(System.Double)
 RESULT: UNION[
 	| !(-1 == x) & !(1 == x) & (!(-1 < x) | 1 <= x) ~> 0
-	| !(1 <= x) & -1 < x ~> ∞
+	| !(1 <= x) & -1 < x ~> Infinity
 	| -1 == x ~> NaN
 	| 1 == x ~> 1]
 HEAP:
@@ -512,7 +512,7 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod17()
-RESULT: -∞
+RESULT: -Infinity
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -584,7 +584,7 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CoshMethod()
-RESULT: ∞
+RESULT: Infinity
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
@@ -719,8 +719,8 @@ VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithme
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method2(System.Double)
 RESULT: UNION[
-	| !(x == ∞) ~> arctan(∞, x)
-	| x == ∞ ~> NaN]
+	| !(Infinity == x) ~> arctan(Infinity, x)
+	| Infinity == x ~> NaN]
 HEAP:
 1 ==> [| 0: 1; 1: 10; 10: 10000000000; 11: 100000000000; 12: 1000000000000; 13: 10000000000000; 14: 100000000000000; 15: 1E+15; 2: 100; 3: 1000; 4: 10000; 5: 100000; 6: 1000000; 7: 10000000; 8: 100000000; 9: 1000000000 ... 16 ... |]
 System.Math ==> STRUCT System.Math[
