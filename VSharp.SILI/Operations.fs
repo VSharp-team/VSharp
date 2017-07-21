@@ -2,7 +2,7 @@
 
 open JetBrains.Decompiler.Ast
 
-module internal Operations =
+module Operations =
     let internal operationArity op =
         match op with
         | OperationType.LogicalNeg       | OperationType.Not
@@ -129,3 +129,47 @@ module internal Operations =
         | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
         | OperationType.AssignmentSubtract -> OperationType.Subtract
         | op -> raise(new System.ArgumentException("Internal error: " + op.ToString() + " is not an assignment operation"))
+
+    type StandardFunction =
+        | Arccosine
+        | Arcsine
+        | Arctangent
+        | Arctangent2
+        | Ceiling
+        | Cosine
+        | HyperbolicCosine
+        | Floor
+        | Sine
+        | Tangent
+        | HyperbolicSine
+        | HyperbolicTangent
+        | Round
+        | SquareRoot
+        | Logarithm
+        | Logarithm10
+        | Exponent
+        | Power
+        | Absolute
+        | AbsoluteS
+        override this.ToString() =
+            match this with
+            | Arccosine -> "arccos"
+            | Arcsine -> "arcsin"
+            | Arctangent -> "arctan"
+            | Arctangent2 -> "arctan"
+            | Ceiling -> "ceiling"
+            | Cosine -> "cos"
+            | HyperbolicCosine -> "cosh"
+            | Floor -> "floor"
+            | Sine -> "sin"
+            | Tangent -> "tan"
+            | HyperbolicSine -> "sinh"
+            | HyperbolicTangent -> "tanh"
+            | Round -> "round"
+            | SquareRoot -> "sqrt"
+            | Logarithm -> "log"
+            | Logarithm10 -> "log10"
+            | Exponent -> "exp"
+            | Power -> "pow"
+            | Absolute -> "abs"
+            | AbsoluteS -> "abs"

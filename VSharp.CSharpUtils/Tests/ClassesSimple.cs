@@ -2,17 +2,17 @@
 
 namespace VSharp.CSharpUtils.Tests
 {
-    internal class A
+    internal class ClassesSimpleA
     {
-        private B _b = new B { _c = new C { _n = 13 } };
+        private ClassesSimpleB _b = new ClassesSimpleB { _c = new ClassesSimpleC { _n = 13 } };
         private int _intField = 100500;
 
-        public A()
+        public ClassesSimpleA()
         {
             _intField = 100501;
         }
 
-        public A(int n)
+        public ClassesSimpleA(int n)
         {
             _b._c._n = n;
             _b._c.SetN(n);
@@ -34,9 +34,9 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    internal struct B
+    internal struct ClassesSimpleB
     {
-        public C _c;
+        public ClassesSimpleC _c;
 
         public int GetN()
         {
@@ -49,7 +49,7 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    internal struct C
+    internal struct ClassesSimpleC
     {
         public int _n;
         public int _m2;
@@ -75,7 +75,7 @@ namespace VSharp.CSharpUtils.Tests
     {
         public static bool Test1(int n)
         {
-            A a = new A(n);
+            ClassesSimpleA a = new ClassesSimpleA(n);
             a.IncN();
             a.DecN();
             return n == a.GetN();

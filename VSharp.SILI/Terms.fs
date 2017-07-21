@@ -1,17 +1,19 @@
 ﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
-open System
+open global.System
 open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
 type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
     override this.ToString() =
         match this with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
 
 [<StructuralEquality;NoComparison>]
 type public Operation =
@@ -208,6 +210,7 @@ module public Terms =
                     // TODO: return union of types!
                     __notImplemented__()
 
+
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal
@@ -258,6 +261,9 @@ module public Terms =
 
     let public MakeError exn =
         Error (MakeConcrete exn (exn.GetType()))
+
+    let public MakeNumber n =
+        Concrete(n, Numeric(n.GetType()))
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
