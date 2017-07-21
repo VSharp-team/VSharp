@@ -65,7 +65,8 @@ type public Term =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> String.Format("<Lambda Expression {0}>", t)
-            | Concrete(value, _) -> if value = null then "null" else value.ToString()
+            | Concrete(null, _) -> "null"
+            | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
                 | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
@@ -242,7 +243,6 @@ module public Terms =
             // TODO: this is for debug, remove it when becomes relevant!
             raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
             Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
-
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)

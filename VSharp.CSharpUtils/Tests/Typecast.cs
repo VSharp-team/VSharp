@@ -72,6 +72,14 @@ namespace VSharp.CSharpUtils.Tests
             return a ? 10 : 20;
         }
 
+        public static int CastAfterNull()
+        {
+            Piece a = new Piece(1, 3);
+            a = null;
+            Piece b = (Piece) a;
+            return b is Piece ? 33 : 38;
+        }
+
         public static int Unboxing(Object obj)
         {
             return obj is int ? 13 : 23;
@@ -181,7 +189,7 @@ namespace VSharp.CSharpUtils.Tests
             return $"{Name} ({JobGrade})";
         }
 
-        static void DoSomething()
+        public static void DoSomething()
         {
             Employee employee = new Employee("Cool Guy", 65);
             IPromotion p = employee;
@@ -192,20 +200,20 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    static class Helper
+    public static class Helper
     {
-        static double CastStructToInterface(Coord arg)
+        public static double CastStructToInterface(Coord arg)
         {
             INormalize tmp = arg;
             return tmp.Norm();
         }
 
-        static int UnboxingInt(Object obj)
+        public static int UnboxingInt(Object obj)
         {
             return (int)obj;
         }
 
-        static int BoxingInt(int obj)
+        public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);
         }

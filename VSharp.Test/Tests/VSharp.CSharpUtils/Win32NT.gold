@@ -703,8 +703,8 @@ VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
-1 ==> <Lambda Expression int32 -> <Any object null>>
-2 ==> <Lambda Expression int32 -> <Any object null>>
+1 ==> <Lambda Expression int32 -> null>
+2 ==> <Lambda Expression int32 -> null>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
