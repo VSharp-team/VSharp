@@ -76,6 +76,21 @@ namespace VSharp.CSharpUtils.Tests
         {
             return obj is int ? 13 : 23;
         }
+
+        public static int TryCast(Object obj)
+        {
+            Piece a = obj as Piece;
+            if (a != null)
+            {
+                return 33;
+            }
+            return 42;
+        }
+
+        public static int TryUpCast(Piece piece)
+        {
+            return TryCast(piece);
+        }
     }
 
     public class Piece : IComparable
