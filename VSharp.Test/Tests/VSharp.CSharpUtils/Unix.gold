@@ -285,6 +285,8 @@ System.Exception ==> STRUCT System.Exception[
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[
 	]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.Double)
 RESULT: log(x)
 HEAP:
@@ -1439,14 +1441,14 @@ VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
 RESULT: 18
 HEAP:
-1 ==> <Lambda Expression int32 -> <Any object>>
+1 ==> <Lambda Expression int32 -> <unknown object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
-1 ==> <Lambda Expression int32 -> <Any object null>>
-2 ==> <Lambda Expression int32 -> <Any object null>>
+1 ==> <Lambda Expression int32 -> <unknown object>>
+2 ==> <Lambda Expression int32 -> <unknown object>>
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 
@@ -1513,8 +1515,15 @@ VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci
 	| VSharp.CSharpUtils.Tests.Fibonacci.b ~> VSharp.CSharpUtils.Tests.Fibonacci.b4]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.DownCastObject(System.Object)
 RESULT: UNION[
-	| !VSharp.CSharpUtils.Tests.Piece ~> 6
-	| VSharp.CSharpUtils.Tests.Piece ~> 5]
+	| !System.Object1 | VSharp.CSharpUtils.Tests.Piece ~> 5
+	| !VSharp.CSharpUtils.Tests.Piece & System.Object1 ~> 6]
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.DownCastObject2(System.Object, System.Object)
+RESULT: UNION[
+	| (!System.Object1 | VSharp.CSharpUtils.Tests.Pawn) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) | (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & (!System.Object2 | VSharp.CSharpUtils.Tests.Pawn) ~> 5
+	| (!VSharp.CSharpUtils.Tests.Pawn & System.Object1 | !VSharp.CSharpUtils.Tests.Piece & System.Object1) & (!VSharp.CSharpUtils.Tests.Pawn & System.Object2 | !VSharp.CSharpUtils.Tests.Piece & System.Object1) ~> 6]
 HEAP:
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
@@ -1539,20 +1548,69 @@ VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Unboxing(System.Object)
 RESULT: UNION[
-	| !System.Int32 ~> 23
-	| System.Int32 ~> 13]
+	| !System.Int32 & System.Object1 ~> 23
+	| !System.Object1 | System.Int32 ~> 13]
 HEAP:
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.TryCast(System.Object)
 RESULT: UNION[
-	| !VSharp.CSharpUtils.Tests.Piece ~> 42
-	| VSharp.CSharpUtils.Tests.Piece ~> 33]
+	| !System.Object1 | VSharp.CSharpUtils.Tests.Piece ~> 33
+	| !VSharp.CSharpUtils.Tests.Piece & System.Object1 ~> 42]
 HEAP:
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.TryUpCast(VSharp.CSharpUtils.Tests.Piece)
 RESULT: 33
+HEAP:
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.CastAfterNull()
+RESULT: 38
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
+	| VSharp.CSharpUtils.Tests.Piece.Rate ~> 0
+	| VSharp.CSharpUtils.Tests.Piece._xCoord ~> 1
+	| VSharp.CSharpUtils.Tests.Piece._yCoord ~> 3]
+VSharp.CSharpUtils.Tests.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
+	]
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: VSharp.CSharpUtils.Tests.Pawn VSharp.CSharpUtils.Tests.Typecast.TypeCast(System.Object)
+RESULT: UNION[
+	| !System.Object1 | VSharp.CSharpUtils.Tests.Pawn ~> STRUCT <Subtype of VSharp.CSharpUtils.Tests.Pawn>[
+	]
+	| !VSharp.CSharpUtils.Tests.Pawn & System.Object1 ~> <ERROR: (HeapRef 1)>]
+HEAP:
+1 ==> STRUCT System.InvalidCastException[
+	| System.Exception._HResult ~> -2147467262
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+2 ==> STRUCT System.Object[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
+System.InvalidCastException ==> STRUCT System.InvalidCastException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.CheckCastNullWithTrick()
+RESULT: 20
 HEAP:
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]

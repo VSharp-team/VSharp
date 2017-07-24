@@ -6,6 +6,7 @@ open System.Reflection
 module public SVM =
 
     let private reset () =
+        IdGenerator.reset()
         State.activator <- new Activator()
         Memory.resetHeap()
 

@@ -208,7 +208,8 @@ module internal Memory =
         Struct(fields, t)
 
     and internal makeSymbolicInstance isStatic source name = function
-        | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> Constant(name, source, t)
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
+        | Object name as t -> makeSymbolicStruct isStatic source t typedefof<obj>
         | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
         | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
         | SubType(dotNetType, name) as t -> makeSymbolicStruct isStatic source t dotNetType
