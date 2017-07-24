@@ -58,6 +58,13 @@ namespace VSharp.CSharpUtils.Tests
             return a ? 5 : 6;
         }
 
+        public static int DownCastObject2(object obj1, object obj2)
+        {
+            bool a = obj1 is Piece & obj2 is Pawn;
+            bool b = obj1 is Piece & obj1 is Pawn;
+            return a | b ? 5 : 6;
+        }
+
         public static int UpCast()
         {
             Pawn a = new Pawn(1, 1, 25);
@@ -72,12 +79,24 @@ namespace VSharp.CSharpUtils.Tests
             return a ? 10 : 20;
         }
 
+        public static int CheckCastNullWithTrick()
+        {
+            return DownCastPiece(null);
+        }
+
+        // always 38, because the null reference is not assigned any type at all
         public static int CastAfterNull()
         {
             Piece a = new Piece(1, 3);
             a = null;
             Piece b = (Piece) a;
-            return b is Piece ? 33 : 38;
+            return b is Object ? 33 : 38;
+        }
+
+        public static Pawn TypeCast(Object obj)
+        {
+            Pawn pawn = (Pawn)obj;
+            return pawn;
         }
 
         public static int Unboxing(Object obj)

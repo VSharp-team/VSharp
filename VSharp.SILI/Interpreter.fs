@@ -815,8 +815,8 @@ module internal Interpreter =
             | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | SubType(t, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
-            | Null -> Terms.MakeTrue
-            | Object name -> b
+            | Null -> Terms.MakeFalse
+            | Object name as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         let subTypeIs (dotNetType: Type, rightName) =
@@ -827,21 +827,19 @@ module internal Interpreter =
             | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
             | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | Null -> Terms.MakeTrue
-            | Object name as termType -> b
+            | Null -> Terms.MakeFalse
+            | Object name as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
         | PointerType left, PointerType right -> is left right
-        | term, PointerType right -> is term right
-        | PointerType left, term -> is left term
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | Func _, Func _ -> Terms.MakeTrue
         | leftType, Types.StructureType t when leftType <> Null -> concreteIs t leftType
         | leftType, Types.ReferenceType t -> concreteIs t leftType
         | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
-        | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType  (*Terms.MakeTrue*)
+        | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
         | _ -> __notImplemented__()
     
     and doCast (state : State.state) term targetType =
@@ -852,7 +850,7 @@ module internal Interpreter =
             | Types.ComplexType t1, Types.ComplexType t2 -> t2.IsAssignableFrom(t2)
             | _, Object _ -> true
             | Object _, _ -> false
-            | Func _, Func _ -> true
+            | Func _, Func _ -> false
             | _ -> __notImplemented__()
         in
         let result =
@@ -909,6 +907,7 @@ module internal Interpreter =
             | Error _ -> k (term, state)
             | Nop -> 
                 k (Terms.MakeError (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType)), state)
+            | Concrete(_, Null) as t -> k (t, state) 
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then k (Concrete(value, targetType), state)
@@ -918,7 +917,7 @@ module internal Interpreter =
             | StackRef _ as r ->
                 printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
                 hierarchyCast state r targetType k
-            | HeapRef _ as r -> hierarchyCast state r targetType k // TODO
+            | HeapRef _ as r -> hierarchyCast state r targetType k
             | Struct _ as r -> hierarchyCast state r targetType k
             | _ -> __notImplemented__()
         and hierarchyCast state term targetType k =

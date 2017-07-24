@@ -25,8 +25,8 @@ type public TermType =
         match this with
         | Void -> "void"
         | Bottom -> "exception"
-        | Null -> "null"
-        | Object name -> sprintf "<Any object %s>" name
+        | Null -> "<nullType>"
+        | Object name -> sprintf "<%s object>" name
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
@@ -187,7 +187,7 @@ module public Types =
 
     let rec public FromConcreteMetadataType (t : IMetadataType) =
         match t with
-        | null -> Null
+        | null -> Object "unknown"
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Object" -> ClassType typedefof<obj>
         | _ when t.FullName = "System.Void" -> Void
@@ -205,7 +205,7 @@ module public Types =
 
     let rec public FromSymbolicMetadataType (t : IMetadataType) (isUnique : bool) =
         match t with
-        | null -> Null
+        | null -> Object "unknown"
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Object" -> if isUnique then Object (typedefof<obj>.FullName) else Object (IdGenerator.startingWith typedefof<obj>.FullName)
         | _ when t.FullName = "System.Void" -> Void
