@@ -5,14 +5,18 @@ open System.Reflection
 
 module public SVM =
 
+    let private reset () =
+        Memory.resetHeap()
+        IdGenerator.reset()
+
     let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
         if m.IsAbstract then ()
         else
+            reset()
             let state = State.empty in
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
             let declaringType = Types.FromDotNetType(m.DeclaringType) in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
-            Memory.resetHeap()
             Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
             match metadataMethodOption with
             | None ->

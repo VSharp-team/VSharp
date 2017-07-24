@@ -9,6 +9,7 @@ open JetBrains.Metadata.Reader.API
 type public TermType =
     | Void
     | Bottom
+    | Null
     | Object of string
     | Bool
     | Numeric of System.Type
@@ -24,7 +25,8 @@ type public TermType =
         match this with
         | Void -> "void"
         | Bottom -> "exception"
-        | Object name -> sprintf "<Any object %s>" name
+        | Null -> "<nullType>"
+        | Object name -> sprintf "<%s object>" name
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
@@ -139,6 +141,7 @@ module public Types =
 
     let rec public ToDotNetType t =
         match t with
+        | Null -> null
         | Object _ -> typedefof<obj>
         | Bool -> typedefof<bool>
         | Numeric res -> res
@@ -151,8 +154,7 @@ module public Types =
 
     let rec FromCommonDotNetType dotNetType k =
         match dotNetType with
-        | null ->
-            internalfail "unresolved type!"
+        | null -> Null
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
@@ -185,8 +187,8 @@ module public Types =
 
     let rec public FromConcreteMetadataType (t : IMetadataType) =
         match t with
-        | null -> Object "null"
-        | _ when t.AssemblyQualifiedName = "__Null" -> Object "null"
+        | null -> Object "unknown"
+        | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Object" -> ClassType typedefof<obj>
         | _ when t.FullName = "System.Void" -> Void
         | :? IMetadataGenericArgumentReferenceType as g ->
@@ -203,8 +205,8 @@ module public Types =
 
     let rec public FromSymbolicMetadataType (t : IMetadataType) (isUnique : bool) =
         match t with
-        | null -> Object "null"
-        | _ when t.AssemblyQualifiedName = "__Null" -> Object "null"
+        | null -> Object "unknown"
+        | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Object" -> if isUnique then Object (typedefof<obj>.FullName) else Object (IdGenerator.startingWith typedefof<obj>.FullName)
         | _ when t.FullName = "System.Void" -> Void
         | :? IMetadataGenericArgumentReferenceType as g ->
