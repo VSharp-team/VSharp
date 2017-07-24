@@ -1,17 +1,19 @@
 ﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
-open System
+open global.System
 open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
 type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
     override this.ToString() =
         match this with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
 
 [<StructuralEquality;NoComparison>]
 type public Operation =
@@ -120,6 +122,7 @@ and SymbolicConstantSource =
     | UnboundedRecursion of TermRef
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
+    | SymbolicConstantType of TermType
 
 module public Terms =
 
@@ -206,6 +209,7 @@ module public Terms =
                     // TODO: return union of types!
                     __notImplemented__()
 
+
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal
@@ -242,17 +246,24 @@ module public Terms =
             raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
             Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
 
+
     let public MakeTrue =
         Concrete(true :> obj, Bool)
 
     let public MakeFalse =
         Concrete(false :> obj, Bool)
 
+    let public MakeBool predicate =
+        if predicate then MakeTrue else MakeFalse
+    
     let public MakeNull typ =
         MakeConcrete null typ
 
     let public MakeError exn =
         Error (MakeConcrete exn (exn.GetType()))
+
+    let public MakeNumber n =
+        Concrete(n, Numeric(n.GetType()))
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)

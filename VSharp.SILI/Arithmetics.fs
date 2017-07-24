@@ -382,6 +382,9 @@ module internal Arithmetics =
 
 // ------------------------------- General functions -------------------------------
 
+    // WARNING: These operators are safe versions of concrete simplifyBinaryOperation.
+    // Use them, only if you can guarantee that operation will complete without exceptions,
+    // otherwise you should use simplifyBinaryOperation with state
     let (+++) x y =
         simplifyAddition false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
 
@@ -390,6 +393,12 @@ module internal Arithmetics =
 
     let ( *** ) x y =
         simplifyMultiplication false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
+
+    let (%%%) x y =
+        simplifyRemainder false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
+
+    let (===) x y =
+        simplifyEqual x y id
 
     let internal simplifyBinaryOperation op state x y isChecked t k =
         match op with

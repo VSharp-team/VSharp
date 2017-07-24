@@ -1,4 +1,6 @@
-﻿namespace VSharp.CSharpUtils.Tests
+﻿using System;
+
+namespace VSharp.CSharpUtils.Tests
 {
     public sealed class Arithmetics
     {
@@ -86,6 +88,312 @@
             int x = 255;
             int y = 0;
             return (x / y + x1);
+        }
+
+        // log(x)
+        public static double LogMethod1(double x)
+        {
+            return Math.Log(x);
+        }
+
+        // log(x + y)
+        public static double LogMethod2(double x, double y)
+        {
+            return Math.Log(x + y);
+        }
+
+        // 0
+        public static double LogMethod3()
+        {
+            return Math.Log(1);
+        }
+
+        // log(1 + log(x))
+        public static double LogMethod4(double x)
+        {
+            return Math.Log(1 + Math.Log(x));
+        }
+
+        // -Infinity
+        public static double LogMethod5()
+        {
+            return Math.Log(0);
+        }
+
+        // NaN
+        public static double LogMethod6()
+        {
+            return Math.Log(-1);
+        }
+
+        public static double LogMethod7(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return Math.Log(y);
+        }
+
+        // sqrt(x)
+        public static double SqrtMethod1(double x)
+        {
+            return Math.Sqrt(x);
+        }
+
+        // 2
+        public static double SqrtMethod2()
+        {
+            return Math.Sqrt(4);
+        }
+
+        public static double SqrtMethod3(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return Math.Sqrt(y);
+        }
+
+        // NaN
+        public static double SqrtMethod4()
+        {
+            return Math.Sqrt(-1);
+        }
+
+        // 1
+        public static double ExpMethod1()
+        {
+            return Math.Exp(0);
+        }
+
+        // exp(x)
+        public static double ExpMethod2(double x)
+        {
+            return Math.Exp(x);
+        }
+
+        // 1
+        public static double PowMethod1(double x)
+        {
+            return Math.Pow(x, Math.Log(1));
+        }
+
+        // 1
+        public static double PowMethod2(double x)
+        {
+            return Math.Pow(1, x);
+        }
+
+        // 25
+        public static double PowMethod3()
+        {
+            return Math.Pow(5, 2);
+        }
+
+        //pow(x, y)
+        public static double PowMethod4(double x, double y)
+        {
+            return Math.Pow(x, y);
+        }
+
+        public static double PowMethod5(double x)
+        {
+            double y;
+
+            if(x >= 0) y = x;
+            else y = -x;
+
+            return Math.Pow(y, 2);
+        }
+
+        public static double PowMethod6(double x)
+        {
+            double y;
+            double z;
+            if (x >= 0) y = x;
+            else y = -x;
+            if (x >= 8) z = y;
+            else z = x;
+            return Math.Pow(y, z);
+        }
+
+        // x + y
+        public static double PowMethod7(double x, double y)
+        {
+            return Math.Pow(x + y, 1);
+        }
+
+        // pow(2, x)
+        public static double PowMethod8(double x)
+        {
+            return Math.Pow(2, x);
+        }
+
+        // NaN
+        public static double PowMethod9(double x)
+        {
+            return Math.Pow(Double.NaN, x);
+        }
+
+        // NaN
+        public static double PowMethod10(double x, double y)
+        {
+            return Math.Pow(x, Math.Log(-1));
+        }
+
+        // 0
+        public static double PowMethod11(double x)
+        {
+            return Math.Pow(0, x);
+        }
+
+        // 1
+        public static double PowMethod12()
+        {
+            return Math.Pow(Double.PositiveInfinity, 0);
+        }
+
+        // 0
+        public static double PowMethod13()
+        {
+            return Math.Pow(0, Double.PositiveInfinity);
+        }
+
+        // Infinity
+        public static double PowMethod14(double x)
+        {
+            return Math.Pow(Double.PositiveInfinity, 5);
+        }
+
+        public static double PowMethod15(double x, double y)
+        {
+            return Math.Pow(Double.PositiveInfinity, x + y);
+        }
+
+        public static double PowMethod16(double x)
+        {
+            return Math.Pow(x, Double.NegativeInfinity);
+        }
+
+        // -Infinity
+        public static double PowMethod17()
+        {
+            return Math.Pow(Double.NegativeInfinity, 9);
+        }
+
+        // 0
+        public static double AcosMethod()
+        {
+            return Math.Acos(1);
+        }
+
+        // arcsin(x)
+        public static double AsinMethod(double x)
+        {
+            return Math.Asin(x);
+        }
+
+        // arctan(x - y)
+        public static double AtanMethod(double x, double y)
+        {
+            return Math.Atan(x - y);
+        }
+
+        // ceiling(x)
+        public static double CeilingMethod(double x)
+        {
+            return Math.Ceiling(x);
+        }
+
+        // NaN
+        public static double CosMethod()
+        {
+            return Math.Cos(Double.NaN);
+        }
+
+        // NaN
+        public static double CoshMethod()
+        {
+            return Math.Cosh(Math.Log(0));
+        }
+
+        // floor(x)
+        public static double FloorMethod(double x)
+        {
+            return Math.Floor(x);
+        }
+
+        // NaN
+        public static double SinMethod()
+        {
+            return Math.Sin(Double.PositiveInfinity);
+        }
+
+        // NaN
+        public static double TanMethod()
+        {
+            return Math.Tan(Double.NegativeInfinity);
+        }
+
+        public static double SinhMethod(double x)
+        {
+            double y;
+            if (x > 0)
+            {
+                y = x;
+            }
+            else
+            {
+                y = -x;
+            }
+
+            return Math.Sinh(y);
+        }
+
+        // tanh(x)
+        public static double TanhMethod(double x)
+        {
+            return Math.Tanh(x);
+        }
+
+        // 7
+        public static double RoundMethod()
+        {
+            return Math.Round(6.7);
+        }
+
+        // abs(x)
+        public static double AbsMethod(double x)
+        {
+            return Math.Abs(x);
+        }
+
+        // 5.9
+        public static float AbsSingleMethod()
+        {
+            return Math.Abs(Convert.ToSingle(-5.9));
+        }
+
+        // NaN
+        public static double Atan2Method1(double x)
+        {
+            return Math.Atan2(x, Double.NaN);
+        }
+
+        // NaN
+        public static double Atan2Method2(double x)
+        {
+            return Math.Atan2(Double.PositiveInfinity, x);
+        }
+
+        // 0
+        public static double Atan2Method3()
+        {
+            return Math.Atan2(1, Double.PositiveInfinity);
         }
     }
 }

@@ -70,8 +70,10 @@
     <Compile Include="Functions.fs" />
     <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
-    <Compile Include="Extern.fsi" />
-    <Compile Include="Extern.fs" />
+    <Compile Include="Extern\System\SystemArray.fsi" />
+    <Compile Include="Extern\System\SystemArray.fs" />
+    <Compile Include="Extern\System\Math.fsi" />
+    <Compile Include="Extern\System\Math.fs" />
     <Compile Include="SVM.fs" />
   </ItemGroup>
   <ItemGroup>
