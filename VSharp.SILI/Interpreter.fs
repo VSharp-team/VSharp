@@ -803,78 +803,82 @@ module internal Interpreter =
         | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        let targetType = Types.FromSymbolicMetadataType ast.TargetType true in
-        reduceExpression state ast.Argument (fun (argument, newState) ->
-        typeCast (ast.OverflowCheck = OverflowCheckType.Enabled) newState argument targetType |> k)
 
     and is (leftType : TermType) (rightType : TermType) =
-            let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
-            in
-            let concreteIs (dotNetType : Type) =
-                let b = makeBoolConst dotNetType.FullName (ClassType dotNetType) in
-                function
-                    | Types.ReferenceType t
-                    | Types.StructureType t -> Terms.MakeBool (t = dotNetType)
-                    | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
-                        makeBoolConst name termType ==> b
-                    | SubType(t, _) as termType when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
-                    | Object name as termType -> b
-                    | _ -> __notImplemented__()
-            in
-            let subTypeIs (dotNetType: Type, rightName) =
-                let b = makeBoolConst rightName (SubType(dotNetType, rightName)) in
-                function
-                    | Types.ReferenceType t -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-                    | Types.StructureType t -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
-                    | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-                    | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
-                        makeBoolConst name termType ==> b
-                    | Object name as termType ->b
-                    | _ -> __notImplemented__()
-            in
-            match leftType, rightType with
-                | Void, _   | _, Void
-                | Bottom, _ | _, Bottom -> Terms.MakeFalse
-                | leftType, Types.StructureType t
-                | leftType, ClassType t ->  concreteIs t leftType
-                | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
-                | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
-                | PointerType left, PointerType right -> is left right
-                | term, PointerType right -> is term right
-                | PointerType left, term -> is left term
+        let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
+        in
+        let concreteIs (dotNetType : Type) =
+            let b = makeBoolConst dotNetType.FullName (ClassType dotNetType) in
+            function
+            | Types.ReferenceType t
+            | Types.StructureType t -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+                makeBoolConst name termType ==> b
+            | SubType(t, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | Null -> Terms.MakeFalse
+            | Object name as termType -> makeBoolConst name termType ==> b
+            | _ -> __notImplemented__()
+        in
+        let subTypeIs (dotNetType: Type, rightName) =
+            let b = makeBoolConst rightName (SubType(dotNetType, rightName)) in
+            function
+            | Types.ReferenceType t -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType t -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+            | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+                makeBoolConst name termType ==> b
+            | Null -> Terms.MakeFalse
+            | Object name as termType -> makeBoolConst name termType ==> b
+            | _ -> __notImplemented__()
+        in
+        match leftType, rightType with
+        | PointerType left, PointerType right -> is left right
+        | Void, _   | _, Void
+        | Bottom, _ | _, Bottom -> Terms.MakeFalse
+        | Func _, Func _ -> Terms.MakeTrue
+        | leftType, Types.StructureType t when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.ReferenceType t -> concreteIs t leftType
+        | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
+        | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
+        | _ -> __notImplemented__()
+    
+    and doCast (state : State.state) term targetType =
+        let leftType = Terms.TypeOf term in
+        let rec isUpCast l r =
+            match l, r with
+            | PointerType left, PointerType right -> isUpCast left right
+            | Types.ComplexType t1, Types.ComplexType t2 -> t2.IsAssignableFrom(t2)
+            | _, Object _ -> true
+            | Object _, _ -> false
+            | Func _, Func _ -> false
+            | _ -> __notImplemented__()
+        in
+        let result =
+            match isUpCast leftType targetType with
+            | true -> term
+            | false ->
+                match term with
+                | Concrete(value, _) -> Concrete(value, targetType)
+                | Constant(name, source, _) -> Term.Constant(name, source, targetType)
+                | Expression(operation, operands, _) -> Expression(operation, operands, targetType)
+                | StackRef(t, l, _) -> StackRef(t, l, targetType)
+                | HeapRef(t, s, _) -> HeapRef(t, s, targetType) // TODO
+                | Struct(m, _) -> Struct(m, targetType)
                 | _ -> __notImplemented__()
+        in
+        Return result, state
 
-    and tryCast typ term =
-        let casted = is (Terms.TypeOf term) (Types.FromSymbolicMetadataType typ true) in
-        Merging.merge2Terms casted !!casted term (Concrete(null, Types.FromConcreteMetadataType typ))
-
-    and typeCast isChecked state term targetType =
-        // TODO: refs and structs should still be refs after cast!
-        if Types.IsObject targetType then (term, state)
-        else
-            let cast src dst expr =
-                if src = dst then expr
-                else Expression(Cast(src, dst, isChecked), [expr], dst)
-            in
-            let rec castSimple = function
-                | Error _ -> term
-                | Nop -> Terms.MakeError (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
-                | Concrete(value, _) ->
-                    if Terms.IsFunction term && Types.IsFunction targetType
-                    then Concrete(value, targetType)
-                    else Terms.MakeConcrete value (Types.ToDotNetType targetType)
-                | Constant(_, _, t) -> cast t targetType term
-                | Expression(operation, operands, t) -> cast t targetType term
-                | StackRef _ as r ->
-                    printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
-                    r
-                | HeapRef _ as r -> r // TODO
-                | _ -> __notImplemented__()
-            in
+    and throwInvalidCastException state term targetType = 
+        let result =
             match term with
-            | Union gvs -> (Merging.guardedMap castSimple gvs, state)
-            | _ -> (castSimple term, state)
+            | Error t as error -> error
+            | Nop -> Terms.MakeError (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType))
+            | StackRef _ as r ->
+                printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
+                r
+            | _ -> Terms.MakeError (new InvalidCastException(format2 "Internal error: casting {0} to {1}!" (Terms.TypeOf term) targetType))
+        in
+        ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
         let reduceTarget state k = k (Terms.MakeNull typedefof<obj>, state) in
@@ -882,13 +886,58 @@ module internal Interpreter =
         reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
+        let targetType = Types.FromSymbolicMetadataType ast.Type true in
         reduceExpression state ast.Argument (fun (term, state) ->
-        k (tryCast ast.Type term, state))
+        let isCasted = checkCast term targetType in
+        withUnion term targetType (fun newTerm newTargetType ->
+        reduceConditionalExecution state
+            (fun state k -> k (isCasted, state))
+            (fun state k -> k (doCast state newTerm newTargetType))
+            (fun state k -> k (Return <| Concrete(null, newTargetType), state))
+            (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))))
 
-    and checkCast term targetType =
+    and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
+        let cast src dst expr =
+            if src = dst then expr
+            else Expression(Cast(src, dst, isChecked), [expr], dst)
+        in
+        let rec primitiveCast state term targetType k =
+            match term with
+            | Error _ -> k (term, state)
+            | Nop -> 
+                k (Terms.MakeError (new InvalidCastException(format1 "Internal error: casting void to {0}!" targetType)), state)
+            | Concrete(_, Null) as t -> k (t, state) 
+            | Concrete(value, _) ->
+                if Terms.IsFunction term && Types.IsFunction targetType
+                then k (Concrete(value, targetType), state)
+                else k (Terms.MakeConcrete value (Types.ToDotNetType targetType), state)
+            | Constant(_, _, t) -> k (cast t targetType term, state)
+            | Expression(operation, operands, t) -> k (cast t targetType term, state)
+            | StackRef _ as r ->
+                printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
+                hierarchyCast state r targetType k
+            | HeapRef _ as r -> hierarchyCast state r targetType k
+            | Struct _ as r -> hierarchyCast state r targetType k
+            | _ -> __notImplemented__()
+        and hierarchyCast state term targetType k =
+            reduceConditionalExecution state
+                (fun state k -> k (isCasted term, state))
+                (fun state k -> k (doCast state term targetType))
+                (fun state k -> k (throwInvalidCastException state term targetType))
+                (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
+        and targetType = Types.FromSymbolicMetadataType ast.TargetType true
+        and isCasted term = checkCast term targetType in
+        reduceExpression state ast.Argument (fun (term, state) ->        
+        withUnion term targetType (fun newTerm newTargetType ->
+        primitiveCast state newTerm newTargetType k))
+
+    and checkCast term targetType = withUnion term targetType (fun left right -> is (Terms.TypeOf left) right)
+
+    and withUnion term (targetType : TermType) mapper =
         match term with
-            | Union gvs -> Merging.guardedMap (fun t -> is (Terms.TypeOf t) targetType) gvs
-            | _ -> is (Terms.TypeOf term) targetType
+        | Union gvs -> Merging.guardedMap (fun t -> mapper t targetType) gvs
+        | _ -> mapper term targetType
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
         let targetType = Types.FromSymbolicMetadataType ast.Type true in

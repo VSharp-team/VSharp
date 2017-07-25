@@ -18,7 +18,7 @@ module private MathImpl =
             | Expression(_, _, t) as c ->
                 Expression(Application(StandardFunctionIdentifier standFunc), [c], t)
             | Union gvs -> Merging.guardedMap impl gvs
-            | term -> internalfail (sprintf "expected number, but %A got!" term) in
+            | term -> internalfail (sprintf "expected number, but %O got!" term) in
         (Return (impl arg), state)
 
     let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete standFunc (state : State.state) args =
@@ -36,10 +36,11 @@ module private MathImpl =
                 let b = bObj :?> 'a in
                 let rec pow = function
                     | Error _ as e -> e
-                    | Concrete(pObj, _) -> let p = pObj :?> 'a
+                    | Concrete(pObj, _) -> let p = pObj :?> 'a in
                                            Terms.MakeNumber(concrete(b, p))
                     | Constant(_, _, t)
                     | Expression(_, _, t) as p ->
+                        // base is concrete, exponent is symbolic
                         match b with
                         | b when b = zero ->
                             let pIsLessZero = simplifyLess p zeroTerm id in
@@ -64,13 +65,14 @@ module private MathImpl =
                                         (!!pIsZero &&& !!pIsLessZero, infTerm)])
                         | _ -> Expression(Application(StandardFunctionIdentifier(standFunc)), [bConc; p], t)
                     | Union gvs -> Merging.guardedMap pow gvs
-                    | term -> internalfail (sprintf "expected number for power, but %A got!" term)
+                    | term -> internalfail (sprintf "expected number for power, but %O got!" term)
                 in
                 pow p
             | Constant(_, _, t) | Expression(_, _, t) as b ->
                 let rec pow = function
                     | Error _ as e -> e
                     | Concrete(pObj, _) as pConc ->
+                        // base is symbolic, exponent is concrete
                         match pObj :?> 'a with
                         | p when p = zero -> oneTerm
                         | p when p = one -> b
@@ -97,11 +99,11 @@ module private MathImpl =
                         Expression(Application(StandardFunctionIdentifier(Operations.Power)),
                             [b; p], t)
                     | Union gvs -> Merging.guardedMap pow gvs
-                    | term -> internalfail (sprintf "expected number for power, but %A got!" term)
+                    | term -> internalfail (sprintf "expected number for power, but %O got!" term)
                 in
                 pow p
             | Union gvs -> Merging.guardedMap (power p) gvs
-            | term -> internalfail (sprintf "expected number for base, but %A got!" term) in
+            | term -> internalfail (sprintf "expected number for base, but %O got!" term) in
         (Return (power p b), state)
         
     let atan2<'a when 'a : comparison> convert isNan isInf concrete standFunc (state : State.state) args =
@@ -116,6 +118,7 @@ module private MathImpl =
                 | Concrete(xObj, _) -> Terms.MakeNumber(concrete (y, xObj :?> 'a))
                 | Constant(_, _, t)
                 | Expression(_, _, t) as x ->
+                    // x is symbolic, y is concrete
                     let exp = Expression(Application(StandardFunctionIdentifier standFunc), [yConc; x], t)
                     match y with
                     | y when isNan y -> yConc
@@ -124,13 +127,14 @@ module private MathImpl =
                           Union([(xIsInf, Terms.MakeNumber Nan); (!!xIsInf, exp)])
                     | _ -> exp
                 | Union gvs -> Merging.guardedMap atanX gvs
-                | term -> internalfail (sprintf "expected number for x, but %A got!" term) in
+                | term -> internalfail (sprintf "expected number for x, but %O got!" term) in
                 atanX x
             | Constant(_, _, t)
             | Expression(_, _, t) as y ->
                 let rec atanX = function
                     | Error _ as e -> e
                     | Concrete(xObj, _) as xConc->
+                        // x is concrete, y is symbolic
                         let exp = Expression(Application(StandardFunctionIdentifier standFunc), [y; xConc], t) in
                         match xObj :?> 'a with
                         | x when isNan x -> xConc
@@ -142,10 +146,10 @@ module private MathImpl =
                     | Expression(_, _, t) as x ->
                         Expression(Application(StandardFunctionIdentifier standFunc), [y; x], t)
                     | Union gvs -> Merging.guardedMap atanX gvs
-                    | term -> internalfail (sprintf "expected number for x, but %A got!" term) in
+                    | term -> internalfail (sprintf "expected number for x, but %O got!" term) in
                 atanX x
             | Union gvs -> Merging.guardedMap (atanY x) gvs
-            | term -> internalfail (sprintf "expected number for y, but %A got!" term) in
+            | term -> internalfail (sprintf "expected number for y, but %O got!" term) in
         (Return (atanY x y), state)
 
 module Math =
