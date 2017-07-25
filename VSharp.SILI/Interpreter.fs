@@ -487,8 +487,8 @@ module internal Interpreter =
         else
             DecompilerServices.setPropertyOfNode ast "Thrown" exn
             // catch (...) {...} case
-            let left = Types.FromSymbolicMetadataType ast.VariableReference.Variable.Type true in
-            let typeMatches = checkCast exn left in
+            let targetType = Types.FromSymbolicMetadataType ast.VariableReference.Variable.Type true in
+            let typeMatches = checkCast exn targetType in
             let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
             let state = State.push state [(stackKey, exn)] in
             if ast.Filter = null then k (typeMatches, state)
@@ -901,12 +901,18 @@ module internal Interpreter =
         let targetType = Types.FromSymbolicMetadataType ast.Type true in
         reduceExpression state ast.Argument (fun (term, state) ->
         let isCasted = checkCast term targetType in
-        withUnion term targetType (fun newTerm newTargetType ->
-        reduceConditionalExecution state
-            (fun state k -> k (isCasted, state))
-            (fun state k -> k (doCast state newTerm newTargetType))
-            (fun state k -> k (Return <| Concrete(null, newTargetType), state))
-            (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))))
+        let mapper state term targetType =
+            reduceConditionalExecution state
+                (fun state k -> k (isCasted, state))
+                (fun state k -> k (doCast state term targetType))
+                (fun state k -> k (Return <| Concrete(null, targetType), state))
+                (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
+        in
+        let term, state =
+            match term with
+            | Union gvs -> Merging.guardedStateMap (fun term -> mapper state term targetType) gvs state
+            | _ -> mapper state term targetType
+        in k (term, state))
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
@@ -914,50 +920,53 @@ module internal Interpreter =
             if src = dst then expr
             else Expression(Cast(src, dst, isChecked), [expr], dst)
         in
-        let rec primitiveCast state term targetType k =
-            match term with
-            | Error _ -> k (term, state)
-            | Nop ->
-                let message = Concrete(format1 "Internal error: casting void to {0}!" targetType, VSharp.String) in
-                let term, state = State.activator.CreateInstance typeof<InvalidCastException> [message] state in
-                k (Error term, state)
-            | Concrete(_, Null) as t -> k (t, state)
-            | Concrete(value, _) ->
-                if Terms.IsFunction term && Types.IsFunction targetType
-                then k (Concrete(value, targetType), state)
-                else k (Terms.MakeConcrete value (Types.ToDotNetType targetType), state)
-            | Constant(_, _, t) -> k (cast t targetType term, state)
-            | Expression(operation, operands, t) -> k (cast t targetType term, state)
-            | StackRef _ as r ->
-                printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
-                hierarchyCast state r targetType k
-            | HeapRef _ as r -> hierarchyCast state r targetType k
-            | Struct _ as r -> hierarchyCast state r targetType k
-            | _ -> __notImplemented__()
-        and hierarchyCast state term targetType k =
+        let targetType = Types.FromSymbolicMetadataType ast.TargetType true in
+        let isCasted term = checkCast term targetType in
+        let hierarchyCast state term targetType =
             reduceConditionalExecution state
                 (fun state k -> k (isCasted term, state))
                 (fun state k -> k (doCast state term targetType))
                 (fun state k -> k (throwInvalidCastException state term targetType))
-                (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
-        and targetType = Types.FromSymbolicMetadataType ast.TargetType true
-        and isCasted term = checkCast term targetType in
+                (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
+        in
+        let rec primitiveCast state term targetType =
+            match term with
+            | Error _ -> (term, state)
+            | Nop ->
+                let message = Concrete(format1 "Internal error: casting void to {0}!" targetType, VSharp.String) in
+                let term, state = State.activator.CreateInstance typeof<InvalidCastException> [message] state in
+                (Error term, state)
+            | Concrete(_, Null) as t -> (t, state)
+            | Concrete(value, _) ->
+                if Terms.IsFunction term && Types.IsFunction targetType
+                then (Concrete(value, targetType), state)
+                else (Terms.MakeConcrete value (Types.ToDotNetType targetType), state)
+            | Constant(_, _, t) -> (cast t targetType term, state)
+            | Expression(operation, operands, t) -> (cast t targetType term, state)
+            | StackRef _ as r ->
+                printfn "Warning: casting stack reference %s to %s!" (toString r) (toString targetType)
+                hierarchyCast state r targetType
+            | HeapRef _ as r -> hierarchyCast state r targetType
+            | Struct _ as r -> hierarchyCast state r targetType
+            | _ -> __notImplemented__()
+        in
         reduceExpression state ast.Argument (fun (term, state) ->
-        withUnion term targetType (fun newTerm newTargetType ->
-        primitiveCast state newTerm newTargetType k))
+        let term, state =
+            match term with
+            | Union gvs -> Merging.guardedStateMap (fun term -> primitiveCast state term targetType) gvs state
+            | _ -> primitiveCast state term targetType
+        in k (term, state))
 
-    and checkCast term targetType = withUnion term targetType (fun left right -> is (Terms.TypeOf left) right)
-
-    and withUnion term (targetType : TermType) mapper =
+    and checkCast term targetType =
+        let mapper = fun left -> is (Terms.TypeOf left) targetType in
         match term with
-        | Union gvs -> Merging.guardedMap (fun t -> mapper t targetType) gvs
-        | _ -> mapper term targetType
+        | Union gvs -> Merging.guardedMap mapper gvs
+        | _ -> mapper term
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
         let targetType = Types.FromSymbolicMetadataType ast.Type true in
         reduceExpression state ast.Argument (fun (term, state) ->
-        let result = checkCast term targetType in
-        k (result, state))
+        checkCast term targetType |> withSnd state |> k)
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
         let instance = Types.MetadataToDotNetType ast.Type in
