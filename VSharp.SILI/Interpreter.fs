@@ -138,75 +138,6 @@ module internal Interpreter =
     and reduceParameterModifierExpression state (ast : IParameterModifierExpression) k =
         __notImplemented__()
 
-// ------------------------------- Delegates and lambdas -------------------------------
-
-    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) (k) : Term = // TODO: Make CPS-types great again!
-        reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
-
-    and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
-        reduceDelegateCall state ast k
-
-    and reduceDelegateCall state (ast : IDelegateCallExpression) k =
-        Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
-
-        let curDelegate = Transformations.inlinedCallTarget ast |> function
-            | None -> ast.Delegate
-            | Some d -> d
-        in
-
-        reduceExpression state curDelegate (fun (deleg, state) ->
-        let rec invoke state deleg k =
-            match deleg with
-                | HeapRef _ as r ->
-                    let term, state = Memory.deref state r in
-                    invoke state term k
-                | Functions.Lambda(lambda) -> lambda state args k
-                | Concrete(obj, _) ->
-                    let message = Concrete("Cannot apply non-function type", VSharp.String) in
-                    let term, state = State.activator.CreateInstance typeof<InvalidCastException> [message] state in
-                    k (Throw term, state)
-                | _ -> __notImplemented__()
-        in
-        match deleg with
-        | Terms.GuardedValues(gs, vs) ->
-            Cps.List.mapk (invoke state) vs (fun results ->
-            let terms, states = List.unzip results in
-            let term = terms |> List.map ControlFlow.resultToTerm |> List.zip gs |> Merging.merge in
-            let state = Merging.mergeStates gs states
-            (Return term, state) |> k)
-        | _ -> invoke state deleg k))
-
-    and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
-        let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
-        let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
-        reduceExpressionToRef state true ast.Target (fun (targetTerm, state) ->
-        let invoke state args k =
-            let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
-            decompileAndReduceMethod state targetTerm args qualifiedTypeName metadataMethod assemblyPath k
-        in
-        let delegateTerm, state = Functions.MakeLambda state metadataMethod invoke in
-        let returnDelegateTerm state k = k (Return delegateTerm, state) in
-        npeOrInvokeExpression state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
-
-    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
-        let returnType = VSharp.Void in // TODO!!!
-        let invoke state args k =
-            reduceFunctionWithBlockBody state None args returnType (DelegateIdentifier ast) ast.Signature ast.Body k
-        Functions.MakeLambda2 state ast.Signature null invoke |> k
-
-    and reduceLambdaExpression state (ast : ILambdaExpression) k =
-        let returnType = VSharp.Void in // TODO!!!
-        let invokeBody state k =
-            reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
-        in
-        let invoke state args k =
-            reduceFunction state None args returnType (DelegateIdentifier ast) ast.Signature invokeBody k
-        in
-        Functions.MakeLambda2 state ast.Signature null invoke |> k
-
-    and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
-        __notImplemented__()
 
 // ------------------------------- Upper-level functions -------------------------------
 
@@ -302,6 +233,87 @@ module internal Interpreter =
         | :? IMethodCallExpression as expression -> reduceMethodCallExpression state expression k
         | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
+
+    and reduceCreationExpression state (ast : ICreationExpression) k =
+        match ast with
+        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
+        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression k
+        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression state expression k
+        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression k
+        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
+        | :? ILambdaExpression as expression -> reduceLambdaExpression state expression k
+        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression k
+        | _ -> __notImplemented__()
+
+// ------------------------------- Delegates and lambdas -------------------------------
+
+    and reduceDelegateCallExpression state (ast : IDelegateCallExpression) k =
+        reduceDelegateCall state ast (fun (result, state) -> (ControlFlow.resultToTerm result, state) |> k)
+
+    and reduceInlinedDelegateCallStatement state (ast : IDelegateCallExpression) k =
+        reduceDelegateCall state ast k
+
+    and reduceDelegateCall state (ast : IDelegateCallExpression) k =
+        Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
+
+        let curDelegate = Transformations.inlinedCallTarget ast |> function
+            | None -> ast.Delegate
+            | Some d -> d
+        in
+
+        reduceExpression state curDelegate (fun (deleg, state) ->
+        let rec invoke state deleg k =
+            match deleg with
+                | HeapRef _ as r ->
+                    let term, state = Memory.deref state r in
+                    invoke state term k
+                | Functions.Lambda(lambda) -> lambda state args k
+                | Concrete(obj, _) ->
+                    let message = Concrete("Cannot apply non-function type", VSharp.String) in
+                    let term, state = State.activator.CreateInstance typeof<InvalidCastException> [message] state in
+                    k (Throw term, state)
+                | _ -> __notImplemented__()
+        in
+        match deleg with
+        | Terms.GuardedValues(gs, vs) ->
+            Cps.List.mapk (invoke state) vs (fun results ->
+            let terms, states = List.unzip results in
+            let term = terms |> List.map ControlFlow.resultToTerm |> List.zip gs |> Merging.merge in
+            let state = Merging.mergeStates gs states
+            (Return term, state) |> k)
+        | _ -> invoke state deleg k))
+
+    and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
+        let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
+        let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        reduceExpressionToRef state true ast.Target (fun (targetTerm, state) ->
+        let invoke state args k =
+            let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
+            decompileAndReduceMethod state targetTerm args qualifiedTypeName metadataMethod assemblyPath k
+        in
+        let delegateTerm, state = Functions.MakeLambda state metadataMethod invoke in
+        let returnDelegateTerm state k = k (Return delegateTerm, state) in
+        npeOrInvokeExpression state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
+
+    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
+        let returnType = VSharp.Void in // TODO!!!
+        let invoke state args k =
+            reduceFunctionWithBlockBody state None args returnType (DelegateIdentifier ast) ast.Signature ast.Body k
+        Functions.MakeLambda2 state ast.Signature null invoke |> k
+
+    and reduceLambdaExpression state (ast : ILambdaExpression) k =
+        let returnType = VSharp.Void in // TODO!!!
+        let invokeBody state k =
+            reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
+        in
+        let invoke state args k =
+            reduceFunction state None args returnType (DelegateIdentifier ast) ast.Signature invokeBody k
+        in
+        Functions.MakeLambda2 state ast.Signature null invoke |> k
+
+    and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
+        __notImplemented__()
 
 // ------------------------------- Loops -------------------------------
 
@@ -974,17 +986,6 @@ module internal Interpreter =
 
 // ------------------------------- Objects construction -------------------------------
 
-    and reduceCreationExpression state (ast : ICreationExpression) k =
-        match ast with
-        | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
-        | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression k
-        | :? IArrayCreationExpression as expression -> reduceArrayCreationExpression state expression k
-        | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression k
-        | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
-        | :? ILambdaExpression as expression -> reduceLambdaExpression state expression k
-        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression k
-        | _ -> __notImplemented__()
-
     and reduceAnonymousObjectCreationExpression state (ast : IAnonymousObjectCreationExpression) k =
         __notImplemented__()
 
@@ -1267,6 +1268,4 @@ type Activator() =
             assert(List.length ctorMethods = 1)
             let ctor = List.head ctorMethods in
             let methodSpecification = new MethodSpecification(ctor, Array.map (fun (p : IMetadataParameter) -> p.Type) ctor.Parameters)
-            //todo: modify it
-            let mutable newState = State.empty
-            Interpreter.reduceObjectCreation state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments (fun (t,s) -> newState <- s; t), newState
+            Interpreter.reduceObjectCreation state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id

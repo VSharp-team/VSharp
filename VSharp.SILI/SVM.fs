@@ -22,7 +22,6 @@ module public SVM =
             match metadataMethodOption with
             | None ->
                 printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
-                Nop // TODO: Make CPS-types great again!
             | Some metadataMethod ->
                 let this, state =
                     match m with
@@ -36,9 +35,7 @@ module public SVM =
                             (Memory.referenceToVariable state (key, metadataMethod.Token.ToString()) true, state)
                 Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
                 System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
-                dictionary.Add(m, (ControlFlow.resultToTerm result, state))
-                Nop // TODO: Make CPS-types great again!
-                )) |> ignore
+                dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList then
