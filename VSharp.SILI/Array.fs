@@ -98,9 +98,11 @@ module Array =
             match facticalAddress with
             | Error _ -> returnValue facticalAddress
             | _ ->
-                let exn = Terms.MakeError(new System.IndexOutOfRangeException()) in
-                let result = doJob lowerBounds constant contents dimensions elementType facticalAddress
-                in merge2 inBounds !!inBounds result exn
+                let result = doJob lowerBounds constant contents dimensions elementType facticalAddress in
+                if Terms.IsFalse inBounds then
+                    let exn = Error <| fst (State.activator.CreateInstance typeof<System.IndexOutOfRangeException> [] State.empty) in
+                    merge2 inBounds !!inBounds result exn
+                else result
         | t -> internalfail (sprintf "expected array, but %s got!" (toString t))
 
     let private accessUnguardedArray doJob merge merge2 returnValue guards indices array =

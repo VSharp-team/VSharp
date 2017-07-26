@@ -68,9 +68,9 @@ module CallGraph =
             match Functions.UnboundedRecursionCache.unboundedApproximationState funcId with
             | Functions.UnboundedRecursionCache.NotStarted
             | Functions.UnboundedRecursionCache.Ready ->
-                k (Rollback funcId, state)
+                k (Rollback funcId, State.pop state)
             | Functions.UnboundedRecursionCache.InProgress ->
-                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
+                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId (fun (statemantResult, state) -> k (statemantResult, State.pop state))
         else
             callStack <- Stack.push callStack frame
             body state (approximateIteratively state returnType State.empty body funcId k)

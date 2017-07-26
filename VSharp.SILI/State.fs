@@ -90,3 +90,8 @@ module internal State =
             key.ToString() + " ==> " + value.ToString())
         in
         List.sort elements |> join "\n"
+
+    [<AllowNullLiteral>]
+    type ActivatorInterface =
+        abstract member CreateInstance : System.Type -> Term list -> state -> (Term * state)
+    let mutable activator : ActivatorInterface = null

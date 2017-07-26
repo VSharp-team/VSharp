@@ -45,8 +45,8 @@ type public Term =
     | Union of (Term * Term) list
 
     override this.ToString() =
-        let checkExpression curChecked parentChecked priority parentPriority str = 
-            match curChecked, parentChecked with 
+        let checkExpression curChecked parentChecked priority parentPriority str =
+            match curChecked, parentChecked with
             | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
             | false, _ when curChecked <> parentChecked -> sprintf "unchecked(%s)" str
             | _ when priority < parentPriority -> sprintf "(%s)" str
@@ -255,12 +255,9 @@ module public Terms =
 
     let public MakeBool predicate =
         if predicate then MakeTrue else MakeFalse
-    
+
     let public MakeNull typ =
         MakeConcrete null typ
-
-    let public MakeError exn =
-        Error (MakeConcrete exn (exn.GetType()))
 
     let public MakeNumber n =
         Concrete(n, Numeric(n.GetType()))
@@ -270,7 +267,7 @@ module public Terms =
         Expression(Operator(operation, isChecked), [x; y], t)
 
     let public MakeNAry operation x isChecked t =
-        match x with 
+        match x with
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x
         | _ -> Expression(Operator(operation, isChecked), x, t)
