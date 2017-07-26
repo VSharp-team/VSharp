@@ -103,14 +103,6 @@ module Array =
                     let exn = Error <| fst (State.activator.CreateInstance typeof<System.IndexOutOfRangeException> [] State.empty) in
                     merge2 inBounds !!inBounds result exn
                 else result
-//                let result = doJob lowerBounds constant contents dimensions elementType facticalAddress in
-//                if Terms.IsFalse inBounds then
-//                    State.activator.CreateInstance typeof<System.IndexOutOfRangeException> [] State.empty |> fst |> Error
-//                elif Terms.IsTrue inBounds then
-//                    result
-//                else
-//                    let errorTerm = State.activator.CreateInstance typeof<System.IndexOutOfRangeException> [] State.empty |> fst |> Error in
-//                    merge2 inBounds !!inBounds result errorTerm
         | t -> internalfail (sprintf "expected array, but %s got!" (toString t))
 
     let private accessUnguardedArray doJob merge merge2 returnValue guards indices array =
