@@ -306,6 +306,11 @@ System.Exception ==> STRUCT System.Exception[
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[
 	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckOrder(System.Int32)
+RESULT: checked(2000000000 + x1 + 2000000000)
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.Double)
 RESULT: log(x)
 HEAP:

@@ -104,7 +104,7 @@ module internal Arithmetics =
 
     and private simplifyAddition isChecked state t x y k =
         let defaultCase () =
-            let sorted = if (IsConcrete y) then (y, x) else (x, y) in
+            let sorted = if not isChecked && (IsConcrete y) then (y, x) else (x, y) in
                 makeAddition isChecked state t (fst sorted) (snd sorted) k
         simplifyGenericBinary "addition" state x y k
                               (fun x y _ _ state -> simplifyConcreteAddition isChecked state t x y)
@@ -254,7 +254,7 @@ module internal Arithmetics =
 
     and private simplifyDivision isChecked state t x y k =
         let defaultCase () =
-            let sorted = if (IsConcrete y) then (y, x) else (x, y) in
+            let sorted = if not isChecked && (IsConcrete y) then (y, x) else (x, y) in
             makeProduct isChecked state t (fst sorted) (snd sorted) k
         in
         simplifyGenericBinary "division" state x y k
@@ -314,7 +314,7 @@ module internal Arithmetics =
 
     and private simplifyRemainder isChecked state t x y k =
         let defaultCase () =
-            let sorted = if (IsConcrete y) then (y, x) else (x, y)
+            let sorted = if not isChecked && (IsConcrete y) then (y, x) else (x, y)
             makeProduct isChecked state t (fst sorted) (snd sorted) k
         simplifyGenericBinary "remainder" state x y k
             (fun x y tx ty state -> simplifyConcreteRemainder isChecked state t x y)

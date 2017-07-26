@@ -90,6 +90,14 @@ namespace VSharp.CSharpUtils.Tests
             return (x / y + x1);
         }
 
+        // Expecting 2000000000 + x1 + 2000000000
+        public static int CheckOrder(int x1)
+        {
+            int x = 2000000000;
+            int y = x;
+            return checked (x + x1 + y);
+        }
+
         // log(x)
         public static double LogMethod1(double x)
         {
