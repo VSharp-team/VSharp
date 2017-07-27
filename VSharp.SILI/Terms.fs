@@ -15,12 +15,14 @@ type FunctionIdentifier =
         | DelegateIdentifier _ -> "<delegate>"
         | StandardFunctionIdentifier sf -> sf.ToString()
 
+type StackKey = string * string // Name and token
+type LocationBinding = JetBrains.Decompiler.Ast.INode
+
 [<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of FunctionIdentifier
     | Cast of TermType * TermType * bool
-
     member this.priority =
         match this with
         | Operator (op, _) -> Operations.operationPriority op
@@ -35,13 +37,14 @@ type public Term =
     | Constant of string * SymbolicConstantSource * TermType
     | Array of Term array               // Lower bounds
                 * Term option           // Symbolic constant (or None if array has default contents)
-                * (Term * Term) list    // Contents: index ~> mutation timestamp * value
+                * SymbolicHeap          // Contents
                 * Term array            // Lengths of dimensions
                 * TermType              // Type
     | Expression of (Operation * Term list * TermType)
-    | Struct of Map<string, Term> * TermType
-    | StackRef of (string * string) * string list * TermType
-    | HeapRef of Term * string list * TermType
+    | Struct of SymbolicHeap * TermType
+    | StackRef of StackKey * Term list * TermType
+    | HeapRef of Term NonEmptyList * TermType
+    | StaticRef of string * Term list * TermType
     | Union of (Term * Term) list
 
     override this.ToString() =
@@ -54,54 +57,51 @@ type public Term =
 
         let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
 
-        let arrayContentsToString contents innerSeparator outerSeparator =
-            contents
-                |> Seq.map (fun kvp -> (toString (fst kvp), toString (snd kvp)))
-                |> Seq.sortBy fst
-                |> Seq.map (fun (k, v) -> k + innerSeparator + v)
-                |> join outerSeparator
+        let arrayContentsToString contents separator =
+            Heap.toString "%O: %O" separator id id contents
 
         let rec toStr parentPriority parentChecked indent term =
             match term with
-            | Error e -> String.Format("<ERROR: {0}>", (toString e))
+            | Error e -> sprintf "<ERROR: %O>" e
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
-            | Concrete(lambda, t) when Types.IsFunction t -> String.Format("<Lambda Expression {0}>", t)
+            | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(null, _) -> "null"
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
                 | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
+                    let operand = List.head operands in
                     let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority in
-                    let printedOperands = operands |> List.map (toStr operation.priority (isCheckNeed isChecked parentChecked) indent) in
-                    printedOperands |> List.map box |> List.toArray |> Wrappers.format opStr
+                    let printedOperand = toStr operation.priority (isCheckNeed isChecked parentChecked) indent operand in
+                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
                 | Operator(operator, isChecked) ->
                     assert (List.length operands >= 2)
                     let printedOperands = operands |> List.map (toStr operation.priority (isCheckNeed isChecked parentChecked) indent)
                     let sortedOperands = if Operations.isCommutative operator && not isChecked then List.sort printedOperands else printedOperands
-                    sortedOperands |> String.concat (Operations.operationToString operator)
+                    sortedOperands
+                        |> String.concat (Operations.operationToString operator)
                         |> checkExpression isChecked parentChecked operation.priority parentPriority
                 | Cast(orig, dest, isChecked) ->
                     assert (List.length operands = 1)
-                    let format = checkExpression isChecked parentChecked operation.priority parentPriority "({0}){1}" in
-                    format2 format (dest.ToString()) (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands))
-                | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> Wrappers.join ", " |> format2 "{0}({1})" f
+                    sprintf "(%O)%s" dest (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands)) |>
+                        checkExpression isChecked parentChecked operation.priority parentPriority
+                | Application f -> operands |> List.map (toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                let fieldToString name term = String.Format("| {0} ~> {1}", name, toStr -1 false (indent + "\t") term)
-                let printed = fields |> Map.map fieldToString |> Map.toSeq |> Seq.map snd |> Seq.sort
-                String.Format("STRUCT {0}[\n" + indent + "{1}]", t.ToString(), String.Join("\n" + indent, printed))
+                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (toStr -1 false (indent + "\t")) fields in
+                sprintf "STRUCT %O[\n%s%s]" t indent fieldsString
             | Array(_, None, contents, dimensions, _) ->
-                String.Format("[| {0} ... {1} ... |]", arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
+                sprintf "[| %s ... %s ... |]" (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
-                String.Format("{0}: [| {1} ({2}) |]", toString constant, arrayContentsToString contents ": " "; ", Array.map toString dimensions |> join " x ")
-            | StackRef(key, path, _) -> let path = List.sort path in String.Format("(StackRef {0})", (key, path).ToString())
-            | HeapRef(addr, [], _) -> String.Format("(HeapRef {0})", toStr -1 false indent addr)
-            | HeapRef(addr, path, _) -> String.Format("(HeapRef {0} with path {1})", toStr -1 false indent addr, (List.sort path).ToString())
+                sprintf "%O: [| %s (%s) |]" constant (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
+            | StackRef(key, path, _) -> sprintf "(StackRef (%O, %O))" key path
+            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (toStr -1 false indent) |> join ".")
+            | StaticRef(key, path, _) -> sprintf "(StaticRef (%O, %O))" key path
             | Union(guardedTerms) ->
-                let guardedToString (guard, term) = String.Format("| {0} ~> {1}", toStr -1 false indent guard, toStr -1 false indent term)
+                let guardedToString (guard, term) = sprintf "| %s ~> %s" (toStr -1 false indent guard) (toStr -1 false indent term)
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
-                String.Format("UNION[\n" + indent + "{0}]", String.Join("\n" + indent, printed))
+                sprintf "UNION[\n%s%s]" indent (join ("\n" + indent) printed)
         in
         toStr -1 false "\t" this
 
@@ -124,6 +124,8 @@ and SymbolicConstantSource =
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
     | SymbolicConstantType of TermType
+
+and SymbolicHeap = Heap<Term, Term>
 
 module public Terms =
 
@@ -184,11 +186,11 @@ module public Terms =
 
     let public OperationOf = function
         | Expression(op, _, _) -> op
-        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> internalfailf "expression expected, %O recieved" term
 
     let public ArgumentsOf = function
         | Expression(_, args, _) -> args
-        | term -> raise(new ArgumentException(String.Format("Expression expected, {0} recieved", term)))
+        | term -> internalfailf "expression expected, %O recieved" term
 
     let rec public TypeOf = function
         | Error _ -> TermType.Bottom
@@ -198,7 +200,8 @@ module public Terms =
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
         | StackRef(_, _, t) -> t
-        | HeapRef(_, _, t) -> t
+        | HeapRef(_, t) -> t
+        | StaticRef(_, _, t) -> t
         | Array(_, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
@@ -207,7 +210,7 @@ module public Terms =
                 let allSame = List.forall ((=) t) ts in
                 if allSame then t
                 else
-                    // TODO: return union of types!
+                    // TODO: return least common supertype!
                     __notImplemented__()
 
 
@@ -240,11 +243,11 @@ module public Terms =
                 else
                     if t.IsAssignableFrom(actualType)
                     then Concrete(value, Types.FromDotNetType t)
-                    else raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
+                    else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | e ->
             // TODO: this is for debug, remove it when becomes relevant!
-            raise(new InvalidCastException(format2 "Cannot cast {0} to {1}!" t.FullName actualType.FullName))
+            raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
             Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
 
     let public MakeTrue =
@@ -261,6 +264,9 @@ module public Terms =
 
     let public MakeNumber n =
         Concrete(n, Numeric(n.GetType()))
+
+    let public MakeConcreteString s =
+        Concrete(s, VSharp.String)
 
     let public MakeBinary operation x y isChecked t =
         assert(Operations.isBinary operation)
@@ -344,7 +350,6 @@ module public Terms =
 
     let rec private addConstants mapper (visited : HashSet<Term>) acc = function
         | Constant(name, source, t) as term when visited.Add(term) ->
-            Console.WriteLine("{0};;; ;;;{1}", term, visited);
             let acc =
                 match source with
                 | LocationAccess loc -> addConstants mapper visited acc loc
@@ -353,25 +358,25 @@ module public Terms =
                 | UnboundedRecursion (TermRef app) -> addConstants mapper visited acc !app
                 | Symbolization loc -> addConstants mapper visited acc loc
                 | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
+                | SymbolicConstantType _ -> acc
             in
             match mapper acc term with
             | Some value -> value::acc
             | None -> acc
         | Array(lowerBounds, constant, contents, lengths, _) ->
-            let indices, values = List.unzip contents in
             match constant with
             | Some c -> addConstants mapper visited acc c
             | None -> acc
             |> addConstantsMany mapper visited (Seq.ofArray lowerBounds)
-            |> addConstantsMany mapper visited indices
-            |> addConstantsMany mapper visited values
+            |> addConstantsMany mapper visited (Heap.locations contents)
+            |> addConstantsMany mapper visited (Heap.values contents)
             |> addConstantsMany mapper visited lengths
         | Expression(_, args, _) ->
             addConstantsMany mapper visited args acc
         | Struct(fields, _) ->
-            addConstantsMany mapper visited (fields |> Map.toList |> List.unzip |> snd) acc
-        | HeapRef(addr, _, _) ->
-            addConstants mapper visited acc addr
+            addConstantsMany mapper visited (Heap.values fields) acc
+        | HeapRef(path, _) ->
+            addConstantsMany mapper visited (NonEmptyList.toList path) acc
         | GuardedValues(gs, vs) ->
             addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs
         | Error e ->
@@ -383,3 +388,7 @@ module public Terms =
 
     let public filterMapConstants mapper terms =
         List.fold (addConstants mapper (new HashSet<Term>())) [] terms
+
+    let is src tgt =
+        let justInherits = (Types.MetadataToDotNetType src).IsAssignableFrom(Types.ToDotNetType tgt) in
+        Concrete(justInherits, Bool)

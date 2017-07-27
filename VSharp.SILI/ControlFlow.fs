@@ -52,37 +52,37 @@ module internal ControlFlow =
         | Error(Concrete(:? FunctionIdentifier, Bottom)) -> true
         | _ -> false
 
-    let rec consumeContinue = function
+    let rec internal consumeContinue = function
         | Continue -> NoResult
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeContinue v)) |> Guarded
         | r -> r
 
-    let rec consumeBreak = function
+    let rec internal consumeBreak = function
         | Break -> NoResult
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeBreak v)) |> Guarded
         | r -> r
 
-    let rec throwOrIgnore = function
+    let rec internal throwOrIgnore = function
         | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
         | t -> NoResult
 
-    let rec throwOrReturn = function
+    let rec internal throwOrReturn = function
         | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded
         | Nop -> NoResult
         | t -> Return t
 
-    let rec consumeErrorOrReturn consumer = function
+    let rec internal consumeErrorOrReturn consumer = function
         | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> consumer t
         | Nop -> NoResult
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded
         | t -> Return t
 
-    let rec composeSequentially oldRes newRes oldState newState =
+    let rec internal composeSequentially oldRes newRes oldState newState =
         let calculationDone = function
             | NoResult -> false
             | _ -> true
@@ -112,30 +112,30 @@ module internal ControlFlow =
             in
             Guarded result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
-    let rec resultToTerm = function
+    let rec internal resultToTerm = function
         | Return term -> term
         | Throw err -> Error err
         | Guarded gvs -> Merging.guardedMap resultToTerm gvs
         | Rollback id -> Error(Concrete(id, Bottom)) // A bit hacky encoding of rollback to avoid introducing of special Term constructor
         | _ -> Nop
 
-    let pickOutExceptions result =
+    let internal pickOutExceptions result =
         let gvs =
             match result with
             | Throw e -> [(Terms.MakeTrue, result)]
             | Guarded gvs -> gvs
             | _ -> [(Terms.MakeTrue, result)]
         in
-        let thrown, normal = mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
+        let thrown, normal = List.mappedPartition (function | g, Throw e -> Some (g, e) | _ -> None) gvs in
         match thrown with
         | [] -> None, normal
         | gvs ->
             let gs, vs = List.unzip gvs in
-            let mergedGuard = List.fold (|||) Terms.MakeFalse gs in
+            let mergedGuard = disjunction gs in
             let mergedValue = Merging.merge gvs in
             Some(mergedGuard, mergedValue), normal
 
-    let throw exn =
+    let internal throw exn =
         Throw(Terms.MakeConcrete exn (exn.GetType()))
 
     let npe state = State.activator.CreateInstance typeof<System.NullReferenceException> [] state

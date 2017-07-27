@@ -408,7 +408,7 @@ module internal Arithmetics =
         | OperationType.Divide -> simplifyDivisionAndCheckNotZero isChecked state t x y k
         | OperationType.Remainder -> simplifyRemainderAndCheckNotZero isChecked state t x y k
         | OperationType.ShiftLeft
-        | OperationType.ShiftRight -> raise(new System.NotImplementedException())
+        | OperationType.ShiftRight -> __notImplemented__()
         | OperationType.Equal -> simplifyEqual x y (withSnd state >> k)
         | OperationType.NotEqual -> simplifyNotEqual x y (withSnd state >> k)
         | OperationType.Greater -> simplifyGreater x y (withSnd state >> k)

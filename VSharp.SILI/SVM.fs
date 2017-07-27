@@ -8,7 +8,7 @@ module public SVM =
     let private reset () =
         IdGenerator.reset()
         State.activator <- new Activator()
-        Memory.resetHeap()
+        Memory.reset()
 
     let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
         if m.IsAbstract then ()
@@ -18,6 +18,7 @@ module public SVM =
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
             let declaringType = Types.FromDotNetType(m.DeclaringType) in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
+            Memory.reset()
             Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
             match metadataMethodOption with
             | None ->
@@ -30,9 +31,9 @@ module public SVM =
                         let instance, state = Memory.allocateSymbolicInstance false (Symbolization Nop) "" state declaringType in
                         if Terms.IsHeapRef instance then (instance, state)
                         else
-                            let key = "external data" in
-                            let state = State.push state [((key, metadataMethod.Token.ToString()), instance)] in
-                            (Memory.referenceToVariable state (key, metadataMethod.Token.ToString()) true, state)
+                            let key = ("external data", metadataMethod.Token.ToString()) in
+                            let state = State.newStackFrame state [(key, instance)] in
+                            (Memory.referenceLocalVariable state key true, state)
                 Interpreter.decompileAndReduceMethod state this [] qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
                 System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
                 dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
@@ -46,7 +47,7 @@ module public SVM =
 
     let private resultToString (kvp : KeyValuePair<_, _>) =
         let term, state = kvp.Value in
-        sprintf "%s\nHEAP:\n%s" (toString term) (replaceLambdaLines (State.dumpHeap state))
+        sprintf "%s\nHEAP:\n%s" (toString term) (replaceLambdaLines (State.dumpMemory state))
 
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList
