@@ -27,7 +27,7 @@ module public MappedStack =
         addToStack key value stack idx
 
     let add key value ((contents, peaks) as stack) =
-        let idx = tryGetDictValue peaks key 1ul in
+        let idx = Dict.tryGetValue peaks key 1ul in
         addToStack key value stack idx
 
     let remove (contents, peaks) key =
@@ -60,12 +60,35 @@ module public MappedStack =
     let fold f state (contents, peaks) =
         Map.fold (fun s k v -> f s k (Map.find (makeExtendedKey k v) contents)) state peaks
 
-    let compare (contents1, peaks1) (contents2, peaks2) =
+    let compare keyMapper (contents1, peaks1) (contents2, peaks2) =
         assert(peaks1 = peaks2)
-        Map.filterMap
-            (fun k v ->
+        peaks1 |> Map.toList |> List.filterMap
+            (fun (k, v) ->
                 let key = makeExtendedKey k v in
                 let v1 = Map.find key contents1 in
                 let v2 = Map.find key contents2 in
-                if v1 = v2 then None else Some v2)
-            peaks1
+                if v1 = v2 then None else Some(keyMapper k v2, v2))
+
+    let public merge guards stacks resolve =
+        assert(not <| List.isEmpty stacks)
+        let peaks = List.head stacks |> snd in
+        assert(List.forall (snd >> ((=) peaks)) stacks)
+        let keys = new System.Collections.Generic.HashSet<'a>() in
+        List.iter (fst >> Map.toSeq >> Seq.map fst >> keys.UnionWith) stacks
+        let mergeOneKey k =
+            let vals = List.filterMap2 (fun g (s, _) -> if Map.containsKey k s then Some(g, s.[k]) else None) guards stacks in
+            (k, resolve vals)
+        in
+        (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
+
+    let merge2 s1 s2 resolve =
+        let resolveIfShould map key value =
+            if containsKey key map then
+                let oldValue = find key map in
+                let newValue = value in
+                if oldValue = newValue then map
+                else
+                    add key (resolve oldValue newValue) map
+            else
+                add key value map
+        fold resolveIfShould s1 s2

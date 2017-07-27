@@ -14,7 +14,7 @@ module Functions =
     let public MakeLambda state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromMetadataMethodSignature metadataMethod in
         let term = Concrete(lambda, typ) in
-        Memory.allocateInHeap state term None
+        Memory.allocateInHeap state term
 
     let public MakeLambdaTerm (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromDecompiledSignature signature returnMetadataType in
@@ -23,7 +23,7 @@ module Functions =
     let public MakeLambda2 state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let term = MakeLambdaTerm signature returnMetadataType lambda in
         if Transformations.isInlinedSignatureCall signature
-            then Memory.allocateInHeap state term None
+            then Memory.allocateInHeap state term
             else term, state
 
     let (|Lambda|_|) = function
@@ -109,7 +109,7 @@ module Functions =
             let sourceRef = ref Nop in
             let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
             let writeDepsLocations = writeDependencies.[id] in
-            let readDeps = readDepsLocations |> List.map (Memory.deref state) in
+            let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst in
             let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
 
             let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in

@@ -9,7 +9,7 @@ module internal Propositional =
 
 // ------------------------------- Simplification of logical operations -------------------------------
 
-    let internal makeBin operation x y = 
+    let internal makeBin operation x y =
         match x, y with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
             Terms.MakeNAry operation (List.append list' list'') false Bool
@@ -22,20 +22,20 @@ module internal Propositional =
         | _ -> Terms.MakeNAry operation [x; y] false Bool
 
 
-    let internal makeCoOpBinaryTerm x list listOp op = 
+    let internal makeCoOpBinaryTerm x list listOp op =
         match list with
         | [] -> x
         | [y] -> makeBin op x y
         | _ -> makeBin op (Expression(Operator(listOp, false), list, Bool)) x
 
 
-    let public (|IntersectionExceptOne|_|) list1 list2 = 
+    let public (|IntersectionExceptOne|_|) list1 list2 =
         if List.length list1 = List.length list2 then
             let s1 = System.Collections.Generic.HashSet<Term>(list1) in
             let s2 = System.Collections.Generic.HashSet<Term>(list2) in
             s1.SymmetricExceptWith(s2)
-            let symmetricExcept = List.ofSeq s1 in 
-            match symmetricExcept with 
+            let symmetricExcept = List.ofSeq s1 in
+            match symmetricExcept with
             | [x; Negation(y,_)] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
             | [Negation(y,_); x] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
             | _ -> None
@@ -51,15 +51,17 @@ module internal Propositional =
     // Trying to simplify pairwise combinations of x- and y-operands.
     // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
     // by successively trying to combine (a * c), (a * d), (b * c) and (b * d).
-    let internal simplifyPairwiseCombinations xs ys t simplify reduce matched unmatched =
-        let initialYs = ys
+    let internal simplifyPairwiseCombinations xs ys t operand simplify reduce matched unmatched =
+        let initialYs = ys in
+
+        let reduce t1 t2 = reduce (operand t1) (operand t2) in
 
         let rec combineOne x ys failed k =
             match ys with
             | [] -> k x failed
             | h :: tl ->
-                simplify false t x h
-                    (fun x  -> combineOne x tl failed k)
+                simplify t (operand x) (operand h)
+                    (fun x -> combineOne x tl failed k)
                     (fun () -> combineOne x tl (h::failed) k)
 
         let rec combine xs ys acc =
@@ -71,7 +73,7 @@ module internal Propositional =
                     // Something matched, the work is done, just combining results together...
                     let toReduce = List.append (List.rev acc) ys in
                     // TODO: care about different types...
-                    Cps.List.reducek reduce toReduce matched
+                    Cps.List.reducek reduce toReduce (operand >> matched)
             | x::xs ->
                 combineOne x ys [] (fun res ys -> combine xs ys (res::acc))
 
@@ -130,13 +132,13 @@ module internal Propositional =
         // simplifying (OP list) op y at this step
         match list, y with
         | [x], y -> simplifyExt op co stopValue ignoreValue x y matched unmatched
-        | _ -> 
+        | _ ->
             // Trying to simplify pairwise combinations of x- and y-summands
             let summandsOfY =
                 match y with
                 | Expression(Operator(op', false), y', _) when op = op'-> y'
                 | _ -> [y]
-            simplifyPairwiseCombinations list summandsOfY Bool (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
+            simplifyPairwiseCombinations list summandsOfY Bool id (simplifyExtWithType op co stopValue ignoreValue false) (simplifyConnective op co stopValue ignoreValue) matched unmatched
 
     and simplifyCoOp op co stopValue ignoreValue x list y matched unmatched =
         match list, y with
@@ -154,11 +156,11 @@ module internal Propositional =
         // Co(...) op OP(...) -> pairwise
         | _, Expression(Operator(op', false), y', _) when op = op'->
             // Trying to simplify pairwise combinations of x- and y-summands
-            simplifyPairwiseCombinations [x] y' Bool (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
+            simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType op co stopValue ignoreValue false) (simplifyConnective op co stopValue ignoreValue) matched unmatched
         | _ -> unmatched ()
 
     and private simplifyOpToExpr x y op co stopValue ignoreValue matched unmatched =
-        match x with 
+        match x with
         | Expression(Operator(op', false), xs, _) when op = op'->
             simplifyOpOp op co stopValue ignoreValue x xs y matched unmatched
         | Expression(Operator(op', false), xs, _) when co = op'->
@@ -174,16 +176,16 @@ module internal Propositional =
     and internal simplifyNegation x k =
         match x with
         | Error _ -> k x
-        | Concrete(b, t) -> Concrete(not (b :?> bool),t) |> k
+        | Concrete(b, t) -> Concrete(not (b :?> bool), t) |> k
         | Negation(x, _)  -> k x
-        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr l false Bool |> k)
+        | ConjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalOr  l false Bool |> k)
         | DisjunctionList(x, _) -> Cps.List.mapk simplifyNegation x (fun l -> MakeNAry OperationType.LogicalAnd l false Bool |> k)
         | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk simplifyNegation vs (fun nvs ->
             List.zip gs nvs |> Union |> k)
         | _ -> Terms.MakeUnary OperationType.LogicalNeg x false Bool |> k
 
-    and private simplifyExtWithType op co stopValue ignoreValue isChecked t x y matched unmatched =
+    and private simplifyExtWithType op co stopValue ignoreValue isChecked t x (y:Term) matched unmatched =
         simplifyExt op co stopValue ignoreValue x y matched unmatched
 
 // ------------------------------- General functions -------------------------------
@@ -206,6 +208,17 @@ module internal Propositional =
     let internal (==>) x y =
         !!x ||| y
 
+    let internal conjunction = function
+        | SeqNode(x, xs) ->
+            if Seq.isEmpty xs then x
+            else Seq.fold (&&&) x xs
+        | _ -> Terms.MakeTrue
+
+    let internal disjunction = function
+        | SeqNode(x, xs) ->
+            if Seq.isEmpty xs then x
+            else Seq.fold (|||) x xs
+        | _ -> Terms.MakeFalse
 
     let internal simplifyBinaryConnective op x y k =
         match op with
