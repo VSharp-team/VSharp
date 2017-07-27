@@ -152,9 +152,10 @@ module public Types =
         | SubType(t, _) ->  t
         | _ -> typedefof<obj>
 
-    let rec FromCommonDotNetType dotNetType k =
+    let rec FromCommonDotNetType (dotNetType : Type) k =
         match dotNetType with
         | null -> Null
+        | v when v.FullName = "System.Void" -> Void
         | b when b.Equals(typedefof<bool>) -> Bool
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
@@ -218,11 +219,11 @@ module public Types =
             let elementType = FromSymbolicMetadataType a.ElementType false |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as ct ->
-                let metadataType =  Type.GetType(ct.Type.AssemblyQualifiedName, true) in
+                let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
                 FromCommonDotNetType metadataType (fun symbolic ->
                 match symbolic with
                 | c when (c.IsClass && c.IsSealed) -> ClassType c
-                | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
+                | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
                     if isUnique then SubType(c, c.FullName) else SubType(c, IdGenerator.startingWith c.FullName)
                 | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
