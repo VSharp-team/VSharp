@@ -138,5 +138,4 @@ module internal ControlFlow =
     let internal throw exn =
         Throw(Terms.MakeConcrete exn (exn.GetType()))
 
-    let internal npe () =
-        throw (new System.NullReferenceException())
+    let npe state = State.activator.CreateInstance typeof<System.NullReferenceException> [] state

@@ -73,3 +73,8 @@ module internal State =
         let mh = Heap.dump m staticKeyToString in
         let separator = if System.String.IsNullOrWhiteSpace(sh) then "" else "\n"
         sh + separator + mh
+
+    [<AllowNullLiteral>]
+    type ActivatorInterface =
+        abstract member CreateInstance : System.Type -> Term list -> state -> (Term * state)
+    let mutable activator : ActivatorInterface = null

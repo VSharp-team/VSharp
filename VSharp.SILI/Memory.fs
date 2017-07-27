@@ -15,8 +15,9 @@ module internal Memory =
         | String -> Concrete(null, String)
         | ClassType _ as t -> Concrete(null, t)
         | ArrayType _ as t -> Concrete(null, t)
-        | Object -> Concrete(null, Object)
-        | Func _ -> Concrete(null, Object)
+        | Object name as t -> Concrete(name, t)
+        | SubType(name, _) as t -> Concrete(name, t)
+        | Func _ -> Concrete(null, Object "func")
         | StructType dotNetType as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Seq.map (fun (k, v) -> (Terms.MakeConcreteString k, defaultOf v)) (Map.toSeq fields) |> Heap.ofSeq, t)
@@ -37,9 +38,11 @@ module internal Memory =
         in Struct(fields, t)
 
     and internal makeSymbolicInstance isStatic source name = function
-        | t when Types.IsPrimitive t || Types.IsObject t || Types.IsFunction t -> Constant(name, source, t)
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
+        | Object _ as t -> makeSymbolicStruct isStatic source t typedefof<obj>
         | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
         | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | SubType(dotNetType, name) as t -> makeSymbolicStruct isStatic source t dotNetType
         | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
         | PointerType termType as t ->
             match termType with
@@ -72,7 +75,7 @@ module internal Memory =
         | StaticRef(name, _, _) -> name
         | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
-    let internal npe () = Terms.MakeError(new System.NullReferenceException()) in
+    let internal npe state = State.activator.CreateInstance typeof<System.NullReferenceException> [] state
 
     let rec private refToInt = function
         | Error _ as e -> e
@@ -96,14 +99,15 @@ module internal Memory =
         | Union gvs -> Merging.guardedMap isNull gvs
         | _ -> Terms.MakeFalse
 
-    let rec internal npeIfNull = function
-        | Error _ as e -> e
-        | Concrete(null, _) -> npe()
+    let rec internal npeIfNull state = function
+        | Error _ as e -> (e, state)
+        | Concrete(null, _) -> npe state
         | HeapRef((addr, _), t) as reference ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
-            Merging.merge2Terms isNull !!isNull (npe()) reference
-        | Union gvs -> Merging.guardedMap npeIfNull gvs
-        | t -> t
+            let term, state' = npe state in
+            Merging.merge2Terms isNull !!isNull term reference, Merging.merge2States isNull !!isNull state' state
+        | Union gvs -> Merging.guardedStateMap (npeIfNull state) gvs state
+        | t -> (t, state)
 
     let rec private heapDeref defaultValue h key =
         if Heap.contains key h then Heap.find key h
@@ -139,18 +143,19 @@ module internal Memory =
                 internalfail ("expected complex type, but got " + toString t)
 
     let rec internal deref ((_, h, _, _, _) as state) = function
-        | Error _ as e -> e
-        | StackRef(location, path, _) -> termDeref path (readStackLocation state location)
-        | StaticRef(location, path, _) -> termDeref path (readStaticLocation state (Terms.MakeConcreteString location))
+        | Error _ as e -> (e, state)
+        | StackRef(location, path, _) -> (termDeref path (readStackLocation state location), state)
+        | StaticRef(location, path, _) -> (termDeref path (readStaticLocation state (Terms.MakeConcreteString location)), state)
         | HeapRef((addr, path), _) ->
             let isNull = Arithmetics.simplifyEqual addr (Concrete(0, pointerType)) id in
             match isNull with
-            | Terms.False -> termDeref path (heapDeref __notImplemented__ h addr)
-            | Terms.True -> npe()
+            | Terms.False -> (termDeref path (heapDeref __notImplemented__ h addr), state)
+            | Terms.True -> npe state
             | _ ->
                 let derefed = termDeref path (heapDeref __notImplemented__ h addr) in
-                Merging.merge2Terms isNull !!isNull (npe()) derefed
-        | Union gvs -> Merging.guardedMap (deref state) gvs
+                let exn, state' = npe state in
+                (Merging.merge2Terms isNull !!isNull (Error exn) derefed, Merging.merge2States isNull !!isNull state' state)
+        | Union gvs -> Merging.guardedStateMap (deref state) gvs state
         | t -> internalfail ("deref expected reference, but got " + toString t)
 
     let internal fieldOf term name = termDeref [Terms.MakeConcreteString name] term
@@ -187,36 +192,39 @@ module internal Memory =
         | t -> internalfail ("expected reference or struct, but got " + toString t)
 
     let rec private followOrReturnReference state reference =
-        match deref state reference with
-        | Error _ as e -> e
-        | StackRef _ as r -> r
-        | HeapRef _ as r -> r
-        | Union gvs -> Merging.guardedMap (followOrReturnReference state) gvs
-        | term -> reference
+        let term, state = deref state reference in
+        match term with
+        | Error _ as e -> e, state
+        | StackRef _ as r -> r, state
+        | HeapRef _ as r -> r, state
+        | Union gvs -> Merging.guardedStateMap (followOrReturnReference state) gvs state
+        | term -> reference, state
 
     let internal referenceField state followHeapRefs name parentRef =
-        let reference = referenceFieldOf state (Terms.MakeConcreteString name) parentRef (deref state parentRef) in
+        let term, state = deref state parentRef in
+        let reference = referenceFieldOf state (Terms.MakeConcreteString name) parentRef term in
         if followHeapRefs then followOrReturnReference state reference
-        else reference
+        else (reference, state)
 
     let internal referenceStaticField state followHeapRefs fieldName typeName =
         let reference = StaticRef(typeName, [Terms.MakeConcreteString fieldName], String) in
         if followHeapRefs then followOrReturnReference state reference
-        else reference
+        else (reference, state)
 
     let internal referenceArrayIndex state arrayRef indices =
         // TODO: what about followHeapRefs?
-        match deref state arrayRef with
-        | Error _ as e -> e
+        let array, state = deref state arrayRef in
+        match array with
+        | Error _ as e -> (e, state)
         | Array(lowerBounds, _, _, dimensions, _) ->
             let inBounds = Array.checkIndices lowerBounds dimensions indices in
             let physicalIndex = Array.physicalIndex lowerBounds dimensions indices in
             let reference = referenceSubLocation physicalIndex arrayRef in
             match inBounds with
-            | Terms.True -> reference
+            | Terms.True -> (reference, state)
             | _ ->
-                let exn = Terms.MakeError(new System.IndexOutOfRangeException()) in
-                Merging.merge2Terms inBounds !!inBounds reference exn
+                let exn, state' = State.activator.CreateInstance typeof<System.IndexOutOfRangeException> [] state in
+                Merging.merge2Terms inBounds !!inBounds reference (Error exn), Merging.merge2States inBounds !!inBounds state state'
         | t -> internalfail ("accessing index of non-array term " + toString t)
 
     let internal derefLocalVariable state id =
@@ -245,7 +253,8 @@ module internal Memory =
         (pointer, (s, h.Add(address, term), m, f, p))
 
     let internal allocateInStaticMemory ((s, h, m, f, p) : state) typeName term =
-        (s, h, m.Add(Terms.MakeConcreteString typeName, term), f, p)
+        let address = Terms.MakeConcreteString typeName in
+        (s, h, m.Add(address, term), f, p)
 
     let internal allocateSymbolicInstance isStatic source name state t =
         let value = makeSymbolicInstance isStatic source name t in
@@ -336,7 +345,7 @@ module internal Memory =
     let symbolizeLocations ((_, h, _, _, _) as state) sourceRef locations =
         let rec symbolizeValue state = function
             | Mutation(location, _) ->
-                let v = deref state location in
+                let v, state = deref state location in
                 let name = nameOfLocation location |> IdGenerator.startingWith in
                 let result = makeSymbolicInstance (isStaticLocation location) (UnboundedRecursion (TermRef sourceRef)) name (Terms.TypeOf v) in
                 mutate state location result
@@ -414,7 +423,7 @@ module internal Memory =
         let mutatedHeap, newHeap = compareHeaps h1 h2 in
         let mutatedStatics, newStatics = compareHeaps m1 m2 in
         let mapper (key, newValue) =
-            let oldValue = deref state key in
+            let oldValue, _ = deref state key in
             structDiff key oldValue newValue
         let mutatedStackFieldss,  newStackFieldss   = mutatedStack   |> sortMap mapper |> List.unzip in
         let mutatedHeapFieldss,   newHeapFieldss    = mutatedHeap    |> sortMap mapper |> List.unzip in

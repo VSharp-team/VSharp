@@ -1,17 +1,19 @@
 ﻿namespace VSharp
 
 open JetBrains.Decompiler.Ast
-open System
+open global.System
 open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
 type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
     override this.ToString() =
         match this with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
 
 type StackKey = string * string // Name and token
 type LocationBinding = JetBrains.Decompiler.Ast.INode
@@ -64,7 +66,8 @@ type public Term =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
-            | Concrete(value, _) -> if value = null then "null" else value.ToString()
+            | Concrete(null, _) -> "null"
+            | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
                 | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
@@ -120,6 +123,7 @@ and SymbolicConstantSource =
     | UnboundedRecursion of TermRef
     | Symbolization of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
+    | SymbolicConstantType of TermType
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -209,6 +213,7 @@ module public Terms =
                     // TODO: return least common supertype!
                     __notImplemented__()
 
+
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal
@@ -251,11 +256,14 @@ module public Terms =
     let public MakeFalse =
         Concrete(false :> obj, Bool)
 
+    let public MakeBool predicate =
+        if predicate then MakeTrue else MakeFalse
+
     let public MakeNull typ =
         MakeConcrete null typ
 
-    let public MakeError exn =
-        Error (MakeConcrete exn (exn.GetType()))
+    let public MakeNumber n =
+        Concrete(n, Numeric(n.GetType()))
 
     let public MakeConcreteString s =
         Concrete(s, VSharp.String)
@@ -350,6 +358,7 @@ module public Terms =
                 | UnboundedRecursion (TermRef app) -> addConstants mapper visited acc !app
                 | Symbolization loc -> addConstants mapper visited acc loc
                 | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
+                | SymbolicConstantType _ -> acc
             in
             match mapper acc term with
             | Some value -> value::acc
