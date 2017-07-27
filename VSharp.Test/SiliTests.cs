@@ -45,8 +45,6 @@ namespace VSharp.Test
                     frameClass.DeclaringType,
                     frameClass.Name);
             }
-
-            Console.WriteLine("Exiting because Fail");
         }
     }
 
@@ -166,6 +164,7 @@ namespace VSharp.Test
 //                , "TryCatch"
 //                , "Lists"
 //                , "Typecast"
+                , "Tree"
                 , "IKeeper"
                 , "Bag"
                 , "Generic"
