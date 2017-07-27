@@ -1,4 +1,4 @@
-﻿using System;
+﻿using SystemArray = System.Array;
 using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
@@ -13,31 +13,39 @@ namespace VSharp.CSharpUtils.Tests
             return a.Count == b.Length && b.Length == c.Length && c.Length == c[3] - 4;
         }
 
-        public int GetLengthDimSymbolic(int[,] array, int dimension)
-        {
-            return array.GetLength(dimension);
-        }
-
-        public int LowerBound()
+        public int LowerBoundTest()
         {
             var c = new int[4, 2] { {1, 1}, {2, 2}, {3, 3}, {4, 4} };
             return c.GetLowerBound(1);
         }
 
-        public int LowerBoundException(int[,] array)
+        public int LowerBoundExceptionTest(int[,] array)
         {
             return array.GetLowerBound(2);
         }
 
-        public int LowerBoundSymbolic(int[,] array, int dimension)
+        public int LowerBoundSymbolicTest(int[,] array, int dimension)
         {
             return array.GetLowerBound(dimension);
         }
+
+        public int UpperBoundTest()
+        {
+            var c = new int[4, 2] { {1, 1}, {2, 2}, {3, 3}, {4, 4} };
+            return c.GetUpperBound(0);
+        }
+
+        public void ClearTest()
+        {
+            var a = new int[4] { 5, 6, 7, 8 };
+            SystemArray.Clear(a, 1, 2);
+        }
 //
-//        public void Clear()
+//        public void Copy()
 //        {
 //            var a = new int[4] { 5, 6, 7, 8 };
-//            System.Array.Clear(a, 1, 2);
+//            var b = new int[3];
+//            a.CopyTo(b, 1);
 //        }
     }
 }
