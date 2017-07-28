@@ -90,6 +90,7 @@ module internal Interpreter =
                     reduceFunctionSignature state decompiledMethod.Signature (Some this) parameters (fun (argsAndThis, state) ->
                     internalCall metadataMethod argsAndThis state k)
                 elif concreteExternalImplementations.ContainsKey(fullMethodName) then
+                    let parameters = this :: parameters
                     reduceDecompiledMethod state this parameters concreteExternalImplementations.[fullMethodName] k
                 else __notImplemented__()
             else
@@ -857,6 +858,7 @@ module internal Interpreter =
             | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | SubType(t, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
             | Object name as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
@@ -869,7 +871,7 @@ module internal Interpreter =
             | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
             | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<Array>)
+            | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
             | Object name as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
@@ -880,6 +882,7 @@ module internal Interpreter =
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | Func _, Func _ -> Terms.MakeTrue
+        | ArrayType(t1, c1), ArrayType(Object "Array", 0) -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(t2, c2) -> Terms.MakeBool <| ((t1 = t2) && (c1 = c2))
         | leftType, Types.StructureType t when leftType <> Null -> concreteIs t leftType
         | leftType, Types.ReferenceType t -> concreteIs t leftType

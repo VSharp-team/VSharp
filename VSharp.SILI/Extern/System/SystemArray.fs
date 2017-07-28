@@ -47,7 +47,7 @@ module SystemArray =
                             let result = List.zip guards (List.ofArray lengths) |> Merging.merge in
                             k (Return result, state))
                         (fun (term, state) -> ControlFlow.resultToTerm term, state)
-            | term -> internalfailf "expected array, but %O got!" term
+            | term -> internalfail (sprintf "expected array, but %O got!" term)
         in
         let result, state =
             match array with
@@ -61,8 +61,11 @@ module SystemArray =
             | Error _ as e -> e
             | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
             | Union gvs -> Merging.guardedMap getRank gvs
-            | term -> internalfail "expected array, but %O got!" term
+            | term -> internalfail (sprintf "expected array, but %O got!" term)
         in (Return (getRank array), state)
+
+    let get_Rank state args =
+        GetRank state args
 
     let get_Length state args =
         let array, state = Memory.deref state (List.head args) in
@@ -94,7 +97,7 @@ module SystemArray =
                             let result = List.zip guards (List.ofArray lowerBounds) |> Merging.merge in
                             k (Return result, state))
                         (fun (term, state) -> ControlFlow.resultToTerm term, state)
-            | term -> internalfail "expected array, but %O got!" term
+            | term -> internalfail (sprintf "expected array, but %O got!" term)
         in
         let result, state =
             match array with

@@ -42,7 +42,7 @@ namespace VSharp.CSharpUtils.Tests
 //            a += 1;
 //            return a > 3;
 //        }
-//
+
         public bool Construct()
         {
             var a = new List<int>(4) { 1, 2, 3, 4 };
@@ -53,7 +53,7 @@ namespace VSharp.CSharpUtils.Tests
 
         public int LowerBoundTest()
         {
-            var c = new int[4, 2] { {1, 1}, {2, 2}, {3, 3}, {4, 4} };
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.GetLowerBound(1);
         }
 
@@ -69,21 +69,27 @@ namespace VSharp.CSharpUtils.Tests
 
         public int UpperBoundTest()
         {
-            var c = new int[4, 2] { {1, 1}, {2, 2}, {3, 3}, {4, 4} };
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.GetUpperBound(0);
         }
 
-        public void ClearTest()
-        {
-            var a = new int[4] { 5, 6, 7, 8 };
-            SystemArray.Clear(a, 1, 2);
-        }
-//
+        //public void ClearTest()
+        //{
+        //    var a = new int[4] { 5, 6, 7, 8 };
+        //    SystemArray.Clear(a, 1, 2);
+        //}
+
 //        public void Copy()
 //        {
 //            var a = new int[4] { 5, 6, 7, 8 };
 //            var b = new int[3];
 //            a.CopyTo(b, 1);
 //        }
+
+        public int RankTest()
+        {
+            var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
+            return c.Rank;
+        }
     }
 }
