@@ -37,6 +37,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Calculator.cs" />
+    <Compile Include="ArrayUtils.cs" />
+    <Compile Include="ImplementsAttribute.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\Arithmetics.cs" />
     <Compile Include="Tests\Generic.cs" />

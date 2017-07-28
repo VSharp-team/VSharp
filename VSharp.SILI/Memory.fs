@@ -43,6 +43,7 @@ module internal Memory =
         | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
         | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
         | SubType(dotNetType, name) as t -> makeSymbolicStruct isStatic source t dotNetType
+        | ArrayType(e, 0) as t -> Array.makeSymbolic source 0 t name
         | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
         | PointerType termType as t ->
             match termType with
