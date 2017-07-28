@@ -8,17 +8,17 @@ module internal Memory =
 
     let private pointerType = Numeric typedefof<int> in
 
-    let rec internal defaultOf = function
+    let rec internal defaultOf = function //TODO: Check
         | Bool -> Terms.MakeFalse
         | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
         | Numeric t -> Terms.MakeConcrete 0 t
         | String -> Concrete(null, String)
         | ClassType _ as t -> Concrete(null, t)
         | ArrayType _ as t -> Concrete(null, t)
-        | Object name as t -> Concrete(name, t)
-        | SubType(name, _) as t -> Concrete(name, t)
-        | Func _ -> Concrete(null, Object "func")
-        | StructType dotNetType as t ->
+        | Object _ as t -> Concrete(null, t)
+        | SubType _ as t -> Concrete(null, t)
+        | Func _ -> Concrete(null, Object("func", []))
+        | StructType(dotNetType, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Seq.map (fun (k, v) -> (Terms.MakeConcreteString k, defaultOf v)) (Map.toSeq fields) |> Heap.ofSeq, t)
         | _ -> __notImplemented__()
@@ -37,12 +37,12 @@ module internal Memory =
                         |> Heap.ofSeq
         in Struct(fields, t)
 
-    and internal makeSymbolicInstance isStatic source name = function
+    and internal makeSymbolicInstance isStatic source name = function //TODO: Check
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
         | Object _ as t -> makeSymbolicStruct isStatic source t typedefof<obj>
-        | StructType dotNetType as t -> makeSymbolicStruct isStatic source t dotNetType
-        | ClassType dotNetType as t  -> makeSymbolicStruct isStatic source t dotNetType
-        | SubType(dotNetType, name) as t -> makeSymbolicStruct isStatic source t dotNetType
+        | StructType(dotNetType, _) as t -> makeSymbolicStruct isStatic source t dotNetType
+        | ClassType(dotNetType, _) as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | SubType(dotNetType, name, _, _) as t -> makeSymbolicStruct isStatic source t dotNetType
         | ArrayType(e, d) as t -> Array.makeSymbolic source d t name
         | PointerType termType as t ->
             match termType with

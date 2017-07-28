@@ -3,9 +3,29 @@ using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
 {
-    interface IKeeper<in T>
+    public interface IKeeper<in T>
     {
         void Keep(T obj);
+    }
+
+    public class Foo<T>
+    {
+        private T _filed;
+
+        public Foo()
+        {
+            
+        }
+
+        public IEnumerable<T> GetFiels()
+        {
+            return new List<T> { _filed };
+        }
+
+        public void SetField(T f)
+        {
+            _filed = f;
+        }
     }
 
     public class Bag<T> : IKeeper<T>
@@ -23,9 +43,9 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    static class Generic
+    public static class Generic
     {
-        static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)
+        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)
         {
             foreach (var pawn in listPawn)
             {
@@ -36,17 +56,49 @@ namespace VSharp.CSharpUtils.Tests
             }
         }
 
-        static void TestFilterAndKeep()
+        public static void TestFilterAndKeep()
         {
             IKeeper<Piece> myKeeper = new Bag<Piece>();
             List<Pawn> myList = new List<Pawn>();
             FilterAndKeep(myList, myKeeper);
         }
 
-        static void TestContrvarianceAndCovariance()
+        public static void TestContrvarianceAndCovariance()
         {
             Func<Piece, Pawn> func = (x => new Pawn(x.GetCoord(), x.GetRate()));
             Func<Pawn, Piece> newFunc = func;
+        }
+    }
+
+    public static class Fuction
+    {
+        public class Base
+        {
+            
+        }
+
+        public delegate Object MyDelegateOne(String obj);
+
+        public delegate Object MyDelegateTwo(Object obj);
+        //public static Func<int, int> GenFunc()
+        //{
+        //    return x => x * x;
+        //}
+        //
+        //public static Action<int> GetAction()
+        //{
+        //    return x => Console.WriteLine(x);
+        //}
+
+        public static T RetT<T, U>() where T : Foo<U>, ICloneable, new()
+        {
+            return new T();
+        }
+
+        public static void TestDelegate()
+        {
+            MyDelegateOne a = str => str;
+            MyDelegateTwo b = obj => obj.ToString();
         }
     }
 }

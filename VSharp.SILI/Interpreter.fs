@@ -553,7 +553,7 @@ module internal Interpreter =
 
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         match ast with
-        | null -> k (Concrete(null, VSharp.Object (IdGenerator.startingWith typedefof<obj>.FullName)), state)
+        | null -> k (Concrete(null, VSharp.Object(IdGenerator.startingWith typedefof<obj>.FullName, [])), state) //TODO: Check
         | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceLocalVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression -> k (Memory.referenceLocalVariable state (expression.Parameter.Name, getTokenBy (Choice1Of2 expression.Parameter)) followHeapRefs, state)
         | :? IThisReferenceExpression as expression -> k (Memory.referenceLocalVariable state ("this", getThisTokenBy expression) followHeapRefs, state)
@@ -817,32 +817,32 @@ module internal Interpreter =
         | :? ITypeCastExpression as expression -> reduceTypeCastExpression state expression k
         | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression k
         | _ -> __notImplemented__()
-
+    //TODO: make with generic
     and is (leftType : TermType) (rightType : TermType) =
         let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
         in
         let concreteIs (dotNetType : Type) =
-            let b = makeBoolConst dotNetType.FullName (ClassType dotNetType) in
+            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [])) in
             function
-            | Types.ReferenceType t
-            | Types.StructureType t -> Terms.MakeBool (t = dotNetType)
-            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _)
+            | Types.StructureType(t, _) -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, name, _, _) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | SubType(t, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | Null -> Terms.MakeFalse
-            | Object name as termType -> makeBoolConst name termType ==> b
+            | Object(name, _) as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         let subTypeIs (dotNetType: Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, rightName)) in
+            let b = makeBoolConst rightName (SubType(dotNetType, rightName, [], [])) in
             function
-            | Types.ReferenceType t -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-            | Types.StructureType t -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
-            | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType(t, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+            | SubType(t, name, [], []) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, name, [], []) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | Null -> Terms.MakeFalse
-            | Object name as termType -> makeBoolConst name termType ==> b
+            | Object(name, _) as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
@@ -851,10 +851,10 @@ module internal Interpreter =
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | Func _, Func _ -> Terms.MakeTrue
-        | leftType, Types.StructureType t when leftType <> Null -> concreteIs t leftType
-        | leftType, Types.ReferenceType t -> concreteIs t leftType
-        | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
-        | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
+        | leftType, Types.StructureType(t, _) when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.ReferenceType(t, _) -> concreteIs t leftType
+        | leftType, SubType(t, name, _, _) -> subTypeIs (t, name) leftType
+        | leftType, Object(name, _) -> subTypeIs (typedefof<obj>, name) leftType
         | _ -> __notImplemented__()
 
     and doCast (state : State.state) term targetType =
@@ -863,7 +863,7 @@ module internal Interpreter =
             match l, r with
             | PointerType left, PointerType right -> isUpCast left right
             | PointerType left, _ -> isUpCast left r
-            | Types.ComplexType t1, Types.ComplexType t2 -> t2.IsAssignableFrom(t2)
+            | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t2)
             | _, Object _ -> true
             | Object _, _ -> false
             | Func _, Func _ -> false

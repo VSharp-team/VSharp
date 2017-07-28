@@ -168,6 +168,8 @@ namespace VSharp.Test
                 , "IKeeper"
                 , "Bag"
                 , "Generic"
+                , "Foo"
+                , "Function"
                 , "Celsius"
                 , "Fahrenheit"
                 , "INormalize"
