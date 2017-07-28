@@ -1,5 +1,4 @@
-﻿using SystemArray = System.Array;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
 {
