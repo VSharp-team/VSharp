@@ -12,6 +12,12 @@ module internal DecompilerServices =
 
     let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
 
+    let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
+        System.Console.Write(new System.String('\t', indent))
+        System.Console.WriteLine(ast.GetType().ToString())
+        ast.Children |> Seq.iter (dbg (indent + 1))
+
+
     let rec loadAssemblyByName (name : string) =
         let path = System.Reflection.Assembly.Load(name).Location in
         if not(assemblies.ContainsKey(path)) then
@@ -44,7 +50,7 @@ module internal DecompilerServices =
 
     let private createThisOf (typ : IMetadataTypeInfo) =
         let this = AstFactory.CreateThisReference(null) in
-        if typ.IsClass || typ.IsInterface 
+        if typ.IsClass || typ.IsInterface
         then AstFactory.CreateDeref(this, null, true) :> IExpression
         else this :> IExpression
 
@@ -115,6 +121,17 @@ module internal DecompilerServices =
                 new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector))
             decompiler.Decompile(metadataTypeInfo, JetBrains.Application.Progress.NullProgressIndicator.Instance))
 
+    type DecompilationResult =
+    | MethodWithExplicitInitializer of IDecompiledMethod
+    | MethodWithImplicitInitializer of IDecompiledMethod
+    | MethodWithoutInitializer of IDecompiledMethod
+    | ObjectConstuctor of IDecompiledMethod
+    | DefaultConstuctor
+    | DecompilationError
+
+    let public isConstructor (m : IMetadataMethod) =
+        m.Name = ".ctor"
+
     let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         // TODO: this list can be memorized for one time, implement it after indexer expressions
@@ -123,6 +140,19 @@ module internal DecompilerServices =
                 (List.ofSeq decompiledClass.Methods)
                 (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
         methods |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        |> function
+        | Some m ->
+            if m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName
+            then ObjectConstuctor m
+            else
+            if isConstructor methodInfo
+            then
+                if m.Initializer = null
+                then MethodWithImplicitInitializer m
+                else MethodWithExplicitInitializer m
+            else MethodWithoutInitializer m
+        | None ->
+            if isConstructor methodInfo then DefaultConstuctor else DecompilationError
 
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)) in
@@ -190,8 +220,61 @@ module internal DecompilerServices =
     let public baseClassesChain (t : IMetadataType) =
         baseClassesChainAcc [] t
 
-    let public isConstructor (m : IMetadataMethod) =
-        m.Name = ".ctor"
+    let internal getBaseCtorWithoutArgs qualifiedTypeName =
+        let assemblyPath = locationOfType qualifiedTypeName in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0) in
+        assert(Array.length ctors > 0)
+        ctors.[0]
+
+//    let rec private baseClassesCtorAcc qualifiedTypeNames acc (ctor : IMetadataMethod) =
+//        match qualifiedTypeNames with
+//        | [head] ->
+//            let assemblyPath = locationOfType head in
+//            let decompiledCtor = decompileMethod assemblyPath head ctor in
+//            let b = decompiledCtor.Value.MetadataMethod.DeclaringType.ToString() in
+//            if ctor = null then acc else ctor::acc
+//        | head::tail ->
+//            let assemblyPath = locationOfType head in
+//            let decompiledCtor = decompileMethod assemblyPath head ctor
+//            let baseCtor =
+//                match decompiledCtor with
+//                | Some decompiledMethod ->
+//                    let initializer = decompiledMethod.Initializer in
+//                    if initializer = null then getCtorWithoutArgs (List.head tail) assemblyPath
+//                    else initializer.MethodInstantiation.MethodSpecification.Method
+//                | None -> internalfail "unable to decompile base constructor"
+//            in
+//            baseClassesCtorAcc tail (ctor::acc) baseCtor
+//        | _ -> internalfail "qualifiedTypeNames should be not empty"
+
+//    let rec private baseClassesInitializer qualifiedTypeNames (ctor : IMetadataMethod) =
+//        match qualifiedTypeNames with
+//        | [head] -> ()
+//        | head::tail ->
+//            let assemblyPath = locationOfType head in
+//            let decompiledCtor = decompileMethod assemblyPath head ctor
+//            let baseCtor =
+//                match decompiledCtor with
+//                | Some decompiledMethod ->
+//                    let initializer = decompiledMethod.Initializer in
+//                    if initializer = null
+//                    then
+//                        let curCtor = getCtorWithoutArgs (List.head tail) assemblyPath in
+//
+//                        let methodCall = AstFactory.CreateMethodCall(AstFactory.CreateBaseReference(null), , false, Array.empty, null)
+//                        decompiledMethod.Initializer.ReplaceWith()
+//                    else initializer.MethodInstantiation.MethodSpecification.Method
+//                | None -> internalfail "unable to decompile base constructor"
+//            in
+//            baseClassesCtorAcc tail (ctor::acc) baseCtor
+//        | _ -> internalfail "qualifiedTypeNames should be not empty"
+
+//
+//    let public baseClassesCtorChain qualifiedTypeNames (ctor : IMetadataMethod) =
+//        baseClassesCtorAcc qualifiedTypeNames [] ctor
+//    let public baseClassesCtorChain qualifiedTypeNames (ctor : IMetadataMethod) =
+//        baseClassesInitializer qualifiedTypeNames ctor
 
     let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
         | :? IMetadataClassType as t ->

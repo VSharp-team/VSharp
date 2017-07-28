@@ -1,84 +1,195 @@
-﻿using System.Runtime.Remoting.Messaging;
+﻿using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Messaging;
 
 namespace VSharp.CSharpUtils.Tests
 {
-    internal class ClassesSimpleA
+//    internal class ClassesSimpleA
+//    {
+//        private ClassesSimpleB _b = new ClassesSimpleB { _c = new ClassesSimpleC { _n = 13 } };
+//        private int _intField = 100500;
+//
+//        public ClassesSimpleA()
+//        {
+//            _intField = 100501;
+//        }
+//
+//        public ClassesSimpleA(int n)
+//        {
+//            _b._c._n = n;
+//            _b._c.SetN(n);
+//        }
+//
+//        public void IncN()
+//        {
+//            _b.SetN(_b.GetN() + 1);
+//        }
+//
+//        public void DecN()
+//        {
+//            _b.SetN(_b.GetN() - 1);
+//        }
+//
+//        public int GetN()
+//        {
+//            return this._b.GetN();
+//        }
+//    }
+//
+//    internal struct ClassesSimpleB
+//    {
+//        public ClassesSimpleC _c;
+//
+//        public int GetN()
+//        {
+//            return _c._n;
+//        }
+//
+//        public void SetN(int n)
+//        {
+//            _c._n = n;
+//        }
+//    }
+//
+//    internal struct ClassesSimpleC
+//    {
+//        public int _n;
+//        public int _m2;
+//
+//        public int M2 {
+//            get { return _m2; }
+//            set { _m2 = value; }
+//        }
+//        public int M1 { get; set; }
+//
+//        public void SetN(int n)
+//        {
+//            _n = n;
+//            M1 = 50;
+//            M2 = M1 * 2;
+//            M2++;
+//            ++M2;
+//            M1 -= 8;
+//        }
+//    }
+
+    internal static class ClassesSimpleRegistrator
     {
-        private ClassesSimpleB _b = new ClassesSimpleB { _c = new ClassesSimpleC { _n = 13 } };
-        private int _intField = 100500;
+        public static List<string> entries = new List<string>();
 
-        public ClassesSimpleA()
+        public static int RegisterAndReturn(string entry, int value)
         {
-            _intField = 100501;
+            entries.Add(entry);
+            return value;
+        }
+    };
+
+    internal class ClassesSimpleHierarchyA
+    {
+        private static int staticFieldA = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA I", 1);
+
+        static ClassesSimpleHierarchyA()
+        {
+            staticFieldA = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA II", 2);
         }
 
-        public ClassesSimpleA(int n)
+        protected int num = ClassesSimpleRegistrator.RegisterAndReturn("field num I", 1);
+
+        public ClassesSimpleHierarchyA()
         {
-            _b._c._n = n;
-            _b._c.SetN(n);
+            num = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA I", 10);
         }
 
-        public void IncN()
+        public ClassesSimpleHierarchyA(int i)
         {
-            _b.SetN(_b.GetN() + 1);
+            num = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA(int i) I", i);
         }
 
-        public void DecN()
+        public int GetNum()
         {
-            _b.SetN(_b.GetN() - 1);
-        }
-
-        public int GetN()
-        {
-            return this._b.GetN();
+            return num;
         }
     }
 
-    internal struct ClassesSimpleB
+    internal class ClassesSimpleHierarchyA1 : ClassesSimpleHierarchyA
     {
-        public ClassesSimpleC _c;
+        private static int staticFieldA1 = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA1 I", 1);
 
-        public int GetN()
+        static ClassesSimpleHierarchyA1()
         {
-            return _c._n;
+            staticFieldA1 = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA1 II", 2);
         }
 
-        public void SetN(int n)
+        protected int num1 = ClassesSimpleRegistrator.RegisterAndReturn("field num1 I", 1);
+
+        public ClassesSimpleHierarchyA1()
         {
-            _c._n = n;
+            num1 = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA1 I", 2);
+        }
+
+        public ClassesSimpleHierarchyA1(int i) : base(ClassesSimpleRegistrator.RegisterAndReturn("ARG ClassesSimpleHierarchyA1(int i) : base I", i-1))
+        {
+            num1 = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA1(int i) I", num + 1);
         }
     }
 
-    internal struct ClassesSimpleC
+    internal class ClassesSimpleHierarchyA2 : ClassesSimpleHierarchyA1
     {
-        public int _n;
-        public int _m2;
+        private static int staticFieldA2 = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA2 I", 1);
 
-        public int M2 {
-            get { return _m2; }
-            set { _m2 = value; }
-        }
-        public int M1 { get; set; }
-
-        public void SetN(int n)
+        static ClassesSimpleHierarchyA2()
         {
-            _n = n;
-            M1 = 50;
-            M2 = M1 * 2;
-            M2++;
-            ++M2;
-            M1 -= 8;
+            staticFieldA2 = ClassesSimpleRegistrator.RegisterAndReturn("staticFieldA2 II", 2);
+        }
+
+        int num2 = ClassesSimpleRegistrator.RegisterAndReturn("field num2 I", 1);
+
+        public ClassesSimpleHierarchyA2()
+        {
+            num2 = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA2 I", 3);
+        }
+
+        public ClassesSimpleHierarchyA2(int i) : base(ClassesSimpleRegistrator.RegisterAndReturn("ARG ClassesSimpleHierarchyA2(int i) : base I", i-1))
+        {
+            num2 = ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA2(int i) I", num1 + 1);
+        }
+
+        public ClassesSimpleHierarchyA2(int i, int j) : this(ClassesSimpleRegistrator.RegisterAndReturn("ARG ClassesSimpleHierarchyA2(int i, int j) : this I", i))
+        {
+            ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA2(int i, int j) I", j);
+        }
+
+        public int GetNum()
+        {
+            return num2;
+        }
+
+        public int GetNum2()
+        {
+            return num1 + num2 + num;
         }
     }
 
     public static class ClassesSimple
     {
-        public static bool Test1(int n)
+//        public static bool Test1(int n)
+//        {
+//            ClassesSimpleA a = new ClassesSimpleA(n);
+//            a.IncN();
+//            a.DecN();
+//            return n == a.GetN();
+//        }
+
+        public static int Test2()
         {
-            ClassesSimpleA a = new ClassesSimpleA(n);
-            a.IncN();
-            a.DecN();
-            return n == a.GetN();
+            ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123);
+            return a.GetNum();
+        }
+
+        public static int Test3()
+        {
+            ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
+            return a.GetNum2();
         }
     }
 }
