@@ -56,6 +56,48 @@ namespace VSharp.CSharpUtils.Tests
             return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
         }
 
+        private static int CheckOverflow0(int x0, int x1)
+        {
+            return checked (2147483620 + x0 + 2147483620) + x1;
+        }
+
+        // Expecting overflow error
+        public static int CheckOverflow1(int x1)
+        {
+            return CheckOverflow0(2147483620, 2147483620 + x1);
+        }
+
+        // Expecting overflow error
+        public static int CheckOverflow2(int x1)
+        {
+            int x = 1000 * 1000 * 1000;
+            int y = x;
+            return checked ((x + y) * 2);
+        }
+
+        // Expecting Infinity + x1
+        public static double CheckOverflow3(double x1)
+        {
+            double x = 1.5E+308;
+            return checked ((x / 0.01) + x1);
+        }
+
+        // Expecting devide by zero error
+        public static int CheckDivideByZeroException0(int x1)
+        {
+            int x = 255;
+            int y = 0;
+            return (x / y + x1);
+        }
+
+        // Expecting 2000000000 + x1 + 2000000000
+        public static int CheckOrder(int x1)
+        {
+            int x = 2000000000;
+            int y = x;
+            return checked (x + x1 + y);
+        }
+
         // log(x)
         public static double LogMethod1(double x)
         {

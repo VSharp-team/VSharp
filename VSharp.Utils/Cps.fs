@@ -1,7 +1,5 @@
 ﻿namespace VSharp
 
-open VSharp.Wrappers
-
 module public Cps =
     module public List =
         let rec map f xs k =

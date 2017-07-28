@@ -19,7 +19,7 @@ module CallGraph =
 
     let finalizeApproximation state id k =
         callStack <- Stack.pop callStack
-        Functions.UnboundedRecursionCache.invokeUnboundedRecursion state id (fun (result, state) -> k (result, State.pop state))
+        Functions.UnboundedRecursionCache.invokeUnboundedRecursion state id (fun (result, state) -> k (result, State.popStack state))
 
     let rec private approximateIteratively initialState returnType symbolicState body funcId k (result, finalState) =
         match result with
@@ -34,7 +34,7 @@ module CallGraph =
                 internalfail "unexpected state of the unbounded approximation!"
         | _ when Functions.UnboundedRecursionCache.unboundedApproximationState funcId = Functions.UnboundedRecursionCache.NotStarted ->
             callStack <- Stack.pop callStack
-            k (result, State.pop finalState)
+            k (result, State.popStack finalState)
         | _ when Functions.UnboundedRecursionCache.approximate funcId result finalState ->
             finalizeApproximation initialState funcId k
         | _ ->
@@ -61,16 +61,16 @@ module CallGraph =
         //    Then we repeat the process with new write-dependencies and do it until dependencies set converges.
         // 3. For mutual recursion we can't just do these steps for each function separately: read- and
         //    write-dependencies of a mutually recursive component is a union of dependencies of each function.
-        let pathCondition = State.pathCondition state in
+        let pathCondition = State.pathConditionOf state in
         let frame = (funcId, pathCondition) in
         let shouldStopUnrolling = detectUnboundRecursion frame in
         if shouldStopUnrolling then
             match Functions.UnboundedRecursionCache.unboundedApproximationState funcId with
             | Functions.UnboundedRecursionCache.NotStarted
             | Functions.UnboundedRecursionCache.Ready ->
-                k (Rollback funcId, state)
+                k (Rollback funcId, State.popStack state)
             | Functions.UnboundedRecursionCache.InProgress ->
-                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId k
+                Functions.UnboundedRecursionCache.invokeUnboundedRecursion state funcId (fun (statemantResult, state) -> k (statemantResult, State.popStack state))
         else
             callStack <- Stack.push callStack frame
             body state (approximateIteratively state returnType State.empty body funcId k)
