@@ -73,12 +73,12 @@ namespace VSharp.CSharpUtils.Tests
             return c.GetUpperBound(0);
         }
 
-        //public void ClearTest()
-        //{
-        //    var a = new int[4] { 5, 6, 7, 8 };
-        //    SystemArray.Clear(a, 1, 2);
-        //}
-
+//        public void ClearTest()
+//        {
+//            var a = new int[4] { 5, 6, 7, 8 };
+//            SystemArray.Clear(a, 1, 2);
+//        }
+//
 //        public void Copy()
 //        {
 //            var a = new int[4] { 5, 6, 7, 8 };
