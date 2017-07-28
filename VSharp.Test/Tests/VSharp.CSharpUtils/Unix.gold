@@ -1510,6 +1510,106 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundTest()
+RESULT: 0
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> [| 0: 1; 1: 1; 2: 2; 3: 2; 4: 3; 5: 3; 6: 4; 7: 4 ... 4 x 2 ... |]
+System.Array ==> STRUCT System.Array[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
+RESULT: <ERROR: (HeapRef 2)>
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+3 ==> STRUCT System.Object[
+	]
+System.Array ==> STRUCT System.Array[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundSymbolicTest(System.Int32[,], System.Int32)
+RESULT: UNION[
+	| !(dimension < 0) & (0 == dimension | 1 == dimension) & dimension < 2 ~> 0
+	| !(dimension < 2) | dimension < 0 ~> <ERROR: (HeapRef 2)>]
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+3 ==> STRUCT System.Object[
+	]
+System.Array ==> STRUCT System.Array[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.UpperBoundTest()
+RESULT: 3
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> [| 0: 1; 1: 1; 2: 2; 3: 2; 4: 3; 5: 3; 6: 4; 7: 4 ... 4 x 2 ... |]
+System.Array ==> STRUCT System.Array[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.RankTest()
+RESULT: 2
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> [| 0: 1; 1: 1; 2: 2; 3: 2; 4: 3; 5: 3; 6: 4; 7: 4 ... 4 x 2 ... |]
+System.Array ==> STRUCT System.Array[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.FibUnbound(System.Int32)
 RESULT: VSharp.CSharpUtils.Tests.Fibonacci.b4
 HEAP:
