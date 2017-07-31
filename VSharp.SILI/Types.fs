@@ -171,6 +171,7 @@ module public Types =
         | StructType(t, genArg)
         | ClassType(t, genArg)
         | SubType(t, _, genArg, _) -> t.MakeGenericType(genArg |> (List.map ToDotNetType) |> List.toArray)
+        | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
@@ -219,11 +220,12 @@ module public Types =
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Object" -> ClassType(typedefof<obj>, [])
         | _ when t.FullName = "System.Void" -> Void
-      //| :? IMetadataGenericArgumentReferenceType as g ->
-      //    let constraints = g.Argument.TypeConstraints in
-      //    if not(Array.isEmpty constraints) then
-      //        __notImplemented__()
-      //    ClassType(typedefof<obj>, [])
+        | :? IMetadataGenericArgumentReferenceType as g ->
+          let constraints = g.Argument.TypeConstraints in
+          if not(Array.isEmpty constraints) then
+              let listConstraint = constraints |> Array.map FromConcreteMetadataType |> Array.toList
+              __notImplemented__() //TODO
+          ClassType(typedefof<obj>, [])
         | :? IMetadataArrayType as a ->
             let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
@@ -252,6 +254,7 @@ module public Types =
                 let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
                 FromCommonDotNetType metadataType (fun symbolic ->
                 match symbolic with
+                | a when a.FullName = "System.Array" -> ArrayType(Object("Array", []), int(0))
                 | c when (c.IsClass && c.IsSealed) -> ClassType(c, [])
                 | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
                     if isUnique then SubType(c, c.FullName, [], []) else SubType(c, IdGenerator.startingWith c.FullName, [], [])

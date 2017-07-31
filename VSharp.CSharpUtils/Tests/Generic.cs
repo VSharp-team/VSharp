@@ -70,7 +70,7 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    public static class Fuction
+    public static class Function
     {
         public class Base
         {
