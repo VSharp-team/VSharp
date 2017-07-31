@@ -229,8 +229,17 @@ module public Types =
         | :? IMetadataArrayType as a ->
             let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
-        | :? IMetadataClassType as c ->
-            Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
+        | :? IMetadataClassType as ct ->
+             let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
+             FromCommonDotNetType metadataType (fun concrete ->
+             match concrete with
+             // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+             | c when ((c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>))) -> 
+                 if not c.IsGenericType then ClassType(c, [])
+                 else
+                    let gArg = ct.Arguments |> Array.toList |> List.map FromConcreteMetadataType
+                    ClassType(c, gArg)
+             | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
     let rec public FromSymbolicMetadataType (t : IMetadataType) (isUnique : bool) =
@@ -255,9 +264,17 @@ module public Types =
                 FromCommonDotNetType metadataType (fun symbolic ->
                 match symbolic with
                 | a when a.FullName = "System.Array" -> ArrayType(Object("Array", []), int(0))
-                | c when (c.IsClass && c.IsSealed) -> ClassType(c, [])
-                | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
-                    if isUnique then SubType(c, c.FullName, [], []) else SubType(c, IdGenerator.startingWith c.FullName, [], [])
+                | c when (c.IsClass || c.IsInterface) ->
+                    let makeType agrs = 
+                        match c with
+                        | _ when c.IsSealed -> ClassType(c, agrs)
+                        | _ when not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
+                             if isUnique then SubType(c, c.FullName, agrs, []) else SubType(c, IdGenerator.startingWith c.FullName, agrs, [])
+                    in
+                    if not c.IsGenericParameter then makeType []
+                    else
+                        let gArgs = ct.Arguments |> Array.toList |> List.map (fun t -> FromSymbolicMetadataType t isUnique)
+                        makeType gArgs
                 | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
