@@ -103,7 +103,7 @@ module public Types =
 
     let public elementType = function
         | ArrayType(t, _) -> t
-        | t -> internalfail (sprintf "expected array type, but got %s" (toString t))
+        | t -> internalfail ("expected array type, but got " + toString t)
 
     let public IsRelation = RangeOf >> IsBool
 
@@ -112,12 +112,12 @@ module public Types =
         | Object _
         | ClassType _
         | ArrayType _
-        | Func _ 
+        | Func _
         | SubType _ -> true
         | _ -> false
 
     let public IsValueType = not << IsReferenceType
-    
+
     let (|StructureType|_|) = function
         | StructType t
         | Numeric t -> Some(StructureType(t))
@@ -128,7 +128,7 @@ module public Types =
         | String -> Some(ReferenceType(typedefof<string>))
         | ClassType t -> Some(ReferenceType(t))
         | _ -> None
-    
+
     let (|ComplexType|_|) = function
         | StructureType t
         | ReferenceType t
@@ -148,7 +148,9 @@ module public Types =
         | String -> typedefof<string>
         | StructType t -> t
         | ClassType t -> t
+        | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
+        | PointerType t -> ToDotNetType t
         | SubType(t, _) ->  t
         | _ -> typedefof<obj>
 
@@ -168,7 +170,7 @@ module public Types =
              Func(List.ofArray parameters, returnType)
         | _ -> k dotNetType
 
-    let rec public FromDotNetType dotNetType = 
+    let rec public FromDotNetType dotNetType =
         FromCommonDotNetType dotNetType (fun concrete ->
         match concrete with
             // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
@@ -221,8 +223,9 @@ module public Types =
                 let metadataType =  Type.GetType(ct.Type.AssemblyQualifiedName, true) in
                 FromCommonDotNetType metadataType (fun symbolic ->
                 match symbolic with
+                | a when a.FullName = "System.Array" -> ArrayType(Object "Array", int(0))
                 | c when (c.IsClass && c.IsSealed) -> ClassType c
-                | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
+                | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
                     if isUnique then SubType(c, c.FullName) else SubType(c, IdGenerator.startingWith c.FullName)
                 | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType

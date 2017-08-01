@@ -37,6 +37,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Calculator.cs" />
+    <Compile Include="ArrayUtils.cs" />
+    <Compile Include="ImplementsAttribute.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tests\Arithmetics.cs" />
     <Compile Include="Tests\Generic.cs" />
@@ -47,6 +49,7 @@
     <Compile Include="Tests\GCD.cs" />
     <Compile Include="Tests\Lambdas.cs" />
     <Compile Include="Tests\StaticMembers.cs" />
+    <Compile Include="Tests\Tree.cs" />
     <Compile Include="Tests\TryCatch.cs" />
     <Compile Include="Tests\Lists.cs" />
     <Compile Include="Tests\Typecast.cs" />
