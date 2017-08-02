@@ -9,6 +9,7 @@ open JetBrains.Metadata.Reader.API
 type public Constraint<'T> =
     | DefaultConctructor
     | ReferenceType
+    | ValueType
     | Interface of 'T
 
     override this.ToString() =
@@ -27,7 +28,8 @@ type public TermType =
     | String
     | StructType of System.Type * TermType list // some value type with generic argument
     | ClassType of System.Type * TermType list // some reference type with generic argument
-    | SubType of System.Type * string * TermType list * Constraint<TermType> list //some symbolic type with generic argument and constraint
+    | SubType of System.Type * TermType list * string * Constraint<TermType> list //some symbolic type with generic argument and constraint
+    | GenericParameter of IMetadataGenericArgument
     | ArrayType of TermType * int
     | Func of TermType list * TermType
     | PointerType of TermType
@@ -48,10 +50,10 @@ type public TermType =
         | ClassType (t, []) -> t.ToString()
         | StructType(t, genericArgument)
         | ClassType(t, genericArgument) -> sprintf "<%s%s>" (t.ToString()) (sprintf "<%s>" <| String.Join(", ", genericArgument)) 
-        | SubType(t, name, [], []) -> sprintf "<Subtype of %s>" (toString t)
-        | SubType(t, name, genericArgument, []) ->
+        | SubType(t, [], name, []) -> sprintf "<Subtype of %s>" (toString t)
+        | SubType(t, genericArgument, name, []) ->
             sprintf "<Subtype of %s%s>" (toString t) (sprintf "<%s>" <| String.Join(", ", genericArgument))
-        | SubType(t, name, [], typeConstraint) ->
+        | SubType(t, [], name, typeConstraint) ->
             sprintf "<Subtype of %s with constraint %s>" (toString t) (String.Join(", ", typeConstraint))
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
         | PointerType t -> sprintf "<Reference to %s>" (toString t)
@@ -71,6 +73,20 @@ module public Types =
     let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
+    
+    let public genericParameters = new Dictionary<IMetadataGenericArgument, TermType>() 
+    
+    let rec public IsAssignableToGenericType (givenType : Type) (genericType : Type) =
+        let isFindInterfaces = givenType.GetInterfaces() |> 
+            Array.filter (fun it -> it.IsGenericType) |> 
+            Array.map (fun it -> it.GetGenericTypeDefinition()) |>
+            Array.exists (fun it -> it = genericType)
+        if isFindInterfaces then true
+        else
+            let baseType = givenType.BaseType
+            if baseType = null then false
+            else if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
+            else IsAssignableToGenericType baseType genericType
 
     let public IsNumeric = function
         | Numeric _ -> true
@@ -151,7 +167,8 @@ module public Types =
     let (|ComplexType|_|) = function
         | StructureType(t, genArg)
         | ReferenceType(t, genArg) -> Some(ComplexType(t, genArg, []))
-        | SubType(t, _, genArg, typeCostraint) -> Some(ComplexType(t, genArg, typeCostraint))
+        | SubType(t, genArg, _, typeConstraint) -> Some(ComplexType(t, genArg, typeConstraint))
+        | Object(name, typeConstraint) -> Some(ComplexType(typedefof<obj>, [], typeConstraint))
         | _ -> None
 
     let public pointerFromReferenceType = function
@@ -167,10 +184,10 @@ module public Types =
         | Numeric t
         | StructType(t, [])
         | ClassType(t, [])
-        | SubType(t, _, [], _) ->  t
+        | SubType(t, [], _, _) ->  t
         | StructType(t, genArg)
         | ClassType(t, genArg)
-        | SubType(t, _, genArg, _) -> t.MakeGenericType(genArg |> (List.map ToDotNetType) |> List.toArray)
+        | SubType(t, genArg, _, _) -> t.MakeGenericType(genArg |> (List.map ToDotNetType) |> List.toArray)
         | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType t -> ToDotNetType t
@@ -213,7 +230,27 @@ module public Types =
     let public IsReal = ToDotNetType >> realTypes.Contains
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
-
+    
+    let public FromMetadataGenericArgument fromMetadataType (arg : IMetadataGenericArgument) =        
+        let constraints = arg.TypeConstraints in
+        let fromAttributesToConstraint attr = function
+            | GenericArgumentAttributes.DefaultConstructorConstraint -> [DefaultConctructor]
+            | GenericArgumentAttributes.ReferenceTypeConstraint -> [ReferenceType]
+            | GenericArgumentAttributes.ValueTypeConstraint -> [ValueType]
+            | GenericArgumentAttributes.NoSpecialConstraint -> []
+        in
+        if not(Array.isEmpty constraints) then
+            let listInterfacesConstraint, listInheritanceConstraint =
+                constraints |> Array.toList |>
+                List.map fromMetadataType |>              
+                List.mappedPartition (fun termType ->
+                    match termType with
+                    | ComplexType(t, gp, c) when t.IsClass -> Some(Interface termType)
+                    | _ -> None)
+            
+            __notImplemented__() //TODO
+        else Object(arg.Name, [])
+    
     let rec public FromConcreteMetadataType (t : IMetadataType) =
         match t with
         | null -> Object("unknown", [])
@@ -221,25 +258,23 @@ module public Types =
         | _ when t.FullName = "System.Object" -> ClassType(typedefof<obj>, [])
         | _ when t.FullName = "System.Void" -> Void
         | :? IMetadataGenericArgumentReferenceType as g ->
-          let constraints = g.Argument.TypeConstraints in
-          if not(Array.isEmpty constraints) then
-              let listConstraint = constraints |> Array.map FromConcreteMetadataType |> Array.toList
-              __notImplemented__() //TODO
-          ClassType(typedefof<obj>, [])
+            let arg = g.Argument
+            if not <| genericParameters.ContainsKey(arg) then genericParameters.Add(arg, FromMetadataGenericArgument FromConcreteMetadataType arg)
+            GenericParameter arg
         | :? IMetadataArrayType as a ->
             let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as ct ->
-             let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
-             FromCommonDotNetType metadataType (fun concrete ->
-             match concrete with
-             // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
-             | c when ((c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>))) -> 
-                 if not c.IsGenericType then ClassType(c, [])
-                 else
-                    let gArg = ct.Arguments |> Array.toList |> List.map FromConcreteMetadataType
-                    ClassType(c, gArg)
-             | _ -> __notImplemented__())
+            let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
+            FromCommonDotNetType metadataType (fun concrete ->
+            match concrete with
+            // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+            | c when ((c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>))) -> 
+                if not c.IsGenericType then ClassType(c, [])
+                else
+                   let gArg = ct.Arguments |> Array.toList |> List.map FromConcreteMetadataType
+                   ClassType(c, gArg)
+            | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
     let rec public FromSymbolicMetadataType (t : IMetadataType) (isUnique : bool) =
@@ -269,9 +304,9 @@ module public Types =
                         match c with
                         | _ when c.IsSealed -> ClassType(c, agrs)
                         | _ when not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
-                             if isUnique then SubType(c, c.FullName, agrs, []) else SubType(c, IdGenerator.startingWith c.FullName, agrs, [])
+                             if isUnique then SubType(c, agrs, c.FullName, []) else SubType(c, agrs, IdGenerator.startingWith c.FullName, [])
                     in
-                    if not c.IsGenericParameter then makeType []
+                    if not c.IsGenericType then makeType []
                     else
                         let gArgs = ct.Arguments |> Array.toList |> List.map (fun t -> FromSymbolicMetadataType t isUnique)
                         makeType gArgs

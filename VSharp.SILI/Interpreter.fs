@@ -104,7 +104,7 @@ module internal Interpreter =
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromConcreteMetadataType param.Type))
-                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType param.Type false))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType param.Type true))
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -853,23 +853,24 @@ module internal Interpreter =
         let concreteIs (dotNetType : Type) =
             let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [])) in
             function
-            | Types.ReferenceType(t, _)
-            | Types.StructureType(t, _) -> Terms.MakeBool (t = dotNetType)
-            | SubType(t, name, _, _) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, [])
+            | Types.StructureType(t, []) -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, [], name, []) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, [], _, []) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
-            | Object(name, _) as termType -> makeBoolConst name termType ==> b
+            | Object(name, []) as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         let subTypeIs (dotNetType: Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, rightName, [], [])) in
+            let b = makeBoolConst rightName (SubType(dotNetType, [], rightName, [])) in
             function
-            | Types.ReferenceType(t, _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-            | Types.StructureType(t, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
-            | SubType(t, name, [], []) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-            | SubType(t, name, [], []) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, []) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType(t, []) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+            | SubType(t, [], name, []) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, [], name, []) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, [], name, []) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
@@ -884,10 +885,10 @@ module internal Interpreter =
         | Func _, Func _ -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(Object("Array", []), 0) -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(t2, c2) -> Terms.MakeBool <| ((t1 = t2) && (c1 = c2))
-        | leftType, Types.StructureType(t, _) when leftType <> Null -> concreteIs t leftType
-        | leftType, Types.ReferenceType(t, _) -> concreteIs t leftType
-        | leftType, SubType(t, name, _, _) -> subTypeIs (t, name) leftType
-        | leftType, Object(name, _) -> subTypeIs (typedefof<obj>, name) leftType
+        | leftType, Types.StructureType(t, []) when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.ReferenceType(t, []) -> concreteIs t leftType
+        | leftType, SubType(t, [], name, []) -> subTypeIs (t, name) leftType
+        | leftType, Object(name, []) -> subTypeIs (typedefof<obj>, name) leftType
         | _ -> __notImplemented__()
 
     and doCast (state : State.state) term targetType =
@@ -897,8 +898,6 @@ module internal Interpreter =
             | PointerType left, PointerType right -> isUpCast left right
             | PointerType left, _ -> isUpCast left r
             | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t2)
-            | _, Object _ -> true
-            | Object _, _ -> false
             | Func _, Func _ -> false
             | ArrayType _, _ -> true
             | _ -> __notImplemented__()
