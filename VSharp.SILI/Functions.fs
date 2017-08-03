@@ -50,7 +50,7 @@ module Functions =
 
         let private findReadDependencies terms =
             let filterMapConstant deps = function
-                | Constant(_, Symbolization location, _) as term when not (List.exists (fst >> ((=) location)) deps) ->
+                | Constant(_, LazyInstantiation location, _) as term when not (List.exists (fst >> ((=) location)) deps) ->
                     Some (location, term)
                 | _ -> None
             let unsorted = Terms.filterMapConstants filterMapConstant terms in
@@ -91,11 +91,13 @@ module Functions =
             | Return Nop -> NoResult
             | Return term ->
                 let resultName = IdGenerator.startingWith(toString id + "%%res") in
-                let result = Memory.makeSymbolicInstance false source resultName (Terms.TypeOf term) in
+                // TODO: time!
+                let result = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf term) in
                 Return result
             | Throw e ->
                 let resultName = IdGenerator.startingWith(toString id + "%%err") in
-                let error = Memory.makeSymbolicInstance false  source resultName (Terms.TypeOf e) in
+                // TODO: time!
+                let error = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf e) in
                 Throw error
             | Guarded gvs ->
                 let guards, results = List.unzip gvs in
@@ -110,7 +112,8 @@ module Functions =
             let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
             let writeDepsLocations = writeDependencies.[id] in
             let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst in
-            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
+//            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
+            let writeDeps, state' = [], state in
 
             let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in
             let isSymbolizedConstant _ = function
@@ -132,7 +135,7 @@ module Functions =
 
         let internal startUnboundedApproximation state id returnType =
             unboundedApproximationFinished.[id] <- false
-            let symbolicState = Memory.symbolizeState state in
+            let symbolicState = state in //Memory.symbolizeState state in
             unboundedApproximationAttempts.[id] <- 0
             unboundedApproximationSymbolicState.[id] <- symbolicState
             readDependencies.[id] <- []
@@ -142,7 +145,8 @@ module Functions =
                 | Void -> NoResult
                 | _ ->
                     let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
-                    Memory.makeSymbolicInstance false (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
+                    // TODO: time!
+                    State.makeSymbolicInstance 0u (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
             in unboundedFunctionResult.[id] <- symbolicResult
             symbolicState
 

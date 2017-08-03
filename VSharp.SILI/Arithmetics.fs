@@ -2,7 +2,7 @@ namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
-open VSharp.Simplify
+open VSharp.Common
 open VSharp.Terms
 
 [<AutoOpen>]

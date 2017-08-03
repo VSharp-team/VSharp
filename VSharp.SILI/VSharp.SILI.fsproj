@@ -61,7 +61,7 @@
     <Compile Include="State.fs" />
     <Compile Include="Propositional.fs" />
     <Compile Include="Merging.fs" />
-    <Compile Include="Simplify.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
     <Compile Include="Array.fs" />
