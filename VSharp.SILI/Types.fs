@@ -29,7 +29,6 @@ type public TermType =
     | StructType of System.Type * TermType list // some value type with generic argument
     | ClassType of System.Type * TermType list // some reference type with generic argument
     | SubType of System.Type * TermType list * string * Constraint<TermType> list //some symbolic type with generic argument and constraint
-    | GenericParameter of IMetadataGenericArgument
     | ArrayType of TermType * int
     | Func of TermType list * TermType
     | PointerType of TermType
@@ -58,6 +57,8 @@ type public TermType =
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
         | PointerType t -> sprintf "<Reference to %s>" (toString t)
 
+type public Constraint = Constraint<TermType>
+
 module public Types =
     let private integerTypes =
         new HashSet<System.Type>(
@@ -74,7 +75,7 @@ module public Types =
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
     
-    let public genericParameters = new Dictionary<IMetadataGenericArgument, TermType>() 
+    let public genericParameters = new Dictionary<System.Type, TermType>() 
     
     let rec public IsAssignableToGenericType (givenType : Type) (genericType : Type) =
         let isFindInterfaces = givenType.GetInterfaces() |> 
@@ -231,13 +232,39 @@ module public Types =
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
     
-    let public FromMetadataGenericArgument fromMetadataType (arg : IMetadataGenericArgument) =        
+    let public GenericParameterFromMetadata (g : IMetadataGenericArgumentReferenceType) =
+        let arg = g.Argument
+        match arg with
+        | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[(int)arg.Index]
+        | _ when arg.MethodOwner <> null ->
+            let metadataMethod = arg.MethodOwner
+            let lengthGenericArguments = metadataMethod.GenericArguments.Length
+            let parameters = metadataMethod.Parameters
+            let declaringType = metadataMethod.DeclaringType
+            let method = Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
+                Array.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
+                Array.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
+                Array.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
+                Array.map (fun (m, p, _) -> (m, p)) |>
+                Array.filter (fun (m, (p : ParameterInfo[])) -> 
+                    Array.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) -> 
+                        (if (l.ParameterType.FullName <> null) then l.ParameterType.FullName else l.ParameterType.Name) = r.Type.FullName) p parameters) |>
+                Array.map (fun (m, _) -> m)
+            method.[0].GetGenericArguments().[(int)arg.Index]
+            
+    let public FromMetadataGenericArgument fromMetadataType (arg : IMetadataGenericArgument) =
+        let (===) (a : GenericArgumentAttributes) (b : GenericArgumentAttributes) = (a = (a &&& b)) in 
         let constraints = arg.TypeConstraints in
-        let fromAttributesToConstraint attr = function
-            | GenericArgumentAttributes.DefaultConstructorConstraint -> [DefaultConctructor]
-            | GenericArgumentAttributes.ReferenceTypeConstraint -> [ReferenceType]
-            | GenericArgumentAttributes.ValueTypeConstraint -> [ValueType]
-            | GenericArgumentAttributes.NoSpecialConstraint -> []
+        let fromAttributesToConstraint attr =
+            match attr with
+            | _ when attr === GenericArgumentAttributes.DefaultConstructorConstraint -> [DefaultConctructor]
+            | _ when attr === GenericArgumentAttributes.ReferenceTypeConstraint -> [ReferenceType]
+            | _ when attr === GenericArgumentAttributes.ValueTypeConstraint -> [ValueType]
+            | _ when attr === (GenericArgumentAttributes.DefaultConstructorConstraint &&&
+                GenericArgumentAttributes.ReferenceTypeConstraint) -> [ReferenceType ; DefaultConctructor]
+            | _ when attr === (GenericArgumentAttributes.DefaultConstructorConstraint &&&
+                GenericArgumentAttributes.ValueTypeConstraint) -> [ValueType ; DefaultConctructor]
+            | _  -> []
         in
         if not(Array.isEmpty constraints) then
             let listInterfacesConstraint, listInheritanceConstraint =
@@ -245,9 +272,14 @@ module public Types =
                 List.map fromMetadataType |>              
                 List.mappedPartition (fun termType ->
                     match termType with
-                    | ComplexType(t, gp, c) when t.IsClass -> Some(Interface termType)
+                    | ComplexType(t, gp, c) when t.IsInterface -> Some(Interface termType)
                     | _ -> None)
-            
+            let (listSpecialConcstraint : Constraint list) = fromAttributesToConstraint arg.Attributes
+            match listSpecialConcstraint.Head with
+            | ValueType -> SubType(typedefof<ValueType>, [], arg.Name, listInterfacesConstraint @ listSpecialConcstraint.Tail)
+            | Constraint.ReferenceType -> Object(arg.Name, listInterfacesConstraint @ listSpecialConcstraint)
+            | _ -> if listInheritanceConstraint.IsEmpty then Object(arg.Name, listInterfacesConstraint @ listSpecialConcstraint)
+                   else 
             __notImplemented__() //TODO
         else Object(arg.Name, [])
     
@@ -258,9 +290,8 @@ module public Types =
         | _ when t.FullName = "System.Object" -> ClassType(typedefof<obj>, [])
         | _ when t.FullName = "System.Void" -> Void
         | :? IMetadataGenericArgumentReferenceType as g ->
-            let arg = g.Argument
-            if not <| genericParameters.ContainsKey(arg) then genericParameters.Add(arg, FromMetadataGenericArgument FromConcreteMetadataType arg)
-            GenericParameter arg
+//            if not <| genericParameters.ContainsKey(arg) then genericParameters.Add(arg, FromMetadataGenericArgument FromConcreteMetadataType arg)
+            __notImplemented__()
         | :? IMetadataArrayType as a ->
             let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
