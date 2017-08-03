@@ -312,6 +312,7 @@ module internal Memory =
     let private mutateStaticPath = mutatePath readStaticLocation mutateStaticLocation
 
     let internal mutate state reference value =
+        assert(value <> Nop)
         match reference with
         | Error _ as e -> (e, state)
         | StackRef(name, path, _) -> mutateStackPath state path name (always value) value

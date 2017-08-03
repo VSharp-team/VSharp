@@ -167,7 +167,7 @@ module internal DecompilerServices =
     let idOfMetadataField (field : IMetadataField) =
         sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
 
-    let rec getDefaultFieldValuesOf isStatic qualifiedTypeName =
+    let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath (removeGenericParameters qualifiedTypeName) in
         let initializerOf (f : IDecompiledField) =
@@ -190,8 +190,10 @@ module internal DecompilerServices =
         let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
         let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
         let parentFields =
-            if isStatic || decompiledClass.TypeInfo.Base = null then []
-            else getDefaultFieldValuesOf false decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
+            if withParent
+            then
+                if isStatic || decompiledClass.TypeInfo.Base = null then [] else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
+            else []
         List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
@@ -213,68 +215,12 @@ module internal DecompilerServices =
         let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
         typ.GetMethods() |> Array.tryPick (fun m -> if m.Token.Value = uint32 methodInfo.MetadataToken then Some(m) else None)
 
-    let rec private baseClassesChainAcc acc = function
-        | null -> acc
-        | (t : IMetadataType) -> baseClassesChainAcc (t::acc) (t.GetBaseType())
-
-    let public baseClassesChain (t : IMetadataType) =
-        baseClassesChainAcc [] t
-
     let internal getBaseCtorWithoutArgs qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
-        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0) in
+        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0 && not m.IsStatic) in
         assert(Array.length ctors > 0)
         ctors.[0]
-
-//    let rec private baseClassesCtorAcc qualifiedTypeNames acc (ctor : IMetadataMethod) =
-//        match qualifiedTypeNames with
-//        | [head] ->
-//            let assemblyPath = locationOfType head in
-//            let decompiledCtor = decompileMethod assemblyPath head ctor in
-//            let b = decompiledCtor.Value.MetadataMethod.DeclaringType.ToString() in
-//            if ctor = null then acc else ctor::acc
-//        | head::tail ->
-//            let assemblyPath = locationOfType head in
-//            let decompiledCtor = decompileMethod assemblyPath head ctor
-//            let baseCtor =
-//                match decompiledCtor with
-//                | Some decompiledMethod ->
-//                    let initializer = decompiledMethod.Initializer in
-//                    if initializer = null then getCtorWithoutArgs (List.head tail) assemblyPath
-//                    else initializer.MethodInstantiation.MethodSpecification.Method
-//                | None -> internalfail "unable to decompile base constructor"
-//            in
-//            baseClassesCtorAcc tail (ctor::acc) baseCtor
-//        | _ -> internalfail "qualifiedTypeNames should be not empty"
-
-//    let rec private baseClassesInitializer qualifiedTypeNames (ctor : IMetadataMethod) =
-//        match qualifiedTypeNames with
-//        | [head] -> ()
-//        | head::tail ->
-//            let assemblyPath = locationOfType head in
-//            let decompiledCtor = decompileMethod assemblyPath head ctor
-//            let baseCtor =
-//                match decompiledCtor with
-//                | Some decompiledMethod ->
-//                    let initializer = decompiledMethod.Initializer in
-//                    if initializer = null
-//                    then
-//                        let curCtor = getCtorWithoutArgs (List.head tail) assemblyPath in
-//
-//                        let methodCall = AstFactory.CreateMethodCall(AstFactory.CreateBaseReference(null), , false, Array.empty, null)
-//                        decompiledMethod.Initializer.ReplaceWith()
-//                    else initializer.MethodInstantiation.MethodSpecification.Method
-//                | None -> internalfail "unable to decompile base constructor"
-//            in
-//            baseClassesCtorAcc tail (ctor::acc) baseCtor
-//        | _ -> internalfail "qualifiedTypeNames should be not empty"
-
-//
-//    let public baseClassesCtorChain qualifiedTypeNames (ctor : IMetadataMethod) =
-//        baseClassesCtorAcc qualifiedTypeNames [] ctor
-//    let public baseClassesCtorChain qualifiedTypeNames (ctor : IMetadataMethod) =
-//        baseClassesInitializer qualifiedTypeNames ctor
 
     let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
         | :? IMetadataClassType as t ->
@@ -301,5 +247,5 @@ module internal DecompilerServices =
 
     let rec internal getThisTokenBy (node : INode) =
         match node with
-        | :? IDecompiledMethod as method -> method.MetadataMethod.Token.ToString()
+        | :? IDecompiledMethod as m -> m.MetadataMethod.Token.ToString()
         | _ -> getThisTokenBy node.Parent

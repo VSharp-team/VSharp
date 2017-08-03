@@ -81,7 +81,7 @@ module SystemArray =
                 | Error _ as e -> (e, state)
                 | Concrete(obj, _) ->
                     let d = obj :?> int in
-                    if d < 0 || d >= lowerBounds.Length then 
+                    if d < 0 || d >= lowerBounds.Length then
                         let term, state = indexOutOfRangeException state in
                         (Error term, state)
                     else (lowerBounds.[d], state)
