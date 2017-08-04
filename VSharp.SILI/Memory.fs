@@ -15,10 +15,9 @@ module internal Memory =
         | String -> Concrete(null, String)
         | ClassType _ as t -> Concrete(null, t)
         | ArrayType _ as t -> Concrete(null, t)
-        | Object _ as t -> Concrete(null, t)
         | SubType _ as t -> Concrete(null, t)
-        | Func _ -> Concrete(null, Object("func", []))
-        | StructType(dotNetType, _) as t ->
+        | Func _ -> Concrete(null, SubType(typedefof<System.Delegate>, [], [], "func"))
+        | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Seq.map (fun (k, v) -> (Terms.MakeConcreteString k, defaultOf v)) (Map.toSeq fields) |> Heap.ofSeq, t)
         | _ -> __notImplemented__()
@@ -39,9 +38,8 @@ module internal Memory =
 
     and internal makeSymbolicInstance isStatic source name = function //TODO: Check
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
-        | Object _ as t -> makeSymbolicStruct isStatic source t typedefof<obj>
-        | StructType(dotNetType, _) as t -> makeSymbolicStruct isStatic source t dotNetType
-        | ClassType(dotNetType, _) as t  -> makeSymbolicStruct isStatic source t dotNetType
+        | StructType(dotNetType, _, _) as t -> makeSymbolicStruct isStatic source t dotNetType
+        | ClassType(dotNetType, _, _) as t  -> makeSymbolicStruct isStatic source t dotNetType
         | SubType(dotNetType, _, name, _) as t -> makeSymbolicStruct isStatic source t dotNetType
         | ArrayType(e, 0) as t -> Array.makeSymbolic source 0 t name
         | ArrayType(e, d) as t -> Array.makeSymbolic source d t name

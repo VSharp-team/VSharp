@@ -104,7 +104,7 @@ module internal Interpreter =
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromConcreteMetadataType param.Type))
-                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType param.Type true))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType true param.Type))
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -122,7 +122,7 @@ module internal Interpreter =
         reduceFunction state this parameters returnType funcId signature invoke k
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        let returnType = Types.FromSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) false in
+        let returnType = Types.FromSymbolicMetadataType false (ast.MetadataMethod.Signature.ReturnType) in
         reduceFunctionWithBlockBody state (Some this) parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature ast.Body k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
@@ -526,7 +526,7 @@ module internal Interpreter =
         else
             DecompilerServices.setPropertyOfNode ast "Thrown" exn
             // catch (...) {...} case
-            let targetType = Types.FromSymbolicMetadataType ast.VariableReference.Variable.Type true in
+            let targetType = Types.FromSymbolicMetadataType true ast.VariableReference.Variable.Type in
             let typeMatches = checkCast exn targetType in
             let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
             let state = State.newStackFrame state [(stackKey, exn)] in
@@ -582,7 +582,7 @@ module internal Interpreter =
 
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         match ast with
-        | null -> k (Concrete(null, VSharp.Object(IdGenerator.startingWith typedefof<obj>.FullName, [])), state) //TODO: Check
+        | null -> k (Concrete(null, VSharp.SubType(typedefof<obj>, [], [], IdGenerator.startingWith typedefof<obj>.FullName)), state) //TODO: Check
         | :? ILocalVariableReferenceExpression as expression -> k (Memory.referenceLocalVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression -> k (Memory.referenceLocalVariable state (expression.Parameter.Name, getTokenBy (Choice1Of2 expression.Parameter)) followHeapRefs, state)
         | :? IThisReferenceExpression as expression -> k (Memory.referenceLocalVariable state ("this", getThisTokenBy expression) followHeapRefs, state)
@@ -851,30 +851,28 @@ module internal Interpreter =
         let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
         in
         let concreteIs (dotNetType : Type) =
-            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [])) in
+            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in
             function
-            | Types.ReferenceType(t, [])
-            | Types.StructureType(t, []) -> Terms.MakeBool (t = dotNetType)
-            | SubType(t, [], name, []) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, [], _)
+            | Types.StructureType(t, [], _) -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, [], _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | SubType(t, [], _, []) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, [], _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
-            | Object(name, []) as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         let subTypeIs (dotNetType: Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, [], rightName, [])) in
+            let b = makeBoolConst rightName (SubType(dotNetType, [], [], rightName)) in
             function
-            | Types.ReferenceType(t, []) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-            | Types.StructureType(t, []) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
-            | SubType(t, [], name, []) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-            | SubType(t, [], name, []) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
-            | SubType(t, [], name, []) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, [], _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType(t, [], _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+            | SubType(t, [], _, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, [], _, name) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, [], _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
-            | Object(name, _) as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
@@ -883,12 +881,11 @@ module internal Interpreter =
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | Func _, Func _ -> Terms.MakeTrue
-        | ArrayType(t1, c1), ArrayType(Object("Array", []), 0) -> Terms.MakeTrue
+        | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(t2, c2) -> Terms.MakeBool <| ((t1 = t2) && (c1 = c2))
-        | leftType, Types.StructureType(t, []) when leftType <> Null -> concreteIs t leftType
-        | leftType, Types.ReferenceType(t, []) -> concreteIs t leftType
-        | leftType, SubType(t, [], name, []) -> subTypeIs (t, name) leftType
-        | leftType, Object(name, []) -> subTypeIs (typedefof<obj>, name) leftType
+        | leftType, Types.StructureType(t, [], _) when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.ReferenceType(t, [], _) -> concreteIs t leftType
+        | leftType, SubType(t, [], _, name) -> subTypeIs (t, name) leftType
         | _ -> __notImplemented__()
 
     and doCast (state : State.state) term targetType =
@@ -941,7 +938,7 @@ module internal Interpreter =
         reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
-        let targetType = Types.FromSymbolicMetadataType ast.Type true in
+        let targetType = Types.FromSymbolicMetadataType true ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         let isCasted = checkCast term targetType in
         let mapper state term targetType =
@@ -963,7 +960,7 @@ module internal Interpreter =
             if src = dst then expr
             else Expression(Cast(src, dst, isChecked), [expr], dst)
         in
-        let targetType = Types.FromSymbolicMetadataType ast.TargetType true in
+        let targetType = Types.FromSymbolicMetadataType true ast.TargetType in
         let isCasted term = checkCast term targetType in
         let hierarchyCast state term targetType =
             reduceConditionalExecution state
@@ -1007,7 +1004,7 @@ module internal Interpreter =
         | _ -> mapper term
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
-        let targetType = Types.FromSymbolicMetadataType ast.Type true in
+        let targetType = Types.FromSymbolicMetadataType true ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         checkCast term targetType |> withSnd state |> k)
 
