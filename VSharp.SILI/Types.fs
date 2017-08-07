@@ -33,13 +33,9 @@ type public TermType =
         | Numeric t -> t.Name.ToLower()
         | String -> "string"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
-        | StructType(t, [], _)
-        | ClassType (t, [], _) -> t.ToString()
-        | StructType(t, genericArgument, _)
-        | ClassType(t, genericArgument, _) -> sprintf "%s<%s>" (t.ToString()) (String.Join(", ", genericArgument))
-        | SubType(t, [], _, name) -> sprintf "<Subtype of %s>" (toString t)
-        | SubType(t, genericArgument, _, name) ->
-            sprintf "<Subtype of %s<%s>>" (toString t) (String.Join(", ", genericArgument))
+        | StructType(t, _, _)
+        | ClassType (t, _, _) -> t.ToString()
+        | SubType(t, _, _, name) -> sprintf "<Subtype of %s>" (toString t)
 //        | SubType(t, [], _, name, SpecialConstraint.DefaultConctructor) ->
 //            sprintf "<Subtype of %s with %s>" (toString t) (toString SpecialConstraint.DefaultConctructor)
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
@@ -213,7 +209,7 @@ module public Types =
     let public IsReal = ToDotNetType >> realTypes.Contains
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
-    
+
     let public GenericParameterFromMetadata (arg : IMetadataGenericArgument) =
         match arg with
         | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[(int)arg.Index]
@@ -222,17 +218,27 @@ module public Types =
             let lengthGenericArguments = metadataMethod.GenericArguments.Length
             let parameters = metadataMethod.Parameters
             let declaringType = metadataMethod.DeclaringType
-            let method = Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
+            let method =
+                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
                 Array.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
                 Array.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
                 Array.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
                 Array.map (fun (m, p, _) -> (m, p)) |>
-                Array.filter (fun (m, (p : ParameterInfo[])) -> 
-                    Array.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) -> 
+                Array.filter (fun (m, (p : ParameterInfo[])) ->
+                    Array.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
                         (if (l.ParameterType.FullName <> null) then l.ParameterType.FullName else l.ParameterType.Name) = r.Type.FullName) p parameters) |>
                 Array.map (fun (m, _) -> m)
-            method.[0].GetGenericArguments().[(int)arg.Index]            
-    
+            method.[0].GetGenericArguments().[(int)arg.Index]
+
+    let rec public DotNetTypeFromMetadata (arg : IMetadataType) =
+        match arg with
+        | :? IMetadataGenericArgumentReferenceType as g -> GenericParameterFromMetadata g.Argument
+        | :? IMetadataArrayType as a -> (a.ElementType |> DotNetTypeFromMetadata).MakeArrayType()
+        | :? IMetadataClassType as c ->
+            let originType = Type.GetType(c.Type.AssemblyQualifiedName, true) in
+            if not originType.IsGenericType then originType
+            else originType.MakeGenericType(c.Arguments |> Array.map DotNetTypeFromMetadata)
+
     let rec public FromConcreteMetadataType (t : IMetadataType) =
         match t with
         | null -> SubType(typedefof<obj>, [], [], "unknown")
@@ -246,9 +252,8 @@ module public Types =
             let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as ct ->
-            let dotnetType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
-            if not dotnetType.IsGenericType then FromDotNetType dotnetType
-            else dotnetType.MakeGenericType(ct.Arguments |> Array.map MetadataToDotNetType) |> FromDotNetType
+            let dotnetType = DotNetTypeFromMetadata ct in
+            FromDotNetType dotnetType
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
     and public FromSymbolicMetadataType (isUnique : bool) (t : IMetadataType) =
@@ -266,22 +271,22 @@ module public Types =
             let elementType = FromSymbolicMetadataType false a.ElementType |> pointerFromReferenceType in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as ct -> //TODO: make with generic
-            let metadataType = Type.GetType(ct.Type.AssemblyQualifiedName, true) in
+            let metadataType = DotNetTypeFromMetadata ct in
             FromCommonDotNetType metadataType (fun symbolic ->
             match symbolic with
-            | a when a.FullName = "System.Array" -> 
+            | a when a.FullName = "System.Array" ->
                 if isUnique then ArrayType(SubType(symbolic, [], [], a.FullName), int(0))
                 else ArrayType(SubType(symbolic, [], [], IdGenerator.startingWith a.FullName), int(0))
             | c when (c.IsClass || c.IsInterface) ->
                 let makeType agrs = 
                     match c with
                     | _ when c.IsSealed -> ClassType(c, agrs, [])
-                    | _ when not(c.IsSubclassOf(typedefof<System.Delegate>)) -> 
+                    | _ when not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
                          if isUnique then SubType(c, agrs, [], c.FullName) else SubType(c, agrs, [], IdGenerator.startingWith c.FullName)
                 in
                 if not c.IsGenericType then makeType []
                 else
-                    let gArgs = ct.Arguments |> Array.toList |> List.map (FromSymbolicMetadataType isUnique)
+                    let gArgs = c.GetGenericArguments() |> Array.map FromDotNetType |> Array.toList
                     makeType gArgs
             | _ -> __notImplemented__())
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
