@@ -18,6 +18,29 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
+        /// Returns true if numeric value <paramref name="x"/> is power of two.
+        /// </summary>
+        public static bool IsPowOfTwo(object x)
+        {
+            return !IsZero(x) & (((dynamic) x & ((dynamic) x - 1)) == 0);
+        }
+
+        /// <summary>
+        /// Returns which power of two value <paramref name="x"/> is.
+        /// </summary>
+        public static uint WhatPowerOf2(object x)
+        {
+            dynamic val = x;
+            uint i = 0;
+            while (val > 1)
+            {
+                val >>= 1;
+                i++;
+            }
+            return i;
+        }
+
+        /// <summary>
         /// Returns true if numeric value <paramref name="x"/> is fuzzy equal to numeric value <paramref name="y"/> with the given precision <paramref name="eps"/>.
         /// </summary>
         public static bool FuzzyEqual(object x, object y, double eps = 1e-8)
@@ -177,6 +200,22 @@ namespace VSharp.CSharpUtils
                 success = false;
                 return e;
             }
+        }
+
+        /// <summary>
+        /// Calculates <paramref name="x"/> << <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// </summary>
+        public static object ShiftLeft(object x, object y, Type targetType)
+        {
+            return Convert.ChangeType((dynamic)x << (dynamic)y, targetType);
+        }
+
+        /// <summary>
+        /// Calculates <paramref name="x"/> << <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// </summary>
+        public static object ShiftRight(object x, object y, Type targetType)
+        {
+            return Convert.ChangeType((dynamic)x >> (dynamic)y, targetType);
         }
 
         /// <summary>

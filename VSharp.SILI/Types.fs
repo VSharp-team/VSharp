@@ -46,6 +46,11 @@ module public Types =
                            typedefof<int64>; typedefof<uint64>;
                            typedefof<char>])
 
+    let private unsignedTypes =
+        new HashSet<System.Type>(
+                          [typedefof<byte>; typedefof<uint16>;
+                           typedefof<uint32>; typedefof<uint64>;])
+
     let private realTypes =
         new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
 
@@ -154,6 +159,11 @@ module public Types =
         | SubType(t, _) ->  t
         | _ -> typedefof<obj>
 
+    let SizeOfNumeric x =
+        System.Runtime.InteropServices.Marshal.SizeOf(ToDotNetType x)
+
+    let BitSizeOf a typeOfA (t:System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
+
     let rec FromCommonDotNetType dotNetType k =
         match dotNetType with
         | null -> Null
@@ -184,6 +194,8 @@ module public Types =
     let public IsInteger = ToDotNetType >> integerTypes.Contains
 
     let public IsReal = ToDotNetType >> realTypes.Contains
+
+    let public IsUnsigned = unsignedTypes.Contains
 
     let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
 

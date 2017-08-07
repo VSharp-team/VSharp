@@ -348,6 +348,14 @@ module public Terms =
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
 
+    let (|ShiftLeft|_|) = function
+        | Expression(Operator(OperationType.ShiftLeft, isChecked), [x;y], t) -> Some(ShiftLeft(x, y, isChecked, t))
+        | _ -> None
+
+    let (|ShiftRight|_|) = function
+        | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
+        | _ -> None
+
     let rec private addConstants mapper (visited : HashSet<Term>) acc = function
         | Constant(name, source, t) as term when visited.Add(term) ->
             let acc =

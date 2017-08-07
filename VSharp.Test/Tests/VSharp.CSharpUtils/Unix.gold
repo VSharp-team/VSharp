@@ -292,6 +292,104 @@ RESULT: checked(2000000000 + x1 + 2000000000)
 HEAP:
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftLeftOnZero(System.Int32)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ZeroShift(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.DefaultShift(System.Int32, System.Int32)
+RESULT: a << b
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.SumShifts(System.Int64)
+RESULT: a << 32
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSum(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
+RESULT: (int32)a << 19
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
+RESULT: (int32)a << 16
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftMultiplication(System.Int16)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision1(System.Byte)
+RESULT: ((int32)a >> 20) / 1024
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision2(System.Int32)
+RESULT: a / 512 >> 12
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.UInt32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision3(System.UInt32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.UInt64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision4(System.UInt64)
+RESULT: a >> 41
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts1(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts2(System.Int64)
+RESULT: a << 34
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ConcreteShift()
+RESULT: -2147483648
+HEAP:
+System.Int32 ==> STRUCT int32[
+	| System.Int32.MaxValue ~> 2147483647
+	| System.Int32.MinValue ~> -2147483648]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts1(System.Int32, System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts2(System.Int32, System.Int32)
+RESULT: a * c << 29
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftWithDivAndMul(System.Int32)
+RESULT: (a << 6) / 4
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.DoubleShiftRight(System.Int32)
+RESULT: (int64)(a >> 15 >> 18)
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.Double)
 RESULT: log(x)
 HEAP:
