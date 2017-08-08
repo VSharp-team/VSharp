@@ -21,8 +21,8 @@ module internal Interpreter =
         let dict = new Dictionary<string, MethodInfo>() in
         let (|||) = FSharp.Core.Operators.(|||) in
         let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public in
-        let modules = Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule (Assembly.GetExecutingAssembly().GetTypes()) in
-        modules |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
+        Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule (Assembly.GetExecutingAssembly().GetTypes())
+        |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
             match m.GetCustomAttributes(typedefof<ImplementsAttribute>) with
             | SeqEmpty -> ()
             | SeqNode(attr, _) ->
@@ -30,27 +30,50 @@ module internal Interpreter =
                 dict.Add(key, m)))
         dict
 
+    let concreteExternalImplementations =
+        let dict = new Dictionary<string, IDecompiledMethod>() in
+        let (|||) = FSharp.Core.Operators.(|||) in
+        let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public in
+        [|Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")|]
+        |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
+            match m.GetCustomAttributes(typedefof<CSharpUtils.ImplementsAttribute>) with
+            | SeqEmpty -> ()
+            | SeqNode(attr, _) ->
+                let key = (attr :?> CSharpUtils.ImplementsAttribute).Name in
+                let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
+                let assemblyPath = JetBrains.Util.FileSystemPath.Parse m.DeclaringType.Assembly.Location in
+                let metadataMethod = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
+                match metadataMethod with
+                | None ->
+                    failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName m.Name)
+                | Some metadataMethod ->
+                    let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
+                    match decompiledMethod with
+                    | None ->
+                        failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
+                    | Some decompiledMethod ->
+                        dict.Add(key, decompiledMethod)))
+        dict
+
     let rec internalCall metadataMethod argsAndThis ((s, h, m, f, p) as state : State.state) k =
         let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
-        if externalImplementations.ContainsKey(fullMethodName) then
-            let k' (result, state) = k (result, State.popStack state) in
-            let methodInfo = externalImplementations.[fullMethodName] in
-            let extractArgument (_, value, _) =
-                match value with
-                | State.Specified term -> term
-                | _ -> internalfail "internal call with unspecified parameter!"
-            let argsAndThis = List.map extractArgument argsAndThis in
-            let parameters : obj[] =
-                // Sometimes F# compiler merges tuple with the rest arguments!
-                match methodInfo.GetParameters().Length with
-                | 2 -> [| state; argsAndThis |]
-                | 6 -> [| s; h; m; f; p; argsAndThis |]
-                | _ -> __notImplemented__()
-            let result = methodInfo.Invoke(null, parameters) in
-            match result with
-            | :? (StatementResult * State.state) as r -> k' r
-            | _ -> internalfail "internal call should return tuple StatementResult * State!"
-        else __notImplemented__()
+        let k' (result, state) = k (result, State.popStack state) in
+        let methodInfo = externalImplementations.[fullMethodName] in
+        let extractArgument (_, value, _) =
+            match value with
+            | State.Specified term -> term
+            | _ -> internalfail "internal call with unspecified parameter!"
+        let argsAndThis = List.map extractArgument argsAndThis in
+        let parameters : obj[] =
+            // Sometimes F# compiler merges tuple with the rest arguments!
+            match methodInfo.GetParameters().Length with
+            | 2 -> [| state; argsAndThis |]
+            | 6 -> [| s; h; m; f; p; argsAndThis |]
+            | _ -> __notImplemented__()
+        let result = methodInfo.Invoke(null, parameters) in
+        match result with
+        | :? (StatementResult * State.state) as r -> k' r
+        | _ -> internalfail "internal call should return tuple StatementResult * State!"
 
 // ------------------------------- Member calls -------------------------------
 
@@ -65,8 +88,20 @@ module internal Interpreter =
         | Some decompiledMethod ->
             if metadataMethod.IsInternalCall then
                 printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
-                reduceFunctionSignature state decompiledMethod.Signature this parameters (fun (argsAndThis, state) ->
-                internalCall metadataMethod argsAndThis state k)
+                let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
+                if externalImplementations.ContainsKey(fullMethodName) then
+                    reduceFunctionSignature state decompiledMethod.Signature this parameters (fun (argsAndThis, state) ->
+                    internalCall metadataMethod argsAndThis state k)
+                elif concreteExternalImplementations.ContainsKey(fullMethodName) then
+                    match parameters with
+                    | State.Specified parameters ->
+                        let parameters' =
+                            match this with
+                            | Some term -> term::parameters
+                            | None -> parameters
+                        in reduceDecompiledMethod state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] k
+                    | _ -> internalfail "internal call with unspecified parameters!"
+                else __notImplemented__()
             else
                 printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
                 reduceDecompiledMethod state this parameters decompiledMethod k
@@ -849,6 +884,7 @@ module internal Interpreter =
                 | _, Object _ -> true
                 | Object _, _ -> false
                 | Func _, Func _ -> false
+                | ArrayType _, _ -> true
                 | _ -> __notImplemented__()
             in
             let result =

@@ -177,6 +177,7 @@ namespace VSharp.Test
                 , "IPromotion"
                 , "Employee"
                 , "Helper"
+                , "Array"
             };
 
             var failReason = new StringBuilder();

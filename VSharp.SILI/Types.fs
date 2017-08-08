@@ -144,6 +144,7 @@ module public Types =
         | String -> typedefof<string>
         | StructType t -> t
         | ClassType t -> t
+        | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType -> __notImplemented__()
         | SubType(t, _) ->  t
@@ -218,6 +219,7 @@ module public Types =
                 let metadataType =  Type.GetType(ct.Type.AssemblyQualifiedName, true) in
                 FromCommonDotNetType metadataType (fun symbolic ->
                 match symbolic with
+                | a when a.FullName = "System.Array" -> ArrayType(Object "Array", int(0))
                 | c when (c.IsClass && c.IsSealed) -> ClassType c
                 | c when (c.IsClass || c.IsInterface) && not(c.IsSubclassOf(typedefof<System.Delegate>)) ->
                     if isUnique then SubType(c, c.FullName) else SubType(c, IdGenerator.startingWith c.FullName)
