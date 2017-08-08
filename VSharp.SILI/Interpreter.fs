@@ -41,7 +41,7 @@ module internal Interpreter =
             | SeqEmpty -> ()
             | SeqNode(attr, _) ->
                 let key = (attr :?> CSharpUtils.ImplementsAttribute).Name in
-                let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
+                let qualifiedTypeName = (Types.SystemGenericTypeDefinition m.DeclaringType).AssemblyQualifiedName in
                 let assemblyPath = JetBrains.Util.FileSystemPath.Parse m.DeclaringType.Assembly.Location in
                 let metadataMethod = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
                 match metadataMethod with
@@ -104,7 +104,7 @@ module internal Interpreter =
             | Some param, None ->
                 if param.MetadataParameter.HasDefaultValue
                 then ((param.Name, getTokenBy (Choice1Of2 param)), Concrete(param.MetadataParameter.GetDefaultValue(), Types.FromConcreteMetadataType param.Type))
-                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType true param.Type))
+                else ((param.Name, getTokenBy (Choice1Of2 param)), Memory.makeSymbolicInstance false (Symbolization Nop) param.Name (Types.FromSymbolicMetadataType false param.Type))
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -853,11 +853,11 @@ module internal Interpreter =
         let concreteIs (dotNetType : Type) =
             let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in
             function
-            | Types.ReferenceType(t, [], _)
-            | Types.StructureType(t, [], _) -> Terms.MakeBool (t = dotNetType)
-            | SubType(t, [], _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _, _)
+            | Types.StructureType(t, _, _) -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | SubType(t, [], _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
             | _ -> __notImplemented__()
@@ -865,11 +865,11 @@ module internal Interpreter =
         let subTypeIs (dotNetType: Type, rightName) =
             let b = makeBoolConst rightName (SubType(dotNetType, [], [], rightName)) in
             function
-            | Types.ReferenceType(t, [], _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-            | Types.StructureType(t, [], _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
-            | SubType(t, [], _, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-            | SubType(t, [], _, name) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
-            | SubType(t, [], _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _, _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType(t, _, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<ValueType>)
+            | SubType(t, _, _, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, _, _, name) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
             | Null -> Terms.MakeFalse
@@ -882,10 +882,10 @@ module internal Interpreter =
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | Func _, Func _ -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue
-        | ArrayType(t1, c1), ArrayType(t2, c2) -> Terms.MakeBool <| ((t1 = t2) && (c1 = c2))
-        | leftType, Types.StructureType(t, [], _) when leftType <> Null -> concreteIs t leftType
-        | leftType, Types.ReferenceType(t, [], _) -> concreteIs t leftType
-        | leftType, SubType(t, [], _, name) -> subTypeIs (t, name) leftType
+        | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is t1 t2 else Terms.MakeFalse
+        | leftType, Types.StructureType(t, _, _) when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.ReferenceType(t, _, _) -> concreteIs t leftType
+        | leftType, SubType(t, _, _, name) -> subTypeIs (t, name) leftType
         | _ -> __notImplemented__()
 
     and doCast (state : State.state) term targetType =
@@ -894,7 +894,7 @@ module internal Interpreter =
             match l, r with
             | PointerType left, PointerType right -> isUpCast left right
             | PointerType left, _ -> isUpCast left r
-            | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t2)
+            | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t1)
             | Func _, Func _ -> false
             | ArrayType _, _ -> true
             | _ -> __notImplemented__()
@@ -991,11 +991,11 @@ module internal Interpreter =
             | _ -> __notImplemented__()
         in
         reduceExpression state ast.Argument (fun (term, state) ->
-        let term, state =
+        let newTerm, newState =
             match term with
             | Union gvs -> Merging.guardedStateMap (fun term -> primitiveCast state term targetType) gvs state
             | _ -> primitiveCast state term targetType
-        in k (term, state))
+        in k (newTerm, newState))
 
     and checkCast term targetType =
         let mapper = fun left -> is (Terms.TypeOf left) targetType in
