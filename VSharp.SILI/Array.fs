@@ -24,6 +24,7 @@ module Array =
         | Union gvs -> Merging.guardedMap length gvs
         | _ -> internalfail "computing length of non-array object"
 
+
     let rec private guardsProduct = function
         | [] -> [(Terms.MakeTrue, [])]
         | d::ds ->
@@ -33,7 +34,7 @@ module Array =
                 | _ -> [(Terms.MakeTrue, d)]
             in
             let rest = guardsProduct ds in
-            FSharpx.Collections.List.lift2 (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) current rest
+            [for i in current do for j in rest do yield (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) i j]
 
     let rec internal makeDefault defaultOf dimensions typ lowerBounds =
         let unguardedDimensions = guardsProduct dimensions in
