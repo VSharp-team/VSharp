@@ -1422,10 +1422,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> 1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> 1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1438,10 +1435,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> -1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> -1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1454,10 +1448,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1467,11 +1458,6 @@ VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleB.GetN()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._n
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
@@ -1479,56 +1465,31 @@ VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleB.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M2()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M2(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> value
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M1()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M1(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> value
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> 42
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> 102
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
@@ -1669,6 +1630,61 @@ System.Array ==> STRUCT System.Array[
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.Mutate(System.Int32)
+RESULT: UNION[
+	| !(i < 0) & i < 5 ~> (HeapRef 2)
+	| !(i < 5) | i < 0 ~> <ERROR: (HeapRef 3)>]
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> UNION[
+	| !(i < 0) & i < 5 ~> [| 0: UNION[
+	| !(0 == i) ~> 1
+	| 0 == i ~> 10]; 1: UNION[
+	| !(1 == i) ~> 2
+	| 1 == i ~> 10]; 2: UNION[
+	| !(2 == i) ~> 3
+	| 2 == i ~> 10]; 3: UNION[
+	| !(3 == i) ~> 4
+	| 3 == i ~> 10]; 4: UNION[
+	| !(4 == i) ~> 5
+	| 4 == i ~> 10]; i: UNION[
+	| !(0 == i) & !(1 == i) & !(2 == i) & !(3 == i) & !(4 == i) ~> 10
+	| 0 == i | 1 == i | 2 == i | 3 == i | 4 == i ~> 0] ... 5 ... |]
+	| !(i < 5) | i < 0 ~> [| 0: 1; 1: 2; 2: 3; 3: 4; 4: 5 ... 5 ... |]]
+3 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> null
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+4 ==> STRUCT System.Object[
+	]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundTest()

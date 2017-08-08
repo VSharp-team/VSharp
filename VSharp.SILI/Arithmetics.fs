@@ -2,7 +2,7 @@ namespace VSharp
 
 open JetBrains.Decompiler.Ast
 open VSharp.CSharpUtils
-open VSharp.Simplify
+open VSharp.Common
 open VSharp.Terms
 open VSharp.Types
 
@@ -469,7 +469,7 @@ module internal Arithmetics =
         match x, op with
         | Mul(a, b, false, _), OperationType.ShiftLeft when not isChecked -> simplifyShiftLeftMul state t a b y matched unmatched
         | Div(a, b, false, _), OperationType.ShiftRight -> simplifyShiftRightDiv state t a b y matched unmatched
-        | Add(a, b, false, _), _ when a = b && not isChecked -> simplifyShiftLeftOfAddition state t a b y matched unmatched
+        | Add(a, b, false, _), OperationType.ShiftLeft when a = b && not isChecked -> simplifyShiftLeftOfAddition state t a b y matched unmatched
         | ShiftLeft(a, b, false, _), OperationType.ShiftLeft -> simplifyShiftOfShifted op state t a b y matched unmatched
         | ShiftRight(a, b, false, _), OperationType.ShiftRight -> simplifyShiftOfShifted op state t a b y matched unmatched
         | _ -> unmatched ()

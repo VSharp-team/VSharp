@@ -19,7 +19,7 @@ type public TermType =
     | SubType of System.Type * string
     | ArrayType of TermType * int
     | Func of TermType list * TermType
-    | PointerType of TermType
+    | PointerType
 
     override this.ToString() =
         match this with
@@ -35,7 +35,7 @@ type public TermType =
         | ClassType t -> t.ToString()
         | SubType(t, name) -> sprintf "<Subtype of %s>" (toString t)
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
-        | PointerType t -> sprintf "<Reference to %s>" (toString t)
+        | PointerType -> "<Pointer>"
 
 module public Types =
     let private integerTypes =
@@ -140,10 +140,6 @@ module public Types =
         | SubType(t, _) -> Some(ComplexType(t))
         | _ -> None
 
-    let public pointerFromReferenceType = function
-        | t when IsReferenceType t -> (PointerType t)
-        | t -> t
-
     let rec public ToDotNetType t =
         match t with
         | Null -> null
@@ -155,14 +151,14 @@ module public Types =
         | ClassType t -> t
         | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
-        | PointerType t -> ToDotNetType t
+        | PointerType -> __notImplemented__()
         | SubType(t, _) ->  t
         | _ -> typedefof<obj>
 
     let SizeOfNumeric x =
         System.Runtime.InteropServices.Marshal.SizeOf(ToDotNetType x)
 
-    let BitSizeOf a typeOfA (t:System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
+    let BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
 
     let rec FromCommonDotNetType dotNetType k =
         match dotNetType with
@@ -171,7 +167,7 @@ module public Types =
         | n when numericTypes.Contains(n) -> Numeric n
         | s when s.Equals(typedefof<string>) -> String
         | e when e.IsEnum -> Numeric e
-        | a when a.IsArray -> ArrayType(FromCommonDotNetType(a.GetElementType()) k |> pointerFromReferenceType, a.GetArrayRank())
+        | a when a.IsArray -> ArrayType(FromCommonDotNetType(a.GetElementType()) k, a.GetArrayRank())
         | s when s.IsValueType -> StructType s
         | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
              let methodInfo = f.GetMethod("Invoke") in
@@ -211,7 +207,7 @@ module public Types =
                 __notImplemented__()
             ClassType typedefof<obj>
         | :? IMetadataArrayType as a ->
-            let elementType = FromConcreteMetadataType a.ElementType |> pointerFromReferenceType in
+            let elementType = FromConcreteMetadataType a.ElementType in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as c ->
             Type.GetType(c.Type.AssemblyQualifiedName, true) |> FromDotNetType
@@ -229,7 +225,7 @@ module public Types =
                 __notImplemented__()
             Object "generic"
         | :? IMetadataArrayType as a ->
-            let elementType = FromSymbolicMetadataType a.ElementType false |> pointerFromReferenceType in
+            let elementType = FromSymbolicMetadataType a.ElementType false in
             ArrayType(elementType, int(a.Rank))
         | :? IMetadataClassType as ct ->
                 let metadataType =  Type.GetType(ct.Type.AssemblyQualifiedName, true) in

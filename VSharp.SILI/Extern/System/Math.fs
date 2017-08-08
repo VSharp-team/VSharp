@@ -8,7 +8,7 @@ open VSharp
 module private MathImpl =
 
     let impl<'a when 'a : comparison> (concrete: ('a -> 'a)) standFunc (state : State.state) args =
-        let arg = List.item 1 args in
+        let arg = List.item 0 args in
         let rec impl = function
             | Error _ as e -> e
             | Concrete(obj, _) ->
@@ -29,7 +29,7 @@ module private MathImpl =
         let oneTerm = Terms.MakeNumber one in
         let infTerm = convert infinity |> Terms.MakeNumber in
         let minusOneTerm = convert -1.0 |> Terms.MakeNumber in
-        let b, p = List.item 1 args, List.item 2 args in
+        let b, p = List.item 0 args, List.item 1 args in
         let rec power p = function
             | Error _ as e -> e
             | Concrete(bObj, _) as bConc ->
@@ -105,9 +105,9 @@ module private MathImpl =
             | Union gvs -> Merging.guardedMap (power p) gvs
             | term -> internalfail (sprintf "expected number for base, but %O got!" term) in
         (Return (power p b), state)
-        
+
     let atan2<'a when 'a : comparison> convert isNan isInf concrete standFunc (state : State.state) args =
-        let y, x = List.item 1 args, List.item 2 args in
+        let y, x = List.item 0 args, List.item 1 args in
         let inf, Nan = convert infinity, convert nan
         let rec atanY x = function
             | Error _ as e -> e
