@@ -9,8 +9,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>VSharp.Utils</RootNamespace>
     <AssemblyName>VSharp.Utils</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>VSharp.Utils</Name>
     <TargetFrameworkProfile />
@@ -44,9 +43,12 @@
       </PropertyGroup>
     </When>
     <Otherwise>
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
+	 <PropertyGroup Condition="Exists('\usr\share\dotnet\sdk\2.0.0-preview2-006497\FSharp\Microsoft.FSharp.Targets')">
+	   <FSharpTargetsPath>\usr\share\dotnet\sdk\2.0.0-preview2-006497\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+	 </PropertyGroup>
+       	<PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
+          <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+      	</PropertyGroup>
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
