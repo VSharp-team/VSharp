@@ -50,6 +50,13 @@ namespace VSharp.CSharpUtils.Tests
             return a.Count == b.Length && b.Length == c.Length && c.Length == c[3] - 4;
         }
 
+        public int[] Mutate(int i)
+        {
+            var a = new int[] {1, 2, 3, 4, 5};
+            a[i] = 10;
+            return a;
+        }
+
         public int LowerBoundTest()
         {
             var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
