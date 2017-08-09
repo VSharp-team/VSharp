@@ -213,5 +213,5 @@ module internal DecompilerServices =
 
     let rec internal getThisTokenBy (node : INode) =
         match node with
-        | :? IDecompiledMethod as method -> method.MetadataMethod.Token.ToString()
+        | :? IDecompiledMethod as m-> m.MetadataMethod.Token.ToString()
         | _ -> getThisTokenBy node.Parent

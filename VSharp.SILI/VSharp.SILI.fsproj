@@ -61,7 +61,7 @@
     <Compile Include="State.fs" />
     <Compile Include="Propositional.fs" />
     <Compile Include="Merging.fs" />
-    <Compile Include="Simplify.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
     <Compile Include="Array.fs" />
@@ -78,6 +78,9 @@
     <Compile Include="SVM.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core, Version=4.4.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
+    </Reference>
     <Reference Include="JetBrains.Decompiler.Core">
       <HintPath>..\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
     </Reference>
@@ -88,9 +91,6 @@
       <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">

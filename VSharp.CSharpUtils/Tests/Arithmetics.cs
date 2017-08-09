@@ -98,6 +98,120 @@ namespace VSharp.CSharpUtils.Tests
             return checked (x + x1 + y);
         }
 
+        // Expecting a
+        public static int ShiftLeftOnZero (int a)
+        {
+            return (a << 0) >> 0;
+        }
+
+        // Expecting 0.0
+        public static double ZeroShift(int a)
+        {
+            return 0 << a >> a;
+        }
+
+        // Expecting a << b
+        public static int DefaultShift(int a, int b)
+        {
+            return a << b;
+        }
+
+        // Expecting a << 32
+        public static Int64 SumShifts(Int64 a)
+        {
+            return (a << 31) + (a << 31);
+        }
+
+        // Expecting 0
+        public static Int32 ShiftSum(Int32 a)
+        {
+            return (a + a) << 31;
+        }
+
+        // Expecting a << 19
+        public static Int32 MultiplyOnShift1(Int16 a)
+        {
+            return (a << 17) * 4;
+        }
+
+        // Expecting a << 16
+        public static Int32 MultiplyOnShift2(Int16 a)
+        {
+            return (a << 14) * 4;
+        }
+
+        // Expecting 0
+        public static Int32 ShiftMultiplication(Int16 a)
+        {
+            return (a * 512) << 23;
+        }
+
+        // Expecting (a >> 20) / 1024 TODO: check
+        public static int ShiftDevision1(byte a)
+        {
+            return (a >> 20) / 1024;
+        }
+
+        // Expecting (a / 512) >> 12
+        public static int ShiftDevision2(int a)
+        {
+            return (a / 512) >> 12;
+        }
+
+        // Expecting 0
+        public static uint ShiftDevision3(uint a)
+        {
+            return (a >> 22) / 1024;
+        }
+
+        // Expecting a >> 41
+        public static ulong ShiftDevision4(ulong a)
+        {
+            return (a >> 31) / 1024;
+        }
+
+        // Expecting 0
+        public static int ShiftSumOfShifts1(int a)
+        {
+            return ((a << 30) + (a << 30)) << 2;
+        }
+
+        // Expecting a << 34
+        public static long ShiftSumOfShifts2(long a)
+        {
+            return ((a << 31) + (a << 31)) << 2;
+        }
+
+        // Expecting -2147483648
+        public static int ConcreteShift()
+        {
+            return 2 << 30;
+        }
+
+        // Expecting 0
+        public static int MultiplyShifts1(int a, int c)
+        {
+            return ((a + a) << 14) * (c << 17);
+        }
+
+        // Expecting (a * c) << 29
+        public static int MultiplyShifts2(int a, int c)
+        {
+            return ((a + a) << 11) * (c << 17);
+        }
+
+        // Expecting (a << 6) / 4
+        public static int ShiftWithDivAndMul(int a)
+        {
+            return ((a * 16) << 2) / 4;
+        }
+
+        // Expecting (int64)(a >> 15 >> 18)
+        public static Int64 DoubleShiftRight(int a)
+        {
+            return (a >> 15) >> 18;
+        }
+
         // log(x)
         public static double LogMethod1(double x)
         {

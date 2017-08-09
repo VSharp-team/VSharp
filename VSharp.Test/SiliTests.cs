@@ -101,7 +101,7 @@ namespace VSharp.Test
             foreach (string str in methodsWithResults)
             {
                 IList<string> methodsAndResults = Regex.Split(str, $"^{ResultSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Trim('\n', '\r'));
+                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Replace("\r\n", "\n").Trim('\n', '\r'));
             }
 
             return resultsDictionary;

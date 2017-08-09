@@ -61,7 +61,7 @@ module SystemArray =
             | Error _ as e -> e
             | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
             | Union gvs -> Merging.guardedMap getRank gvs
-            | term -> internalfail (sprintf "expected array, but %O got!" term)
+            | term -> internalfailf "expected array, but %O got!" term
         in (Return (getRank array), state)
 
     let get_Rank state args =
@@ -81,7 +81,7 @@ module SystemArray =
                 | Error _ as e -> (e, state)
                 | Concrete(obj, _) ->
                     let d = obj :?> int in
-                    if d < 0 || d >= lowerBounds.Length then 
+                    if d < 0 || d >= lowerBounds.Length then
                         let term, state = indexOutOfRangeException state in
                         (Error term, state)
                     else (lowerBounds.[d], state)

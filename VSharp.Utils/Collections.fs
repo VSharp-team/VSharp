@@ -1,5 +1,12 @@
 namespace VSharp
 
+module public Seq =
+    let filterMap mapper xs =
+        seq { for x in xs do
+                match mapper x with
+                | Some y -> yield y
+                | None -> () }
+
 module public List =
     let rec private mappedPartitionAcc f left right = function
         | [] -> (List.rev left, List.rev right)
