@@ -200,14 +200,15 @@ module public Terms =
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
         | StackRef _
-        | HeapRef _
-        | StaticRef _ -> PointerType
+        | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
+        | HeapRef(addrs, _) ->
+            addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
         | Array(_, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
             | [] -> TermType.Bottom
             | t::ts ->
-                let allSame = List.forall ((=) t) ts in
+                let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
                 if allSame then t
                 else
                     // TODO: return least common supertype!
@@ -226,12 +227,12 @@ module public Terms =
     let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public FreshConstant name source t =
-        Constant(name, source, Types.FromDotNetType t)
+        Constant(name, source, Types.Constructor.FromDotNetType Types.ConcreteKind t)
 
     let public MakeConcrete value (t : System.Type) =
         let actualType = if (value :> obj) = null then t else value.GetType() in
         try
-            if actualType = t then Concrete(value, Types.FromDotNetType t)
+            if actualType = t then Concrete(value, Types.Constructor.FromDotNetType Types.ConcreteKind t)
             else
                 if typedefof<IConvertible>.IsAssignableFrom(actualType)
                 then
@@ -239,16 +240,16 @@ module public Terms =
                         if t.IsPointer
                         then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
                         else Convert.ChangeType(value, t) in
-                    Concrete(casted, Types.FromDotNetType t)
+                    Concrete(casted, Types.Constructor.FromDotNetType Types.ConcreteKind t)
                 else
                     if t.IsAssignableFrom(actualType)
-                    then Concrete(value, Types.FromDotNetType t)
+                    then Concrete(value, Types.Constructor.FromDotNetType Types.ConcreteKind t)
                     else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | e ->
             // TODO: this is for debug, remove it when becomes relevant!
             raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-            Error(Concrete(e :> obj, Types.FromDotNetType (e.GetType())))
+            Error(Concrete(e :> obj, Types.Constructor.FromDotNetType Types.ConcreteKind (e.GetType())))
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)
@@ -398,5 +399,5 @@ module public Terms =
         List.fold (addConstants mapper (new HashSet<Term>())) [] terms
 
     let is src tgt =
-        let justInherits = (Types.MetadataToDotNetType src).IsAssignableFrom(Types.ToDotNetType tgt) in
+        let justInherits = (Types.Constructor.MetadataToDotNetType src).IsAssignableFrom(Types.ToDotNetType tgt) in
         Concrete(justInherits, Bool)

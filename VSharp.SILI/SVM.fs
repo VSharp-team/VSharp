@@ -16,7 +16,7 @@ module public SVM =
             reset()
             let state = State.empty in
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
-            let declaringType = Types.FromDotNetType(m.DeclaringType) in
+            let declaringType = Types.Constructor.FromDotNetType Types.ConcreteKind (m.DeclaringType) in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
             Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
             match metadataMethodOption with

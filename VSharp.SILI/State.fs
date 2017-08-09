@@ -98,9 +98,11 @@ module internal State =
         | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
         | Numeric t -> Terms.MakeConcrete 0 t
         | String -> Concrete(null, String)
+        | PointerType t -> Concrete(null, t)
         | ClassType _ as t -> Concrete(null, t)
         | ArrayType _ as t -> Concrete(null, t)
-        | SubType(name, _, _,  _) as t -> Concrete(name, t)
+        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct(Heap.empty, t)
+        | SubType _ as t -> Concrete(null, t)
         | Func _ -> Concrete(null, SubType(typedefof<System.Delegate>, [], [], "func"))
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
@@ -128,12 +130,13 @@ module internal State =
         Array(mkArraySymbolicLowerBound constant name rank, Some constant, Heap.empty, lengths, typ)
 
     let internal makeSymbolicInstance time source name = function
-        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
-        | StructType _
-        | SubType _ as t -> Struct(Heap.empty, t)
-        | ClassType _ as t ->
+        | PointerType t ->
             let constant = Constant(name, source, pointerType) in
             HeapRef(((constant, t), []), time)
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
+        | StructType _
+        | SubType _
+        | ClassType _ as t -> Struct(Heap.empty, t)
         | ArrayType(e, d) as t -> makeSymbolicArray source d t name
         | _ -> __notImplemented__()
 

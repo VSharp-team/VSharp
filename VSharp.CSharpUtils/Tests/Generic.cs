@@ -9,7 +9,7 @@ namespace VSharp.CSharpUtils.Tests
         void Keep(T obj);
     }
 
-    public class Bag<T> : IKeeper<T>
+    public class Bag<T> //: IKeeper<T>
     {
         private Queue<T> _queue;
 
@@ -24,36 +24,15 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    public static class GenericCast
+    public static class Generic<T, U, P, K, N, Z>
+        where T : U
+        where U : IKeeper<P>
+        where P : struct, IKeeper<T>
+        where K : class, IKeeper<U>
+        where N : IKeeper<K>
+        where Z : List<int>
     {
-        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)
-        {
-            foreach (var pawn in listPawn)
-            {
-                if (pawn.GetNewField() > 5)
-                {
-                    bag.Keep(pawn);
-                }
-            }
-        }
-
-        public static void TestFilterAndKeep()
-        {
-            IKeeper<Piece> myKeeper = new Bag<Piece>();
-            List<Pawn> myList = new List<Pawn>();
-            FilterAndKeep(myList, myKeeper);
-        }
-
-        public static void TestContrvarianceAndCovariance()
-        {
-            Func<Piece, Pawn> func = (x => new Pawn(x.GetCoord(), x.GetRate()));
-            Func<Pawn, Piece> newFunc = func;
-        }
-    }
-    
-    public static class Generic<T>
-    {
-        public static Dictionary<int, T> ReDictionary()
+        public static Dictionary<int, T> RetDictionary()
         {
             return new Dictionary<int, T>();
         }
@@ -66,6 +45,12 @@ namespace VSharp.CSharpUtils.Tests
         public static T RetT(T t)
         {
             return t;
+        }
+
+        public static Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>> GenericParameter1(T t, U u, P p, K k, N n, Z z)
+        {
+            var a = new Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>>();
+            return a;
         }
     }
 
@@ -88,6 +73,33 @@ namespace VSharp.CSharpUtils.Tests
             _filed = f;
         }
     }
+
+//    public static class GenericCast
+//    {
+//        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)
+//        {
+//            foreach (var pawn in listPawn)
+//            {
+//                if (pawn.GetNewField() > 5)
+//                {
+//                    bag.Keep(pawn);
+//                }
+//            }
+//        }
+//
+//        public static void TestFilterAndKeep()
+//        {
+//            IKeeper<Piece> myKeeper = new Bag<Piece>();
+//            List<Pawn> myList = new List<Pawn>();
+//            FilterAndKeep(myList, myKeeper);
+//        }
+//
+//        public static void TestContrvarianceAndCovariance()
+//        {
+//            Func<Piece, Pawn> func = (x => new Pawn(x.GetCoord(), x.GetRate()));
+//            Func<Pawn, Piece> newFunc = func;
+//        }
+//    }
 
     
 //    public interface IFooTest<T, U>
@@ -135,7 +147,7 @@ namespace VSharp.CSharpUtils.Tests
             return obj is T;
         }
         
-        public static bool RecTypecast2<T>(Foo<int> obj) where T : struct, IFoo<int>
+        public static bool RecTypecast2<T>(Foo<int> obj) where T : Foo<int>
         {
             return obj is T;
         }

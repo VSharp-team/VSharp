@@ -22,7 +22,7 @@ type public TermType =
     | SubType of System.Type * TermTypeRef list * TermType list * string //some symbolic type with generic argument, interfaces and constraint
     | ArrayType of TermType * int
     | Func of TermType list * TermType
-    | PointerType
+    | PointerType of TermType
 
     override this.ToString() =
         match this with
@@ -35,9 +35,9 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
         | ClassType (t, _, _) -> toString t
-        | SubType(t, _, _, name) -> sprintf "<Subtype of %s>" (toString t)
+        | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
-        | PointerType -> "<Pointer>"
+        | PointerType t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;NoComparison>]
     TermTypeRef =
@@ -50,6 +50,14 @@ and [<CustomEquality;NoComparison>]
             | _ -> false
 
 module public Types =
+    type public SymbolicKind =
+        | UniqueKind
+        | GlobalKind
+
+    type public TypeKind =
+        | ConcreteKind
+        | Symbolic of SymbolicKind
+
     let private integerTypes =
         new HashSet<System.Type>(
                           [typedefof<byte>; typedefof<sbyte>;
@@ -123,6 +131,10 @@ module public Types =
         | Bottom -> true
         | _ -> false
 
+    let public IsPointer = function
+        | PointerType _ -> true
+        | _ -> false
+
     let public DomainOf = function
         | Func(domain, _) -> domain
         | _ -> []
@@ -164,6 +176,10 @@ module public Types =
         | SubType(t, genArg, interfaces, _) -> Some(ComplexType(t, genArg, interfaces))
         | _ -> None
 
+    let internal PointerFromReferenceType = function
+        | t when IsReferenceType t -> PointerType t
+        | t -> t
+
     let rec public ToDotNetType t =
         match t with
         | Null -> null
@@ -175,120 +191,175 @@ module public Types =
         | SubType(t, _, _, _) -> t
         | ArrayType(t, 0) -> typedefof<System.Array>
         | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
-        | PointerType -> __notImplemented__()
+        | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
 
     let SizeOfNumeric x =
         System.Runtime.InteropServices.Marshal.SizeOf(ToDotNetType x)
 
     let BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
-
-    let private getValueOrFillNull genericParameters key =
-            Dict.getValueOrUpdate genericParameters key (fun () -> ref Null)
-
-    let rec private FromCommonDotNetType genericParameters (dotNetType : Type) k =
-        match dotNetType with
-        | null -> Null
-        | v when v.FullName = "System.Void" -> Void
-        | b when b.Equals(typedefof<bool>) -> Bool
-        | n when numericTypes.Contains(n) -> Numeric n
-        | s when s.Equals(typedefof<string>) -> String
-        | e when e.IsEnum -> Numeric e
-        | a when a.IsArray -> ArrayType(FromCommonDotNetType genericParameters (a.GetElementType()) k, a.GetArrayRank())
-        | s when s.IsValueType && not s.IsGenericParameter->
-            let interfaces = s.GetInterfaces() |> Array.map (fun t -> originFromDotNetTypeSymbolic genericParameters true t) |> Array.toList
-            if not s.IsGenericType then StructType(s, [], interfaces)
-            else StructType(s, s.GetGenericArguments() |>
-                    Array.map (fun t -> TermTypeRef <| (getValueOrFillNull genericParameters (t, true, false))) |>
-                    Array.toList, interfaces)
-        | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
-            let methodInfo = f.GetMethod("Invoke") in
-            let returnType = methodInfo.ReturnType |> (fun t -> FromCommonDotNetType genericParameters t k) in
-            let parameters = methodInfo.GetParameters() |>
-                                Array.map (fun (p : System.Reflection.ParameterInfo) ->
-                                FromCommonDotNetType genericParameters p.ParameterType k) in
-            Func(List.ofArray parameters, returnType)
-        | _ -> k dotNetType
     
-    and private originFromDotNetTypeSymbolic genericParameters isUnique dotNetType =
-        FromCommonDotNetType genericParameters dotNetType (fun symbolic ->
-        match symbolic with
-        | p when p.IsGenericParameter -> originFromGenericParameter genericParameters false isUnique p
-        | a when a.FullName = "System.Array" ->
-            if isUnique then ArrayType(SubType(symbolic, [], [], a.FullName), int(0))
-            else ArrayType(SubType(symbolic, [], [], IdGenerator.startingWith a.FullName), int(0))
-        | c when (c.IsClass || c.IsInterface) ->
-            let interfaces = c.GetInterfaces() |> Array.map (fun t -> originFromDotNetTypeSymbolic genericParameters isUnique t) |> Array.toList
-            let makeType agrs =
-                match c with
-                | _ when c.IsSealed -> ClassType(c, agrs, interfaces)
-                | _ -> if isUnique then SubType(c, agrs, interfaces, c.FullName) else SubType(c, agrs, interfaces, IdGenerator.startingWith c.FullName)
-            in
-            if not c.IsGenericType then makeType []
-            else
-                let gArgs =
-                    c.GetGenericArguments() |>
-                    Array.map (fun t -> TermTypeRef <| getValueOrFillNull genericParameters (t, false, isUnique)) |> Array.toList
-                makeType gArgs
-        | _ -> __notImplemented__())
+    module public Constructor =
+        let private interfaceTypeKind = function
+            | ConcreteKind
+            | Symbolic GlobalKind -> GlobalKind
+            | Symbolic UniqueKind -> UniqueKind
 
-    and private originFromGenericParameter genericParameters isConcrete isUnique (genericParameter : Type) =
-        let (===) (a : GenericParameterAttributes) (b : GenericParameterAttributes) = (b = (a &&& b)) in
-        let constraints = genericParameter.GetGenericParameterConstraints() in
-        let listInterfacesConstraint =
-            constraints |> 
-            Array.filter (fun t -> t.IsInterface || t.IsGenericParameter) |>
-            Array.map (originFromDotNetTypeSymbolic genericParameters isUnique) |>
+        let private genericParameterFromMetadata (arg : IMetadataGenericArgument) =
+            match arg with
+            | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[(int)arg.Index]
+            | _ when arg.MethodOwner <> null ->
+                let metadataMethod = arg.MethodOwner
+                let lengthGenericArguments = metadataMethod.GenericArguments.Length
+                let parameters = metadataMethod.Parameters
+                let declaringType = metadataMethod.DeclaringType
+                let method =
+                    Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
+                    Array.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
+                    Array.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
+                    Array.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
+                    Array.map (fun (m, p, _) -> (m, p)) |>
+                    Array.filter (fun (m, (p : ParameterInfo[])) ->
+                        Array.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
+                            (if (l.ParameterType.FullName <> null) then l.ParameterType.FullName else l.ParameterType.Name) = r.Type.FullName) p parameters) |>
+                    Array.map (fun (m, _) -> m)
+                method.[0].GetGenericArguments().[(int)arg.Index]
+            | _ -> __notImplemented__()
+    
+        let rec public MetadataToDotNetType (arg : IMetadataType) =
+            match arg with
+            | null -> null
+            | _ when arg.AssemblyQualifiedName = "__Null" -> null
+            | _ when arg.FullName = "System.Void" -> typedefof<System.Void>
+            | :? IMetadataGenericArgumentReferenceType as g -> genericParameterFromMetadata g.Argument
+            | :? IMetadataArrayType as a -> (a.ElementType |> MetadataToDotNetType).MakeArrayType()
+            | :? IMetadataClassType as c ->
+                let originType = Type.GetType(c.Type.AssemblyQualifiedName, true) in
+                if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
+                else originType.MakeGenericType(c.Arguments |> Array.map MetadataToDotNetType)
+            | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
+
+        let private genericParameters = new Dictionary<(System.Type * TypeKind), TermType ref>()
+    
+        let private getValueOrFillNull genericParameters key =
+                Dict.getValueOrUpdate genericParameters key (fun () -> ref Null)
+
+        let private getGenericArguments typeKind (dotNetType : Type) =
+            dotNetType.GetGenericArguments() |>
+            Array.map (fun t -> TermTypeRef <| getValueOrFillNull genericParameters (t, typeKind)) |>
             Array.toList
-        let attr = genericParameter.GenericParameterAttributes
-        match attr with
-            | _ when attr === GenericParameterAttributes.NotNullableValueTypeConstraint ->
-                StructType(genericParameter, [], listInterfacesConstraint)
-            |_ ->
-                if isConcrete then ClassType(genericParameter, [], listInterfacesConstraint)
-                else if isUnique then SubType(genericParameter, [], listInterfacesConstraint, genericParameter.Name)
-                else SubType(genericParameter, [], listInterfacesConstraint, IdGenerator.startingWith genericParameter.Name)
 
-    and private originFromDotNetType genericParameters dotNetType =
-        FromCommonDotNetType genericParameters dotNetType (fun concrete ->
-        match concrete with
-            | p when p.IsGenericParameter -> originFromGenericParameter genericParameters true false p
-            // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
-            | c when c.IsClass || c.IsInterface -> 
-                let interfaces = c.GetInterfaces() |> Array.map (fun t -> originFromDotNetTypeSymbolic genericParameters true t) |> Array.toList
-                if not c.IsGenericType then ClassType(c, [], interfaces)
-                else ClassType(c, c.GetGenericArguments() |>
-                        Array.map (fun t -> TermTypeRef <| getValueOrFillNull genericParameters (t, true, false)) |>
-                        Array.toList, interfaces)
+        let rec private fromDotNetInterface symbolicKind (interfaceType : Type) =
+            let interfaces = interfaceType.GetInterfaces() |> Array.map (fromDotNetInterface symbolicKind) |> Array.toList
+            let genericArguments = getGenericArguments (Symbolic symbolicKind) interfaceType
+            match symbolicKind with
+            | UniqueKind -> SubType(interfaceType, genericArguments, interfaces, interfaceType.FullName)
+            | GlobalKind -> SubType(interfaceType, genericArguments, interfaces, IdGenerator.startingWith interfaceType.FullName)
+
+        let private getInterfaces symbolicKind (dotNetType : Type) = dotNetType.GetInterfaces() |> Array.map (fromDotNetInterface symbolicKind) |> Array.toList
+
+        let rec private fromCommonDotNetType (dotNetType : Type) k =
+            match dotNetType with
+            | null -> Null
+            | v when v.FullName = "System.Void" -> Void
+            | b when b.Equals(typedefof<bool>) -> Bool
+            | n when numericTypes.Contains(n) -> Numeric n
+            | s when s.Equals(typedefof<string>) -> String
+            | e when e.IsEnum -> Numeric e
+            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, a.GetArrayRank())
+            | s when s.IsValueType && not s.IsGenericParameter-> StructType(s, getGenericArguments ConcreteKind s, getInterfaces GlobalKind s)
+            | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
+                let methodInfo = f.GetMethod("Invoke") in
+                let returnType = methodInfo.ReturnType |> (fun t -> fromCommonDotNetType t k) in
+                let parameters = methodInfo.GetParameters() |>
+                                    Array.map (fun (p : System.Reflection.ParameterInfo) ->
+                                    fromCommonDotNetType p.ParameterType k) in
+                Func(List.ofArray parameters, returnType)
+            | _ -> k dotNetType
+
+        let rec private fromDotNetGenericParameter typeKind (genericParameter : Type) =
+            let constraints = genericParameter.GetGenericParameterConstraints() in
+            let fromGenericParameterOrInterface (dotNetType : Type) =
+                match dotNetType with
+                | g when g.IsGenericParameter -> fromDotNetGenericParameter typeKind g
+                | i when i.IsInterface -> fromDotNetInterface (interfaceTypeKind typeKind) i
+            in
+            let listTypeConstraint =
+                constraints |>
+                Array.filter (fun t -> t.IsInterface || t.IsGenericParameter) |>
+                Array.map fromGenericParameterOrInterface |>
+                Array.toList
+            match genericParameter with
+                | s when s.IsValueType -> StructType(genericParameter, [], listTypeConstraint)
+                | _ -> match typeKind with
+                        | ConcreteKind -> ClassType(genericParameter, [], listTypeConstraint)
+                        | Symbolic GlobalKind -> SubType(genericParameter, [], listTypeConstraint, genericParameter.Name)
+                        | Symbolic UniqueKind -> SubType(genericParameter, [], listTypeConstraint, IdGenerator.startingWith genericParameter.Name)
+
+        let private fromDotNetTypeToConcrete dotNetType =
+            fromCommonDotNetType dotNetType (fun concrete ->
+                match concrete with
+                | p when p.IsGenericParameter -> fromDotNetGenericParameter ConcreteKind p
+                // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
+                | c when c.IsClass -> ClassType(c, getGenericArguments ConcreteKind c, getInterfaces GlobalKind c)
+                | i when i.IsInterface -> fromDotNetInterface GlobalKind i
+                | _ -> __notImplemented__())
+
+        let private fromDotNetTypeToSymbolic symbolicType dotNetType =
+            fromCommonDotNetType dotNetType (fun symbolic ->
+            match symbolic with
+            | p when p.IsGenericParameter -> fromDotNetGenericParameter (Symbolic symbolicType) p
+            | a when a.FullName = "System.Array" ->
+                match symbolicType with
+                | UniqueKind -> ArrayType(SubType(symbolic, [], [], a.FullName), int(0))
+                | GlobalKind -> ArrayType(SubType(symbolic, [], [], IdGenerator.startingWith a.FullName), int(0))
+            | c when (c.IsClass || c.IsInterface) ->
+                let interfaces = getInterfaces symbolicType c
+                let genericArguments = getGenericArguments (Symbolic symbolicType) c
+                match c with
+                | _ when c.IsSealed -> ClassType(c, genericArguments, interfaces)
+                | _ -> match symbolicType with
+                        | UniqueKind -> SubType(c, genericArguments, interfaces, c.FullName)
+                        | GlobalKind -> SubType(c, genericArguments, interfaces, IdGenerator.startingWith c.FullName)
+            | i when i.IsInterface -> fromDotNetInterface symbolicType i
             | _ -> __notImplemented__())
-    
-    let private originFromAllDotNetType genericParameters isConcrete isUnique (dotNetType : Type) =
-        match isConcrete with
-        | true -> originFromDotNetType genericParameters dotNetType
-        | false -> originFromDotNetTypeSymbolic genericParameters isUnique dotNetType
-    
-    let rec private updateAndClear (genericParameters : Dictionary<(System.Type * bool * bool), TermType ref>) =
-        if genericParameters.ContainsValue(ref Null) then
-            let keyCollection = Array.zeroCreate genericParameters.Keys.Count
-            genericParameters.Keys.CopyTo(keyCollection, 0)
-            keyCollection |>
-            Seq.iter (fun key ->
-            match key with
-            | (t, isConcrete, isUnique) -> genericParameters.[key] := originFromAllDotNetType genericParameters isConcrete isUnique t)
+
+        let private fromDotNetType typeKind dotNetType =
+            match typeKind with
+            | ConcreteKind -> fromDotNetTypeToConcrete dotNetType
+            | Symbolic symbolicType -> fromDotNetTypeToSymbolic symbolicType dotNetType
+
+        let rec private updateAndClear (genericParameters : Dictionary<(System.Type * TypeKind), TermType ref>) =
+            if genericParameters.ContainsValue(ref Null) then
+                let keyCollection = Array.zeroCreate genericParameters.Keys.Count
+                genericParameters.Keys.CopyTo(keyCollection, 0)
+                keyCollection |>
+                Seq.iter (fun key ->
+                match key with
+                | (t, typeKind) -> genericParameters.[key] := fromDotNetType typeKind t)
+                updateAndClear genericParameters
+            else genericParameters.Clear()
+
+        let public FromDotNetType typeKind dotNetType =
+            let res = fromDotNetType typeKind dotNetType
             updateAndClear genericParameters
-        else genericParameters.Clear()       
+            res
 
-    let public FromDotNetTypeSymbolic isUnique dotNetType =
-        let genericParameters = new Dictionary<(System.Type * bool * bool), TermType ref>()
-        let res = originFromDotNetTypeSymbolic genericParameters isUnique dotNetType
-        updateAndClear genericParameters
-        res
-
-    let public FromDotNetType dotNetType =
-        let genericParameters = new Dictionary<(System.Type * bool * bool), TermType ref>()
-        let res = originFromDotNetType genericParameters dotNetType
-        updateAndClear genericParameters
-        res
+    let rec FromMetadataType typeKind (t : IMetadataType) =
+        match t with
+        | null -> SubType(typedefof<obj>, [], [], "unknown")
+        | _ when t.AssemblyQualifiedName = "__Null" -> Null
+        | _ when t.FullName = "System.Void" -> Void
+        | :? IMetadataGenericArgumentReferenceType as g ->
+            let arg = Constructor.MetadataToDotNetType g
+            Constructor.FromDotNetType typeKind arg
+        | :? IMetadataArrayType as a ->
+            let elementType = FromMetadataType typeKind a.ElementType |> PointerFromReferenceType in
+            ArrayType(elementType, int(a.Rank))
+        | :? IMetadataClassType as ct ->
+            let dotnetType = Constructor.MetadataToDotNetType ct in
+            Constructor.FromDotNetType typeKind dotnetType
+        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> Constructor.FromDotNetType typeKind
 
     let public IsPrimitive t =
         let dotNetType = ToDotNetType t in
@@ -300,87 +371,20 @@ module public Types =
 
     let public IsUnsigned = unsignedTypes.Contains
 
-    let public FromQualifiedTypeName = System.Type.GetType >> FromDotNetType
-
-    let public GenericParameterFromMetadata (arg : IMetadataGenericArgument) =
-        match arg with
-        | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[(int)arg.Index]
-        | _ when arg.MethodOwner <> null ->
-            let metadataMethod = arg.MethodOwner
-            let lengthGenericArguments = metadataMethod.GenericArguments.Length
-            let parameters = metadataMethod.Parameters
-            let declaringType = metadataMethod.DeclaringType
-            let method =
-                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
-                Array.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
-                Array.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
-                Array.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
-                Array.map (fun (m, p, _) -> (m, p)) |>
-                Array.filter (fun (m, (p : ParameterInfo[])) ->
-                    Array.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
-                        (if (l.ParameterType.FullName <> null) then l.ParameterType.FullName else l.ParameterType.Name) = r.Type.FullName) p parameters) |>
-                Array.map (fun (m, _) -> m)
-            method.[0].GetGenericArguments().[(int)arg.Index]
-        | _ -> __notImplemented__()
-
-    let rec public DotNetTypeFromMetadata (arg : IMetadataType) =
-        match arg with
-        | :? IMetadataGenericArgumentReferenceType as g -> GenericParameterFromMetadata g.Argument
-        | :? IMetadataArrayType as a -> (a.ElementType |> DotNetTypeFromMetadata).MakeArrayType()
-        | :? IMetadataClassType as c ->
-            let originType = Type.GetType(c.Type.AssemblyQualifiedName, true) in
-            if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
-            else originType.MakeGenericType(c.Arguments |> Array.map DotNetTypeFromMetadata)
-        | _ -> __notImplemented__()
-
-    let rec public FromConcreteMetadataType (t : IMetadataType) =
-        match t with
-        | null -> SubType(typedefof<obj>, [], [], "unknown")
-        | _ when t.AssemblyQualifiedName = "__Null" -> Null
-        | _ when t.FullName = "System.Void" -> Void
-        | :? IMetadataGenericArgumentReferenceType as g ->
-            let arg = GenericParameterFromMetadata g.Argument
-            FromDotNetType arg
-        | :? IMetadataArrayType as a ->
-            let elementType = FromConcreteMetadataType a.ElementType in
-            ArrayType(elementType, int(a.Rank))
-        | :? IMetadataClassType as ct ->
-            let dotnetType = DotNetTypeFromMetadata ct in
-            FromDotNetType dotnetType
-        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
-
-    and public FromSymbolicMetadataType (isUnique : bool) (t : IMetadataType) =
-        match t with
-        | null -> SubType(typedefof<obj>, [], [], "unknown")
-        | _ when t.AssemblyQualifiedName = "__Null" -> Null
-        | _ when t.FullName = "System.Void" -> Void
-        | :? IMetadataGenericArgumentReferenceType as g ->
-            let arg = GenericParameterFromMetadata g.Argument
-            FromDotNetTypeSymbolic isUnique arg
-        | :? IMetadataArrayType as a ->
-            let elementType = FromSymbolicMetadataType false a.ElementType in
-            ArrayType(elementType, int(a.Rank))
-        | :? IMetadataClassType as ct -> //TODO: make with generic
-            let metadataType = DotNetTypeFromMetadata ct in
-            FromDotNetTypeSymbolic isUnique metadataType
-        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
-
-    and public MetadataToDotNetType (t : IMetadataType) = t |> FromConcreteMetadataType |> ToDotNetType
-
     let public SystemGenericTypeDefinition (t : System.Type) =
         if t.IsGenericType && not <| t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
 
     let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = FromSymbolicMetadataType true returnMetadataType in
+        let returnType = FromMetadataType (Symbolic UniqueKind) returnMetadataType in
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> FromSymbolicMetadataType false in
+            param.Type |> FromMetadataType (Symbolic GlobalKind) in
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
         Func(args, returnType)
 
     let public FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = FromSymbolicMetadataType true m.ReturnValue.Type in
+        let returnType = FromMetadataType (Symbolic UniqueKind) m.ReturnValue.Type in
         let paramToType (param : IMetadataParameter) =
-            param.Type |> FromSymbolicMetadataType false
+            param.Type |> FromMetadataType (Symbolic GlobalKind)
         let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
 
@@ -390,7 +394,7 @@ module public Types =
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         let mt = GetMetadataTypeOfNode node in
         if mt = null then typedefof<obj>
-        else ToDotNetType (FromConcreteMetadataType mt)
+        else ToDotNetType (FromMetadataType ConcreteKind mt)
 
     let public GetFieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
@@ -398,5 +402,5 @@ module public Types =
         let fields = t.GetFields(flags) in
         let extractFieldInfo (field : FieldInfo) =
             let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name in
-            (fieldName, FromDotNetType field.FieldType)
+            (fieldName, Constructor.FromDotNetType ConcreteKind field.FieldType)
         fields |> Array.map extractFieldInfo |> Map.ofArray
