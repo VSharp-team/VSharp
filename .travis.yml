@@ -1,8 +1,9 @@
+sudo: required
 language: csharp
-solution: VSharp.sln
-install:
-  - nuget restore VSharp.sln
-  - nuget install NUnit.Runners -Version 2.6.4 -OutputDirectory testrunner
-script:
-  - xbuild /p:Configuration=Release VSharp.sln
-  - mono ./testrunner/NUnit.Runners.2.6.4/tools/nunit-console.exe ./VSharp.Test/bin/Release/VSharp.Test.dll
+services:
+  - docker
+
+before_install:
+- pwd
+- docker pull lahmatbiy/vsharp.netcore2
+- docker run -it -v $PWD:/mnt/VSharp:rw lahmatbiy/vsharp.netcore2 /bin/sh -c "cd /mnt/VSharp && dotnet restore --packages packages && dotnet build && dotnet test VSharp.Test/ --no-restore --no-build"
