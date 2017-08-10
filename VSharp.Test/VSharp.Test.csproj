@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration>Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
     <ProjectGuid>{A52177E6-B792-4866-A520-645173F1206A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>VSharp.Test</RootNamespace>
     <AssemblyName>VSharp.Test</AssemblyName>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   
   <ItemGroup>
-    <Reference Include="System" />
-    <PackageReference Include="NUnit" Version="2.6.4">
-        <IncludeAssets>nunit.framework</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="nunit" Version="3.7.0-*"/>
+    <PackageReference Include="NUnit3TestAdapter" Version="3.8.0-*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.0.0-*" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -37,7 +40,7 @@
   </ItemGroup>
   
   <PropertyGroup>
-    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">echo f | xcopy  "$(SolutionDir)\VSharp.CSharpUtils\bin\$(Configuration)\VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test\Tests\VSharp.CSharpUtils\VSharp.CSharpUtils.dll" /Y</PostBuildEvent>
-    <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">cp "$(SolutionDir)/VSharp.CSharpUtils/bin/$(Configuration)/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"</PostBuildEvent>
+    <PostBuildEvent>cp "$(SolutionDir)VSharp.CSharpUtils/bin/Release/netstandard2.0/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

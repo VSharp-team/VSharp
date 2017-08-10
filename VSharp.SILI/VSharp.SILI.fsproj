@@ -1,6 +1,12 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <Configuration>Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <ProjectGuid>6a6742b3-e86e-4fa5-afe1-361f38dce4c3</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>VSharp.SILI</RootNamespace>
@@ -26,46 +32,51 @@
     <Compile Include="Functions.fs" />
     <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
-    <Compile Include="Extern\System\SystemArray.fsi" />
-    <Compile Include="Extern\System\SystemArray.fs" />
-    <Compile Include="Extern\System\Math.fsi" />
-    <Compile Include="Extern\System\Math.fs" />
-    <Compile Include="Extern\System\Environment.fsi" />
-    <Compile Include="Extern\System\Environment.fs" />
+    <Compile Include="Extern/System/SystemArray.fsi" />
+    <Compile Include="Extern/System/SystemArray.fs" />
+    <Compile Include="Extern/System/Math.fsi" />
+    <Compile Include="Extern/System/Math.fs" />
+    <Compile Include="Extern/System/Environment.fsi" />
+    <Compile Include="Extern/System/Environment.fs" />
     <Compile Include="SVM.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.1.*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <PackageReference Include="JetBrains.Psi.Features.Core" Version="108.0.20170613.154830">
-        <IncludeAssets>JetBrains.Decompiler.Core</IncludeAssets>
+    <PackageReference Include="NewtonSoft.Json" Version="9.0.0-*" />
+    <PackageReference Include="JetBrains.Psi.Features.Core" Version="109.0.20170726.71947-eap10">
+      <IncludeAssets>JetBrains.Decompiler.Core;JetBrains.Platform.Metadata;JetBrains.Platform.Core</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="JetBrains.Platform.Core.Shell" Version="108.0.20170613.153820">
-        <IncludeAssets>JetBrains.Platform.Metadata</IncludeAssets>
+    <PackageReference Include="JetBrains.Platform.Core.Shell" Version="109.0.20170726.70743-eap10">
+      <IncludeAssets>JetBrains.Platform.Util</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="JetBrains.Platform.Core.Shell" Version="108.0.20170613.153820">
-        <IncludeAssets>JetBrains.Platform.Util</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="JetBrains.Annotations" Version="10.4.0"/>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <PackageReference Include="JetBrains.Annotations" Version="11.0.0" />
   </ItemGroup>
 
-
   <ItemGroup>
-    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
+    <ProjectReference Include="../VSharp.CSharpUtils/VSharp.CSharpUtils.csproj">
       <Name>VSharp.CSharpUtils</Name>
       <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
+    <ProjectReference Include="../VSharp.Utils/VSharp.Utils.fsproj">
       <Name>VSharp.Utils</Name>
       <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
 
-
+  <ItemGroup>
+    <Reference Include="JetBrains.Decompiler.Core">
+      <HintPath>../packages/jetbrains.psi.features.core/109.0.20170726.71947-eap10/DotFiles/JetBrains.Decompiler.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Platform.Metadata">
+      <HintPath>../packages/jetbrains.platform.core.shell/109.0.20170726.70743-eap10/DotFiles/JetBrains.Platform.Metadata.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Platform.Core">
+      <HintPath>../packages/jetbrains.platform.core.shell/109.0.20170726.70743-eap10/DotFiles/JetBrains.Platform.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Platform.Util">
+      <HintPath>../packages/jetbrains.platform.core.shell/109.0.20170726.70743-eap10/DotFiles/JetBrains.Platform.Util.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

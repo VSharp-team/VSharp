@@ -1,22 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration>Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
     <OutputType>Library</OutputType>
     <ProjectGuid>{783CA74C-2A2D-4866-9007-10B51F529423}</ProjectGuid>
-
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <AssemblyName>VSharp.CSharpUtils</AssemblyName>
     <RootNamespace>VSharp.CSharpUtils</RootNamespace>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <PackageReference Include="Microsoft.CSharp" Version="4.3.0"/>
+    <PackageReference Include="Microsoft.CSharp" Version="4.3.0" />
   </ItemGroup>
 
   <PropertyGroup>

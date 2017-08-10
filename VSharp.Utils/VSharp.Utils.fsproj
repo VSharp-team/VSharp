@@ -1,6 +1,12 @@
-﻿<Project Sdk="FSharp.NET.Sdk;Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard1.6</TargetFramework>
+    <Configuration>Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <ProjectGuid>6f686b61-8105-42f2-950e-bd6aec0887ca</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>VSharp.Utils</RootNamespace>
@@ -15,12 +21,5 @@
     <Compile Include="MappedStack.fs" />
     <Compile Include="PersistentHashMap.fs" />
     <Compile Include="Heap.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="4.1.*" />
-    <PackageReference Include="FSharp.NET.Sdk" Version="1.0.*" PrivateAssets="All" />
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
   </ItemGroup>
 </Project>

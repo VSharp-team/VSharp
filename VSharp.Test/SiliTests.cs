@@ -181,7 +181,7 @@ namespace VSharp.Test
             };
 
             var failReason = new StringBuilder();
-            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
+            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)
             {
