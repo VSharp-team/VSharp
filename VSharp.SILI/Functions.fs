@@ -14,7 +14,7 @@ module Functions =
     let public MakeLambda state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromMetadataMethodSignature metadataMethod in
         let term = Concrete(lambda, typ) in
-        Memory.allocateInHeap state term None
+        Memory.allocateInHeap state term
 
     let public MakeLambdaTerm (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromDecompiledSignature signature returnMetadataType in
@@ -23,7 +23,7 @@ module Functions =
     let public MakeLambda2 state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let term = MakeLambdaTerm signature returnMetadataType lambda in
         if Transformations.isInlinedSignatureCall signature
-            then Memory.allocateInHeap state term None
+            then Memory.allocateInHeap state term
             else term, state
 
     let (|Lambda|_|) = function

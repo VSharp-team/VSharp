@@ -45,8 +45,6 @@ namespace VSharp.Test
                     frameClass.DeclaringType,
                     frameClass.Name);
             }
-
-            Console.WriteLine("Exiting because Fail");
         }
     }
 
@@ -166,6 +164,7 @@ namespace VSharp.Test
 //                , "TryCatch"
 //                , "Lists"
 //                , "Typecast"
+                , "Tree"
                 , "IKeeper"
                 , "Bag"
                 , "Generic"
@@ -178,10 +177,11 @@ namespace VSharp.Test
                 , "IPromotion"
                 , "Employee"
                 , "Helper"
+                , "Array"
             };
 
             var failReason = new StringBuilder();
-            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
+            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
             foreach (string testDir in tests)
             {

@@ -1,43 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration>Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Optimize>true</Optimize>
+    <OutputPath>bin/Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
     <ProjectGuid>{A52177E6-B792-4866-A520-645173F1206A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>VSharp.Test</RootNamespace>
     <AssemblyName>VSharp.Test</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
+  
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="nunit.framework">
-      <HintPath>..\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
-    </Reference>
+    <PackageReference Include="nunit" Version="3.7.0-*"/>
+    <PackageReference Include="NUnit3TestAdapter" Version="3.8.0-*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.0.0-*" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
+
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="SiliTests.cs" />
     <Compile Include="UtilsTests.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
       <Project>{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}</Project>
@@ -48,9 +38,9 @@
       <Name>VSharp.Utils</Name>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  
   <PropertyGroup>
-    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">echo f | xcopy  "$(SolutionDir)\VSharp.CSharpUtils\bin\$(Configuration)\VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test\Tests\VSharp.CSharpUtils\VSharp.CSharpUtils.dll" /Y</PostBuildEvent>
-    <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">cp "$(SolutionDir)/VSharp.CSharpUtils/bin/$(Configuration)/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"</PostBuildEvent>
+    <PostBuildEvent>cp "$(SolutionDir)VSharp.CSharpUtils/bin/Release/netstandard2.0/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>
