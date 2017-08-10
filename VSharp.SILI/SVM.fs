@@ -8,34 +8,22 @@ module public SVM =
     let private reset () =
         IdGenerator.reset()
         State.activator <- new Activator()
+        Functions.UnboundedRecursionExplorer.interpreter <- new SymbolicInterpreter()
         Memory.reset()
 
     let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
         if m.IsAbstract then ()
         else
             reset()
-            let state = State.empty in
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
-            let declaringType = Types.FromDotNetType(m.DeclaringType) in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
-            Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
             match metadataMethodOption with
             | None ->
                 printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
             | Some metadataMethod ->
-                let this, state =
-                    match m with
-                    | _ when m.IsStatic -> (None, state)
-                    | _ ->
-                        let instance, state = Memory.allocateSymbolicInstance state declaringType in
-                        if Terms.IsHeapRef instance then (Some instance, state)
-                        else
-                            let key = ("external data", metadataMethod.Token.ToString()) in
-                            let state = Memory.newStackFrame state [(key, State.Specified instance, declaringType)] in
-                            (Some <| Memory.referenceLocalVariable state key true, state)
-                Interpreter.decompileAndReduceMethod state this State.Unspecified qualifiedTypeName metadataMethod assemblyPath (fun (result, state) ->
+                Functions.UnboundedRecursionExplorer.explore (MetadataMethodIdentifier metadataMethod) (fun (result, state) ->
                 System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
-                dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
+                dictionary.Add(m, (ControlFlow.resultToTerm result, state)))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList then

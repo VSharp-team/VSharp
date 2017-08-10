@@ -4,7 +4,6 @@ type StatementResult =
     | NoResult
     | Break
     | Continue
-    | Rollback of FunctionIdentifier
     | Return of Term
     | Throw of Term
     | Guarded of (Term * StatementResult) list
@@ -16,8 +15,6 @@ module internal ControlFlow =
         | _, _ when thenRes = elseRes -> thenRes
         | Return thenVal, Return elseVal -> Return (Merging.merge2Terms condition !!condition thenVal elseVal)
         | Throw thenVal, Throw elseVal -> Throw (Merging.merge2Terms condition !!condition thenVal elseVal)
-        | Rollback _, _ -> thenRes
-        | _, Rollback _ -> elseRes
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
                 |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
@@ -48,10 +45,6 @@ module internal ControlFlow =
     let internal currentCalculationPathCondition (statement : Option<JetBrains.Decompiler.Ast.IStatement>) statementResult =
          createImplicitPathCondition statement Terms.MakeFalse (Terms.MakeTrue, statementResult)
 
-    let internal isRollback = function
-        | Error(Concrete(:? FunctionIdentifier, Bottom)) -> true
-        | _ -> false
-
     let rec internal consumeContinue = function
         | Continue -> NoResult
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeContinue v)) |> Guarded
@@ -63,20 +56,17 @@ module internal ControlFlow =
         | r -> r
 
     let rec internal throwOrIgnore = function
-        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded
         | t -> NoResult
 
     let rec internal throwOrReturn = function
-        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> Throw t
         | Terms.GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded
         | Nop -> NoResult
         | t -> Return t
 
     let rec internal consumeErrorOrReturn consumer = function
-        | Error(Concrete(id, Bottom)) when (id :? FunctionIdentifier) -> Rollback (id :?> FunctionIdentifier)
         | Error t -> consumer t
         | Nop -> NoResult
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded
@@ -91,13 +81,11 @@ module internal ControlFlow =
             | NoResult -> newRes
             | _ -> oldRes
         match oldRes, newRes with
-        | NoResult, _
-        | _, Rollback _ ->
+        | NoResult, _ ->
             newRes, newState
         | Break, _
         | Continue, _
         | Throw _, _
-        | Rollback _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) Terms.MakeTrue gvs in
@@ -116,7 +104,6 @@ module internal ControlFlow =
         | Return term -> term
         | Throw err -> Error err
         | Guarded gvs -> Merging.guardedMap resultToTerm gvs
-        | Rollback id -> Error(Concrete(id, Bottom)) // A bit hacky encoding of rollback to avoid introducing of special Term constructor
         | _ -> Nop
 
     let internal pickOutExceptions result =

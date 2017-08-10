@@ -316,7 +316,7 @@ module internal Interpreter =
                 | HeapRef _ as r ->
                     let term, state = Memory.deref state r in
                     invoke state term k
-                | Functions.Lambda(lambda) -> lambda state args k
+                | Functions.Lambda(lambda) -> lambda state (State.Specified args) k
                 | Concrete(obj, _) ->
                     let message = Terms.MakeConcreteString "Cannot apply non-function type" in
                     let term, state = State.activator.CreateInstance typeof<InvalidCastException> [message] state in
@@ -339,26 +339,30 @@ module internal Interpreter =
         reduceExpressionToRef state true ast.Target (fun (targetTerm, state) ->
         let invoke state args k =
             let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
-            decompileAndReduceMethod state (Some targetTerm) (State.Specified args) qualifiedTypeName metadataMethod assemblyPath k
+            decompileAndReduceMethod state (Some targetTerm) args qualifiedTypeName metadataMethod assemblyPath k
         in
         let delegateTerm, state = Functions.MakeLambda state metadataMethod invoke in
         let returnDelegateTerm state k = k (Return delegateTerm, state) in
         npeOrInvokeExpression state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
-    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
+    and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) =
         let returnType = VSharp.Void in // TODO!!!
-        let invoke state args k =
-            reduceFunctionWithBlockBody state None (State.Specified args) returnType (DelegateIdentifier ast) ast.Signature ast.Body k
-        in Functions.MakeLambda2 state ast.Signature null invoke |> k
+        fun state args k ->
+            reduceFunctionWithBlockBody state None args returnType (DelegateIdentifier ast) ast.Signature ast.Body k
 
-    and reduceLambdaExpression state (ast : ILambdaExpression) k =
+    and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
+        Functions.MakeLambda2 state ast.Signature null (makeLambdaBlockInterpreter ast) |> k
+
+    and makeLambdaInterpreter (ast : ILambdaExpression) =
         let returnType = VSharp.Void in // TODO!!!
         let invokeBody state k =
             reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
         in
-        let invoke state args k =
-            reduceFunction state None (State.Specified args) returnType (DelegateIdentifier ast) ast.Signature invokeBody k
-        in Functions.MakeLambda2 state ast.Signature null invoke |> k
+        fun state args k ->
+            reduceFunction state None args returnType (DelegateIdentifier ast) ast.Signature invokeBody k
+
+    and reduceLambdaExpression state (ast : ILambdaExpression) k =
+        Functions.MakeLambda2 state ast.Signature null (makeLambdaInterpreter ast) |> k
 
     and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
         __notImplemented__()
@@ -1078,7 +1082,7 @@ module internal Interpreter =
             composeSequentially (fun () -> None) r (fun state k ->
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
-                else if collectionInitializerList <> null then
+                elif collectionInitializerList <> null then
                     reduceCollectionInitializerList constructedType reference state collectionInitializerList k
                 else k (NoResult, state)
             ) finish
@@ -1261,7 +1265,7 @@ module internal Interpreter =
 
 
 type Activator() =
-    interface State.ActivatorInterface with
+    interface State.IActivator with
         member this.CreateInstance exceptionType arguments state =
             let assemblyQualifiedName = exceptionType.AssemblyQualifiedName in
             let assemblyLocation = exceptionType.Assembly.Location in
@@ -1283,3 +1287,20 @@ type Activator() =
             let ctor = List.head ctorMethods in
             let methodSpecification = new MethodSpecification(ctor, Array.map (fun (p : IMetadataParameter) -> p.Type) ctor.Parameters)
             Interpreter.reduceObjectCreation state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
+
+type SymbolicInterpreter() =
+    interface Functions.UnboundedRecursionExplorer.IInterpreter with
+        member x.InitializeStaticMembers state qualifiedTypeName k =
+            // TODO: static members initialization should return statement result (for example exceptions)
+            Interpreter.initializeStaticMembersIfNeed state qualifiedTypeName (withFst NoResult >> k)
+
+        member x.Invoke funcId state this k =
+            match funcId with
+            | MetadataMethodIdentifier mm ->
+                Interpreter.decompileAndReduceMethod state this State.Unspecified mm.DeclaringType.AssemblyQualifiedName mm mm.Assembly.Location k
+            | DelegateIdentifier ast ->
+                match ast with
+                | :? ILambdaBlockExpression as lbe -> Interpreter.makeLambdaBlockInterpreter lbe state State.Unspecified k
+                | :? ILambdaExpression as le -> Interpreter.makeLambdaInterpreter le state State.Unspecified k
+                | _ -> __notImplemented__()
+            | StandardFunctionIdentifier _ -> __notImplemented__()

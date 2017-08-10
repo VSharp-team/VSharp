@@ -231,19 +231,18 @@ module public Terms =
     let public MakeConcrete value (t : System.Type) =
         let actualType = if (value :> obj) = null then t else value.GetType() in
         try
-            if actualType = t then Concrete(value, Types.FromDotNetType t)
+            if actualType = t then
+                Concrete(value, Types.FromDotNetType t)
+            elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
+                let casted =
+                    if t.IsPointer
+                    then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
+                    else Convert.ChangeType(value, t) in
+                Concrete(casted, Types.FromDotNetType t)
+            elif t.IsAssignableFrom(actualType) then
+                Concrete(value, Types.FromDotNetType t)
             else
-                if typedefof<IConvertible>.IsAssignableFrom(actualType)
-                then
-                    let casted =
-                        if t.IsPointer
-                        then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
-                        else Convert.ChangeType(value, t) in
-                    Concrete(casted, Types.FromDotNetType t)
-                else
-                    if t.IsAssignableFrom(actualType)
-                    then Concrete(value, Types.FromDotNetType t)
-                    else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
+                raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | e ->
             // TODO: this is for debug, remove it when becomes relevant!

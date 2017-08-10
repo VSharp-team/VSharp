@@ -1,6 +1,4 @@
-﻿using System.Runtime.Remoting.Messaging;
-
-namespace VSharp.CSharpUtils.Tests
+﻿namespace VSharp.CSharpUtils.Tests
 {
     internal class ClassesSimpleA
     {
