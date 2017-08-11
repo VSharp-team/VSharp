@@ -1,6 +1,7 @@
 ﻿namespace VSharp
 
 open VSharp.State
+open Types.Constructor
 
 module internal Memory =
 
@@ -28,13 +29,13 @@ module internal Memory =
         defaultOf (tick()) typ
 
     let internal mkDefaultStatic qualifiedTypeName =
-        let t = System.Type.GetType >> Types.Constructor.FromDotNetType Types.ConcreteKind <| qualifiedTypeName in
+        let t = qualifiedTypeName |> System.Type.GetType |> FromConcreteDotNetType  in
         let time = tick() in
         let fields = DecompilerServices.getDefaultFieldValuesOf true qualifiedTypeName in
         fields, t, fields
                     |> List.map (fun (n, (t, _)) ->
                                     let key = Terms.MakeConcreteString n in
-                                    let value = mkDefault (Types.FromMetadataType Types.ConcreteKind t) in
+                                    let value = mkDefault (FromConcreteMetadataType t) in
                                     (key, (value, time, time)))
                     |> Heap.ofSeq
                     |> withSnd t
@@ -151,7 +152,7 @@ module internal Memory =
             makeSymbolicInstance time (LazyInstantiation fullyQualifiedLocation) id typ
 
     let private staticMemoryLazyInstantiator t location () =
-        Struct(Heap.empty, Types.Constructor.FromDotNetType Types.ConcreteKind t)
+        Struct(Heap.empty, FromConcreteDotNetType t)
 
     let rec private accessTerm guard update created modified ptrTime ctx path term =
         match path with
@@ -205,7 +206,7 @@ module internal Memory =
             in
             let addr = Terms.MakeConcreteString location in
             let dnt = System.Type.GetType(location) in
-            let t = Types.Constructor.FromDotNetType Types.ConcreteKind dnt in
+            let t = FromConcreteDotNetType dnt in
             let result, m', _ = accessHeap Terms.MakeTrue update (staticsOf state) zeroTime firstLocation (staticMemoryLazyInstantiator dnt location) addr t infiniteTime path in
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time) ->

@@ -27,3 +27,5 @@ module public Prelude =
     let public (|SeqNode|SeqEmpty|) s =
             if Seq.isEmpty s then SeqEmpty
             else SeqNode ((Seq.head s), Seq.tail s)
+    
+    let public (|?) lhs rhs = (if lhs = null then rhs else lhs)

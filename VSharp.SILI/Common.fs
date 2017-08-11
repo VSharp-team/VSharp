@@ -44,7 +44,6 @@ module internal Common =
                 makeBoolConst name termType ==> b
             | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
-            | VSharp.Null -> Terms.MakeFalse
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse
             | _ -> __notImplemented__()
@@ -54,21 +53,21 @@ module internal Common =
             function
             | Types.ReferenceType(t, _, _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
             | Types.StructureType(t, _, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<System.ValueType>)
-            | SubType(t, _, _, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, _, _, _) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
             | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
-            | VSharp.Null -> Terms.MakeFalse
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
+        | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
         | PointerType left, PointerType right -> Terms.MakeTrue
         | Func _, Func _ -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue
         | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is t1 t2 else Terms.MakeFalse
-        | leftType, Types.StructureType(t, _, _) when leftType <> Null -> concreteIs t leftType
+        | leftType, Types.StructureType(t, _, _)
         | leftType, Types.ReferenceType(t, _, _) -> concreteIs t leftType
         | leftType, SubType(t, _, _, name) -> subTypeIs (t, name) leftType
         | _ -> Terms.MakeFalse

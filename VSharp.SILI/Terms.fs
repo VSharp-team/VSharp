@@ -3,6 +3,7 @@
 open JetBrains.Decompiler.Ast
 open global.System
 open System.Collections.Generic
+open Types.Constructor
 
 [<StructuralEquality;NoComparison>]
 type FunctionIdentifier =
@@ -227,12 +228,12 @@ module public Terms =
     let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public FreshConstant name source t =
-        Constant(name, source, Types.Constructor.FromDotNetType Types.ConcreteKind t)
+        Constant(name, source, FromConcreteDotNetType t)
 
     let public MakeConcrete value (t : System.Type) =
         let actualType = if (value :> obj) = null then t else value.GetType() in
         try
-            if actualType = t then Concrete(value, Types.Constructor.FromDotNetType Types.ConcreteKind t)
+            if actualType = t then Concrete(value, FromConcreteDotNetType t)
             else
                 if typedefof<IConvertible>.IsAssignableFrom(actualType)
                 then
@@ -240,16 +241,16 @@ module public Terms =
                         if t.IsPointer
                         then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) :> obj
                         else Convert.ChangeType(value, t) in
-                    Concrete(casted, Types.Constructor.FromDotNetType Types.ConcreteKind t)
+                    Concrete(casted, FromConcreteDotNetType t)
                 else
                     if t.IsAssignableFrom(actualType)
-                    then Concrete(value, Types.Constructor.FromDotNetType Types.ConcreteKind t)
+                    then Concrete(value, FromConcreteDotNetType t)
                     else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | e ->
             // TODO: this is for debug, remove it when becomes relevant!
             raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-            Error(Concrete(e :> obj, Types.Constructor.FromDotNetType Types.ConcreteKind (e.GetType())))
+            Error(Concrete(e :> obj, FromConcreteDotNetType (e.GetType())))
 
     let public MakeTrue =
         Concrete(true :> obj, Bool)

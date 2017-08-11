@@ -1625,7 +1625,8 @@ HEAP:
 6 ==> [|  ... 4 x 1 ... |]
 7 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
 System.Array ==> STRUCT System.Array[
-	]
+	| System.Array.MaxArrayLength ~> 2146435071
+	| System.Array.MaxByteArrayLength ~> 2147483591]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
@@ -1713,8 +1714,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1722,8 +1727,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.NullReferenceException[
@@ -1731,8 +1738,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1740,8 +1751,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 5 ==> STRUCT System.Object[
 	]
 6 ==> UNION[
@@ -1750,8 +1763,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1759,26 +1776,24 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]]
 array ==> int32[,,]: [|  (|int32[,,]|1 x |int32[,,]|1) |]
 System.Array ==> STRUCT System.Array[
-	]
-System.Exception ==> UNION[
-	| !(0 == array) ~> STRUCT System.Exception[
+	| System.Array.MaxArrayLength ~> 2146435071
+	| System.Array.MaxByteArrayLength ~> 2147483591]
+System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 5)]
-	| 0 == array ~> STRUCT System.Exception[
-	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]]
+	| System.Exception.s_EDILock ~> UNION[
+		| !(0 == array) ~> (HeapRef 5)
+		| 0 == array ~> (HeapRef 3)]]
 System.IndexOutOfRangeException ==> UNION[
 	| !(0 == array) ~> STRUCT System.IndexOutOfRangeException[
 	]]
-System.NullReferenceException ==> UNION[
-	| !(0 == array) ~> STRUCT System.NullReferenceException[
+System.NullReferenceException ==> STRUCT System.NullReferenceException[
 	]
-	| 0 == array ~> STRUCT System.NullReferenceException[
-	]]
 System.Object ==> STRUCT System.Object[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
@@ -1800,8 +1815,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1809,8 +1828,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.NullReferenceException[
@@ -1818,8 +1839,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1827,8 +1852,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 5 ==> STRUCT System.Object[
 	]
 6 ==> UNION[
@@ -1837,8 +1864,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1846,26 +1877,24 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]]
 array ==> int32[,,]: [|  (|int32[,,]|1 x |int32[,,]|1) |]
 System.Array ==> STRUCT System.Array[
-	]
-System.Exception ==> UNION[
-	| !(0 == array) ~> STRUCT System.Exception[
+	| System.Array.MaxArrayLength ~> 2146435071
+	| System.Array.MaxByteArrayLength ~> 2147483591]
+System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 5)]
-	| 0 == array ~> STRUCT System.Exception[
-	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]]
+	| System.Exception.s_EDILock ~> UNION[
+		| !(0 == array) ~> (HeapRef 5)
+		| 0 == array ~> (HeapRef 3)]]
 System.IndexOutOfRangeException ==> UNION[
 	| !(0 == array) ~> STRUCT System.IndexOutOfRangeException[
 	]]
-System.NullReferenceException ==> UNION[
-	| !(0 == array) ~> STRUCT System.NullReferenceException[
+System.NullReferenceException ==> STRUCT System.NullReferenceException[
 	]
-	| 0 == array ~> STRUCT System.NullReferenceException[
-	]]
 System.Object ==> STRUCT System.Object[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
@@ -1902,8 +1931,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1911,8 +1944,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 obj ==> STRUCT <Subtype of System.Object>[
@@ -1936,8 +1971,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1945,8 +1984,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.NullReferenceException[
@@ -1954,8 +1995,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1963,15 +2008,21 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 4 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1979,15 +2030,21 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 5 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1995,8 +2052,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 obj1 ==> STRUCT <Subtype of System.Object>[
 	]
 obj2 ==> STRUCT <Subtype of System.Object>[
@@ -2032,8 +2091,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2041,8 +2104,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 piece ==> STRUCT <Subtype of VSharp.CSharpUtils.Tests.Piece>[
@@ -2066,8 +2131,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2075,8 +2144,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 obj ==> STRUCT <Subtype of System.Object>[
@@ -2100,8 +2171,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2109,8 +2184,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 obj ==> STRUCT <Subtype of System.Object>[
@@ -2134,8 +2211,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2143,8 +2224,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.InvalidCastException[
@@ -2152,8 +2235,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2161,16 +2248,22 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 4 ==> UNION[
 	| !(0 == piece) ~> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2178,8 +2271,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]]
 piece ==> STRUCT <Subtype of VSharp.CSharpUtils.Tests.Piece>[
 	]
 System.Exception ==> STRUCT System.Exception[
@@ -2214,8 +2309,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2223,8 +2322,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.InvalidCastException[
@@ -2232,8 +2333,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2241,8 +2346,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 obj ==> STRUCT <Subtype of System.Object>[
 	]
 System.Exception ==> STRUCT System.Exception[
@@ -2367,8 +2474,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2376,8 +2487,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.InvalidCastException[
@@ -2385,8 +2498,12 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2394,16 +2511,22 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 5 ==> UNION[
 	| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) ~> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2411,16 +2534,22 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]]
 6 ==> UNION[
 	| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) ~> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> null
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2428,8 +2557,10 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception.captured_traces ~> null
-	| System.Exception.native_trace_ips ~> null]]
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> 0
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]]
 obj ==> UNION[
 	| !(0 == obj) & (!(1 == obj) | !VSharp.CSharpUtils.Tests.Piece & System.Object1) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) ~> STRUCT <Subtype of System.Object>[
 	| VSharp.CSharpUtils.Tests.Piece.Rate ~> VSharp.CSharpUtils.Tests.Piece.Rate]
