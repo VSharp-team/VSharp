@@ -61,7 +61,7 @@
     <Compile Include="State.fs" />
     <Compile Include="Propositional.fs" />
     <Compile Include="Merging.fs" />
-    <Compile Include="Simplify.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
     <Compile Include="Array.fs" />
@@ -80,7 +80,7 @@
     <Compile Include="SVM.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core">
+    <Reference Include="FSharp.Core, Version=4.4.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="JetBrains.Decompiler.Core">

@@ -16,12 +16,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> Argument should not be zero!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -29,10 +25,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -45,12 +39,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> Hmm.. negative numbers are also not allowed!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -58,10 +48,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
@@ -72,12 +60,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> Not odd!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -85,10 +69,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
@@ -99,9 +81,6 @@ System.ArgumentException ==> STRUCT System.ArgumentException[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 3)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.InvalidOperationException ==> STRUCT System.InvalidOperationException[
 	]
 System.Object ==> STRUCT System.Object[
@@ -109,11 +88,6 @@ System.Object ==> STRUCT System.Object[
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
@@ -127,23 +101,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Attempted to divide by zero.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -156,23 +124,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Attempted to divide by zero.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
@@ -183,39 +145,21 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
 	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
-	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
+
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod2(System.Int32, System.Int32)
 RESULT: 0
 HEAP:
@@ -236,23 +180,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Attempted to divide by zero.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -265,36 +203,17 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -321,23 +240,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Arithmetic operation resulted in an overflow.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -348,26 +261,12 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.OverflowException ==> STRUCT System.OverflowException[
@@ -375,11 +274,6 @@ System.OverflowException ==> STRUCT System.OverflowException[
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -391,23 +285,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Arithmetic operation resulted in an overflow.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -418,26 +306,12 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.OverflowException ==> STRUCT System.OverflowException[
@@ -445,11 +319,6 @@ System.OverflowException ==> STRUCT System.OverflowException[
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -466,23 +335,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Attempted to divide by zero.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -498,41 +361,121 @@ System.Byte ==> STRUCT byte[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
 	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
-	]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
+
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckOrder(System.Int32)
 RESULT: checked(2000000000 + x1 + 2000000000)
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftLeftOnZero(System.Int32)
+RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ZeroShift(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.DefaultShift(System.Int32, System.Int32)
+RESULT: a << b
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.SumShifts(System.Int64)
+RESULT: a << 32
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSum(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
+RESULT: (int32)a << 19
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
+RESULT: (int32)a << 16
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftMultiplication(System.Int16)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision1(System.Byte)
+RESULT: ((int32)a >> 20) / 1024
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision2(System.Int32)
+RESULT: a / 512 >> 12
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.UInt32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision3(System.UInt32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.UInt64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision4(System.UInt64)
+RESULT: a >> 41
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts1(System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts2(System.Int64)
+RESULT: a << 34
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ConcreteShift()
+RESULT: -2147483648
+HEAP:
+System.Int32 ==> STRUCT int32[
+	| System.Int32.MaxValue ~> 2147483647
+	| System.Int32.MinValue ~> -2147483648]
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts1(System.Int32, System.Int32)
+RESULT: 0
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts2(System.Int32, System.Int32)
+RESULT: a * c << 29
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftWithDivAndMul(System.Int32)
+RESULT: (a << 6) / 4
+HEAP:
+VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
+	]
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.DoubleShiftRight(System.Int32)
+RESULT: (int64)(a >> 15 >> 18)
 HEAP:
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
@@ -1513,10 +1456,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> 1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> 1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1529,10 +1469,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> -1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> -1 + VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1545,10 +1482,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> VSharp.CSharpUtils.Tests.ClassesSimpleA._intField]
+			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1558,11 +1492,6 @@ VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleB.GetN()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._n
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
@@ -1570,77 +1499,35 @@ VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleB.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-		| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M2()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M2(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> value
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleC.get_M1()
 RESULT: VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.set_M1(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> value
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._m2
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> VSharp.CSharpUtils.Tests.ClassesSimpleC._n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleC.SetN(System.Int32)
 RESULT: <VOID>
 HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> 42
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> 102
-	| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
 RESULT: True
-HEAP:
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-		| VSharp.CSharpUtils.Tests.ClassesSimpleB._c ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC.<M1>k__BackingField ~> 42
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._m2 ~> 102
-			| VSharp.CSharpUtils.Tests.ClassesSimpleC._n ~> n]]
-	| VSharp.CSharpUtils.Tests.ClassesSimpleA._intField ~> 100500]
-VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
-	]
-VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
-	]
-VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
-	]
-VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
-	]
-GOT:      True
 HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleA._b ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
@@ -1659,7 +1546,7 @@ VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
 	]
-METHOD: System.Collections.Generic.List`1[System.String] VSharp.CSharpUtils.Tests.ClassesSimple.Test2()
+METHOD: System.Collections.Generic.List`1[System.String] VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy.Test1()
 RESULT: (HeapRef 2)
 HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2[
@@ -1691,7 +1578,7 @@ VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2 ==> STRUCT VSharp.CSharpUtils.
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.staticFieldA2 ~> 2]
 VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator.entries ~> (HeapRef 2)]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimple.Test3()
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy.Test2()
 RESULT: 15
 HEAP:
 1 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -1795,12 +1682,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> Hey! Gimme number!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -1808,10 +1691,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -1824,19 +1705,11 @@ System.ArgumentException ==> STRUCT System.ArgumentException[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
@@ -1855,12 +1728,73 @@ HEAP:
 5 ==> [|  ... 4 x 1 ... |]
 6 ==> [| 0: 5; 1: 6; 2: 7; 3: 8 ... 4 ... |]
 System.Array ==> STRUCT System.Array[
-	| System.Array.MaxArrayLength ~> 2146435071
-	| System.Array.MaxByteArrayLength ~> 2147483591]
+	]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[
+	]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.Mutate(System.Int32)
+RESULT: UNION[
+	| !(i < 0) & i < 5 ~> (HeapRef 2)
+	| !(i < 5) | i < 0 ~> <ERROR: (HeapRef 3)>]
+HEAP:
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
+	]
+2 ==> UNION[
+	| !(i < 0) & i < 5 ~> [| 0: UNION[
+	| !(0 == i) ~> 1
+	| 0 == i ~> 10]; 1: UNION[
+	| !(1 == i) ~> 2
+	| 1 == i ~> 10]; 2: UNION[
+	| !(2 == i) ~> 3
+	| 2 == i ~> 10]; 3: UNION[
+	| !(3 == i) ~> 4
+	| 3 == i ~> 10]; 4: UNION[
+	| !(4 == i) ~> 5
+	| 4 == i ~> 10]; i: UNION[
+	| !(0 == i) & !(1 == i) & !(2 == i) & !(3 == i) & !(4 == i) ~> 10
+	| 0 == i | 1 == i | 2 == i | 3 == i | 4 == i ~> 0] ... 5 ... |]
+	| !(i < 5) | i < 0 ~> [| 0: 1; 1: 2; 2: 3; 3: 4; 4: 5 ... 5 ... |]]
+3 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> Index was outside the bounds of the array.
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+4 ==> STRUCT System.Object[
+	]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
+System.SystemException ==> STRUCT System.SystemException[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
@@ -1884,23 +1818,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Index was outside the bounds of the array.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -1909,41 +1837,21 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 System.Array ==> STRUCT System.Array[
-	| System.Array.MaxArrayLength ~> 2146435071
-	| System.Array.MaxByteArrayLength ~> 2147483591]
+	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
 	]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
@@ -1959,23 +1867,17 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> Index was outside the bounds of the array.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 3 ==> STRUCT System.Object[
 	]
 4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -1984,41 +1886,21 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 System.Array ==> STRUCT System.Array[
-	| System.Array.MaxArrayLength ~> 2146435071
-	| System.Array.MaxByteArrayLength ~> 2147483591]
+	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
+	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.nl ~> null
+	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
 	]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
 	]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
@@ -2128,12 +2010,8 @@ HEAP:
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
 	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
 	| System.Exception._message ~> Internal error: casting <System.Object1 object> to <Subtype of VSharp.CSharpUtils.Tests.Pawn>!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
@@ -2141,10 +2019,8 @@ HEAP:
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
 2 ==> STRUCT System.Object[
 	]
 3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -2155,9 +2031,6 @@ HEAP:
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 2)]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
 System.InvalidCastException ==> STRUCT System.InvalidCastException[
 	]
 System.Object ==> STRUCT System.Object[
@@ -2165,11 +2038,6 @@ System.Object ==> STRUCT System.Object[
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
 System.SystemException ==> STRUCT System.SystemException[
-	]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]

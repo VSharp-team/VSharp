@@ -15,7 +15,7 @@ type FunctionIdentifier =
         | DelegateIdentifier _ -> "<delegate>"
         | StandardFunctionIdentifier sf -> sf.ToString()
 
-type StackKey = string * string // Name and token
+type StackKey = string * string  // Name and token
 type LocationBinding = JetBrains.Decompiler.Ast.INode
 
 [<StructuralEquality;NoComparison>]
@@ -42,9 +42,9 @@ type public Term =
                 * TermType              // Type
     | Expression of (Operation * Term list * TermType)
     | Struct of SymbolicHeap * TermType
-    | StackRef of StackKey * Term list * TermType
-    | HeapRef of Term NonEmptyList * TermType
-    | StaticRef of string * Term list * TermType
+    | StackRef of StackKey * (Term * TermType) list
+    | HeapRef of (Term * TermType) NonEmptyList * Timestamp
+    | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
     override this.ToString() =
@@ -95,9 +95,9 @@ type public Term =
                 sprintf "[| %s ... %s ... |]" (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
                 sprintf "%O: [| %s (%s) |]" constant (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
-            | StackRef(key, path, _) -> sprintf "(StackRef (%O, %O))" key path
-            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (toStr -1 false indent) |> join ".")
-            | StaticRef(key, path, _) -> sprintf "(StaticRef (%O, %O))" key path
+            | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
+            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStr -1 false indent) |> join ".")
+            | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) = sprintf "| %s ~> %s" (toStr -1 false indent guard) (toStr -1 false indent term)
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
@@ -121,7 +121,7 @@ and SymbolicConstantSource =
     | ArrayAccess of Term * Term
     | FieldAccess of string * SymbolicConstantSource
     | UnboundedRecursion of TermRef
-    | Symbolization of Term
+    | LazyInstantiation of Term
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
     | SymbolicConstantType of TermType
 
@@ -199,9 +199,9 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | StackRef(_, _, t) -> t
-        | HeapRef(_, t) -> t
-        | StaticRef(_, _, t) -> t
+        | StackRef _
+        | HeapRef _
+        | StaticRef _ -> PointerType
         | Array(_, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
@@ -348,6 +348,14 @@ module public Terms =
         | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
         | _ -> None
 
+    let (|ShiftLeft|_|) = function
+        | Expression(Operator(OperationType.ShiftLeft, isChecked), [x;y], t) -> Some(ShiftLeft(x, y, isChecked, t))
+        | _ -> None
+
+    let (|ShiftRight|_|) = function
+        | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
+        | _ -> None
+
     let rec private addConstants mapper (visited : HashSet<Term>) acc = function
         | Constant(name, source, t) as term when visited.Add(term) ->
             let acc =
@@ -356,7 +364,7 @@ module public Terms =
                 | ArrayAccess(arr, idx) -> addConstants mapper visited (addConstants mapper visited acc arr) idx
                 | FieldAccess(_, src) -> addConstants mapper visited acc (Constant(name, src, t))
                 | UnboundedRecursion (TermRef app) -> addConstants mapper visited acc !app
-                | Symbolization loc -> addConstants mapper visited acc loc
+                | LazyInstantiation loc -> addConstants mapper visited acc loc
                 | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
                 | SymbolicConstantType _ -> acc
             in
@@ -376,7 +384,7 @@ module public Terms =
         | Struct(fields, _) ->
             addConstantsMany mapper visited (Heap.values fields) acc
         | HeapRef(path, _) ->
-            addConstantsMany mapper visited (NonEmptyList.toList path) acc
+            addConstantsMany mapper visited (NonEmptyList.toList path |> Seq.map fst) acc
         | GuardedValues(gs, vs) ->
             addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs
         | Error e ->

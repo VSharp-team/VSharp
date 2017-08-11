@@ -61,7 +61,7 @@ module SystemArray =
             | Error _ as e -> e
             | Array(_, _, _, _, ArrayType(_, rank)) -> Concrete(rank, Numeric typedefof<int>)
             | Union gvs -> Merging.guardedMap getRank gvs
-            | term -> internalfail (sprintf "expected array, but %O got!" term)
+            | term -> internalfailf "expected array, but %O got!" term
         in (Return (getRank array), state)
 
     let get_Rank state args =

@@ -27,7 +27,7 @@ module internal Merging =
                 | Struct(fs, _) -> fs
                 | t -> "Expected struct, got " + (toString t) |> internalfail
             let fss = vs |> List.map extractFields in
-            let merged = Heap.merge gs fss merge in
+            let merged = Heap.merge gs fss mergeCells in
             let guard = disjunction gs in
             [(guard, Struct(merged, t))]
 
@@ -90,17 +90,37 @@ module internal Merging =
         | [(g, v)] when Terms.IsBool v -> g &&& v
         | gvs' -> Union gvs'
 
+    and internal mergeCells gcs =
+        let foldCell (acc1, acc2, acc3) (g, (v, c, m)) = ((g, v)::acc1, min acc2 c, max acc3 m) in
+        let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue) in
+        (merge gvs, c, m)
+
     let internal merge2Terms g h u v =
         let g = guardOf u &&& g in
         let h = guardOf v &&& h in
-        match g, h, u, v with
-        | _, _, _, _ when u = v -> u
-        | True, _, _, _ -> u
-        | False, _, _, _ -> v
-        | _, True, _, _ -> v
-        | _, False, _, _ -> u
-        | Error _, _, _, _ -> g
+        match g, h with
+        | _, _ when u = v -> u
+        | True, _
+        | _, False
+        | False, _
+        | _, True -> v
+        | Error _, _ -> g
+        | _, Error _ -> h
         | _ -> merge [(g, u); (h, v)]
+
+    let internal merge2Cells g h ((u, cu, mu) as ucell : MemoryCell<Term>) ((v, cv, mv) as vcell : MemoryCell<Term>) =
+        assert(cu = cv)
+        let g = guardOf u &&& g in
+        let h = guardOf v &&& h in
+        match g, h with
+        | _, _ when u = v -> (u, cu, min mu mv)
+        | True, _
+        | _, False -> ucell
+        | False, _
+        | _, True -> vcell
+        | Error _, _ -> (g, cu, mu)
+        | _, Error _ -> (h, cv, mv)
+        | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     let internal merge2States condition1 condition2 state1 state2 =
         match condition1, condition2 with
@@ -108,10 +128,10 @@ module internal Merging =
         | False, _ -> state2
         | _, True -> state2
         | _, False -> state1
-        | _ -> State.merge state1 state2 (merge2Terms condition1 condition2)
+        | _ -> State.merge2 state1 state2 (merge2Cells condition1 condition2)
 
     let internal mergeStates conditions states =
-        State.mergeMany conditions states merge
+        State.merge conditions states mergeCells
 
     let internal guardedMap mapper gvs =
         let gs, vs = List.unzip gvs in

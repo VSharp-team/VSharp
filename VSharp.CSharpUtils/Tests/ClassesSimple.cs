@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Runtime.Remoting.Messaging;
 
 namespace VSharp.CSharpUtils.Tests
 {
@@ -180,14 +178,17 @@ namespace VSharp.CSharpUtils.Tests
             a.DecN();
             return n == a.GetN();
         }
+    }
 
-        public static List<string> Test2()
+    public static class ClassesSimpleHierarchy
+    {
+        public static List<string> Test1()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123, 42);
             return ClassesSimpleRegistrator.entries;
         }
 
-        public static int Test3()
+        public static int Test2()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
             return a.GetNum2();
