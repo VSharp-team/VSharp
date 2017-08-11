@@ -1723,7 +1723,7 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[
 	]
-VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.staticFieldA ~> 2]
@@ -1755,7 +1755,7 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[
 	]
-VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.staticFieldA ~> 2]
@@ -1938,25 +1938,57 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> null
+	| System.Exception._message ~> Getting resource strings currently not supported!
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> 0
+	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
+		| System.IntPtr.m_value ~> 0]]
 4 ==> STRUCT System.Object[
 	]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> 32767
+	| System.Environment.MaxMachineNameLength ~> 256
+	| System.Environment.MaxSystemEnvVariableLength ~> 1024
+	| System.Environment.MaxUserEnvVariableLength ~> 255
+	| System.Environment.isUserNonInteractive ~> False
+	| System.Environment.m_os ~> null
+	| System.Environment.m_resHelper ~> null
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> False
+	| System.Environment.s_CheckedWinRT ~> False
+	| System.Environment.s_InternalSyncObject ~> null
+	| System.Environment.s_IsWindows8OrAbove ~> False
+	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[
 	]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> CLR_SafeSerializationManager_RealType]
+System.SystemException ==> STRUCT System.SystemException[
+	]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[
 	]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]

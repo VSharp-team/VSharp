@@ -2,9 +2,10 @@
 
 [<AutoOpen>]
 module public Prelude =
-    let public __notImplemented__() = raise (new System.NotImplementedException())
     let public internalfail message = "Internal error: " + message |> failwith
     let public internalfailf format = Printf.ksprintf internalfail format
+    let public __notImplemented__() = raise (new System.NotImplementedException())
+    let public __unreachable__() = internalfail "unreachable branch hit!"
 
     let public toString x = x.ToString()
     let public apply f x = f x

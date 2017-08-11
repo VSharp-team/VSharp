@@ -1568,7 +1568,7 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[
 	]
-VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.staticFieldA ~> 2]
@@ -1600,7 +1600,7 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[
 	]
-VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
+VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.staticFieldA ~> 2]

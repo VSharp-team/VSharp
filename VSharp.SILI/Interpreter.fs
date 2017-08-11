@@ -51,9 +51,12 @@ module internal Interpreter =
                     match decompiledMethod with
                     | DecompilerServices.DecompilationResult.DecompilationError ->
                         failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
-                    | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
+                    | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.ObjectConstuctor decompiledMethod ->
                         dict.Add(key, decompiledMethod)
-                    | _ -> internalfail "unexpected behaviour: got external ctor"))
+                    | _ -> __unreachable__()))
         dict
 
     let rec internalCall metadataMethod argsAndThis ((s, h, m, f, p) as state : State.state) k =
@@ -353,10 +356,9 @@ module internal Interpreter =
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let returnType = VSharp.Void in // TODO!!!
         let delegateInvoke state args k =
-            let functionInnvoke state k = reduceBlockStatement state ast.Body k in
-            reduceFunction state None (State.Specified args) returnType (DelegateIdentifier ast) ast.Signature functionInnvoke k
+            let invoke state k = reduceBlockStatement state ast.Body k in
+            reduceFunction state None (State.Specified args) returnType (DelegateIdentifier ast) ast.Signature invoke k
         Functions.MakeLambda2 state ast.Signature null delegateInvoke |> k
-
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         let returnType = VSharp.Void in // TODO!!!
@@ -1050,14 +1052,14 @@ module internal Interpreter =
 
     and reduceBaseOrThisConstuctorCall state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMehod k =
         let rec mutateFields this names types values state =
-            match names, types ,values with
+            match names, types, values with
             | [], [], [] -> this, state
             | name::names, typ::types, value::values ->
                 if value = Nop then mutateFields this names types values state
                 else
-                let reference, state = Memory.referenceField state false name (Types.FromConcreteMetadataType typ) this
-                let _, state = Memory.mutate state reference value in
-                mutateFields this names types values state
+                    let reference, state = Memory.referenceField state false name (Types.FromConcreteMetadataType typ) this
+                    let _, state = Memory.mutate state reference value in
+                    mutateFields this names types values state
             | _ -> internalfail "unexpected numbers of initializer"
         in
         let initializeFieldsIfNeed state firstClassTypeInfo secondClassTypeInfo qualifiedTypeName k =
@@ -1069,7 +1071,7 @@ module internal Interpreter =
                 match this with
                 | Some this ->
                     Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
-                        mutateFields this names types initializers state |> (snd >> k))
+                        mutateFields this names types initializers state |> snd |> k)
                 | _ -> k state
             else k state
         in
@@ -1097,7 +1099,7 @@ module internal Interpreter =
             initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun state ->
             decompileAndReduceMethod state this (State.Specified []) initializerQualifiedTypeName initializerMethod initializerAssemblyPath k'))) k
         | DecompilerServices.DecompilationResult.DefaultConstuctor ->
-            printfn "DECOMPILED DEFAULT CTOR %s" qualifiedTypeName
+            printfn "DECOMPILED default ctor %s" qualifiedTypeName
             let baseCtorQualifiedTypeName, baseCtorMethod, baseCtorAssemblyPath = baseCtorInfo metadataMethod in
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) (baseCtorMethod.DeclaringType) qualifiedTypeName (fun state ->
             initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
@@ -1106,7 +1108,7 @@ module internal Interpreter =
             printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(objCtor))
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) null qualifiedTypeName (fun state ->
             reduceDecompiledMethod state this parameters objCtor (fun state k' -> k' (NoResult, state)) k)
-        | _ -> internalfail "unexpected behaviour"
+        | _ -> __unreachable__()
 
     and reduceObjectCreation state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType in

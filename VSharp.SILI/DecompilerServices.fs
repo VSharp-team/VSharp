@@ -12,12 +12,6 @@ module internal DecompilerServices =
 
     let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
 
-    let rec dbg indent (ast : JetBrains.Decompiler.Ast.INode) =
-        System.Console.Write(new System.String('\t', indent))
-        System.Console.WriteLine(ast.GetType().ToString())
-        ast.Children |> Seq.iter (dbg (indent + 1))
-
-
     let rec loadAssemblyByName (name : string) =
         let path = System.Reflection.Assembly.Load(name).Location in
         if not(assemblies.ContainsKey(path)) then
@@ -122,12 +116,12 @@ module internal DecompilerServices =
             decompiler.Decompile(metadataTypeInfo, JetBrains.Application.Progress.NullProgressIndicator.Instance))
 
     type DecompilationResult =
-    | MethodWithExplicitInitializer of IDecompiledMethod
-    | MethodWithImplicitInitializer of IDecompiledMethod
-    | MethodWithoutInitializer of IDecompiledMethod
-    | ObjectConstuctor of IDecompiledMethod
-    | DefaultConstuctor
-    | DecompilationError
+        | MethodWithExplicitInitializer of IDecompiledMethod
+        | MethodWithImplicitInitializer of IDecompiledMethod
+        | MethodWithoutInitializer of IDecompiledMethod
+        | ObjectConstuctor of IDecompiledMethod
+        | DefaultConstuctor
+        | DecompilationError
 
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
@@ -135,24 +129,17 @@ module internal DecompilerServices =
     let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         // TODO: this list can be memorized for one time, implement it after indexer expressions
-        let methods =
-            List.append
-                (List.ofSeq decompiledClass.Methods)
-                (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
-        methods |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        List.append
+            (List.ofSeq decompiledClass.Methods)
+            (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
+        |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
         |> function
-        | Some m ->
-            if m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName
-            then ObjectConstuctor m
-            else
-            if isConstructor methodInfo
-            then
-                if m.Initializer = null
-                then MethodWithImplicitInitializer m
-                else MethodWithExplicitInitializer m
-            else MethodWithoutInitializer m
-        | None ->
-            if isConstructor methodInfo then DefaultConstuctor else DecompilationError
+        | Some m when m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName -> ObjectConstuctor m
+        | Some m when isConstructor methodInfo ->
+            if m.Initializer = null then MethodWithImplicitInitializer m else MethodWithExplicitInitializer m
+        | Some m -> MethodWithoutInitializer m
+        | _ when isConstructor methodInfo -> DefaultConstuctor
+        | _ -> DecompilationError
 
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)) in
@@ -190,10 +177,8 @@ module internal DecompilerServices =
         let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
         let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
         let parentFields =
-            if withParent
-            then
-                if isStatic || decompiledClass.TypeInfo.Base = null then [] else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
-            else []
+            if not withParent || isStatic || decompiledClass.TypeInfo.Base = null then []
+            else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
         List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
@@ -219,7 +204,7 @@ module internal DecompilerServices =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0 && not m.IsStatic) in
-        assert(Array.length ctors > 0)
+        assert(Array.length ctors = 1)
         ctors.[0]
 
     let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
