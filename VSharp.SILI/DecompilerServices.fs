@@ -115,14 +115,31 @@ module internal DecompilerServices =
                 new JetBrains.Decompiler.ClassDecompiler(lifetime.Lifetime, metadataAssembly, options, methodCollector))
             decompiler.Decompile(metadataTypeInfo, JetBrains.Application.Progress.NullProgressIndicator.Instance))
 
+    type DecompilationResult =
+        | MethodWithExplicitInitializer of IDecompiledMethod
+        | MethodWithImplicitInitializer of IDecompiledMethod
+        | MethodWithoutInitializer of IDecompiledMethod
+        | ObjectConstuctor of IDecompiledMethod
+        | DefaultConstuctor
+        | DecompilationError
+
+    let public isConstructor (m : IMetadataMethod) =
+        m.Name = ".ctor"
+
     let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         // TODO: this list can be memorized for one time, implement it after indexer expressions
-        let methods =
-            List.append
-                (List.ofSeq decompiledClass.Methods)
-                (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
-        methods |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        List.append
+            (List.ofSeq decompiledClass.Methods)
+            (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
+        |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        |> function
+        | Some m when m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName -> ObjectConstuctor m
+        | Some m when isConstructor methodInfo ->
+            if m.Initializer = null then MethodWithImplicitInitializer m else MethodWithExplicitInitializer m
+        | Some m -> MethodWithoutInitializer m
+        | _ when isConstructor methodInfo -> DefaultConstuctor
+        | _ -> DecompilationError
 
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)) in
@@ -137,7 +154,7 @@ module internal DecompilerServices =
     let idOfMetadataField (field : IMetadataField) =
         sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
 
-    let rec getDefaultFieldValuesOf isStatic qualifiedTypeName =
+    let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
         let decompiledClass = decompileClass assemblyPath (removeGenericParameters qualifiedTypeName) in
         let initializerOf (f : IDecompiledField) =
@@ -160,8 +177,8 @@ module internal DecompilerServices =
         let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
         let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
         let parentFields =
-            if isStatic || decompiledClass.TypeInfo.Base = null then []
-            else getDefaultFieldValuesOf false decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
+            if not withParent || isStatic || decompiledClass.TypeInfo.Base = null then []
+            else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
         List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
@@ -183,15 +200,12 @@ module internal DecompilerServices =
         let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
         typ.GetMethods() |> Array.tryPick (fun m -> if m.Token.Value = uint32 methodInfo.MetadataToken then Some(m) else None)
 
-    let rec private baseClassesChainAcc acc = function
-        | null -> acc
-        | (t : IMetadataType) -> baseClassesChainAcc (t::acc) (t.GetBaseType())
-
-    let public baseClassesChain (t : IMetadataType) =
-        baseClassesChainAcc [] t
-
-    let public isConstructor (m : IMetadataMethod) =
-        m.Name = ".ctor"
+    let internal getBaseCtorWithoutArgs qualifiedTypeName =
+        let assemblyPath = locationOfType qualifiedTypeName in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0 && not m.IsStatic) in
+        assert(Array.length ctors = 1)
+        ctors.[0]
 
     let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
         | :? IMetadataClassType as t ->
@@ -218,5 +232,5 @@ module internal DecompilerServices =
 
     let rec internal getThisTokenBy (node : INode) =
         match node with
-        | :? IDecompiledMethod as m-> m.MetadataMethod.Token.ToString()
+        | :? IDecompiledMethod as m -> m.MetadataMethod.Token.ToString()
         | _ -> getThisTokenBy node.Parent

@@ -38,7 +38,7 @@ module public SVM =
                 dictionary.Add(m, (ControlFlow.resultToTerm result, state))))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
-        if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList then
+        if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList && t.IsPublic then
             t.GetMethods() |> Array.iter (interpret dictionary assemblyPath)
 
     let private replaceLambdaLines str =
