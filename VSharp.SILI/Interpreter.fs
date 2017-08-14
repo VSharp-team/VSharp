@@ -522,7 +522,11 @@ module internal Interpreter =
 
     and reduceThrowStatement state (ast : IThrowStatement) k =
         reduceExpression state ast.Argument (fun (arg, state) ->
-        k (Throw arg, state))
+        match arg with
+        | Concrete (null, _) ->
+            let term, state = State.activator.CreateInstance typeof<NullReferenceException> [] state in
+            k (Throw term, state)
+        | _ -> k (Throw arg, state))
 
     and reduceTryStatement state (ast : ITryStatement) k =
         reduceBlockStatement state ast.Body (fun (result, state) ->
