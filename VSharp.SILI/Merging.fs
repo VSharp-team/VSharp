@@ -109,11 +109,10 @@ module internal Merging =
         | _ -> merge [(g, u); (h, v)]
 
     let internal merge2Cells g h ((u, cu, mu) as ucell : MemoryCell<Term>) ((v, cv, mv) as vcell : MemoryCell<Term>) =
-        assert(cu = cv)
         let g = guardOf u &&& g in
         let h = guardOf v &&& h in
         match g, h with
-        | _, _ when u = v -> (u, cu, min mu mv)
+        | _, _ when u = v -> (u, min cu cv, min mu mv)
         | True, _
         | _, False -> ucell
         | False, _

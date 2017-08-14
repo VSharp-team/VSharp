@@ -4,7 +4,7 @@ open global.System
 open System.Collections.Generic
 open System.Reflection
 open JetBrains.Metadata.Reader.API
-    
+
 [<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
@@ -67,12 +67,10 @@ module public Types =
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
         
     let rec public IsAssignableToGenericType (givenType : Type) (genericType : Type) =
-        let isFindInterfaces =
-            givenType.GetInterfaces() |> 
-            Array.filter (fun it -> it.IsGenericType) |> 
-            Array.map (fun it -> it.GetGenericTypeDefinition()) |>
-            Array.exists (fun it -> it = genericType)
-        isFindInterfaces ||
+        let areInterfacesFound =
+            givenType.GetInterfaces() |>
+            Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
+        areInterfacesFound ||
             let baseType = givenType.BaseType in
             baseType <> null &&
             if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
@@ -197,7 +195,7 @@ module public Types =
             | Global -> Symbolic
             | Concrete -> Concrete
 
-        let rec private getNameFromDotNetType termTypeParameter (dotNetType : Type) =
+        let rec private getIdFromDotNetType termTypeParameter (dotNetType : Type) =
             match dotNetType with
             | null -> ""
             | g when g.IsGenericParameter ->
@@ -231,9 +229,10 @@ module public Types =
                     Seq.map fst |>
                     Array.ofSeq
                 in
+                assert(method.Length = 1)
                 method.[0].GetGenericArguments().[int arg.Index]
             | _ -> __notImplemented__()
-    
+
         let rec public MetadataToDotNetType (arg : IMetadataType) =
             match arg with
             | null -> null
@@ -259,15 +258,15 @@ module public Types =
 
             let private types = new Dictionary<System.Type * KeyType, TermType ref>()
 
-            let public Contains (t, tk) = types.ContainsKey((t, fromTypeKind tk))
+            let public Contains (t, tk) = types.ContainsKey(t, fromTypeKind tk)
 
             let public Prepare (t, tk) = types.Add ((t, fromTypeKind tk), ref Null)
 
-            let public Find (t, tk) = types.[(t, fromTypeKind tk)]
+            let public Find (t, tk) = types.[t, fromTypeKind tk]
 
             let public Embody (t, tk) value =
-                types.[(t, fromTypeKind tk)] := value
-                types.[(t, fromTypeKind tk)]
+                types.[t, fromTypeKind tk] := value
+                types.[t, fromTypeKind tk]
 
         let rec private getGenericArguments typeKind (dotNetType : Type) =
             dotNetType.GetGenericArguments() |>
@@ -277,13 +276,13 @@ module public Types =
         and private fromDotNetInterface typeKind (interfaceType : Type) =
             let interfaces =
                 interfaceType.GetInterfaces() |>
-                Seq.map (fun t -> fromDotNetInterface typeKind t ) |>
+                Seq.map (fromDotNetInterface typeKind) |>
                 List.ofSeq
             in
             let genericArguments = getGenericArguments typeKind interfaceType in
             SubType(interfaceType, genericArguments, interfaces, interfaceType.FullName)
 
-        and private getInterfaces typeKind (dotNetType : Type) = dotNetType.GetInterfaces() |> Array.map (fromDotNetInterface typeKind) |> Array.toList
+        and private getInterfaces typeKind (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map (fromDotNetInterface typeKind) |> List.ofSeq
 
         and private fromCommonDotNetType (dotNetType : Type) k =
             match dotNetType with
@@ -299,9 +298,9 @@ module public Types =
                 let methodInfo = f.GetMethod("Invoke") in
                 let returnType = methodInfo.ReturnType |> (fun t -> fromCommonDotNetType t k) in
                 let parameters = methodInfo.GetParameters() |>
-                                    Array.map (fun (p : System.Reflection.ParameterInfo) ->
+                                    Seq.map (fun (p : System.Reflection.ParameterInfo) ->
                                     fromCommonDotNetType p.ParameterType k) in
-                Func(List.ofArray parameters, returnType)
+                Func(List.ofSeq parameters, returnType)
             | _ -> k dotNetType
 
         and private fromDotNetGenericParameter typeKind (genericParameter : Type) =
@@ -313,9 +312,9 @@ module public Types =
             in
             let listTypeConstraint =
                 constraints |>
-                Array.filter (fun t -> t.IsInterface || t.IsGenericParameter) |>
-                Array.map fromGenericParameterOrInterface |>
-                Array.toList
+                Seq.filter (fun t -> t.IsInterface || t.IsGenericParameter) |>
+                Seq.map fromGenericParameterOrInterface |>
+                List.ofSeq
             match genericParameter with
                 | s when s.IsValueType -> StructType(genericParameter, [], listTypeConstraint)
                 | _ -> match typeKind with
@@ -323,8 +322,7 @@ module public Types =
                         | _ -> SubType(genericParameter, [], listTypeConstraint, genericParameter.Name)
 
         and private fromDotNetTypeToConcrete dotNetType =
-            fromCommonDotNetType dotNetType (fun concrete ->
-                match concrete with
+            fromCommonDotNetType dotNetType (function
                 | p when p.IsGenericParameter -> fromDotNetGenericParameter Concrete p
                 // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
                 | c when c.IsClass -> ClassType(c, getGenericArguments Concrete c, getInterfaces Concrete c)
@@ -332,10 +330,9 @@ module public Types =
                 | _ -> __notImplemented__())
 
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
-            fromCommonDotNetType dotNetType (fun symbolic ->
-            match symbolic with
+            fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(SubType(symbolic, [], [], a.FullName), int(0))
+            | a when a.FullName = "System.Array" -> ArrayType(SubType(a, [], [], a.FullName), int(0))
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
@@ -352,15 +349,15 @@ module public Types =
 
         and private fromDotNetTypeRef (typeKind : TypeKind) dotNetType =
             let key = dotNetType, typeKind in
-            let name = getNameFromDotNetType typeKind dotNetType in
+            let name = getIdFromDotNetType typeKind dotNetType in
             let res =
-                if TypesCache.Contains key then (TypesCache.Find key)
+                if TypesCache.Contains key then TypesCache.Find key
                 else
                     TypesCache.Prepare key
-                    let termType = (fromDotNetType typeKind dotNetType) in
+                    let termType = fromDotNetType typeKind dotNetType in
                     TypesCache.Embody key termType
             match !res with
-            | SubType(t, a, p, n) -> ref <|SubType(t, a, p, name)
+            | SubType(t, a, p, _) -> ref <| SubType(t, a, p, name)
             | _ -> res
 
         let private FromDotNetType termTypeParameter dotNetType = ! (fromDotNetTypeRef termTypeParameter dotNetType)
