@@ -1,6 +1,7 @@
 ﻿namespace VSharp
 
 open VSharp.State
+open Types.Constructor
 
 module internal Memory =
 
@@ -28,13 +29,13 @@ module internal Memory =
         defaultOf (tick()) typ
 
     let internal mkDefaultStatic qualifiedTypeName =
-        let t = Types.FromQualifiedTypeName qualifiedTypeName in
+        let t = qualifiedTypeName |> System.Type.GetType |> FromConcreteDotNetType  in
         let time = tick() in
         let fields = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName in
         fields, t, fields
                     |> List.map (fun (n, (t, _)) ->
                                     let key = Terms.MakeConcreteString n in
-                                    let value = mkDefault (Types.FromConcreteMetadataType t) in
+                                    let value = mkDefault (FromConcreteMetadataType t) in
                                     (key, (value, time, time)))
                     |> Heap.ofSeq
                     |> withSnd t
@@ -151,7 +152,7 @@ module internal Memory =
             makeSymbolicInstance time (LazyInstantiation fullyQualifiedLocation) id typ
 
     let private staticMemoryLazyInstantiator t location () =
-        Struct(Heap.empty, StructType t)
+        Struct(Heap.empty, FromConcreteDotNetType t)
 
     let rec private accessTerm guard update created modified ptrTime ctx path term =
         match path with
@@ -205,7 +206,7 @@ module internal Memory =
             in
             let addr = Terms.MakeConcreteString location in
             let dnt = System.Type.GetType(location) in
-            let t = Types.FromDotNetType dnt in
+            let t = FromConcreteDotNetType dnt in
             let result, m', _ = accessHeap Terms.MakeTrue update (staticsOf state) zeroTime firstLocation (staticMemoryLazyInstantiator dnt location) addr t infiniteTime path in
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time) ->
@@ -223,7 +224,7 @@ module internal Memory =
                 let exn, state' = npe state in
                 (Merging.merge2Terms isNull !!isNull (Error exn) result, Merging.merge2States isNull !!isNull state' state)
         | Union gvs -> Merging.guardedStateMap (hierarchicalAccess update state) gvs state
-        | t -> internalfail ("deref expected reference, but got " + toString t)
+        | t -> internalfailf "deref expected reference, but got %O" t
 
     let internal deref = hierarchicalAccess makePair
 
@@ -264,18 +265,22 @@ module internal Memory =
         let term, state = deref state reference in
         match term with
         | Error _ as e -> e, state
-        | StackRef _ as r -> r, state
+        | StackRef _
+        | StaticRef _
         | HeapRef _ as r -> r, state
-        | Union gvs -> Merging.guardedStateMap (followOrReturnReference state) gvs state
+        | Union gvs when List.forall (fun (_, t) -> Terms.IsError t || Terms.IsRef t) gvs ->
+            Merging.guardedStateMap (followOrReturnReference state) gvs state
         | term -> reference, state
 
     let internal referenceField state followHeapRefs name typ parentRef =
+        let typ = Types.PointerFromReferenceType typ in
         let term, state = deref state parentRef in
         let reference = referenceFieldOf state (Terms.MakeConcreteString name, typ) parentRef term in
         if followHeapRefs then followOrReturnReference state reference
         else (reference, state)
 
     let internal referenceStaticField state followHeapRefs fieldName typ typeName =
+        let typ = Types.PointerFromReferenceType typ in
         let reference = StaticRef(typeName, [(Terms.MakeConcreteString fieldName, typ)]) in
         if followHeapRefs then followOrReturnReference state reference
         else (reference, state)
@@ -322,8 +327,8 @@ module internal Memory =
 
     let internal allocateSymbolicInstance state t =
         match t with
-        | ClassType t ->
-            let contents = makeSymbolicInstance zeroTime (LazyInstantiation Nop) "" (StructType t) in
+        | ClassType(tp, arg, interfaces) ->
+            let contents = makeSymbolicInstance zeroTime (LazyInstantiation Nop) "" (StructType(tp, arg, interfaces)) in
             allocateInHeap state contents
         | StructType _ ->
             makeSymbolicInstance zeroTime (LazyInstantiation Nop) "" t, state

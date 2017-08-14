@@ -96,12 +96,7 @@ module internal DecompilerServices =
             embodyAutoSetter property property.BackingField
         property.Setter
 
-    let removeGenericParameters (qualifiedTypeName : string) =
-        let parametersIndex = qualifiedTypeName.IndexOf("[[") in
-        if parametersIndex < 0 then qualifiedTypeName else qualifiedTypeName.Remove(parametersIndex)
-
     let public decompileClass assemblyPath qualifiedTypeName =
-        let qualifiedTypeName = removeGenericParameters qualifiedTypeName in
         Dict.getValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
             let metadataAssembly = loadAssembly assemblyPath in
             let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
@@ -156,7 +151,7 @@ module internal DecompilerServices =
 
     let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
-        let decompiledClass = decompileClass assemblyPath (removeGenericParameters qualifiedTypeName) in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         let initializerOf (f : IDecompiledField) =
             let mf = f.MetadataField in
             if mf.IsLiteral
