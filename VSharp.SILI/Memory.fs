@@ -31,7 +31,7 @@ module internal Memory =
     let internal mkDefaultStatic qualifiedTypeName =
         let t = qualifiedTypeName |> System.Type.GetType |> FromConcreteDotNetType  in
         let time = tick() in
-        let fields = DecompilerServices.getDefaultFieldValuesOf true qualifiedTypeName in
+        let fields = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName in
         fields, t, fields
                     |> List.map (fun (n, (t, _)) ->
                                     let key = Terms.MakeConcreteString n in
@@ -231,6 +231,7 @@ module internal Memory =
 //    let internal fieldOf term name = termDeref [Terms.MakeConcreteString name] term
 
     let internal mutate state reference value =
+        assert(value <> Nop)
         let time = tick() in
         hierarchicalAccess (fun _ _ -> (value, time)) state reference
 

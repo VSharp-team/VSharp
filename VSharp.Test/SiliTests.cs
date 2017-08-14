@@ -183,6 +183,11 @@ namespace VSharp.Test
                 , "Array"
             };
 
+            if (!Environment.OSVersion.ToString().Contains("Windows"))
+            {
+                ignoredTypes.Add("ClassesSimpleHierarchy");
+            }
+
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
