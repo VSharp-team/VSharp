@@ -85,14 +85,14 @@ module internal DecompilerServices =
     let private embodyGetter (property : IDecompiledProperty) =
         if property.Getter <> null && not property.IsAuto && property.Getter.Body = null then
             hackBuggyAutoProperty property embodyAutoGetter
-        else if property.Getter <> null && property.IsAuto && property.Getter.Body = null then
+        elif property.Getter <> null && property.IsAuto && property.Getter.Body = null then
             embodyAutoGetter property property.BackingField
         property.Getter
 
     let private embodySetter (property : IDecompiledProperty) =
         if property.Setter <> null && not property.IsAuto && property.Setter.Body = null then
             hackBuggyAutoProperty property embodyAutoSetter
-        else if property.Setter <> null && property.IsAuto && property.Setter.Body = null then
+        elif property.Setter <> null && property.IsAuto && property.Setter.Body = null then
             embodyAutoSetter property property.BackingField
         property.Setter
 

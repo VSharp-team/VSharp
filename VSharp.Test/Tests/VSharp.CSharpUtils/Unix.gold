@@ -145,7 +145,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -203,7 +203,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -261,7 +261,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -306,7 +306,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -361,7 +361,7 @@ System.Byte ==> STRUCT byte[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1782,7 +1782,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1892,7 +1892,7 @@ array ==> int32[,,]: [|  (|int32[,,]|1 x |int32[,,]|1) |]
 System.Array ==> STRUCT System.Array[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1998,7 +1998,7 @@ array ==> int32[,,]: [|  (|int32[,,]|1 x |int32[,,]|1) |]
 System.Array ==> STRUCT System.Array[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2076,7 +2076,7 @@ HEAP:
 obj ==> STRUCT <Subtype of System.Object>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2188,7 +2188,7 @@ obj1 ==> STRUCT <Subtype of System.Object>[
 obj2 ==> STRUCT <Subtype of System.Object>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2251,7 +2251,7 @@ HEAP:
 piece ==> STRUCT <Subtype of VSharp.CSharpUtils.Tests.Piece>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2298,7 +2298,7 @@ HEAP:
 obj ==> STRUCT <Subtype of System.Object>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2345,7 +2345,7 @@ HEAP:
 obj ==> STRUCT <Subtype of System.Object>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2436,7 +2436,7 @@ HEAP:
 piece ==> STRUCT <Subtype of VSharp.CSharpUtils.Tests.Piece>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2519,7 +2519,7 @@ HEAP:
 obj ==> STRUCT <Subtype of System.Object>[
 	]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2739,7 +2739,7 @@ obj ==> UNION[
 	| !VSharp.CSharpUtils.Tests.Piece & System.Object1 | (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & 1 == obj | 0 == obj ~> STRUCT <Subtype of System.Object>[
 	]]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050001000
+	| System.Environment.mono_corlib_version ~> 1050200001
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[

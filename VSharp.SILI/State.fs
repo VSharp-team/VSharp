@@ -88,10 +88,13 @@ module internal State =
 
 // ------------------------------- Memory level -------------------------------
 
-    [<AllowNullLiteral>]
-    type ActivatorInterface =
+    type IActivator =
         abstract member CreateInstance : System.Type -> Term list -> state -> (Term * state)
-    let mutable activator : ActivatorInterface = null
+    type private NullActivator() =
+        interface IActivator with
+            member this.CreateInstance _ _ _ =
+                internalfail "activator is not ready"
+    let mutable activator : IActivator = new NullActivator() :> IActivator
 
     let rec internal defaultOf time = function
         | Bool -> Terms.MakeFalse
