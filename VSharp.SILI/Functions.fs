@@ -36,7 +36,8 @@ module Functions =
         type SymbolicEffect = State.state -> State.state
 
         let private unboundedApproximationAttempts = new Dictionary<FunctionIdentifier, int>()
-        let private initialStates = new Dictionary<FunctionIdentifier, State.state>()
+//        let private initialStates = new Dictionary<FunctionIdentifier, State.state>()
+        let private startTimes = new Dictionary<FunctionIdentifier, Timestamp>()
         let private symbolicEffects = new Dictionary<FunctionIdentifier, SymbolicEffect list>()
         let private symbolicResults = new Dictionary<FunctionIdentifier, StatementResult>()
         let private terminationRelatedState = new Dictionary<FunctionIdentifier, Term seq>()
@@ -140,9 +141,9 @@ module Functions =
                 failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
             else
                 unboundedApproximationAttempts.[id] <- attempt
-                let initialState = initialStates.[id] in
-                true
-//                let writeDependencies = Memory.diff symbolicState state in
+                let writeDependencies = Memory.affectedLocations state in
+//                let initialState = initialStates.[id] in
+//                let writeDependencies = Memory.diff initialState state in
 //                let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
 //                let result = bubbleUpExceptions result in
 //                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
@@ -185,7 +186,8 @@ module Functions =
                 | DelegateIdentifier ast ->
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
-            in initialStates.[id] <- state
+//            in initialStates.[id] <- state
+            in startTimes.[id] <- Memory.tick()
             doExplore id state this k
 
         let internal exploreIfShould id k =

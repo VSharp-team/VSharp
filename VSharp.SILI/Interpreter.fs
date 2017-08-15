@@ -95,11 +95,8 @@ module internal Interpreter =
                 elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                     match parameters with
                     | State.Specified parameters ->
-                        let parameters' =
-                            match this with
-                            | Some term -> term::parameters
-                            | None -> parameters
-                        in reduceDecompiledMethod state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] (fun state k' -> k' (NoResult, state)) k
+                        let parameters' = optCons parameters this in
+                        reduceDecompiledMethod state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] k
                     | _ -> internalfail "internal call with unspecified parameters!"
                 else __notImplemented__()
             else
@@ -1272,7 +1269,6 @@ module internal Interpreter =
 
     and reducePinStatement state (ast : IPinStatement) k =
         __notImplemented__()
-
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
         __notImplemented__()

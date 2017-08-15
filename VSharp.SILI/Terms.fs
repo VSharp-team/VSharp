@@ -118,11 +118,8 @@ and
             | _ -> false
 
 and SymbolicConstantSource =
-    | LocationAccess of Term
-    | ArrayAccess of Term * Term
-    | FieldAccess of string * SymbolicConstantSource
-    | UnboundedRecursion of TermRef
     | LazyInstantiation of Term
+    | UnboundedRecursion of TermRef
     | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
     | SymbolicConstantType of TermType
 
@@ -356,47 +353,72 @@ module public Terms =
         | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
         | _ -> None
 
-    let rec private addConstants mapper (visited : HashSet<Term>) acc = function
+    let rec private foldChildren folder (visited : HashSet<Term>) state = function
         | Constant(name, source, t) as term when visited.Add(term) ->
-            let acc =
-                match source with
-                | LocationAccess loc -> addConstants mapper visited acc loc
-                | ArrayAccess(arr, idx) -> addConstants mapper visited (addConstants mapper visited acc arr) idx
-                | FieldAccess(_, src) -> addConstants mapper visited acc (Constant(name, src, t))
-                | UnboundedRecursion (TermRef app) -> addConstants mapper visited acc !app
-                | LazyInstantiation loc -> addConstants mapper visited acc loc
-                | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
-                | SymbolicConstantType _ -> acc
-            in
-            match mapper acc term with
-            | Some value -> value::acc
-            | None -> acc
+            match source with
+            | UnboundedRecursion (TermRef app) -> doFold folder visited state !app
+            | LazyInstantiation loc -> doFold folder visited state loc
+            | SymbolicArrayLength(arr, _, _) -> doFold folder visited state arr
+            | SymbolicConstantType _ -> state
         | Array(lowerBounds, constant, contents, lengths, _) ->
             match constant with
-            | Some c -> addConstants mapper visited acc c
-            | None -> acc
-            |> addConstantsMany mapper visited (Seq.ofArray lowerBounds)
-            |> addConstantsMany mapper visited (Heap.locations contents)
-            |> addConstantsMany mapper visited (Heap.values contents)
-            |> addConstantsMany mapper visited lengths
+            | Some c -> doFold folder visited state c
+            | None -> state
+            |> foldSeq folder visited (Seq.ofArray lowerBounds)
+            |> foldSeq folder visited (Heap.locations contents)
+            |> foldSeq folder visited (Heap.values contents)
+            |> foldSeq folder visited lengths
         | Expression(_, args, _) ->
-            addConstantsMany mapper visited args acc
+            foldSeq folder visited args state
         | Struct(fields, _) ->
-            addConstantsMany mapper visited (Heap.values fields) acc
+            foldSeq folder visited (Heap.values fields) state
         | HeapRef(path, _) ->
-            addConstantsMany mapper visited (NonEmptyList.toList path |> Seq.map fst) acc
+            foldSeq folder visited (NonEmptyList.toList path |> Seq.map fst) state
+        | StackRef(_, path)
+        | StaticRef(_, path) ->
+            foldSeq folder visited (path |> Seq.map fst) state
         | GuardedValues(gs, vs) ->
-            addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs
+            foldSeq folder  visited gs state |> foldSeq folder visited vs
         | Error e ->
-            addConstants mapper visited acc e
-        | _ -> acc
+            doFold folder visited state e
+        | _ -> state
 
-    and private addConstantsMany mapper visited terms acc =
-        Seq.fold (addConstants mapper visited) acc terms
+    and doFold folder (visited : HashSet<Term>) state term =
+        let state = foldChildren folder visited state term in
+        folder state term
+
+    and private foldSeq folder visited terms state =
+        Seq.fold (doFold folder visited) state terms
+
+    let public fold folder state terms =
+        foldSeq folder (new HashSet<Term>()) state terms
 
     let public filterMapConstants mapper terms =
-        List.fold (addConstants mapper (new HashSet<Term>())) [] terms
+        let folder state term = mapper state term |> optCons state in
+        fold folder [] terms
 
-    let is src tgt =
-        let justInherits = (Types.Constructor.MetadataToDotNetType src).IsAssignableFrom(Types.ToDotNetType tgt) in
-        Concrete(justInherits, Bool)
+    let rec internal substitute subst = function
+        | HeapRef(path, t) as reference ->
+            let path' = path |> NonEmptyList.toList |> substitutePath subst |> NonEmptyList.ofList in
+            if path' = path then reference else HeapRef(path', t)
+        | StackRef(key, path) as reference ->
+            let path' = substitutePath subst path in
+            if path' = path then reference else StackRef(key, path')
+        | StaticRef(key, path) as reference ->
+            let path' = substitutePath subst path in
+            if path' = path then reference else StaticRef(key, path')
+        | Error e as err ->
+            let e' = substitute subst e in
+            if e' = e then err else Error e'
+        | Expression(op, args, t) as expr ->
+            let args' = List.map (substitute subst) args in
+            if args = args' then expr else Expression(op, args', t)
+        | Union gvs as union ->
+            let gvs' = List.map (fun (g, v) -> (substitute subst g, substitute subst v)) gvs in
+            if gvs' = gvs then union else Union gvs
+        | Array _
+        | Struct _ -> __notImplemented__()
+        | term -> substitute subst term
+
+    and internal substitutePath subst path =
+        path |> List.map (fun (a, t) -> (substitute subst a, t))

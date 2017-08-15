@@ -16,6 +16,9 @@ module public Prelude =
     let public always x = (fun _ -> x)
 
     let public cons x xs = x :: xs
+    let public optCons xs = function
+        | Some x -> x::xs
+        | None -> xs
 
     let public withFst x = fun y -> (x, y)
     let public withSnd y = fun x -> (x, y)

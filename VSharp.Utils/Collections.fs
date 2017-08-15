@@ -30,17 +30,15 @@ module public List =
     let rec public filterMap mapper = function
         | [] -> []
         | x::xs ->
-            match mapper x with
-            | Some y -> y::(filterMap mapper xs)
-            | None -> (filterMap mapper xs)
+            let y = mapper x in
+            optCons (filterMap mapper xs) y
 
     let rec public filterMap2 mapper xs ys =
         match xs, ys with
         | [], [] -> []
         | x::xs, y::ys ->
-            match mapper x y with
-            | Some z -> z::(filterMap2 mapper xs ys)
-            | None -> (filterMap2 mapper xs ys)
+            let z = mapper x y in
+            optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
 
 module public Map =

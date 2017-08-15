@@ -55,6 +55,8 @@ module internal State =
     let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
         (MappedStack.add key value s, h, m, f, p)
 
+    let internal stackFold = MappedStack.fold
+
     let internal frameTime ((_, _, _, f, _) : state) key =
         match List.tryFind (fst >> List.exists (fst >> ((=) key))) f with
         | Some(_, t) -> t
@@ -81,6 +83,12 @@ module internal State =
 
     let internal withHeap ((s, h, m, f, p) : state) h' = (s, h', m, f, p)
     let internal withStatics ((s, h, m, f, p) : state) m' = (s, h, m', f, p)
+
+    let internal stackLocationToReference location =
+        StackRef(location, [])
+    let internal staticLocationToReference = function
+        | Concrete(location, String) -> StaticRef(location :?> string, [])
+        | _ -> __notImplemented__()
 
     let private staticKeyToString = function
         | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName

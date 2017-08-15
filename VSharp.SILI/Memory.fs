@@ -163,7 +163,7 @@ module internal Memory =
             match term with
             | Error _ -> term, term, modified
             | Struct(fields, t) ->
-                let ctx' = referenceSubLocation (key, typ) ctx in
+                let ctx' = referenceSubLocation location ctx in
                 let instantiator = structLazyInstantiator ctx' key typ in
                 let result, newFields, newTime =
                     accessHeap guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key t ptrTime path'
@@ -192,7 +192,7 @@ module internal Memory =
     let rec private hierarchicalAccess update state = function
         | Error _ as e -> (e, state)
         | StackRef(location, path) ->
-            let firstLocation = StackRef(location, []) in
+            let firstLocation = stackLocationToReference location in
             let time = frameTime state location in
             let t = typeOfStackLocation state location in
             let (baseValue, created, modified), h' = stackDeref time (genericLazyInstantiator time firstLocation t) state location in
@@ -200,14 +200,10 @@ module internal Memory =
             let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
             (accessedValue, newState)
         | StaticRef(location, path) ->
-            let firstLocation = function
-                | Concrete(location, String) -> StaticRef(location :?> string, [])
-                | _ -> __notImplemented__()
-            in
             let addr = Terms.MakeConcreteString location in
             let dnt = System.Type.GetType(location) in
             let t = FromConcreteDotNetType dnt in
-            let result, m', _ = accessHeap Terms.MakeTrue update (staticsOf state) zeroTime firstLocation (staticMemoryLazyInstantiator dnt location) addr t infiniteTime path in
+            let result, m', _ = accessHeap Terms.MakeTrue update (staticsOf state) zeroTime staticLocationToReference (staticMemoryLazyInstantiator dnt location) addr t infiniteTime path in
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time) ->
             let mkFirstLocation location = HeapRef(((location, t), []), time) in
@@ -382,42 +378,80 @@ module internal Memory =
 
     let private sortMap mapper = List.sortWith (fun (k1, _) (k2, _) -> addrLess k1 k2) >> List.map mapper
 
-    let rec private structDiff key val1 val2 =
-        match val1, val2 with
-        | Struct(fields1, _), Struct(fields2, _) ->
-            let mutatedFields, addedFields = compareHeaps fields1 fields2 in
-            let innerMutatedFields, innerAddedFields =
-                mutatedFields |> sortMap (fun (k, v) -> structDiff (referenceSubLocation (k, Terms.TypeOf v) key) (fst3 fields1.[k]) v) |> List.unzip
-            in
-            let overalMutatedFields = List.concat innerMutatedFields in
-            let overalAddedFields =
-                List.append
-                    (sortMap (fun (k, v) -> (referenceSubLocation (k, Terms.TypeOf v) key, v)) addedFields)
-                    (List.concat innerAddedFields)
-            in
-            (overalMutatedFields, overalAddedFields)
-        | _ ->
-            [(key, val2)], []
+//    let rec private structDiff key val1 val2 =
+//        match val1, val2 with
+//        | Struct(fields1, _), Struct(fields2, _) ->
+//            let mutatedFields, addedFields = compareHeaps fields1 fields2 in
+//            let innerMutatedFields, innerAddedFields =
+//                mutatedFields |> sortMap (fun (k, v) -> structDiff (referenceSubLocation (k, Terms.TypeOf v) key) (fst3 fields1.[k]) v) |> List.unzip
+//            in
+//            let overalMutatedFields = List.concat innerMutatedFields in
+//            let overalAddedFields =
+//                List.append
+//                    (sortMap (fun (k, v) -> (referenceSubLocation (k, Terms.TypeOf v) key, v)) addedFields)
+//                    (List.concat innerAddedFields)
+//            in
+//            (overalMutatedFields, overalAddedFields)
+//        | _ ->
+//            [(key, val2)], []
+//
+//    let internal diff ((s1, h1, m1, _, _) as state : state) ((s2, h2, m2, _, _) : state) =
+//        let mutatedStack = compareStacks s1 s2 in
+//        let mutatedHeap, newHeap = compareHeaps h1 h2 in
+//        let mutatedStatics, newStatics = compareHeaps m1 m2 in
+//        let mapper (key, newValue) =
+//            let oldValue, _ = deref state key in
+//            structDiff key oldValue newValue
+//        let mutatedStackFieldss,  newStackFieldss   = mutatedStack   |> sortMap mapper |> List.unzip in
+//        let mutatedHeapFieldss,   newHeapFieldss    = mutatedHeap    |> sortMap mapper |> List.unzip in
+//        let mutatedStaticFieldss, newStaticFieldss  = mutatedStatics |> sortMap mapper |> List.unzip in
+//        let overalMutatedValues =
+//            List.append3
+//                (List.concat mutatedStackFieldss)
+//                (List.concat mutatedHeapFieldss)
+//                (List.concat mutatedStaticFieldss)
+//        in
+//        let newHeapTopLevel = sortMap (fun (k, v) -> (HeapRef(((k, Terms.TypeOf v), []), 0u), v)) newHeap in
+//        let newStaticsTopLevel = sortMap (fun (k, v) -> (HeapRef(((k, Terms.TypeOf v), []), 0u), v)) newStatics in
+//        let allocatedValues = newHeapTopLevel::newStaticsTopLevel::newHeapFieldss |> List.concat in
+//        List.append
+//            (List.map Mutation overalMutatedValues)
+//            (List.map Allocation allocatedValues)
 
-    let internal diff ((s1, h1, m1, _, _) as state : state) ((s2, h2, m2, _, _) : state) =
-        let mutatedStack = compareStacks s1 s2 in
-        let mutatedHeap, newHeap = compareHeaps h1 h2 in
-        let mutatedStatics, newStatics = compareHeaps m1 m2 in
-        let mapper (key, newValue) =
-            let oldValue, _ = deref state key in
-            structDiff key oldValue newValue
-        let mutatedStackFieldss,  newStackFieldss   = mutatedStack   |> sortMap mapper |> List.unzip in
-        let mutatedHeapFieldss,   newHeapFieldss    = mutatedHeap    |> sortMap mapper |> List.unzip in
-        let mutatedStaticFieldss, newStaticFieldss  = mutatedStatics |> sortMap mapper |> List.unzip in
-        let overalMutatedValues =
-            List.append3
-                (List.concat mutatedStackFieldss)
-                (List.concat mutatedHeapFieldss)
-                (List.concat mutatedStaticFieldss)
-        in
-        let newHeapTopLevel = sortMap (fun (k, v) -> (HeapRef(((k, Terms.TypeOf v), []), 0u), v)) newHeap in
-        let newStaticsTopLevel = sortMap (fun (k, v) -> (HeapRef(((k, Terms.TypeOf v), []), 0u), v)) newStatics in
-        let allocatedValues = newHeapTopLevel::newStaticsTopLevel::newHeapFieldss |> List.concat in
-        List.append
-            (List.map Mutation overalMutatedValues)
-            (List.map Allocation allocatedValues)
+    let rec isDefaultValue reference cell =
+        match fst3 cell with
+        | Constant(_, LazyInstantiation reference', _) -> reference = reference'
+        | Struct(contents, _)
+        | Array(_, _, contents, _, _) ->
+            contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) cell)
+        | _ -> false
+
+    let rec isFreshLocation startTime (_, time, _) =
+        time > startTime
+
+    let rec private inspectLocation startTime ctx goDeep (fresh, mutated) (k, cell) =
+        let reference = ctx (k, cell) in
+        if isFreshLocation startTime cell then ((reference, cell)::fresh, mutated)
+        elif isDefaultValue reference cell then (fresh, mutated)
+        else
+            let subFresh, subMutated = goDeep startTime reference cell in
+            (List.append subFresh fresh, List.append subMutated mutated)
+
+    let rec private affectedStackLocations startTime ctx s =
+        s |> stackFold (fun s k v -> inspectLocation startTime ctx affectedSubLocations s (k, v)) ([], [])
+
+    and private affectedHeapLocations startTime ctx h =
+        h |> Heap.toSeq |> Seq.fold (inspectLocation startTime ctx affectedSubLocations) ([], [])
+
+    and private affectedSubLocations startTime ctx cell =
+        match fst3 cell with
+        | Struct(contents, _)
+        | Array(_, _, contents, _, _) ->
+            affectedHeapLocations startTime (fun (loc, (v, _, _)) -> referenceSubLocation (loc, Terms.TypeOf v) ctx) contents
+        | _ -> ([], [(ctx, cell)])
+
+    let rec internal affectedLocations startTime ((s, h, m, _, _) : state) =
+        let freshStack,   mutatedStack    = affectedStackLocations startTime (fst >> stackLocationToReference) s in
+        let freshHeap,    mutatedHeap     = affectedHeapLocations startTime (fun (loc, (v, t, _)) -> HeapRef(((loc, Terms.TypeOf v), []), t)) h in
+        let freshStatics, mutatedStatics  = affectedHeapLocations startTime (fst >> staticLocationToReference) m in
+        List.append3 freshStack freshHeap freshStatics, List.append3 mutatedStack mutatedHeap mutatedStatics
