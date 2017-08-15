@@ -36,40 +36,38 @@ module internal Common =
         let makeBoolConst name termType = Terms.FreshConstant name (SymbolicConstantType termType) typedefof<bool>
         in
         let concreteIs (dotNetType : System.Type) =
-            let b = makeBoolConst dotNetType.FullName (ClassType dotNetType) in
+            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in
             function
-            | Types.ReferenceType t
-            | Types.StructureType t -> Terms.MakeBool (t = dotNetType)
-            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _, _)
+            | Types.StructureType(t, _ ,_) -> Terms.MakeBool (t = dotNetType)
+            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
-            | SubType(t, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
+            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
-            | VSharp.Null -> Terms.MakeFalse
-            | Object name as termType -> makeBoolConst name termType ==> b
+            // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
+            | PointerType _ -> Terms.MakeFalse
             | _ -> __notImplemented__()
         in
         let subTypeIs (dotNetType: System.Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, rightName)) in
+            let b = makeBoolConst rightName (SubType(dotNetType, [], [], rightName)) in
             function
-            | Types.ReferenceType t -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
-            | Types.StructureType t -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<System.ValueType>)
-            | SubType(t, name) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
-            | SubType(t, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | Types.ReferenceType(t, _, _) -> Terms.MakeBool <| dotNetType.IsAssignableFrom(t)
+            | Types.StructureType(t, _, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<System.ValueType>)
+            | SubType(t, _, _, _) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue
+            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
                 makeBoolConst name termType ==> b
             | ArrayType _ -> Terms.MakeBool <| dotNetType.IsAssignableFrom(typedefof<obj>)
-            | VSharp.Null -> Terms.MakeFalse
-            | Object name as termType -> makeBoolConst name termType ==> b
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
+        | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse
+        | PointerType left, PointerType right -> Terms.MakeTrue
         | Func _, Func _ -> Terms.MakeTrue
-        | ArrayType(t1, c1), ArrayType(Object "Array", 0) -> Terms.MakeTrue
-        | ArrayType(t1, c1), ArrayType(t2, c2) -> Terms.MakeBool <| ((t1 = t2) && (c1 = c2))
-        | leftType, Types.StructureType t when leftType <> Null -> concreteIs t leftType
-        | leftType, Types.ReferenceType t -> concreteIs t leftType
-        | leftType, SubType(t, name) -> subTypeIs (t, name) leftType
-        | leftType, Object name -> subTypeIs (typedefof<obj>, name) leftType
-        | _ -> __notImplemented__()
-
+        | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue
+        | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is t1 t2 else Terms.MakeFalse
+        | leftType, Types.StructureType(t, _, _)
+        | leftType, Types.ReferenceType(t, _, _) -> concreteIs t leftType
+        | leftType, SubType(t, _, _, name) -> subTypeIs (t, name) leftType
+        | _ -> Terms.MakeFalse

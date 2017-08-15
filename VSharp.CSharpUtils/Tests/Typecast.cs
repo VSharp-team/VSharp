@@ -43,11 +43,6 @@ namespace VSharp.CSharpUtils.Tests
         {
             return Math.Sqrt(X * X + Y * Y);
         }
-
-        public double Apply(Func<int, int, double> fun)
-        {
-            return fun(X, Y);
-        }
     }
 
     public static class Typecast
@@ -120,7 +115,7 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    public class Piece : IComparable
+    public class Piece
     {
         private int _xCoord;
         private int _yCoord;
@@ -151,7 +146,7 @@ namespace VSharp.CSharpUtils.Tests
             return Rate;
         }
 
-        public int CompareTo(object obj)
+        public int RetRate(object obj)
         {
             var a = (Piece)obj;
             return a.Rate;

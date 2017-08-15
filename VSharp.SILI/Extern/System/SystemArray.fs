@@ -47,7 +47,7 @@ module SystemArray =
                             let result = List.zip guards (List.ofArray lengths) |> Merging.merge in
                             k (Return result, state))
                         (fun (term, state) -> ControlFlow.resultToTerm term, state)
-            | term -> internalfail (sprintf "expected array, but %O got!" term)
+            | term -> internalfailf "expected array, but %O got!" term
         in
         let result, state =
             match array with

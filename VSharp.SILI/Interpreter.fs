@@ -5,6 +5,7 @@ open JetBrains.Metadata.Reader.API
 open global.System
 open System.Collections.Generic
 open System.Reflection
+open Types.Constructor
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
@@ -40,7 +41,7 @@ module internal Interpreter =
             | SeqEmpty -> ()
             | SeqNode(attr, _) ->
                 let key = (attr :?> CSharpUtils.ImplementsAttribute).Name in
-                let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
+                let qualifiedTypeName = (Types.SystemGenericTypeDefinition m.DeclaringType).AssemblyQualifiedName in
                 let assemblyPath = JetBrains.Util.FileSystemPath.Parse m.DeclaringType.Assembly.Location in
                 let metadataMethod = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
                 match metadataMethod with
@@ -49,10 +50,14 @@ module internal Interpreter =
                 | Some metadataMethod ->
                     let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
                     match decompiledMethod with
-                    | None ->
+                    | DecompilerServices.DecompilationResult.DecompilationError ->
                         failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
-                    | Some decompiledMethod ->
-                        dict.Add(key, decompiledMethod)))
+                    | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod
+                    | DecompilerServices.DecompilationResult.ObjectConstuctor decompiledMethod ->
+                        dict.Add(key, decompiledMethod)
+                    | _ -> __unreachable__()))
         dict
 
     let rec internalCall metadataMethod argsAndThis ((s, h, m, f, p) as state : State.state) k =
@@ -80,12 +85,7 @@ module internal Interpreter =
     and decompileAndReduceMethod state this parameters qualifiedTypeName metadataMethod assemblyPath k =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
         match decompiledMethod with
-        | None when DecompilerServices.isConstructor metadataMethod ->
-            // Got default constructor ignored by decompiler
-            k (NoResult, state)
-        | None ->
-            failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
-        | Some decompiledMethod ->
+        | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
             if metadataMethod.IsInternalCall then
                 printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
                 let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
@@ -99,12 +99,19 @@ module internal Interpreter =
                             match this with
                             | Some term -> term::parameters
                             | None -> parameters
-                        in reduceDecompiledMethod state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] k
+                        in reduceDecompiledMethod state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] (fun state k' -> k' (NoResult, state)) k
                     | _ -> internalfail "internal call with unspecified parameters!"
                 else __notImplemented__()
             else
                 printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-                reduceDecompiledMethod state this parameters decompiledMethod k
+                reduceDecompiledMethod state this parameters decompiledMethod (fun state k' -> k' (NoResult, state)) k
+        | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
+        | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
+        | DecompilerServices.DecompilationResult.ObjectConstuctor _
+        | DecompilerServices.DecompilationResult.DefaultConstuctor ->
+            reduceBaseOrThisConstuctorCall state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
+        | DecompilerServices.DecompilationResult.DecompilationError ->
+            failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
 
     and reduceFunctionSignature state (ast : IFunctionSignature) this paramValues k =
         let values, areParametersSpecified =
@@ -120,10 +127,10 @@ module internal Interpreter =
                 if areParametersSpecified then
                     if param.MetadataParameter.HasDefaultValue
                     then
-                        let typ = Types.FromConcreteMetadataType param.Type in
+                        let typ = FromConcreteMetadataType param.Type in
                         (stackKey, State.Specified(Concrete(param.MetadataParameter.GetDefaultValue(), typ)), typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, Types.FromSymbolicMetadataType param.Type false)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, Terms.TypeOf value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -138,13 +145,15 @@ module internal Interpreter =
         reduceFunctionSignature state signature this parameters (fun (_, state) ->
         CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
-    and reduceFunctionWithBlockBody state this parameters returnType funcId (signature : IFunctionSignature) (body : IBlockStatement) k =
-        let invoke state k = reduceBlockStatement state body k in
-        reduceFunction state this parameters returnType funcId signature invoke k
 
-    and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) k =
-        let returnType = Types.FromSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) false in
-        reduceFunctionWithBlockBody state this parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature ast.Body k
+    and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) initializerInvoke k =
+        let returnType = FromGlobalSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) in
+        let invoke state k =
+            initializerInvoke state (fun (result, state) ->
+            reduceBlockStatement state ast.Body (fun (result', state') ->
+            ControlFlow.composeSequentially result result' state state' |> k))
+        in
+        reduceFunction state this parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature invoke k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName in
@@ -348,7 +357,8 @@ module internal Interpreter =
     and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) =
         let returnType = VSharp.Void in // TODO!!!
         fun state args k ->
-            reduceFunctionWithBlockBody state None args returnType (DelegateIdentifier ast) ast.Signature ast.Body k
+            let invoke state k = reduceBlockStatement state ast.Body k in
+            reduceFunction state None args returnType (DelegateIdentifier ast) ast.Signature invoke k
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         Functions.MakeLambda2 state ast.Signature null (makeLambdaBlockInterpreter ast) |> k
@@ -432,7 +442,7 @@ module internal Interpreter =
     and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
         let name = ast.VariableReference.Variable.Name in
         let initialize k =
-            let t = Types.FromConcreteMetadataType ast.VariableReference.Variable.Type in
+            let t = FromConcreteMetadataType ast.VariableReference.Variable.Type in
             match t with
             | StructType _ when ast.Initializer = null -> k (Memory.mkDefault t, state)
             | _ -> reduceExpression state ast.Initializer k
@@ -553,7 +563,7 @@ module internal Interpreter =
         else
             DecompilerServices.setPropertyOfNode ast "Thrown" exn
             // catch (...) {...} case
-            let targetType = Types.FromSymbolicMetadataType ast.VariableReference.Variable.Type true in
+            let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type in
             let typeMatches, state = checkCast state targetType exn in
             let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
             let state = Memory.newStackFrame state [(stackKey, State.Specified exn, Terms.TypeOf exn)] in
@@ -609,7 +619,7 @@ module internal Interpreter =
 
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         match ast with
-        | null -> k (Concrete(null, VSharp.Object (IdGenerator.startingWith typedefof<obj>.FullName)), state)
+        | null -> k (Concrete(null, VSharp.SubType(typedefof<obj>, [], [], IdGenerator.startingWith typedefof<obj>.FullName)), state) //TODO: Check
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -624,7 +634,7 @@ module internal Interpreter =
 
     and referenceToField state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field in
-        let typ = Types.FromConcreteMetadataType field.Type in
+        let typ = FromConcreteMetadataType field.Type in
         if field.IsStatic then
             k (Memory.referenceStaticField state followHeapRefs id typ field.DeclaringType.AssemblyQualifiedName)
         else
@@ -646,7 +656,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
-        (Memory.mkDefault (Types.FromConcreteMetadataType ast.Type), state) |> k
+        (Memory.mkDefault (FromConcreteMetadataType ast.Type), state) |> k
 
     and reduceDerefExpression state (ast : IDerefExpression) k =
         reduceExpression state ast.Argument (fun (reference, state) ->
@@ -660,7 +670,7 @@ module internal Interpreter =
 
     and readField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let fieldName = DecompilerServices.idOfMetadataField field in
-        let fieldType = Types.FromConcreteMetadataType field.Type in
+        let fieldType = FromConcreteMetadataType field.Type in
         if field.IsStatic then
             let reference, state = Memory.referenceStaticField state false fieldName fieldType field.DeclaringType.AssemblyQualifiedName in
             k (Memory.deref state reference)
@@ -669,7 +679,7 @@ module internal Interpreter =
             Memory.deref state reference |> k
 
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
-        let mType = Types.FromConcreteMetadataType ast.Value.Type in
+        let mType = FromConcreteMetadataType ast.Value.Type in
         k (Concrete(ast.Value.Value, mType), state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
@@ -839,7 +849,7 @@ module internal Interpreter =
         let op = ast.OperationType in
         let isChecked = (ast.OverflowCheck = OverflowCheckType.Enabled) in
         let dotNetType = Types.GetSystemTypeOfNode ast in
-        let t = dotNetType |> Types.FromDotNetType in
+        let t = dotNetType |> FromConcreteDotNetType in
         match op with
         | OperationType.PrefixIncrement
         | OperationType.PrefixDecrement -> reducePrefixIncrement state ast k
@@ -875,6 +885,7 @@ module internal Interpreter =
         | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression k
         | _ -> __notImplemented__()
 
+    //TODO: make with generic
     and doCast state term targetType =
         match term with
         | HeapRef _
@@ -884,9 +895,7 @@ module internal Interpreter =
             let leftType = Terms.TypeOf term in
             let rec isUpCast l r =
                 match l, r with
-                | Types.ComplexType t1, Types.ComplexType t2 -> t2.IsAssignableFrom(t2)
-                | _, Object _ -> true
-                | Object _, _ -> false
+                | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t1)
                 | Func _, Func _ -> false
                 | ArrayType _, _ -> true
                 | _ -> __notImplemented__()
@@ -930,7 +939,7 @@ module internal Interpreter =
         reduceMethodCall state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
-        let targetType = Types.FromSymbolicMetadataType ast.Type true in
+        let targetType = FromGlobalSymbolicMetadataType ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         let isCasted, state = checkCast state targetType term in
         let mapper state term targetType =
@@ -952,7 +961,7 @@ module internal Interpreter =
             if src = dst then expr
             else Expression(Cast(src, dst, isChecked), [expr], dst)
         in
-        let targetType = Types.FromSymbolicMetadataType ast.TargetType true in
+        let targetType = FromGlobalSymbolicMetadataType ast.TargetType in
         let isCasted state term = checkCast state targetType term in
         let hierarchyCast state term targetType =
             reduceConditionalExecution state
@@ -983,11 +992,11 @@ module internal Interpreter =
             | _ -> __notImplemented__()
         in
         reduceExpression state ast.Argument (fun (term, state) ->
-        let term, state =
+        let newTerm, newState =
             match term with
             | Union gvs -> Merging.guardedStateMap (fun term -> primitiveCast state term targetType) gvs state
             | _ -> primitiveCast state term targetType
-        in k (term, state))
+        in k (newTerm, newState))
 
     and checkCast state targetType term =
         match term with
@@ -1000,12 +1009,12 @@ module internal Interpreter =
         | _ -> Common.is (Terms.TypeOf term) targetType, state
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
-        let targetType = Types.FromSymbolicMetadataType ast.Type true in
+        let targetType = FromGlobalSymbolicMetadataType ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         checkCast state targetType term |> k)
 
     and reduceTypeOfExpression state (ast : ITypeOfExpression) k =
-        let instance = Types.MetadataToDotNetType ast.Type in
+        let instance = Types.Constructor.MetadataToDotNetType ast.Type in
         k (Terms.MakeConcrete instance typedefof<Type>, state)
 
 // ------------------------------- Objects construction -------------------------------
@@ -1014,7 +1023,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
-        let typ = Types.FromConcreteMetadataType ast.ArrayType in
+        let typ = FromConcreteMetadataType ast.ArrayType in
         Cps.Seq.mapFoldk reduceExpression state ast.Dimensions (fun (dimensions, state) ->
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
         let result =
@@ -1032,32 +1041,88 @@ module internal Interpreter =
                 let fields, t, instance = Memory.mkDefaultStatic qualifiedTypeName in
                 let state = Memory.allocateInStaticMemory state qualifiedTypeName instance in
                 let initOneField state (name, (typ, expression)) k =
-                    let address, state = Memory.referenceStaticField state false name t qualifiedTypeName in
-                    reduceExpression state expression (fun (value, state) ->
-                    Memory.mutate state address value |> snd |> k)
+                    if expression = null then k state
+                    else
+                        let address, state = Memory.referenceStaticField state false name t qualifiedTypeName in
+                        reduceExpression state expression (fun (value, state) ->
+                        Memory.mutate state address value |> snd |> k)
                 in
                 Cps.List.foldlk initOneField state fields (fun state ->
                 match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
                 | Some constr ->
-                    reduceDecompiledMethod state None (State.Specified []) constr (snd >> k)
+                    reduceDecompiledMethod state None (State.Specified []) constr (fun state k -> k (NoResult, state)) (snd >> k)
                 | None -> k state)
             | Options.SymbolizeStaticFields -> k state
 
+    and reduceBaseOrThisConstuctorCall state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMehod k =
+        let rec mutateFields this names types values state =
+            match names, types, values with
+            | [], [], [] -> this, state
+            | name::names, typ::types, value::values ->
+                if value = Nop then mutateFields this names types values state
+                else
+                    let reference, state = Memory.referenceField state false name (FromConcreteMetadataType typ) this
+                    let _, state = Memory.mutate state reference value in
+                    mutateFields this names types values state
+            | _ -> internalfail "unexpected numbers of initializer"
+        in
+        let initializeFieldsIfNeed state firstClassTypeInfo secondClassTypeInfo qualifiedTypeName k =
+            if firstClassTypeInfo <> secondClassTypeInfo
+            then
+                let fields = DecompilerServices.getDefaultFieldValuesOf false false qualifiedTypeName in
+                let names, typesAndInitializers = List.unzip fields in
+                let types, initializers = List.unzip typesAndInitializers in
+                match this with
+                | Some this ->
+                    Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
+                        mutateFields this names types initializers state |> snd |> k)
+                | _ -> k state
+            else k state
+        in
+        let baseCtorInfo (metadataMethod : IMetadataMethod) =
+            let baseQualifiedTypeName = metadataMethod.DeclaringType.Base.AssemblyQualifiedName in
+            baseQualifiedTypeName, DecompilerServices.getBaseCtorWithoutArgs baseQualifiedTypeName, DecompilerServices.locationOfType baseQualifiedTypeName
+        in
+        match decompiledMehod with
+        | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod ->
+            printfn "DECOMPILED MethodWithExplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            let initializerMethod = decompiledMethod.Initializer.MethodInstantiation.MethodSpecification.Method in
+            let initializerQualifiedTypeName = initializerMethod.DeclaringType.AssemblyQualifiedName in
+            let initializerAssemblyPath = initializerMethod.DeclaringType.Assembly.Location in
+            let args = decompiledMethod.Initializer.Arguments in
+            reduceDecompiledMethod state this parameters decompiledMethod (fun state k' ->
+            initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
+            Cps.Seq.mapFoldk reduceExpression state args (fun (args, state) ->
+            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun state ->
+            decompileAndReduceMethod state this (State.Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath k')))) k
+        | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod ->
+            printfn "DECOMPILED MethodWithImplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            let initializerQualifiedTypeName, initializerMethod, initializerAssemblyPath = baseCtorInfo metadataMethod in
+            reduceDecompiledMethod state this parameters decompiledMethod (fun state k' ->
+            initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
+            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun state ->
+            decompileAndReduceMethod state this (State.Specified []) initializerQualifiedTypeName initializerMethod initializerAssemblyPath k'))) k
+        | DecompilerServices.DecompilationResult.DefaultConstuctor ->
+            printfn "DECOMPILED default ctor %s" qualifiedTypeName
+            let baseCtorQualifiedTypeName, baseCtorMethod, baseCtorAssemblyPath = baseCtorInfo metadataMethod in
+            initializeFieldsIfNeed state (metadataMethod.DeclaringType) (baseCtorMethod.DeclaringType) qualifiedTypeName (fun state ->
+            initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+            decompileAndReduceMethod state this (State.Specified []) baseCtorQualifiedTypeName baseCtorMethod baseCtorAssemblyPath k))
+        | DecompilerServices.DecompilationResult.ObjectConstuctor objCtor ->
+            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(objCtor))
+            initializeFieldsIfNeed state (metadataMethod.DeclaringType) null qualifiedTypeName (fun state ->
+            reduceDecompiledMethod state this parameters objCtor (fun state k' -> k' (NoResult, state)) k)
+        | _ -> __unreachable__()
+
     and reduceObjectCreation state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
-        let fields = DecompilerServices.getDefaultFieldValuesOf false qualifiedTypeName in
+        let fields = DecompilerServices.getDefaultFieldValuesOf false true qualifiedTypeName in
         let names, typesAndInitializers = List.unzip fields in
-        let types, initializers = List.unzip typesAndInitializers in
+        let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
-        Cps.List.mapFoldk reduceExpression state initializers (fun (initializers, state) ->
-        let initializerToCell t = function
-            | Nop -> State.defaultOf time (Types.FromConcreteMetadataType t), time, time
-            | v -> v, time, time
-        in
-        let fields = List.map2 initializerToCell types initializers
+        let fields = List.map (fun t -> State.defaultOf time (FromConcreteMetadataType t), time, time) types
                         |> List.zip (List.map Terms.MakeConcreteString names) |> Heap.ofSeq in
-        let t = Types.FromConcreteMetadataType constructedType in
+        let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct(fields, t) in
         let isReference = Types.IsReferenceType t in
         let reference, state =
@@ -1068,6 +1133,7 @@ module internal Interpreter =
                 let state = Memory.newStackFrame state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
                 (Memory.referenceLocalVariable state (tempVar, tempVar) false, state)
         in
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
         let finish r =
             composeSequentially (fun () -> None) r
                 (fun state k ->
@@ -1087,17 +1153,13 @@ module internal Interpreter =
                 else k (NoResult, state)
             ) finish
         in
-        let baseClasses = DecompilerServices.baseClassesChain constructedType in
-        let reduceConstructor (t : JetBrains.Metadata.Reader.API.IMetadataType) state k =
-            if constructorSpecification = null
-            then k (NoResult, state)
+        if constructorSpecification = null
+            then k (Nop, state)
             else
                 invokeArguments state (fun (arguments, state) ->
-                    let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
-                    decompileAndReduceMethod state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath k)
-        in
-        let reduceConstructors = baseClasses |> Seq.map reduceConstructor in
-        reduceSequentially state reduceConstructors invokeInitializers))
+                let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
+                decompileAndReduceMethod state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath invokeInitializers))
+
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
         let arguments state = Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) in
@@ -1115,7 +1177,7 @@ module internal Interpreter =
 
     and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
         reduceExpression state ast.Value (fun (value, state) ->
-        let typ = Types.FromConcreteMetadataType ast.Field.Type in
+        let typ = FromConcreteMetadataType ast.Field.Type in
         let fieldReference, state = Memory.referenceField state false (DecompilerServices.idOfMetadataField ast.Field) typ this in
         let result, state = Memory.mutate state fieldReference value in
         k (ControlFlow.throwOrIgnore result, state))
@@ -1281,7 +1343,7 @@ type Activator() =
                                     -> m.Name = ".ctor"
                                         && m.Parameters.Length = argumentsLength
                                         && m.Parameters
-                                            |> Seq.forall2 (fun p1 p2 -> Types.FromConcreteMetadataType (p2.Type) = p1) argumentsTypes) in
+                                            |> Seq.forall2 (fun p1 p2 -> FromConcreteMetadataType (p2.Type) = p1) argumentsTypes) in
 
             assert(List.length ctorMethods = 1)
             let ctor = List.head ctorMethods in

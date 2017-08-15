@@ -101,7 +101,7 @@ namespace VSharp.Test
             foreach (string str in methodsWithResults)
             {
                 IList<string> methodsAndResults = Regex.Split(str, $"^{ResultSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Trim('\n', '\r'));
+                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Replace("\r\n", "\n").Trim('\n', '\r'));
             }
 
             return resultsDictionary;
@@ -164,21 +164,29 @@ namespace VSharp.Test
 //                , "TryCatch"
 //                , "Lists"
 //                , "Typecast"
+//                , "Foo"
+//                , "Piece"
+                , "Generic"
                 , "Tree"
                 , "IKeeper"
                 , "Bag"
-                , "Generic"
+                , "GenericCast"
+                , "Function"
                 , "Celsius"
                 , "Fahrenheit"
                 , "INormalize"
                 , "Coord"
-                , "Piece"
                 , "Pawn"
                 , "IPromotion"
                 , "Employee"
                 , "Helper"
                 , "Array"
             };
+
+            if (!Environment.OSVersion.ToString().Contains("Windows"))
+            {
+                ignoredTypes.Add("ClassesSimpleHierarchy");
+            }
 
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);

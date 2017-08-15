@@ -175,7 +175,7 @@ module Functions =
                     | _ when mm.IsStatic -> (None, state)
                     | _ ->
                         // TODO: declaring type should be symbolic here
-                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.FromDotNetType in
+                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
                         let instance, state = Memory.allocateSymbolicInstance state declaringType in
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
