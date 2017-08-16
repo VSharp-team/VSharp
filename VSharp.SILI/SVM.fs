@@ -18,7 +18,7 @@ module public SVM =
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
             let declaringType = Types.FromDotNetType(m.DeclaringType) in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
-            Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun state ->
+            Interpreter.initializeStaticMembersIfNeed state m.DeclaringType.AssemblyQualifiedName (fun (result, state) ->
             match metadataMethodOption with
             | None ->
                 printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name

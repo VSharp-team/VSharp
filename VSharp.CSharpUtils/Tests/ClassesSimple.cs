@@ -169,6 +169,19 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
+    internal static class ClassesSimpleExceptionInitializer
+    {
+        public static int init0(int n)
+        {
+            throw null;
+        }
+    }
+
+    internal class ClassesSimpleException0
+    {
+        private static int field0 = ClassesSimpleExceptionInitializer.init0(24);
+    }
+
     public static class ClassesSimple
     {
         public static bool Test1(int n)
@@ -179,6 +192,15 @@ namespace VSharp.CSharpUtils.Tests
             return n == a.GetN();
         }
     }
+
+    public static class ClassesSimpleException
+    {
+        public static void Test1()
+        {
+            ClassesSimpleException0 a = new ClassesSimpleException0();
+        }
+    }
+
 
     public static class ClassesSimpleHierarchy
     {

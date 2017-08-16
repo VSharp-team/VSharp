@@ -156,23 +156,24 @@ module internal Interpreter =
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         __notImplemented__())
 
     and reduceIndexerCallExpression state (ast : IIndexerCallExpression) k =
         let qualifiedTypeName = ast.PropertySpecification.Property.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         __notImplemented__())
 
     and reduceMethodCall state target (metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod) arguments k =
         let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         target state (fun (targetTerm, state) ->
         Cps.Seq.mapFoldk (fun state arg k -> arg state k) state arguments (fun (args, state) ->
         let invoke state k =
             let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
             let target = if metadataMethod.IsStatic then None else Some targetTerm in
-            decompileAndReduceMethod state target (State.Specified args) qualifiedTypeName metadataMethod assemblyPath k
+            decompileAndReduceMethod state target (State.Specified args) qualifiedTypeName metadataMethod assemblyPath (fun (result', state') ->
+            ControlFlow.composeSequentially result result' state state' |> k)
         in
         npeOrInvokeExpression state metadataMethod.IsStatic targetTerm invoke k)))
 
@@ -343,11 +344,12 @@ module internal Interpreter =
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method in
         let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         reduceExpressionToRef state true ast.Target (fun (targetTerm, state) ->
         let invoke state args k =
             let assemblyPath = metadataMethod.DeclaringType.Assembly.Location in
-            decompileAndReduceMethod state (Some targetTerm) (State.Specified args) qualifiedTypeName metadataMethod assemblyPath k
+            decompileAndReduceMethod state (Some targetTerm) (State.Specified args) qualifiedTypeName metadataMethod assemblyPath (fun (result', state') ->
+            ControlFlow.composeSequentially result result' state state' |> k)
         in
         let delegateTerm, state = Functions.MakeLambda state metadataMethod invoke in
         let returnDelegateTerm state k = k (Return delegateTerm, state) in
@@ -442,8 +444,16 @@ module internal Interpreter =
             | StructType _ when ast.Initializer = null -> k (Memory.mkDefault t, state)
             | _ -> reduceExpression state ast.Initializer k
         initialize (fun (initializer, state) ->
-            let state' = Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
-            k (NoResult, state'))
+            let statementResult = ControlFlow.throwOrIgnore initializer in
+            reduceException
+                statementResult
+                state
+                (fun _ exn _ state k -> k (statementResult, state))
+                (fun guard _ restOfUnion state k ->
+                    let state' = Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
+                    k (statementResult, state'))
+                k
+                k)
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         reduceExpression state ast.Result (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
@@ -518,6 +528,18 @@ module internal Interpreter =
                 (fun state k -> reduceSwitchCases state arg dflt rest k)
                 k
 
+// ------------------------------- Exceptions -------------------------------
+
+    and reduceException statementResult state trueBranch elseBranch exitK k =
+        let thrown, normal = ControlFlow.pickOutExceptions statementResult in
+        match thrown with
+        | None -> k (statementResult, state)
+        | Some(guard, exn) ->
+            reduceConditionalExecution state
+                (fun state k -> k (guard, state))
+                (fun state k -> trueBranch guard exn normal state k)
+                (fun state k -> elseBranch guard exn normal state k)
+                exitK
 // ------------------------------- Try-catch -------------------------------
 
     and reduceThrowStatement state (ast : IThrowStatement) k =
@@ -537,15 +559,13 @@ module internal Interpreter =
     and reduceCatchBlock state statementResult (clauses : ICatchClause[]) k =
         if Array.isEmpty clauses then k (statementResult, state)
         else
-            let thrown, normal = ControlFlow.pickOutExceptions statementResult in
-            match thrown with
-            | None -> k (statementResult, state)
-            | Some(guard, exn) ->
-                reduceConditionalExecution state
-                    (fun state k -> k (guard, state))
-                    (fun state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
-                    (fun state k -> k (Guarded ((guard, NoResult)::normal), state))
-                    k
+            reduceException
+                statementResult
+                state
+                (fun _ exn _ state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
+                (fun guard _ restOfUnion state k -> k (Guarded ((guard, NoResult)::restOfUnion), state))
+                k
+                k
 
     and reduceCatchClauses exn state clauses k =
         match clauses with
@@ -598,15 +618,13 @@ module internal Interpreter =
     and reduceFault state statementResult (ast : IBlockStatement) k =
         if ast = null then k (statementResult, state)
         else
-            let thrown, normal = ControlFlow.pickOutExceptions statementResult in
-            match thrown with
-            | None -> k (statementResult, state)
-            | Some(guard, exn) ->
-                reduceConditionalExecution state
-                    (fun state k -> k (guard, state))
-                    (fun state k -> reduceBlockStatement state ast (fun (_, state) -> k (NoResult, state)))
-                    (fun state k -> k (NoResult, state))
-                    (fun (_, state) -> k (statementResult, state))
+            reduceException
+                statementResult
+                state
+                (fun _ _ _ state k -> reduceBlockStatement state ast (fun (_, state) -> k (NoResult, state)))
+                (fun _ _ _ state k -> k (NoResult, state))
+                (fun (_, state) -> k (statementResult, state))
+                k
 
     and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) k =
         __notImplemented__()
@@ -663,7 +681,8 @@ module internal Interpreter =
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
         let qualifiedTypeName = ast.FieldSpecification.Field.DeclaringType.AssemblyQualifiedName in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        //todo: fix it
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         reduceExpressionToRef state true ast.Target (fun (target, state) ->
         readField state target ast.FieldSpecification.Field k))
 
@@ -1032,27 +1051,28 @@ module internal Interpreter =
             | _ -> Array.fromInitializer (Memory.tick()) (int(ast.ArrayType.Rank)) typ initializer
         Memory.allocateInHeap state result |> k))
 
-    and initializeStaticMembersIfNeed state qualifiedTypeName k =
+    and initializeStaticMembersIfNeed state qualifiedTypeName (k: StatementResult*State.state -> 'a) =
         if State.staticMembersInitialized state qualifiedTypeName then
-            k state
+            k (NoResult, state)
         else
             match Options.StaticFieldsValuation() with
             | Options.DefaultStaticFields ->
                 let fields, t, instance = Memory.mkDefaultStatic qualifiedTypeName in
                 let state = Memory.allocateInStaticMemory state qualifiedTypeName instance in
-                let initOneField state (name, (typ, expression)) k =
-                    if expression = null then k state
+                let initOneField (name, (typ, expression)) state k =
+                    if expression = null then k (NoResult, state)
                     else
                         let address, state = Memory.referenceStaticField state false name t qualifiedTypeName in
                         reduceExpression state expression (fun (value, state) ->
-                        Memory.mutate state address value |> snd |> k)
+                        Memory.mutate state address value |> (fun (term, state) -> k (ControlFlow.throwOrIgnore term, state)))
                 in
-                Cps.List.foldlk initOneField state fields (fun state ->
+                let fieldInitializers = Seq.map initOneField fields in
+                reduceSequentially state fieldInitializers (fun (result, state) ->
                 match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
                 | Some constr ->
-                    reduceDecompiledMethod state None (State.Specified []) constr (fun state k -> k (NoResult, state)) (snd >> k)
-                | None -> k state)
-            | Options.SymbolizeStaticFields -> k state
+                    reduceDecompiledMethod state None (State.Specified []) constr (fun state k -> k (result, state)) k
+                | None -> k (result, state))
+            | Options.SymbolizeStaticFields -> k (NoResult, state)
 
     and reduceBaseOrThisConstuctorCall state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMehod k =
         let rec mutateFields this names types values state =
@@ -1083,6 +1103,7 @@ module internal Interpreter =
             let baseQualifiedTypeName = metadataMethod.DeclaringType.Base.AssemblyQualifiedName in
             baseQualifiedTypeName, DecompilerServices.getBaseCtorWithoutArgs baseQualifiedTypeName, DecompilerServices.locationOfType baseQualifiedTypeName
         in
+        let composeResult result state k (result', state') = ControlFlow.composeSequentially result result' state state' |> k in
         match decompiledMehod with
         | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod ->
             printfn "DECOMPILED MethodWithExplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
@@ -1093,21 +1114,21 @@ module internal Interpreter =
             reduceDecompiledMethod state this parameters decompiledMethod (fun state k' ->
             initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
             Cps.Seq.mapFoldk reduceExpression state args (fun (args, state) ->
-            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun state ->
-            decompileAndReduceMethod state this (State.Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath k')))) k
+            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun (result, state) ->
+            decompileAndReduceMethod state this (State.Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k'))))) k
         | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod ->
             printfn "DECOMPILED MethodWithImplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             let initializerQualifiedTypeName, initializerMethod, initializerAssemblyPath = baseCtorInfo metadataMethod in
             reduceDecompiledMethod state this parameters decompiledMethod (fun state k' ->
             initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
-            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun state ->
-            decompileAndReduceMethod state this (State.Specified []) initializerQualifiedTypeName initializerMethod initializerAssemblyPath k'))) k
+            initializeStaticMembersIfNeed state initializerQualifiedTypeName (fun (result, state) ->
+            decompileAndReduceMethod state this (State.Specified []) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k')))) k
         | DecompilerServices.DecompilationResult.DefaultConstuctor ->
             printfn "DECOMPILED default ctor %s" qualifiedTypeName
             let baseCtorQualifiedTypeName, baseCtorMethod, baseCtorAssemblyPath = baseCtorInfo metadataMethod in
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) (baseCtorMethod.DeclaringType) qualifiedTypeName (fun state ->
-            initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
-            decompileAndReduceMethod state this (State.Specified []) baseCtorQualifiedTypeName baseCtorMethod baseCtorAssemblyPath k))
+            initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
+            decompileAndReduceMethod state this (State.Specified []) baseCtorQualifiedTypeName baseCtorMethod baseCtorAssemblyPath (composeResult result state k)))
         | DecompilerServices.DecompilationResult.ObjectConstuctor objCtor ->
             printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(objCtor))
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) null qualifiedTypeName (fun state ->
@@ -1133,7 +1154,7 @@ module internal Interpreter =
                 let state = Memory.newStackFrame state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
                 (Memory.referenceLocalVariable state (tempVar, tempVar) false, state)
         in
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
         let finish r =
             composeSequentially (fun () -> None) r
                 (fun state k ->
@@ -1144,7 +1165,8 @@ module internal Interpreter =
                         k (Return term, State.popStack state))
                 (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
         in
-        let invokeInitializers r =
+        let invokeInitializers result state (result', state') =
+            let r = ControlFlow.composeSequentially result result' state state' in
             composeSequentially (fun () -> None) r (fun state k ->
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
@@ -1158,7 +1180,7 @@ module internal Interpreter =
             else
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
-                decompileAndReduceMethod state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath invokeInitializers))
+                decompileAndReduceMethod state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath (invokeInitializers result state)))
 
 
     and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
