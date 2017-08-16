@@ -85,23 +85,18 @@ module internal DecompilerServices =
     let private embodyGetter (property : IDecompiledProperty) =
         if property.Getter <> null && not property.IsAuto && property.Getter.Body = null then
             hackBuggyAutoProperty property embodyAutoGetter
-        else if property.Getter <> null && property.IsAuto && property.Getter.Body = null then
+        elif property.Getter <> null && property.IsAuto && property.Getter.Body = null then
             embodyAutoGetter property property.BackingField
         property.Getter
 
     let private embodySetter (property : IDecompiledProperty) =
         if property.Setter <> null && not property.IsAuto && property.Setter.Body = null then
             hackBuggyAutoProperty property embodyAutoSetter
-        else if property.Setter <> null && property.IsAuto && property.Setter.Body = null then
+        elif property.Setter <> null && property.IsAuto && property.Setter.Body = null then
             embodyAutoSetter property property.BackingField
         property.Setter
 
-    let removeGenericParameters (qualifiedTypeName : string) =
-        let parametersIndex = qualifiedTypeName.IndexOf("[[") in
-        if parametersIndex < 0 then qualifiedTypeName else qualifiedTypeName.Remove(parametersIndex)
-
     let public decompileClass assemblyPath qualifiedTypeName =
-        let qualifiedTypeName = removeGenericParameters qualifiedTypeName in
         Dict.getValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
             let metadataAssembly = loadAssembly assemblyPath in
             let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
@@ -156,7 +151,7 @@ module internal DecompilerServices =
 
     let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName in
-        let decompiledClass = decompileClass assemblyPath (removeGenericParameters qualifiedTypeName) in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
         let initializerOf (f : IDecompiledField) =
             let mf = f.MetadataField in
             if mf.IsLiteral

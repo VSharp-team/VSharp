@@ -73,7 +73,7 @@ module Transformations =
             | _ -> __notImplemented__()
         in
         let typeOfIndexer (indexer : ILocalVariableDeclarationStatement) =
-            indexer.VariableReference.Variable.Type |> Types.MetadataToDotNetType in
+            indexer.VariableReference.Variable.Type |> Types.Constructor.MetadataToDotNetType in
         let variableOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.VariableReference.TypedClone<IExpression>()
         let initializerOfIndexer (indexer : ILocalVariableDeclarationStatement) =

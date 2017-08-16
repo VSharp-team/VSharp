@@ -9,8 +9,9 @@ module internal State =
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
-    type internal frames = Stack.stack<(StackKey * TermType) list * Timestamp>
     type internal pathCondition = Term list
+    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermType) list * Timestamp
+    type internal frames = Stack.stack<stackFrame>
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
 // ------------------------------- Primitives -------------------------------
@@ -38,30 +39,41 @@ module internal State =
     let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
         SymbolicHeap.contains (Concrete(typeName, String)) m
 
-    let internal newStackFrame time ((s, h, m, f, p) : state) frame : state =
+    let internal newStackFrame time ((s, h, m, f, p) : state) funcId frame : state =
+        let pushOne (map : stack) (key, value, typ) =
+            match value with
+            | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
+            | Unspecified -> ((key, typ), MappedStack.reserve key map)
+        in
+        let frameMetadata = Some(funcId, p) in
+        let locations, newStack = frame |> List.mapFold pushOne s in
+        (newStack, h, m, Stack.push f (frameMetadata, locations, time), p)
+
+    let internal newScope time ((s, h, m, f, p) : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
             | Unspecified -> ((key, typ), MappedStack.reserve key map)
         in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (locations, time), p)
+        (newStack, h, m, Stack.push f (None, locations, time), p)
+
     let internal pushToCurrentStackFrame ((s, _, _, _, _) : state) key value = MappedStack.push key value s
     let internal popStack ((s, h, m, f, p) : state) : state =
         let popOne (map : stack) (name, _) = MappedStack.remove map name
-        let locations, _ = Stack.peak f in
+        let _, locations, _ = Stack.peak f in
         (List.fold popOne s locations, h, m, Stack.pop f, p)
 
     let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
         (MappedStack.add key value s, h, m, f, p)
 
     let internal frameTime ((_, _, _, f, _) : state) key =
-        match List.tryFind (fst >> List.exists (fst >> ((=) key))) f with
-        | Some(_, t) -> t
+        match List.tryFind (snd3 >> List.exists (fst >> ((=) key))) f with
+        | Some(_, _, t) -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal typeOfStackLocation ((_, _, _, f, _) : state) key =
-        match List.tryPick (fst >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
+        match List.tryPick (snd3 >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
@@ -88,22 +100,26 @@ module internal State =
 
 // ------------------------------- Memory level -------------------------------
 
-    [<AllowNullLiteral>]
-    type ActivatorInterface =
+    type IActivator =
         abstract member CreateInstance : System.Type -> Term list -> state -> (Term * state)
-    let mutable activator : ActivatorInterface = null
+    type private NullActivator() =
+        interface IActivator with
+            member this.CreateInstance _ _ _ =
+                internalfail "activator is not ready"
+    let mutable activator : IActivator = new NullActivator() :> IActivator
 
     let rec internal defaultOf time = function
         | Bool -> Terms.MakeFalse
         | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
         | Numeric t -> Terms.MakeConcrete 0 t
         | String -> Concrete(null, String)
+        | PointerType t -> Concrete(null, t)
         | ClassType _ as t -> Concrete(null, t)
         | ArrayType _ as t -> Concrete(null, t)
-        | Object name as t -> Concrete(name, t)
-        | SubType(name, _) as t -> Concrete(name, t)
-        | Func _ -> Concrete(null, Object "func")
-        | StructType dotNetType as t ->
+        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct(Heap.empty, t)
+        | SubType _ as t -> Concrete(null, t)
+        | Func _ -> Concrete(null, SubType(typedefof<System.Delegate>, [], [], "func"))
+        | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             Struct(Seq.map (fun (k, v) -> (Terms.MakeConcreteString k, (defaultOf time v, time, time))) (Map.toSeq fields) |> Heap.ofSeq, t)
         | _ -> __notImplemented__()
@@ -129,13 +145,13 @@ module internal State =
         Array(mkArraySymbolicLowerBound constant name rank, Some constant, Heap.empty, lengths, typ)
 
     let internal makeSymbolicInstance time source name = function
-        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
-        | Object _
-        | StructType _
-        | SubType _ as t -> Struct(Heap.empty, t)
-        | ClassType _ as t ->
+        | PointerType t ->
             let constant = Constant(name, source, pointerType) in
             HeapRef(((constant, t), []), time)
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
+        | StructType _
+        | SubType _
+        | ClassType _ as t -> Struct(Heap.empty, t)
         | ArrayType(e, d) as t -> makeSymbolicArray source d t name
         | _ -> __notImplemented__()
 
