@@ -11,12 +11,12 @@ module internal State =
     type internal staticMemory = SymbolicHeap
     type internal pathCondition = Term list
     type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermType) list * Timestamp
-    type internal frames = Stack.stack<stackFrame>
+    type internal frames = Stack.stack<stackFrame> * StackHash
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
 // ------------------------------- Primitives -------------------------------
 
-    let internal empty : state = (MappedStack.empty, SymbolicHeap.empty, SymbolicHeap.empty, Stack.empty, List.empty)
+    let internal empty : state = (MappedStack.empty, SymbolicHeap.empty, SymbolicHeap.empty, (Stack.empty, List.empty), List.empty)
 
     type internal 'a SymbolicValue =
         | Specified of 'a
@@ -39,7 +39,7 @@ module internal State =
     let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
         SymbolicHeap.contains (Concrete(typeName, String)) m
 
-    let internal newStackFrame time ((s, h, m, f, p) : state) funcId frame : state =
+    let internal newStackFrame time ((s, h, m, (f, sh), p) : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
@@ -47,32 +47,41 @@ module internal State =
         in
         let frameMetadata = Some(funcId, p) in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (frameMetadata, locations, time), p)
+        let f' = Stack.push f (frameMetadata, locations, time) in
+        let sh' = frameMetadata.GetHashCode()::sh in
+        (newStack, h, m, (f', sh'), p)
 
-    let internal newScope time ((s, h, m, f, p) : state) frame : state =
+    let internal newScope time ((s, h, m, (f, sh), p) : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
             | Unspecified -> ((key, typ), MappedStack.reserve key map)
         in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (None, locations, time), p)
+        (newStack, h, m, (Stack.push f (None, locations, time), sh), p)
 
     let internal pushToCurrentStackFrame ((s, _, _, _, _) : state) key value = MappedStack.push key value s
-    let internal popStack ((s, h, m, f, p) : state) : state =
+    let internal popStack ((s, h, m, (f, sh), p) : state) : state =
         let popOne (map : stack) (name, _) = MappedStack.remove map name
-        let _, locations, _ = Stack.peak f in
-        (List.fold popOne s locations, h, m, Stack.pop f, p)
+        let metadata, locations, _ = Stack.peak f in
+        let f' = Stack.pop f in
+        let sh' =
+            match metadata with
+            | Some _ ->
+                assert(not <| List.isEmpty sh)
+                List.tail sh
+            | None -> sh
+        (List.fold popOne s locations, h, m, (f', sh'), p)
 
     let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
         (MappedStack.add key value s, h, m, f, p)
 
-    let internal frameTime ((_, _, _, f, _) : state) key =
+    let internal frameTime ((_, _, _, (f, _), _) : state) key =
         match List.tryFind (snd3 >> List.exists (fst >> ((=) key))) f with
         | Some(_, _, t) -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal typeOfStackLocation ((_, _, _, f, _) : state) key =
+    let internal typeOfStackLocation ((_, _, _, (f, _), _) : state) key =
         match List.tryPick (snd3 >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
@@ -89,6 +98,7 @@ module internal State =
     let internal heapOf ((_, h, _, _, _) : state) = h
     let internal staticsOf ((_, _, m, _, _) : state) = m
     let private framesOf ((_, _, _, f, _) : state) = f
+    let internal framesHashOf ((_, _, _, (_, h), _) : state) = h
     let internal pathConditionOf ((_, _, _, _, p) : state) = p
 
     let internal withHeap ((s, h, m, f, p) : state) h' = (s, h', m, f, p)

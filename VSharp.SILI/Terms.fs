@@ -17,7 +17,7 @@ type FunctionIdentifier =
         | StandardFunctionIdentifier sf -> sf.ToString()
 
 type StackKey = string * string  // Name and token
-type LocationBinding = JetBrains.Decompiler.Ast.INode
+type StackHash = int list
 
 [<StructuralEquality;NoComparison>]
 type public Operation =

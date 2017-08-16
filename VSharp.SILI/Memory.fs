@@ -309,11 +309,11 @@ module internal Memory =
     let internal newStackFrame state funcId frame = State.newStackFrame (tick()) state funcId frame
     let internal newScope state frame = State.newScope (tick()) state frame
 
-    let internal allocateOnStack ((s, h, m, f, p) as state : state) key term : state =
+    let internal allocateOnStack ((s, h, m, (f, sh), p) as state : state) key term : state =
         let time = tick() in
         let metadata, oldFrame, frameTime = Stack.peak f in
         let typ = Terms.TypeOf term in
-        (pushToCurrentStackFrame state key (term, time, time), h, m, Stack.updateHead f (metadata, (key, typ)::oldFrame, frameTime), p)
+        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (metadata, (key, typ)::oldFrame, frameTime), sh), p)
 
     let internal allocateInHeap ((s, h, m, f, p) : state) term : Term * state =
         let address = Concrete(freshAddress(), pointerType) in

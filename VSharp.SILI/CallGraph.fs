@@ -3,7 +3,7 @@
 module CallGraph =
     type private Frame = FunctionIdentifier * Term list
 
-    let private detectUnboundRecursion id ((_, _, _, frames, pathCondition) : State.state) =
+    let private detectUnboundRecursion id ((_, _, _, (frames, _), pathCondition) : State.state) =
         let isRecursiveFrame (metadata, _, _) =
             match metadata with
             | Some(id', _) when id = id' -> true
