@@ -180,7 +180,7 @@ module Functions =
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
                             let key = ("external data", mm.Token.ToString()) in
-                            let state = Memory.newStackFrame state [(key, State.Specified instance, declaringType)] in
+                            let state = Memory.newStackFrame state (MetadataMethodIdentifier null) [(key, State.Specified instance, declaringType)] in
                             (Some <| Memory.referenceLocalVariable state key true, state))
                 | DelegateIdentifier ast ->
                     __notImplemented__()
