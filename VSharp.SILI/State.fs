@@ -9,8 +9,9 @@ module internal State =
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
-    type internal frames = Stack.stack<(StackKey * TermType) list * Timestamp>
     type internal pathCondition = Term list
+    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermType) list * Timestamp
+    type internal frames = Stack.stack<stackFrame>
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
 // ------------------------------- Primitives -------------------------------
@@ -38,30 +39,41 @@ module internal State =
     let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
         SymbolicHeap.contains (Concrete(typeName, String)) m
 
-    let internal newStackFrame time ((s, h, m, f, p) : state) frame : state =
+    let internal newStackFrame time ((s, h, m, f, p) : state) funcId frame : state =
+        let pushOne (map : stack) (key, value, typ) =
+            match value with
+            | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
+            | Unspecified -> ((key, typ), MappedStack.reserve key map)
+        in
+        let frameMetadata = Some(funcId, p) in
+        let locations, newStack = frame |> List.mapFold pushOne s in
+        (newStack, h, m, Stack.push f (frameMetadata, locations, time), p)
+
+    let internal newScope time ((s, h, m, f, p) : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
             | Unspecified -> ((key, typ), MappedStack.reserve key map)
         in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (locations, time), p)
+        (newStack, h, m, Stack.push f (None, locations, time), p)
+
     let internal pushToCurrentStackFrame ((s, _, _, _, _) : state) key value = MappedStack.push key value s
     let internal popStack ((s, h, m, f, p) : state) : state =
         let popOne (map : stack) (name, _) = MappedStack.remove map name
-        let locations, _ = Stack.peak f in
+        let _, locations, _ = Stack.peak f in
         (List.fold popOne s locations, h, m, Stack.pop f, p)
 
     let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
         (MappedStack.add key value s, h, m, f, p)
 
     let internal frameTime ((_, _, _, f, _) : state) key =
-        match List.tryFind (fst >> List.exists (fst >> ((=) key))) f with
-        | Some(_, t) -> t
+        match List.tryFind (snd3 >> List.exists (fst >> ((=) key))) f with
+        | Some(_, _, t) -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal typeOfStackLocation ((_, _, _, f, _) : state) key =
-        match List.tryPick (fst >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
+        match List.tryPick (snd3 >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 

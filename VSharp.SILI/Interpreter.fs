@@ -90,7 +90,7 @@ module internal Interpreter =
                 printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
                 let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
                 if externalImplementations.ContainsKey(fullMethodName) then
-                    reduceFunctionSignature state decompiledMethod.Signature this parameters (fun (argsAndThis, state) ->
+                    reduceFunctionSignature (MetadataMethodIdentifier metadataMethod) state decompiledMethod.Signature this parameters (fun (argsAndThis, state) ->
                     internalCall metadataMethod argsAndThis state k)
                 elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                     match parameters with
@@ -113,7 +113,7 @@ module internal Interpreter =
         | DecompilerServices.DecompilationResult.DecompilationError ->
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
 
-    and reduceFunctionSignature state (ast : IFunctionSignature) this paramValues k =
+    and reduceFunctionSignature funcId state (ast : IFunctionSignature) this paramValues k =
         let values, areParametersSpecified =
             match paramValues with
             | State.Specified values -> values, true
@@ -139,12 +139,11 @@ module internal Interpreter =
                 let thisKey = ("this", getThisTokenBy ast) in
                 (thisKey, State.Specified thisValue, Terms.TypeOf thisValue)::parameters
             | None -> parameters
-        k (parametersAndThis, Memory.newStackFrame state parametersAndThis)
+        k (parametersAndThis, Memory.newStackFrame state funcId parametersAndThis)
 
     and reduceFunction state this parameters returnType funcId (signature : IFunctionSignature) invoke k =
-        reduceFunctionSignature state signature this parameters (fun (_, state) ->
+        reduceFunctionSignature funcId state signature this parameters (fun (_, state) ->
         CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
-
 
     and reduceDecompiledMethod state this parameters (ast : IDecompiledMethod) initializerInvoke k =
         let returnType = FromGlobalSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) in
@@ -416,14 +415,14 @@ module internal Interpreter =
     and reduceSequentially state statements k =
         Cps.Seq.foldlk
             (composeSequentially (fun () -> None))
-            (NoResult, Memory.newStackFrame state [])
+            (NoResult, Memory.newScope state [])
             statements
             (fun (res, state) -> k (res, State.popStack state))
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
         let compose rs statement k =
             composeSequentially (fun () -> Some(statement)) rs (fun state -> reduceStatement state statement) k
-        Cps.Seq.foldlk compose (NoResult, Memory.newStackFrame state []) ast.Statements (fun (res, state) -> k (res, State.popStack state))
+        Cps.Seq.foldlk compose (NoResult, Memory.newScope state []) ast.Statements (fun (res, state) -> k (res, State.popStack state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         k (NoResult, state)
@@ -559,25 +558,28 @@ module internal Interpreter =
                 k
 
     and reduceCatchCondition exn state (ast : ICatchClause) k =
-        if ast.VariableReference = null then k (Terms.MakeTrue, Memory.newStackFrame state []) // just catch {...} case
-        else
-            DecompilerServices.setPropertyOfNode ast "Thrown" exn
-            // catch (...) {...} case
-            let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type in
-            let typeMatches, state = checkCast state targetType exn in
-            let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
-            let state = Memory.newStackFrame state [(stackKey, State.Specified exn, Terms.TypeOf exn)] in
-            if ast.Filter = null then k (typeMatches, state)
+        let typeMatches, state =
+            if ast.VariableReference = null then (Terms.MakeTrue, Memory.newScope state []) // just catch {...} case
             else
-                let filteringExpression = Transformations.extractExceptionFilter ast.Filter in
-                reduceConditionalExecution state
-                    (fun state k -> k (typeMatches, state))
-                    (fun state k -> reduceExpression state filteringExpression
-                                        (fun (filterResult, state) ->
-                                            k (ControlFlow.consumeErrorOrReturn
-                                                (always (Return Terms.MakeFalse)) filterResult, state)))
-                    (fun state k -> k (Return typeMatches, state))
-                    (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
+                DecompilerServices.setPropertyOfNode ast "Thrown" exn
+                // catch (...) {...} case
+                let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type in
+                let typeMatches, state = checkCast state targetType exn in
+                let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
+                let state = Memory.newScope state [(stackKey, State.Specified exn, Terms.TypeOf exn)] in
+                typeMatches, state
+        in
+        if ast.Filter = null then k (typeMatches, state)
+        else
+            let filteringExpression = Transformations.extractExceptionFilter ast.Filter in
+            reduceConditionalExecution state
+                (fun state k -> k (typeMatches, state))
+                (fun state k -> reduceExpression state filteringExpression
+                                    (fun (filterResult, state) ->
+                                        k (ControlFlow.consumeErrorOrReturn
+                                            (always (Return Terms.MakeFalse)) filterResult, state)))
+                (fun state k -> k (Return typeMatches, state))
+                (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
 
     and reduceRethrowStatement state (ast : IRethrowStatement) k =
         let rec findException (node : INode) =
@@ -1130,7 +1132,7 @@ module internal Interpreter =
             then Memory.allocateInHeap state freshValue
             else
                 let tempVar = "constructed instance" in
-                let state = Memory.newStackFrame state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
+                let state = Memory.newScope state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
                 (Memory.referenceLocalVariable state (tempVar, tempVar) false, state)
         in
         initializeStaticMembersIfNeed state qualifiedTypeName (fun state ->
