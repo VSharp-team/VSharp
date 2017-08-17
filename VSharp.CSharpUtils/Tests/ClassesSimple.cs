@@ -171,12 +171,12 @@ namespace VSharp.CSharpUtils.Tests
 
     internal static class ClassesSimpleExceptionInitializer
     {
-        public static int init0(int n)
+        public static int Init0(int n)
         {
             throw null;
         }
 
-        public static int init1(int n)
+        public static int Init1(int n)
         {
             if (n > 0)
             {
@@ -188,13 +188,13 @@ namespace VSharp.CSharpUtils.Tests
 
     internal class ClassesSimpleException0
     {
-        private static int field0 = ClassesSimpleExceptionInitializer.init0(24);
+        private static int field0 = ClassesSimpleExceptionInitializer.Init0(24);
     }
 
     internal class ClassesSimpleException1
     {
-        private static int field0 = ClassesSimpleExceptionInitializer.init1(-24);
-        private static int field1 = ClassesSimpleExceptionInitializer.init1(24);
+        private static int field0 = ClassesSimpleExceptionInitializer.Init1(-24);
+        private static int field1 = ClassesSimpleExceptionInitializer.Init1(24);
     }
 
     public static class ClassesSimple

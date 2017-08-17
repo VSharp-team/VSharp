@@ -452,13 +452,12 @@ module internal Interpreter =
             let allocate statementResult k =
                 let state' = Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
                 k (statementResult, state') in
-            reduceException
+            failOrInvoke
                 statementResult
                 state
                 (fun () -> allocate NoResult k)
-                (fun _ exn _ state k -> k (statementResult, state))
+                (fun _ _ _ state k -> k (statementResult, state))
                 (fun _ _ _ _ k -> allocate statementResult k)
-                k
                 k)
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
@@ -534,19 +533,18 @@ module internal Interpreter =
                 (fun state k -> reduceSwitchCases state arg dflt rest k)
                 k
 
-// ------------------------------- Exceptions -------------------------------
+// ------------------------------- Try-catch -------------------------------
 
-    and reduceException statementResult state notExn trueBranch elseBranch exitK k =
+    and failOrInvoke statementResult state notExn trueBranch elseBranch k =
         let thrown, normal = ControlFlow.pickOutExceptions statementResult in
         match thrown with
-        | None -> notExn() // k (statementResult, state)
+        | None -> notExn()
         | Some(guard, exn) ->
             reduceConditionalExecution state
                 (fun state k -> k (guard, state))
                 (fun state k -> trueBranch guard exn normal state k)
                 (fun state k -> elseBranch guard exn normal state k)
-                exitK
-// ------------------------------- Try-catch -------------------------------
+                k
 
     and reduceThrowStatement state (ast : IThrowStatement) k =
         reduceExpression state ast.Argument (fun (arg, state) ->
@@ -565,13 +563,12 @@ module internal Interpreter =
     and reduceCatchBlock state statementResult (clauses : ICatchClause[]) k =
         if Array.isEmpty clauses then k (statementResult, state)
         else
-            reduceException
+            failOrInvoke
                 statementResult
                 state
                 (fun () -> k (statementResult, state))
                 (fun _ exn _ state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
                 (fun guard _ restOfUnion state k -> k (Guarded ((guard, NoResult)::restOfUnion), state))
-                k
                 k
 
     and reduceCatchClauses exn state clauses k =
@@ -628,14 +625,13 @@ module internal Interpreter =
     and reduceFault state statementResult (ast : IBlockStatement) k =
         if ast = null then k (statementResult, state)
         else
-            reduceException
+            failOrInvoke
                 statementResult
                 state
                 (fun () -> k (statementResult, state))
                 (fun _ _ _ state k -> reduceBlockStatement state ast (fun (_, state) -> k (NoResult, state)))
                 (fun _ _ _ state k -> k (NoResult, state))
                 (fun (_, state) -> k (statementResult, state))
-                k
 
     and reduceSuccessfulFilteringStatement state (ast : ISuccessfulFilteringStatement) k =
         __notImplemented__()
@@ -696,13 +692,12 @@ module internal Interpreter =
             let readFieldLocal () =
                 reduceExpressionToRef state true ast.Target (fun (target, state) ->
                 readField state target ast.FieldSpecification.Field k) in
-            reduceException
+            failOrInvoke
                 statementResult
                 state
                 (fun () -> readFieldLocal ())
                 (fun _ _ _ state k -> k (statementResult, state))
                 (fun _ _ _ state k -> readFieldLocal ())
-                (fun (r, s) -> k ((ControlFlow.resultToTerm r), s))
                 (fun (r, s) -> k ((ControlFlow.resultToTerm r), s)))
 
     and readField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -1069,7 +1064,7 @@ module internal Interpreter =
             | _ -> Array.fromInitializer (Memory.tick()) (int(ast.ArrayType.Rank)) typ initializer
         Memory.allocateInHeap state result |> k))
 
-    and initializeStaticMembersIfNeed state qualifiedTypeName (k: StatementResult*State.state -> 'a) =
+    and initializeStaticMembersIfNeed state qualifiedTypeName k =
         if State.staticMembersInitialized state qualifiedTypeName then
             k (NoResult, state)
         else
@@ -1082,7 +1077,17 @@ module internal Interpreter =
                     else
                         let address, state = Memory.referenceStaticField state false name t qualifiedTypeName in
                         reduceExpression state expression (fun (value, state) ->
-                        Memory.mutate state address value |> (fun (term, state) -> k (ControlFlow.throwOrIgnore term, state)))
+                        let statementResult = ControlFlow.throwOrIgnore value in
+                        let mutate k =
+                            let term, state = Memory.mutate state address value in 
+                            k (ControlFlow.throwOrIgnore term, state) in
+                        failOrInvoke
+                            statementResult
+                            state
+                            (fun () -> mutate k)
+                            (fun _ exn _ state k -> k (statementResult, state))
+                            (fun _ _ _ _ k -> mutate k)
+                            k)
                 in
                 let fieldInitializers = Seq.map initOneField fields in
                 reduceSequentially state fieldInitializers (fun (result, state) ->

@@ -55,7 +55,7 @@ namespace VSharp.CSharpUtils
             return n % 2 == 1;
         }
 
-        public static int throwNull(int n)
+        public static int ThrowNull(int n)
         {
             try
             {
