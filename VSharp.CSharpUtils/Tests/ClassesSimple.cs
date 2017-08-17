@@ -175,11 +175,26 @@ namespace VSharp.CSharpUtils.Tests
         {
             throw null;
         }
+
+        public static int init1(int n)
+        {
+            if (n > 0)
+            {
+                throw null;
+            }
+            return n;
+        }
     }
 
     internal class ClassesSimpleException0
     {
         private static int field0 = ClassesSimpleExceptionInitializer.init0(24);
+    }
+
+    internal class ClassesSimpleException1
+    {
+        private static int field0 = ClassesSimpleExceptionInitializer.init1(-24);
+        private static int field1 = ClassesSimpleExceptionInitializer.init1(24);
     }
 
     public static class ClassesSimple
@@ -198,6 +213,11 @@ namespace VSharp.CSharpUtils.Tests
         public static void Test1()
         {
             ClassesSimpleException0 a = new ClassesSimpleException0();
+        }
+
+        public static void Test2()
+        {
+            ClassesSimpleException1 a = new ClassesSimpleException1();
         }
     }
 

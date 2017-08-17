@@ -449,13 +449,15 @@ module internal Interpreter =
             | _ -> reduceExpression state ast.Initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.throwOrIgnore initializer in
+            let allocate statementResult k =
+                let state' = Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
+                k (statementResult, state') in
             reduceException
                 statementResult
                 state
+                (fun () -> allocate NoResult k)
                 (fun _ exn _ state k -> k (statementResult, state))
-                (fun guard _ restOfUnion state k ->
-                    let state' = Memory.allocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
-                    k (statementResult, state'))
+                (fun _ _ _ _ k -> allocate statementResult k)
                 k
                 k)
 
@@ -534,10 +536,10 @@ module internal Interpreter =
 
 // ------------------------------- Exceptions -------------------------------
 
-    and reduceException statementResult state trueBranch elseBranch exitK k =
+    and reduceException statementResult state notExn trueBranch elseBranch exitK k =
         let thrown, normal = ControlFlow.pickOutExceptions statementResult in
         match thrown with
-        | None -> k (statementResult, state)
+        | None -> notExn() // k (statementResult, state)
         | Some(guard, exn) ->
             reduceConditionalExecution state
                 (fun state k -> k (guard, state))
@@ -566,6 +568,7 @@ module internal Interpreter =
             reduceException
                 statementResult
                 state
+                (fun () -> k (statementResult, state))
                 (fun _ exn _ state k -> reduceCatchClauses exn state (Seq.ofArray clauses) k)
                 (fun guard _ restOfUnion state k -> k (Guarded ((guard, NoResult)::restOfUnion), state))
                 k
@@ -628,6 +631,7 @@ module internal Interpreter =
             reduceException
                 statementResult
                 state
+                (fun () -> k (statementResult, state))
                 (fun _ _ _ state k -> reduceBlockStatement state ast (fun (_, state) -> k (NoResult, state)))
                 (fun _ _ _ state k -> k (NoResult, state))
                 (fun (_, state) -> k (statementResult, state))
@@ -688,10 +692,18 @@ module internal Interpreter =
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
         let qualifiedTypeName = ast.FieldSpecification.Field.DeclaringType.AssemblyQualifiedName in
-        //todo: fix it
-        initializeStaticMembersIfNeed state qualifiedTypeName (fun (result, state) ->
-        reduceExpressionToRef state true ast.Target (fun (target, state) ->
-        readField state target ast.FieldSpecification.Field k))
+        initializeStaticMembersIfNeed state qualifiedTypeName (fun (statementResult, state) ->
+            let readFieldLocal () =
+                reduceExpressionToRef state true ast.Target (fun (target, state) ->
+                readField state target ast.FieldSpecification.Field k) in
+            reduceException
+                statementResult
+                state
+                (fun () -> readFieldLocal ())
+                (fun _ _ _ state k -> k (statementResult, state))
+                (fun _ _ _ state k -> readFieldLocal ())
+                (fun (r, s) -> k ((ControlFlow.resultToTerm r), s))
+                (fun (r, s) -> k ((ControlFlow.resultToTerm r), s)))
 
     and readField state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let fieldName = DecompilerServices.idOfMetadataField field in
