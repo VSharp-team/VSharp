@@ -27,7 +27,7 @@ module public SVM =
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList && t.IsPublic then
-            t.GetMethods() |> Array.iter (interpret dictionary assemblyPath)
+            t.GetMethods() |> FSharp.Collections.Array.iter (interpret dictionary assemblyPath)
 
     let private replaceLambdaLines str =
         System.Text.RegularExpressions.Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")
@@ -40,5 +40,5 @@ module public SVM =
         let ignoreList = List.ofSeq ignoreList
         let dictionary = new Dictionary<MethodInfo, Term * State.state>()
         let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location) in
-        assembly.GetTypes() |> Array.iter (fun elem -> runType ignoreList dictionary path elem) |> ignore
+        assembly.GetTypes() |> FSharp.Collections.Array.iter (fun elem -> runType ignoreList dictionary path elem) |> ignore
         System.Linq.Enumerable.ToDictionary(dictionary :> IEnumerable<_>, (fun kvp -> kvp.Key), resultToString) :> IDictionary<_, _>

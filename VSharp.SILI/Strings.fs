@@ -4,21 +4,23 @@ open JetBrains.Decompiler.Ast
 
 module internal Strings =
 
-    let internal simplifyEquality x y =
-        match x, y with
-        | Concrete(x, String), Concrete(y, String) -> Terms.MakeBool((x :?> string) = (y :?> string))
+    let internal simplifyEquality mtd x y =
+        match x.term, y.term with
+        | Concrete(x, String), Concrete(y, String) -> MakeBool ((x :?> string) = (y :?> string)) mtd
         | _ -> __notImplemented__()
 
-    let internal simplifyConcatenation x y =
-        match (x, y) with
-        | (Concrete(x, xt), Concrete(y, yt)) -> Terms.MakeConcrete (VSharp.CSharpUtils.Calculator.Add(x, y, typedefof<string>)) typedefof<string>
-        | _ -> Terms.MakeBinary OperationType.Add x y false String
+    let internal simplifyConcatenation mtd x y =
+        match x.term, y.term with
+        | Concrete(xval, _), Concrete(yval, _) ->
+            let mtd' = Metadata.combine3 mtd x.metadata y.metadata in
+            MakeConcreteString (VSharp.CSharpUtils.Calculator.Add(xval, yval, typedefof<string>) :?> string) mtd'
+        | _ -> Terms.MakeBinary OperationType.Add x y false String mtd
 
-    let internal simplifyOperation op x y =
+    let internal simplifyOperation mtd op x y =
         match op with
-        | OperationType.Add -> simplifyConcatenation x y
-        | OperationType.Equal -> simplifyEquality x y
-        | OperationType.NotEqual -> !! (simplifyEquality x y)
+        | OperationType.Add -> simplifyConcatenation mtd x y
+        | OperationType.Equal -> simplifyEquality mtd x y
+        | OperationType.NotEqual -> !! (simplifyEquality mtd x y)
         | OperationType.NullCoalescing
         | _ -> __notImplemented__()
 

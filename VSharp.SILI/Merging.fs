@@ -5,9 +5,10 @@ open VSharp.Terms
 module internal Merging =
 
     // TODO: This is a pretty performance-critical function. We should store the result into the union itself.
-    let internal guardOf = function
-        | Terms.GuardedValues(gs, _) -> disjunction gs
-        | _ -> Terms.MakeTrue
+    let internal guardOf term =
+        match term.term with
+        | Terms.GuardedValues(gs, _) -> disjunction term.metadata gs
+        | _ -> Terms.MakeTrue term.metadata
 
     let private boolMerge = function
         | [] -> []
@@ -23,21 +24,21 @@ module internal Merging =
         | [_] as gvs -> gvs
         | gvs ->
             let gs, vs = List.unzip gvs in
-            let extractFields = function
+            let extractFields = term >> function
                 | Struct(fs, _) -> fs
                 | t -> "Expected struct, got " + (toString t) |> internalfail
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
-            let guard = disjunction gs in
-            [(guard, Struct(merged, t))]
+            let guard = disjunction Metadata.empty gs in
+            [(guard, Struct merged t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
-            | (Terms.True, v)::gvs' -> [List.head gvs]
-            | (Terms.False, v)::gvs' -> loop gvs' out
-            | (g, Union us)::gvs' when not (List.isEmpty us) ->
+            | (True, v)::gvs' -> [List.head gvs]
+            | (False, v)::gvs' -> loop gvs' out
+            | (g, UnionT us)::gvs' when not (List.isEmpty us) ->
                 let guarded = us |> List.map (fun (g', v) -> (g &&& g', v)) in
                 loop gvs' (List.append (simplify guarded) out)
             | gv::gvs' -> loop gvs' (gv::out)
@@ -88,7 +89,7 @@ module internal Merging =
         match compress (simplify gvs) with
         | [(True, v)] -> v
         | [(g, v)] when Terms.IsBool v -> g &&& v
-        | gvs' -> Union gvs'
+        | gvs' -> Union Metadata.empty gvs'
 
     and internal mergeCells gcs =
         let foldCell (acc1, acc2, acc3) (g, (v, c, m)) = ((g, v)::acc1, min acc2 c, max acc3 m) in
@@ -104,8 +105,8 @@ module internal Merging =
         | _, False
         | False, _
         | _, True -> v
-        | Error _, _ -> g
-        | _, Error _ -> h
+        | ErrorT _, _ -> g
+        | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
     let internal merge2Cells g h ((u, cu, mu) as ucell : MemoryCell<Term>) ((v, cv, mv) as vcell : MemoryCell<Term>) =
@@ -117,8 +118,8 @@ module internal Merging =
         | _, False -> ucell
         | False, _
         | _, True -> vcell
-        | Error _, _ -> (g, cu, mu)
-        | _, Error _ -> (h, cv, mv)
+        | ErrorT _, _ -> (g, cu, mu)
+        | _, ErrorT _ -> (h, cv, mv)
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     let internal merge2States condition1 condition2 state1 state2 =
