@@ -10,25 +10,25 @@ module internal State =
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
     type internal pathCondition = Term list
-    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermType) list * Timestamp
-    type internal frames = Stack.stack<stackFrame>
+    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType) list * Timestamp
+    type internal frames = Stack.stack<stackFrame> * StackHash
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
 // ------------------------------- Primitives -------------------------------
 
-    let internal empty : state = (MappedStack.empty, SymbolicHeap.empty, SymbolicHeap.empty, Stack.empty, List.empty)
+    let internal empty : state = (MappedStack.empty, SymbolicHeap.empty, SymbolicHeap.empty, (Stack.empty, List.empty), List.empty)
 
     type internal 'a SymbolicValue =
         | Specified of 'a
         | Unspecified
 
-    let private nameOfLocation = function
+    let private nameOfLocation = term >> function
         | HeapRef((_, (x, _)::xs), _) -> toString x
         | HeapRef(((_, t), _), _) -> toString t
         | StackRef((name, _), x::_) -> sprintf "%s.%O" name x
         | StackRef((name, _), _) -> name
-        | StaticRef(name, x::_) -> sprintf "%s.%O" name x
-        | StaticRef(name, _) -> name
+        | StaticRef(name, x::_) -> sprintf "%O.%O" name x
+        | StaticRef(name, _) -> toString name
         | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
     let internal readStackLocation ((s, _, _, _, _) : state) key = MappedStack.find key s
@@ -37,47 +37,61 @@ module internal State =
 
     let internal isAllocatedOnStack ((s, _, _, _, _) : state) key = MappedStack.containsKey key s
     let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
-        SymbolicHeap.contains (Concrete(typeName, String)) m
+        SymbolicHeap.contains (Terms.MakeStringKey typeName) m
 
-    let internal newStackFrame time ((s, h, m, f, p) : state) funcId frame : state =
+    let internal newStackFrame time metadata ((s, h, m, (f, sh), p) : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
-            | Unspecified -> ((key, typ), MappedStack.reserve key map)
+            | Specified term -> ((key, metadata, typ), MappedStack.push key (term, time, time) map)
+            | Unspecified -> ((key, metadata, typ), MappedStack.reserve key map)
         in
         let frameMetadata = Some(funcId, p) in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (frameMetadata, locations, time), p)
+        let f' = Stack.push f (frameMetadata, locations, time) in
+        let sh' = frameMetadata.GetHashCode()::sh in
+        (newStack, h, m, (f', sh'), p)
 
-    let internal newScope time ((s, h, m, f, p) : state) frame : state =
+    let internal newScope time metadata ((s, h, m, (f, sh), p) : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> ((key, typ), MappedStack.push key (term, time, time) map)
-            | Unspecified -> ((key, typ), MappedStack.reserve key map)
+            | Specified term -> ((key, metadata, typ), MappedStack.push key (term, time, time) map)
+            | Unspecified -> ((key, metadata, typ), MappedStack.reserve key map)
         in
         let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, Stack.push f (None, locations, time), p)
+        (newStack, h, m, (Stack.push f (None, locations, time), sh), p)
 
     let internal pushToCurrentStackFrame ((s, _, _, _, _) : state) key value = MappedStack.push key value s
-    let internal popStack ((s, h, m, f, p) : state) : state =
-        let popOne (map : stack) (name, _) = MappedStack.remove map name
-        let _, locations, _ = Stack.peak f in
-        (List.fold popOne s locations, h, m, Stack.pop f, p)
+    let internal popStack ((s, h, m, (f, sh), p) : state) : state =
+        let popOne (map : stack) (name, _, _) = MappedStack.remove map name
+        let metadata, locations, _ = Stack.peak f in
+        let f' = Stack.pop f in
+        let sh' =
+            match metadata with
+            | Some _ ->
+                assert(not <| List.isEmpty sh)
+                List.tail sh
+            | None -> sh
+        (List.fold popOne s locations, h, m, (f', sh'), p)
 
     let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
         (MappedStack.add key value s, h, m, f, p)
 
-    let internal frameTime ((_, _, _, f, _) : state) key =
-        match List.tryFind (snd3 >> List.exists (fst >> ((=) key))) f with
+    let internal frameTime ((_, _, _, (f, _), _) : state) key =
+        match List.tryFind (snd3 >> List.exists (fst3 >> ((=) key))) f with
         | Some(_, _, t) -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal typeOfStackLocation ((_, _, _, f, _) : state) key =
-        match List.tryPick (snd3 >> List.tryPick (fun (l, t) -> if l = key then Some t else None)) f with
+    let internal typeOfStackLocation ((_, _, _, (f, _), _) : state) key =
+        match List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef(key, [])) fst3 s1 s2
+    let internal metadataOfStackLocation ((_, _, _, (f, _), _) : state) key =
+        match List.tryPick (snd3 >> List.tryPick (fun (l, m, _) -> if l = key then Some m else None)) f with
+        | Some t -> t
+        | None -> internalfailf "stack does not contain key %O!" key
+
+    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] []) fst3 s1 s2
 
     let internal withPathCondition ((s, h, m, f, p) : state) cond : state = (s, h, m, f, cond::p)
     let internal popPathCondition ((s, h, m, f, p) : state) : state =
@@ -89,80 +103,86 @@ module internal State =
     let internal heapOf ((_, h, _, _, _) : state) = h
     let internal staticsOf ((_, _, m, _, _) : state) = m
     let private framesOf ((_, _, _, f, _) : state) = f
+    let private framesHashOf ((_, _, _, (_, h), _) : state) = h
     let internal pathConditionOf ((_, _, _, _, p) : state) = p
 
     let internal withHeap ((s, h, m, f, p) : state) h' = (s, h', m, f, p)
     let internal withStatics ((s, h, m, f, p) : state) m' = (s, h, m', f, p)
 
-    let private staticKeyToString = function
+    let private staticKeyToString = term >> function
         | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName
         | t -> toString t
+
+    let internal mkMetadata location state =
+        [{ location = location; stack = framesHashOf state }]
 
 // ------------------------------- Memory level -------------------------------
 
     type IActivator =
-        abstract member CreateInstance : System.Type -> Term list -> state -> (Term * state)
+        abstract member CreateInstance : TermMetadata -> System.Type -> Term list -> state -> (Term * state)
     type private NullActivator() =
         interface IActivator with
-            member this.CreateInstance _ _ _ =
+            member this.CreateInstance _ _ _ _ =
                 internalfail "activator is not ready"
     let mutable activator : IActivator = new NullActivator() :> IActivator
 
-    let rec internal defaultOf time = function
-        | Bool -> Terms.MakeFalse
-        | Numeric t when t.IsEnum -> Terms.MakeConcrete (System.Activator.CreateInstance(t)) t
-        | Numeric t -> Terms.MakeConcrete 0 t
-        | String -> Concrete(null, String)
-        | PointerType t -> Concrete(null, t)
-        | ClassType _ as t -> Concrete(null, t)
-        | ArrayType _ as t -> Concrete(null, t)
-        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct(Heap.empty, t)
-        | SubType _ as t -> Concrete(null, t)
-        | Func _ -> Concrete(null, SubType(typedefof<System.Delegate>, [], [], "func"))
+    let rec internal defaultOf time metadata = function
+        | Bool -> MakeFalse metadata
+        | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
+        | Numeric t -> CastConcrete 0 t metadata
+        | String -> Terms.Concrete null String metadata
+        | PointerType t -> Concrete null t metadata
+        | ClassType _ as t -> Concrete null t metadata
+        | ArrayType _ as t -> Concrete null t metadata
+        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
+        | SubType _ as t -> Concrete null t metadata
+        | Func _ -> Concrete null (SubType(typedefof<System.Delegate>, [], [], "func")) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
-            Struct(Seq.map (fun (k, v) -> (Terms.MakeConcreteString k, (defaultOf time v, time, time))) (Map.toSeq fields) |> Heap.ofSeq, t)
+            let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
+            Struct contents t metadata
         | _ -> __notImplemented__()
 
     let internal arrayLengthType = typedefof<int>
     let internal arrayLengthTermType = Numeric arrayLengthType in
 
-    let internal mkArrayZeroLowerBound rank =
-        Array.init rank (always(Concrete(0, arrayLengthTermType)))
+    let internal mkArrayZeroLowerBound metadata rank =
+        FSharp.Collections.Array.init rank (Concrete 0 arrayLengthTermType metadata |> always)
 
-    let internal mkArraySymbolicLowerBound array arrayName rank =
+    let internal mkArraySymbolicLowerBound metadata array arrayName rank =
         match Options.SymbolicArrayLowerBoundStrategy() with
-        | Options.AlwaysZero -> mkArrayZeroLowerBound rank
+        | Options.AlwaysZero -> mkArrayZeroLowerBound metadata rank
         | Options.AlwaysSymbolic ->
-            Array.init rank (fun i ->
+            FSharp.Collections.Array.init rank (fun i ->
                 let idOfBound = sprintf "lower bound of %s" arrayName |> IdGenerator.startingWith in
-                Constant(idOfBound, SymbolicArrayLength(array, i, false), arrayLengthTermType))
+                Constant idOfBound (SymbolicArrayLength(array, i, false)) arrayLengthTermType metadata)
 
-    let internal makeSymbolicArray source rank typ name =
+    let internal makeSymbolicArray metadata source rank typ name =
         let idOfLength = IdGenerator.startingWith (sprintf "|%s|" name) in
-        let constant = Constant(name, source, typ) in
-        let lengths = Array.init rank (fun i -> Constant(idOfLength, SymbolicArrayLength(constant, i, true), Numeric arrayLengthType)) in
-        Array(mkArraySymbolicLowerBound constant name rank, Some constant, Heap.empty, lengths, typ)
+        let constant = Constant name source typ metadata in
+        let lengths = FSharp.Collections.Array.init rank (fun i -> Constant idOfLength (SymbolicArrayLength(constant, i, true)) (Numeric arrayLengthType) metadata) in
+        Array (mkArraySymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ metadata
 
-    let internal makeSymbolicInstance time source name = function
+    let internal makeSymbolicInstance metadata time source name = function
         | PointerType t ->
-            let constant = Constant(name, source, pointerType) in
-            HeapRef(((constant, t), []), time)
-        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant(name, source, t)
+            let constant = Constant name source pointerType metadata in
+            HeapRef ((constant, t), []) time metadata
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
         | SubType _
-        | ClassType _ as t -> Struct(Heap.empty, t)
-        | ArrayType(e, d) as t -> makeSymbolicArray source d t name
+        | ClassType _ as t -> Struct Heap.empty t metadata
+        | ArrayType(e, d) as t -> makeSymbolicArray metadata source d t name
         | _ -> __notImplemented__()
 
-    let internal genericLazyInstantiator time fullyQualifiedLocation typ () =
-        makeSymbolicInstance time (LazyInstantiation fullyQualifiedLocation) (nameOfLocation fullyQualifiedLocation) typ
+    let internal genericLazyInstantiator metadata time fullyQualifiedLocation typ () =
+        makeSymbolicInstance metadata time (LazyInstantiation fullyQualifiedLocation) (nameOfLocation fullyQualifiedLocation) typ
 
-    let private stackLazyInstantiator state time key =
-        let fql = StackRef(key, []) in
-        let t = typeOfStackLocation state key in
+    let internal stackLazyInstantiator state time key =
         let time = frameTime state key in
-        (genericLazyInstantiator time fql t (), time, time)
+        let t = typeOfStackLocation state key in
+        let metadata = metadataOfStackLocation state key in
+        let fql = StackRef key [] metadata in
+        (genericLazyInstantiator metadata time fql t (), time, time)
 
     let internal dumpMemory ((_, h, m, _, _) : state) =
         let sh = Heap.dump h toString in

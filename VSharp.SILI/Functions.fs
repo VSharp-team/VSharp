@@ -9,21 +9,21 @@ type WriteDependence =
     | UnboundedAllocation of Term * Term
 
 module Functions =
-    type internal SymbolicLambda<'a> = State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
+    type internal SymbolicLambda<'a> = LocationBinding -> State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
 
-    let internal MakeLambda state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
+    let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromMetadataMethodSignature metadataMethod in
-        let term = Concrete(lambda, typ) in
-        Memory.allocateInHeap state term
+        let term = Concrete lambda typ metadata in
+        Memory.allocateInHeap metadata state term
 
-    let internal MakeLambdaTerm (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
+    let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromDecompiledSignature signature returnMetadataType in
-        Concrete(lambda, typ)
+        Concrete lambda typ metadata
 
-    let internal MakeLambda2 state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let term = MakeLambdaTerm signature returnMetadataType lambda in
+    let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
+        let term = MakeLambdaTerm metadata signature returnMetadataType lambda in
         if Transformations.isInlinedSignatureCall signature
-            then Memory.allocateInHeap state term
+            then Memory.allocateInHeap metadata state term
             else term, state
 
     let (|Lambda|_|) = function
@@ -132,7 +132,7 @@ module Functions =
 //            k (result, state')
 
         let internal reproduceEffect id state k =
-            k (NoResult, state)
+            k (NoResult Metadata.empty, state)
 
         let internal approximate id (result, state) =
             let attempt = unboundedApproximationAttempts.[id] + 1 in
@@ -155,10 +155,11 @@ module Functions =
             else doExplore id state this k)
 
         let internal explore id k =
+            let metadata = Metadata.empty in
             unboundedApproximationAttempts.[id] <- 0
             symbolicEffects.[id] <- []
             let initialSymbolicResult =
-                NoResult
+                NoResult metadata
 //                match returnType with
 //                | Void -> NoResult
 //                | _ ->
@@ -176,12 +177,12 @@ module Functions =
                     | _ ->
                         // TODO: declaring type should be symbolic here
                         let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
-                        let instance, state = Memory.allocateSymbolicInstance state declaringType in
+                        let instance, state = Memory.allocateSymbolicInstance metadata state declaringType in
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
                             let key = ("external data", mm.Token.ToString()) in
-                            let state = Memory.newStackFrame state (MetadataMethodIdentifier null) [(key, State.Specified instance, declaringType)] in
-                            (Some <| Memory.referenceLocalVariable state key true, state))
+                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, declaringType)] in
+                            (Some <| Memory.referenceLocalVariable metadata state key true, state))
                 | DelegateIdentifier ast ->
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
