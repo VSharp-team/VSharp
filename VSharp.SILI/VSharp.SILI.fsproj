@@ -71,6 +71,7 @@
     <Compile Include="Functions.fs" />
     <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
+    <Compile Include="Extern\SDK.fs" />
     <Compile Include="Extern\System\SystemArray.fsi" />
     <Compile Include="Extern\System\SystemArray.fs" />
     <Compile Include="Extern\System\Math.fsi" />
