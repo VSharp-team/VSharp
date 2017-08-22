@@ -701,7 +701,14 @@ module internal Interpreter =
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
         let mType = FromConcreteMetadataType ast.Value.Type in
         let mtd = State.mkMetadata ast state in
-        k (Concrete ast.Value.Value mType mtd, state)
+        let obj = ast.Value.Value in
+        match mType with
+        | VSharp.String ->
+            let time = Memory.tick() in
+            let stringLength = String.length (obj.ToString()) in
+            let strRes, newState = Strings.MakeString stringLength obj time |> Memory.allocateInHeap mtd state in
+            k (strRes, newState)
+        | _ -> k (Concrete obj mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -1389,6 +1396,12 @@ type Activator() =
 
 type SymbolicInterpreter() =
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
+
+        member x.Initialize state k =
+            let time = Memory.tick() in
+            let strRes, newState = Strings.MakeString 0 "" time |> Memory.allocateInHeap Metadata.empty state in
+            k (Memory.allocateInStaticMemory Metadata.empty newState (typeof<string>.FullName) strRes)
+
         member x.InitializeStaticMembers state qualifiedTypeName k =
             // TODO: static members initialization should return statement result (for example exceptions)
             Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName (withFst (NoResult Metadata.empty) >> k)

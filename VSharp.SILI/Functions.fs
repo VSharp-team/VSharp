@@ -42,6 +42,7 @@ module Functions =
         let private terminationRelatedState = new Dictionary<FunctionIdentifier, Term seq>()
 
         type IInterpreter =
+            abstract member Initialize : State.state -> (State.state -> 'a) -> 'a
             abstract member InitializeStaticMembers : State.state -> string -> (StatementResult * State.state -> 'a) -> 'a
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
         type private NullActivator() =
@@ -49,6 +50,8 @@ module Functions =
                 member this.InitializeStaticMembers _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
                 member this.Invoke _ _ _ _ =
+                    internalfail "interpreter for unbounded recursion is not ready"
+                member this.Initialize _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
         let mutable interpreter : IInterpreter = new NullActivator() :> IInterpreter
 
@@ -167,11 +170,11 @@ module Functions =
 //                    // TODO: time!
 //                    State.makeSymbolicInstance 0u (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
             in symbolicResults.[id] <- initialSymbolicResult
-
+            interpreter.Initialize State.empty (fun newState ->
             let this, state =
                 match id with
                 | MetadataMethodIdentifier mm ->
-                    interpreter.InitializeStaticMembers State.empty mm.DeclaringType.AssemblyQualifiedName (fun (_, state) ->
+                    interpreter.InitializeStaticMembers newState mm.DeclaringType.AssemblyQualifiedName (fun (_, state) ->
                     match mm with
                     | _ when mm.IsStatic -> (None, state)
                     | _ ->
@@ -187,7 +190,7 @@ module Functions =
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
             in initialStates.[id] <- state
-            doExplore id state this k
+            doExplore id state this k)
 
         let internal exploreIfShould id k =
             if unboundedApproximationAttempts.ContainsKey id then k ()
