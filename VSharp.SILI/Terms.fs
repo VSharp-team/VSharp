@@ -277,7 +277,7 @@ module public Terms =
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     else Convert.ChangeType(value, t) in
                 Concrete casted (FromConcreteDotNetType t) metadata
-            elif t.IsAssignableFrom(actualType) then 
+            elif t.IsAssignableFrom(actualType) then
                 Concrete value (FromConcreteDotNetType t) metadata
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with

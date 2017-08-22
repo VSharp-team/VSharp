@@ -166,6 +166,7 @@ namespace VSharp.Test
 //                , "Typecast"
 //                , "Foo"
 //                , "Piece"
+//                , "Strings"
                 , "Generic"
                 , "Tree"
                 , "IKeeper"
@@ -206,6 +207,10 @@ namespace VSharp.Test
                     currentDomain.AssemblyResolve += LoadFromTestFolder;
 
                     IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
+
+//                    string os = Environment.OSVersion.Platform.ToString();
+//                    string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
+//                    OverwriteIdealValues(goldFile, got);
 
                     IEnumerable<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
                     if (expected.Count() == 0)

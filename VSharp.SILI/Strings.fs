@@ -4,6 +4,12 @@ open JetBrains.Decompiler.Ast
 
 module internal Strings =
 
+    let MakeString length str timestamp =
+        let fields : Heap<Term,Term> =
+            Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", (Concrete length State.arrayLengthTermType Metadata.empty, timestamp, timestamp);
+            MakeStringKey "System.String.m_FirstChar", (Concrete str VSharp.String Metadata.empty, timestamp, timestamp) ]) in
+        Struct fields VSharp.String Metadata.empty
+
     let internal simplifyEquality mtd x y =
         match x.term, y.term with
         | Concrete(x, String), Concrete(y, String) -> MakeBool ((x :?> string) = (y :?> string)) mtd
