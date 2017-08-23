@@ -8,4 +8,4 @@ open VSharp
 module Environment =
 
     let GetResourceFromDefault (state : State.state) (args : Term list) =
-        Return (Terms.MakeConcreteString "Getting resource strings currently not supported!"), state
+        Return (MakeConcreteString "Getting resource strings currently not supported!"), state
