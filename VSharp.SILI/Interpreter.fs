@@ -1078,15 +1078,19 @@ module internal Interpreter =
                         let address, state = Memory.referenceStaticField state false name t qualifiedTypeName in
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.throwOrIgnore value in
-                        let mutate k =
+                        let mutate value k =
                             let term, state = Memory.mutate state address value in 
                             k (ControlFlow.throwOrIgnore term, state) in
                         failOrInvoke
                             statementResult
                             state
-                            (fun () -> mutate k)
-                            (fun _ exn _ state k -> k (statementResult, state))
-                            (fun _ _ _ _ k -> mutate k)
+                            (fun () -> mutate value k)
+                            (fun _ exn _ state k ->
+                            // TODO: uncomment it when ref and out will be Implemented
+//                                let args = [Terms.MakeConcreteString qualifiedTypeName; exn] in
+//                                let term, state = State.activator.CreateInstance typeof<TypeInitializationException> args state in
+                                k (ControlFlow.throw exn, state))
+                            (fun _ _ normal _ k -> mutate (ControlFlow.resultToTerm (Guarded normal)) k)
                             k)
                 in
                 let fieldInitializers = Seq.map initOneField fields in
@@ -1380,7 +1384,8 @@ type Activator() =
             let methods = decompiledClass.TypeInfo.GetMethods() in
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
-            let argumentsTypes = List.map Terms.TypeOf arguments in
+            let argumentsTypes =
+                List.map (Terms.TypeOf >> function | PointerType t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray
@@ -1388,7 +1393,7 @@ type Activator() =
                                     -> m.Name = ".ctor"
                                         && m.Parameters.Length = argumentsLength
                                         && m.Parameters
-                                            |> Seq.forall2 (fun p1 p2 -> FromConcreteMetadataType (p2.Type) = p1) argumentsTypes) in
+                                            |> Seq.forall2 (fun p1 p2 -> Common.is (FromConcreteMetadataType (p2.Type)) p1 |> Terms.IsTrue) argumentsTypes) in
 
             assert(List.length ctorMethods = 1)
             let ctor = List.head ctorMethods in
