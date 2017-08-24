@@ -11,8 +11,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
@@ -138,8 +138,92 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+System.SystemException ==> STRUCT System.SystemException[
+	]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[
+	]
+VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[
+	]
+METHOD: System.Int32 VSharp.CSharpUtils.TryCatch.ThrowNull(System.Int32)
+RESULT: -2147467261
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+2 ==> STRUCT System.NullReferenceException[
+	| System.Exception._HResult ~> -2147467261
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+3 ==> STRUCT string[
+	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_StringLength ~> 26]
+4 ==> STRUCT System.Object[
+	]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+6 ==> STRUCT string[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> 32767
+	| System.Environment.MaxMachineNameLength ~> 256
+	| System.Environment.MaxSystemEnvVariableLength ~> 1024
+	| System.Environment.MaxUserEnvVariableLength ~> 255
+	| System.Environment.isUserNonInteractive ~> False
+	| System.Environment.m_os ~> null
+	| System.Environment.m_resHelper ~> null
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> False
+	| System.Environment.s_CheckedWinRT ~> False
+	| System.Environment.s_InternalSyncObject ~> null
+	| System.Environment.s_IsWindows8OrAbove ~> False
+	| System.Environment.s_WinRTSupported ~> False]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.NullReferenceException ==> STRUCT System.NullReferenceException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -256,8 +340,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -278,8 +362,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod3(System.Int32, System.Int32, System.Int32)
@@ -293,8 +377,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod4(System.Int32, System.Int32)
@@ -374,8 +458,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -396,8 +480,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Arithmetics.Decreasing(System.Int32)
@@ -411,8 +495,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckedUnchecked(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)
@@ -426,8 +510,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow1(System.Int32)
@@ -505,8 +589,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -591,8 +675,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -613,8 +697,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.CheckDivideByZeroException0(System.Int32)
@@ -695,8 +779,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -717,8 +801,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftLeftOnZero(System.Int32)
@@ -732,8 +816,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ZeroShift(System.Int32)
@@ -747,8 +831,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.DefaultShift(System.Int32, System.Int32)
@@ -762,8 +846,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.SumShifts(System.Int64)
@@ -777,8 +861,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSum(System.Int32)
@@ -792,8 +876,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
@@ -807,8 +891,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
@@ -822,8 +906,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftMultiplication(System.Int16)
@@ -837,8 +921,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision1(System.Byte)
@@ -852,8 +936,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision2(System.Int32)
@@ -867,8 +951,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.UInt32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision3(System.UInt32)
@@ -882,8 +966,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.UInt64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision4(System.UInt64)
@@ -897,8 +981,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts1(System.Int32)
@@ -912,8 +996,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.ShiftSumOfShifts2(System.Int64)
@@ -927,8 +1011,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ConcreteShift()
@@ -945,8 +1029,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts1(System.Int32, System.Int32)
@@ -960,8 +1044,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyShifts2(System.Int32, System.Int32)
@@ -975,8 +1059,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftWithDivAndMul(System.Int32)
@@ -990,8 +1074,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.DoubleShiftRight(System.Int32)
@@ -1005,8 +1089,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.Double)
@@ -1027,8 +1111,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod2(System.Double, System.Double)
@@ -1049,8 +1133,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod3()
@@ -1071,8 +1155,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod4(System.Double)
@@ -1093,8 +1177,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod5()
@@ -1115,8 +1199,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod6()
@@ -1137,8 +1221,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod7(System.Double)
@@ -1161,8 +1245,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod1(System.Double)
@@ -1183,8 +1267,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod2()
@@ -1205,8 +1289,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod3(System.Double)
@@ -1229,8 +1313,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod4()
@@ -1251,8 +1335,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod1()
@@ -1273,8 +1357,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod2(System.Double)
@@ -1295,8 +1379,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod1(System.Double)
@@ -1317,8 +1401,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod2(System.Double)
@@ -1339,8 +1423,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod3()
@@ -1361,8 +1445,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod4(System.Double, System.Double)
@@ -1383,8 +1467,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod5(System.Double)
@@ -1407,8 +1491,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod6(System.Double)
@@ -1432,8 +1516,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod7(System.Double, System.Double)
@@ -1454,8 +1538,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod8(System.Double)
@@ -1476,8 +1560,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod9(System.Double)
@@ -1498,8 +1582,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod10(System.Double, System.Double)
@@ -1520,8 +1604,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod11(System.Double)
@@ -1545,8 +1629,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod12()
@@ -1567,8 +1651,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod13()
@@ -1589,8 +1673,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod14(System.Double)
@@ -1611,8 +1695,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod15(System.Double, System.Double)
@@ -1636,8 +1720,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod16(System.Double)
@@ -1662,8 +1746,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod17()
@@ -1684,8 +1768,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AcosMethod()
@@ -1706,8 +1790,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AsinMethod(System.Double)
@@ -1728,8 +1812,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AtanMethod(System.Double, System.Double)
@@ -1750,8 +1834,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CeilingMethod(System.Double)
@@ -1772,8 +1856,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CosMethod()
@@ -1794,8 +1878,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CoshMethod()
@@ -1816,8 +1900,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.FloorMethod(System.Double)
@@ -1838,8 +1922,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinMethod()
@@ -1860,8 +1944,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanMethod()
@@ -1882,8 +1966,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinhMethod(System.Double)
@@ -1906,8 +1990,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanhMethod(System.Double)
@@ -1928,8 +2012,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.RoundMethod()
@@ -1950,8 +2034,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AbsMethod(System.Double)
@@ -1972,8 +2056,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Single VSharp.CSharpUtils.Tests.Arithmetics.AbsSingleMethod()
@@ -2008,8 +2092,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method1(System.Double)
@@ -2030,8 +2114,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method2(System.Double)
@@ -2054,8 +2138,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method3()
@@ -2076,8 +2160,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[
 	]
 METHOD: T VSharp.CSharpUtils.Tests.Foo`1[T].GetFields()
@@ -2093,8 +2177,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Foo`1 ==> STRUCT VSharp.CSharpUtils.Tests.Foo`1[T][
 	]
 METHOD: System.Void VSharp.CSharpUtils.Tests.Foo`1[T].SetField(T)
@@ -2110,8 +2194,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Foo`1 ==> STRUCT VSharp.CSharpUtils.Tests.Foo`1[T][
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1()
@@ -2125,8 +2209,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1(System.Int32)
@@ -2140,8 +2224,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation2(System.Boolean)
@@ -2155,8 +2239,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation3(System.Boolean)
@@ -2170,8 +2254,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation4(System.Boolean)
@@ -2185,8 +2269,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation5(System.Boolean)
@@ -2200,8 +2284,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And1(System.Boolean, System.Boolean)
@@ -2215,8 +2299,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And2(System.Boolean, System.Boolean)
@@ -2230,8 +2314,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And3(System.Boolean, System.Boolean)
@@ -2245,8 +2329,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And4(System.Boolean, System.Boolean)
@@ -2260,8 +2344,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And5(System.Boolean, System.Boolean)
@@ -2275,8 +2359,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And6(System.Boolean, System.Boolean)
@@ -2290,8 +2374,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And7(System.Boolean, System.Boolean)
@@ -2305,8 +2389,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And8(System.Boolean, System.Boolean)
@@ -2320,8 +2404,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.And9(System.Boolean, System.Boolean, System.Boolean)
@@ -2335,8 +2419,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or1(System.Boolean, System.Boolean)
@@ -2350,8 +2434,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or2(System.Boolean, System.Boolean)
@@ -2365,8 +2449,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or3(System.Boolean, System.Boolean)
@@ -2380,8 +2464,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or4(System.Boolean, System.Boolean)
@@ -2395,8 +2479,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or5(System.Boolean, System.Boolean)
@@ -2410,8 +2494,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or6(System.Boolean, System.Boolean)
@@ -2425,8 +2509,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or7(System.Boolean, System.Boolean)
@@ -2440,8 +2524,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or8(System.Boolean, System.Boolean)
@@ -2455,8 +2539,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or9(System.Boolean, System.Boolean, System.Boolean)
@@ -2470,8 +2554,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Or10(System.Boolean, System.Boolean, System.Boolean)
@@ -2485,8 +2569,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr0(System.Boolean, System.Boolean, System.Boolean)
@@ -2500,8 +2584,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr1(System.Boolean, System.Boolean, System.Boolean)
@@ -2515,8 +2599,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr2(System.Boolean, System.Boolean, System.Boolean)
@@ -2530,8 +2614,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr3(System.Boolean, System.Boolean, System.Boolean)
@@ -2545,8 +2629,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr4(System.Boolean, System.Boolean, System.Boolean)
@@ -2560,8 +2644,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr5(System.Boolean, System.Boolean, System.Boolean)
@@ -2575,8 +2659,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr6(System.Boolean, System.Boolean, System.Boolean)
@@ -2590,8 +2674,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr7(System.Boolean, System.Boolean, System.Boolean)
@@ -2605,8 +2689,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr8(System.Boolean, System.Boolean, System.Boolean)
@@ -2620,8 +2704,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr9(System.Boolean, System.Boolean, System.Boolean)
@@ -2635,8 +2719,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr10(System.Boolean, System.Boolean, System.Boolean)
@@ -2650,8 +2734,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr11(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2665,8 +2749,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr12(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2680,8 +2764,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr13(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2695,8 +2779,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr14(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2710,8 +2794,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr15(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2725,8 +2809,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr16(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2740,8 +2824,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr17(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2755,8 +2839,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr18(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2770,8 +2854,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr19(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2785,8 +2869,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr20(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2800,8 +2884,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr21(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2815,8 +2899,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr22(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2830,8 +2914,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr23(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2845,8 +2929,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr24(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2860,8 +2944,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr25(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2875,8 +2959,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2890,8 +2974,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2905,8 +2989,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor3(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2920,8 +3004,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor4(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2935,8 +3019,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor5(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2950,8 +3034,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor6(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2965,8 +3049,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor7(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2980,8 +3064,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor8(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2995,8 +3079,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd1(System.Int32)
@@ -3010,8 +3094,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd2(System.Int32)
@@ -3025,8 +3109,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondAnd3(System.Int32)
@@ -3040,8 +3124,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr1(System.Int32)
@@ -3055,8 +3139,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr2(System.Int32)
@@ -3070,8 +3154,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.CondOr3(System.Int32)
@@ -3085,8 +3169,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3100,8 +3184,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3115,8 +3199,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Equal3(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3130,8 +3214,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.NotEqual1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3145,8 +3229,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.NotEqual2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3160,8 +3244,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3175,8 +3259,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -3190,8 +3274,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order3(System.Int32, System.Int32, System.Int32, System.Int32)
@@ -3205,8 +3289,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Order4(System.Int32, System.Int32, System.Int32, System.Int32)
@@ -3220,8 +3304,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.ClassesSimple.Test1(System.Int32)
@@ -3244,8 +3328,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[
@@ -3253,6 +3337,187 @@ VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.Clas
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test1()
+RESULT: <ERROR: (HeapRef 3)>
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException0[
+	]
+3 ==> STRUCT System.NullReferenceException[
+	| System.Exception._HResult ~> -2147467261
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+4 ==> STRUCT string[
+	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_StringLength ~> 26]
+5 ==> STRUCT System.Object[
+	]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+7 ==> STRUCT string[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> 32767
+	| System.Environment.MaxMachineNameLength ~> 256
+	| System.Environment.MaxSystemEnvVariableLength ~> 1024
+	| System.Environment.MaxUserEnvVariableLength ~> 255
+	| System.Environment.isUserNonInteractive ~> False
+	| System.Environment.m_os ~> null
+	| System.Environment.m_resHelper ~> null
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> False
+	| System.Environment.s_CheckedWinRT ~> False
+	| System.Environment.s_InternalSyncObject ~> null
+	| System.Environment.s_IsWindows8OrAbove ~> False
+	| System.Environment.s_WinRTSupported ~> False]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 5)]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.NullReferenceException ==> STRUCT System.NullReferenceException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 7)]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+System.SystemException ==> STRUCT System.SystemException[
+	]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleException ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleException0 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException0[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleException0.field0 ~> 0]
+VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer[
+	]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test2()
+RESULT: <ERROR: (HeapRef 3)>
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException1[
+	]
+3 ==> STRUCT System.NullReferenceException[
+	| System.Exception._HResult ~> -2147467261
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+4 ==> STRUCT string[
+	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_StringLength ~> 26]
+5 ==> STRUCT System.Object[
+	]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+7 ==> STRUCT string[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> 32767
+	| System.Environment.MaxMachineNameLength ~> 256
+	| System.Environment.MaxSystemEnvVariableLength ~> 1024
+	| System.Environment.MaxUserEnvVariableLength ~> 255
+	| System.Environment.isUserNonInteractive ~> False
+	| System.Environment.m_os ~> null
+	| System.Environment.m_resHelper ~> null
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> False
+	| System.Environment.s_CheckedWinRT ~> False
+	| System.Environment.s_InternalSyncObject ~> null
+	| System.Environment.s_IsWindows8OrAbove ~> False
+	| System.Environment.s_WinRTSupported ~> False]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 5)]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.NullReferenceException ==> STRUCT System.NullReferenceException[
+	]
+System.Object ==> STRUCT System.Object[
+	]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 7)]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+System.SystemException ==> STRUCT System.SystemException[
+	]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleException ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException[
+	]
+VSharp.CSharpUtils.Tests.ClassesSimpleException1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException1[
+	| VSharp.CSharpUtils.Tests.ClassesSimpleException1.field0 ~> -24
+	| VSharp.CSharpUtils.Tests.ClassesSimpleException1.field1 ~> 0]
+VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer[
 	]
 METHOD: System.Collections.Generic.List`1[System.String] VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy.Test1()
 RESULT: (HeapRef 3)
@@ -3332,8 +3597,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
@@ -3410,8 +3675,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchy[
 	]
 VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA[
@@ -3440,8 +3705,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.Always18()
@@ -3455,8 +3720,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.FirstEvenGreaterThen7()
@@ -3470,8 +3735,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
@@ -3535,8 +3800,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -3557,8 +3822,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib5()
@@ -3572,8 +3837,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Fibonacci ==> STRUCT VSharp.CSharpUtils.Tests.Fibonacci[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd1()
@@ -3587,8 +3852,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.GCD.Gcd15()
@@ -3602,8 +3867,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.GCD ==> STRUCT VSharp.CSharpUtils.Tests.GCD[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lambdas.Always18()
@@ -3618,8 +3883,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
@@ -3635,8 +3900,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[
 	]
 METHOD: System.String VSharp.CSharpUtils.Tests.Strings.EmptyString(System.Int32, System.Int32)
@@ -3650,8 +3915,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Strings ==> STRUCT VSharp.CSharpUtils.Tests.Strings[
 	]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lists.Construct()
@@ -3684,8 +3949,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.Mutate(System.Int32)
@@ -3780,8 +4045,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -3808,8 +4073,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
@@ -3972,8 +4237,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4144,8 +4409,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4172,8 +4437,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.RankTest()
@@ -4193,8 +4458,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.DownCastObject(System.Object)
@@ -4274,8 +4539,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4454,8 +4719,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4483,8 +4748,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Pawn[
 	]
 VSharp.CSharpUtils.Tests.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
@@ -4568,8 +4833,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4590,8 +4855,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.CastAfterNull()
@@ -4611,8 +4876,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
 	]
 VSharp.CSharpUtils.Tests.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast[
@@ -4723,8 +4988,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4811,8 +5076,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4899,8 +5164,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -5049,8 +5314,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -5076,8 +5341,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Piece.GetRate()
@@ -5093,8 +5358,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
 	]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Piece.RetRate(System.Object)
@@ -5280,8 +5545,8 @@ System.String ==> STRUCT string[
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
 	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 7
-	| System.String.charPtrAlignConst ~> 3]
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
 System.SystemException ==> STRUCT System.SystemException[
 	]
 System.UIntPtr ==> STRUCT System.UIntPtr[
