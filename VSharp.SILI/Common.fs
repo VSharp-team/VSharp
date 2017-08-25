@@ -1,6 +1,7 @@
 ﻿namespace VSharp
 
 open VSharp.Terms
+open VSharp.Types.Constructor
 
 module internal Common =
 
@@ -38,28 +39,29 @@ module internal Common =
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
         in
-        let concreteIs (dotNetType : System.Type) =
-            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in
+        let concreteIs (dotNetTypeHierarchy : System.Type list) rightTermType =
+            let b = makeBoolConst (Hierarchy.name dotNetTypeHierarchy) rightTermType in
             function
-            | Types.ReferenceType(t, _, _)
-            | Types.StructureType(t, _ ,_) -> Terms.MakeBool (t = dotNetType) metadata
-            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | ReferenceType(t, _, _)
+            | StructureType(t, _ ,_) -> Terms.MakeBool (Hierarchy.equals t dotNetTypeHierarchy) metadata
+            | SubType(t, _, _, name) as termType when Hierarchy.is dotNetTypeHierarchy t ->
                 implies (makeBoolConst name termType) b metadata
-            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetType.IsAssignableFrom(typedefof<obj>)) metadata
+            | SubType(t, _, _, _) when not <| Hierarchy.is dotNetTypeHierarchy t -> Terms.MakeFalse metadata
+            | ArrayType _ -> Terms.MakeBool (Hierarchy.equals dotNetTypeHierarchy (Hierarchy.make typedefof<obj>)) metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         in
-        let subTypeIs (dotNetType: System.Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, [], [], rightName)) in
+        let subTypeIs (dotNetTypeHierarchy: System.Type list) rightTermType  rightName =
+            let b = makeBoolConst rightName rightTermType in
             function
-            | Types.ReferenceType(t, _, _) -> Terms.MakeBool (dotNetType.IsAssignableFrom(t)) metadata
-            | Types.StructureType(t, _, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<System.ValueType>) metadata
-            | SubType(t, _, _, _) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | ReferenceType(t, _, _) -> Terms.MakeBool (Hierarchy.is t dotNetTypeHierarchy) metadata
+            | StructureType(t, _, _) ->
+                Terms.MakeBool (Seq.exists (fun t -> t = Hierarchy.inheritor dotNetTypeHierarchy) [typedefof<obj>; typedefof<System.ValueType>]) metadata
+            | SubType(t, _, _, _) when Hierarchy.is t dotNetTypeHierarchy -> Terms.MakeTrue metadata
+            | SubType(t, _, _, name) as termType when Hierarchy.is dotNetTypeHierarchy t ->
                 implies (makeBoolConst name termType) b metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetType.IsAssignableFrom(typedefof<obj>)) metadata
+            | ArrayType _ -> Terms.MakeBool (Hierarchy.equals dotNetTypeHierarchy (Hierarchy.make typedefof<obj>)) metadata
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
@@ -70,7 +72,7 @@ module internal Common =
         | Func _, Func _ -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | leftType, Types.StructureType(t, _, _)
-        | leftType, Types.ReferenceType(t, _, _) -> concreteIs t leftType
-        | leftType, SubType(t, _, _, name) -> subTypeIs (t, name) leftType
+        | leftType, (StructureType(t, _, _) as termType)
+        | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
+        | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
         | _ -> Terms.MakeFalse metadata

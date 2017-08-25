@@ -1,5 +1,6 @@
 ﻿namespace VSharp
 open VSharp.Utils
+open VSharp.Types
 
 module internal State =
     module SymbolicHeap = Heap

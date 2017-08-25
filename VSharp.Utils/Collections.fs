@@ -6,6 +6,10 @@ module public Seq =
                 match mapper x with
                 | Some y -> yield y
                 | None -> () }
+    
+    let public (|Cons|Empty|) s =
+        if Seq.isEmpty s then Empty
+        else Cons ((Seq.head s), Seq.tail s)
 
 module public List =
     let rec private mappedPartitionAcc f left right = function
@@ -20,10 +24,10 @@ module public List =
 
     let rec public map2Different f xs1 xs2 =
         match xs1, xs2 with
-        | SeqEmpty, [] -> []
-        | SeqEmpty, x2::xs2' -> f None (Some x2) :: map2Different f xs1 xs2'
-        | SeqNode(x1, xs1'), [] -> f (Some x1) None :: map2Different f xs1' xs2
-        | SeqNode(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
+        | Seq.Empty, [] -> []
+        | Seq.Empty, x2::xs2' -> f None (Some x2) :: map2Different f xs1 xs2'
+        | Seq.Cons(x1, xs1'), [] -> f (Some x1) None :: map2Different f xs1' xs2
+        | Seq.Cons(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 

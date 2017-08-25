@@ -1,6 +1,7 @@
 ﻿namespace VSharp
 
 open VSharp.State
+open Types
 open Types.Constructor
 
 module internal Memory =
@@ -38,7 +39,7 @@ module internal Memory =
         | ArrayType _ as t -> Concrete null t metadata
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
         | SubType _ as t -> Concrete null t metadata
-        | Func _ -> Concrete null (SubType(typedefof<System.Delegate>, [], [], "func")) metadata
+        | Func _ -> Concrete null (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
@@ -369,7 +370,7 @@ module internal Memory =
 
     let internal allocateSymbolicInstance metadata state t =
         match t with
-        | ClassType(tp, arg, interfaces) ->
+        | TermType.ClassType(tp, arg, interfaces) ->
             let contents = makeSymbolicInstance metadata zeroTime (LazyInstantiation Nop) "" (StructType(tp, arg, interfaces)) in
             allocateInHeap metadata state contents
         | StructType _ ->

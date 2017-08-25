@@ -121,6 +121,12 @@ namespace VSharp.CSharpUtils.Tests
         private int _yCoord;
         protected int Rate = 0;
 
+        public Piece()
+        {
+            _xCoord = 0;
+            _yCoord = 0;
+        }
+
         public Piece(int x, int y)
         {
             _xCoord = x;
@@ -175,6 +181,11 @@ namespace VSharp.CSharpUtils.Tests
         {
             return _newField;
         }
+    }
+
+
+    public class Knight : Piece
+    {
     }
 
     interface IPromotion

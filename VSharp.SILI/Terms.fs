@@ -45,7 +45,7 @@ type public TermNode =
                 * SymbolicHeap          // Contents
                 * Term array            // Lengths of dimensions
                 * TermType              // Type
-    | Expression of (Operation * Term list * TermType)
+    | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
     | HeapRef of (Term * TermType) NonEmptyList * Timestamp

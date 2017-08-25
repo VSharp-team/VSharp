@@ -6,6 +6,7 @@ open global.System
 open System.Collections.Generic
 open System.Reflection
 open Types.Constructor
+open Types
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
@@ -27,8 +28,8 @@ module internal Interpreter =
         Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule (Assembly.GetExecutingAssembly().GetTypes())
         |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
             match m.GetCustomAttributes(typedefof<ImplementsAttribute>) with
-            | SeqEmpty -> ()
-            | SeqNode(attr, _) ->
+            | Seq.Empty -> ()
+            | Seq.Cons(attr, _) ->
                 let key = (attr :?> ImplementsAttribute).Name in
                 dict.Add(key, m)))
         dict
@@ -40,8 +41,8 @@ module internal Interpreter =
         [|Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")|]
         |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
             match m.GetCustomAttributes(typedefof<CSharpUtils.ImplementsAttribute>) with
-            | SeqEmpty -> ()
-            | SeqNode(attr, _) ->
+            | Seq.Empty -> ()
+            | Seq.Cons(attr, _) ->
                 let key = (attr :?> CSharpUtils.ImplementsAttribute).Name in
                 let qualifiedTypeName = (Types.SystemGenericTypeDefinition m.DeclaringType).AssemblyQualifiedName in
                 let assemblyPath = JetBrains.Util.FileSystemPath.Parse m.DeclaringType.Assembly.Location in
@@ -581,8 +582,8 @@ module internal Interpreter =
 
     and reduceCatchClauses exn state clauses k =
         match clauses with
-        | SeqEmpty -> k (Throw exn.metadata exn, state)
-        | SeqNode(clause, rest) ->
+        | Seq.Empty -> k (Throw exn.metadata exn, state)
+        | Seq.Cons(clause, rest) ->
             reduceConditionalExecution state
                 (fun state k -> reduceCatchCondition exn state clause k)
                 (fun state k -> reduceBlockStatement state clause.Body (fun (result, state) -> k (result, State.popStack state)))
@@ -655,7 +656,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null (VSharp.SubType(typedefof<obj>, [], [], IdGenerator.startingWith typedefof<obj>.FullName)) mtd, state)
+        | null -> k (Concrete null (FromGlobalSymbolicDotNetType typedefof<obj>) mtd, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -955,7 +956,7 @@ module internal Interpreter =
             let leftType = Terms.TypeOf term in
             let rec isUpCast l r =
                 match l, r with
-                | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t1)
+                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> Hierarchy.is t1 t2
                 | Func _, Func _ -> false
                 | ArrayType _, _ -> true
                 | _ -> __notImplemented__()
@@ -1133,7 +1134,7 @@ module internal Interpreter =
             match names, types, values, initializers with
             | [], [], [], [] -> this, state
             | name::names, typ::types, value::values, initializer::initializers ->
-                if IsVoid value then mutateFields this names types values initializers state
+                if Terms.IsVoid value then mutateFields this names types values initializers state
                 else
                     let mtd = State.mkMetadata initializer state in
                     let reference, state = Memory.referenceField mtd state false name (FromConcreteMetadataType typ) this in
@@ -1197,7 +1198,7 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
         let mtd = State.mkMetadata caller state in
-        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromConcreteMetadataType t), time, time) types
+        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t), time, time) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in
