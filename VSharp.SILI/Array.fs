@@ -1,9 +1,28 @@
 ﻿namespace VSharp
 
 module Array =
-    let internal lengthTermType = State.arrayLengthTermType in
+    type private SymbolicArrayBound(array : Term, index : int, upper : bool) =
+        inherit SymbolicConstantSource()
 
-    let internal zeroLowerBound = State.mkArrayZeroLowerBound
+    let internal lengthType = typedefof<int>
+    let internal lengthTermType = Numeric lengthType in
+
+    let internal zeroLowerBound metadata rank =
+        FSharp.Collections.Array.init rank (Concrete 0 lengthTermType metadata |> always)
+
+    let internal makeSymbolicLowerBound metadata array arrayName rank =
+        match Options.SymbolicArrayLowerBoundStrategy() with
+        | Options.AlwaysZero -> zeroLowerBound metadata rank
+        | Options.AlwaysSymbolic ->
+            FSharp.Collections.Array.init rank (fun i ->
+                let idOfBound = sprintf "lower bound of %s" arrayName |> IdGenerator.startingWith in
+                Constant idOfBound (SymbolicArrayBound(array, i, false)) lengthTermType metadata)
+
+    let internal makeSymbolic metadata source rank typ name =
+        let idOfLength = IdGenerator.startingWith (sprintf "|%s|" name) in
+        let constant = Constant name source typ metadata in
+        let lengths = FSharp.Collections.Array.init rank (fun i -> Constant idOfLength (SymbolicArrayBound(constant, i, true)) lengthTermType metadata) in
+        Array (makeSymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ metadata
 
     let internal dimensionsToLength mtd =
         FSharp.Collections.Array.fold (mul mtd) (Concrete 1 lengthTermType mtd)
