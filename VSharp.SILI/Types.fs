@@ -132,8 +132,6 @@ module public Types =
         | ArrayType(t, _) -> t
         | t -> internalfail ("expected array type, but got " + toString t)
 
-    let public IsRelation = RangeOf >> IsBool
-
     let public IsReferenceType = function
         | String
         | ClassType _

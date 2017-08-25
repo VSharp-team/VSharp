@@ -94,16 +94,27 @@ module internal Memory =
 
     // TODO: make generic terms equality operator!
     let private locationEqual mtd addr1 addr2 =
-        match Terms.TypeOf addr1, Terms.TypeOf addr2 with
+        match TypeOf addr1, TypeOf addr2 with
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ -> eq mtd addr1 addr2
         | _ -> __notImplemented__()
 
-    let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationType locationTime =
+    let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
         if locationTime > pointerTime then Terms.MakeFalse mtd
         else
-            locationEqual mtd locationAddr pointerAddr &&& Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
+            let addrEqual = locationEqual mtd locationAddr pointerAddr in
+            let typeSuits v =
+                let locationType = TypeOf v in
+                Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
+            in
+            let typeEqual =
+                match locationValue.term with
+                | Union gvs ->
+                    gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
+                | _ -> typeSuits locationValue
+            in
+            addrEqual &&& typeEqual
 
     let rec private refToInt term =
         match term.term with
@@ -140,7 +151,7 @@ module internal Memory =
 
     let private findSuitableLocations mtd h ptr ptrType ptrTime =
         let filterMapKey (k, ((v, created, modified) as cell)) =
-            let guard = canPoint mtd ptr ptrType ptrTime k (TypeOf v) created in
+            let guard = canPoint mtd ptr ptrType ptrTime k v created in
             match guard with
             | False -> None
             | _ -> Some(guard, k, cell)
@@ -226,7 +237,6 @@ module internal Memory =
         | StackRef(location, path) ->
             let firstLocation = StackRef location [] term.metadata in
             let time = frameTime state location in
-            let t = typeOfStackLocation state location in
             let (baseValue, created, modified), h' = stackDeref time (fun () -> stackLazyInstantiator state time location |> fst3) state location in
             let accessedValue, newBaseValue, newTime = accessTerm metadata (Terms.MakeTrue metadata) update created modified time firstLocation path baseValue in
             let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
@@ -344,8 +354,7 @@ module internal Memory =
     let internal allocateOnStack metadata ((s, h, m, (f, sh), p) as state : state) key term : state =
         let time = tick() in
         let frameMetadata, oldFrame, frameTime = Stack.peak f in
-        let typ = Terms.TypeOf term in
-        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, typ)::oldFrame, frameTime), sh), p)
+        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, None)::oldFrame, frameTime), sh), p)
 
     let internal allocateInHeap metadata ((s, h, m, f, p) : state) term : Term * state =
         let address = Concrete (freshAddress()) pointerType metadata in

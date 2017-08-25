@@ -134,16 +134,16 @@ module internal Interpreter =
                     then
                         let typ = FromConcreteMetadataType param.Type in
                         let mtd = State.mkMetadata ast state in
-                        (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), typ)
+                        (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType)
-            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, TypeOf value)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
+            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
             match this with
             | Some thisValue ->
                 let thisKey = ("this", getThisTokenBy ast) in
-                (thisKey, State.Specified thisValue, TypeOf thisValue)::parameters
+                (thisKey, State.Specified thisValue, None)::parameters
             | None -> parameters
         k (parametersAndThis, Memory.newStackFrame state mtd funcId parametersAndThis)
 
@@ -525,7 +525,7 @@ module internal Interpreter =
         reduceSwitchCases state arg reduceDefault (List.ofArray ast.Cases) k)
 
     and reduceSwitchCases state arg dflt (cases : ISwitchCase list) k =
-        let t = Terms.TypeOf arg |> Types.ToDotNetType in
+        let t = TypeOf arg |> Types.ToDotNetType in
         let compareArg caller (result, state) expression k =
             reduceExpression state expression (fun (value, state) ->
             performBinaryOperation caller state OperationType.Equal arg value false t (fun (equal, state) ->
@@ -599,7 +599,7 @@ module internal Interpreter =
                 let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type in
                 let typeMatches, state = checkCast mtd state targetType exn in
                 let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
-                let state = Memory.newScope mtd state [(stackKey, State.Specified exn, Terms.TypeOf exn)] in
+                let state = Memory.newScope mtd state [(stackKey, State.Specified exn, None)] in
                 typeMatches, state
         in
         if ast.Filter = null then k (typeMatches, state)
@@ -982,7 +982,7 @@ module internal Interpreter =
                 printfn "Warning: casting stack reference %O to %O!" term targetType
                 term, state
             | _ ->
-                let message = MakeConcreteString (sprintf "Internal error: casting %O to %O!" (Terms.TypeOf term) targetType) mtd in
+                let message = MakeConcreteString "Specified cast is not valid." mtd in 
                 let term, state = State.activator.CreateInstance mtd typeof<InvalidCastException> [message] state in
                 Error term mtd, state
         in
@@ -1207,7 +1207,7 @@ module internal Interpreter =
             then Memory.allocateInHeap mtd state freshValue
             else
                 let tempVar = "constructed instance" in
-                let state = Memory.newScope mtd state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
+                let state = Memory.newScope mtd state [((tempVar, tempVar), State.Specified freshValue, None)] in
                 (Memory.referenceLocalVariable mtd state (tempVar, tempVar) false, state)
         in
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
@@ -1420,7 +1420,7 @@ type Activator() =
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
             let argumentsTypes =
-                List.map (Terms.TypeOf >> function | PointerType t -> t | t -> t) arguments in
+                List.map (TypeOf >> function | PointerType t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray

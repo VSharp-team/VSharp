@@ -3515,7 +3515,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Internal error: casting <Pointer to <Subtype of System.Object>> to <Subtype of VSharp.CSharpUtils.Tests.Pawn>!
+	| System.Exception._message ~> Specified cast is not valid.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 5)
@@ -3738,7 +3738,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Internal error: casting <Pointer to <Subtype of VSharp.CSharpUtils.Tests.Piece>> to <Subtype of System.Object>!
+	| System.Exception._message ~> Specified cast is not valid.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 5)
@@ -3884,7 +3884,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Internal error: casting <Pointer to <Subtype of System.Object>> to <Subtype of VSharp.CSharpUtils.Tests.Piece>!
+	| System.Exception._message ~> Specified cast is not valid.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 6)

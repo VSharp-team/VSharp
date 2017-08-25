@@ -270,8 +270,7 @@ module public Terms =
                 let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
                 if allSame then t
                 else
-                    // TODO: return least common supertype!
-                    __notImplemented__()
+                    internalfailf "evaluating type of unexpected union %O!" term
 
 
     let public IsBool =                 TypeOf >> Types.IsBool
@@ -283,7 +282,6 @@ module public Terms =
     let public IsPrimitive =            TypeOf >> Types.IsPrimitive
     let public DomainOf =               TypeOf >> Types.DomainOf
     let public RangeOf =                TypeOf >> Types.RangeOf
-    let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public CastConcrete value (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType() in
