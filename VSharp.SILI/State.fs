@@ -172,7 +172,16 @@ module internal State =
         let lengths = FSharp.Collections.Array.init rank (fun i -> Constant idOfLength (SymbolicArrayLength(constant, i, true)) (Numeric arrayLengthType) metadata) in
         Array (mkArraySymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ metadata
 
-    let internal makeSymbolicInstance metadata time source name = function
+    let rec internal makeSymbolicStruct metadata time source t dotNetType =
+        let fields = Types.GetFieldsOf dotNetType false
+                        |> Map.toSeq
+                        |> Seq.map (fun (name, typ) -> 
+                                        let key = MakeStringKey name in
+                                        (key, makeSymbolicInstance metadata time (source key) name typ))
+                        |> Heap.ofSeq
+        in Struct fields t metadata
+
+    and internal makeSymbolicInstance metadata time source name = function
         | PointerType t ->
             let constant = Constant name source pointerType metadata in
             HeapRef ((constant, t), []) time metadata

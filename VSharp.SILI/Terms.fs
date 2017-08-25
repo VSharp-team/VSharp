@@ -5,17 +5,6 @@ open global.System
 open System.Collections.Generic
 open Types.Constructor
 
-[<StructuralEquality;NoComparison>]
-type FunctionIdentifier =
-    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
-    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
-    | StandardFunctionIdentifier of Operations.StandardFunction
-    override this.ToString() =
-        match this with
-        | MetadataMethodIdentifier mm -> mm.Name
-        | DelegateIdentifier _ -> "<delegate>"
-        | StandardFunctionIdentifier sf -> sf.ToString()
-
 type StackKey = string * string  // Name and token
 
 type LocationBinding = JetBrains.Decompiler.Ast.INode
@@ -126,20 +115,19 @@ and
     [<CustomEquality;NoComparison>]
     Term =
         {term : TermNode; metadata : TermMetadata}
-        override this.ToString() =
-            this.term.ToString()
-        override this.GetHashCode() =
-            this.term.GetHashCode()
+        override this.ToString() = this.term.ToString()
+        override this.GetHashCode() = this.term.GetHashCode()
         override this.Equals(o : obj) =
             match o with
             | :? Term as other -> this.term.Equals(other.term)
             | _ -> false
 
-and SymbolicConstantSource =
-    | LazyInstantiation of Term
-    | UnboundedRecursion of TermRef
-    | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
-    | SymbolicConstantType of TermType
+and
+    SymbolicConstantSource =
+        | LazyInstantiation of Term
+        | SymbolicEffect of int
+        | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
+        | SymbolicConstantType of TermType
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -412,9 +400,9 @@ module public Terms =
         match term.term with
         | Constant(name, source, t) when visited.Add(term) ->
             match source with
-            | UnboundedRecursion app -> doFold folder visited state !app.reference
             | LazyInstantiation loc -> doFold folder visited state loc
             | SymbolicArrayLength(arr, _, _) -> doFold folder visited state arr
+            | SymbolicEffect _
             | SymbolicConstantType _ -> state
         | Array(lowerBounds, constant, contents, lengths, _) ->
             match constant with

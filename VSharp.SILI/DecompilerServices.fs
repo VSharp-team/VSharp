@@ -4,6 +4,22 @@ open JetBrains.Metadata.Reader.API
 open JetBrains.Decompiler.Ast
 open System.Collections.Generic
 
+[<StructuralEquality;NoComparison>]
+type FunctionIdentifier =
+    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
+    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
+    override this.ToString() =
+        match this with
+        | MetadataMethodIdentifier mm -> mm.Name
+        | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
+    member this.ReturnType =
+        match this with
+        | MetadataMethodIdentifier mm -> mm.Signature.ReturnType |> FromGlobalSymbolicMetadataType
+        | DelegateIdentifier _ -> VSharp.Void // TODO
+        | StandardFunctionIdentifier sf -> __notImplemented__()
+
 module internal DecompilerServices =
     let private assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private assemblies = new Dictionary<string, JetBrains.Metadata.Reader.API.IMetadataAssembly>()

@@ -144,19 +144,18 @@ module internal Interpreter =
             | None -> parameters
         k (parametersAndThis, Memory.newStackFrame state mtd funcId parametersAndThis)
 
-    and reduceFunction mtd state this parameters returnType funcId (signature : IFunctionSignature) invoke k =
+    and reduceFunction mtd state this parameters funcId (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature mtd funcId state signature this parameters (fun (_, state) ->
-        CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
+        CallGraph.call funcId state invoke (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
-        let returnType = FromGlobalSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) in
         let invoke state k =
             initializerInvoke state (fun (result, state) ->
             reduceBlockStatement state ast.Body (fun (result', state') ->
             ControlFlow.composeSequentially result result' state state' |> k))
         in
         let mtd = State.mkMetadata caller state in
-        reduceFunction mtd state this parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature invoke k
+        reduceFunction mtd state this parameters (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature invoke k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName in
@@ -350,24 +349,22 @@ module internal Interpreter =
         npeOrInvokeExpression ast state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
     and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) =
-        let returnType = VSharp.Void in // TODO!!!
         fun caller state args k ->
             let mtd = State.mkMetadata caller state in
             let invoke state k = reduceBlockStatement state ast.Body k in
-            reduceFunction mtd state None args returnType (DelegateIdentifier ast) ast.Signature invoke k
+            reduceFunction mtd state None args (DelegateIdentifier ast) ast.Signature invoke k
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let mtd = State.mkMetadata ast state in
         Functions.MakeLambda2 mtd state ast.Signature null (makeLambdaBlockInterpreter ast) |> k
 
     and makeLambdaInterpreter (ast : ILambdaExpression) =
-        let returnType = VSharp.Void in // TODO!!!
         let invokeBody state k =
             reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.throwOrReturn term, state))
         in
         fun caller state args k ->
             let mtd = State.mkMetadata caller state in
-            reduceFunction mtd state None args returnType (DelegateIdentifier ast) ast.Signature invokeBody k
+            reduceFunction mtd state None args (DelegateIdentifier ast) ast.Signature invokeBody k
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         let mtd = State.mkMetadata ast state in

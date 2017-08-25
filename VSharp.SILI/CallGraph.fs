@@ -28,7 +28,7 @@ module CallGraph =
         else
             body state k
 
-    let internal call state funcId body returnType k =
+    let internal call funcId state body k =
         // TODO: Non-actual comment, split and remove it
         // This is one of the most important moments for the unbound recursion encoding.
         // Every (mutually-)recursive function must be either invoked concretely if possible

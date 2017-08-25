@@ -54,8 +54,8 @@
     <Content Include="packages.config" />
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Options.fs" />
-    <Compile Include="DecompilerServices.fs" />
     <Compile Include="Operations.fs" />
+    <Compile Include="DecompilerServices.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="Terms.fs" />
     <Compile Include="State.fs" />
@@ -68,6 +68,7 @@
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
+    <Compile Include="Effects.fs" />
     <Compile Include="Functions.fs" />
     <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
