@@ -1197,7 +1197,7 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
         let mtd = State.mkMetadata caller state in
-        let fields = List.map (fun t -> State.defaultOf time mtd (FromConcreteMetadataType t), time, time) types
+        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromConcreteMetadataType t), time, time) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in

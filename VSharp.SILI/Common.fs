@@ -32,8 +32,11 @@ module internal Common =
             (Merging.merge (List.zip guardsY values'), state) |> matched)
         | _ -> unmatched x y state matched
 
-    and is metadata (leftType : TermType) (rightType : TermType) =
-        let makeBoolConst name termType = Constant name (SymbolicConstantType termType) Bool Metadata.empty
+    type private SymbolicTypeSource(t : TermType) =
+        inherit SymbolicConstantSource()
+
+    let rec is metadata leftType rightType =
+        let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
         in
         let concreteIs (dotNetType : System.Type) =
             let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in

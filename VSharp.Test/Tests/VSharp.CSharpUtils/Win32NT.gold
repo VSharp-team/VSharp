@@ -3337,7 +3337,7 @@ RESULT: UNION[
 HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.Piece[
 	| VSharp.CSharpUtils.Tests.Piece.Rate ~> UNION[
-		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & 1 == obj ~> VSharp.CSharpUtils.Tests.Piece.Rate]]
+		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & 1 == obj ~> VSharp.CSharpUtils.Tests.Piece.Rate]]
 10 ==> UNION[
 	| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) ~> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -3455,7 +3455,7 @@ HEAP:
 obj ==> UNION[
 	| !(0 == obj) & (!(1 == obj) | !VSharp.CSharpUtils.Tests.Piece & System.Object1) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) ~> STRUCT <Subtype of System.Object>[
 	| VSharp.CSharpUtils.Tests.Piece.Rate ~> VSharp.CSharpUtils.Tests.Piece.Rate]
-	| !VSharp.CSharpUtils.Tests.Piece & System.Object1 | (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & 1 == obj | 0 == obj ~> STRUCT <Subtype of System.Object>[
+	| !VSharp.CSharpUtils.Tests.Piece & System.Object1 | (!System.Object1 | VSharp.CSharpUtils.Tests.Piece) & 1 == obj | 0 == obj ~> STRUCT <Subtype of System.Object>[
 	]]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.MaxEnvVariableValueLength ~> 32767
