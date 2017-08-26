@@ -54,7 +54,19 @@ namespace VSharp.CSharpUtils
             }
             return n % 2 == 1;
         }
-//
+
+        public static int ThrowNull(int n)
+        {
+            try
+            {
+                throw null;
+            }
+            catch (NullReferenceException e)
+            {
+                return e.HResult;
+            }
+        }
+
 //        public sealed class NotPositive : Exception
 //        {
 //        }

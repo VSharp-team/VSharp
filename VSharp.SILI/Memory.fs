@@ -21,9 +21,30 @@ module internal Memory =
         pointer := 0
         timestamp := zeroTime
 
+    type private LazyInstantiation(location : Term) =
+        inherit SymbolicConstantSource()
+        override this.SubTerms = Seq.singleton location
+
     let private isStaticLocation = function
         | StaticRef _ -> true
         | _ -> false
+
+    let rec internal defaultOf time metadata = function
+        | Bool -> MakeFalse metadata
+        | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
+        | Numeric t -> CastConcrete 0 t metadata
+        | String -> Terms.Concrete null String metadata
+        | PointerType t -> Concrete null t metadata
+        | ClassType _ as t -> Concrete null t metadata
+        | ArrayType _ as t -> Concrete null t metadata
+        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
+        | SubType _ as t -> Concrete null t metadata
+        | Func _ -> Concrete null (SubType(typedefof<System.Delegate>, [], [], "func")) metadata
+        | StructType(dotNetType, _, _) as t ->
+            let fields = Types.GetFieldsOf dotNetType false in
+            let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
+            Struct contents t metadata
+        | _ -> __notImplemented__()
 
     let internal mkDefault metadata typ =
         defaultOf (tick()) metadata typ
@@ -40,6 +61,33 @@ module internal Memory =
                                 (key, (value, time, time)))
                 |> Heap.ofSeq
         fields, t, Struct contents t metadata
+
+    //let rec internal makeSymbolicStruct metadata time source t dotNetType =
+    //    let fields = Types.GetFieldsOf dotNetType false
+    //                    |> Map.toSeq
+    //                    |> Seq.map (fun (name, typ) -> 
+    //                                    let key = MakeStringKey name in
+    //                                    (key, makeSymbolicInstance metadata time (source key) name typ))
+    //                    |> Heap.ofSeq
+    //    in Struct fields t metadata
+
+    let rec makeSymbolicInstance metadata time source name = function
+        | PointerType t ->
+            let constant = Constant name source pointerType metadata in
+            HeapRef ((constant, t), []) time metadata
+        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
+        | StructType _
+        | SubType _
+        | ClassType _ as t -> Struct Heap.empty t metadata
+        | ArrayType(e, d) as t -> VSharp.Array.makeSymbolic metadata source d t name
+        | _ -> __notImplemented__()
+
+    let internal genericLazyInstantiator =
+        let instantiator metadata time fullyQualifiedLocation typ () =
+            makeSymbolicInstance metadata time (LazyInstantiation fullyQualifiedLocation) (nameOfLocation fullyQualifiedLocation) typ
+        in
+        State.genericLazyInstantiator <- instantiator
+        instantiator
 
     let rec private referenceSubLocation location term =
         match term.term with

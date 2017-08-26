@@ -123,11 +123,12 @@ and
             | _ -> false
 
 and
-    SymbolicConstantSource =
-        | LazyInstantiation of Term
-        | SymbolicEffect of int
-        | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
-        | SymbolicConstantType of TermType
+    [<AbstractClass>]
+    SymbolicConstantSource() =
+        abstract SubTerms : Term seq
+        override this.GetHashCode() =
+            this.GetType().GetHashCode()
+        override this.Equals(o : obj) = o.GetType() = this.GetType()
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -399,11 +400,7 @@ module public Terms =
     let rec private foldChildren folder (visited : HashSet<Term>) state term =
         match term.term with
         | Constant(name, source, t) when visited.Add(term) ->
-            match source with
-            | LazyInstantiation loc -> doFold folder visited state loc
-            | SymbolicArrayLength(arr, _, _) -> doFold folder visited state arr
-            | SymbolicEffect _
-            | SymbolicConstantType _ -> state
+            foldSeq folder visited source.SubTerms state
         | Array(lowerBounds, constant, contents, lengths, _) ->
             match constant with
             | Some c -> doFold folder visited state c

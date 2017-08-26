@@ -158,7 +158,7 @@ namespace VSharp.CSharpUtils.Tests
             ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA2(int i, int j) I", j);
         }
 
-        public int GetNum()
+        public new int GetNum()
         {
             return num2;
         }
@@ -167,6 +167,34 @@ namespace VSharp.CSharpUtils.Tests
         {
             return num1 + num2 + num;
         }
+    }
+
+    internal static class ClassesSimpleExceptionInitializer
+    {
+        public static int Init0(int n)
+        {
+            throw null;
+        }
+
+        public static int Init1(int n)
+        {
+            if (n > 0)
+            {
+                throw null;
+            }
+            return n;
+        }
+    }
+
+    internal class ClassesSimpleException0
+    {
+        private static int field0 = ClassesSimpleExceptionInitializer.Init0(24);
+    }
+
+    internal class ClassesSimpleException1
+    {
+        private static int field0 = ClassesSimpleExceptionInitializer.Init1(-24);
+        private static int field1 = ClassesSimpleExceptionInitializer.Init1(24);
     }
 
     public static class ClassesSimple
@@ -179,6 +207,20 @@ namespace VSharp.CSharpUtils.Tests
             return n == a.GetN();
         }
     }
+
+    public static class ClassesSimpleException
+    {
+        public static void Test1()
+        {
+            ClassesSimpleException0 a = new ClassesSimpleException0();
+        }
+
+        public static void Test2()
+        {
+            ClassesSimpleException1 a = new ClassesSimpleException1();
+        }
+    }
+
 
     public static class ClassesSimpleHierarchy
     {
