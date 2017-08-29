@@ -2,6 +2,7 @@
 
 open VSharp.Terms
 open VSharp.Types.Constructor
+open Hierarchy
 
 module internal Common =
 
@@ -39,29 +40,28 @@ module internal Common =
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
         in
-        let concreteIs (dotNetTypeHierarchy : System.Type list) rightTermType =
-            let b = makeBoolConst (Hierarchy.name dotNetTypeHierarchy) rightTermType in
+        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
+            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
             function
             | ReferenceType(t, _, _)
-            | StructureType(t, _ ,_) -> Terms.MakeBool (Hierarchy.equals t dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, name) as termType when Hierarchy.is dotNetTypeHierarchy t ->
+            | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
+            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
                 implies (makeBoolConst name termType) b metadata
-            | SubType(t, _, _, _) when not <| Hierarchy.is dotNetTypeHierarchy t -> Terms.MakeFalse metadata
-            | ArrayType _ -> Terms.MakeBool (Hierarchy.equals dotNetTypeHierarchy (Hierarchy.make typedefof<obj>)) metadata
+            | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
+            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         in
-        let subTypeIs (dotNetTypeHierarchy: System.Type list) rightTermType  rightName =
+        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
             let b = makeBoolConst rightName rightTermType in
             function
-            | ReferenceType(t, _, _) -> Terms.MakeBool (Hierarchy.is t dotNetTypeHierarchy) metadata
-            | StructureType(t, _, _) ->
-                Terms.MakeBool (Seq.exists (fun t -> t = Hierarchy.inheritor dotNetTypeHierarchy) [typedefof<obj>; typedefof<System.ValueType>]) metadata
-            | SubType(t, _, _, _) when Hierarchy.is t dotNetTypeHierarchy -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when Hierarchy.is dotNetTypeHierarchy t ->
+            | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
+            | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
+            | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
+            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
                 implies (makeBoolConst name termType) b metadata
-            | ArrayType _ -> Terms.MakeBool (Hierarchy.equals dotNetTypeHierarchy (Hierarchy.make typedefof<obj>)) metadata
+            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             | _ -> __notImplemented__()
         in
         match leftType, rightType with

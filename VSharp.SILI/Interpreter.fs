@@ -956,7 +956,7 @@ module internal Interpreter =
             let leftType = Terms.TypeOf term in
             let rec isUpCast l r =
                 match l, r with
-                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> Hierarchy.is t1 t2
+                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
                 | Func _, Func _ -> false
                 | ArrayType _, _ -> true
                 | _ -> __notImplemented__()

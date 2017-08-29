@@ -18,13 +18,14 @@ module public Hierarchy =
         | _ when t.IsGenericParameter -> Seq.append (Seq.singleton t) (getInheritanceHierarchy <| getBaseTypeFromGenericParameter t)
         | _ -> Seq.append (Seq.singleton t) (getInheritanceHierarchy t.BaseType)
 
-    let public make t = getInheritanceHierarchy t |> List.ofSeq
+    let private make t = getInheritanceHierarchy t |> List.ofSeq
 
-    let public is (l : System.Type list) (r : System.Type list) =
-        Seq.contains (Seq.head r) l
-
-    let public name (h : System.Type list) = (List.head h).FullName
-
-    let public equals (l : System.Type list) (r : System.Type list) = Seq.head l = Seq.head r
-
-    let public inheritor h = List.head h
+    type public Hierarchy(hierarchy : System.Type list) =
+        member this.Inheritor = List.head hierarchy
+        member this.Hierarchy = hierarchy
+        member this.Name = this.Inheritor.ToString()
+        member this.Is (r : Hierarchy) = Seq.contains r.Inheritor hierarchy
+        member this.Equals (r : Hierarchy) = this.Inheritor = r.Inheritor
+        member this.Equals (r : System.Type) = this.Inheritor = r
+        new (typ : System.Type) = Hierarchy(make typ)
+        override this.ToString() = this.Name
