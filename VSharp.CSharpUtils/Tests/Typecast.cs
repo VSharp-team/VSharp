@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.CSharpUtils.Tests.Typecast
 {
     public class Celsius
     {
@@ -34,6 +34,7 @@ namespace VSharp.CSharpUtils.Tests
         double Norm();
     }
 
+    //TODO: Incorrect output of elements in the array
     public struct Coord : INormalize
     {
         public int X;

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.CSharpUtils.Tests.Generic
 {
     public interface IKeeper<in T>
     {
@@ -23,7 +23,7 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    public static class Generic<T, U, P, K, N, Z>
+    public static class GenericInitialize<T, U, P, K, N, Z>
         where T : U
         where U : IKeeper<P>
         where P : struct, IKeeper<T>
@@ -110,7 +110,7 @@ namespace VSharp.CSharpUtils.Tests
 //    
 //    public class FooFoo<T, U> {}
 //    
-    public interface IFoo<out T> where T : Piece {}
+    public interface IFoo<out T> where T : Typecast.Piece {}
 //    
 //    public interface IFooOne : IFoo<IFooTwo> {}
 //        
