@@ -62,6 +62,8 @@ type public TermNode =
 
         let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
 
+        let formatIfNotEmpty (indent : String) (value : String) = if value.Length = 0 then "" else sprintf "\n%s%s" indent value
+
         let arrayContentsToString contents separator =
             Heap.toString "%O: %O" separator id id contents
 
@@ -95,8 +97,8 @@ type public TermNode =
                         checkExpression isChecked parentChecked operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (getTerm >> toStr -1 false (indent + "\t")) fields in
-                sprintf "STRUCT %O[\n%s%s]" t indent fieldsString
+                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (getTerm >> toStr -1 false indent) fields in
+                sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
             | Array(_, None, contents, dimensions, _) ->
                 sprintf "[| %s ... %s ... |]" (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
@@ -106,8 +108,8 @@ type public TermNode =
             | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) = sprintf "| %s ~> %s" (toStr -1 false indent guard.term) (toStr -1 false indent term.term)
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
-                sprintf "UNION[\n%s%s]" indent (join ("\n" + indent) printed)
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
+                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
         in
         toStr -1 false "\t" this
 
