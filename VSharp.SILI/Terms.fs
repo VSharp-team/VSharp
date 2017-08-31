@@ -137,11 +137,10 @@ and
             | :? Term as other -> this.term.Equals(other.term)
             | _ -> false
 
-and SymbolicConstantSource =
-    | UnboundedRecursion of TermRef
-    | LazyInstantiation of Term
-    | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
-    | SymbolicConstantType of TermType
+and SymbolicConstantSource() =
+    override this.GetHashCode() =
+        this.GetType().GetHashCode()
+    override this.Equals(o : obj) = o.GetType() = this.GetType()
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -413,13 +412,6 @@ module public Terms =
     let rec private addConstants mapper (visited : HashSet<Term>) acc term =
         match term.term with
         | Constant(name, source, t) when visited.Add(term) ->
-            let acc =
-                match source with
-                | UnboundedRecursion app -> addConstants mapper visited acc !app.reference
-                | LazyInstantiation loc -> addConstants mapper visited acc loc
-                | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
-                | SymbolicConstantType _ -> acc
-            in
             match mapper acc term with
             | Some value -> value::acc
             | None -> acc

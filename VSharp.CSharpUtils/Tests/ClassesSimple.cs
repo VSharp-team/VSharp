@@ -158,7 +158,7 @@ namespace VSharp.CSharpUtils.Tests
             ClassesSimpleRegistrator.RegisterAndReturn("ClassesSimpleHierarchyA2(int i, int j) I", j);
         }
 
-        public int GetNum()
+        public new int GetNum()
         {
             return num2;
         }
