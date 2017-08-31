@@ -296,13 +296,16 @@ module internal Memory =
 
     let rec private referenceFieldOf state field parentRef reference =
         match reference.term with
-        | Error _ -> reference
+        | Error _ -> reference, state
         | HeapRef((addr, path), t) ->
             assert(List.isEmpty path) // TODO: will this really be always empty?
-            HeapRef (addr, [field]) t reference.metadata
-        | Struct _ -> referenceSubLocation field parentRef
-        | Union gvs -> Merging.guardedMap (referenceFieldOf state field parentRef) gvs
-        | t -> internalfailf "expected reference or struct, but got %O" t
+            HeapRef (addr, [field]) t reference.metadata, state
+        | Struct _ -> referenceSubLocation field parentRef, state
+        | Union gvs -> Merging.guardedStateMap (referenceFieldOf state field parentRef) gvs state
+        | Concrete(null, _) ->
+            let term, state = State.activator.CreateInstance reference.metadata typeof<System.NullReferenceException> [] state in
+            Error term reference.metadata, state
+        | t -> internalfailf "expected reference or struct, but got %O" t, state
 
     let rec private followOrReturnReference metadata state reference =
         let term, state = deref metadata state reference in
@@ -318,9 +321,9 @@ module internal Memory =
     let internal referenceField metadata state followHeapRefs name typ parentRef =
         let typ = Types.PointerFromReferenceType typ in
         let term, state = deref metadata state parentRef in
-        let reference = referenceFieldOf state (Terms.MakeStringKey name, typ) parentRef term in
-        if followHeapRefs then followOrReturnReference metadata state reference
-        else (reference, state)
+        let reference, newState = referenceFieldOf state (Terms.MakeStringKey name, typ) parentRef term in
+        if followHeapRefs then followOrReturnReference metadata newState reference
+        else (reference, newState)
 
     let internal referenceStaticField metadata state followHeapRefs fieldName typ typeName =
         let typ = Types.PointerFromReferenceType typ in
