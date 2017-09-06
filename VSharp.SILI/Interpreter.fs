@@ -456,15 +456,15 @@ module internal Interpreter =
             | _ -> reduceExpression state ast.Initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.throwOrIgnore initializer in
-            let allocate value statementResult mtd k =
+            let allocate state value statementResult mtd k =
                 let state' = Memory.allocateOnStack mtd state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
                 k (statementResult, state') in
             failOrInvoke
                 statementResult
                 state
-                (fun () -> allocate initializer (NoResult mtd) mtd k)
-                (fun _ _ _ state k -> k (statementResult, state))
-                (fun _ _ normal _ k -> allocate (Guarded mtd normal) statementResult mtd k)
+                (fun () -> allocate state initializer (NoResult mtd) mtd k)
+                (fun _ _ _ state k -> allocate state VSharp.Nop statementResult mtd k)
+                (fun _ _ normal state k -> allocate state (Guarded mtd normal) statementResult mtd k)
                 k)
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
@@ -988,6 +988,15 @@ module internal Interpreter =
                 Error term mtd, state
         in
         ControlFlow.throwOrReturn result, state
+    
+    and ifNotCasted mtd state term targetType = 
+        let result, state =
+            match term.term with
+            | Error _ -> term, state
+            | Nop -> internalfailf "Internal error: casting void to %O!" targetType
+            | _ -> Concrete null targetType mtd, state
+        in
+        ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
         let reduceTarget state k = k (MakeNull typedefof<obj> Metadata.empty, state) in
@@ -998,12 +1007,12 @@ module internal Interpreter =
         let targetType = FromGlobalSymbolicMetadataType ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         let mtd = State.mkMetadata ast state in
-        let isCasted, state = checkCast mtd state targetType term in
+        let isCasted state term = checkCast mtd state targetType term in
         let mapper state term targetType =
             reduceConditionalExecution state
-                (fun state k -> k (isCasted, state))
+                (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd state term targetType))
-                (fun state k -> k (Return mtd <| Concrete null targetType mtd, state))
+                (fun state k -> k (ifNotCasted mtd state term targetType))
                 (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
         in
         let term, state =
@@ -1054,11 +1063,12 @@ module internal Interpreter =
         in k (newTerm, newState))
 
     and checkCast mtd state targetType term =
+        let derefForCast = Memory.derefWith (fun m s t -> Concrete null t m, s)
         match term.term with
         | HeapRef _
         | StackRef _
         | StaticRef _ ->
-            let contents, state = Memory.deref mtd state term in
+            let contents, state = derefForCast mtd state term in
             checkCast mtd state targetType contents
         | Union gvs -> Merging.guardedStateMap (checkCast mtd state targetType) gvs state
         | _ -> Common.is mtd (TypeOf term) targetType, state

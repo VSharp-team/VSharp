@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using VSharp.CSharpUtils.Tests.Typecast;
 
 namespace VSharp.CSharpUtils.Tests.Generic
 {
@@ -72,7 +73,30 @@ namespace VSharp.CSharpUtils.Tests.Generic
             _filed = f;
         }
     }
-
+ 
+    public static class TetsUnion  
+    {  
+        public static Object Ret(Object obj)  
+        {  
+            if (obj is BlackPawn)
+            { 
+                var f = obj as BlackPawn; 
+                f.SetNewField(42); 
+            }
+            if (obj is Pawn)
+            {  
+                var a = obj as Pawn;
+                int b = a.GetNewField();
+                a.SetNewField(66 + b);
+            }
+//            if (obj is Foo<Piece>) 
+//            { 
+//                var f = obj as Foo<Piece>; 
+//                f.SetField(new Piece(1, 2)); 
+//            }
+            return obj;  
+        }  
+    }  
 //    public static class GenericCast
 //    {
 //        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)

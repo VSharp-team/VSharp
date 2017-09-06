@@ -232,7 +232,7 @@ module internal Memory =
             ((guard, accessedValue), (h', max maxTime newTime))))
         in (Merging.merge gvs, h', newTime)
 
-    let rec private hierarchicalAccess update metadata state term =
+    let rec private commonHierarchicalAccess doIfNull update metadata state term =
         match term.term with
         | Error _ -> (term, state)
         | StackRef(location, path) ->
@@ -257,19 +257,25 @@ module internal Memory =
             let firstLocation = HeapRef (location, []) time term.metadata in
             let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
             match isNull with
-            | Terms.True -> npe metadata state
+            | Terms.True -> doIfNull metadata state t
             | Terms.False ->
                 let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) zeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
                 result, withHeap state h'
             | _ ->
                 let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) zeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                let state = withHeap state h' in
-                let exn, state' = npe metadata state in
-                Merging.merge2Terms isNull !!isNull (Error exn metadata) result, Merging.merge2States isNull !!isNull state' state
-        | Union gvs -> Merging.guardedStateMap (hierarchicalAccess update metadata state) gvs state
+                let notNullState = withHeap state h' in
+                let resIfNull, state' = doIfNull metadata state t in
+                Merging.merge2Terms isNull !!isNull resIfNull result, Merging.merge2States isNull !!isNull state' notNullState
+        | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess doIfNull update metadata state) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 
+    let private hierarchicalAccess = commonHierarchicalAccess (fun m s _ ->
+        let res, state = npe m s
+        Error res m, state)
+
     let internal deref = hierarchicalAccess makePair
+    
+    let internal derefWith doIfNull = commonHierarchicalAccess doIfNull makePair
 
 //    let internal fieldOf term name = termDeref [Terms.MakeConcreteString name] term
 

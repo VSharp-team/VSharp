@@ -182,8 +182,33 @@ namespace VSharp.CSharpUtils.Tests.Typecast
         {
             return _newField;
         }
+
+        public void SetNewField(int field)  
+        {  
+            _newField = field;  
+        }  
     }
 
+    public class BlackPawn : Pawn 
+    {
+        public BlackPawn(int x, int y, int newField) : base(x, y, newField)
+        {
+        }
+
+        public BlackPawn(Coord coord, int newField) : base(coord, newField)
+        {
+        }
+    }
+
+    public class WhitePawn : Pawn {
+        public WhitePawn(int x, int y, int newField) : base(x, y, newField)
+        {
+        }
+
+        public WhitePawn(Coord coord, int newField) : base(coord, newField)
+        {
+        }
+    }
 
     public class Knight : Piece
     {

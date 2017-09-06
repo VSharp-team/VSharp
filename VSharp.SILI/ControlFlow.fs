@@ -118,7 +118,7 @@ module internal ControlFlow =
         | Throw _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
-            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) True gvs in
+            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs in
             let result =
                 match newRes.result with
                 | Guarded gvs' ->

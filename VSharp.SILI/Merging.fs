@@ -4,6 +4,17 @@ open VSharp.Terms
 
 module internal Merging =
 
+    type private MergeType =
+        | StructMerge
+        | BoolMerge
+        | DefaultMerge
+
+    let private mergeTypeOf term =
+        match term.term with
+        | Struct _ -> StructMerge
+        | _ when IsBool term -> BoolMerge
+        | _ -> DefaultMerge
+
     // TODO: This is a pretty performance-critical function. We should store the result into the union itself.
     let internal guardOf term =
         match term.term with
@@ -19,10 +30,12 @@ module internal Merging =
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
             [(guard, value)]
 
-    let rec private structMerge t = function
+    let rec private structMerge = function
         | [] -> []
         | [_] as gvs -> gvs
-        | gvs ->
+        | (x :: xs) as gvs ->
+            let t = x |> snd |> TypeOf
+            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall (fun nt -> nt = t))
             let gs, vs = List.unzip gvs in
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
@@ -63,25 +76,33 @@ module internal Merging =
 
     and private typedMerge gvs t =
         match t with
-        | Bool -> boolMerge gvs
-        // TODO: merge generalizations too
-        | StructType _
-        | ClassType _ ->
-            structMerge t gvs
+        | BoolMerge -> boolMerge gvs
+        | StructMerge -> structMerge gvs
         // TODO: merge arrays too
-        | Numeric _
-        | String
-        | _ -> gvs
+        | DefaultMerge -> gvs
+
+    and propagateGuard g v = 
+        match v.term with
+        | Struct(contents, t) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            (Terms.True, Struct contents' t v.metadata)
+        | Array(lower, constant, contents, lengths, t) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            (Terms.True, Array lower constant contents' lengths t v.metadata)
+        | _ -> (g, v)
 
     and private compress = function
         | [] -> []
-        | [_] as gvs -> gvs
-        | [(_, v1); (_, v2)] as gvs when TypeOf v1 = TypeOf v2 -> typedMerge (mergeSame gvs) (TypeOf v1)
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
+        | [(_, v1); (_, v2)] as gvs when mergeTypeOf v1 = mergeTypeOf v2 -> typedMerge (mergeSame gvs) (mergeTypeOf v1)
         | [_; _] as gvs -> gvs
         | gvs ->
             gvs
                 |> mergeSame
-                |> List.groupBy (snd >> TypeOf)
+                |> List.groupBy (snd >> mergeTypeOf)
                 |> List.map (fun (t, gvs) -> typedMerge gvs t)
                 |> List.concat
 
