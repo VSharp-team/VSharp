@@ -164,7 +164,7 @@ namespace VSharp.Test
 //                , "TryCatch"
 //                , "Lists"
 //                , "Typecast"
-                , "Generic"
+//                , "Generic"
                 , "Foo"
                 , "GenericInitialize"
                 , "Bag"

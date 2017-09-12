@@ -5,8 +5,6 @@ open VSharp.Types
 module internal State =
     module SymbolicHeap = Heap
 
-    let internal pointerType = Numeric typedefof<int> in
-
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap

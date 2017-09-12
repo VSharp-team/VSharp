@@ -54,6 +54,45 @@ namespace VSharp.CSharpUtils.Tests.Generic
         }
     }
 
+    public static class GenericTest<T, U, P, K, N, Z>
+        where T : U
+        where U : IKeeper<P>
+        where P : struct, IKeeper<T>
+        where K : class, IKeeper<U>
+        where N : IKeeper<K>
+        where Z : List<int>
+    {
+        public static T RetT(T t)
+        {
+            return t;
+        }
+
+        public static U RetU(U u)
+        {
+            return u;
+        }
+
+        public static P RetP(P p)
+        {
+            return p;
+        }
+
+        public static K RetK(K k)
+        {
+            return k;
+        }
+
+        public static N RetT(N n)
+        {
+            return n;
+        }
+
+        public static Z RetU(Z z)
+        {
+            return z;
+        }
+    }
+
     public class Foo<T>
     {
         private T _filed;
@@ -73,30 +112,51 @@ namespace VSharp.CSharpUtils.Tests.Generic
             _filed = f;
         }
     }
- 
-    public static class TetsUnion  
-    {  
-        public static Object Ret(Object obj)  
-        {  
-            if (obj is BlackPawn)
-            { 
-                var f = obj as BlackPawn; 
-                f.SetNewField(42); 
-            }
-            if (obj is Pawn)
-            {  
-                var a = obj as Pawn;
-                int b = a.GetNewField();
-                a.SetNewField(66 + b);
-            }
-//            if (obj is Foo<Piece>) 
-//            { 
-//                var f = obj as Foo<Piece>; 
-//                f.SetField(new Piece(1, 2)); 
+
+    public static class TetsUnion
+    {
+//        public static Coord RetCoord(Object obj, Coord coord, int field)
+//        {
+//            if (obj is BlackPawn)
+//            {
+//                coord.X = 42;
 //            }
-            return obj;  
-        }  
-    }  
+//            if (obj is Pawn)
+//            {
+//                coord.X += 66;
+//            }
+//            return coord;
+//        }
+
+//        public static Object Ret(Object obj)
+//        {
+//            var f = obj as BlackPawn;
+//            if (f != null)
+//            {
+//                f.SetNewField(42);
+//            }
+//            var a = obj as Pawn;
+//            if (a != null)
+//            {
+//                int b = a.GetNewField();
+//                a.SetNewField(b + 66);
+//            }
+//            return obj;
+//        }
+
+        public static int RetWorked(Object obj, int a)
+        {
+            if (obj as BlackPawn != null)
+            {
+                a = 5;
+            }
+            if (obj as Pawn != null)
+            {
+                a = a + 6;
+            }
+            return a;
+        }
+    }
 //    public static class GenericCast
 //    {
 //        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)

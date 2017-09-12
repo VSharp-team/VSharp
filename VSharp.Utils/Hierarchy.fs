@@ -8,17 +8,17 @@ module public Hierarchy =
         let nakedTypes =
             t.GetGenericParameterConstraints() |>
             Seq.filter (fun nt -> nt.IsGenericParameter) |>
-            Seq.map getBaseTypeFromGenericParameter in
-        let baseType = Seq.singleton t.BaseType in
-        Seq.append baseType nakedTypes |> Seq.reduce mergeHierarchy
+            Seq.map getBaseTypeFromGenericParameter |>
+            List.ofSeq in
+        t.BaseType :: nakedTypes |> Seq.reduce mergeHierarchy
 
     and private getInheritanceHierarchy (t : System.Type) =
         match t with
-        | null -> Seq.empty
-        | _ when t.IsGenericParameter -> Seq.append (Seq.singleton t) (getInheritanceHierarchy <| getBaseTypeFromGenericParameter t)
-        | _ -> Seq.append (Seq.singleton t) (getInheritanceHierarchy t.BaseType)
+        | null -> List.empty
+        | _ when t.IsGenericParameter -> t :: getInheritanceHierarchy (getBaseTypeFromGenericParameter t)
+        | _ -> t :: getInheritanceHierarchy t.BaseType
 
-    let private make t = getInheritanceHierarchy t |> List.ofSeq
+    let private make t = getInheritanceHierarchy t
 
     type public Hierarchy(hierarchy : System.Type list) =
         member this.Inheritor = List.head hierarchy

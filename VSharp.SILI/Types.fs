@@ -36,8 +36,8 @@ type public TermType =
         | String -> "string"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
-        | ClassType (t, _, _) -> toString t 
-        | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t 
+        | ClassType (t, _, _) -> toString t
+        | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t
         | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
         | PointerType t -> sprintf "<Pointer to %O>" t
 
@@ -53,16 +53,18 @@ and [<CustomEquality;NoComparison>]
 
 module public Types =
     let (|StructType|_|) = function
-        | StructType(t, g ,i) as s -> Some(StructType(t.Inheritor, g, i))
+        | StructType(t, g ,i) -> Some(StructType(t.Inheritor, g, i))
         | _ -> None
 
     let (|ClassType|_|) = function
-        | ClassType(t, g ,i) as s -> Some(ClassType(t.Inheritor, g, i))
+        | ClassType(t, g ,i) -> Some(ClassType(t.Inheritor, g, i))
         | _ -> None
 
     let (|SubType|_|) = function
-        | SubType(t, g ,i, name) as s -> Some(SubType(t.Inheritor, g, i, name))
+        | SubType(t, g ,i, name) -> Some(SubType(t.Inheritor, g, i, name))
         | _ -> None
+
+    let internal pointerType = Numeric typedefof<int> in
 
     let private integerTypes =
         new HashSet<System.Type>(
@@ -270,17 +272,18 @@ module public Types =
         let public GetVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
                 left &&& right = right
-            let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask
+            in
+            let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask in
             match variance with
             | _ when variance ==> GenericParameterAttributes.Contravariant -> Contravariant
             | _ when variance ==> GenericParameterAttributes.Covariant -> Covariant
             | _ -> Invarinat
 
         let rec private getGenericArguments (typeKind : TypeKind) (dotNetType : Type) =
-            if not dotNetType.IsGenericType then []
-            else
+            if dotNetType.IsGenericType then
                 Seq.map (fun t -> TermTypeRef (fromDotNetTypeRef typeKind t)) (dotNetType.GetGenericArguments()) |>
                 List.ofSeq
+            else []
 
         and private getConstraintFromDotNetInterface typeKind (interfaceType : Type) =
             let genericArguments = getGenericArguments typeKind interfaceType in
@@ -292,6 +295,7 @@ module public Types =
             let intefaces =
                 Seq.append (Seq.singleton interfaceType) (interfaceType.GetInterfaces()) |>
                 Seq.map (getConstraintFromDotNetInterface typeKind) |> List.ofSeq
+            in
             SubType typedefof<obj> [] intefaces typedefof<obj>.FullName
 
         and private fromCommonDotNetType (dotNetType : Type) k =
@@ -316,14 +320,12 @@ module public Types =
         and private fromDotNetGenericParameterConstraint (typeKind : TypeKind) (dotNetType : Type) =
             match dotNetType with
             | g when g.IsGenericParameter ->
-                Seq.append
-                    (fromDotNetGenericParameter typeKind g |> Seq.singleton)
-                    (fromDotNetGenericParameterConstraints typeKind (g.GetGenericParameterConstraints()))
-            | i when i.IsInterface -> getConstraintFromDotNetInterface typeKind i |> Seq.singleton
-            | _ -> Seq.empty
+                fromDotNetGenericParameter typeKind g :: fromDotNetGenericParameterConstraints typeKind (g.GetGenericParameterConstraints())
+            | i when i.IsInterface -> getConstraintFromDotNetInterface typeKind i |> List.singleton
+            | _ -> List.Empty
 
         and private fromDotNetGenericParameterConstraints (typeKind : TypeKind) (constraints : Type[]) =
-            constraints |> Seq.collect (fromDotNetGenericParameterConstraint typeKind) |> Seq.distinct
+            constraints |> Seq.collect (fromDotNetGenericParameterConstraint typeKind) |> Seq.distinct |> List.ofSeq
 
         and private fromDotNetGenericParameter typeKind (genericParameter : Type) : TermType =
             let constraints = genericParameter.GetGenericParameterConstraints() in
@@ -331,6 +333,7 @@ module public Types =
                 constraints |>
                 fromDotNetGenericParameterConstraints typeKind |>
                 List.ofSeq
+            in
             match genericParameter with
                 | s when s.IsValueType -> StructType genericParameter [] listTypeConstraint
                 | _ -> match typeKind with
@@ -348,7 +351,7 @@ module public Types =
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
             fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(SubType a [] [] a.FullName, int(0))
+            | a when a.FullName = "System.Array" -> ArrayType(SubType a [] [] a.FullName, 0)
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
@@ -372,6 +375,7 @@ module public Types =
                     TypesCache.Prepare key
                     let termType = fromDotNetType typeKind dotNetType in
                     TypesCache.Embody key termType
+            in
             match !res with
             | SubType(t, a, p, _) -> ref <| SubType t a p name
             | _ -> res
@@ -442,13 +446,14 @@ module public Types =
         let areInterfacesFound =
             givenType.GetInterfaces() |>
             Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
+        in
         areInterfacesFound ||
             let baseType = givenType.BaseType in
             baseType <> null &&
             if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
             else IsAssignableToGenericType baseType genericType
 
-    let private replaceConstraints constraints = function
+    let private updateConstraints constraints = function
         | TermType.SubType(t, g, _, name) -> SubType(t, g, constraints, name)
         | TermType.ClassType(t, g, _) -> ClassType(t, g, constraints)
         | TermType.StructType(t, g, _) -> StructType(t, g, constraints)

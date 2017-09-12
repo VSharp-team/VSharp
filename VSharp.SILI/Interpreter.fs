@@ -558,7 +558,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         reduceExpression state ast.Argument (fun (arg, state) ->
         match arg.term with
-        | Concrete (null, _) ->
+        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) ->
             let term, state = State.activator.CreateInstance mtd typeof<NullReferenceException> [] state in
             k (Throw mtd term, state)
         | _ -> k (Throw mtd arg, state))
@@ -656,7 +656,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null (FromGlobalSymbolicDotNetType typedefof<obj>) mtd, state)
+        | null -> k (Concrete null Null mtd, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -732,7 +732,8 @@ module internal Interpreter =
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
         let mType = FromConcreteMetadataType ast.Value.Type in
         let mtd = State.mkMetadata ast state in
-        k (Concrete ast.Value.Value mType mtd, state)
+        if IsNull mType then k (Terms.MakeNull Null mtd Memory.ZeroTime, state)
+        else k (Concrete ast.Value.Value mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -770,7 +771,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state in
-        let reduceTarget state k = k (Terms.MakeNull typedefof<obj> mtd, state) in
+        let reduceTarget state k = k (Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
         let reduceRightArg state k = reduceExpression state ast.RightArgument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -988,18 +989,18 @@ module internal Interpreter =
                 Error term mtd, state
         in
         ControlFlow.throwOrReturn result, state
-    
-    and ifNotCasted mtd state term targetType = 
+
+    and ifNotCasted mtd state term targetType =
         let result, state =
             match term.term with
             | Error _ -> term, state
             | Nop -> internalfailf "Internal error: casting void to %O!" targetType
-            | _ -> Concrete null targetType mtd, state
+            | _ -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
         in
         ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (MakeNull typedefof<obj> Metadata.empty, state) in
+        let reduceTarget state k = k (Memory.NullRefOf (FromGlobalSymbolicDotNetType typedefof<obj>), state) in
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
@@ -1039,9 +1040,9 @@ module internal Interpreter =
         in
         let rec primitiveCast state term targetType =
             match term.term with
-            | Error _ -> (term, state)
+            | Error _ -> term, state
+            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
             | Nop -> internalfailf "casting void to %O!" targetType
-            | Concrete(_, VSharp.Null) -> (term, state)
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then (Concrete value targetType term.metadata, state)
@@ -1063,7 +1064,7 @@ module internal Interpreter =
         in k (newTerm, newState))
 
     and checkCast mtd state targetType term =
-        let derefForCast = Memory.derefWith (fun m s t -> Concrete null t m, s)
+        let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
         match term.term with
         | HeapRef _
         | StackRef _

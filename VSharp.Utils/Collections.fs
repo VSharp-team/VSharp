@@ -9,7 +9,7 @@ module public Seq =
     
     let public (|Cons|Empty|) s =
         if Seq.isEmpty s then Empty
-        else Cons ((Seq.head s), Seq.tail s)
+        else Cons (Seq.head s, Seq.tail s)
 
 module public List =
     let rec private mappedPartitionAcc f left right = function

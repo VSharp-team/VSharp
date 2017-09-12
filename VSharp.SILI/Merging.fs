@@ -33,17 +33,18 @@ module internal Merging =
     let rec private structMerge = function
         | [] -> []
         | [_] as gvs -> gvs
-        | (x :: xs) as gvs ->
-            let t = x |> snd |> TypeOf
-            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall (fun nt -> nt = t))
+        | (x :: _) as gvs ->
+            let t = x |> snd |> TypeOf in
+            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs in
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
                 | t -> "Expected struct, got " + (toString t) |> internalfail
+            in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
             let guard = disjunction Metadata.empty gs in
-            [(guard, Struct merged t Metadata.empty)]
+            [(True, Struct merged t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -81,7 +82,7 @@ module internal Merging =
         // TODO: merge arrays too
         | DefaultMerge -> gvs
 
-    and propagateGuard g v = 
+    and propagateGuard g v =
         match v.term with
         | Struct(contents, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
