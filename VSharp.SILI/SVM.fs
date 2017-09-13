@@ -21,13 +21,16 @@ module public SVM =
             | None ->
                 printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
             | Some metadataMethod ->
+                dictionary.Add(m, (Nop, State.empty))
                 Functions.UnboundedRecursionExplorer.explore (MetadataMethodIdentifier metadataMethod) (fun (result, state) ->
                 System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.resultToTerm result)
-                dictionary.Add(m, (ControlFlow.resultToTerm result, state)))
+                dictionary.[m] <- (ControlFlow.resultToTerm result, state))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||) in
+        let bindingFlags = BindingFlags.Instance ||| BindingFlags.Static ||| BindingFlags.Public ||| BindingFlags.DeclaredOnly in
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList && t.IsPublic then
-            t.GetMethods() |> FSharp.Collections.Array.iter (interpret dictionary assemblyPath)
+            t.GetMethods(bindingFlags) |> FSharp.Collections.Array.iter (interpret dictionary assemblyPath)
 
     let private replaceLambdaLines str =
         System.Text.RegularExpressions.Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")

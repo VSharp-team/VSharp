@@ -1,16 +1,15 @@
 ﻿namespace VSharp
 open VSharp.Utils
+open VSharp.Types
 
 module internal State =
     module SymbolicHeap = Heap
-
-    let internal pointerType = Numeric typedefof<int> in
 
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
     type internal pathCondition = Term list
-    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType) list * Timestamp
+    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType option) list * Timestamp
     type internal frames = Stack.stack<stackFrame> * StackHash
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
@@ -82,8 +81,10 @@ module internal State =
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal typeOfStackLocation ((_, _, _, (f, _), _) : state) key =
-        match List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f with
-        | Some t -> t
+        let forMatch = List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f 
+        match forMatch with
+        | Some (Some t) -> t
+        | Some None -> internalfailf "unknown type of stack location %O!" key
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal metadataOfStackLocation ((_, _, _, (f, _), _) : state) key =

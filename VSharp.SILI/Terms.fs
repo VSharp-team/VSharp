@@ -45,7 +45,7 @@ type public TermNode =
                 * SymbolicHeap          // Contents
                 * Term array            // Lengths of dimensions
                 * TermType              // Type
-    | Expression of (Operation * Term list * TermType)
+    | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
     | HeapRef of (Term * TermType) NonEmptyList * Timestamp
@@ -76,7 +76,7 @@ type public TermNode =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
-            | Concrete(null, _) -> "null"
+            | Concrete(_, Null) -> "null"
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -106,6 +106,7 @@ type public TermNode =
             | Array(_, Some constant, contents, dimensions, _) ->
                 sprintf "%O: [|%s (%s) |]" constant (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
+            | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
             | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
             | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
             | Union(guardedTerms) ->
@@ -224,7 +225,8 @@ module public Terms =
             | _ -> false
 
     let public IsNull = term >> function
-        | Concrete(null, _) -> true
+        | HeapRef(((z, _), _), _) when z.term = TermNode.Concrete(0, Types.pointerType) -> true
+        | Concrete(_, Null) -> true
         | _ -> false
 
     let public IsStackRef = term >> function
@@ -270,8 +272,7 @@ module public Terms =
                 let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
                 if allSame then t
                 else
-                    // TODO: return least common supertype!
-                    __notImplemented__()
+                    internalfailf "evaluating type of unexpected union %O!" term
 
 
     let public IsBool =                 TypeOf >> Types.IsBool
@@ -283,7 +284,6 @@ module public Terms =
     let public IsPrimitive =            TypeOf >> Types.IsPrimitive
     let public DomainOf =               TypeOf >> Types.DomainOf
     let public RangeOf =                TypeOf >> Types.RangeOf
-    let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public CastConcrete value (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType() in
@@ -316,8 +316,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNull typ metadata =
-        Concrete null (FromConcreteDotNetType typ) metadata
+    let public MakeNull typ metadata time =
+        HeapRef (((Concrete 0 Types.pointerType metadata), typ), []) time metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
