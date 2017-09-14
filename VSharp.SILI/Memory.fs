@@ -10,7 +10,6 @@ module internal Memory =
 
     let private pointer = ref 0
     let internal ZeroTime = State.zeroTime
-    let internal NullRefOf typ = MakeNull typ Metadata.empty ZeroTime
     let private infiniteTime : Timestamp = System.UInt32.MaxValue
     let private timestamp = ref ZeroTime
     let private freshAddress () =
@@ -39,13 +38,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.MakeNull String metadata ZeroTime
-        | PointerType t -> Terms.MakeNull t metadata ZeroTime
-        | ClassType _ as t ->Terms.MakeNull t metadata ZeroTime
-        | ArrayType _ as t -> Terms.MakeNull t metadata ZeroTime
+        | String -> Terms.MakeNullRef String metadata ZeroTime
+        | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
+        | ClassType _ as t ->Terms.MakeNullRef t metadata ZeroTime
+        | ArrayType _ as t -> Terms.MakeNullRef t metadata ZeroTime
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Terms.MakeNull t metadata ZeroTime
-        | Func _ -> Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
+        | SubType _ as t -> Terms.MakeNullRef t metadata ZeroTime
+        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
@@ -288,9 +287,6 @@ module internal Memory =
             HeapRef (addr, [field]) t reference.metadata, state
         | Struct _ -> referenceSubLocation field parentRef, state
         | Union gvs -> Merging.guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
-        | Concrete(_, TermType.Null) ->
-            let term, state = State.activator.CreateInstance reference.metadata typeof<System.NullReferenceException> [] state in
-            Error term reference.metadata, state
         | t -> internalfailf "expected reference or struct, but got %O" t, state
 
     let rec private followOrReturnReference metadata state reference =

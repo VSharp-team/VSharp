@@ -76,7 +76,6 @@ type public TermNode =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
-            | Concrete(_, Null) -> "null"
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -191,6 +190,10 @@ module public Terms =
     let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
+    let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
+
+    let public MakeZeroAddress mtd = Concrete 0 Types.pointerType mtd
+
 
     let public IsVoid = term >> function
         | Nop -> true
@@ -231,8 +234,7 @@ module public Terms =
             | _ -> false
 
     let public IsNull = term >> function
-        | HeapRef(((z, _), _), _) when z.term = TermNode.Concrete(0, Types.pointerType) -> true
-        | Concrete(_, Null) -> true
+        | HeapRef(((z, _), _), _) when z.term = ZeroAddress -> true
         | _ -> false
 
     let public IsStackRef = term >> function
@@ -322,8 +324,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNull typ metadata time =
-        HeapRef (((Concrete 0 Types.pointerType metadata), typ), []) time metadata
+    let public MakeNullRef typ metadata time =
+        HeapRef (((MakeZeroAddress metadata), typ), []) time metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata

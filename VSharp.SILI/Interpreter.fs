@@ -561,8 +561,8 @@ module internal Interpreter =
     and reduceThrowStatement state (ast : IThrowStatement) k =
         let mtd = State.mkMetadata ast state in
         reduceExpression state ast.Argument (fun (arg, state) ->
-        match arg.term with
-        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) ->
+        match arg with
+        | Null ->
             let term, state = State.activator.CreateInstance mtd typeof<NullReferenceException> [] state in
             k (Throw mtd term, state)
         | _ -> k (Throw mtd arg, state))
@@ -660,7 +660,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null Null mtd, state)
+        | null -> k (MakeNullRef Null mtd Memory.ZeroTime, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -742,7 +742,7 @@ module internal Interpreter =
             let time = Memory.tick() in
             let stringLength = String.length (obj.ToString()) in
             Strings.MakeString stringLength obj time |> Memory.allocateInHeap mtd state |> k
-        | _ when IsNull mType -> k (Terms.MakeNull Null mtd Memory.ZeroTime, state)
+        | _ when IsNull mType -> k (Terms.MakeNullRef Null mtd Memory.ZeroTime, state)
         | _ -> k (Concrete obj mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
@@ -781,7 +781,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state in
-        let reduceTarget state k = k (Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
+        let reduceTarget state k = k (Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
         let reduceRightArg state k = reduceExpression state ast.RightArgument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -986,12 +986,12 @@ module internal Interpreter =
             match term.term with
             | Error _ -> term, state
             | Nop -> internalfailf "Internal error: casting void to %O!" targetType
-            | _ -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
+            | _ -> Terms.MakeNullRef targetType mtd Memory.ZeroTime, state
         in
         ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (Memory.NullRefOf (FromGlobalSymbolicDotNetType typedefof<obj>), state) in
+        let reduceTarget state k = k (MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) Metadata.empty Memory.ZeroTime, state) in
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
@@ -1032,8 +1032,8 @@ module internal Interpreter =
         let rec primitiveCast state term targetType =
             match term.term with
             | Error _ -> term, state
-            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
             | Nop -> internalfailf "casting void to %O!" targetType
+            | _ when Terms.IsNull term -> Terms.MakeNullRef targetType mtd Memory.ZeroTime, state
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then (Concrete value targetType term.metadata, state)
