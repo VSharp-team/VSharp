@@ -14,11 +14,6 @@ type FunctionIdentifier =
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
         | StandardFunctionIdentifier sf -> sf.ToString()
-    member this.ReturnType =
-        match this with
-        | MetadataMethodIdentifier mm -> mm.Signature.ReturnType |> FromGlobalSymbolicMetadataType
-        | DelegateIdentifier _ -> VSharp.Void // TODO
-        | StandardFunctionIdentifier sf -> __notImplemented__()
 
 module internal DecompilerServices =
     let private assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)

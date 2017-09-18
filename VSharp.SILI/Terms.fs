@@ -27,14 +27,14 @@ type public Operation =
 type public TermNode =
     | Nop
     | Error of Term
-    | Concrete of Object * TermType
+    | Concrete of obj * TermType
     | Constant of string * SymbolicConstantSource * TermType
+    | Expression of (Operation * Term list * TermType)
     | Array of Term array               // Lower bounds
                 * Term option           // Symbolic constant (or None if array has default contents)
                 * SymbolicHeap          // Contents
                 * Term array            // Lengths of dimensions
                 * TermType              // Type
-    | Expression of (Operation * Term list * TermType)
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
     | HeapRef of (Term * TermType) NonEmptyList * Timestamp
@@ -266,7 +266,7 @@ module public Terms =
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     else Convert.ChangeType(value, t) in
                 Concrete casted (FromConcreteDotNetType t) metadata
-            elif t.IsAssignableFrom(actualType) then 
+            elif t.IsAssignableFrom(actualType) then
                 Concrete value (FromConcreteDotNetType t) metadata
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
@@ -457,10 +457,10 @@ module public Terms =
             if args = args' then term else Expression op args' t term.metadata
         | Union gvs ->
             let gvs' = List.map (fun (g, v) -> (substitute subst g, substitute subst v)) gvs in
-            if gvs' = gvs then term else Union term.metadata gvs
+            if gvs' = gvs then term else Union term.metadata gvs'
         | Array _
         | Struct _ -> __notImplemented__()
-        | _ -> substitute subst term
+        | _ -> subst term
 
     and internal substitutePath subst path =
         path |> List.map (fun (a, t) -> (substitute subst a, t))

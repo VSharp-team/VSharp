@@ -13,9 +13,9 @@ type public TermType =
     | Bool
     | Numeric of System.Type
     | String
-    | StructType of System.Type * TermTypeRef list * TermType list // some value type with generic argument and interfaces
-    | ClassType of System.Type * TermTypeRef list * TermType list // some reference type with generic argument and interfaces
-    | SubType of System.Type * TermTypeRef list * TermType list * string //some symbolic type with generic argument, interfaces and constraint
+    | StructType of System.Type * TermTypeRef list * TermType list       // some value type with generic argument and interfaces
+    | ClassType of System.Type * TermTypeRef list * TermType list        // some reference type with generic argument and interfaces
+    | SubType of System.Type * TermTypeRef list * TermType list * string // some symbolic type with generic argument, interfaces and constraint
     | ArrayType of TermType * int
     | Func of TermType list * TermType
     | PointerType of TermType
@@ -65,7 +65,9 @@ module public Types =
     let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
-        
+
+    let internal pointerType = Numeric typedefof<int>
+
     let rec public IsAssignableToGenericType (givenType : Type) (genericType : Type) =
         let areInterfacesFound =
             givenType.GetInterfaces() |>
@@ -435,3 +437,8 @@ module public Types =
             let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name in
             (fieldName, FromConcreteDotNetType field.FieldType)
         fields |> Array.map extractFieldInfo |> Map.ofArray
+
+    let public ReturnType = function
+        | MetadataMethodIdentifier mm -> mm.Signature.ReturnType |> FromGlobalSymbolicMetadataType
+        | DelegateIdentifier _ -> Void // TODO
+        | StandardFunctionIdentifier sf -> __notImplemented__()

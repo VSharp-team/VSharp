@@ -1,5 +1,7 @@
 namespace VSharp
 
+open System.Collections.Generic
+
 module public Seq =
     let filterMap mapper xs =
         seq { for x in xs do
@@ -59,16 +61,25 @@ module public Map =
             Map.empty map
 
 module public Dict =
-    let public getValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
+    let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
             let newVal = fallback() in
             dict.Add(key, newVal)
             newVal
 
-    let public tryGetValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+    let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
+
+    let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
+        let result = new Dictionary<'a, 'b>() in
+        Seq.iter result.Add s
+        result :> IDictionary<'a, 'b>
+
+    let public equals (dict1 : IDictionary<'a,'b>) (dict2 : IDictionary<'a, 'b>) =
+        dict1.Keys.Count = dict2.Keys.Count &&
+        dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
 
 module public Stack =
     type 'a stack = 'a list

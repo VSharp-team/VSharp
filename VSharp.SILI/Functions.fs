@@ -33,6 +33,7 @@ module Functions =
 //        let private initialStates = new Dictionary<FunctionIdentifier, State.state>()
         let private startTimes = new Dictionary<FunctionIdentifier, Timestamp>()
         let private terminationRelatedState = new Dictionary<FunctionIdentifier, Term seq>()
+        let private recursiveFunctions = new HashSet<FunctionIdentifier>()
 
         type IInterpreter =
             abstract member InitializeStaticMembers : State.state -> string -> (StatementResult * State.state -> 'a) -> 'a
@@ -45,27 +46,30 @@ module Functions =
                     internalfail "interpreter for unbounded recursion is not ready"
         let mutable interpreter : IInterpreter = new NullActivator() :> IInterpreter
 
-        let internal reproduceEffect id state k =
-            Effects.reproduce id state |> k
+        let internal markAsRecursive id =
+            recursiveFunctions.Add(id) |> ignore
 
-        let internal approximate id (result, state) =
+        let internal reproduceEffect mtd id state k =
+            Effects.apply mtd id state k
+
+        let internal approximate mtd id (result, state) =
             let attempt = unboundedApproximationAttempts.[id] + 1 in
             if attempt > Options.WriteDependenciesApproximationTreshold() then
                 failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
             else
                 unboundedApproximationAttempts.[id] <- attempt
                 let startTime = startTimes.[id] in
-                Effects.parseEffects id startTime result state
+                Effects.parseEffects mtd id startTime result state
 
-        let rec private doExplore id state this k =
+        let rec private doExplore mtd id state this k =
             interpreter.Invoke id state this (fun result ->
-            if approximate id result then k result
-            else doExplore id state this k)
+            if not <| recursiveFunctions.Contains(id) || approximate mtd id result then k result
+            else doExplore mtd id state this k)
 
         let internal explore id k =
             let metadata = Metadata.empty in
             unboundedApproximationAttempts.[id] <- 0
-            Effects.initialize id
+            //Effects.initialize id
             let this, state =
                 match id with
                 | MetadataMethodIdentifier mm ->
@@ -86,7 +90,7 @@ module Functions =
                 | StandardFunctionIdentifier _ -> __notImplemented__()
 //            in initialStates.[id] <- state
             in startTimes.[id] <- Memory.tick()
-            doExplore id state this k
+            doExplore metadata id state this k
 
         let internal exploreIfShould id k =
             if unboundedApproximationAttempts.ContainsKey id then k ()

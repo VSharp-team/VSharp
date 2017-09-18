@@ -36,7 +36,7 @@ module internal Merging =
         let rec loop gvs out =
             match gvs with
             | [] -> out
-            | (True, v)::gvs' -> [List.head gvs]
+            | ((True, v) as gv)::gvs' -> [gv]
             | (False, v)::gvs' -> loop gvs' out
             | (g, UnionT us)::gvs' when not (List.isEmpty us) ->
                 let guarded = us |> List.map (fun (g', v) -> (g &&& g', v)) in

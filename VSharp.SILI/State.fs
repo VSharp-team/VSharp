@@ -4,7 +4,7 @@ open VSharp.Utils
 module internal State =
     module SymbolicHeap = Heap
 
-    let internal pointerType = Numeric typedefof<int> in
+    let internal pointerType = Types.pointerType
 
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
@@ -23,12 +23,12 @@ module internal State =
         | Unspecified
 
     let internal nameOfLocation = term >> function
-        | HeapRef((_, (x, _)::xs), _) -> toString x
-        | HeapRef(((_, t), _), _) -> toString t
-        | StackRef((name, _), x::_) -> sprintf "%s.%O" name x
-        | StackRef((name, _), _) -> name
-        | StaticRef(name, x::_) -> sprintf "%O.%O" name x
-        | StaticRef(name, _) -> toString name
+        | HeapRef(((_, t), []), _) -> toString t
+        | StackRef((name, _), []) -> name
+        | StaticRef(name, []) -> System.Type.GetType(name).FullName
+        | HeapRef((_, path), _)
+        | StackRef(_, path)
+        | StaticRef(_, path) -> path |> Seq.map (fst >> toString) |> join "."
         | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
     let internal readStackLocation ((s, _, _, _, _) : state) key = MappedStack.find key s
@@ -36,6 +36,7 @@ module internal State =
     let internal readStaticLocation ((_, _, m, _, _) : state) key = m.[key] |> fst3
 
     let internal isAllocatedOnStack ((s, _, _, _, _) : state) key = MappedStack.containsKey key s
+    let internal isAllocatedInHeap ((_, h, _, _, _) : state) key = Heap.contains key h
     let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
         SymbolicHeap.contains (Terms.MakeStringKey typeName) m
 

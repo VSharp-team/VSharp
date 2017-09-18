@@ -24,6 +24,12 @@ module internal Memory =
     type private LazyInstantiation(location : Term) =
         inherit SymbolicConstantSource()
         override this.SubTerms = Seq.singleton location
+        member this.Location = location
+
+    let internal (|LazyInstantiation|_|) (src : SymbolicConstantSource) =
+        match src with
+        | :? LazyInstantiation as li -> Some(LazyInstantiation li.Location)
+        | _ -> None
 
     let private isStaticLocation = function
         | StaticRef _ -> true
@@ -65,7 +71,7 @@ module internal Memory =
     //let rec internal makeSymbolicStruct metadata time source t dotNetType =
     //    let fields = Types.GetFieldsOf dotNetType false
     //                    |> Map.toSeq
-    //                    |> Seq.map (fun (name, typ) -> 
+    //                    |> Seq.map (fun (name, typ) ->
     //                                    let key = MakeStringKey name in
     //                                    (key, makeSymbolicInstance metadata time (source key) name typ))
     //                    |> Heap.ofSeq
@@ -108,6 +114,7 @@ module internal Memory =
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ -> eq mtd addr1 addr2
         | _ -> __notImplemented__()
+
 
     let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationType locationTime =
         // TODO: what if locationType is Null?
@@ -270,12 +277,34 @@ module internal Memory =
 
     let internal deref = hierarchicalAccess makePair
 
-//    let internal fieldOf term name = termDeref [Terms.MakeConcreteString name] term
-
     let internal mutate metadata state reference value =
         assert(value <> Nop)
         let time = tick() in
         hierarchicalAccess (fun _ _ -> (value, time)) metadata state reference
+
+    let rec private derefPathIfInstantiated term = function
+        | [] -> Some term
+        | (loc, _)::path' ->
+            match term.term with
+            | Struct(contents, _)
+            | Array(_, _, contents, _, _) ->
+                if Heap.contains loc contents then derefPathIfInstantiated (fst3 contents.[loc]) path' else None
+            | _ -> internalfailf "expected complex type, but got %O" term
+
+    let internal derefIfInstantiated state = term >> function
+        | StackRef(addr, path) ->
+            if isAllocatedOnStack state addr then
+                derefPathIfInstantiated (readStackLocation state addr |> fst3) path
+            else None
+        | HeapRef(((addr, _), path), _) ->
+            if isAllocatedInHeap state addr then
+                derefPathIfInstantiated (readHeapLocation state addr) path
+            else None
+        | StaticRef(addr, path) ->
+            if staticMembersInitialized state addr then
+                derefPathIfInstantiated (readStaticLocation state (MakeStringKey addr)) path
+            else None
+        | term -> internalfailf "expected reference, but %O got" term
 
 // ------------------------------- Referencing -------------------------------
 
@@ -351,6 +380,9 @@ module internal Memory =
     let internal newStackFrame state metadata funcId frame = State.newStackFrame (tick()) metadata state funcId frame
     let internal newScope state frame = State.newScope (tick()) state frame
 
+    let internal freshHeapLocation metadata =
+        Concrete (freshAddress()) pointerType metadata
+
     let internal allocateOnStack metadata ((s, h, m, (f, sh), p) as state : state) key term : state =
         let time = tick() in
         let frameMetadata, oldFrame, frameTime = Stack.peak f in
@@ -358,7 +390,7 @@ module internal Memory =
         (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, typ)::oldFrame, frameTime), sh), p)
 
     let internal allocateInHeap metadata ((s, h, m, f, p) : state) term : Term * state =
-        let address = Concrete (freshAddress()) pointerType metadata in
+        let address = freshHeapLocation metadata in
         let time = tick() in
         let pointer = HeapRef ((address, Terms.TypeOf term), []) time metadata in
         (pointer, (s, h.Add(address, (term, time, time)), m, f, p))
@@ -425,7 +457,7 @@ module internal Memory =
 
     let private sortMap mapper = List.sortWith (fun (k1, _) (k2, _) -> addrLess k1 k2) >> List.map mapper
 
-    let rec isDefaultValue reference cell =
+    let rec private isDefaultValue reference cell =
         match (fst3 cell).term with
         | Constant(_, LazyInstantiation reference', _) -> reference = reference'
         | Struct(contents, _)
@@ -433,7 +465,7 @@ module internal Memory =
             contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) cell)
         | _ -> false
 
-    let rec isFreshLocation startTime (_, time, _) =
+    let rec private isFreshLocation startTime (_, time, _) =
         time > startTime
 
     let rec private inspectLocation startTime ctx goDeep (fresh, mutated) (k, cell) =

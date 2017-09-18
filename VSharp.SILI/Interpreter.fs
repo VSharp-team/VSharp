@@ -146,7 +146,7 @@ module internal Interpreter =
 
     and reduceFunction mtd state this parameters funcId (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature mtd funcId state signature this parameters (fun (_, state) ->
-        CallGraph.call funcId state invoke (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
+        CallGraph.call mtd funcId state invoke (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
         let invoke state k =
@@ -605,7 +605,7 @@ module internal Interpreter =
                 (fun state k -> reduceExpression state filteringExpression
                                     (fun (filterResult, state) ->
                                         k (ControlFlow.consumeErrorOrReturn
-                                            (always (Return filterMtd (Terms.MakeFalse filterMtd))) filterResult, state)))
+                                             (always (Return filterMtd (Terms.MakeFalse filterMtd))) filterResult, state)))
                 (fun state k -> k (Return filterMtd typeMatches, state))
                 (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
 
@@ -1100,7 +1100,7 @@ module internal Interpreter =
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.throwOrIgnore value in
                         let mutate mtd value k =
-                            let term, state = Memory.mutate mtd state address value in 
+                            let term, state = Memory.mutate mtd state address value in
                             k (ControlFlow.throwOrIgnore term, state) in
                         failOrInvoke
                             statementResult
@@ -1434,7 +1434,7 @@ type SymbolicInterpreter() =
         member x.InitializeStaticMembers state qualifiedTypeName k =
             // TODO: static members initialization should return statement result (for example exceptions)
             Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName k
-            
+
         member x.Invoke funcId state this k =
             match funcId with
             | MetadataMethodIdentifier mm ->
