@@ -478,8 +478,19 @@ module public Terms =
         | Union gvs ->
             let gvs' = List.map (fun (g, v) -> (substitute subst g, substitute subst v)) gvs in
             if gvs' = gvs then term else Union term.metadata gvs'
-        | Array _
-        | Struct _ -> __notImplemented__()
+        | Struct(contents, typ) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
+            Struct contents' typ term.metadata
+        | Array(lower, constant, contents, lengths, typ) ->
+            let lower' = FSharp.Collections.Array.map (substitute subst) lower in
+            let lengths' = FSharp.Collections.Array.map (substitute subst) lengths in
+            let constant' =
+                match constant with
+                | Some constant -> Some (substitute subst constant)
+                | None -> None
+            in
+            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
+            Array lower' constant' contents' lengths' typ term.metadata
         | _ -> subst term
 
     and internal substitutePath subst path =
