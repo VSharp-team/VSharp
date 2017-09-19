@@ -1,6 +1,7 @@
 ﻿namespace VSharp
 
 open VSharp.State
+open Types
 open Types.Constructor
 
 module internal Memory =
@@ -8,9 +9,10 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let private pointer = ref 0
-    let private zeroTime : Timestamp = System.UInt32.MinValue
+    let internal ZeroTime : Timestamp = System.UInt32.MinValue
+    let internal NullRefOf typ = MakeNull typ Metadata.empty ZeroTime
     let private infiniteTime : Timestamp = System.UInt32.MaxValue
-    let private timestamp = ref zeroTime
+    let private timestamp = ref ZeroTime
     let private freshAddress () =
         pointer := !pointer + 1
         !pointer
@@ -19,7 +21,7 @@ module internal Memory =
         !timestamp
     let public reset () =
         pointer := 0
-        timestamp := zeroTime
+        timestamp := ZeroTime
 
     type private LazyInstantiation(location : Term) =
         inherit SymbolicConstantSource()
@@ -39,13 +41,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.Concrete null String metadata
-        | PointerType t -> Concrete null t metadata
-        | ClassType _ as t -> Concrete null t metadata
-        | ArrayType _ as t -> Concrete null t metadata
+        | String -> Terms.MakeNull String metadata ZeroTime
+        | PointerType t -> Terms.MakeNull t metadata ZeroTime
+        | ClassType _ as t ->Terms.MakeNull t metadata ZeroTime
+        | ArrayType _ as t -> Terms.MakeNull t metadata ZeroTime
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Concrete null t metadata
-        | Func _ -> Concrete null (SubType(typedefof<System.Delegate>, [], [], "func")) metadata
+        | SubType _ as t -> Terms.MakeNull t metadata ZeroTime
+        | Func _ -> Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
@@ -110,22 +112,32 @@ module internal Memory =
 
     // TODO: make generic terms equality operator!
     let private locationEqual mtd addr1 addr2 =
-        match Terms.TypeOf addr1, Terms.TypeOf addr2 with
+        match TypeOf addr1, TypeOf addr2 with
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ -> eq mtd addr1 addr2
         | _ -> __notImplemented__()
 
-
-    let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationType locationTime =
+    let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
         if locationTime > pointerTime then Terms.MakeFalse mtd
         else
-            locationEqual mtd locationAddr pointerAddr &&& Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
+            let addrEqual = locationEqual mtd locationAddr pointerAddr in
+            let typeSuits v =
+                let locationType = TypeOf v in
+                Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
+            in
+            let typeEqual =
+                match locationValue.term with
+                | Union gvs ->
+                    gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
+                | _ -> typeSuits locationValue
+            in
+            addrEqual &&& typeEqual
 
     let rec private refToInt term =
         match term.term with
         | Error _ -> term
-        | Concrete(null, _) -> Concrete 0 pointerType term.metadata
+        | Concrete(_, TermType.Null) -> Concrete 0 pointerType term.metadata
         | HeapRef(((addr, _), _), t) -> addr
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
@@ -140,7 +152,7 @@ module internal Memory =
     let rec internal isNull metadata term =
         match term.term with
         | Error _ -> term
-        | Concrete(null, _) -> MakeTrue metadata
+        | Concrete(_, TermType.Null) -> MakeTrue metadata
         | HeapRef(((addr, _), _), t) when Terms.IsInteger addr ->
             Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id
         | Union gvs -> Merging.guardedMap (isNull metadata) gvs
@@ -157,7 +169,7 @@ module internal Memory =
 
     let private findSuitableLocations mtd h ptr ptrType ptrTime =
         let filterMapKey (k, ((v, created, modified) as cell)) =
-            let guard = canPoint mtd ptr ptrType ptrTime k (TypeOf v) created in
+            let guard = canPoint mtd ptr ptrType ptrTime k v created in
             match guard with
             | False -> None
             | _ -> Some(guard, k, cell)
@@ -191,7 +203,7 @@ module internal Memory =
         Heap.add addr cell h
 
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
-        makeSymbolicInstance metadata zeroTime (LazyInstantiation fullyQualifiedLocation) (toString field) fieldType
+        makeSymbolicInstance metadata ZeroTime (LazyInstantiation fullyQualifiedLocation) (toString field) fieldType
 
     let private arrayElementLazyInstantiator metadata time fullyQualifiedLocation idx typ = function
         | None -> fun () -> defaultOf time metadata typ
@@ -229,7 +241,7 @@ module internal Memory =
 
     and private accessHeap metadata guard update h time mkCtx lazyInstantiator ptr ptrType ptrTime path =
         let gvas, h = heapDeref metadata time lazyInstantiator h ptr ptrType ptrTime in
-        let gvs, (h', newTime) = gvas |> ((h, zeroTime) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
+        let gvs, (h', newTime) = gvas |> ((h, ZeroTime) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
             let ctx = mkCtx addr in
             let guard'' = guard &&& guard' in
             let accessedValue, newBaseValue, newTime = accessTerm metadata guard update created modified ptrTime ctx path baseValue in
@@ -237,13 +249,12 @@ module internal Memory =
             ((guard, accessedValue), (h', max maxTime newTime))))
         in (Merging.merge gvs, h', newTime)
 
-    let rec private hierarchicalAccess update metadata state term =
+    let rec private commonHierarchicalAccess actionNull update metadata state term =
         match term.term with
         | Error _ -> (term, state)
         | StackRef(location, path) ->
             let firstLocation = stackLocationToReference state location in
             let time = frameTime state location in
-            let t = typeOfStackLocation state location in
             let (baseValue, created, modified), h' = stackDeref time (fun () -> stackLazyInstantiator state time location |> fst3) state location in
             let accessedValue, newBaseValue, newTime = accessTerm metadata (Terms.MakeTrue metadata) update created modified time firstLocation path baseValue in
             let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
@@ -256,26 +267,32 @@ module internal Memory =
             let addr = Terms.MakeStringKey location in
             let dnt = System.Type.GetType(location) in
             let t = FromConcreteDotNetType dnt in
-            let result, m', _ = accessHeap metadata (MakeTrue metadata) update (staticsOf state) zeroTime firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t infiniteTime path in
+            let result, m', _ = accessHeap metadata (MakeTrue metadata) update (staticsOf state) ZeroTime firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t infiniteTime path in
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time) ->
             let mkFirstLocation location = HeapRef ((location, t), []) time term.metadata in
             let firstLocation = HeapRef (location, []) time term.metadata in
             let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
             match isNull with
-            | Terms.True -> npe metadata state
+            | Terms.True -> actionNull metadata state t
             | Terms.False ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) zeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
                 result, withHeap state h'
             | _ ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) zeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                let state = withHeap state h' in
-                let exn, state' = npe metadata state in
-                Merging.merge2Terms isNull !!isNull (Error exn metadata) result, Merging.merge2States isNull !!isNull state' state
-        | Union gvs -> Merging.guardedStateMap (hierarchicalAccess update metadata state) gvs state
+                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+                let notNullCaseState = withHeap state h' in
+                let nullCaseResult, state' = actionNull metadata state t in
+                Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
+        | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata state) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 
+    let private hierarchicalAccess = commonHierarchicalAccess (fun m s _ ->
+        let res, state = npe m s
+        Error res m, state)
+
     let internal deref = hierarchicalAccess makePair
+
+    let internal derefWith actionNull = commonHierarchicalAccess actionNull makePair
 
     let internal mutate metadata state reference value =
         assert(value <> Nop)
@@ -324,13 +341,16 @@ module internal Memory =
 
     let rec private referenceFieldOf state field parentRef reference =
         match reference.term with
-        | Error _ -> reference
+        | Error _ -> reference, state
         | HeapRef((addr, path), t) ->
             assert(List.isEmpty path) // TODO: will this really be always empty?
-            HeapRef (addr, [field]) t reference.metadata
-        | Struct _ -> referenceSubLocation field parentRef
-        | Union gvs -> Merging.guardedMap (referenceFieldOf state field parentRef) gvs
-        | t -> internalfailf "expected reference or struct, but got %O" t
+            HeapRef (addr, [field]) t reference.metadata, state
+        | Struct _ -> referenceSubLocation field parentRef, state
+        | Union gvs -> Merging.guardedStateMap (referenceFieldOf state field parentRef) gvs state
+        | Concrete(_, TermType.Null) ->
+            let term, state = State.activator.CreateInstance reference.metadata typeof<System.NullReferenceException> [] state in
+            Error term reference.metadata, state
+        | t -> internalfailf "expected reference or struct, but got %O" t, state
 
     let rec private followOrReturnReference metadata state reference =
         let term, state = deref metadata state reference in
@@ -346,9 +366,9 @@ module internal Memory =
     let internal referenceField metadata state followHeapRefs name typ parentRef =
         let typ = Types.PointerFromReferenceType typ in
         let term, state = deref metadata state parentRef in
-        let reference = referenceFieldOf state (Terms.MakeStringKey name, typ) parentRef term in
-        if followHeapRefs then followOrReturnReference metadata state reference
-        else (reference, state)
+        let reference, newState = referenceFieldOf state (Terms.MakeStringKey name, typ) parentRef term in
+        if followHeapRefs then followOrReturnReference metadata newState reference
+        else (reference, newState)
 
     let internal referenceStaticField metadata state followHeapRefs fieldName typ typeName =
         let typ = Types.PointerFromReferenceType typ in
@@ -386,8 +406,7 @@ module internal Memory =
     let internal allocateOnStack metadata ((s, h, m, (f, sh), p) as state : state) key term : state =
         let time = tick() in
         let frameMetadata, oldFrame, frameTime = Stack.peak f in
-        let typ = Terms.TypeOf term in
-        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, typ)::oldFrame, frameTime), sh), p)
+        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, None)::oldFrame, frameTime), sh), p)
 
     let internal allocateInHeap metadata ((s, h, m, f, p) : state) term : Term * state =
         let address = freshHeapLocation metadata in
@@ -402,11 +421,11 @@ module internal Memory =
 
     let internal allocateSymbolicInstance metadata state t =
         match t with
-        | ClassType(tp, arg, interfaces) ->
-            let contents = makeSymbolicInstance metadata zeroTime (LazyInstantiation Nop) "" (StructType(tp, arg, interfaces)) in
+        | TermType.ClassType(tp, arg, interfaces) ->
+            let contents = makeSymbolicInstance metadata ZeroTime (LazyInstantiation Nop) "" (StructType(tp, arg, interfaces)) in
             allocateInHeap metadata state contents
         | StructType _ ->
-            makeSymbolicInstance metadata zeroTime (LazyInstantiation Nop) "" t, state
+            makeSymbolicInstance metadata ZeroTime (LazyInstantiation Nop) "" t, state
         | _ -> __notImplemented__()
 
 // ------------------------------- Comparison -------------------------------

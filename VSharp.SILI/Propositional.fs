@@ -212,13 +212,13 @@ module internal Propositional =
         simplifyOr mtd notX y id)
 
     let internal conjunction mtd = function
-        | SeqNode(x, xs) ->
+        | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
         | _ -> Terms.MakeTrue mtd
 
     let internal disjunction mtd = function
-        | SeqNode(x, xs) ->
+        | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> Terms.MakeFalse mtd

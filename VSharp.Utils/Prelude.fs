@@ -28,10 +28,6 @@ module public Prelude =
     let snd3 (_, y, _) = y
     let thd3 (_, _, z) = z
 
-    let public (|SeqNode|SeqEmpty|) s =
-            if Seq.isEmpty s then SeqEmpty
-            else SeqNode ((Seq.head s), Seq.tail s)
-    
     let inline public (|?) lhs rhs = (if lhs = null then rhs else lhs)
     let inline public (|??) lhs rhs =
         match lhs with

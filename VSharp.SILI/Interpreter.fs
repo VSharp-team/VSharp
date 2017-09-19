@@ -6,6 +6,7 @@ open global.System
 open System.Collections.Generic
 open System.Reflection
 open Types.Constructor
+open Types
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
@@ -27,8 +28,8 @@ module internal Interpreter =
         Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule (Assembly.GetExecutingAssembly().GetTypes())
         |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
             match m.GetCustomAttributes(typedefof<ImplementsAttribute>) with
-            | SeqEmpty -> ()
-            | SeqNode(attr, _) ->
+            | Seq.Empty -> ()
+            | Seq.Cons(attr, _) ->
                 let key = (attr :?> ImplementsAttribute).Name in
                 dict.Add(key, m)))
         dict
@@ -40,8 +41,8 @@ module internal Interpreter =
         [|Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")|]
         |> Seq.iter (fun t -> t.GetMethods(bindingFlags) |> Seq.iter (fun m ->
             match m.GetCustomAttributes(typedefof<CSharpUtils.ImplementsAttribute>) with
-            | SeqEmpty -> ()
-            | SeqNode(attr, _) ->
+            | Seq.Empty -> ()
+            | Seq.Cons(attr, _) ->
                 let key = (attr :?> CSharpUtils.ImplementsAttribute).Name in
                 let qualifiedTypeName = (Types.SystemGenericTypeDefinition m.DeclaringType).AssemblyQualifiedName in
                 let assemblyPath = JetBrains.Util.FileSystemPath.Parse m.DeclaringType.Assembly.Location in
@@ -131,16 +132,16 @@ module internal Interpreter =
                     then
                         let typ = FromConcreteMetadataType param.Type in
                         let mtd = State.mkMetadata ast state in
-                        (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), typ)
+                        (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType)
-            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, TypeOf value)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
+            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
             match this with
             | Some thisValue ->
                 let thisKey = ("this", getThisTokenBy ast) in
-                (thisKey, State.Specified thisValue, TypeOf thisValue)::parameters
+                (thisKey, State.Specified thisValue, None)::parameters
             | None -> parameters
         k (parametersAndThis, Memory.newStackFrame state mtd funcId parametersAndThis)
 
@@ -449,15 +450,15 @@ module internal Interpreter =
             | _ -> reduceExpression state ast.Initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.throwOrIgnore initializer in
-            let allocate value statementResult mtd k =
+            let allocate state value statementResult mtd k =
                 let state' = Memory.allocateOnStack mtd state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer in
                 k (statementResult, state') in
             failOrInvoke
                 statementResult
                 state
-                (fun () -> allocate initializer (NoResult mtd) mtd k)
-                (fun _ _ _ state k -> k (statementResult, state))
-                (fun _ _ normal _ k -> allocate (Guarded mtd normal) statementResult mtd k)
+                (fun () -> allocate state initializer (NoResult mtd) mtd k)
+                (fun _ _ _ state k -> allocate state VSharp.Nop statementResult mtd k)
+                (fun _ _ normal state k -> allocate state (Guarded mtd normal) statementResult mtd k)
                 k)
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
@@ -519,7 +520,7 @@ module internal Interpreter =
         reduceSwitchCases state arg reduceDefault (List.ofArray ast.Cases) k)
 
     and reduceSwitchCases state arg dflt (cases : ISwitchCase list) k =
-        let t = Terms.TypeOf arg |> Types.ToDotNetType in
+        let t = TypeOf arg |> Types.ToDotNetType in
         let compareArg caller (result, state) expression k =
             reduceExpression state expression (fun (value, state) ->
             performBinaryOperation caller state OperationType.Equal arg value false t (fun (equal, state) ->
@@ -551,7 +552,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         reduceExpression state ast.Argument (fun (arg, state) ->
         match arg.term with
-        | Concrete (null, _) ->
+        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) ->
             let term, state = State.activator.CreateInstance mtd typeof<NullReferenceException> [] state in
             k (Throw mtd term, state)
         | _ -> k (Throw mtd arg, state))
@@ -575,8 +576,8 @@ module internal Interpreter =
 
     and reduceCatchClauses exn state clauses k =
         match clauses with
-        | SeqEmpty -> k (Throw exn.metadata exn, state)
-        | SeqNode(clause, rest) ->
+        | Seq.Empty -> k (Throw exn.metadata exn, state)
+        | Seq.Cons(clause, rest) ->
             reduceConditionalExecution state
                 (fun state k -> reduceCatchCondition exn state clause k)
                 (fun state k -> reduceBlockStatement state clause.Body (fun (result, state) -> k (result, State.popStack state)))
@@ -593,7 +594,7 @@ module internal Interpreter =
                 let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type in
                 let typeMatches, state = checkCast mtd state targetType exn in
                 let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable) in
-                let state = Memory.newScope mtd state [(stackKey, State.Specified exn, Terms.TypeOf exn)] in
+                let state = Memory.newScope mtd state [(stackKey, State.Specified exn, None)] in
                 typeMatches, state
         in
         if ast.Filter = null then k (typeMatches, state)
@@ -649,7 +650,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null (VSharp.SubType(typedefof<obj>, [], [], IdGenerator.startingWith typedefof<obj>.FullName)) mtd, state)
+        | null -> k (Concrete null Null mtd, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -725,7 +726,8 @@ module internal Interpreter =
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
         let mType = FromConcreteMetadataType ast.Value.Type in
         let mtd = State.mkMetadata ast state in
-        k (Concrete ast.Value.Value mType mtd, state)
+        if IsNull mType then k (Terms.MakeNull Null mtd Memory.ZeroTime, state)
+        else k (Concrete ast.Value.Value mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -763,7 +765,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state in
-        let reduceTarget state k = k (Terms.MakeNull typedefof<obj> mtd, state) in
+        let reduceTarget state k = k (Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
         let reduceRightArg state k = reduceExpression state ast.RightArgument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -949,7 +951,7 @@ module internal Interpreter =
             let leftType = Terms.TypeOf term in
             let rec isUpCast l r =
                 match l, r with
-                | Types.ComplexType(t1, _, _), Types.ComplexType(t2, _, _) -> t2.IsAssignableFrom(t1)
+                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
                 | Func _, Func _ -> false
                 | ArrayType _, _ -> true
                 | _ -> __notImplemented__()
@@ -976,14 +978,23 @@ module internal Interpreter =
                 printfn "Warning: casting stack reference %O to %O!" term targetType
                 term, state
             | _ ->
-                let message = MakeConcreteString (sprintf "Internal error: casting %O to %O!" (Terms.TypeOf term) targetType) mtd in
+                let message = MakeConcreteString "Specified cast is not valid." mtd in 
                 let term, state = State.activator.CreateInstance mtd typeof<InvalidCastException> [message] state in
                 Error term mtd, state
         in
         ControlFlow.throwOrReturn result, state
 
+    and ifNotCasted mtd state term targetType =
+        let result, state =
+            match term.term with
+            | Error _ -> term, state
+            | Nop -> internalfailf "Internal error: casting void to %O!" targetType
+            | _ -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
+        in
+        ControlFlow.throwOrReturn result, state
+
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (MakeNull typedefof<obj> Metadata.empty, state) in
+        let reduceTarget state k = k (Memory.NullRefOf (FromGlobalSymbolicDotNetType typedefof<obj>), state) in
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
@@ -991,12 +1002,12 @@ module internal Interpreter =
         let targetType = FromGlobalSymbolicMetadataType ast.Type in
         reduceExpression state ast.Argument (fun (term, state) ->
         let mtd = State.mkMetadata ast state in
-        let isCasted, state = checkCast mtd state targetType term in
+        let isCasted state term = checkCast mtd state targetType term in
         let mapper state term targetType =
             reduceConditionalExecution state
-                (fun state k -> k (isCasted, state))
+                (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd state term targetType))
-                (fun state k -> k (Return mtd <| Concrete null targetType mtd, state))
+                (fun state k -> k (ifNotCasted mtd state term targetType))
                 (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
         in
         let term, state =
@@ -1023,9 +1034,9 @@ module internal Interpreter =
         in
         let rec primitiveCast state term targetType =
             match term.term with
-            | Error _ -> (term, state)
+            | Error _ -> term, state
+            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
             | Nop -> internalfailf "casting void to %O!" targetType
-            | Concrete(_, VSharp.Null) -> (term, state)
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then (Concrete value targetType term.metadata, state)
@@ -1047,11 +1058,12 @@ module internal Interpreter =
         in k (newTerm, newState))
 
     and checkCast mtd state targetType term =
+        let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
         match term.term with
         | HeapRef _
         | StackRef _
         | StaticRef _ ->
-            let contents, state = Memory.deref mtd state term in
+            let contents, state = derefForCast mtd state term in
             checkCast mtd state targetType contents
         | Union gvs -> Merging.guardedStateMap (checkCast mtd state targetType) gvs state
         | _ -> Common.is mtd (TypeOf term) targetType, state
@@ -1127,7 +1139,7 @@ module internal Interpreter =
             match names, types, values, initializers with
             | [], [], [], [] -> this, state
             | name::names, typ::types, value::values, initializer::initializers ->
-                if IsVoid value then mutateFields this names types values initializers state
+                if Terms.IsVoid value then mutateFields this names types values initializers state
                 else
                     let mtd = State.mkMetadata initializer state in
                     let reference, state = Memory.referenceField mtd state false name (FromConcreteMetadataType typ) this in
@@ -1191,7 +1203,7 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
         let mtd = State.mkMetadata caller state in
-        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromConcreteMetadataType t), time, time) types
+        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t), time, time) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in
@@ -1201,7 +1213,7 @@ module internal Interpreter =
             then Memory.allocateInHeap mtd state freshValue
             else
                 let tempVar = "constructed instance" in
-                let state = Memory.newScope mtd state [((tempVar, tempVar), State.Specified freshValue, Terms.TypeOf freshValue)] in
+                let state = Memory.newScope mtd state [((tempVar, tempVar), State.Specified freshValue, None)] in
                 (Memory.referenceLocalVariable mtd state (tempVar, tempVar) false, state)
         in
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
@@ -1413,7 +1425,7 @@ type Activator() =
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
             let argumentsTypes =
-                List.map (Terms.TypeOf >> function | PointerType t -> t | t -> t) arguments in
+                List.map (TypeOf >> function | PointerType t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray
