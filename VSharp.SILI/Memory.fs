@@ -9,7 +9,7 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let private pointer = ref 0
-    let internal ZeroTime : Timestamp = System.UInt32.MinValue
+    let internal ZeroTime = State.zeroTime
     let internal NullRefOf typ = MakeNull typ Metadata.empty ZeroTime
     let private infiniteTime : Timestamp = System.UInt32.MaxValue
     let private timestamp = ref ZeroTime
@@ -23,8 +23,13 @@ module internal Memory =
         pointer := 0
         timestamp := ZeroTime
 
-    type private LazyInstantiation(location : Term) =
+    type private LazyInstantiation(location : Term, isTopLevelHeapAddress : bool) =
         inherit SymbolicConstantSource()
+        member x.Location = location
+        member x.IsTopLevelHeapAddress = isTopLevelHeapAddress
+
+    // Marks concrete numeric term as heap address in its metadata
+    type private AddressMarker() = class end
 
     let private isStaticLocation = function
         | StaticRef _ -> true
@@ -65,7 +70,12 @@ module internal Memory =
 
     let internal makeSymbolicInstance metadata time source name = function
         | PointerType t ->
-            let constant = Constant name source pointerType metadata in
+            let source' =
+                match source :> SymbolicConstantSource with
+                | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
+                | _ -> source
+            in
+            let constant = Constant name source' pointerType metadata in
             HeapRef ((constant, t), []) time metadata
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
@@ -76,7 +86,7 @@ module internal Memory =
 
     let internal genericLazyInstantiator =
         let instantiator metadata time fullyQualifiedLocation typ () =
-            makeSymbolicInstance metadata time (LazyInstantiation fullyQualifiedLocation) (nameOfLocation fullyQualifiedLocation) typ
+            makeSymbolicInstance metadata time (LazyInstantiation(fullyQualifiedLocation, false)) (nameOfLocation fullyQualifiedLocation) typ
         in
         State.genericLazyInstantiator <- instantiator
         instantiator
@@ -94,18 +104,11 @@ module internal Memory =
 
     let npe mtd state = State.activator.CreateInstance mtd typeof<System.NullReferenceException> [] state
 
-    // TODO: make generic terms equality operator!
-    let private locationEqual mtd addr1 addr2 =
-        match TypeOf addr1, TypeOf addr2 with
-        | String, String -> Strings.simplifyEquality mtd addr1 addr2
-        | Numeric _, Numeric _ -> eq mtd addr1 addr2
-        | _ -> __notImplemented__()
-
     let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
         if locationTime > pointerTime then Terms.MakeFalse mtd
         else
-            let addrEqual = locationEqual mtd locationAddr pointerAddr in
+            let addrEqual = Pointers.locationEqual mtd locationAddr pointerAddr in
             let typeSuits v =
                 let locationType = TypeOf v in
                 Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
@@ -117,30 +120,6 @@ module internal Memory =
                 | _ -> typeSuits locationValue
             in
             addrEqual &&& typeEqual
-
-    let rec private refToInt term =
-        match term.term with
-        | Error _ -> term
-        | Concrete(_, TermType.Null) -> Concrete 0 pointerType term.metadata
-        | HeapRef(((addr, _), _), t) -> addr
-        | Union gvs -> Merging.guardedMap refToInt gvs
-        | _ -> term
-
-    let rec internal referenceEqual mtd p1 p2 =
-        let addr1 = refToInt p1 in
-        let addr2 = refToInt p2 in
-        if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
-            internalfail "reference comparing non-reference types"
-        Arithmetics.simplifyEqual mtd addr1 addr2 id
-
-    let rec internal isNull metadata term =
-        match term.term with
-        | Error _ -> term
-        | Concrete(_, TermType.Null) -> MakeTrue metadata
-        | HeapRef(((addr, _), _), t) when Terms.IsInteger addr ->
-            Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id
-        | Union gvs -> Merging.guardedMap (isNull metadata) gvs
-        | _ -> Terms.MakeFalse metadata
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
@@ -187,13 +166,13 @@ module internal Memory =
         Heap.add addr cell h
 
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
-        makeSymbolicInstance metadata ZeroTime (LazyInstantiation fullyQualifiedLocation) (toString field) fieldType
+        makeSymbolicInstance metadata ZeroTime (LazyInstantiation(fullyQualifiedLocation, false)) (toString field) fieldType
 
     let private arrayElementLazyInstantiator metadata time fullyQualifiedLocation idx typ = function
         | None -> fun () -> defaultOf time metadata typ
         | Some constant -> fun () ->
             let id = sprintf "%s[%s]" (toString constant) (toString idx) |> IdGenerator.startingWith in
-            makeSymbolicInstance metadata time (LazyInstantiation fullyQualifiedLocation) id typ
+            makeSymbolicInstance metadata time (LazyInstantiation(fullyQualifiedLocation, false)) id typ
 
     let private staticMemoryLazyInstantiator metadata t location () =
         Struct Heap.empty (FromConcreteDotNetType t) metadata
@@ -369,6 +348,7 @@ module internal Memory =
 
     let internal allocateInHeap metadata ((s, h, m, f, p) : state) term : Term * state =
         let address = Concrete (freshAddress()) pointerType metadata in
+        Metadata.addMisc address AddressMarker
         let time = tick() in
         let pointer = HeapRef ((address, Terms.TypeOf term), []) time metadata in
         (pointer, (s, h.Add(address, (term, time, time)), m, f, p))
@@ -381,10 +361,10 @@ module internal Memory =
     let internal allocateSymbolicInstance metadata state t =
         match t with
         | TermType.ClassType(tp, arg, interfaces) ->
-            let contents = makeSymbolicInstance metadata ZeroTime (LazyInstantiation Nop) "" (StructType(tp, arg, interfaces)) in
+            let contents = makeSymbolicInstance metadata ZeroTime (LazyInstantiation(Nop, false)) "" (StructType(tp, arg, interfaces)) in
             allocateInHeap metadata state contents
         | StructType _ ->
-            makeSymbolicInstance metadata ZeroTime (LazyInstantiation Nop) "" t, state
+            makeSymbolicInstance metadata ZeroTime (LazyInstantiation(Nop, false)) "" t, state
         | _ -> __notImplemented__()
 
 // ------------------------------- Comparison -------------------------------

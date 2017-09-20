@@ -9,6 +9,7 @@ open Types.Constructor
 
 [<AutoOpen>]
 module internal Arithmetics =
+
     let private makeAddition mtd isChecked state t x y k =
         (MakeBinary OperationType.Add x y isChecked (FromConcreteDotNetType t) mtd, state) |> k
 
@@ -18,8 +19,6 @@ module internal Arithmetics =
     let private makeShift mtd op state isChecked t x y k =
         (MakeBinary op x y isChecked (FromConcreteDotNetType t) mtd, state) |> k
 
-    let simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
-        simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
 // ------------------------------- Simplification of "+" -------------------------------
 
     let private simplifyConcreteAddition mtd isChecked state t x y =
@@ -382,7 +381,7 @@ module internal Arithmetics =
         let success = ref true
         Calculator.IsZero(Calculator.Rem(x, y, t, success)) && !success
 
-    and private simplifyRemainder mtd isChecked state t x y k =
+    and internal simplifyRemainder mtd isChecked state t x y k =
         let defaultCase () =
             let sorted = if not isChecked && (IsConcrete y) then (y, x) else (x, y)
             makeProduct mtd isChecked state t (fst sorted) (snd sorted) k
@@ -551,12 +550,6 @@ module internal Arithmetics =
 
     let eq mtd x y =
         simplifyEqual mtd x y id
-
-    let (+++) x y = add Metadata.empty x y
-    let (---) x y = sub Metadata.empty x y
-    let ( *** ) x y = mul Metadata.empty x y
-    let (%%%) x y = rem Metadata.empty x y
-    let (===) x y = eq Metadata.empty x y
 
     let internal simplifyBinaryOperation metadata op state x y isChecked t k =
         match op with

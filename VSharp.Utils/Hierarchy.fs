@@ -21,11 +21,11 @@ module public Hierarchy =
     let private make t = getInheritanceHierarchy t
 
     type public Hierarchy(hierarchy : System.Type list) =
-        member this.Inheritor = List.head hierarchy
-        member this.Hierarchy = hierarchy
-        member this.Name = this.Inheritor.ToString()
-        member this.Is (r : Hierarchy) = Seq.contains r.Inheritor hierarchy
-        member this.Equals (r : Hierarchy) = this.Inheritor = r.Inheritor
-        member this.Equals (r : System.Type) = this.Inheritor = r
+        member x.Inheritor = List.head hierarchy
+        member x.Hierarchy = hierarchy
+        member x.Name = x.Inheritor.ToString()
+        member x.Is (r : Hierarchy) = Seq.contains r.Inheritor hierarchy
+        member x.Equals (r : Hierarchy) = x.Inheritor = r.Inheritor
+        member x.Equals (r : System.Type) = x.Inheritor = r
         new (typ : System.Type) = Hierarchy(make typ)
-        override this.ToString() = this.Name
+        override x.ToString() = x.Name

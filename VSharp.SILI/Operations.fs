@@ -151,8 +151,8 @@ module Operations =
         | Power
         | Absolute
         | AbsoluteS
-        override this.ToString() =
-            match this with
+        override x.ToString() =
+            match x with
             | Arccosine -> "arccos"
             | Arcsine -> "arcsin"
             | Arctangent -> "arctan"

@@ -10,7 +10,7 @@ open Types
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
-    member this.Name = name
+    member x.Name = name
 
 module internal Interpreter =
 
@@ -490,7 +490,7 @@ module internal Interpreter =
         else
             let mtd = State.mkMetadata caller state in
             reduceConditionalExecution state
-                (fun state k -> k (Memory.isNull mtd reference, state))
+                (fun state k -> k (Pointers.isNull mtd reference, state))
                 (fun state k ->
                     let term, state = Memory.npe mtd state in
                     k (Throw mtd term, state))
@@ -858,23 +858,8 @@ module internal Interpreter =
         performBinaryOperation caller state op left right isChecked t k))
 
     and performBinaryOperation (caller : LocationBinding) state op left right isChecked t k =
-        let t1 = Terms.TypeOf left in
-        let t2 = Terms.TypeOf right in
         let mtd = State.mkMetadata caller state in
-        match op with
-        | op when Propositional.isLogicalOperation op t1 t2 ->
-            Propositional.simplifyBinaryConnective mtd op left right (withSnd state >> k)
-        | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation mtd op state left right isChecked t k
-        | op when Strings.isStringOperation op t1 t2 ->
-            Strings.simplifyOperation mtd op left right |> (withSnd state >> k)
-        | _ ->
-            match op with
-            | OperationType.Equal -> Memory.referenceEqual mtd left right |> (withSnd state >> k)
-            | OperationType.NotEqual ->
-                let equal = Memory.referenceEqual mtd left right in
-                Propositional.simplifyNegation mtd equal (withSnd state >> k)
-            | _ -> __notImplemented__()
+        Operators.simplifyBinaryOperation mtd op isChecked state t left right k
 
     and reduceConditionalOperation state op leftArgument rightArgument k =
         let handleOp state op stopValue ignoreValue leftArgument rightArgument k =
@@ -919,11 +904,7 @@ module internal Interpreter =
         | OperationType.PostfixIncrement -> reducePostfixIncrement ast state ast.Argument (CastConcrete  1 dotNetType mtd) isChecked dotNetType k
         | _ ->
             reduceExpression state ast.Argument (fun (arg, newState) ->
-            match t with
-            | Bool -> Propositional.simplifyUnaryConnective mtd op arg (withSnd newState >> k)
-            | Numeric t -> Arithmetics.simplifyUnaryOperation mtd op newState arg isChecked t k
-            | String -> __notImplemented__()
-            | _ -> __notImplemented__())
+            Operators.simplifyUnaryOperation mtd op isChecked newState t arg k)
 
     and reduceUserDefinedUnaryOperationExpression state (ast : IUserDefinedUnaryOperationExpression) k =
         __notImplemented__()
@@ -984,7 +965,7 @@ module internal Interpreter =
                 printfn "Warning: casting stack reference %O to %O!" term targetType
                 term, state
             | _ ->
-                let message = MakeConcreteString "Specified cast is not valid." mtd in 
+                let message = MakeConcreteString "Specified cast is not valid." mtd in
                 let term, state = State.activator.CreateInstance mtd typeof<InvalidCastException> [message] state in
                 Error term mtd, state
         in
@@ -1118,7 +1099,7 @@ module internal Interpreter =
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.throwOrIgnore value in
                         let mutate mtd value k =
-                            let term, state = Memory.mutate mtd state address value in 
+                            let term, state = Memory.mutate mtd state address value in
                             k (ControlFlow.throwOrIgnore term, state) in
                         failOrInvoke
                             statementResult
@@ -1424,7 +1405,7 @@ module internal Interpreter =
 
 type Activator() =
     interface State.IActivator with
-        member this.CreateInstance mtd exceptionType arguments state =
+        member x.CreateInstance mtd exceptionType arguments state =
             let assemblyQualifiedName = exceptionType.AssemblyQualifiedName in
             let assemblyLocation = exceptionType.Assembly.Location in
             let decompiledClass = DecompilerServices.decompileClass (DecompilerServices.jetBrainsFileSystemPath assemblyLocation) assemblyQualifiedName in
@@ -1443,17 +1424,18 @@ type Activator() =
                                             |> Seq.forall2 (fun p1 p2 -> Common.is mtd (FromConcreteMetadataType (p2.Type)) p1 |> Terms.IsTrue) argumentsTypes) in
 
             assert(List.length ctorMethods = 1)
-            assert(not <| List.isEmpty mtd)
+            assert(not <| Metadata.isEmpty mtd)
             let ctor = List.head ctorMethods in
             let methodSpecification = new MethodSpecification(ctor, Array.map (fun (p : IMetadataParameter) -> p.Type) ctor.Parameters) in
-            Interpreter.reduceObjectCreation mtd.Head.location state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
+            let caller = (Metadata.firstOrigin mtd).location in
+            Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
 type SymbolicInterpreter() =
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
         member x.InitializeStaticMembers state qualifiedTypeName k =
             // TODO: static members initialization should return statement result (for example exceptions)
             Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName k
-            
+
         member x.Invoke funcId state this k =
             match funcId with
             | MetadataMethodIdentifier mm ->

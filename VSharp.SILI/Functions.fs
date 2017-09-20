@@ -46,9 +46,9 @@ module Functions =
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
         type private NullActivator() =
             interface IInterpreter with
-                member this.InitializeStaticMembers _ _ _ =
+                member x.InitializeStaticMembers _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
-                member this.Invoke _ _ _ _ =
+                member x.Invoke _ _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
         let mutable interpreter : IInterpreter = new NullActivator() :> IInterpreter
 
