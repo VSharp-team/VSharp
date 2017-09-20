@@ -21,6 +21,8 @@ module internal State =
         | Specified of 'a
         | Unspecified
 
+    let internal zeroTime : Timestamp = System.UInt32.MinValue
+
     let internal nameOfLocation = term >> function
         | HeapRef(((_, t), []), _) -> toString t
         | StackRef((name, _), []) -> name
@@ -95,7 +97,7 @@ module internal State =
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] []) fst3 s1 s2
+    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] Metadata.empty) fst3 s1 s2
 
     let internal withPathCondition ((s, h, m, f, p) : state) cond : state = (s, h, m, f, cond::p)
     let internal popPathCondition ((s, h, m, f, p) : state) : state =
@@ -125,7 +127,7 @@ module internal State =
         | t -> toString t
 
     let internal mkMetadata location state =
-        [{ location = location; stack = framesHashOf state }]
+        { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
 // ------------------------------- Memory level -------------------------------
 
@@ -133,7 +135,7 @@ module internal State =
         abstract member CreateInstance : TermMetadata -> System.Type -> Term list -> state -> (Term * state)
     type private NullActivator() =
         interface IActivator with
-            member this.CreateInstance _ _ _ _ =
+            member x.CreateInstance _ _ _ _ =
                 internalfail "activator is not ready"
     let mutable activator : IActivator = new NullActivator() :> IActivator
     let mutable genericLazyInstantiator : TermMetadata -> Timestamp -> Term -> TermType -> unit -> Term =

@@ -9,8 +9,8 @@ type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
     | StandardFunctionIdentifier of Operations.StandardFunction
-    override this.ToString() =
-        match this with
+    override x.ToString() =
+        match x with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
         | StandardFunctionIdentifier sf -> sf.ToString()

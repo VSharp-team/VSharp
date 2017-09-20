@@ -8,6 +8,9 @@ module internal Common =
 
     let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
+    let internal simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
+        simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
+
     let rec internal simplifyGenericUnary name state x matched concrete unmatched =
         match x.term with
         | Error _ -> matched (x, state)
@@ -36,7 +39,7 @@ module internal Common =
 
     type private SymbolicTypeSource(t : TermType) =
         inherit SymbolicConstantSource()
-        override this.SubTerms = Seq.empty
+        override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty

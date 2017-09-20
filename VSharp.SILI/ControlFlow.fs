@@ -12,13 +12,13 @@ and
     [<CustomEquality;NoComparison>]
     StatementResult =
         {result : StatementResultNode; metadata : TermMetadata}
-        override this.ToString() =
-            this.result.ToString()
-        override this.GetHashCode() =
-            this.result.GetHashCode()
-        override this.Equals(o : obj) =
+        override x.ToString() =
+            x.result.ToString()
+        override x.GetHashCode() =
+            x.result.GetHashCode()
+        override x.Equals(o : obj) =
             match o with
-            | :? StatementResult as other -> this.result.Equals(other.result)
+            | :? StatementResult as other -> x.result.Equals(other.result)
             | _ -> false
 
 [<AutoOpen>]

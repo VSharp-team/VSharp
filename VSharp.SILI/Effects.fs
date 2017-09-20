@@ -10,14 +10,14 @@ module Effects =
 
 //    type private SymbolicEffectSource(address : Effect, state : State.state) =
 //        inherit SymbolicConstantSource()
-//        override this.SubTerms = Seq.empty
-//        member this.Address = address
-//        member this.State = state
+//        override x.SubTerms = Seq.empty
+//        member x.Address = address
+//        member x.State = state
 
     type private SymbolicEffectSource(apply : Lazy<(Term * State.state) option>) =
         inherit SymbolicConstantSource()
-        override this.SubTerms = Seq.empty
-        member this.Apply() = apply.Force()
+        override x.SubTerms = Seq.empty
+        member x.Apply() = apply.Force()
 
     let private (|SymbolicEffectSource|_|) (src : SymbolicConstantSource) =
         match src with
@@ -34,7 +34,7 @@ module Effects =
         match term.term with
         | Constant(_, source, _) ->
             match source with
-            | Memory.LazyInstantiation loc ->
+            | Memory.LazyInstantiation(loc, isTop) ->
                 Memory.derefIfInstantiated state loc |?? term
 //            | SymbolicEffectSource(addr, state) when applyEffects ->
             | _ -> term

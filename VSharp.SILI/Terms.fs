@@ -9,16 +9,16 @@ type StackKey = string * string  // Name and token
 
 type LocationBinding = JetBrains.Decompiler.Ast.INode
 type StackHash = int list
-type TermMetadataEntry = {location : LocationBinding; stack : StackHash}
-type TermMetadata = TermMetadataEntry list
+type TermOrigin = { location : LocationBinding; stack : StackHash }
+type TermMetadata = { origins : TermOrigin list; mutable misc : HashSet<obj> }
 
 [<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of FunctionIdentifier
     | Cast of TermType * TermType * bool
-    member this.priority =
-        match this with
+    member x.priority =
+        match x with
         | Operator (op, _) -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
@@ -41,7 +41,7 @@ type public TermNode =
     | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
-    override this.ToString() =
+    override x.ToString() =
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
             | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
@@ -119,37 +119,37 @@ type public TermNode =
             | _ when String.IsNullOrEmpty stringResult -> stringResult
             | _ -> "\n" + parentIndent + stringResult + separator
 
-        toStr -1 false "\t" this
+        toStr -1 false "\t" x
 
 and
     [<CustomEquality;NoComparison>]
     TermRef =
         {reference : Term ref}
-        override this.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(this)
-        override this.Equals(o : obj) =
+        override x.GetHashCode() =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
+        override x.Equals(o : obj) =
             match o with
-            | :? TermRef as other -> this.GetHashCode() = other.GetHashCode()
+            | :? TermRef as other -> x.GetHashCode() = other.GetHashCode()
             | _ -> false
 
 and
     [<CustomEquality;NoComparison>]
     Term =
         {term : TermNode; metadata : TermMetadata}
-        override this.ToString() = this.term.ToString()
-        override this.GetHashCode() = this.term.GetHashCode()
-        override this.Equals(o : obj) =
+        override x.ToString() = x.term.ToString()
+        override x.GetHashCode() = x.term.GetHashCode()
+        override x.Equals(o : obj) =
             match o with
-            | :? Term as other -> this.term.Equals(other.term)
+            | :? Term as other -> x.term.Equals(other.term)
             | _ -> false
 
 and
     [<AbstractClass>]
     SymbolicConstantSource() =
         abstract SubTerms : Term seq
-        override this.GetHashCode() =
-            this.GetType().GetHashCode()
-        override this.Equals(o : obj) = o.GetType() = this.GetType()
+        override x.GetHashCode() =
+            x.GetType().GetHashCode()
+        override x.Equals(o : obj) = o.GetType() = x.GetType()
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -157,9 +157,14 @@ and SymbolicHeap = Heap<Term, Term>
 module public Terms =
 
     module Metadata =
-        let empty = List.empty
-        let combine m1 m2 = List.append m1 m2 |> List.distinct
-        let combine3 m1 m2 m3 = List.append3 m1 m2 m3 |> List.distinct
+        let empty = { origins = List.empty; misc = null }
+        let combine m1 m2 = { origins = List.append m1.origins m2.origins |> List.distinct; misc = null }
+        let combine3 m1 m2 m3 = { origins = List.append3 m1.origins m2.origins m3.origins |> List.distinct; misc = null }
+        let addMisc t obj =
+            if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
+            t.metadata.misc.Add obj |> ignore
+        let isEmpty m = List.isEmpty m.origins
+        let firstOrigin m = List.head m.origins
 
     let public term (term : Term) = term.term
 

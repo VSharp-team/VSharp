@@ -30,7 +30,7 @@ namespace VSharp.CSharpUtils.Tests
 
         public int GetN()
         {
-            return this._b.GetN();
+            return _b.GetN();
         }
     }
 

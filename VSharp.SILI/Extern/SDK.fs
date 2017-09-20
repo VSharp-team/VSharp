@@ -34,6 +34,7 @@ module ExternSDK =
     let simplifyLessOrEqual x y k = Arithmetics.simplifyLessOrEqual (m()) x y k
     let simplifyGreater x y k = Arithmetics.simplifyGreater (m()) x y k
     let simplifyGreaterOrEqual x y k = Arithmetics.simplifyGreaterOrEqual (m()) x y k
+    let simplifyRemainder isChecked state t x y k = Arithmetics.simplifyRemainder (m()) isChecked state t x y k
 
     let simplifyAnd x y k = Propositional.simplifyAnd (m()) x y k
     let simplifyOr x y k = Propositional.simplifyOr (m()) x y k

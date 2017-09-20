@@ -3,7 +3,7 @@
 module Array =
     type private SymbolicArrayBound(array : Term, index : int, upper : bool) =
         inherit SymbolicConstantSource()
-        override this.SubTerms = Seq.singleton array
+        override x.SubTerms = Seq.singleton array
 
     let internal lengthType = typedefof<int>
     let internal lengthTermType = Numeric lengthType in

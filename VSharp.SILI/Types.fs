@@ -26,8 +26,8 @@ type public TermType =
     | Func of TermType list * TermType
     | PointerType of TermType
 
-    override this.ToString() =
-        match this with
+    override x.ToString() =
+        match x with
         | Void -> "void"
         | Bottom -> "exception"
         | Null -> "<nullType>"
@@ -44,11 +44,11 @@ type public TermType =
 and [<CustomEquality;NoComparison>]
     TermTypeRef =
         | TermTypeRef of TermType ref
-        override this.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(this)
-        override this.Equals(o : obj) =
+        override x.GetHashCode() =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
+        override x.Equals(o : obj) =
             match o with
-            | :? TermTypeRef as other -> this.GetHashCode() = other.GetHashCode()
+            | :? TermTypeRef as other -> x.GetHashCode() = other.GetHashCode()
             | _ -> false
 
 module public Types =
