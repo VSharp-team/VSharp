@@ -11,7 +11,7 @@ type public Variance =
     | Covariant
     | Invarinat
 
-[<StructuralEquality;NoComparison>] 
+[<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
     | Bottom
@@ -26,8 +26,8 @@ type public TermType =
     | Func of TermType list * TermType
     | PointerType of TermType
 
-    override this.ToString() =
-        match this with
+    override x.ToString() =
+        match x with
         | Void -> "void"
         | Bottom -> "exception"
         | Null -> "<nullType>"
@@ -44,11 +44,11 @@ type public TermType =
 and [<CustomEquality;NoComparison>]
     TermTypeRef =
         | TermTypeRef of TermType ref
-        override this.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(this)
-        override this.Equals(o : obj) =
+        override x.GetHashCode() =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
+        override x.Equals(o : obj) =
             match o with
-            | :? TermTypeRef as other -> this.GetHashCode() = other.GetHashCode()
+            | :? TermTypeRef as other -> x.GetHashCode() = other.GetHashCode()
             | _ -> false
 
 module public Types =
@@ -242,9 +242,9 @@ module public Types =
             | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
 
         let private StructType (t : Type) g i = StructType(Hierarchy t, g, i)
-        
+
         let private ClassType (t : Type) g i = ClassType(Hierarchy t, g, i)
-        
+
         let private SubType (t : Type) g i name = SubType(Hierarchy t, g, i, name)
 
         module private TypesCache =
@@ -409,18 +409,18 @@ module public Types =
         let public FromUniqueSymbolicMetadataType (t : IMetadataType) = FromMetadataType Unique t
 
         let public FromGlobalSymbolicMetadataType t = FromMetadataType Global t
-        
+
         let (|StructureType|_|) = function
             | TermType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
             | Numeric t -> Some(StructureType(Hierarchy t, [], getInterfaces Global t))
             | Bool -> Some(StructureType(Hierarchy typedefof<bool>, [], getInterfaces Global typedefof<bool>))
             | _ -> None
-        
+
         let (|ReferenceType|_|) = function
             | String -> Some(ReferenceType(Hierarchy typedefof<string>, [], getInterfaces Global typedefof<string>))
             | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | _ -> None
-        
+
         let (|ComplexType|_|) = function
             | StructureType(t, genArg, interfaces)
             | ReferenceType(t, genArg, interfaces) -> Some(ComplexType(t, genArg, interfaces))

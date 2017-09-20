@@ -64,6 +64,8 @@
     <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
+    <Compile Include="Pointers.fs" />
+    <Compile Include="Operators.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
@@ -117,7 +119,7 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>

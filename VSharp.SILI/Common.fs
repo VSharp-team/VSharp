@@ -8,6 +8,9 @@ module internal Common =
 
     let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
+    let internal simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
+        simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
+
     let rec internal simplifyGenericUnary name state x matched concrete unmatched =
         match x.term with
         | Error _ -> matched (x, state)

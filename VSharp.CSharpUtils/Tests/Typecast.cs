@@ -231,8 +231,8 @@ namespace VSharp.CSharpUtils.Tests.Typecast
 
         public Employee(string name, int jobGrade)
         {
-            this.Name = name;
-            this.JobGrade = jobGrade;
+            Name = name;
+            JobGrade = jobGrade;
         }
 
         public override string ToString()
