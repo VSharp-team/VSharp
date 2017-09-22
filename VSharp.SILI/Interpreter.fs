@@ -1323,11 +1323,23 @@ module internal Interpreter =
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
+    and stackallocWithType mtd state (length : IExpression) eltyp k =
+        reduceExpression state length (fun (length, state) ->
+        let arrtyp = ArrayType(eltyp, ArrayDimensionType.ConcreteDimension 1)
+        let result = Arrays.makeDefault mtd [length] arrtyp
+        let uniqueName = IdGenerator.newId() in
+        let uniqueNameDescription = sprintf "stackalloc:%s" uniqueName in
+        let state = Memory.allocateOnStack mtd state (uniqueName, uniqueNameDescription) result in
+        k (result, state))
+
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        let eltyp = FromConcreteMetadataType ast.ElementType in
+        stackallocWithType mtd state ast.Length eltyp k
 
     and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
-        __notImplemented__() // TODO: what is it?
+        let mtd = State.mkMetadata ast state in
+        stackallocWithType mtd state ast.Length TermType.Void k
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
