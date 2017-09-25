@@ -14,74 +14,110 @@ module Effects =
 //        member x.Address = address
 //        member x.State = state
 
-    type private SymbolicEffectSource(apply : Lazy<(Term * State.state) option>) =
+    type ConcreteHeapAddress = int list
+
+    let private composeStates ((s1, h1, m1, f1, p1) : State.state) ((s2, h2, m2, f2, p2) : State.state) =
+        // TODO
+        (s1, h1, m1, f1, p1)
+
+    let private composeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) =
+        List.append a1 a2
+
+    let private composeTime (t1 : Timestamp) (t2 : Timestamp) =
+        // TODO
+        t1
+
+    type internal SymbolicEffectContext = { state : State.state; address : ConcreteHeapAddress; time : Timestamp } with
+        member x.Compose(prefix : SymbolicEffectContext) =
+            { state = composeStates prefix.state x.state; address = composeAddresses prefix.address x.address; time = composeTime prefix.time x.time }
+
+    type private SymbolicEffectSource(id : string, ctx : SymbolicEffectContext) =
         inherit SymbolicConstantSource()
         override x.SubTerms = Seq.empty
-        member x.Apply() = apply.Force()
+        member x.Id = id
+        member x.Context = ctx
 
-    let private (|SymbolicEffectSource|_|) (src : SymbolicConstantSource) =
-        match src with
-        | :? SymbolicEffectSource as li -> Some(SymbolicEffectSource(li.Apply))
+    let private (|SymbolicEffectApplication|_|) src =
+        match src.term with
+        | Constant(_, (:? SymbolicEffectSource as li), _) -> Some(SymbolicEffectApplication(li))
         | _ -> None
+
+    type private FreshAddressMarker() = class end
+    let private freshAddressMarker = FreshAddressMarker()
 
     let private convergedEffects = new HashSet<FunctionIdentifier>()
     let private returnValues = new Dictionary<FunctionIdentifier, StatementResult>()
-    let private mutations = new Dictionary<FunctionIdentifier, IDictionary<Term, Term>>()
+    let private mutations = new Dictionary<FunctionIdentifier, IDictionary<Term, MemoryCell<Term>>>()
+    let private storage = new Dictionary<string, MemoryCell<Term>>()
 
     let private isFrozen = convergedEffects.Contains >> not
 
-    let private fillInHole mtd state term =
+    let rec private fillInHole mtd ctx term =
         match term.term with
         | Constant(_, source, _) ->
             match source with
             | Memory.LazyInstantiation(loc, isTop) ->
-                Memory.derefIfInstantiated state loc |?? term
-//            | SymbolicEffectSource(addr, state) when applyEffects ->
+                Memory.derefIfInstantiated ctx.state loc |?? term
+            | :? SymbolicEffectSource as e ->
+                apply e mtd ctx
             | _ -> term
+        | Concrete(:? ConcreteHeapAddress as addr, t) when term.metadata.misc.Contains(freshAddressMarker) ->
+            Concrete mtd (composeAddresses ctx.address addr) t
         | _ -> term
 
-    let private fillInHoles mtd state term =
-        substitute (fillInHole mtd state) term
+    and private fillInHoles mtd ctx term =
+        substitute (fillInHole mtd ctx) term
 
-    let private produceFrozenReturnValue mtd id state =
+    and private apply (src : SymbolicEffectSource) mtd prefix =
+        let composedCtx = src.Context.Compose(prefix) in
+        assert(storage.ContainsKey(src.Id))
+        fillInHoles mtd composedCtx (fst3 storage.[src.Id])
+
+    type private SymbolicEffectSource with
+        member x.Apply mtd prefix = apply x mtd prefix
+
+    let private produceFrozenReturnValue mtd id ctx =
         let effectName = toString id + "!!ret" in
-        Constant effectName (SymbolicEffectSource (lazy None)) (Types.ReturnType id) mtd |> Return mtd
+        Constant mtd effectName (SymbolicEffectSource(effectName, ctx)) (Types.ReturnType id) |> Return mtd
 
-    let private produceUnfrozenReturnValue mtd id state =
+    let private produceUnfrozenReturnValue mtd id ctx =
         assert(returnValues.ContainsKey(id))
-        fillInHoles mtd state (ControlFlow.resultToTerm returnValues.[id]) |> ControlFlow.throwOrReturn
+        fillInHoles mtd ctx (ControlFlow.resultToTerm returnValues.[id]) |> ControlFlow.throwOrReturn
 
-    let private produceReturnValue mtd id state =
-        if isFrozen id then produceFrozenReturnValue mtd id state
-        else produceUnfrozenReturnValue mtd id state
+    let private produceReturnValue mtd id ctx =
+        if isFrozen id then produceFrozenReturnValue mtd id ctx
+        else produceUnfrozenReturnValue mtd id ctx
 
-    let private produceFrozenEffect mtd id state ptr value =
+    let private produceFrozenEffect mtd id ctx ptr value =
         let effectName = sprintf "%O!!%s!!eff" id (State.nameOfLocation ptr) in
-        Constant effectName (SymbolicEffectSource (lazy None)) (TypeOf value) mtd in
+        Constant mtd effectName (SymbolicEffectSource(effectName, ctx)) (TypeOf value) in
 
-    let private produceEffect mtd id state (kvp : KeyValuePair<Term, Term>) =
-        let ptr = fillInHoles mtd state kvp.Key in
+    let private produceEffect mtd id ctx (kvp : KeyValuePair<Term, MemoryCell<Term>>) =
+        let ptr = fillInHoles mtd ctx kvp.Key in
         let effect =
-            if isFrozen id then produceFrozenEffect mtd id state ptr kvp.Value
-            else fillInHoles mtd state kvp.Value
+            if isFrozen id then produceFrozenEffect mtd id ctx ptr (fst3 kvp.Value)
+            else fillInHoles mtd ctx (fst3 kvp.Value)
         in (ptr, effect)
 
-    let internal apply mtd id state k =
-        let returnValue = produceReturnValue mtd id state in
+    let internal invoke mtd id ctx k =
+        let returnValue = produceReturnValue mtd id ctx in
         let effects =
             if mutations.ContainsKey(id) then
-                mutations.[id] |> Seq.map (produceEffect mtd id state)
+                mutations.[id] |> Seq.map (produceEffect mtd id ctx)
             else Seq.empty
         in
-        let state = Seq.fold (fun state (ptr, value) -> Memory.mutate mtd state ptr value |> snd) state effects in
+        let state = Seq.fold (fun state (ptr, value) -> Memory.mutate mtd state ptr value |> snd) ctx.state effects in
         k (returnValue, state)
 
-    let private produceFreshAddressEffect metadata state loc =
-        match loc.term with
-        | HeapRef(((addr, typ), path), time) ->
-            let apply = lazy(Some(Memory.freshHeapLocation metadata, state)) in
-            (addr, Constant (IdGenerator.startingWith "fresh") (SymbolicEffectSource apply) Types.pointerType metadata) |> Some
-        | _ -> None
+    let private produceFreshAddressEffect = function
+        | ConcreteT(:? ConcreteHeapAddress, _) as t -> Metadata.addMisc t freshAddressMarker
+        | t -> ()
+
+//    let private produceFreshAddressEffect metadata state loc =
+//        match loc.term with
+//        | HeapRef(((addr, typ), path), time) ->
+//            (addr, Concrete addr Types.pointerType metadata) |> Some
+//        | _ -> None
 
     //let internal initialize (id : FunctionIdentifier) =
     //    let mtd = Metadata.empty in
@@ -94,16 +130,20 @@ module Effects =
         //        Memory.makeSymbolicInstance mtd (Memory.tick()) (SymbolicEffectSource ) resultName returnType |> Return mtd
         //in resultsOfFunctions.[id] <- initialSymbolicResult
 
-    let internal parseEffects mtd id startTime result state  =
+    let internal parseEffects mtd id startTime result state =
         let freshLocations, mutatedLocations = Memory.affectedLocations startTime state in
-        let freshSubst = List.filterMap (fst >> produceFreshAddressEffect mtd state) freshLocations |> Dict.ofSeq in
-        let subst term = Dict.tryGetValue freshSubst term term in
+//        let freshSubst = List.filterMap (fst >> produceFreshAddressEffect mtd state) freshLocations |> Dict.ofSeq in
+//        let subst term = Dict.tryGetValue freshSubst term term in
         // TODO: time!
-        let replaceFreshLocations = fun (loc, (value, _, _)) -> (substitute subst loc, substitute subst value)
-        let freshEffects = List.map replaceFreshLocations freshLocations in
-        let mutatedEffects = List.map replaceFreshLocations mutatedLocations in
-        let result = result |> ControlFlow.resultToTerm |> substitute subst |> ControlFlow.throwOrReturn in
-        let effects = List.append freshEffects mutatedEffects |> Dict.ofSeq in
+//        let replaceFreshLocations = fun (loc, (value, _, _)) -> (substitute subst loc, substitute subst value)
+//        let freshEffects = List.map replaceFreshLocations freshLocations in
+//        let mutatedEffects = List.map replaceFreshLocations mutatedLocations in
+//        let result = result |> ControlFlow.resultToTerm |> substitute subst |> ControlFlow.throwOrReturn in
+        let markFresh = Terms.iter produceFreshAddressEffect in
+        freshLocations |> Seq.iter (fun (k, (v, _, _)) -> markFresh k; markFresh v)
+        mutatedLocations |> Seq.iter (fun (k, (v, _, _)) -> markFresh k; markFresh v)
+        result |> ControlFlow.resultToTerm |> markFresh
+        let effects = List.append freshLocations mutatedLocations |> Dict.ofSeq in
         let resultsConverged = returnValues.ContainsKey(id) && returnValues.[id] = result in
         let effectsConverged = mutations.ContainsKey(id) && Dict.equals mutations.[id] effects in
         returnValues.[id] <- result

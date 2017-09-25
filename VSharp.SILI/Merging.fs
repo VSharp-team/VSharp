@@ -44,7 +44,7 @@ module internal Merging =
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
             let guard = disjunction Metadata.empty gs in
-            [(True, Struct merged t Metadata.empty)]
+            [(True, Struct (fst x).metadata merged t)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -52,7 +52,7 @@ module internal Merging =
             | [] -> out
             | ((True, v) as gv)::gvs' -> [gv]
             | (False, v)::gvs' -> loop gvs' out
-            | (g, UnionT us)::gvs' when not (List.isEmpty us) ->
+            | (g, UnionT us)::gvs' ->
                 let guarded = us |> List.map (fun (g', v) -> (g &&& g', v)) in
                 loop gvs' (List.append (simplify guarded) out)
             | gv::gvs' -> loop gvs' (gv::out)
@@ -86,10 +86,10 @@ module internal Merging =
         match v.term with
         | Struct(contents, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            (Terms.True, Struct contents' t v.metadata)
+            (Terms.True, Struct v.metadata contents' t)
         | Array(lower, constant, contents, lengths, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            (Terms.True, Array lower constant contents' lengths t v.metadata)
+            (Terms.True, Array v.metadata lower constant contents' lengths t)
         | _ -> (g, v)
 
     and private compress = function
@@ -102,10 +102,10 @@ module internal Merging =
         | [_; _] as gvs -> gvs
         | gvs ->
             gvs
-                |> mergeSame
-                |> List.groupBy (snd >> mergeTypeOf)
-                |> List.map (fun (t, gvs) -> typedMerge gvs t)
-                |> List.concat
+            |> mergeSame
+            |> List.groupBy (snd >> mergeTypeOf)
+            |> List.map (fun (t, gvs) -> typedMerge gvs t)
+            |> List.concat
 
     and internal merge gvs =
         match compress (simplify gvs) with
@@ -163,3 +163,80 @@ module internal Merging =
         let gs, vs = List.unzip gvs in
         let vs, states = vs |> List.map mapper |> List.unzip in
         vs |> List.zip gs |> merge, mergeStates gs states
+
+    let internal unguard = function
+        | {term = Union gvs} -> gvs
+        | t -> [(True, t)]
+
+    let private genericSimplify gvs =
+        let rec loop gvs out =
+            match gvs with
+            | [] -> out
+            | ((True, v) as gv)::gvs' -> [gv]
+            | (False, v)::gvs' -> loop gvs' out
+            | gv::gvs' -> loop gvs' (gv::out)
+        loop gvs [] |> mergeSame
+
+    let internal productUnion f t1 t2 =
+        match t1.term, t2.term with
+        | Union gvs1, Union gvs2 ->
+            gvs1 |> List.map (fun (g1, v1) ->
+            gvs2 |> List.map (fun (g2, v2) ->
+            (g1 &&& g2, f v1 v2)))
+            |> List.concat |> merge
+        | Union gvs1, _ ->
+            gvs1 |> List.map (fun (g1, v1) -> (g1, f v1 t2)) |> merge
+        | _, Union gvs2 ->
+            gvs2 |> List.map (fun (g2, v2) -> (g2, f t1 v2)) |> merge
+        | _ -> f t1 t2
+
+    let rec private guardedCartesianProductRec mapper error ctor gacc xsacc = function
+        | [] -> [(gacc, ctor xsacc)]
+        | x::xs ->
+            mapper x
+            |> List.map (fun (g, v) ->
+                let g' = gacc &&& g in
+                if error v then [(g', v)]
+                else
+                    guardedCartesianProductRec mapper error ctor g' (List.append xsacc [v]) xs)
+            |> List.concat |> genericSimplify
+
+
+    let internal guardedCartesianProduct mapper error ctor terms =
+        guardedCartesianProductRec mapper error ctor True [] terms
+
+    let internal guardedApply1 error f gvs =
+        gvs |> List.map (fun (g, v) -> (g, if error v then v else f v))
+
+    let internal guardedApply2 error f gvs1 gvs2 =
+        gvs1 |> List.map (fun (g1, v1) ->
+            if error v1 then [(g1, v1)]
+            else gvs2 |> List.map (fun (g2, v2) ->
+                if error v2 then (g1 &&& g2, v2)
+                else (g1 &&& g2, f v1 v2)))
+                    |> List.concat |> genericSimplify
+
+    let internal guardedApply3 error f gvs1 gvs2 gvs3 =
+        gvs1 |> List.map (fun (g1, v1) ->
+            if error v1 then [(g1, v1)]
+            else gvs2 |> List.map (fun (g2, v2) ->
+                if error v2 then [(g1 &&& g2, v2)]
+                else gvs3 |> List.map (fun (g3, v3) ->
+                    if error v3 then (g1 &&& g2 &&& g3, v3)
+                    else (g1 &&& g2 &&& g3, f v1 v2 v3)))
+                        |> List.concat |> genericSimplify)
+                        |> List.concat |> genericSimplify
+
+    let internal guardedApply4 error f gvs1 gvs2 gvs3 gvs4 =
+        gvs1 |> List.map (fun (g1, v1) ->
+            if error v1 then [(g1, v1)]
+            else gvs2 |> List.map (fun (g2, v2) ->
+                if error v2 then [(g1 &&& g2, v2)]
+                else gvs3 |> List.map (fun (g3, v3) ->
+                    if error v3 then [(g1 &&& g2 &&& g3, v3)]
+                    else gvs4 |> List.map (fun (g4, v4) ->
+                        if error v4 then (g1 &&& g2 &&& g3 &&& g4, v4)
+                        else (g1 &&& g2 &&& g3 &&& g4, f v1 v2 v3 v4)))
+                            |> List.concat |> genericSimplify)
+                            |> List.concat |> genericSimplify)
+                            |> List.concat |> genericSimplify

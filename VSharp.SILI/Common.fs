@@ -42,7 +42,7 @@ module internal Common =
         override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
-        let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
+        let makeBoolConst name termType = Constant Metadata.empty name (SymbolicTypeSource termType) Bool
         in
         let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
             let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
@@ -80,3 +80,54 @@ module internal Common =
         | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
         | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
         | _ -> Terms.MakeFalse metadata
+
+    let private extractErrorFromPath = List.tryPick (fun (t, _) -> if IsError t then Some t else None)
+
+    let rec internal substitute subst term =
+        match term.term with
+        | HeapRef(path, t) ->
+            path |> NonEmptyList.toList |> substitutePath subst (fun path' ->
+            let path'' = NonEmptyList.ofList path' in
+            if path'' = path then term else extractErrorFromPath path' |?? HeapRef term.metadata path'' t)
+            |> Merging.merge
+        | StackRef(key, path) ->
+            path |> substitutePath subst (fun path' ->
+            if path' = path then term else extractErrorFromPath path' |?? StackRef term.metadata key path')
+            |> Merging.merge
+        | StaticRef(key, path) ->
+            path |> substitutePath subst (fun path' ->
+            if path' = path then term else extractErrorFromPath path' |?? StaticRef term.metadata key path')
+            |> Merging.merge
+        | Error e ->
+            e |> substitute subst |> Merging.unguard |> Merging.guardedApply1 IsError (fun e' ->
+            if e' = e then term else Error term.metadata e')
+            |> Merging.merge
+        | Expression(op, args, t) ->
+            args |> substituteMany subst (fun args' ->
+            if args = args' then term else Expression term.metadata op args' t)
+            |> Merging.merge
+        | Union gvs ->
+            // TODO
+            let gvs' = List.map (fun (g, v) -> (substitute subst g, substitute subst v)) gvs in
+            if gvs' = gvs then term else Union term.metadata gvs'
+        | Struct(contents, typ) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
+            Struct term.metadata contents' typ
+        | Array(lower, constant, contents, lengths, typ) ->
+            let lower' = FSharp.Collections.Array.map (substitute subst) lower in
+            let lengths' = FSharp.Collections.Array.map (substitute subst) lengths in
+            let constant' =
+                match constant with
+                | Some constant -> Some (substitute subst constant)
+                | None -> None
+            in
+            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
+            Array term.metadata lower' constant' contents' lengths' typ
+        | _ -> subst term
+
+    and internal substituteMany subst ctor terms =
+        terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) IsError ctor
+
+    and internal substitutePath subst ctor path =
+        let addrs, ts = List.unzip path in
+        addrs |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) IsError (fun addrs -> List.zip addrs ts |> ctor)

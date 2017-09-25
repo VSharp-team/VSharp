@@ -2068,7 +2068,7 @@ RESULT: !b | a | c
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr17(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
-RESULT: !b & a | (!b | !c) & a | a & c
+RESULT: !b & a | !b & a & c | (!b | !c) & a | a & c
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr18(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2096,11 +2096,15 @@ RESULT: !a & b
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr24(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
-RESULT: (!a | !b | !c) & (!a | b) & (!c | a)
+RESULT: !c & (!a | b)
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr25(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
 RESULT: a
+HEAP:
+VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.AndOr26(System.Boolean, System.Boolean, System.Boolean)
+RESULT: !c & b | a & b
 HEAP:
 VSharp.CSharpUtils.Tests.Logics ==> STRUCT VSharp.CSharpUtils.Tests.Logics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Xor1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
@@ -2296,7 +2300,7 @@ VSharp.CSharpUtils.Tests.ClassesSimpleException1 ==> STRUCT VSharp.CSharpUtils.T
 	| VSharp.CSharpUtils.Tests.ClassesSimpleException1.field1 ~> 0]
 VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
-RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2 & 2 * y < z
+RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2
 HEAP:
 1 ==> [|
 	0: 1;
@@ -2334,7 +2338,7 @@ VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditi
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
 	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(B == c) & !(C == c) & !(D == c) & !(R == c) & A == c & T == c | !(B == c) & !(C == c) & !(D == c) & A == c & R == c | !(C == c) & !(D == c) & !(R == c) & B == c & T == c | !(C == c) & !(D == c) & B == c & R == c | !(D == c) & !(R == c) & C == c & T == c | !(D == c) & C == c & R == c | !(R == c) & !(T == c) | !(R == c) & D == c & T == c | D == c & R == c) & (!(R == c) & !(T == c) | (R == c | T == c) & <VOID> < 5 | A == c | B == c | C == c | D == c)]
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(R == c) & !(T == c) | (R == c | T == c) & <VOID> < 5 | A == c | B == c | C == c | D == c) & (!(R == c) & !(T == c) | A == c & R == c | A == c & T == c | B == c & R == c | B == c & T == c | C == c & R == c | C == c & T == c | D == c)]
 HEAP:
 1 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null

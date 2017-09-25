@@ -135,7 +135,7 @@ module internal ControlFlow =
     let rec internal resultToTerm result =
         match result.result with
         | Return term -> { term = term.term; metadata = result.metadata }
-        | Throw err -> Error err result.metadata
+        | Throw err -> Error result.metadata err
         | Guarded gvs -> Merging.guardedMap resultToTerm gvs
         | _ -> Nop
 

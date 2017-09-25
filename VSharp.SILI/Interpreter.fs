@@ -132,7 +132,7 @@ module internal Interpreter =
                     then
                         let typ = FromConcreteMetadataType param.Type in
                         let mtd = State.mkMetadata ast state in
-                        (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
+                        (stackKey, State.Specified(Concrete mtd (param.MetadataParameter.GetDefaultValue()) typ), Some typ)
                     else internalfail "parameters list is shorter than expected!"
                 else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
@@ -552,7 +552,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         reduceExpression state ast.Argument (fun (arg, state) ->
         match arg.term with
-        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) ->
+        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete([0], pointerType) ->
             let term, state = State.activator.CreateInstance mtd typeof<NullReferenceException> [] state in
             k (Throw mtd term, state)
         | _ -> k (Throw mtd arg, state))
@@ -650,7 +650,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null Null mtd, state)
+        | null -> k (Concrete mtd null Null, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -727,7 +727,7 @@ module internal Interpreter =
         let mType = FromConcreteMetadataType ast.Value.Type in
         let mtd = State.mkMetadata ast state in
         if IsNull mType then k (Terms.MakeNull Null mtd Memory.ZeroTime, state)
-        else k (Concrete ast.Value.Value mType mtd, state)
+        else k (Concrete mtd ast.Value.Value mType, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -942,10 +942,10 @@ module internal Interpreter =
                 | true -> term
                 | false ->
                     match term.term with
-                    | Concrete(value, _) -> Concrete value targetType term.metadata
-                    | Constant(name, source, _) -> Terms.Constant name source targetType term.metadata
-                    | Expression(operation, operands, _) -> Expression operation operands targetType term.metadata
-                    | Struct(m, _) -> Struct m targetType term.metadata
+                    | Concrete(value, _) -> Concrete term.metadata value targetType
+                    | Constant(name, source, _) -> Terms.Constant term.metadata name source targetType
+                    | Expression(operation, operands, _) -> Expression term.metadata operation operands targetType
+                    | Struct(m, _) -> Struct term.metadata m targetType
                     | _ -> __notImplemented__()
             in
             Return mtd result, state
@@ -961,7 +961,7 @@ module internal Interpreter =
             | _ ->
                 let message = MakeConcreteString "Specified cast is not valid." mtd in
                 let term, state = State.activator.CreateInstance mtd typeof<InvalidCastException> [message] state in
-                Error term mtd, state
+                Error mtd term, state
         in
         ControlFlow.throwOrReturn result, state
 
@@ -1002,7 +1002,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         let cast src dst expr =
             if src = dst then expr
-            else Expression (Cast(src, dst, isChecked)) [expr] dst mtd
+            else Expression mtd (Cast(src, dst, isChecked)) [expr] dst
         in
         let targetType = FromGlobalSymbolicMetadataType ast.TargetType in
         let isCasted state term = checkCast mtd state targetType term in
@@ -1016,11 +1016,11 @@ module internal Interpreter =
         let rec primitiveCast state term targetType =
             match term.term with
             | Error _ -> term, state
-            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
+            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete([0], pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
             | Nop -> internalfailf "casting void to %O!" targetType
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
-                then (Concrete value targetType term.metadata, state)
+                then (Concrete term.metadata value targetType, state)
                 else (CastConcrete value (Types.ToDotNetType targetType) term.metadata, state)
             | Constant(_, _, t) -> (cast t targetType term, state)
             | Expression(operation, operands, t) -> (cast t targetType term, state)
@@ -1039,7 +1039,7 @@ module internal Interpreter =
         in k (newTerm, newState))
 
     and checkCast mtd state targetType term =
-        let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
+        let derefForCast = Memory.derefWith (fun m s t -> Concrete m null Null, s)
         match term.term with
         | HeapRef _
         | StackRef _
@@ -1187,7 +1187,7 @@ module internal Interpreter =
         let fields = List.map (fun t -> Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t), time, time) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
-        let freshValue = Struct fields t mtd in
+        let freshValue = Struct mtd fields t in
         let isReference = Types.IsReferenceType t in
         let reference, state =
             if isReference
@@ -1274,9 +1274,9 @@ module internal Interpreter =
 
     and reduceExpressionList state (ast : IExpressionList) k =
         let mtd = State.mkMetadata ast state in
-        if ast = null then k (Concrete null VSharp.Void mtd, state)
+        if ast = null then k (Concrete mtd null VSharp.Void, state)
         else Cps.Seq.mapFoldk reduceExpression state ast.Expressions (fun (terms, state) ->
-        k (Concrete terms VSharp.Void mtd, state))
+        k (Concrete mtd terms VSharp.Void, state))
 
     and reduceNestedInitializer state (ast : INestedInitializer) k =
         __notImplemented__()

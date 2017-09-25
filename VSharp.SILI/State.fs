@@ -97,7 +97,7 @@ module internal State =
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] Metadata.empty) fst3 s1 s2
+    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef Metadata.empty key []) fst3 s1 s2
 
     let internal withPathCondition ((s, h, m, f, p) : state) cond : state = (s, h, m, f, cond::p)
     let internal popPathCondition ((s, h, m, f, p) : state) : state =
@@ -116,11 +116,15 @@ module internal State =
     let internal withStatics ((s, h, m, f, p) : state) m' = (s, h, m', f, p)
 
     let internal stackLocationToReference state location =
-        StackRef location [] (metadataOfStackLocation state location)
+        StackRef (metadataOfStackLocation state location) location []
     let internal staticLocationToReference term =
         match term.term with
-        | Concrete(location, String) -> StaticRef (location :?> string) [] term.metadata
+        | Concrete(location, String) -> StaticRef term.metadata (location :?> string) []
         | _ -> __notImplemented__()
+
+    let private heapKeyToString = term >> function
+        | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
+        | t -> toString t
 
     let private staticKeyToString = term >> function
         | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName
@@ -145,11 +149,11 @@ module internal State =
         let time = frameTime state key in
         let t = typeOfStackLocation state key in
         let metadata = metadataOfStackLocation state key in
-        let fql = StackRef key [] metadata in
+        let fql = StackRef metadata key [] in
         (genericLazyInstantiator metadata time fql t (), time, time)
 
     let internal dumpMemory ((_, h, m, _, _) : state) =
-        let sh = Heap.dump h toString in
+        let sh = Heap.dump h heapKeyToString in
         let mh = Heap.dump m staticKeyToString in
         let separator = if System.String.IsNullOrWhiteSpace(sh) then "" else "\n"
         sh + separator + mh

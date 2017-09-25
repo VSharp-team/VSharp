@@ -9,12 +9,12 @@ module Functions =
 
     let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromMetadataMethodSignature metadataMethod in
-        let term = Concrete lambda typ metadata in
+        let term = Concrete metadata lambda typ in
         Memory.allocateInHeap metadata state term
 
     let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let typ = Types.FromDecompiledSignature signature returnMetadataType in
-        Concrete lambda typ metadata
+        Concrete metadata lambda typ
 
     let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
         let term = MakeLambdaTerm metadata signature returnMetadataType lambda in
@@ -50,7 +50,7 @@ module Functions =
             recursiveFunctions.Add(id) |> ignore
 
         let internal reproduceEffect mtd id state k =
-            Effects.apply mtd id state k
+            Effects.invoke mtd id {state = state; address = [Memory.freshAddress()]; time = Memory.tick() } k
 
         let internal approximate mtd id (result, state) =
             let attempt = unboundedApproximationAttempts.[id] + 1 in

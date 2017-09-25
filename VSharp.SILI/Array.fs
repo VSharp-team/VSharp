@@ -9,7 +9,7 @@ module Array =
     let internal lengthTermType = Numeric lengthType in
 
     let internal zeroLowerBound metadata rank =
-        FSharp.Collections.Array.init rank (Concrete 0 lengthTermType metadata |> always)
+        FSharp.Collections.Array.init rank (Concrete metadata 0 lengthTermType |> always)
 
     let internal makeSymbolicLowerBound metadata array arrayName rank =
         match Options.SymbolicArrayLowerBoundStrategy() with
@@ -17,16 +17,16 @@ module Array =
         | Options.AlwaysSymbolic ->
             FSharp.Collections.Array.init rank (fun i ->
                 let idOfBound = sprintf "lower bound of %s" arrayName |> IdGenerator.startingWith in
-                Constant idOfBound (SymbolicArrayBound(array, i, false)) lengthTermType metadata)
+                Constant metadata idOfBound (SymbolicArrayBound(array, i, false)) lengthTermType)
 
     let internal makeSymbolic metadata source rank typ name =
         let idOfLength = IdGenerator.startingWith (sprintf "|%s|" name) in
-        let constant = Constant name source typ metadata in
-        let lengths = FSharp.Collections.Array.init rank (fun i -> Constant idOfLength (SymbolicArrayBound(constant, i, true)) lengthTermType metadata) in
-        Array (makeSymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ metadata
+        let constant = Constant metadata name source typ in
+        let lengths = FSharp.Collections.Array.init rank (fun i -> Constant metadata idOfLength (SymbolicArrayBound(constant, i, true)) lengthTermType) in
+        Array metadata (makeSymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ
 
     let internal dimensionsToLength mtd =
-        FSharp.Collections.Array.fold (mul mtd) (Concrete 1 lengthTermType mtd)
+        FSharp.Collections.Array.fold (mul mtd) (Concrete mtd 1 lengthTermType)
 
     let rec internal length mtd term =
         match term.term with
@@ -53,7 +53,7 @@ module Array =
             match length.term with
             | Union _ -> internalfail "unexpected union in array length!"
             | _ ->
-                Array lowerBounds None Heap.empty dimensions typ mtd
+                Array mtd lowerBounds None Heap.empty dimensions typ
         in
         unguardedDimensions |> List.map (fun (g, ds) -> (g, makeArray (FSharp.Collections.Array.ofList ds))) |> Merging.merge
 
@@ -73,11 +73,11 @@ module Array =
         let linearContent, dimensions = flatten rank initializer in
         let len = List.length linearContent in
         assert(len = List.fold (*) 1 dimensions)
-        let intToTerm i = Concrete i lengthTermType mtd in
+        let intToTerm i = Concrete mtd i lengthTermType in
         let dimensionTerms = dimensions |> List.map intToTerm |> FSharp.Collections.Array.ofList in
         let indices = List.init len intToTerm in
         let contents = Seq.zip indices linearContent |> Heap.ofSeq in
-        Array (zeroLowerBound mtd rank) None contents dimensionTerms typ mtd
+        Array mtd (zeroLowerBound mtd rank) None contents dimensionTerms typ
 
     let internal checkIndices mtd lowerBounds dimensions indices =
         assert(List.length indices = FSharp.Collections.Array.length dimensions)
@@ -93,4 +93,4 @@ module Array =
 
     let physicalIndex mtd lowerBounds dimensions indices =
         let normalizedIndices = List.map2 (sub mtd) indices (List.ofArray lowerBounds) in
-        List.fold (mul mtd) (Concrete 1 lengthTermType mtd) normalizedIndices
+        List.fold (mul mtd) (Concrete mtd 1 lengthTermType) normalizedIndices
