@@ -25,6 +25,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.Z3, Version=4.4.1.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\lib\Microsoft.Z3.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="nunit.framework">
       <HintPath>..\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
@@ -36,6 +39,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SiliTests.cs" />
+    <Compile Include="SolverTests.cs" />
     <Compile Include="UtilsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -43,6 +47,10 @@
     <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
       <Project>{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}</Project>
       <Name>VSharp.SILI</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj">
+      <Project>{db460dae-4cab-4ac6-9dda-99cba541839e}</Project>
+      <Name>VSharp.Solver</Name>
     </ProjectReference>
     <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
       <Project>{6F686B61-8105-42F2-950E-BD6AEC0887CA}</Project>

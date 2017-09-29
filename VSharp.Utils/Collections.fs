@@ -6,7 +6,7 @@ module public Seq =
                 match mapper x with
                 | Some y -> yield y
                 | None -> () }
-    
+
     let public (|Cons|Empty|) s =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)
@@ -75,6 +75,10 @@ module public Dict =
     let public tryGetValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
+
+    let public tryGetValue2 (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+        if dict.ContainsKey(key) then dict.[key]
+        else defaultValue()
 
 module public Stack =
     type 'a stack = 'a list

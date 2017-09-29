@@ -335,11 +335,11 @@ module public Terms =
         assert(Operations.isBinary operation)
         Expression (Operator(operation, isChecked)) [x; y] t metadata
 
-    let public MakeNAry operation x isChecked t metadata =
-        match x with
+    let public MakeNAry operation xs isChecked t metadata =
+        match xs with
         | [] -> raise(new ArgumentException("List of args should be not empty"))
-        | [x] -> x
-        | _ -> Expression (Operator(operation, isChecked)) x t metadata
+        | [xs] -> xs
+        | _ -> Expression (Operator(operation, isChecked)) xs t metadata
 
     let public MakeUnary operation x isChecked t metadata =
         assert(Operations.isUnary operation)

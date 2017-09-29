@@ -76,6 +76,11 @@ namespace VSharp.Test
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
         }
 
+        private void PrepareSvm()
+        {
+            Propositional.ConfigureSimplifier(new Z3Simplifier());
+        }
+
         private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
         {
             string resultText = "";
@@ -185,6 +190,7 @@ namespace VSharp.Test
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
+            PrepareSvm();
             foreach (string testDir in tests)
             {
                 string[] libEntries = Directory.GetFiles(testDir);
