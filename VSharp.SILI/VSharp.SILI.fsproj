@@ -66,7 +66,7 @@
     <Compile Include="Strings.fs" />
     <Compile Include="Pointers.fs" />
     <Compile Include="Operators.fs" />
-    <Compile Include="Array.fs" />
+    <Compile Include="Arrays.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
