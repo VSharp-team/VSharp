@@ -6,12 +6,14 @@ module internal Merging =
 
     type private MergeType =
         | StructMerge
+//        | ArrayMerge
         | BoolMerge
         | DefaultMerge
 
     let private mergeTypeOf term =
         match term.term with
         | Struct _ -> StructMerge
+//        | Array _ -> ArrayMerge
         | _ when IsBool term -> BoolMerge
         | _ -> DefaultMerge
 
@@ -46,6 +48,16 @@ module internal Merging =
             let guard = disjunction Metadata.empty gs in
             [(True, Struct merged t Metadata.empty)]
 
+//    and private arrayMerge = function
+//        | [] -> []
+//        | [_] as gvs -> gvs
+//        | (x :: _) as gvs ->
+//            let t = x |> snd |> TypeOf in
+//            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
+//            let gs, vs = List.unzip gvs in
+//            let extractArrayInfo = term >> function
+//                | Array(lower, constant, contents, lengths, _) -> (lower, constatnt, contents, lengths)
+
     and private simplify gvs =
         let rec loop gvs out =
             match gvs with
@@ -79,6 +91,7 @@ module internal Merging =
         match t with
         | BoolMerge -> boolMerge gvs
         | StructMerge -> structMerge gvs
+//        | ArrayMerge -> arrayMerge gvs
         // TODO: merge arrays too
         | DefaultMerge -> gvs
 
@@ -87,9 +100,11 @@ module internal Merging =
         | Struct(contents, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             (Terms.True, Struct contents' t v.metadata)
-        | Array(lower, constant, contents, lengths, t) ->
+        | Array(dimension, lower, constant, contents, lengths, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            (Terms.True, Array lower constant contents' lengths t v.metadata)
+            let lower' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
+            let lengths' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
+            (Terms.True, Array dimension lower' constant contents' lengths' t v.metadata)
         | _ -> (g, v)
 
     and private compress = function

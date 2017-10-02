@@ -1088,8 +1088,8 @@ module internal Interpreter =
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
         let result =
             match initializer.term with
-            | Concrete(null, _) -> Array.makeDefault mtd dimensions typ (Array.zeroLowerBound mtd dimensions.Length)
-            | _ -> Array.fromInitializer mtd (Memory.tick()) (int ast.ArrayType.Rank) typ initializer
+            | Concrete(null, _) -> Arrays.makeDefault mtd dimensions typ
+            | _ -> Arrays.fromInitializer mtd (Memory.tick()) (int ast.ArrayType.Rank) typ initializer
         Memory.allocateInHeap mtd state result |> k))
 
     and initializeStaticMembersIfNeed (caller : LocationBinding) state qualifiedTypeName k =

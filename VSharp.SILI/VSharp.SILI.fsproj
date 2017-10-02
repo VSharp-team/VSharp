@@ -64,9 +64,9 @@
     <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
     <Compile Include="Strings.fs" />
+    <Compile Include="Arrays.fs" />
     <Compile Include="Pointers.fs" />
     <Compile Include="Operators.fs" />
-    <Compile Include="Arrays.fs" />
     <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />

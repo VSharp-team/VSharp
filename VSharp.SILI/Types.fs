@@ -22,7 +22,7 @@ type public TermType =
     | StructType of Hierarchy * TermTypeRef list * TermType list // some value type with generic argument and interfaces
     | ClassType of Hierarchy * TermTypeRef list * TermType list // some reference type with generic argument and interfaces
     | SubType of Hierarchy * TermTypeRef list * TermType list * string //some symbolic type with generic argument, interfaces and constraint
-    | ArrayType of TermType * int
+    | ArrayType of TermType * int option
     | Func of TermType list * TermType
     | PointerType of TermType
 
@@ -38,7 +38,8 @@ type public TermType =
         | StructType(t, _, _)
         | ClassType (t, _, _) -> toString t
         | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t
-        | ArrayType(t, rank) -> t.ToString() + "[" + new string(',', rank) + "]"
+        | ArrayType(t, Some rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
+        | ArrayType(t, None) -> "System.Array"
         | PointerType t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;NoComparison>]
@@ -169,8 +170,8 @@ module public Types =
         | StructType(t, _, _)
         | ClassType(t, _, _)
         | SubType(t, _, _, _) -> t
-        | ArrayType(t, 0) -> typedefof<System.Array>
-        | ArrayType(t, rank) -> (ToDotNetType t).MakeArrayType(rank)
+        | ArrayType(t, None) -> typedefof<System.Array>
+        | ArrayType(t, Some rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
 
@@ -306,7 +307,7 @@ module public Types =
             | n when numericTypes.Contains(n) -> Numeric n
             | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
-            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, a.GetArrayRank())
+            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, Some <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke") in
@@ -351,7 +352,7 @@ module public Types =
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
             fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(SubType a [] [] a.FullName, 0)
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj>, None)
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
@@ -392,7 +393,7 @@ module public Types =
                 FromDotNetType typeKind arg
             | :? IMetadataArrayType as a ->
                 let elementType = FromMetadataType typeKind a.ElementType |> PointerFromReferenceType in
-                ArrayType(elementType, int(a.Rank))
+                ArrayType(elementType, a.Rank |> int |> Some)
             | :? IMetadataClassType as ct ->
                 let dotnetType = MetadataToDotNetType ct in
                 FromDotNetType typeKind dotnetType

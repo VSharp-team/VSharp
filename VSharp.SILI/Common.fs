@@ -73,7 +73,7 @@ module internal Common =
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | PointerType left, PointerType right -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue metadata
+        | ArrayType(t1, c1), ArrayType(_, None) -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
         | leftType, (StructureType(t, _, _) as termType)
         | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType

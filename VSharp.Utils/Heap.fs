@@ -20,6 +20,8 @@ module public Heap =
         h |> PersistentHashMap.toSeq |> Seq.map (fun (k, v) -> k, mapper k v) |> PersistentHashMap.ofSeq
     let public fold folder state (h : Heap<'a, 'b>) =
         h |> PersistentHashMap.toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
+    let public mapFold folder state (h : Heap<'a, 'b>) =
+        h |> PersistentHashMap.toSeq |> Seq.mapFold (fun state (k, v) -> folder state k v) state |> fun (r, s) -> PersistentHashMap.ofSeq r, s
 
     let public ofSeq = PersistentHashMap.ofSeq
     let public toSeq (h : Heap<'a, 'b>) = PersistentHashMap.toSeq h
@@ -52,8 +54,12 @@ module public Heap =
         in
         fold resolveIfShould h1 h2
 
-    let public toString format separator keyMapper valueMapper (h : Heap<'a, 'b>) =
-        let elements = h |> PersistentHashMap.toSeq |> Seq.map (fun (k, (v, _, _)) -> sprintf format (keyMapper k) (valueMapper v)) in
-        Seq.sort elements |> join separator
+    let public toString format separator keyMapper valueMapper sorter (h : Heap<'a, 'b>) =
+        let elements =
+            h |> PersistentHashMap.toSeq
+            |> Seq.map (fun (k, (v, _, _)) -> k, v)
+            |> Seq.sortBy sorter
+            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v)) in
+        elements |> join separator
 
-    let public dump (h : Heap<'a, 'b>) keyToString = toString "%s ==> %O" "\n" keyToString id h
+    let public dump (h : Heap<'a, 'b>) keyToString = toString "%s ==> %O" "\n" keyToString id Prelude.toString h

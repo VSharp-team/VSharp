@@ -105,3 +105,24 @@ module public Cps =
             | Seq.Cons(x, xs') ->
                 f a x (fun (x', a') ->
                     mapFoldk f a' xs' (fun (ys, b) -> k (x'::ys, b)))
+                    
+        let rec mapFold2 f a xs ys k =
+            match xs, ys with
+            | Seq.Empty, Seq.Empty -> k ([], a)
+            | Seq.Cons(x, xs'), Seq.Cons(y, ys') -> 
+                let (z, a') = f a x y in
+                    mapFold2 f a' xs' ys' (fun (zs, b) -> k (z::zs, b))
+            | _ -> raise (System.ArgumentException("Sequences must have the same lengths"))
+
+        let rec mapFold2k f a xs ys k =
+            match xs, ys with
+            | Seq.Empty, Seq.Empty -> k ([], a)
+            | Seq.Cons(x, xs'), Seq.Cons(y, ys') ->
+                f a x y (fun (z, a') ->
+                    mapFold2k f a' xs' ys' (fun (zs, b) -> k (z::zs, b)))
+            | _ -> raise (System.ArgumentException("Sequences must have the same lengths"))
+
+        let rec unfoldk f s k =
+            match f s with
+            | (None, s') -> k ([], s')
+            | (Some x, s') -> unfoldk f s' (fun (xs, b) -> k (x :: xs, b))

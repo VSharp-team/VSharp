@@ -7,15 +7,21 @@ module internal Pointers =
 
     let internal locationEqual mtd addr1 addr2 =
         match TypeOf addr1, TypeOf addr2 with
-        | String, String -> Strings.simplifyEquality mtd addr1 addr2
-        | Numeric _, Numeric _ -> Arithmetics.eq mtd addr1 addr2
+        | String, String -> Strings.simplifyEquality mtd addr1 addr2, (addr1, addr2)
+        | Numeric _, Numeric _ -> Arithmetics.eq mtd addr1 addr2, (addr1, addr2)
+        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2
         | _ -> __notImplemented__()
 
     let internal comparePath mtd path1 path2 =
+        //TODO: Can need do something with "locations"?
         if List.length path1 <> List.length path2 then
-            Terms.MakeFalse mtd
+            Terms.MakeFalse mtd //, (path1, path2)
         else
-            List.map2 (fun (x, _) (y, _) -> locationEqual mtd x y) path1 path2 |> conjunction mtd
+            Cps.Seq.mapFold2
+                (fun a (x, tx) (y, ty) ->
+                    let r, (a'x, a'y) = locationEqual mtd x y
+                    r, ((a'x, tx), (a'y, ty)) :: a)
+                [] path1 path2 (fun (rl, locations) -> conjunction mtd rl) //, locations |> Seq.rev |> List.ofSeq |> List.unzip)
 
     let rec internal simplifyReferenceEquality mtd x y k =
         simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
