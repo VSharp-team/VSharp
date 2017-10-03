@@ -6,14 +6,14 @@ module internal Merging =
 
     type private MergeType =
         | StructMerge
-//        | ArrayMerge
+        | ArrayMerge
         | BoolMerge
         | DefaultMerge
 
     let private mergeTypeOf term =
         match term.term with
         | Struct _ -> StructMerge
-//        | Array _ -> ArrayMerge
+        | Array _ -> ArrayMerge
         | _ when IsBool term -> BoolMerge
         | _ -> DefaultMerge
 
@@ -45,18 +45,30 @@ module internal Merging =
             in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
-            let guard = disjunction Metadata.empty gs in
             [(True, Struct merged t Metadata.empty)]
 
-//    and private arrayMerge = function
-//        | [] -> []
-//        | [_] as gvs -> gvs
-//        | (x :: _) as gvs ->
-//            let t = x |> snd |> TypeOf in
-//            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
-//            let gs, vs = List.unzip gvs in
-//            let extractArrayInfo = term >> function
-//                | Array(lower, constant, contents, lengths, _) -> (lower, constatnt, contents, lengths)
+    and private arrayMerge = function
+        | [] -> []
+        | [_] as gvs -> gvs
+        | (x :: _) as gvs ->
+            let t = x |> snd |> TypeOf in
+            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
+            let gs, vs = List.unzip gvs in
+            let extractArrayInfo = term >> function
+                | Array(dim, lower, init, contents, lengths, _) -> (dim, lower, init, contents, lengths)
+                | t -> "Expected array, got " + (toString t) |> internalfail
+            in
+            let ds, lows, inits, contents, lengths =
+                vs |> Seq.map extractArrayInfo
+                |> Seq.fold (fun (da, lwa, ia, ca, la) (d, lw, i, c, l) -> (d::da, lw::lwa, i::ia, c::ca, l::la)) ([], [], [], [], [])
+            in
+            let d = List.head ds
+            assert(ds |> Seq.forall ((=) d))
+            let mergedLower = Heap.merge gs lows mergeCells in
+            let mergedContents = Heap.merge gs contents mergeCells in
+            let mergedLengths = Heap.merge gs lengths mergeCells in
+            let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame in
+            [(True, Array d mergedLower mergedInit mergedContents mergedLengths t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -70,7 +82,7 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
-    and internal mergeSame = function
+    and internal mergeSame<'a when 'a : equality> : (Term * 'a) list -> (Term * 'a) list = function
         | [] -> []
         | [_] as xs -> xs
         | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
@@ -91,8 +103,7 @@ module internal Merging =
         match t with
         | BoolMerge -> boolMerge gvs
         | StructMerge -> structMerge gvs
-//        | ArrayMerge -> arrayMerge gvs
-        // TODO: merge arrays too
+        | ArrayMerge -> arrayMerge gvs
         | DefaultMerge -> gvs
 
     and propagateGuard g v =
