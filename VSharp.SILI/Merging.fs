@@ -155,11 +155,36 @@ module internal Merging =
     let internal mergeStates conditions states =
         State.merge conditions states mergeCells
 
-    let internal guardedMap mapper gvs =
+    let internal commonGuardedMapk mapper gvs merge k =
         let gs, vs = List.unzip gvs in
-        vs |> List.map mapper |> List.zip gs |> merge
+        Cps.List.mapk mapper vs (List.zip gs >> merge >> k)
 
-    let internal guardedStateMap mapper gvs state =
+    let internal guardedMapk mapper gvs k = commonGuardedMapk mapper gvs merge k
+
+    let internal guardedMap mapper gvs = guardedMapk (Cps.ret mapper) gvs id
+
+    let internal commonGuardedStateMapk mapper gvs state merge k =
         let gs, vs = List.unzip gvs in
-        let vs, states = vs |> List.map mapper |> List.unzip in
-        vs |> List.zip gs |> merge, mergeStates gs states
+        Cps.List.mapk (mapper state) vs (fun vsst ->
+        let vs, states = List.unzip vsst in
+        k (vs |> List.zip gs |> merge, mergeStates gs states))
+
+    let internal guardedStateMapk mapper gvs state k = commonGuardedStateMapk mapper gvs state merge k
+
+    let internal guardedStateMap mapper gvs state = guardedStateMapk (Cps.ret2 mapper) gvs state id
+
+    let internal commonGuardedErroredMapk mapper errorMapper gvs state merge k =
+        let ges, gvs = List.partition (snd >> IsError) gvs in
+        let (egs, es) = List.unzip ges in
+        let (vgs, vs) = List.unzip gvs in
+        let eg = disjunction Metadata.empty egs in
+        Cps.List.mapk (mapper state) vs (fun vsst ->
+        let vs', states = List.unzip vsst in
+        let ges' = es |> List.map errorMapper |> List.zip egs in
+        let gvs' = List.zip vgs vs' |> List.append ges' |> merge in
+        let state' = mergeStates (eg :: vgs) (state :: states) in
+        k (gvs', state'))
+
+    let internal guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
+
+    let internal guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id

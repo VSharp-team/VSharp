@@ -472,24 +472,29 @@ module internal Interpreter =
 
 // ------------------------------- Conditional operations -------------------------------
 
-    and reduceConditionalExecution state conditionInvocation thenBranch elseBranch k =
+    and reduceConditionalExecution state conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+        let execution conditionState condition k =
+            thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
+            elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
+            let result = merge2 condition !!condition thenResult elseResult in
+            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
+            k (result, state)))
+        in
         conditionInvocation state (fun (condition, conditionState) ->
         match condition with
         | Terms.True ->  thenBranch conditionState k
         | Terms.False -> elseBranch conditionState k
-        | e when Terms.Just Terms.IsError e -> k (Throw e.metadata e, conditionState)
-        | _ ->
-            thenBranch (State.withPathCondition conditionState   condition) (fun (thenResult, thenState) ->
-            elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = ControlFlow.mergeResults condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
-            k (result, state))))
+        | UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
+        | _ -> execution conditionState condition k)
+
+    and reduceConditionalStatements state conditionInvocation thenBranch elseBranch k =
+         reduceConditionalExecution state conditionInvocation thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
 
     and npeOrInvokeStatement caller state isStatic reference statement k =
         if isStatic then statement state k
         else
             let mtd = State.mkMetadata caller state in
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> k (Pointers.isNull mtd reference, state))
                 (fun state k ->
                     let term, state = Memory.npe mtd state in
@@ -502,23 +507,18 @@ module internal Interpreter =
             (fun (result, state) -> k (ControlFlow.resultToTerm result, state))
 
     and reduceIfStatement state (ast : IIfStatement) k =
-        reduceConditionalExecution state
+        reduceConditionalStatements state
             (fun state k -> reduceExpression state ast.Condition k)
             (fun state k -> reduceStatement state ast.Then k)
             (fun state k -> reduceStatement state ast.Else k)
             k
 
     and reduceConditionalExpression state (ast : IConditionalExpression) k =
-        reduceExpression state ast.Condition (fun (condition, conditionState) ->
-        match condition with
-        | Terms.True ->  reduceExpression conditionState ast.Then k
-        | Terms.False -> reduceExpression conditionState ast.Else k
-        | _ ->
-            reduceExpression conditionState ast.Then (fun (thenResult, thenState) ->
-            reduceExpression conditionState ast.Else (fun (elseResult, elseState) ->
-            let result = Merging.merge2Terms condition !!condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition thenState elseState in
-            k (result, state))))
+        reduceConditionalExecution state
+            (fun state k -> reduceExpression state ast.Condition k)
+            (fun state k -> reduceExpression state ast.Then k)
+            (fun state k -> reduceExpression state ast.Else k)
+            Merging.merge Merging.merge2Terms id k
 
     and reduceSwitchStatement state (ast : ISwitchStatement) k =
         reduceExpression state ast.Expression (fun (arg, state) ->
@@ -535,7 +535,7 @@ module internal Interpreter =
         match cases with
         | [] -> dflt state k
         | case::rest ->
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> Cps.Seq.foldlk (compareArg case) (False, state) case.Values k)
                 (fun state k -> reduceBlockStatement state case.Body (fun (result, state) -> k (ControlFlow.consumeBreak result, state)))
                 (fun state k -> reduceSwitchCases state arg dflt rest k)
@@ -548,7 +548,7 @@ module internal Interpreter =
         match thrown with
         | None -> notExn()
         | Some(guard, exn) ->
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> k (guard, state))
                 (fun state k -> trueBranch guard exn normal state k)
                 (fun state k -> elseBranch guard exn normal state k)
@@ -584,7 +584,7 @@ module internal Interpreter =
         match clauses with
         | Seq.Empty -> k (Throw exn.metadata exn, state)
         | Seq.Cons(clause, rest) ->
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> reduceCatchCondition exn state clause k)
                 (fun state k -> reduceBlockStatement state clause.Body (fun (result, state) -> k (result, State.popStack state)))
                 (fun state k -> reduceCatchClauses exn (State.popStack state) rest k)
@@ -607,7 +607,7 @@ module internal Interpreter =
         else
             let filterMtd = State.mkMetadata ast.Filter state in
             let filteringExpression = Transformations.extractExceptionFilter ast.Filter in
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> k (typeMatches, state))
                 (fun state k -> reduceExpression state filteringExpression
                                     (fun (filterResult, state) ->
@@ -991,7 +991,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         let isCasted state term = checkCast mtd state targetType term in
         let mapper state term targetType =
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd state term targetType))
                 (fun state k -> k (ifNotCasted mtd state term targetType))
@@ -999,7 +999,7 @@ module internal Interpreter =
         in
         let term, state =
             match term.term with
-            | Union gvs -> Merging.guardedStateMap (fun term -> mapper state term targetType) gvs state
+            | Union gvs -> Merging.guardedStateMap (fun state term -> mapper state term targetType) gvs state
             | _ -> mapper state term targetType
         in k (term, state))
 
@@ -1013,7 +1013,7 @@ module internal Interpreter =
         let targetType = FromGlobalSymbolicMetadataType ast.TargetType in
         let isCasted state term = checkCast mtd state targetType term in
         let hierarchyCast state term targetType =
-            reduceConditionalExecution state
+            reduceConditionalStatements state
                 (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd state term targetType))
                 (fun state k -> k (throwInvalidCastException mtd state term targetType))
@@ -1040,7 +1040,7 @@ module internal Interpreter =
         reduceExpression state ast.Argument (fun (term, state) ->
         let newTerm, newState =
             match term.term with
-            | Union gvs -> Merging.guardedStateMap (fun term -> primitiveCast state term targetType) gvs state
+            | Union gvs -> Merging.guardedStateMap (fun state term -> primitiveCast state term targetType) gvs state
             | _ -> primitiveCast state term targetType
         in k (newTerm, newState))
 
@@ -1052,7 +1052,7 @@ module internal Interpreter =
         | StaticRef _ ->
             let contents, state = derefForCast mtd state term in
             checkCast mtd state targetType contents
-        | Union gvs -> Merging.guardedStateMap (checkCast mtd state targetType) gvs state
+        | Union gvs -> Merging.guardedStateMap (fun state term -> checkCast mtd state targetType term) gvs state
         | _ -> Common.is mtd (TypeOf term) targetType, state
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
