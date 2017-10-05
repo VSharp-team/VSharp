@@ -13,7 +13,7 @@ module SystemArray =
         simplifyGreaterOrEqual x lower (fun notTooSmall ->
         simplifyLess x upper (fun notTooLarge ->
         simplifyAnd notTooSmall notTooLarge (fun inBounds ->
-        Interpreter.reduceConditionalExecution state
+        Interpreter.reduceConditionalStatements state
             (fun state k -> k (inBounds, state))
             fits
             (fun state k ->
@@ -52,7 +52,7 @@ module SystemArray =
         in
         let result, state =
             match array.term with
-            | Union gvs -> Merging.guardedStateMap (getLength state dimension) gvs state
+            | Union gvs -> Merging.guardedStateMap (fun state term -> getLength state dimension term) gvs state
             | _ -> getLength state dimension array
         in (ControlFlow.throwOrReturn result, state)
 
@@ -104,6 +104,6 @@ module SystemArray =
         in
         let result, state =
             match array.term with
-            | Union gvs -> Merging.guardedStateMap (getLowerBound state dimension) gvs state
+            | Union gvs -> Merging.guardedStateMap (fun state term -> getLowerBound state dimension term) gvs state
             | _ -> getLowerBound state dimension array
         in (ControlFlow.throwOrReturn result, state)

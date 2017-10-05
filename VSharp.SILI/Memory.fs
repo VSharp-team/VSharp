@@ -246,7 +246,7 @@ module internal Memory =
                 let notNullCaseState = withHeap state h' in
                 let nullCaseResult, state' = actionNull metadata state t in
                 Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
-        | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata state) gvs state
+        | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 
     let private hierarchicalAccess = commonHierarchicalAccess (fun m s _ ->
@@ -287,7 +287,7 @@ module internal Memory =
             assert(List.isEmpty path) // TODO: will this really be always empty?
             HeapRef (addr, [field]) t reference.metadata, state
         | Struct _ -> referenceSubLocation field parentRef, state
-        | Union gvs -> Merging.guardedStateMap (referenceFieldOf state field parentRef) gvs state
+        | Union gvs -> Merging.guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
         | Concrete(_, TermType.Null) ->
             let term, state = State.activator.CreateInstance reference.metadata typeof<System.NullReferenceException> [] state in
             Error term reference.metadata, state
@@ -301,7 +301,7 @@ module internal Memory =
         | StaticRef _
         | HeapRef _ -> term, state
         | Union gvs when List.forall (fun (_, t) -> IsError t || IsRef t) gvs ->
-            Merging.guardedStateMap (followOrReturnReference metadata state) gvs state
+            Merging.guardedStateMap (followOrReturnReference metadata) gvs state
         | _ -> reference, state
 
     let internal referenceField metadata state followHeapRefs name typ parentRef =

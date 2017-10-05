@@ -1,6 +1,9 @@
 ﻿namespace VSharp
 
 module public Cps =
+    let ret f = fun x k -> k (f x)
+    let ret2 f = fun x y k -> k (f x y)
+
     module public List =
         let rec map f xs k =
             match xs with
