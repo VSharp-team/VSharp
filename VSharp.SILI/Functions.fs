@@ -47,9 +47,9 @@ module Functions =
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
         type private NullActivator() =
             interface IInterpreter with
-                member this.InitializeStaticMembers _ _ _ =
+                member x.InitializeStaticMembers _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
-                member this.Invoke _ _ _ _ =
+                member x.Invoke _ _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
                 member this.Initialize _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
@@ -184,7 +184,7 @@ module Functions =
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
                             let key = ("external data", mm.Token.ToString()) in
-                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, declaringType)] in
+                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)] in
                             (Some <| Memory.referenceLocalVariable metadata state key true, state))
                 | DelegateIdentifier ast ->
                     __notImplemented__()

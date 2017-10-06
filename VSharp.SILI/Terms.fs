@@ -10,8 +10,8 @@ type FunctionIdentifier =
     | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
     | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
     | StandardFunctionIdentifier of Operations.StandardFunction
-    override this.ToString() =
-        match this with
+    override x.ToString() =
+        match x with
         | MetadataMethodIdentifier mm -> mm.Name
         | DelegateIdentifier _ -> "<delegate>"
         | StandardFunctionIdentifier sf -> sf.ToString()
@@ -20,16 +20,16 @@ type StackKey = string * string  // Name and token
 
 type LocationBinding = JetBrains.Decompiler.Ast.INode
 type StackHash = int list
-type TermMetadataEntry = {location : LocationBinding; stack : StackHash}
-type TermMetadata = TermMetadataEntry list
+type TermOrigin = { location : LocationBinding; stack : StackHash }
+type TermMetadata = { origins : TermOrigin list; mutable misc : HashSet<obj> }
 
 [<StructuralEquality;NoComparison>]
 type public Operation =
     | Operator of OperationType * bool
     | Application of FunctionIdentifier
     | Cast of TermType * TermType * bool
-    member this.priority =
-        match this with
+    member x.priority =
+        match x with
         | Operator (op, _) -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
@@ -45,14 +45,14 @@ type public TermNode =
                 * SymbolicHeap          // Contents
                 * Term array            // Lengths of dimensions
                 * TermType              // Type
-    | Expression of (Operation * Term list * TermType)
+    | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
     | HeapRef of (Term * TermType) NonEmptyList * Timestamp
     | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
-    override this.ToString() =
+    override x.ToString() =
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
             | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
@@ -62,17 +62,21 @@ type public TermNode =
 
         let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
 
-        let arrayContentsToString contents separator =
-            Heap.toString "%O: %O" separator id id contents
+        let formatIfNotEmpty indent value =
+            match value with
+            | _ when String.IsNullOrEmpty value -> value
+            | _ -> sprintf "\n%s%s" indent value
+
+        let extendIndent = (+) "\t"
 
         let rec toStr parentPriority parentChecked indent term =
             let getTerm (term : Term) = term.term in
             match term with
-            | Error e -> sprintf "<ERROR: %O>" e
+            | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
-            | Concrete(null, _) -> "null"
+            | Concrete(_, Null) -> "null"
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -95,51 +99,68 @@ type public TermNode =
                         checkExpression isChecked parentChecked operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (getTerm >> toStr -1 false (indent + "\t")) fields in
-                sprintf "STRUCT %O[\n%s%s]" t indent fieldsString
+                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (toStringWithParentIndent indent) fields in
+                sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
             | Array(_, None, contents, dimensions, _) ->
-                sprintf "[| %s ... %s ... |]" (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
+                sprintf "[|%s ... %s ... |]" (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
             | Array(_, Some constant, contents, dimensions, _) ->
-                sprintf "%O: [| %s (%s) |]" constant (arrayContentsToString contents "; ") (Array.map toString dimensions |> join " x ")
+                sprintf "%O: [|%s (%s) |]" constant (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
-            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> getTerm >> toStr -1 false indent) |> join ".")
+            | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
+            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
             | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
             | Union(guardedTerms) ->
-                let guardedToString (guard, term) = sprintf "| %s ~> %s" (toStr -1 false indent guard.term) (toStr -1 false indent term.term)
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort
-                sprintf "UNION[\n%s%s]" indent (join ("\n" + indent) printed)
-        in
-        toStr -1 false "\t" this
+                let guardedToString (guard, term) =
+                    let guardString = toStringWithParentIndent indent guard in
+                    let termString = toStringWithParentIndent indent term in
+                    sprintf "| %s ~> %s" guardString termString
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
+                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+
+        and toStringWithIndent indent term = toStr -1 false indent term.term
+
+        and toStringWithParentIndent parentIndent term = toStr -1 false (extendIndent parentIndent) term.term
+
+        and arrayContentsToString contents parentIndent =
+            let separator = ";\n" + parentIndent in
+            let toString (t : Term) = toStr -1 false (extendIndent parentIndent) t.term in
+            let mapper = toStringWithParentIndent parentIndent in
+            let stringResult = Heap.toString "%O: %O" separator mapper mapper contents in
+            match stringResult with
+            | _ when String.IsNullOrEmpty stringResult -> stringResult
+            | _ -> "\n" + parentIndent + stringResult + separator
+
+        toStr -1 false "\t" x
 
 and
     [<CustomEquality;NoComparison>]
     TermRef =
         {reference : Term ref}
-        override this.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(this)
-        override this.Equals(o : obj) =
+        override x.GetHashCode() =
+            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
+        override x.Equals(o : obj) =
             match o with
-            | :? TermRef as other -> this.GetHashCode() = other.GetHashCode()
+            | :? TermRef as other -> x.GetHashCode() = other.GetHashCode()
             | _ -> false
 
 and
     [<CustomEquality;NoComparison>]
     Term =
         {term : TermNode; metadata : TermMetadata}
-        override this.ToString() =
-            this.term.ToString()
-        override this.GetHashCode() =
-            this.term.GetHashCode()
-        override this.Equals(o : obj) =
+        override x.ToString() =
+            x.term.ToString()
+        override x.GetHashCode() =
+            x.term.GetHashCode()
+        override x.Equals(o : obj) =
             match o with
-            | :? Term as other -> this.term.Equals(other.term)
+            | :? Term as other -> x.term.Equals(other.term)
             | _ -> false
 
-and SymbolicConstantSource =
-    | UnboundedRecursion of TermRef
-    | LazyInstantiation of Term
-    | SymbolicArrayLength of Term * int * bool // (Array constant) * dimension * (length if true or lower bound if false)
-    | SymbolicConstantType of TermType
+and SymbolicConstantSource() =
+    override x.GetHashCode() =
+        x.GetType().GetHashCode()
+    override x.Equals(o : obj) =
+        o.GetType() = x.GetType()
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -147,9 +168,14 @@ and SymbolicHeap = Heap<Term, Term>
 module public Terms =
 
     module Metadata =
-        let empty = List.empty
-        let combine m1 m2 = List.append m1 m2 |> List.distinct
-        let combine3 m1 m2 m3 = List.append3 m1 m2 m3 |> List.distinct
+        let empty = { origins = List.empty; misc = null }
+        let combine m1 m2 = { origins = List.append m1.origins m2.origins |> List.distinct; misc = null }
+        let combine3 m1 m2 m3 = { origins = List.append3 m1.origins m2.origins m3.origins |> List.distinct; misc = null }
+        let addMisc t obj =
+            if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
+            t.metadata.misc.Add obj |> ignore
+        let isEmpty m = List.isEmpty m.origins
+        let firstOrigin m = List.head m.origins
 
     let public term (term : Term) = term.term
 
@@ -205,7 +231,8 @@ module public Terms =
             | _ -> false
 
     let public IsNull = term >> function
-        | Concrete(null, _) -> true
+        | HeapRef(((z, _), _), _) when z.term = TermNode.Concrete(0, Types.pointerType) -> true
+        | Concrete(_, Null) -> true
         | _ -> false
 
     let public IsStackRef = term >> function
@@ -251,8 +278,7 @@ module public Terms =
                 let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
                 if allSame then t
                 else
-                    // TODO: return least common supertype!
-                    __notImplemented__()
+                    internalfailf "evaluating type of unexpected union %O!" term
 
 
     let public IsBool =                 TypeOf >> Types.IsBool
@@ -264,7 +290,6 @@ module public Terms =
     let public IsPrimitive =            TypeOf >> Types.IsPrimitive
     let public DomainOf =               TypeOf >> Types.DomainOf
     let public RangeOf =                TypeOf >> Types.RangeOf
-    let public IsRelation =             TypeOf >> Types.IsRelation
 
     let public CastConcrete value (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType() in
@@ -297,8 +322,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNull typ metadata =
-        Concrete null (FromConcreteDotNetType typ) metadata
+    let public MakeNull typ metadata time =
+        HeapRef (((Concrete 0 Types.pointerType metadata), typ), []) time metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
@@ -411,13 +436,6 @@ module public Terms =
     let rec private addConstants mapper (visited : HashSet<Term>) acc term =
         match term.term with
         | Constant(name, source, t) when visited.Add(term) ->
-            let acc =
-                match source with
-                | UnboundedRecursion app -> addConstants mapper visited acc !app.reference
-                | LazyInstantiation loc -> addConstants mapper visited acc loc
-                | SymbolicArrayLength(arr, _, _) -> addConstants mapper visited acc arr
-                | SymbolicConstantType _ -> acc
-            in
             match mapper acc term with
             | Some value -> value::acc
             | None -> acc

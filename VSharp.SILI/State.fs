@@ -1,16 +1,15 @@
 ﻿namespace VSharp
 open VSharp.Utils
+open VSharp.Types
 
 module internal State =
     module SymbolicHeap = Heap
-
-    let internal pointerType = Numeric typedefof<int> in
 
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
     type internal pathCondition = Term list
-    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType) list * Timestamp
+    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType option) list * Timestamp
     type internal frames = Stack.stack<stackFrame> * StackHash
     type internal state = stack * heap * staticMemory * frames * pathCondition
 
@@ -22,7 +21,9 @@ module internal State =
         | Specified of 'a
         | Unspecified
 
-    let private nameOfLocation = term >> function
+    let internal zeroTime : Timestamp = System.UInt32.MinValue
+
+    let internal nameOfLocation = term >> function
         | HeapRef((_, (x, _)::xs), _) -> toString x
         | HeapRef(((_, t), _), _) -> toString t
         | StackRef((name, _), x::_) -> sprintf "%s.%O" name x
@@ -82,8 +83,10 @@ module internal State =
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal typeOfStackLocation ((_, _, _, (f, _), _) : state) key =
-        match List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f with
-        | Some t -> t
+        let forMatch = List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f
+        match forMatch with
+        | Some (Some t) -> t
+        | Some None -> internalfailf "unknown type of stack location %O!" key
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal metadataOfStackLocation ((_, _, _, (f, _), _) : state) key =
@@ -91,7 +94,7 @@ module internal State =
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] []) fst3 s1 s2
+    let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] Metadata.empty) fst3 s1 s2
 
     let internal withPathCondition ((s, h, m, f, p) : state) cond : state = (s, h, m, f, cond::p)
     let internal popPathCondition ((s, h, m, f, p) : state) : state =
@@ -114,7 +117,7 @@ module internal State =
         | t -> toString t
 
     let internal mkMetadata location state =
-        [{ location = location; stack = framesHashOf state }]
+        { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
 // ------------------------------- Memory level -------------------------------
 
@@ -122,60 +125,11 @@ module internal State =
         abstract member CreateInstance : TermMetadata -> System.Type -> Term list -> state -> (Term * state)
     type private NullActivator() =
         interface IActivator with
-            member this.CreateInstance _ _ _ _ =
+            member x.CreateInstance _ _ _ _ =
                 internalfail "activator is not ready"
     let mutable activator : IActivator = new NullActivator() :> IActivator
-
-    let rec internal defaultOf time metadata = function
-        | Bool -> MakeFalse metadata
-        | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
-        | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.Concrete null String metadata
-        | PointerType t -> Concrete null t metadata
-        | ClassType _ as t -> Concrete null t metadata
-        | ArrayType _ as t -> Concrete null t metadata
-        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Concrete null t metadata
-        | Func _ -> Concrete null (SubType(typedefof<System.Delegate>, [], [], "func")) metadata
-        | StructType(dotNetType, _, _) as t ->
-            let fields = Types.GetFieldsOf dotNetType false in
-            let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
-            Struct contents t metadata
-        | _ -> __notImplemented__()
-
-    let internal arrayLengthType = typedefof<int>
-    let internal arrayLengthTermType = Numeric arrayLengthType in
-
-    let internal mkArrayZeroLowerBound metadata rank =
-        FSharp.Collections.Array.init rank (Concrete 0 arrayLengthTermType metadata |> always)
-
-    let internal mkArraySymbolicLowerBound metadata array arrayName rank =
-        match Options.SymbolicArrayLowerBoundStrategy() with
-        | Options.AlwaysZero -> mkArrayZeroLowerBound metadata rank
-        | Options.AlwaysSymbolic ->
-            FSharp.Collections.Array.init rank (fun i ->
-                let idOfBound = sprintf "lower bound of %s" arrayName |> IdGenerator.startingWith in
-                Constant idOfBound (SymbolicArrayLength(array, i, false)) arrayLengthTermType metadata)
-
-    let internal makeSymbolicArray metadata source rank typ name =
-        let idOfLength = IdGenerator.startingWith (sprintf "|%s|" name) in
-        let constant = Constant name source typ metadata in
-        let lengths = FSharp.Collections.Array.init rank (fun i -> Constant idOfLength (SymbolicArrayLength(constant, i, true)) (Numeric arrayLengthType) metadata) in
-        Array (mkArraySymbolicLowerBound metadata constant name rank) (Some constant) Heap.empty lengths typ metadata
-
-    let internal makeSymbolicInstance metadata time source name = function
-        | PointerType t ->
-            let constant = Constant name source pointerType metadata in
-            HeapRef ((constant, t), []) time metadata
-        | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
-        | StructType _
-        | SubType _
-        | ClassType _ as t -> Struct Heap.empty t metadata
-        | ArrayType(e, d) as t -> makeSymbolicArray metadata source d t name
-        | _ -> __notImplemented__()
-
-    let internal genericLazyInstantiator metadata time fullyQualifiedLocation typ () =
-        makeSymbolicInstance metadata time (LazyInstantiation fullyQualifiedLocation) (nameOfLocation fullyQualifiedLocation) typ
+    let mutable genericLazyInstantiator : TermMetadata -> Timestamp -> Term -> TermType -> unit -> Term =
+        fun _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let internal stackLazyInstantiator state time key =
         let time = frameTime state key in

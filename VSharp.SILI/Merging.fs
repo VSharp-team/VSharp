@@ -4,6 +4,17 @@ open VSharp.Terms
 
 module internal Merging =
 
+    type private MergeType =
+        | StructMerge
+        | BoolMerge
+        | DefaultMerge
+
+    let private mergeTypeOf term =
+        match term.term with
+        | Struct _ -> StructMerge
+        | _ when IsBool term -> BoolMerge
+        | _ -> DefaultMerge
+
     // TODO: This is a pretty performance-critical function. We should store the result into the union itself.
     let internal guardOf term =
         match term.term with
@@ -19,18 +30,21 @@ module internal Merging =
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
             [(guard, value)]
 
-    let rec private structMerge t = function
+    let rec private structMerge = function
         | [] -> []
         | [_] as gvs -> gvs
-        | gvs ->
+        | (x :: _) as gvs ->
+            let t = x |> snd |> TypeOf in
+            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs in
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
                 | t -> "Expected struct, got " + (toString t) |> internalfail
+            in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
             let guard = disjunction Metadata.empty gs in
-            [(guard, Struct merged t Metadata.empty)]
+            [(True, Struct merged t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -63,25 +77,33 @@ module internal Merging =
 
     and private typedMerge gvs t =
         match t with
-        | Bool -> boolMerge gvs
-        // TODO: merge generalizations too
-        | StructType _
-        | ClassType _ ->
-            structMerge t gvs
+        | BoolMerge -> boolMerge gvs
+        | StructMerge -> structMerge gvs
         // TODO: merge arrays too
-        | Numeric _
-        | String
-        | _ -> gvs
+        | DefaultMerge -> gvs
+
+    and propagateGuard g v =
+        match v.term with
+        | Struct(contents, t) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            (Terms.True, Struct contents' t v.metadata)
+        | Array(lower, constant, contents, lengths, t) ->
+            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            (Terms.True, Array lower constant contents' lengths t v.metadata)
+        | _ -> (g, v)
 
     and private compress = function
         | [] -> []
-        | [_] as gvs -> gvs
-        | [(_, v1); (_, v2)] as gvs when TypeOf v1 = TypeOf v2 -> typedMerge (mergeSame gvs) (TypeOf v1)
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
+        | [(_, v1); (_, v2)] as gvs when mergeTypeOf v1 = mergeTypeOf v2 -> typedMerge (mergeSame gvs) (mergeTypeOf v1)
         | [_; _] as gvs -> gvs
         | gvs ->
             gvs
                 |> mergeSame
-                |> List.groupBy (snd >> TypeOf)
+                |> List.groupBy (snd >> mergeTypeOf)
                 |> List.map (fun (t, gvs) -> typedMerge gvs t)
                 |> List.concat
 
@@ -133,11 +155,36 @@ module internal Merging =
     let internal mergeStates conditions states =
         State.merge conditions states mergeCells
 
-    let internal guardedMap mapper gvs =
+    let internal commonGuardedMapk mapper gvs merge k =
         let gs, vs = List.unzip gvs in
-        vs |> List.map mapper |> List.zip gs |> merge
+        Cps.List.mapk mapper vs (List.zip gs >> merge >> k)
 
-    let internal guardedStateMap mapper gvs state =
+    let internal guardedMapk mapper gvs k = commonGuardedMapk mapper gvs merge k
+
+    let internal guardedMap mapper gvs = guardedMapk (Cps.ret mapper) gvs id
+
+    let internal commonGuardedStateMapk mapper gvs state merge k =
         let gs, vs = List.unzip gvs in
-        let vs, states = vs |> List.map mapper |> List.unzip in
-        vs |> List.zip gs |> merge, mergeStates gs states
+        Cps.List.mapk (mapper state) vs (fun vsst ->
+        let vs, states = List.unzip vsst in
+        k (vs |> List.zip gs |> merge, mergeStates gs states))
+
+    let internal guardedStateMapk mapper gvs state k = commonGuardedStateMapk mapper gvs state merge k
+
+    let internal guardedStateMap mapper gvs state = guardedStateMapk (Cps.ret2 mapper) gvs state id
+
+    let internal commonGuardedErroredMapk mapper errorMapper gvs state merge k =
+        let ges, gvs = List.partition (snd >> IsError) gvs in
+        let (egs, es) = List.unzip ges in
+        let (vgs, vs) = List.unzip gvs in
+        let eg = disjunction Metadata.empty egs in
+        Cps.List.mapk (mapper state) vs (fun vsst ->
+        let vs', states = List.unzip vsst in
+        let ges' = es |> List.map errorMapper |> List.zip egs in
+        let gvs' = List.zip vgs vs' |> List.append ges' |> merge in
+        let state' = mergeStates (eg :: vgs) (state :: states) in
+        k (gvs', state'))
+
+    let internal guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
+
+    let internal guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id

@@ -201,24 +201,24 @@ module internal Propositional =
     let internal (|||) x y =
         simplifyOr Metadata.empty x y id
 
-    let internal (===) x y =
+    let internal eq x y =
         simplifyOr Metadata.empty !!x y (fun x' -> simplifyOr Metadata.empty x !!y (fun y' -> simplifyAnd Metadata.empty x' y' id))
 
-    let internal (!==) x y =
-        !! (x === y)
+    let internal neq x y =
+        !! (eq x y)
 
     let internal implies x y mtd =
         simplifyNegation mtd x (fun notX ->
         simplifyOr mtd notX y id)
 
     let internal conjunction mtd = function
-        | SeqNode(x, xs) ->
+        | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
         | _ -> Terms.MakeTrue mtd
 
     let internal disjunction mtd = function
-        | SeqNode(x, xs) ->
+        | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> Terms.MakeFalse mtd

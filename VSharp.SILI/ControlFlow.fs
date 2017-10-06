@@ -12,13 +12,13 @@ and
     [<CustomEquality;NoComparison>]
     StatementResult =
         {result : StatementResultNode; metadata : TermMetadata}
-        override this.ToString() =
-            this.result.ToString()
-        override this.GetHashCode() =
-            this.result.GetHashCode()
-        override this.Equals(o : obj) =
+        override x.ToString() =
+            x.result.ToString()
+        override x.GetHashCode() =
+            x.result.GetHashCode()
+        override x.Equals(o : obj) =
             match o with
-            | :? StatementResult as other -> this.result.Equals(other.result)
+            | :? StatementResult as other -> x.result.Equals(other.result)
             | _ -> false
 
 [<AutoOpen>]
@@ -32,24 +32,24 @@ module internal ControlFlowConstructors =
 
 module internal ControlFlow =
 
-    let rec internal mergeResults condition thenRes elseRes =
+    let rec internal merge2Results condition1 condition2 thenRes elseRes =
         let metadata = Metadata.combine thenRes.metadata elseRes.metadata in
         match thenRes.result, elseRes.result with
         | _, _ when thenRes = elseRes -> thenRes
-        | Return thenVal, Return elseVal -> Return metadata (Merging.merge2Terms condition !!condition thenVal elseVal)
-        | Throw thenVal, Throw elseVal -> Throw metadata (Merging.merge2Terms condition !!condition thenVal elseVal)
+        | Return thenVal, Return elseVal -> Return metadata (Merging.merge2Terms condition1 condition2 thenVal elseVal)
+        | Throw thenVal, Throw elseVal -> Throw metadata (Merging.merge2Terms condition1 condition2 thenVal elseVal)
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
-                |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition ((&&&) g1) v1 fst snd)
+                |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition1 condition2 ((&&&) g1) v1 fst snd)
                 |> List.concat
                 |> Guarded metadata
-        | Guarded gvs1, _ -> mergeGuarded gvs1 condition id elseRes fst snd |> Merging.mergeSame |> Guarded metadata
-        | _, Guarded gvs2 -> mergeGuarded gvs2 condition id thenRes snd fst |> Merging.mergeSame |> Guarded metadata
-        | _, _ -> Guarded metadata [(condition, thenRes); (!!condition, elseRes)]
+        | Guarded gvs1, _ -> mergeGuarded gvs1 condition1 condition2 id elseRes fst snd |> Merging.mergeSame |> Guarded metadata
+        | _, Guarded gvs2 -> mergeGuarded gvs2 condition1 condition2 id thenRes snd fst |> Merging.mergeSame |> Guarded metadata
+        | _, _ -> Guarded metadata [(condition1, thenRes); (condition2, elseRes)]
 
-    and private mergeGuarded gvs cond guard other thenArg elseArg =
+    and private mergeGuarded gvs cond1 cond2 guard other thenArg elseArg =
         let mergeOne (g, v) =
-            let merged = mergeResults cond (thenArg (v, other)) (elseArg (v, other)) in
+            let merged = merge2Results cond1 cond2 (thenArg (v, other)) (elseArg (v, other)) in
             match merged.result with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard (g &&& g2), v2))
             | _ -> List.singleton (guard(g), merged)
@@ -118,7 +118,7 @@ module internal ControlFlow =
         | Throw _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
-            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc &&& g else acc) True gvs in
+            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs in
             let result =
                 match newRes.result with
                 | Guarded gvs' ->
@@ -159,3 +159,14 @@ module internal ControlFlow =
             let mergedGuard = disjunction result.metadata gs in
             let mergedValue = Merging.merge gvs in
             Some(mergedGuard, mergedValue), normal
+
+    let internal mergeResults grs =
+        Merging.guardedMap resultToTerm grs |> throwOrReturn
+
+    let internal unguardResults gvs =
+        let unguard gres =
+            match gres with
+            | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)
+            | _ -> [gres]
+        in
+        gvs |> List.map unguard |> List.concat

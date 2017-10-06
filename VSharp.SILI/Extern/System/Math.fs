@@ -7,6 +7,9 @@ open VSharp
 
 module private MathImpl =
 
+    let (===) t1 t2 = simplifyEqual t1 t2 id
+    let (%%%) t1 t2 = simplifyRemainder false State.empty (t1 |> TypeOf |> Types.ToDotNetType) t1 t2 fst
+
     let impl<'a when 'a : comparison> (concrete: ('a -> 'a)) standFunc (state : State.state) args =
         let arg = List.item 0 args in
         let rec impl term =

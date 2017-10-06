@@ -1,10 +1,15 @@
 ﻿namespace VSharp
 
 open VSharp.Terms
+open VSharp.Types.Constructor
+open Hierarchy
 
 module internal Common =
 
     let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
+
+    let internal simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
+        simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
 
     let rec internal simplifyGenericUnary name state x matched concrete unmatched =
         match x.term with
@@ -32,31 +37,34 @@ module internal Common =
             (Merging.merge (List.zip guardsY values'), state) |> matched)
         | _ -> unmatched x y state matched
 
-    and is metadata (leftType : TermType) (rightType : TermType) =
-        let makeBoolConst name termType = Constant name (SymbolicConstantType termType) Bool Metadata.empty
+    type private SymbolicTypeSource(t : TermType) =
+        inherit SymbolicConstantSource()
+
+    let rec is metadata leftType rightType =
+        let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
         in
-        let concreteIs (dotNetType : System.Type) =
-            let b = makeBoolConst dotNetType.FullName (ClassType(dotNetType, [], [])) in
+        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
+            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
             function
-            | Types.ReferenceType(t, _, _)
-            | Types.StructureType(t, _ ,_) -> Terms.MakeBool (t = dotNetType) metadata
-            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | ReferenceType(t, _, _)
+            | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
+            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
                 implies (makeBoolConst name termType) b metadata
-            | SubType(t, _, _, _) when not <| t.IsAssignableFrom(dotNetType) -> Terms.MakeFalse metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetType.IsAssignableFrom(typedefof<obj>)) metadata
+            | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
+            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         in
-        let subTypeIs (dotNetType: System.Type, rightName) =
-            let b = makeBoolConst rightName (SubType(dotNetType, [], [], rightName)) in
+        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
+            let b = makeBoolConst rightName rightTermType in
             function
-            | Types.ReferenceType(t, _, _) -> Terms.MakeBool (dotNetType.IsAssignableFrom(t)) metadata
-            | Types.StructureType(t, _, _) -> Terms.MakeBool (dotNetType = typedefof<obj> || dotNetType = typedefof<System.ValueType>) metadata
-            | SubType(t, _, _, _) when dotNetType.IsAssignableFrom(t) -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when t.IsAssignableFrom(dotNetType) ->
+            | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
+            | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
+            | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
+            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
                 implies (makeBoolConst name termType) b metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetType.IsAssignableFrom(typedefof<obj>)) metadata
+            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             | _ -> __notImplemented__()
         in
         match leftType, rightType with
@@ -67,7 +75,7 @@ module internal Common =
         | Func _, Func _ -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(_, 0) -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(t2, c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | leftType, Types.StructureType(t, _, _)
-        | leftType, Types.ReferenceType(t, _, _) -> concreteIs t leftType
-        | leftType, SubType(t, _, _, name) -> subTypeIs (t, name) leftType
+        | leftType, (StructureType(t, _, _) as termType)
+        | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
+        | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
         | _ -> Terms.MakeFalse metadata
