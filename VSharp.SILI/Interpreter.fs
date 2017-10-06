@@ -89,28 +89,8 @@ module internal Interpreter =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
         match decompiledMethod with
         | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
-            if metadataMethod.IsInternalCall then
-                // TODO: internal calls should pass throught CallGraph.call too
-                printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
-                let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
-                if externalImplementations.ContainsKey(fullMethodName) then
-                    let mtd = State.mkMetadata caller state in
-                    currentInternalCallMetadata <- mtd
-                    reduceFunctionSignature mtd (MetadataMethodIdentifier metadataMethod) state decompiledMethod.Signature this parameters (fun (argsAndThis, state) ->
-                    internalCall metadataMethod argsAndThis state k)
-                elif concreteExternalImplementations.ContainsKey(fullMethodName) then
-                    match parameters with
-                    | State.Specified parameters ->
-                        let parameters' =
-                            match this with
-                            | Some term -> term::parameters
-                            | None -> parameters
-                        in reduceDecompiledMethod caller state None (State.Specified parameters') concreteExternalImplementations.[fullMethodName] (fun state k' -> k' (NoResult Metadata.empty, state)) k
-                    | _ -> internalfail "internal call with unspecified parameters!"
-                else __notImplemented__()
-            else
-                printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-                reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoResult Metadata.empty, state)) k
+            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+            reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoResult Metadata.empty, state)) k
         | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
         | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
         | DecompilerServices.DecompilationResult.ObjectConstuctor _
@@ -154,13 +134,37 @@ module internal Interpreter =
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
         let returnType = FromGlobalSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType) in
-        let invoke state k =
+        let metadataMethod = ast.MetadataMethod in
+        let qualifiedTypeName = ast.MetadataMethod.DeclaringType.AssemblyQualifiedName in
+        let invoke (ast : IDecompiledMethod) state k =
             initializerInvoke state (fun (result, state) ->
             reduceBlockStatement state ast.Body (fun (result', state') ->
             ControlFlow.composeSequentially result result' state state' |> k))
         in
         let mtd = State.mkMetadata caller state in
-        reduceFunction mtd state this parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature invoke k
+        if metadataMethod.IsInternalCall then
+            // TODO: internal calls should pass throught CallGraph.call too
+            printfn "INTERNAL CALL OF %s.%s" qualifiedTypeName metadataMethod.Name
+            let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
+            if externalImplementations.ContainsKey(fullMethodName) then
+                let mtd = State.mkMetadata caller state in
+                currentInternalCallMetadata <- mtd
+                reduceFunctionSignature mtd (MetadataMethodIdentifier metadataMethod) state ast.Signature this parameters (fun (argsAndThis, state) ->
+                internalCall metadataMethod argsAndThis state k)
+            elif concreteExternalImplementations.ContainsKey(fullMethodName) then
+                match parameters with
+                | State.Specified parameters ->
+                    let parameters' =
+                        match this with
+                        | Some term -> term::parameters
+                        | None -> parameters
+                    in
+                    let extrn = concreteExternalImplementations.[fullMethodName]
+                    reduceFunction mtd state None (State.Specified parameters') returnType (MetadataMethodIdentifier extrn.MetadataMethod) extrn.Signature (invoke extrn) k
+                | _ -> internalfail "internal call with unspecified parameters!"
+            else __notImplemented__()
+        else
+            reduceFunction mtd state this parameters returnType (MetadataMethodIdentifier ast.MetadataMethod) ast.Signature (invoke ast) k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName in
