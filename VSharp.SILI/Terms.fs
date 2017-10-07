@@ -118,11 +118,6 @@ type public TermNode =
                             | LazyInstantiator(constant, _) -> sprintf "%s: " <| toString constant
                         else sprintf "%s: "printed
                 sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
-//                sprintf "%s: [|%s ... %s ... |]" printed (arrayContentsToString contents indent) (Heap.values dimensions |> Seq.map toString |> join " x ")
-//            | Array(_, _, [], contents, dimensions, _) ->
-//                sprintf "[|%s ... %s ... |]" (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
-//            | Array(_, _, Some constant, contents, dimensions, _) ->
-//                sprintf "%O: [|%s (%s) |]" constant (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
             | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
             | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
@@ -227,6 +222,7 @@ module public Terms =
             t.metadata.misc.Add obj |> ignore
         let isEmpty m = List.isEmpty m.origins
         let firstOrigin m = List.head m.origins
+        let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
 
     let public term (term : Term) = term.term
 
@@ -240,7 +236,9 @@ module public Terms =
     let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
     let public HeapRef path time metadata = { term = HeapRef(path, time); metadata = metadata }
     let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
-    let public Union metadata gvs = { term = Union gvs; metadata = metadata }
+    let public Union metadata gvs =
+//        assert(List.length gvs > 0)
+        { term = Union gvs; metadata = metadata }
 
     let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
 

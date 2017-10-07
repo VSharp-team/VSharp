@@ -476,23 +476,8 @@ module internal Interpreter =
 
 // ------------------------------- Conditional operations -------------------------------
 
-    and reduceConditionalExecution state conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
-        let execution conditionState condition k =
-            thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
-            elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = merge2 condition !!condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
-            k (result, state)))
-        in
-        conditionInvocation state (fun (condition, conditionState) ->
-        match condition with
-        | Terms.True ->  thenBranch conditionState k
-        | Terms.False -> elseBranch conditionState k
-        | UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
-        | _ -> execution conditionState condition k)
-
     and reduceConditionalStatements state conditionInvocation thenBranch elseBranch k =
-         reduceConditionalExecution state conditionInvocation thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
+         Common.reduceConditionalExecution state conditionInvocation thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
 
     and npeOrInvokeStatement caller state isStatic reference statement k =
         if isStatic then statement state k
@@ -518,7 +503,7 @@ module internal Interpreter =
             k
 
     and reduceConditionalExpression state (ast : IConditionalExpression) k =
-        reduceConditionalExecution state
+        Common.reduceConditionalExecution state
             (fun state k -> reduceExpression state ast.Condition k)
             (fun state k -> reduceExpression state ast.Then k)
             (fun state k -> reduceExpression state ast.Else k)

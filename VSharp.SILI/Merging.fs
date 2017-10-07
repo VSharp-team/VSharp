@@ -23,18 +23,24 @@ module internal Merging =
         | Terms.GuardedValues(gs, _) -> disjunction term.metadata gs
         | _ -> Terms.MakeTrue term.metadata
 
-    let private boolMerge = function
+    let rec private boolMerge = function
         | [] -> []
-        | [_] as gvs -> gvs
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
         | [(g1, v1); (g2, v2)] -> [(g1 ||| g2, (g1 &&& v1) ||| (g2 &&& v2))]
         | (g, v)::gvs ->
             let guard = List.fold (|||) g (List.map fst gvs) in
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
             [(guard, value)]
 
-    let rec private structMerge = function
+    and private structMerge = function
         | [] -> []
-        | [_] as gvs -> gvs
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
         | (x :: _) as gvs ->
             let t = x |> snd |> TypeOf in
             assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
@@ -49,7 +55,10 @@ module internal Merging =
 
     and private arrayMerge = function
         | [] -> []
-        | [_] as gvs -> gvs
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
         | (x :: _) as gvs ->
             let t = x |> snd |> TypeOf in
             assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
@@ -60,7 +69,7 @@ module internal Merging =
             in
             let ds, lows, inits, contents, lengths =
                 vs |> Seq.map extractArrayInfo
-                |> Seq.fold (fun (da, lwa, ia, ca, la) (d, lw, i, c, l) -> (d::da, lw::lwa, i::ia, c::ca, l::la)) ([], [], [], [], [])
+                |> fun info ->  Seq.foldBack (fun (d, lw, i, c, l) (da, lwa, ia, ca, la) -> (d::da, lw::lwa, i::ia, c::ca, l::la)) info ([], [], [], [], [])
             in
             let d = List.head ds
             assert(ds |> Seq.forall ((=) d))
@@ -201,8 +210,8 @@ module internal Merging =
 
     let internal commonGuardedErroredMapk mapper errorMapper gvs state merge k =
         let ges, gvs = List.partition (snd >> IsError) gvs in
-        let (egs, es) = List.unzip ges in
-        let (vgs, vs) = List.unzip gvs in
+        let egs, es = List.unzip ges in
+        let vgs, vs = List.unzip gvs in
         let eg = disjunction Metadata.empty egs in
         Cps.List.mapk (mapper state) vs (fun vsst ->
         let vs', states = List.unzip vsst in
@@ -214,3 +223,7 @@ module internal Merging =
     let internal guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
 
     let internal guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id
+
+    let internal unguardTerm = function
+        | {term = Union gvs} -> gvs
+        | term -> [True, term]

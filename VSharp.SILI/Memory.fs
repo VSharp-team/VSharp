@@ -127,7 +127,9 @@ module internal Memory =
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
             in
-            addrEqual &&& typeEqual, addrs
+            match addrEqual with
+            | True -> addrEqual, addrs
+            | _ -> addrEqual &&& typeEqual, addrs
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
@@ -354,36 +356,21 @@ module internal Memory =
         else (reference, state)
 
     let internal referenceArrayLowerBound metadata arrayRef indices =
-        Metadata.addMisc indices Arrays.ArrayIndicesType.LowerBounds
-        referenceSubLocation (indices, Arrays.lengthTermType) arrayRef
+        let newIndices = { indices with metadata = Metadata.clone indices.metadata}
+        Metadata.addMisc newIndices Arrays.ArrayIndicesType.LowerBounds
+        referenceSubLocation (newIndices, Arrays.lengthTermType) arrayRef
 
     let internal referenceArrayLength metadata arrayRef indices =
-        Metadata.addMisc indices Arrays.ArrayIndicesType.Lengths
-        referenceSubLocation (indices, Arrays.lengthTermType) arrayRef
+        let newIndices = { indices with metadata = Metadata.clone indices.metadata}
+        Metadata.addMisc newIndices Arrays.ArrayIndicesType.Lengths
+        referenceSubLocation (newIndices, Arrays.lengthTermType) arrayRef
 
     let linearIndex indices =
         let mtd = Metadata.empty in
         Seq.foldi (fun s i index -> mul mtd (MakeNumber i mtd) s |> add mtd index) (Concrete 0 Arrays.lengthTermType mtd) indices
 
-//    let physicalIndex mtd state arrayRef (lowerBounds : SymbolicHeap) indices =
-//        let intToTerm i = MakeNumber i mtd in
-//        let mkRef location = HeapRef ((location, VSharp.Array.lengthTermType), []) ZeroTime mtd in
-//        let idOfDimensions = Seq.init (List.length indices) (intToTerm >> mkRef) in
-//        let lowerBoundsState = State.withHeap State.empty lowerBounds in
-//        let normalizedIndices, newLowerBoundsState =
-//            Cps.Seq.mapFold2 (fun s index key ->
-//            let r, s' = deref mtd s key in
-//            sub mtd index r, s') lowerBoundsState indices idOfDimensions id in
-//        let _, state =
-//            hierarchicalAccess
-//                (fun arr time ->
-//                    match arr.term with
-//                    | Array(d, _, i, c, l, t) -> Array d (State.heapOf newLowerBoundsState) i c l t mtd, time
-//                    | t -> internalfail ("accessing index of non-array term " + toString t))
-//                mtd state arrayRef
-//        linearIndex normalizedIndices, state
-
-    let internal checkIndices mtd state arrayRef dimension (lowerBounds : SymbolicHeap) (lengths : SymbolicHeap) indices =
+    let internal checkIndices mtd state arrayRef dimension indices =
+        let derefForCast = derefWith (fun m s t -> Concrete null Null m, s)
         let lt = Arrays.lengthTermType in
         let intToTerm i = MakeNumber i mtd in
         let dimensionBounds = Arithmetics.simplifyEqual mtd dimension (Terms.MakeNumber (List.length indices) mtd) id in
@@ -398,26 +385,50 @@ module internal Memory =
                     let up = add mtd low len in
                     let bigEnough = Arithmetics.simplifyGreaterOrEqual mtd idx low id in
                     let smallEnough = Arithmetics.simplifyLess mtd idx up id in
-                    bigEnough &&& smallEnough)
+                    (bigEnough &&& smallEnough))
                 indices lowerBoundsList lengthsList
-        in dimensionBounds &&& conjunction mtd bounds, state''
+            |> List.ofSeq
+        in conjunction mtd (dimensionBounds :: bounds) , state''
 
     let internal referenceArrayIndex metadata state arrayRef indices =
-        // TODO: what about followHeapRefs?
         let array, state = deref metadata state arrayRef in
-        match array.term with
-        | Error _ -> (array, state)
-        | Array(dimension, lowerBounds, _, _, lengths, ArrayType(elementType, _)) ->
-            let inBounds, state' = checkIndices metadata state arrayRef dimension lowerBounds lengths indices in
-            let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length
-            Metadata.addMisc location Arrays.ArrayIndicesType.Contetns
-            let reference = referenceSubLocation (location, elementType) arrayRef in
-            match inBounds with
-            | True -> (reference, state')
-            | _ ->
-                let exn, state'' = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state' in
-                Merging.merge2Terms inBounds !!inBounds reference (Error exn metadata), Merging.merge2States inBounds !!inBounds state state''
-        | t -> internalfail ("accessing index of non-array term " + toString t)
+        // TODO: what about followHeapRefs?
+        let rec getReference state term =
+            match term.term with
+            | Error _ -> (term, state)
+            | Array(dimension, _, _, _, _, ArrayType(elementType, _)) ->
+                Common.reduceConditionalExecution state
+                    (fun state k -> k (checkIndices metadata state arrayRef dimension indices))
+                    (fun state k ->
+                        let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length in
+                        let newLocation = { location with metadata = Metadata.clone location.metadata}
+                        Metadata.addMisc newLocation Arrays.ArrayIndicesType.Contetns
+                        k (referenceSubLocation (newLocation, elementType) arrayRef, state))
+                    (fun state k ->
+                        let exn, state = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state
+                        in k (Error exn metadata, state))
+                    Merging.merge Merging.merge2Terms id id
+            | Union gvs -> Merging.guardedStateMap getReference gvs state 
+            | t -> internalfail ("accessing index of non-array term " + toString t)
+        in
+        getReference state array
+//
+//    let internal referenceArrayIndex metadata state arrayRef indices =
+//        // TODO: what about followHeapRefs?
+//        let array, state = deref metadata state arrayRef in
+//        match array.term with
+//        | Error _ -> (array, state)
+//        | Array(dimension, lowerBounds, _, _, lengths, ArrayType(elementType, _)) ->
+//            let inBounds, state' = checkIndices metadata state arrayRef dimension lowerBounds lengths indices in
+//            let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length
+//            Metadata.addMisc location Arrays.ArrayIndicesType.Contetns
+//            let reference = referenceSubLocation (location, elementType) arrayRef in
+//            match inBounds with
+//            | True -> (reference, state')
+//            | _ ->
+//                let exn, state'' = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state' in
+//                Merging.merge2Terms inBounds !!inBounds reference (Error exn metadata), Merging.merge2States inBounds !!inBounds state state''
+//        | t -> internalfail ("accessing index of non-array term " + toString t)
 
     let internal derefLocalVariable metadata state id =
         referenceLocalVariable metadata state id false |> deref metadata state

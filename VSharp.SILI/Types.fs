@@ -38,6 +38,7 @@ type public TermType =
         | StructType(t, _, _)
         | ClassType (t, _, _) -> toString t
         | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t
+        | ArrayType(t, Some 1) -> t.ToString() + "[*]"
         | ArrayType(t, Some rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(t, None) -> "System.Array"
         | PointerType t -> sprintf "<Pointer to %O>" t
@@ -420,6 +421,9 @@ module public Types =
         let (|ReferenceType|_|) = function
             | String -> Some(ReferenceType(Hierarchy typedefof<string>, [], getInterfaces Global typedefof<string>))
             | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
+            | TermType.ArrayType (_, Some _) as arr ->
+                let t = ToDotNetType arr
+                Some(Hierarchy t, [], getInterfaces Global t)
             | _ -> None
 
         let (|ComplexType|_|) = function
