@@ -159,7 +159,7 @@ module internal Interpreter =
                         | Some term -> term::parameters
                         | None -> parameters
                     in
-                    let extrn = concreteExternalImplementations.[fullMethodName]
+                    let extrn = concreteExternalImplementations.[fullMethodName] in
                     reduceFunction mtd state None (State.Specified parameters') returnType (MetadataMethodIdentifier extrn.MetadataMethod) extrn.Signature (invoke extrn) k
                 | _ -> internalfail "internal call with unspecified parameters!"
             else __notImplemented__()
