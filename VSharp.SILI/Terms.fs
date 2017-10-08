@@ -173,7 +173,8 @@ type public TermNode =
 
         toStr -1 false "\t" x
 
-and [<StructuralEquality;NoComparison>]
+and
+    [<StructuralEquality;NoComparison>]
     ArrayInstantiator =
         | DefaultInstantiator of TermType
         | LazyInstantiator of Term * TermType
@@ -236,9 +237,7 @@ module public Terms =
     let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
     let public HeapRef path time metadata = { term = HeapRef(path, time); metadata = metadata }
     let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
-    let public Union metadata gvs =
-//        assert(List.length gvs > 0)
-        { term = Union gvs; metadata = metadata }
+    let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
     let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
 

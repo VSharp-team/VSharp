@@ -4,27 +4,55 @@ open FSharpx.Collections
 
 type Timestamp = uint32
 type MemoryCell<'a> when 'a : equality = 'a * Timestamp * Timestamp  // Value * Creation timestamp * Modification timestamp
-type Heap<'a, 'b> when 'a : equality and 'b : equality = PersistentHashMap<'a, MemoryCell<'b>>
+
+[<CustomEquality;NoComparison>]
+type public Heap<'a, 'b> when 'a : equality and 'b : equality =
+    {heap : PersistentHashMap<'a, MemoryCell<'b>>}
+    static member Empty() = {heap = PersistentHashMap<'a, MemoryCell<'b>>.Empty()}
+    member x.Length = x.heap.Length
+    member x.ContainsKey(key) = x.heap.ContainsKey(key)
+    member x.Add(pair) = {heap = x.heap.Add(pair)}
+    member x.Remove(key) = x.heap.Remove(key)
+    member x.Item
+        with get key = x.heap.[key]
+    static member ofSeq(items) = {heap = PersistentHashMap<'a, MemoryCell<'b>>.ofSeq(items)}
+    member x.Iterator() = x.heap.Iterator()
+
+    interface System.Collections.Generic.IEnumerable<'a*MemoryCell<'b>> with
+        member x.GetEnumerator () =
+          x.Iterator().GetEnumerator()
+
+    interface System.Collections.IEnumerable with
+        member x.GetEnumerator () =
+          (x.Iterator().GetEnumerator())
+            :> System.Collections.IEnumerator
+
+    override x.GetHashCode() = x.heap :> seq<'a * MemoryCell<'b>> |> List.ofSeq |> fun l -> l.GetHashCode()
+
+    override x.Equals(o : obj) =
+        match o with
+        | :? Heap<'a, 'b> as h -> x.GetHashCode() = h.GetHashCode()
+        | _ -> false
 
 module public Heap =
 
-    let public empty<'a, 'b when 'a : equality and 'b : equality> : Heap<'a, 'b> = PersistentHashMap.empty<'a, MemoryCell<'b>>
+    let public empty<'a, 'b when 'a : equality and 'b : equality> : Heap<'a, 'b> = Heap<'a, 'b>.Empty()
 
-    let public contains key (h : Heap<'a, 'b>) = PersistentHashMap.containsKey key h
+    let public ofSeq  = Heap<'a, 'b>.ofSeq
+    let public toSeq (h : Heap<'a, 'b>) = h :> seq<'a * MemoryCell<'b>>
+
+    let public contains key (h : Heap<'a, 'b>) = h.ContainsKey key
     let public find key (h : Heap<'a, 'b>) = h.[key]
-    let public add key value (h : Heap<'a, 'b>) = PersistentHashMap.add key value h
+    let public add key value (h : Heap<'a, 'b>) = h.Add(key, value)
 
     let public size (h : Heap<'a, 'b>) = h.Length
 
     let public map mapper (h : Heap<'a, 'b>) : Heap<'a, 'c> =
-        h |> PersistentHashMap.toSeq |> Seq.map (fun (k, v) -> k, mapper k v) |> PersistentHashMap.ofSeq
+        h |> toSeq |> Seq.map (fun (k, v) -> k, mapper k v) |> ofSeq
     let public fold folder state (h : Heap<'a, 'b>) =
-        h |> PersistentHashMap.toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
+        h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public mapFold folder state (h : Heap<'a, 'b>) =
-        h |> PersistentHashMap.toSeq |> Seq.mapFold (fun state (k, v) -> folder state k v) state |> fun (r, s) -> PersistentHashMap.ofSeq r, s
-
-    let public ofSeq = PersistentHashMap.ofSeq
-    let public toSeq (h : Heap<'a, 'b>) = PersistentHashMap.toSeq h
+        h |> toSeq |> Seq.mapFold (fun state (k, v) -> folder state k v) state |> fun (r, s) -> ofSeq r, s
 
     let public locations (h : Heap<'a, 'b>) = h |> toSeq |> Seq.map fst
     let public values (h : Heap<'a, 'b>) = h |> toSeq |> Seq.map (snd >> fst3)
@@ -56,7 +84,7 @@ module public Heap =
 
     let public toString format separator keyMapper valueMapper sorter (h : Heap<'a, 'b>) =
         let elements =
-            h |> PersistentHashMap.toSeq
+            h |> toSeq
             |> Seq.map (fun (k, (v, _, _)) -> k, v)
             |> Seq.sortBy sorter
             |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v)) in

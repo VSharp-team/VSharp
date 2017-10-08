@@ -127,9 +127,7 @@ module internal Memory =
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
             in
-            match addrEqual with
-            | True -> addrEqual, addrs
-            | _ -> addrEqual &&& typeEqual, addrs
+            addrEqual &&& typeEqual, addrs
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
@@ -408,7 +406,7 @@ module internal Memory =
                         let exn, state = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state
                         in k (Error exn metadata, state))
                     Merging.merge Merging.merge2Terms id id
-            | Union gvs -> Merging.guardedStateMap getReference gvs state 
+            | Union gvs -> Merging.guardedStateMap getReference gvs state
             | t -> internalfail ("accessing index of non-array term " + toString t)
         in
         getReference state array
