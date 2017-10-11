@@ -1,4 +1,5 @@
 ﻿namespace VSharp
+open System.Collections.Immutable
 open VSharp.Utils
 open VSharp.Types
 
@@ -9,13 +10,15 @@ module internal State =
     type internal heap = SymbolicHeap
     type internal staticMemory = SymbolicHeap
     type internal pathCondition = Term list
-    type internal stackFrame = (FunctionIdentifier * pathCondition) option * (StackKey * TermMetadata * TermType option) list * Timestamp
-    type internal frames = Stack.stack<stackFrame> * StackHash
-    type internal state = stack * heap * staticMemory * frames * pathCondition
+    type internal entry = { key : StackKey; mtd : TermMetadata; typ : TermType option }
+    type internal stackFrame = { func : (FunctionIdentifier * pathCondition) option; entries : list<entry> ; time : Timestamp }
+    type internal frames = { f : Stack.stack<stackFrame>; sh : StackHash }
+    type internal miscellaneous = ImmutableHashSet<obj>
+    type internal state = { stack : stack; heap : heap; statics : staticMemory; frames : frames; pc : pathCondition; misc : miscellaneous }
 
 // ------------------------------- Primitives -------------------------------
 
-    let internal empty : state = (MappedStack.empty, SymbolicHeap.empty, SymbolicHeap.empty, (Stack.empty, List.empty), List.empty)
+    let internal empty : state = { stack = MappedStack.empty; heap = SymbolicHeap.empty; statics = SymbolicHeap.empty; frames = { f = Stack.empty; sh = List.empty }; pc = List.empty; misc = miscellaneous.Empty}
 
     type internal 'a SymbolicValue =
         | Specified of 'a
@@ -32,85 +35,89 @@ module internal State =
         | StaticRef(name, _) -> toString name
         | l -> "requested name of an unexpected location " + (toString l) |> internalfail
 
-    let internal readStackLocation ((s, _, _, _, _) : state) key = MappedStack.find key s
-    let internal readHeapLocation ((_, h, _, _, _) : state) key = h.[key] |> fst3
-    let internal readStaticLocation ((_, _, m, _, _) : state) key = m.[key] |> fst3
+    let internal readStackLocation (s : state) key = MappedStack.find key s.stack
+    let internal readHeapLocation (s : state) key = s.heap.[key] |> fst3
+    let internal readStaticLocation (s : state) key = s.statics.[key] |> fst3
 
-    let internal isAllocatedOnStack ((s, _, _, _, _) : state) key = MappedStack.containsKey key s
-    let internal staticMembersInitialized ((_, _, m, _, _) : state) typeName =
-        SymbolicHeap.contains (Terms.MakeStringKey typeName) m
+    let internal isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
+    let internal staticMembersInitialized (s : state) typeName =
+        SymbolicHeap.contains (Terms.MakeStringKey typeName) s.statics
 
-    let internal newStackFrame time metadata ((s, h, m, (f, sh), p) : state) funcId frame : state =
+    let internal newStackFrame time metadata (s : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> ((key, metadata, typ), MappedStack.push key (term, time, time) map)
-            | Unspecified -> ((key, metadata, typ), MappedStack.reserve key map)
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         in
-        let frameMetadata = Some(funcId, p) in
-        let locations, newStack = frame |> List.mapFold pushOne s in
-        let f' = Stack.push f (frameMetadata, locations, time) in
-        let sh' = frameMetadata.GetHashCode()::sh in
-        (newStack, h, m, (f', sh'), p)
+        let frameMetadata = Some(funcId, s.pc) in
+        let locations, newStack = frame |> List.mapFold pushOne s.stack in
+        let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time } in
+        let sh' = frameMetadata.GetHashCode()::s.frames.sh in
+        { s with stack = newStack; frames = {f = f'; sh = sh'} }
 
-    let internal newScope time metadata ((s, h, m, (f, sh), p) : state) frame : state =
+    let internal newScope time metadata (s : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> ((key, metadata, typ), MappedStack.push key (term, time, time) map)
-            | Unspecified -> ((key, metadata, typ), MappedStack.reserve key map)
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         in
-        let locations, newStack = frame |> List.mapFold pushOne s in
-        (newStack, h, m, (Stack.push f (None, locations, time), sh), p)
+        let locations, newStack = frame |> List.mapFold pushOne s.stack in
+        { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
 
-    let internal pushToCurrentStackFrame ((s, _, _, _, _) : state) key value = MappedStack.push key value s
-    let internal popStack ((s, h, m, (f, sh), p) : state) : state =
-        let popOne (map : stack) (name, _, _) = MappedStack.remove map name
-        let metadata, locations, _ = Stack.peak f in
-        let f' = Stack.pop f in
+    let internal pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
+    let internal popStack (s : state) : state =
+        let popOne (map : stack) entry = MappedStack.remove map entry.key
+        let { func = metadata; entries = locations; time = _ } = Stack.peak s.frames.f in
+        let f' = Stack.pop s.frames.f in
+        let sh = s.frames.sh in
         let sh' =
             match metadata with
             | Some _ ->
                 assert(not <| List.isEmpty sh)
                 List.tail sh
             | None -> sh
-        (List.fold popOne s locations, h, m, (f', sh'), p)
+        { s with stack = List.fold popOne s.stack locations; frames = { f = f'; sh = sh'} }
 
-    let internal writeStackLocation ((s, h, m, f, p) : state) key value : state =
-        (MappedStack.add key value s, h, m, f, p)
+    let internal writeStackLocation (s : state) key value : state =
+        { s with stack = MappedStack.add key value s.stack }
 
-    let internal frameTime ((_, _, _, (f, _), _) : state) key =
-        match List.tryFind (snd3 >> List.exists (fst3 >> ((=) key))) f with
-        | Some(_, _, t) -> t
+    let inline getEntriesOfFrame f = f.entries
+    let inline getKeyOfEntry en = en.key
+
+    let internal frameTime (s : state) key =
+        match List.tryFind (getEntriesOfFrame >> List.exists (getKeyOfEntry >> ((=) key))) s.frames.f with
+        | Some { func = _; entries = _; time = t} -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal typeOfStackLocation ((_, _, _, (f, _), _) : state) key =
-        let forMatch = List.tryPick (snd3 >> List.tryPick (fun (l, _, t) -> if l = key then Some t else None)) f
+    let internal typeOfStackLocation (s : state) key =
+        let forMatch = List.tryPick (getEntriesOfFrame >> List.tryPick (fun { key = l; mtd = _; typ = t } -> if l = key then Some t else None)) s.frames.f
         match forMatch with
         | Some (Some t) -> t
         | Some None -> internalfailf "unknown type of stack location %O!" key
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let internal metadataOfStackLocation ((_, _, _, (f, _), _) : state) key =
-        match List.tryPick (snd3 >> List.tryPick (fun (l, m, _) -> if l = key then Some m else None)) f with
+    let internal metadataOfStackLocation (s : state) key =
+        match List.tryPick (getEntriesOfFrame >> List.tryPick (fun { key = l; mtd = m; typ = _ } -> if l = key then Some m else None)) s.frames.f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let internal compareStacks s1 s2 = MappedStack.compare (fun key value -> StackRef key [] Metadata.empty) fst3 s1 s2
 
-    let internal withPathCondition ((s, h, m, f, p) : state) cond : state = (s, h, m, f, cond::p)
-    let internal popPathCondition ((s, h, m, f, p) : state) : state =
-        match p with
+    let internal withPathCondition (s : state) cond : state = { s with pc = cond::s.pc }
+    let internal popPathCondition (s : state) : state =
+        match s.pc with
         | [] -> internalfail "cannot pop empty path condition"
-        | _::p' -> (s, h, m, f, p')
+        | _::p' -> { s with pc = p' }
 
-    let private stackOf ((s, _, _, _, _) : state) = s
-    let internal heapOf ((_, h, _, _, _) : state) = h
-    let internal staticsOf ((_, _, m, _, _) : state) = m
-    let private framesOf ((_, _, _, f, _) : state) = f
-    let private framesHashOf ((_, _, _, (_, h), _) : state) = h
-    let internal pathConditionOf ((_, _, _, _, p) : state) = p
+    let private stackOf (s : state) = s.stack
+    let internal heapOf (s : state) = s.heap
+    let internal staticsOf (s : state) = s.statics
+    let private framesOf (s : state) = s.frames
+    let private framesHashOf (s : state) = s.frames.sh
+    let internal pathConditionOf (s : state) = s.pc
 
-    let internal withHeap ((s, h, m, f, p) : state) h' = (s, h', m, f, p)
-    let internal withStatics ((s, h, m, f, p) : state) m' = (s, h, m', f, p)
+    let internal withHeap (s : state) h' = { s with heap = h' }
+    let internal withStatics (s : state) m' = { s with statics = m' }
 
     let private staticKeyToString = term >> function
         | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName
@@ -138,21 +145,22 @@ module internal State =
         let fql = StackRef key [] metadata in
         (genericLazyInstantiator metadata time fql t (), time, time)
 
-    let internal dumpMemory ((_, h, m, _, _) : state) =
-        let sh = Heap.dump h toString in
-        let mh = Heap.dump m staticKeyToString in
+    let internal dumpMemory (s : state) =
+        let sh = Heap.dump s.heap toString in
+        let mh = Heap.dump s.statics staticKeyToString in
         let separator = if System.String.IsNullOrWhiteSpace(sh) then "" else "\n"
         sh + separator + mh
 
 // ------------------------------- Merging -------------------------------
 
-    let internal merge2 ((s1, h1, m1, f1, p1) as state : state) ((s2, h2, m2, f2, p2) : state) resolve : state =
-        assert(p1 = p2)
-        assert(f1 = f2)
-        let mergedStack = MappedStack.merge2 s1 s2 resolve (stackLazyInstantiator state) in
-        let mergedHeap = Heap.merge2 h1 h2 resolve in
-        let mergedStatics = Heap.merge2 m1 m2 resolve in
-        (mergedStack, mergedHeap, mergedStatics, f1, p1)
+    let internal merge2 (s1 : state) (s2 : state) resolve : state =
+        assert(s1.pc = s2.pc)
+        assert(s1.frames = s2.frames)
+        let mergedStack = MappedStack.merge2 s1.stack s2.stack resolve (stackLazyInstantiator s1) in
+        let mergedHeap = Heap.merge2 s1.heap s2.heap resolve in
+        let mergedStatics = Heap.merge2 s1.statics s2.statics resolve in
+        let mergedMisc = s1.misc.Union s2.misc in
+        { s1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; misc = mergedMisc }
 
     let internal merge guards states resolve : state =
         assert(List.length states > 0)
@@ -164,4 +172,5 @@ module internal State =
         let mergedStack = MappedStack.merge guards (List.map stackOf states) resolve (stackLazyInstantiator first) in
         let mergedHeap = Heap.merge guards (List.map heapOf states) resolve in
         let mergedStatics = Heap.merge guards (List.map staticsOf states) resolve in
-        (mergedStack, mergedHeap, mergedStatics, frames, path)
+        let mergedMisc = states |> List.tail |> List.fold (fun (acc : miscellaneous) s -> acc.Union s.misc) first.misc in
+        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; misc = mergedMisc }

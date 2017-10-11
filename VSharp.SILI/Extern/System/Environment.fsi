@@ -8,4 +8,4 @@ open VSharp
 module Environment =
 
     [<Implements("System.String System.Environment.GetResourceFromDefault(System.String)")>]
-    val GetResourceFromDefault : State.state -> Term list -> StatementResult * State.state
+    val internal GetResourceFromDefault : State.state -> Term list -> StatementResult * State.state

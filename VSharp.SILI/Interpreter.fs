@@ -63,7 +63,7 @@ module internal Interpreter =
                     | _ -> __unreachable__()))
         dict
 
-    let rec internalCall metadataMethod argsAndThis ((s, h, m, f, p) as state : State.state) k =
+    let rec internalCall metadataMethod argsAndThis (s : State.state) k =
         let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
         let k' (result, state) = k (result, State.popStack state) in
         let methodInfo = externalImplementations.[fullMethodName] in
@@ -75,8 +75,8 @@ module internal Interpreter =
         let parameters : obj[] =
             // Sometimes F# compiler merges tuple with the rest arguments!
             match methodInfo.GetParameters().Length with
-            | 2 -> [| state; argsAndThis |]
-            | 6 -> [| s; h; m; f; p; argsAndThis |]
+            | 2 -> [| s; argsAndThis |]
+            | 6 -> [| s.stack; s.heap; s.statics; s.frames; s.pc; argsAndThis |]
             | _ -> __notImplemented__()
         let result = methodInfo.Invoke(null, parameters) in
         match result with
@@ -1413,7 +1413,7 @@ module internal Interpreter =
         __notImplemented__()
 
 
-type Activator() =
+type internal Activator() =
     interface State.IActivator with
         member x.CreateInstance mtd exceptionType arguments state =
             let assemblyQualifiedName = exceptionType.AssemblyQualifiedName in
@@ -1440,7 +1440,7 @@ type Activator() =
             let caller = (Metadata.firstOrigin mtd).location in
             Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
-type SymbolicInterpreter() =
+type internal SymbolicInterpreter() =
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
 
         member x.Initialize state k =

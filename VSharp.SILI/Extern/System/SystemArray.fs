@@ -5,7 +5,7 @@ open VSharp
 
 // ------------------------------- mscorelib.System.Array -------------------------------
 
-module SystemArray =
+module internal SystemArray =
 
     let private indexOutOfRangeException state = CreateInstance typeof<IndexOutOfRangeException> [] state
 

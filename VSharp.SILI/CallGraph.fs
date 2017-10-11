@@ -1,18 +1,17 @@
 ﻿namespace VSharp
 
 module CallGraph =
-    type private Frame = FunctionIdentifier * Term list
 
-    let private detectUnboundRecursion id ((_, _, _, (frames, _), pathCondition) : State.state) =
-        let isRecursiveFrame (metadata, _, _) =
-            match metadata with
+    let private detectUnboundRecursion id (s : State.state) =
+        let isRecursiveFrame (frame : State.stackFrame) =
+            match frame.func with
             | Some(id', _) when id = id' -> true
             | _ -> false
         in
-        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame frames in
+        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f in
         match bottomOccurence with
         | None -> false
-        | Some(Some(_, p'), _, _) when pathCondition = p' ->
+        | Some { func = Some(_, p'); entries = _; time =  _ } when s.pc = p' ->
             match Options.RecursionUnrollingMode() with
             | Options.AlwaysDisableUnrolling -> true
             | _ -> false

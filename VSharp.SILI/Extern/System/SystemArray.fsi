@@ -5,7 +5,7 @@ open VSharp
 
 // ------------------------------- mscorelib.System.Array -------------------------------
 
-module SystemArray =
+module internal SystemArray =
 
     [<Implements("System.Int32 System.Array.GetLength(this, System.Int32)")>]
     val GetLength : State.state -> Term list -> StatementResult * State.state
