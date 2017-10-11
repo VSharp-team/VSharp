@@ -142,5 +142,25 @@ namespace VSharp.CSharpUtils.Tests
             }
             return arr.Length;
         }
+
+        public static int RetArrayLength1(System.Array arr)
+        {
+            if (arr is int[])
+            {
+                var arrOne = arr as int[];
+                arrOne[1] = 5;
+            }
+            if (arr is int[,])
+            {
+                var arrOne = arr as int[,];
+                arrOne[1,1] = 7;
+            }
+            if (arr is int[,,])
+            {
+                var arrOne = arr as int[,,];
+                arrOne[1,1,1] = 42;
+            }
+            return arr.Length;
+        }
     }
 }

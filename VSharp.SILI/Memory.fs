@@ -275,17 +275,24 @@ module internal Memory =
         | HeapRef(((addr, t) as location, path), time) ->
             let mkFirstLocation location = HeapRef ((location, t), []) time term.metadata in
             let firstLocation = HeapRef (location, []) time term.metadata in
-            let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
-            match isNull with
-            | Terms.True -> actionNull metadata state t
-            | Terms.False ->
+            Common.reduceConditionalExecution state
+                (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id, state))
+                (fun state k -> k (actionNull metadata state t))
+                (fun state k ->
                 let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                result, withHeap state h'
-            | _ ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                let notNullCaseState = withHeap state h' in
-                let nullCaseResult, state' = actionNull metadata state t in
-                Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
+                k (result, withHeap state h'))
+                Merging.merge Merging.merge2Terms id id
+//            let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
+//            match isNull with
+//            | Terms.True -> actionNull metadata state t
+//            | Terms.False ->
+//                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+//                result, withHeap state h'
+//            | _ ->
+//                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+//                let notNullCaseState = withHeap state h' in
+//                let nullCaseResult, state' = actionNull metadata state t in
+//                Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 

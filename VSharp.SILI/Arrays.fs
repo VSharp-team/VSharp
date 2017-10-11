@@ -202,4 +202,3 @@ module internal Arrays =
         in
         let contents = Seq.zip indices linearContent |> Heap.ofSeq in
         Array (MakeNumber rank mtd) length (zeroLowerBound mtd rank) [Terms.True, DefaultInstantiator elemTyp] contents lengths typ mtd
-   \
