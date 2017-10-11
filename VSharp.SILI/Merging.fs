@@ -64,20 +64,22 @@ module internal Merging =
             assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs in
             let extractArrayInfo = term >> function
-                | Array(dim, lower, init, contents, lengths, _) -> (dim, lower, init, contents, lengths)
+                | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
                 | t -> "Expected array, got " + (toString t) |> internalfail
             in
-            let ds, lows, inits, contents, lengths =
+            let ds, lens, lows, inits, contents, lengths =
                 vs |> Seq.map extractArrayInfo
-                |> fun info ->  Seq.foldBack (fun (d, lw, i, c, l) (da, lwa, ia, ca, la) -> (d::da, lw::lwa, i::ia, c::ca, l::la)) info ([], [], [], [], [])
+                |> fun info ->  Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
             in
-            let d = List.head ds
-            assert(ds |> Seq.forall ((=) d))
+            let d = List.head ds in
+            let l = List.head lens in
+            assert(Seq.forall ((=) d) ds)
+            assert(Seq.forall ((=) l) lens)
             let mergedLower = Heap.merge gs lows mergeCells in
             let mergedContents = Heap.merge gs contents mergeCells in
             let mergedLengths = Heap.merge gs lengths mergeCells in
             let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame in
-            [(True, Array d mergedLower mergedInit mergedContents mergedLengths t Metadata.empty)]
+            [(True, Array d l mergedLower mergedInit mergedContents mergedLengths t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -120,11 +122,11 @@ module internal Merging =
         | Struct(contents, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             (Terms.True, Struct contents' t v.metadata)
-        | Array(dimension, lower, constant, contents, lengths, t) ->
+        | Array(dimension, len, lower, constant, contents, lengths, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             let lower' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
             let lengths' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
-            (Terms.True, Array dimension lower' constant contents' lengths' t v.metadata)
+            (Terms.True, Array dimension len lower' constant contents' lengths' t v.metadata)
         | _ -> (g, v)
 
     and private compress = function

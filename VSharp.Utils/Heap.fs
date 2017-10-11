@@ -1,5 +1,7 @@
 namespace VSharp
 
+open System.Collections
+open System.Collections.Generic
 open FSharpx.Collections
 
 type Timestamp = uint32
@@ -18,14 +20,13 @@ type public Heap<'a, 'b> when 'a : equality and 'b : equality =
     static member ofSeq(items) = {heap = PersistentHashMap<'a, MemoryCell<'b>>.ofSeq(items)}
     member x.Iterator() = x.heap.Iterator()
 
-    interface System.Collections.Generic.IEnumerable<'a*MemoryCell<'b>> with
+    interface IEnumerable<'a*MemoryCell<'b>> with
         member x.GetEnumerator () =
           x.Iterator().GetEnumerator()
 
-    interface System.Collections.IEnumerable with
+    interface IEnumerable with
         member x.GetEnumerator () =
-          (x.Iterator().GetEnumerator())
-            :> System.Collections.IEnumerator
+          x.Iterator().GetEnumerator() :> IEnumerator
 
     override x.GetHashCode() = x.heap :> seq<'a * MemoryCell<'b>> |> List.ofSeq |> fun l -> l.GetHashCode()
 
@@ -84,7 +85,8 @@ module public Heap =
 
     let public toString format separator keyMapper valueMapper sorter (h : Heap<'a, 'b>) =
         let elements =
-            h |> toSeq
+            h
+            |> toSeq
             |> Seq.map (fun (k, (v, _, _)) -> k, v)
             |> Seq.sortBy sorter
             |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v)) in

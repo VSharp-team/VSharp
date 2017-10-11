@@ -8,7 +8,7 @@ module ExternSDK =
     let public Error term = Error term (m())
     let public Concrete obj typ = Concrete obj typ (m())
     let public Constant name source typ = Constant name source typ (m())
-    let public Array dimension lower constant contents lengths typ = Array dimension lower constant contents lengths typ (m())
+    let public Array dimension length lower constant contents lengths typ = Array dimension length lower constant contents lengths typ (m())
     let public Expression op args typ = Expression op args typ (m())
     let public Struct fields typ = Struct fields typ (m())
     let public StackRef key path = StackRef key path (m())
@@ -46,5 +46,5 @@ module ExternSDK =
         let referenceArrayLowerBound arrayRef index = Memory.referenceArrayLowerBound (m()) arrayRef index
 
     module VSharp =
-        module Array =
+        module Arrays =
             let length term = Arrays.length (m()) term

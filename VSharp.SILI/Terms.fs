@@ -41,10 +41,11 @@ type public TermNode =
     | Concrete of Object * TermType
     | Constant of string * SymbolicConstantSource * TermType
     | Array of Term                                       // Dimension
+               * Term                                     // Length
                * SymbolicHeap                             // Lower bounds
-               * (Term * ArrayInstantiator) list          // Lower bounds, lengths and element instantiator with guards
+               * (Term * ArrayInstantiator) list          // Element instantiator with guards
                * SymbolicHeap                             // Contents
-               * SymbolicHeap                             // Lengths of dimensions
+               * SymbolicHeap                             // Lengths by dimensions
                * TermType                                 // Type
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
@@ -101,15 +102,17 @@ type public TermNode =
             | Struct(fields, t) ->
                 let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent) (fst >> toString) fields in
                 sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
-            | Array(_, _, instantiators, contents, dimensions, _) ->
+            | Array(_, _, _, instantiators, contents, dimensions, _) ->
                 let tryGetConstant = function
                     | DefaultInstantiator t -> sprintf "default of %s" (toString t)
                     | LazyInstantiator(constant, _) -> toString constant
-                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r)
+                in
+                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
                 let guardedToString (guard, str) =
                     let guardString = toStringWithParentIndent indent guard in
                     sprintf "| %s ~> %s" guardString str
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
+                in
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent) in
                 let printedOne =
                     if List.length instantiators = 1
                         then 
@@ -117,7 +120,7 @@ type public TermNode =
                             | DefaultInstantiator _ -> ""
                             | LazyInstantiator(constant, _) -> sprintf "%s: " <| toString constant
                         else sprintf "%s: "printed
-                sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
+                in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
             | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
             | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
@@ -127,8 +130,9 @@ type public TermNode =
                     let guardString = toStringWithParentIndent indent guard in
                     let termString = toStringWithParentIndent indent term in
                     sprintf "| %s ~> %s" guardString termString
+                in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+                in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
@@ -146,18 +150,20 @@ type public TermNode =
                 match key.term with
                 | Array _ -> indicesArrayToString parentIndent key
                 | _ -> toStringWithParentIndent parentIndent key
+            in
             let stringResult = Heap.toString "%O: %O" separator keyMapper mapper (fun (k, v) -> sprintf "%O: %O" (keyMapper k) (mapper v)) contents in
             match stringResult with
             | _ when String.IsNullOrEmpty stringResult -> stringResult
             | _ -> "\n" + parentIndent + stringResult + separator
 
         and indicesArrayToString parentIndent = (fun t -> t.term) >> function
-            | Array(d, _, instantiators, contents, _, _) ->
+            | Array(d, _, _, instantiators, contents, _, _) ->
                 assert(List.length instantiators = 1)
                 let printed =
                     match List.head instantiators |> snd with
                     | DefaultInstantiator _ -> ""
                     | LazyInstantiator(constant, _) -> sprintf "%s: " <| toString constant
+                in
                 match d.term with
                 | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
                 | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
@@ -231,7 +237,7 @@ module public Terms =
     let public Error term metadata = { term = Error term; metadata = metadata }
     let public Concrete obj typ metadata = { term = Concrete(obj, typ); metadata = metadata }
     let public Constant name source typ metadata = { term = Constant(name, source, typ); metadata = metadata }
-    let public Array dimension lower constant contents lengths typ metadata = { term = Array(dimension, lower, constant, contents, lengths, typ); metadata = metadata }
+    let public Array dimension length lower constant contents lengths typ metadata = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
     let public Expression op args typ metadata = { term = Expression(op, args, typ); metadata = metadata }
     let public Struct fields typ metadata = { term = Struct(fields, typ); metadata = metadata }
     let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
@@ -321,7 +327,7 @@ module public Terms =
         | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
         | HeapRef(addrs, _) ->
             addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
-        | Array(_, _, _, _, _, t) -> t
+        | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
             | [] -> TermType.Bottom
@@ -490,14 +496,16 @@ module public Terms =
             match mapper acc term with
             | Some value -> value::acc
             | None -> acc
-        | Array(dimension, lowerBounds, constant, contents, lengths, _) ->
+        | Array(dimension, len, lowerBounds, constant, contents, lengths, _) ->
             let tryGetValue instantiator =
                 match instantiator with
                 | DefaultInstantiator _ -> None
                 | LazyInstantiator(t, _) -> Some t
+            in
             constant |> Seq.choose (snd >> tryGetValue)
             |> fun terms -> addConstantsMany mapper visited terms acc
             |> fun acc -> addConstants mapper visited acc dimension
+            |> fun acc -> addConstants mapper visited acc len
             |> addConstantsMany mapper visited (Heap.locations lowerBounds)
             |> addConstantsMany mapper visited (Heap.values lowerBounds)
             |> addConstantsMany mapper visited (Heap.locations contents)

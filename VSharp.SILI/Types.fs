@@ -12,6 +12,11 @@ type public Variance =
     | Invarinat
 
 [<StructuralEquality;NoComparison>]
+type public ArrayDimensionType =
+    | ConcreteDimension of int
+    | SymbolicDimension of string
+
+[<StructuralEquality;NoComparison>]
 type public TermType =
     | Void
     | Bottom
@@ -22,7 +27,7 @@ type public TermType =
     | StructType of Hierarchy * TermTypeRef list * TermType list // some value type with generic argument and interfaces
     | ClassType of Hierarchy * TermTypeRef list * TermType list // some reference type with generic argument and interfaces
     | SubType of Hierarchy * TermTypeRef list * TermType list * string //some symbolic type with generic argument, interfaces and constraint
-    | ArrayType of TermType * int option
+    | ArrayType of TermType * ArrayDimensionType
     | Func of TermType list * TermType
     | PointerType of TermType
 
@@ -37,10 +42,10 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
         | ClassType (t, _, _) -> toString t
-        | SubType(t, _, _, name) -> sprintf "<Subtype of %O>" t
-        | ArrayType(t, Some 1) -> t.ToString() + "[*]"
-        | ArrayType(t, Some rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
-        | ArrayType(t, None) -> "System.Array"
+        | SubType(t, _, _, _) -> sprintf "<Subtype of %O>" t
+        | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
+        | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
+        | ArrayType(t, SymbolicDimension name) -> "System.Array"
         | PointerType t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;NoComparison>]
@@ -171,8 +176,8 @@ module public Types =
         | StructType(t, _, _)
         | ClassType(t, _, _)
         | SubType(t, _, _, _) -> t
-        | ArrayType(t, None) -> typedefof<System.Array>
-        | ArrayType(t, Some rank) -> (ToDotNetType t).MakeArrayType(rank)
+        | ArrayType(t, SymbolicDimension _) -> typedefof<System.Array>
+        | ArrayType(t, ConcreteDimension rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
 
@@ -308,7 +313,7 @@ module public Types =
             | n when numericTypes.Contains(n) -> Numeric n
             | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
-            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, Some <| a.GetArrayRank())
+            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke") in
@@ -353,7 +358,7 @@ module public Types =
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
             fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj>, None)
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj>, SymbolicDimension "System.Array")
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
@@ -370,7 +375,6 @@ module public Types =
 
         and private fromDotNetTypeRef (typeKind : TypeKind) dotNetType =
             let key = dotNetType, typeKind in
-            let name = getIdFromDotNetType typeKind dotNetType in
             let res =
                 if TypesCache.Contains key then TypesCache.Find key
                 else
@@ -379,7 +383,8 @@ module public Types =
                     TypesCache.Embody key termType
             in
             match !res with
-            | SubType(t, a, p, _) -> ref <| SubType t a p name
+            | SubType(t, a, p, _) -> ref <| SubType t a p (getIdFromDotNetType typeKind dotNetType)
+            | ArrayType(e, SymbolicDimension _) -> ref <| ArrayType(e, SymbolicDimension <| getIdFromDotNetType typeKind dotNetType)
             | _ -> res
 
         let private FromDotNetType termTypeParameter dotNetType = ! (fromDotNetTypeRef termTypeParameter dotNetType)
@@ -394,7 +399,7 @@ module public Types =
                 FromDotNetType typeKind arg
             | :? IMetadataArrayType as a ->
                 let elementType = FromMetadataType typeKind a.ElementType |> PointerFromReferenceType in
-                ArrayType(elementType, a.Rank |> int |> Some)
+                ArrayType(elementType, a.Rank |> int |> ConcreteDimension)
             | :? IMetadataClassType as ct ->
                 let dotnetType = MetadataToDotNetType ct in
                 FromDotNetType typeKind dotnetType
@@ -421,8 +426,8 @@ module public Types =
         let (|ReferenceType|_|) = function
             | String -> Some(ReferenceType(Hierarchy typedefof<string>, [], getInterfaces Global typedefof<string>))
             | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
-            | TermType.ArrayType (_, Some _) as arr ->
-                let t = ToDotNetType arr
+            | TermType.ArrayType (_, ConcreteDimension _) as arr ->
+                let t = ToDotNetType arr in
                 Some(Hierarchy t, [], getInterfaces Global t)
             | _ -> None
 

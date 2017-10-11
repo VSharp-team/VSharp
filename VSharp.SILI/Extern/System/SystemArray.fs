@@ -27,7 +27,7 @@ module SystemArray =
         let getLength state dimension term =
             match term.term with
             | Error _ -> (term, state)
-            | Array(d, _, _, _, _, _) ->
+            | Array(d, _, _, _, _, _, _) ->
                 let lowerBound = Concrete 0 Arrays.lengthTermType in
                 checkBounds state lowerBound d dimension
                     (fun state k ->
@@ -48,7 +48,7 @@ module SystemArray =
         let rec getRank term =
             match term.term with
             | Error _ -> term
-            | Array(d, _, _, _, _, _) -> d
+            | Array(d, _, _, _, _, _, _) -> d
             | Union gvs -> Merging.guardedMap getRank gvs
             | term -> internalfailf "expected array, but %O got!" term
         in (Return (getRank array), state)
@@ -58,7 +58,7 @@ module SystemArray =
 
     let get_Length state args =
         let array, state = Memory.deref state (List.head args) in
-        (Return (VSharp.Array.length array), state)
+        (Return (VSharp.Arrays.length array), state)
 
     let GetLowerBound state args =
         let this, dimension = List.item 0 args, List.item 1 args in
@@ -66,7 +66,7 @@ module SystemArray =
         let getLowerBound state dimension term =
             match term.term with
             | Error _ -> (term, state)
-            | Array(d, _, _, _, _, _) ->
+            | Array(d, _, _, _, _, _, _) ->
                 let lowerBound = Concrete 0 Arrays.lengthTermType in
                 checkBounds state lowerBound d dimension
                     (fun state k ->

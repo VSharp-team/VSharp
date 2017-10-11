@@ -13,7 +13,7 @@ module internal Pointers =
         | _ -> __notImplemented__()
 
     let internal comparePath mtd path1 path2 =
-        //TODO: Can need do something with "locations"?
+        //TODO: In general case comparinson can change location, but skipping it for now
         if List.length path1 <> List.length path2 then
             Terms.MakeFalse mtd //, (path1, path2)
         else

@@ -25,7 +25,7 @@ module internal State =
 
     let internal nameOfLocation = term >> function
         | HeapRef((_, (x, _)::xs), _) -> toString x
-        | HeapRef(((_, t), _), _) -> toString t
+        | HeapRef(((x, _), _), _) -> toString x
         | StackRef((name, _), x::_) -> sprintf "%s.%O" name x
         | StackRef((name, _), _) -> name
         | StaticRef(name, x::_) -> sprintf "%O.%O" name x

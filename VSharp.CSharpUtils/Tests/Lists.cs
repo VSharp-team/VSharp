@@ -97,5 +97,50 @@ namespace VSharp.CSharpUtils.Tests
             var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.Rank;
         }
+
+        public static int[] RetOneDArray1(bool flag1, bool flag2)
+        {
+            int[] arr = new int[5];
+            if (flag1)
+            {
+                arr[1] = 42;
+            }
+            else if (flag2)
+            {
+                arr[1] = 89;
+            }
+            return arr;
+        }
+
+        public static int[] RetOneDArray2(int n)
+        {
+            int[] arr = new int[n];
+            if (n == 5)
+            {
+                arr[4] = 99;
+                arr[1] = 42;
+            }
+            if (n == 8)
+            {
+                arr[1] = 89;
+                arr[7] = 66;
+            }
+            return arr;
+        }
+
+        public static int RetArrayLength(System.Array arr)
+        {
+            if (arr is int[])
+            {
+                var arrOne = arr as int[];
+                arrOne[1] = 5;
+            }
+            else if (arr is int[,])
+            {
+                var arrOne = arr as int[,];
+                arrOne[1,1] = 7;
+            }
+            return arr.Length;
+        }
     }
 }

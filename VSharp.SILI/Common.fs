@@ -50,8 +50,8 @@ module internal Common =
             | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
             | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
                 implies (makeBoolConst name termType) b metadata
-            | ArrayType (t, None) as termType ->
-                implies (makeBoolConst "System.Array" termType) b metadata
+            | ArrayType (t, SymbolicDimension name) as termType ->
+                implies (makeBoolConst name termType) b metadata
             | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse metadata
@@ -74,14 +74,28 @@ module internal Common =
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | PointerType left, PointerType right -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(_, None) -> Terms.MakeTrue metadata
-        | ArrayType(t1, Some c1), ArrayType(t2, Some c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
+        | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
+        | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
         | leftType, (StructureType(t, _, _) as termType)
         | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
         | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
         | _ -> Terms.MakeFalse metadata
 
-    let internal reduceConditionalExecution state conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
+        let execution condition k =
+            thenBranch (fun thenResult ->
+            elseBranch (fun elseResult ->
+            k <| merge2 condition !!condition thenResult elseResult))
+        in
+        conditionInvocation (fun condition ->
+        match condition with
+        | Terms.True ->  thenBranch k
+        | Terms.False -> elseBranch k
+        | Terms.ErrorT e -> k condition
+        | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
+        | _ -> execution condition k)
+
+    let internal reduceConditionalExecution (state : State.state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
@@ -90,9 +104,14 @@ module internal Common =
             k (result, state)))
         in
         conditionInvocation state (fun (condition, conditionState) ->
+        let pathCondition =
+            Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
+            |> Merging.unguardTerm |> Merging.merge
+        match pathCondition with
+        | False -> 
         match condition with
         | Terms.True ->  thenBranch conditionState k
         | Terms.False -> elseBranch conditionState k
-        | Terms.ErrorT e -> k (errorHandler e, conditionState)
+        | Terms.ErrorT _ as e -> k (errorHandler e, conditionState)
         | UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
         | _ -> execution conditionState condition k)
