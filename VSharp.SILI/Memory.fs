@@ -427,22 +427,25 @@ module internal Memory =
     let internal newStackFrame state metadata funcId frame = State.newStackFrame (tick()) metadata state funcId frame
     let internal newScope state frame = State.newScope (tick()) state frame
 
-    let internal allocateOnStack metadata ((s, h, m, (f, sh), p) as state : state) key term : state =
+    let internal allocateOnStack metadata (s : state) key term : state =
         let time = tick() in
-        let frameMetadata, oldFrame, frameTime = Stack.peak f in
-        (pushToCurrentStackFrame state key (term, time, time), h, m, (Stack.updateHead f (frameMetadata, (key, metadata, None)::oldFrame, frameTime), sh), p)
+        let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peak s.frames.f in
+        let newStack = pushToCurrentStackFrame s key (term, time, time) in
+        let newEntries = { key = key; mtd = metadata; typ = None } in
+        let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime } in
+        { s with stack = newStack; frames = { s.frames with f = stackFrames } }
 
-    let internal allocateInHeap metadata ((s, h, m, f, p) : state) term : Term * state =
+    let internal allocateInHeap metadata (s : state) term : Term * state =
         let address = Concrete (freshAddress()) pointerType metadata in
         Metadata.addMisc address AddressMarker
         let time = tick() in
         let pointer = HeapRef ((address, Terms.TypeOf term), []) time metadata in
-        (pointer, (s, h.Add(address, (term, time, time)), m, f, p))
+        (pointer, { s with heap = s.heap.Add(address, (term, time, time)) } )
 
-    let internal allocateInStaticMemory metadata ((s, h, m, f, p) : state) typeName term =
+    let internal allocateInStaticMemory metadata (s : state) typeName term =
         let time = tick() in
         let address = Terms.MakeConcreteString typeName metadata in
-        (s, h, m.Add(address, (term, time, time)), f, p)
+        { s with  statics = s.statics.Add(address, (term, time, time)) }
 
     let internal allocateSymbolicInstance metadata state t =
         match t with

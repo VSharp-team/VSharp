@@ -39,8 +39,6 @@ module internal Arrays =
         makeArray mtd length contents instantiator
 
     let internal makeSymbolicIntegerArray mtd length symbolicValue =
-        let zero = MakeZeroAddress mtd in
-        let lowerBound = Heap.add zero (zero, State.zeroTime, State.zeroTime) Heap.empty in
         let instantiator = [Terms.True, LazyInstantiator (symbolicValue, lengthTermType)] in
         makeArray mtd length Heap.empty instantiator
 
