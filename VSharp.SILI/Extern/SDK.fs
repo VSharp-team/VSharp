@@ -47,4 +47,4 @@ module ExternSDK =
 
     module VSharp =
         module Arrays =
-            let length term = VSharp.Arrays.length (m()) term
+            let length term = Arrays.length (m()) term

@@ -114,9 +114,9 @@ module internal Memory =
 
     let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
-        if locationTime > pointerTime then Terms.MakeFalse mtd, (pointerAddr, locationAddr)
+        if locationTime > pointerTime then Terms.MakeFalse mtd
         else
-            let addrEqual, addrs = Pointers.locationEqual mtd pointerAddr locationAddr in
+            let addrEqual = Pointers.locationEqual mtd locationAddr pointerAddr in
             let typeSuits v =
                 let locationType = TypeOf v in
                 Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
@@ -127,7 +127,7 @@ module internal Memory =
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
             in
-            addrEqual &&& typeEqual, addrs
+            addrEqual &&& typeEqual
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
@@ -139,24 +139,23 @@ module internal Memory =
             (lazyInstance, writeStackLocation state location lazyInstance)
 
     let private findSuitableLocations mtd h ptr ptrType ptrTime =
-        let folderMapKey (acc, ptr) (k, ((v, created, modified) as cell)) =
-            let guard, (newPtr, newKey) = canPoint mtd ptr ptrType ptrTime k v created in
+        let filterMapKey (k, ((v, created, modified) as cell)) =
+            let guard = canPoint mtd ptr ptrType ptrTime k v created in
             match guard with
-            | False -> (newKey, (v, created, modified)), (acc, newPtr)
-            | _ -> (newKey, (v, created, modified)), ((guard, k, cell) :: acc, newPtr)
+            | False -> None
+            | _ -> Some(guard, k, cell)
         in
-        let newH, gvs, newPtr = h |> Heap.toSeq |> (fun hSeq -> Cps.Seq.mapFold folderMapKey ([], ptr) hSeq (fun (hSeq, (r, newPtr)) -> Heap.ofSeq hSeq, r |> List.rev, newPtr)) in
+        let gvs = h |> Heap.toSeq |> List.ofSeq |> List.filterMap filterMapKey in
         let baseGvs, restGvs = gvs |> List.partition (fst3 >> IsTrue) in
         assert(List.length baseGvs <= 1)
-        (List.tryHead baseGvs, restGvs), (newH, newPtr)
+        List.tryHead baseGvs, restGvs
 
     let rec private heapDeref metadata time instantiateLazy h ptr ptrType ptrTime =
         let exists = Heap.contains ptr h in
         if IsConcrete ptr && exists then
             [(MakeTrue metadata, ptr, Heap.find ptr h)], h
         else
-            let (baseGav, restGavs), (h, ptr) = findSuitableLocations metadata h ptr ptrType ptrTime in
-            //TODO: In general case comparinson can change ptr, but skipping it for now
+            let baseGav, restGavs = findSuitableLocations metadata h ptr ptrType ptrTime in
             let baseGuard = restGavs |> List.map (fst3 >> (!!)) |> conjunction metadata in
             let baseAddr, baseValue, h' =
                 match baseGav with
@@ -192,7 +191,7 @@ module internal Memory =
                 let id = sprintf "%s.GetLowerBound(%s)" (toString constant) (toString idx) in
                 makeSymbolicInstance metadata time (ArrayLowerBoundLazyInstantiation (location, false, array, idx)) id Arrays.lengthTermType
 
-    let private arrayLengthLazyInstantiator metadata time location array dim idx = function
+    let private arrayLengthLazyInstantiator metadata time location array idx = function
         | DefaultInstantiator concreteType -> fun () -> MakeNumber 1 metadata
         | LazyInstantiator(constant, _) -> fun () ->
             let id = sprintf "%s.GetLength(%s)" (toString constant) (toString idx) in
@@ -217,24 +216,23 @@ module internal Memory =
                 in result, Struct newFields t term.metadata, newTime
             | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
                 let ctx' = referenceSubLocation location ctx in
+                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata modified ctx' term key c ()) constant in
+                let newHeap heap key instantiator = accessHeap metadata guard update heap created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path' in
                 match key with
                 | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.LowerBounds ->
-                    let _ = key.metadata.misc.Remove(Arrays.ArrayIndicesType.LowerBounds) in
-                    let instantiator = always <| Merging.guardedMap (fun c -> arrayLowerBoundLazyInstantiator term.metadata modified ctx' term key c ()) constant in
-                    let result, newLower, newTime =
-                        accessHeap metadata guard update lower created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.LowerBounds) |> ignore
+                    let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
+                    let result, newLower, newTime = newHeap lower key instantiator
                     in result, Array dimension length newLower constant contents lengths arrTyp term.metadata, newTime
                 | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.Lengths ->
-                    let _ = key.metadata.misc.Remove(Arrays.ArrayIndicesType.Lengths) in
-                    let instantiator = always <| Merging.guardedMap (fun c -> arrayLengthLazyInstantiator term.metadata modified ctx' term dimension key c ()) constant in
-                    let result, newLengths, newTime =
-                        accessHeap metadata guard update lengths created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.Lengths) |> ignore
+                    let instantiator = makeInstantiator key arrayLengthLazyInstantiator
+                    let result, newLengths, newTime = newHeap lengths key instantiator
                     in result, Array dimension length lower constant contents newLengths arrTyp term.metadata, newTime
                 | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.Contents ->
-                    let _ = key.metadata.misc.Remove(Arrays.ArrayIndicesType.Contents) in
-                    let instantiator = always <|  Merging.guardedMap (fun c -> arrayElementLazyInstantiator term.metadata modified ctx' term key c ()) constant in
-                    let result, newContents, newTime =
-                        accessHeap metadata guard update contents created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.Contents) |> ignore
+                    let instantiator = makeInstantiator key arrayElementLazyInstantiator
+                    let result, newContents, newTime = newHeap contents key instantiator
                     in result, Array dimension length lower constant newContents lengths arrTyp term.metadata, newTime
                 | _ -> __notImplemented__()
             | Union gvs ->
@@ -279,20 +277,9 @@ module internal Memory =
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id, state))
                 (fun state k -> k (actionNull metadata state t))
                 (fun state k ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                k (result, withHeap state h'))
+                    let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+                    k (result, withHeap state h'))
                 Merging.merge Merging.merge2Terms id id
-//            let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
-//            match isNull with
-//            | Terms.True -> actionNull metadata state t
-//            | Terms.False ->
-//                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-//                result, withHeap state h'
-//            | _ ->
-//                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-//                let notNullCaseState = withHeap state h' in
-//                let nullCaseResult, state' = actionNull metadata state t in
-//                Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 
@@ -379,7 +366,6 @@ module internal Memory =
         Seq.foldi (fun s i index -> mul mtd (MakeNumber i mtd) s |> add mtd index) (Concrete 0 Arrays.lengthTermType mtd) indices
 
     let internal checkIndices mtd state arrayRef dimension (indices : Term list) k =
-        let lt = Arrays.lengthTermType in
         let intToTerm i = MakeNumber i mtd in 
         let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound mtd arrayRef) in
         let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength mtd arrayRef) in

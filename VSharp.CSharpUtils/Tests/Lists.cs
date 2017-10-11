@@ -128,7 +128,7 @@ namespace VSharp.CSharpUtils.Tests
             return arr;
         }
 
-        public static int RetArrayLength(System.Array arr)
+        public static System.Array RetSystemArray1(System.Array arr)
         {
             if (arr is int[])
             {
@@ -140,10 +140,10 @@ namespace VSharp.CSharpUtils.Tests
                 var arrOne = arr as int[,];
                 arrOne[1,1] = 7;
             }
-            return arr.Length;
+            return arr;
         }
 
-        public static int RetArrayLength1(System.Array arr)
+        public static System.Array RetSystemArray2(System.Array arr)
         {
             if (arr is int[])
             {
@@ -160,7 +160,7 @@ namespace VSharp.CSharpUtils.Tests
                 var arrOne = arr as int[,,];
                 arrOne[1,1,1] = 42;
             }
-            return arr.Length;
+            return arr;
         }
     }
 }

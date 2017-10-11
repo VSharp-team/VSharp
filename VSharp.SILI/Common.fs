@@ -112,13 +112,9 @@ module internal Common =
             Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
             |> Merging.unguardTerm |> Merging.merge
         in
-        match thenCondition, elseCondition with
-        | False, _ -> elseBranch conditionState k
-        | _, False -> thenBranch conditionState k
-        | _ ->
-            match condition with
-            | Terms.True ->  thenBranch conditionState k
-            | Terms.False -> elseBranch conditionState k
-            | Terms.ErrorT _ as e -> k (errorHandler e, conditionState)
-            | UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
-            | _ -> execution conditionState condition k)
+        match thenCondition, elseCondition, condition with
+        | False, _, _ -> elseBranch conditionState k
+        | _, False, _ -> thenBranch conditionState k
+        | _, _, (Terms.ErrorT _ as e) -> k (errorHandler e, conditionState)
+        | _, _, UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
+        | _ -> execution conditionState condition k)
