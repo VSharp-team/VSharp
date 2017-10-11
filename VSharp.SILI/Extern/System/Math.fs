@@ -169,7 +169,7 @@ module private MathImpl =
             | term -> internalfail (sprintf "expected number for y, but %O got!" term) in
         (Return (atanY x y), state)
 
-module Math =
+module internal Math =
     let Acos state args = MathImpl.impl<double> Math.Acos Operations.Arccosine state args
     let Asin state args = MathImpl.impl<double> Math.Asin Operations.Arcsine state args
     let Atan state args = MathImpl.impl<double> Math.Atan Operations.Arctangent state args
