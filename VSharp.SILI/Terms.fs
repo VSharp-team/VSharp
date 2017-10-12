@@ -40,11 +40,13 @@ type public TermNode =
     | Error of Term
     | Concrete of Object * TermType
     | Constant of string * SymbolicConstantSource * TermType
-    | Array of Term array               // Lower bounds
-                * Term option           // Symbolic constant (or None if array has default contents)
-                * SymbolicHeap          // Contents
-                * Term array            // Lengths of dimensions
-                * TermType              // Type
+    | Array of Term                                       // Dimension
+               * Term                                     // Length
+               * SymbolicHeap                             // Lower bounds
+               * (Term * ArrayInstantiator) list          // Element instantiator with guards
+               * SymbolicHeap                             // Contents
+               * SymbolicHeap                             // Lengths by dimensions
+               * TermType                                 // Type
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
@@ -76,7 +78,6 @@ type public TermNode =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
-            | Concrete(_, Null) -> "null"
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -99,12 +100,27 @@ type public TermNode =
                         checkExpression isChecked parentChecked operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) id (toStringWithParentIndent indent) fields in
+                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent) (fst >> toString) fields in
                 sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
-            | Array(_, None, contents, dimensions, _) ->
-                sprintf "[|%s ... %s ... |]" (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
-            | Array(_, Some constant, contents, dimensions, _) ->
-                sprintf "%O: [|%s (%s) |]" constant (arrayContentsToString contents indent) (Array.map toString dimensions |> join " x ")
+            | Array(_, _, _, instantiators, contents, dimensions, _) ->
+                let tryGetConstant = function
+                    | DefaultInstantiator t -> sprintf "default of %s" (toString t)
+                    | LazyInstantiator(constant, _) -> toString constant
+                in
+                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
+                let guardedToString (guard, str) =
+                    let guardString = toStringWithParentIndent indent guard in
+                    sprintf "| %s ~> %s" guardString str
+                in
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent) in
+                let printedOne =
+                    match instantiators with
+                    | [_, i] ->
+                        match i with
+                        | DefaultInstantiator _ -> ""
+                        | LazyInstantiator(constant, _) -> sprintf "%O: " constant
+                    | _ -> sprintf "%s: " printed
+                in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
             | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
             | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
@@ -114,23 +130,60 @@ type public TermNode =
                     let guardString = toStringWithParentIndent indent guard in
                     let termString = toStringWithParentIndent indent term in
                     sprintf "| %s ~> %s" guardString termString
+                in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+                in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
         and toStringWithParentIndent parentIndent term = toStr -1 false (extendIndent parentIndent) term.term
 
+        and sortKeyFromTerm = (fun t -> t.term) >> function
+            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
+            | _ -> Int32.MaxValue
+
         and arrayContentsToString contents parentIndent =
             let separator = ";\n" + parentIndent in
             let toString (t : Term) = toStr -1 false (extendIndent parentIndent) t.term in
             let mapper = toStringWithParentIndent parentIndent in
-            let stringResult = Heap.toString "%O: %O" separator mapper mapper contents in
+            let keyMapper key =
+                match key.term with
+                | Array _ -> indicesArrayToString parentIndent key
+                | _ -> toStringWithParentIndent parentIndent key
+            in
+            let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents in
             match stringResult with
             | _ when String.IsNullOrEmpty stringResult -> stringResult
             | _ -> "\n" + parentIndent + stringResult + separator
 
+        and indicesArrayToString parentIndent = (fun t -> t.term) >> function
+            | Array(d, _, _, instantiators, contents, _, _) ->
+                assert(List.length instantiators = 1)
+                let printed =
+                    match List.head instantiators |> snd with
+                    | DefaultInstantiator _ -> ""
+                    | LazyInstantiator(constant, _) -> sprintf "%O: " constant
+                in
+                match d.term with
+                | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
+                | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
+            | _ -> __unreachable__()
+
+        and indicesArrayConcreteContentsToString contents =
+            let separator = ", " in
+            Heap.toString "%s%s" separator (always "") toString (fst >> sortKeyFromTerm) contents
+
+        and indicesArraySymbolicContentsToString contents =
+            let separator = ", " in
+            Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
+
         toStr -1 false "\t" x
+
+and
+    [<StructuralEquality;NoComparison>]
+    ArrayInstantiator =
+        | DefaultInstantiator of TermType
+        | LazyInstantiator of Term * TermType
 
 and
     [<CustomEquality;NoComparison>]
@@ -176,6 +229,7 @@ module public Terms =
             t.metadata.misc.Add obj |> ignore
         let isEmpty m = List.isEmpty m.origins
         let firstOrigin m = List.head m.origins
+        let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
 
     let public term (term : Term) = term.term
 
@@ -183,13 +237,17 @@ module public Terms =
     let public Error term metadata = { term = Error term; metadata = metadata }
     let public Concrete obj typ metadata = { term = Concrete(obj, typ); metadata = metadata }
     let public Constant name source typ metadata = { term = Constant(name, source, typ); metadata = metadata }
-    let public Array lower constant contents lengths typ metadata = { term = Array(lower, constant, contents, lengths, typ); metadata = metadata }
+    let public Array dimension length lower constant contents lengths typ metadata = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
     let public Expression op args typ metadata = { term = Expression(op, args, typ); metadata = metadata }
     let public Struct fields typ metadata = { term = Struct(fields, typ); metadata = metadata }
     let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
     let public HeapRef path time metadata = { term = HeapRef(path, time); metadata = metadata }
     let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
+
+    let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
+
+    let public MakeZeroAddress mtd = Concrete 0 Types.pointerType mtd
 
 
     let public IsVoid = term >> function
@@ -231,8 +289,7 @@ module public Terms =
             | _ -> false
 
     let public IsNull = term >> function
-        | HeapRef(((z, _), _), _) when z.term = TermNode.Concrete(0, Types.pointerType) -> true
-        | Concrete(_, Null) -> true
+        | HeapRef(((z, _), _), _) when z.term = ZeroAddress -> true
         | _ -> false
 
     let public IsStackRef = term >> function
@@ -270,7 +327,7 @@ module public Terms =
         | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
         | HeapRef(addrs, _) ->
             addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
-        | Array(_, _, _, _, t) -> t
+        | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
             | [] -> TermType.Bottom
@@ -322,8 +379,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNull typ metadata time =
-        HeapRef (((Concrete 0 Types.pointerType metadata), typ), []) time metadata
+    let public MakeNullRef typ metadata time =
+        HeapRef (((MakeZeroAddress metadata), typ), []) time metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
@@ -439,14 +496,22 @@ module public Terms =
             match mapper acc term with
             | Some value -> value::acc
             | None -> acc
-        | Array(lowerBounds, constant, contents, lengths, _) ->
-            match constant with
-            | Some c -> addConstants mapper visited acc c
-            | None -> acc
-            |> addConstantsMany mapper visited (Seq.ofArray lowerBounds)
+        | Array(dimension, len, lowerBounds, constant, contents, lengths, _) ->
+            let tryGetValue instantiator =
+                match instantiator with
+                | DefaultInstantiator _ -> None
+                | LazyInstantiator(t, _) -> Some t
+            in
+            constant |> Seq.choose (snd >> tryGetValue)
+            |> fun terms -> addConstantsMany mapper visited terms acc
+            |> fun acc -> addConstants mapper visited acc dimension
+            |> fun acc -> addConstants mapper visited acc len
+            |> addConstantsMany mapper visited (Heap.locations lowerBounds)
+            |> addConstantsMany mapper visited (Heap.values lowerBounds)
             |> addConstantsMany mapper visited (Heap.locations contents)
             |> addConstantsMany mapper visited (Heap.values contents)
-            |> addConstantsMany mapper visited lengths
+            |> addConstantsMany mapper visited (Heap.locations lengths)
+            |> addConstantsMany mapper visited (Heap.values lengths)
         | Expression(_, args, _) ->
             addConstantsMany mapper visited args acc
         | Struct(fields, _) ->

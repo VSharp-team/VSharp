@@ -10,7 +10,6 @@ module internal Memory =
 
     let private pointer = ref 0
     let internal ZeroTime = State.zeroTime
-    let internal NullRefOf typ = MakeNull typ Metadata.empty ZeroTime
     let private infiniteTime : Timestamp = System.UInt32.MaxValue
     let private timestamp = ref ZeroTime
     let private freshAddress () =
@@ -31,6 +30,15 @@ module internal Memory =
     // Marks concrete numeric term as heap address in its metadata
     type private AddressMarker() = class end
 
+    type private ArrayElementLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, array : Term, index : Term) =
+        inherit LazyInstantiation(location, isTopLevelHeapAddress)
+
+    type private ArrayLengthLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, array : Term, dim : Term) =
+        inherit LazyInstantiation(location, isTopLevelHeapAddress)
+
+    type private ArrayLowerBoundLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, array : Term, dim : Term) =
+        inherit LazyInstantiation(location, isTopLevelHeapAddress)
+
     let private isStaticLocation = function
         | StaticRef _ -> true
         | _ -> false
@@ -39,13 +47,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.MakeNull String metadata ZeroTime
-        | PointerType t -> Terms.MakeNull t metadata ZeroTime
-        | ClassType _ as t ->Terms.MakeNull t metadata ZeroTime
-        | ArrayType _ as t -> Terms.MakeNull t metadata ZeroTime
+        | String -> Terms.MakeNullRef String metadata ZeroTime
+        | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
+        | ClassType _ as t ->Terms.MakeNullRef t metadata ZeroTime
+        | ArrayType _ as t -> Terms.MakeNullRef t metadata ZeroTime
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Terms.MakeNull t metadata ZeroTime
-        | Func _ -> Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
+        | SubType _ as t -> Terms.MakeNullRef t metadata ZeroTime
+        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
@@ -81,7 +89,7 @@ module internal Memory =
         | StructType _
         | SubType _
         | ClassType _ as t -> Struct Heap.empty t metadata
-        | ArrayType(e, d) as t -> VSharp.Array.makeSymbolic metadata source d t name
+        | ArrayType(e, d) as t -> Arrays.makeSymbolic metadata source d e t name
         | _ -> __notImplemented__()
 
     let internal genericLazyInstantiator =
@@ -168,11 +176,26 @@ module internal Memory =
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
         makeSymbolicInstance metadata ZeroTime (LazyInstantiation(fullyQualifiedLocation, false)) (toString field) fieldType
 
-    let private arrayElementLazyInstantiator metadata time fullyQualifiedLocation idx typ = function
-        | None -> fun () -> defaultOf time metadata typ
-        | Some constant -> fun () ->
+    let private arrayElementLazyInstantiator metadata time location array idx = function
+        | DefaultInstantiator concreteType -> fun () -> defaultOf time metadata concreteType
+        | LazyInstantiator(constant, concreteType) -> fun () ->
             let id = sprintf "%s[%s]" (toString constant) (toString idx) |> IdGenerator.startingWith in
-            makeSymbolicInstance metadata time (LazyInstantiation(fullyQualifiedLocation, false)) id typ
+            makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id concreteType
+
+    let private arrayLowerBoundLazyInstantiator metadata time location array idx = function
+        | DefaultInstantiator concreteType -> fun () -> defaultOf time metadata Arrays.lengthTermType
+        | LazyInstantiator(constant, _) -> fun () ->
+            match Options.SymbolicArrayLowerBoundStrategy() with
+            | Options.AlwaysZero -> defaultOf time metadata Arrays.lengthTermType
+            | Options.AlwaysSymbolic ->
+                let id = sprintf "%s.GetLowerBound(%s)" (toString constant) (toString idx) in
+                makeSymbolicInstance metadata time (ArrayLowerBoundLazyInstantiation (location, false, array, idx)) id Arrays.lengthTermType
+
+    let private arrayLengthLazyInstantiator metadata time location array idx = function
+        | DefaultInstantiator concreteType -> fun () -> MakeNumber 1 metadata
+        | LazyInstantiator(constant, _) -> fun () ->
+            let id = sprintf "%s.GetLength(%s)" (toString constant) (toString idx) in
+            (makeSymbolicInstance metadata time (ArrayLengthLazyInstantiation(location, false, array, idx)) id Arrays.lengthTermType)
 
     let private staticMemoryLazyInstantiator metadata t location () =
         Struct Heap.empty (FromConcreteDotNetType t) metadata
@@ -186,17 +209,32 @@ module internal Memory =
             match term.term with
             | Error _ -> term, term, modified
             | Struct(fields, t) ->
-                let ctx' = referenceSubLocation (key, typ) ctx in
+                let ctx' = referenceSubLocation location ctx in
                 let instantiator = structLazyInstantiator term.metadata ctx' key typ in
                 let result, newFields, newTime =
                     accessHeap metadata guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key t ptrTime path'
                 in result, Struct newFields t term.metadata, newTime
-            | Array(lower, constant, contents, lengths, (ArrayType(t, _) as typ)) ->
+            | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
                 let ctx' = referenceSubLocation location ctx in
-                let instantiator = arrayElementLazyInstantiator term.metadata modified ctx' key t constant in
-                let result, newContents, newTime =
-                    accessHeap metadata guard update contents created (fun loc -> referenceSubLocation (loc, t) ctx) instantiator key t ptrTime path'
-                in result, Array lower constant newContents lengths typ term.metadata, newTime
+                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata modified ctx' term key c ()) constant in
+                let newHeap heap key instantiator = accessHeap metadata guard update heap created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path' in
+                match key with
+                | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.LowerBounds ->
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.LowerBounds) |> ignore
+                    let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
+                    let result, newLower, newTime = newHeap lower key instantiator
+                    in result, Array dimension length newLower constant contents lengths arrTyp term.metadata, newTime
+                | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.Lengths ->
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.Lengths) |> ignore
+                    let instantiator = makeInstantiator key arrayLengthLazyInstantiator
+                    let result, newLengths, newTime = newHeap lengths key instantiator
+                    in result, Array dimension length lower constant contents newLengths arrTyp term.metadata, newTime
+                | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.Contents ->
+                    key.metadata.misc.Remove(Arrays.ArrayIndicesType.Contents) |> ignore
+                    let instantiator = makeInstantiator key arrayElementLazyInstantiator
+                    let result, newContents, newTime = newHeap contents key instantiator
+                    in result, Array dimension length lower constant newContents lengths arrTyp term.metadata, newTime
+                | _ -> __notImplemented__()
             | Union gvs ->
                 internalfail "unexpected union of complex types! Probably merge function implemented incorrectly."
             | t ->
@@ -235,17 +273,13 @@ module internal Memory =
         | HeapRef(((addr, t) as location, path), time) ->
             let mkFirstLocation location = HeapRef ((location, t), []) time term.metadata in
             let firstLocation = HeapRef (location, []) time term.metadata in
-            let isNull = Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id in
-            match isNull with
-            | Terms.True -> actionNull metadata state t
-            | Terms.False ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                result, withHeap state h'
-            | _ ->
-                let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
-                let notNullCaseState = withHeap state h' in
-                let nullCaseResult, state' = actionNull metadata state t in
-                Merging.merge2Terms isNull !!isNull nullCaseResult result, Merging.merge2States isNull !!isNull state' notNullCaseState
+            Common.reduceConditionalExecution state
+                (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete 0 pointerType metadata) id, state))
+                (fun state k -> k (actionNull metadata state t))
+                (fun state k ->
+                    let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+                    k (result, withHeap state h'))
+                Merging.merge Merging.merge2Terms id id
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
         | t -> internalfailf "expected reference, but got %O" t
 
@@ -281,16 +315,16 @@ module internal Memory =
         referenceTerm state location followHeapRefs term
 
     let rec private referenceFieldOf state field parentRef reference =
-        match reference.term with
-        | Error _ -> reference, state
-        | HeapRef((addr, path), t) ->
+        match reference with
+        | ErrorT _ -> reference, state
+        | { term = HeapRef((addr, path), t) } ->
             assert(List.isEmpty path) // TODO: will this really be always empty?
             HeapRef (addr, [field]) t reference.metadata, state
-        | Struct _ -> referenceSubLocation field parentRef, state
-        | Union gvs -> Merging.guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
-        | Concrete(_, TermType.Null) ->
+        | Null ->
             let term, state = State.activator.CreateInstance reference.metadata typeof<System.NullReferenceException> [] state in
             Error term reference.metadata, state
+        | { term = Struct _ } -> referenceSubLocation field parentRef, state
+        | UnionT gvs -> Merging.guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
         | t -> internalfailf "expected reference or struct, but got %O" t, state
 
     let rec private followOrReturnReference metadata state reference =
@@ -317,21 +351,59 @@ module internal Memory =
         if followHeapRefs then followOrReturnReference metadata state reference
         else (reference, state)
 
-    let internal referenceArrayIndex metadata state arrayRef indices =
-        // TODO: what about followHeapRefs?
+    let internal referenceArrayLowerBound metadata arrayRef indices =
+        let newIndices = { indices with metadata = Metadata.clone indices.metadata} in
+        Metadata.addMisc newIndices Arrays.ArrayIndicesType.LowerBounds
+        referenceSubLocation (newIndices, Arrays.lengthTermType) arrayRef
+
+    let internal referenceArrayLength metadata arrayRef indices =
+        let newIndices = { indices with metadata = Metadata.clone indices.metadata} in
+        Metadata.addMisc newIndices Arrays.ArrayIndicesType.Lengths
+        referenceSubLocation (newIndices, Arrays.lengthTermType) arrayRef
+
+    let linearIndex indices =
+        let mtd = Metadata.empty in
+        Seq.foldi (fun s i index -> mul mtd (MakeNumber i mtd) s |> add mtd index) (Concrete 0 Arrays.lengthTermType mtd) indices
+
+    let internal checkIndices mtd state arrayRef dimension (indices : Term list) k =
+        let intToTerm i = MakeNumber i mtd in 
+        let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound mtd arrayRef) in
+        let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength mtd arrayRef) in
+        Cps.Seq.mapFold (deref mtd) state idOfDimensionsForLowerBounds (fun (lowerBoundsList, state') ->
+        Cps.Seq.mapFold (deref mtd) state' idOfDimensionsForLengths (fun (lengthsList, state'') ->
+        let bounds =
+            Seq.map3
+                (fun idx low len ->
+                    let up = add mtd low len in
+                    Arithmetics.simplifyGreaterOrEqual mtd idx low (fun bigEnough ->
+                    Arithmetics.simplifyLess mtd idx up (fun smallEnough ->
+                    bigEnough &&& smallEnough)))
+                indices lowerBoundsList lengthsList
+            |> List.ofSeq
+        in k (conjunction mtd bounds |> Merging.unguardTerm |> Merging.merge , state'')))
+
+    let internal referenceArrayIndex metadata state arrayRef (indices : Term list) =
         let array, state = deref metadata state arrayRef in
-        match array.term with
-        | Error _ -> (array, state)
-        | Array(lowerBounds, _, _, dimensions, t) ->
-            let inBounds = VSharp.Array.checkIndices metadata lowerBounds dimensions indices in
-            let physicalIndex = VSharp.Array.physicalIndex metadata lowerBounds dimensions indices in
-            let reference = referenceSubLocation (physicalIndex, t) arrayRef in
-            match inBounds with
-            | True -> (reference, state)
-            | _ ->
-                let exn, state' = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state in
-                Merging.merge2Terms inBounds !!inBounds reference (Error exn metadata), Merging.merge2States inBounds !!inBounds state state'
-        | t -> internalfail ("accessing index of non-array term " + toString t)
+        // TODO: what about followHeapRefs?
+        let rec reference state term =
+            match term.term with
+            | Error _ -> (term, state)
+            | Array(dimension, _, _, _, _, _, ArrayType(elementType, _)) ->
+                Common.reduceConditionalExecution state
+                    (fun state k -> checkIndices metadata state arrayRef dimension indices k)
+                    (fun state k ->
+                        let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length in
+                        let newLocation = { location with metadata = Metadata.clone location.metadata}
+                        Metadata.addMisc newLocation Arrays.ArrayIndicesType.Contents
+                        k (referenceSubLocation (newLocation, elementType) arrayRef, state))
+                    (fun state k ->
+                        let exn, state = State.activator.CreateInstance metadata typeof<System.IndexOutOfRangeException> [] state
+                        in k (Error exn metadata, state))
+                    Merging.merge Merging.merge2Terms id id
+            | Union gvs -> Merging.guardedStateMap reference gvs state
+            | t -> internalfail ("accessing index of non-array term " + toString t)
+        in
+        reference state array
 
     let internal derefLocalVariable metadata state id =
         referenceLocalVariable metadata state id false |> deref metadata state

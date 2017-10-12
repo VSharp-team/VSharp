@@ -9,6 +9,7 @@ module internal Pointers =
         match TypeOf addr1, TypeOf addr2 with
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ -> Arithmetics.eq mtd addr1 addr2
+        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
         | _ -> __notImplemented__()
 
     let internal comparePath mtd path1 path2 =
@@ -34,7 +35,7 @@ module internal Pointers =
             (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
 
     let internal isNull mtd ptr =
-        simplifyReferenceEquality mtd ptr (MakeNull Null mtd State.zeroTime) id
+        simplifyReferenceEquality mtd ptr (MakeNullRef Null mtd State.zeroTime) id
 
     let internal simplifyBinaryOperation metadata op state x y k =
         match op with
