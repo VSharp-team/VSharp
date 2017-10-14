@@ -122,11 +122,12 @@ module internal Merging =
         | Struct(contents, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             (Terms.True, Struct contents' t v.metadata)
-        | Array(dimension, len, lower, constant, contents, lengths, t) ->
+        | Array(dimension, len, lower, init, contents, lengths, t) ->
             let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             let lower' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
             let lengths' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
-            (Terms.True, Array dimension len lower' constant contents' lengths' t v.metadata)
+            let init' = List.map (fun (gi, i) -> gi &&& g, i) init
+            (Terms.True, Array dimension len lower' init' contents' lengths' t v.metadata)
         | _ -> (g, v)
 
     and private compress = function
