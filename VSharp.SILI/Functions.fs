@@ -35,7 +35,8 @@ module Functions =
         let private terminationRelatedState = new Dictionary<FunctionIdentifier, Term seq>()
         let private recursiveFunctions = new HashSet<FunctionIdentifier>()
 
-        type IInterpreter =
+        type internal IInterpreter =
+            abstract member Initialize : State.state -> (State.state -> 'a) -> 'a
             abstract member InitializeStaticMembers : State.state -> string -> (StatementResult * State.state -> 'a) -> 'a
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
         type private NullActivator() =
@@ -44,7 +45,9 @@ module Functions =
                     internalfail "interpreter for unbounded recursion is not ready"
                 member x.Invoke _ _ _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
-        let mutable interpreter : IInterpreter = new NullActivator() :> IInterpreter
+                member this.Initialize _ _ =
+                    internalfail "interpreter for unbounded recursion is not ready"
+        let mutable internal interpreter : IInterpreter = new NullActivator() :> IInterpreter
 
         let internal markAsRecursive id =
             recursiveFunctions.Add(id) |> ignore
@@ -69,11 +72,25 @@ module Functions =
         let internal explore id k =
             let metadata = Metadata.empty in
             unboundedApproximationAttempts.[id] <- 0
-            //Effects.initialize id
+//<<<<<<< HEAD
+//            //Effects.initialize id
+//=======
+//            symbolicEffects.[id] <- []
+//            let initialSymbolicResult =
+//                NoResult metadata
+////                match returnType with
+////                | Void -> NoResult
+////                | _ ->
+////                    let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
+////                    // TODO: time!
+////                    State.makeSymbolicInstance 0u (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
+//            in symbolicResults.[id] <- initialSymbolicResult
+            interpreter.Initialize State.empty (fun newState ->
+//>>>>>>> b89c9c788a11f871171ea79322805e3b3fd9954e
             let this, state =
                 match id with
                 | MetadataMethodIdentifier mm ->
-                    interpreter.InitializeStaticMembers State.empty mm.DeclaringType.AssemblyQualifiedName (fun (_, state) ->
+                    interpreter.InitializeStaticMembers newState mm.DeclaringType.AssemblyQualifiedName (fun (_, state) ->
                     match mm with
                     | _ when mm.IsStatic -> (None, state)
                     | _ ->
@@ -88,9 +105,14 @@ module Functions =
                 | DelegateIdentifier ast ->
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
+//<<<<<<< HEAD
 //            in initialStates.[id] <- state
             in startTimes.[id] <- Memory.tick()
-            doExplore metadata id state this k
+            doExplore metadata id state this k)
+//=======
+//            in initialStates.[id] <- state
+//            doExplore id state this k)
+//>>>>>>> b89c9c788a11f871171ea79322805e3b3fd9954e
 
         let internal exploreIfShould id k =
             if unboundedApproximationAttempts.ContainsKey id then k ()

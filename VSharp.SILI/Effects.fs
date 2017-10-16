@@ -16,9 +16,8 @@ module Effects =
 
     type ConcreteHeapAddress = int list
 
-    let private composeStates ((s1, h1, m1, f1, p1) : State.state) ((s2, h2, m2, f2, p2) : State.state) =
-        // TODO
-        (s1, h1, m1, f1, p1)
+    let private composeStates (s1 : State.state) (s2 : State.state) =
+        s1
 
     let private composeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) =
         List.append a1 a2

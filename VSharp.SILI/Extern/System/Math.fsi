@@ -5,7 +5,7 @@ open VSharp
 
 // ------------------------------- mscorelib.System.Math -------------------------------
 
-module Math =
+module internal Math =
 
     [<Implements("System.Double System.Math.Acos(System.Double)")>]
     val Acos : State.state -> Term list -> StatementResult * State.state
