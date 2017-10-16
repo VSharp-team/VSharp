@@ -734,9 +734,6 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Variable.Name, getTokenBy (Choice2Of2 ast.Variable)))
 
-    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
-        __notImplemented__()
-
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Parameter.Name, getTokenBy (Choice1Of2 ast.Parameter)))
@@ -1295,29 +1292,35 @@ module internal Interpreter =
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
 
+    and reduceRefExpression state (ast : IRefExpression) k =
+        reduceExpressionToRef state false ast.Argument k
+
     and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
 
     and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
         __notImplemented__()
 
-    and reduceRefExpression state (ast : IRefExpression) k =
-        reduceExpressionToRef state false ast.Argument k
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
+        __notImplemented__() // TODO: [C#] __makeref(_) = [IL] mkrefany
 
     and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __reftype(_) = [IL] refanytype
 
     and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceRefValueExpression state (ast : IRefValueExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __refvalue(_) = [IL] refanyval
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
         __notImplemented__()
+
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
+        __notImplemented__() // TODO: what is it?
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -1328,35 +1331,31 @@ module internal Interpreter =
     and reduceUnboxExpression state (ast : IUnboxExpression) k =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
-        __notImplemented__()
-
-    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
-        __notImplemented__()
-
     and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] cpblk
 
     and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] initblk
 
     and reducePinStatement state (ast : IPinStatement) k =
-        __notImplemented__()
-
+        __notImplemented__() // TODO: what is it?
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
+        __notImplemented__()
+
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
         __notImplemented__()
 
     and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) k =
         __notImplemented__()
 
-    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
 // ------------------------------- Goto statements -------------------------------
