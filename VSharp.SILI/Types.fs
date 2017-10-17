@@ -91,7 +91,7 @@ module public Types =
 
     let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
 
-    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
+    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
     let public IsNumeric = function
         | Numeric _ -> true

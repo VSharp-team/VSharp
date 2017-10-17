@@ -56,7 +56,8 @@ module Effects =
         | Constant(_, source, _) ->
             match source with
             | Memory.LazyInstantiation(loc, isTop) ->
-                Memory.derefIfInstantiated ctx.state loc |?? term
+                let result = Memory.derefIfInstantiated ctx.state loc |?? term in
+                if isTop then Pointers.topLevelLocation result else result
             | :? SymbolicEffectSource as e ->
                 apply e mtd ctx
             | _ -> term

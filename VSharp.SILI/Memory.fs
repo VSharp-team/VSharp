@@ -51,8 +51,8 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.MakeNullRef String metadata ZeroTime
         | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
+        | String
         | ClassType _
         | ArrayType _ -> Terms.MakeNullRef typ metadata ZeroTime
         | SubType(dotNetType, _, _,  _) when dotNetType.IsValueType -> Struct metadata Heap.empty typ
@@ -103,6 +103,7 @@ module internal Memory =
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant metadata name source t
         | StructType _
         | SubType _
+        | String _
         | ClassType _ as t -> Struct metadata Heap.empty t
         | ArrayType(e, d) as t -> Arrays.makeSymbolic metadata source d e t name
         | _ -> __notImplemented__()
@@ -227,7 +228,7 @@ module internal Memory =
                 let ctx' = referenceSubLocation location ctx in
                 let instantiator = structLazyInstantiator term.metadata ctx' key typ in
                 let result, newFields, newTime =
-                    accessHeap metadata guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key t ptrTime path'
+                    accessHeap metadata guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
                 in result, Struct term.metadata newFields t, newTime
             | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
                 let ctx' = referenceSubLocation location ctx in

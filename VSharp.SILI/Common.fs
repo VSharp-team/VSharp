@@ -48,28 +48,26 @@ module internal Common =
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant Metadata.empty name (SymbolicTypeSource termType) Bool
         in
-        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
-            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
-            function
+        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType = function
             | ReferenceType(t, _, _)
             | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
             | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
+                let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
                 implies (makeBoolConst name termType) b metadata
-            | ArrayType (t, SymbolicDimension name) as termType ->
+            | ArrayType(_, SymbolicDimension name) as termType ->
+                let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
                 implies (makeBoolConst name termType) b metadata
             | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | PointerType _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         in
-        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
-            let b = makeBoolConst rightName rightTermType in
-            function
+        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName = function
             | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
             | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
             | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
             | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) b metadata
+                implies (makeBoolConst name termType) (makeBoolConst rightName rightTermType) metadata
             | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             | _ -> __notImplemented__()
         in
@@ -81,9 +79,9 @@ module internal Common =
         | Func _, Func _ -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
         | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | leftType, (StructureType(t, _, _) as termType)
-        | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
-        | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
+        | _, StructureType(t, _, _)
+        | _, ReferenceType(t, _, _) -> concreteIs t rightType leftType
+        | _, SubType(t, _, _, name) -> subTypeIs t rightType name leftType
         | _ -> Terms.MakeFalse metadata
 
 // ------------------------------- Branching -------------------------------
