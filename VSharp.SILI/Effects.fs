@@ -65,7 +65,7 @@ module Effects =
         | _ -> term
 
     and private fillInHoles mtd ctx term =
-        substitute (fillInHole mtd ctx) term
+        Common.substitute (fillInHole mtd ctx) term
 
     and private apply (src : SymbolicEffectSource) mtd prefix =
         let composedCtx = src.Context.Compose(prefix) in

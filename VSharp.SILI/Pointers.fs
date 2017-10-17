@@ -15,6 +15,7 @@ module internal Pointers =
         | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
         | _ -> __notImplemented__()
 
+
     let internal comparePath mtd path1 path2 =
         if List.length path1 <> List.length path2 then
             Terms.MakeFalse mtd

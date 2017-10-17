@@ -128,25 +128,23 @@ module internal Common =
 
 // ------------------------------- Substitution -------------------------------
 
-    let private extractErrorFromPath = List.tryPick (fun (t, _) -> if IsError t then Some t else None)
-
     let rec internal substitute subst term =
         match term.term with
         | HeapRef(path, t) ->
             path |> NonEmptyList.toList |> substitutePath subst (fun path' ->
             let path'' = NonEmptyList.ofList path' in
-            if path'' = path then term else extractErrorFromPath path' |?? HeapRef term.metadata path'' t)
+            if path'' = path then term else HeapRef term.metadata path'' t)
             |> Merging.merge
         | StackRef(key, path) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else extractErrorFromPath path' |?? StackRef term.metadata key path')
+            if path' = path then term else StackRef term.metadata key path')
             |> Merging.merge
         | StaticRef(key, path) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else extractErrorFromPath path' |?? StaticRef term.metadata key path')
+            if path' = path then term else StaticRef term.metadata key path')
             |> Merging.merge
         | Error e ->
-            e |> substitute subst |> Merging.unguard |> Merging.guardedApply1 IsError (fun e' ->
+            e |> substitute subst |> Merging.unguard |> Merging.guardedApply IsError (fun e' ->
             if e' = e then term else Error term.metadata e')
             |> Merging.merge
         | Expression(op, args, t) ->
@@ -154,23 +152,43 @@ module internal Common =
             if args = args' then term else Expression term.metadata op args' t)
             |> Merging.merge
         | Union gvs ->
-            // TODO
-            let gvs' = List.map (fun (g, v) -> (substitute subst g, substitute subst v)) gvs in
-            if gvs' = gvs then term else Union term.metadata gvs'
-        | Struct(contents, typ) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
-            Struct term.metadata contents' typ
-        | Array(lower, constant, contents, lengths, typ) ->
-            let lower' = FSharp.Collections.Array.map (substitute subst) lower in
-            let lengths' = FSharp.Collections.Array.map (substitute subst) lengths in
-            let constant' =
-                match constant with
-                | Some constant -> Some (substitute subst constant)
-                | None -> None
+            let gvs' = gvs |> List.map (fun (g, v) ->
+                let ges, ggs = substitute subst g |> Merging.erroredUnguard in
+                (ggs, substitute subst v)::ges) |> List.concat
             in
-            let contents' = Heap.map (fun _ (v, c, m) -> (substitute subst v, c, m)) contents in
-            Array term.metadata lower' constant' contents' lengths' typ
+            if gvs' = gvs then term else Merging.merge gvs'
+        | Struct(contents, typ) ->
+            let contents', errs = substituteHeap subst contents in
+            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False in
+            (!!guard, Struct term.metadata contents' typ)::errs |> Merging.merge
+        | Array(dim, len, lower, inst, contents, lengths, typ) ->
+            let dimerrs, dim' = dim |> substitute subst |> Merging.erroredUnguard in
+            let lenerrs, len' = len |> substitute subst |> Merging.erroredUnguard in
+            let lower', lowererrs = substituteHeap subst lower in
+            let contents', contentserrs = substituteHeap subst contents in
+            let lengths', lengthserrs = substituteHeap subst lengths in
+            let insterrs, inst' =
+                inst
+                |> List.map (fun (g, i) ->
+                    let ges, g' = g |> substitute subst |> Merging.erroredUnguard in
+                    let ges, gis =
+                        match i with
+                        | DefaultInstantiator _ -> ges, [(g, i)]
+                        | LazyInstantiator(term, typ) ->
+                            let ges', gts' = term |> substitute subst |> Merging.unguard |> List.partition (snd >> IsError) in
+                            List.append ges ges', List.map (fun (g, t) -> (g' &&& g, LazyInstantiator(t, typ))) gts'
+                    in ges, Merging.genericSimplify gis)
+                |> List.unzip
+            in
+            let insterrs, inst' = List.concat insterrs, List.concat inst' in
+            let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs] in
+            Array term.metadata dim' len' lower' inst' contents' lengths' typ
         | _ -> subst term
+
+    and internal substituteHeap subst heap =
+        Heap.mapFold (fun errs k (v, c, m) ->
+            let ges, v' = Merging.erroredUnguard v in
+            ((k, (substitute subst v', c, m)), List.append errs ges)) [] heap
 
     and internal substituteMany subst ctor terms =
         terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) IsError ctor

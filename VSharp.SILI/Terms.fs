@@ -30,7 +30,7 @@ type public TermNode =
     | Concrete of obj * TermType
     | Constant of string * SymbolicConstantSource * TermType
     | Array of Term                                       // Dimension
-               * Term                                     // Length
+               * Term                                     // Overal length (product of lengths by dimensions)
                * SymbolicHeap                             // Lower bounds
                * (Term * ArrayInstantiator) list          // Element instantiator with guards
                * SymbolicHeap                             // Contents
@@ -242,7 +242,7 @@ module public Terms =
     let public StaticRef metadata key path = { term = StaticRef(key, path); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
-    let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
+    let public ZeroAddress = TermNode.Concrete([0], Types.pointerType)
 
     let public MakeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 

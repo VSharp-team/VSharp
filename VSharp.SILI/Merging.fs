@@ -230,7 +230,11 @@ module internal Merging =
         | {term = Union gvs} -> gvs
         | t -> [(True, t)]
 
-    let private genericSimplify gvs =
+    let internal erroredUnguard term =
+        let ges, gvs = term |> unguard |> List.partition (snd >> IsError) in
+        ges, merge gvs
+
+    let internal genericSimplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
@@ -267,38 +271,5 @@ module internal Merging =
     let internal guardedCartesianProduct mapper error ctor terms =
         guardedCartesianProductRec mapper error ctor True [] terms
 
-    let internal guardedApply1 error f gvs =
+    let internal guardedApply error f gvs =
         gvs |> List.map (fun (g, v) -> (g, if error v then v else f v))
-
-    let internal guardedApply2 error f gvs1 gvs2 =
-        gvs1 |> List.map (fun (g1, v1) ->
-            if error v1 then [(g1, v1)]
-            else gvs2 |> List.map (fun (g2, v2) ->
-                if error v2 then (g1 &&& g2, v2)
-                else (g1 &&& g2, f v1 v2)))
-                    |> List.concat |> genericSimplify
-
-    let internal guardedApply3 error f gvs1 gvs2 gvs3 =
-        gvs1 |> List.map (fun (g1, v1) ->
-            if error v1 then [(g1, v1)]
-            else gvs2 |> List.map (fun (g2, v2) ->
-                if error v2 then [(g1 &&& g2, v2)]
-                else gvs3 |> List.map (fun (g3, v3) ->
-                    if error v3 then (g1 &&& g2 &&& g3, v3)
-                    else (g1 &&& g2 &&& g3, f v1 v2 v3)))
-                        |> List.concat |> genericSimplify)
-                        |> List.concat |> genericSimplify
-
-    let internal guardedApply4 error f gvs1 gvs2 gvs3 gvs4 =
-        gvs1 |> List.map (fun (g1, v1) ->
-            if error v1 then [(g1, v1)]
-            else gvs2 |> List.map (fun (g2, v2) ->
-                if error v2 then [(g1 &&& g2, v2)]
-                else gvs3 |> List.map (fun (g3, v3) ->
-                    if error v3 then [(g1 &&& g2 &&& g3, v3)]
-                    else gvs4 |> List.map (fun (g4, v4) ->
-                        if error v4 then (g1 &&& g2 &&& g3 &&& g4, v4)
-                        else (g1 &&& g2 &&& g3 &&& g4, f v1 v2 v3 v4)))
-                            |> List.concat |> genericSimplify)
-                            |> List.concat |> genericSimplify)
-                            |> List.concat |> genericSimplify
