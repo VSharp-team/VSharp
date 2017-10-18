@@ -48,10 +48,12 @@ module internal Pointers =
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let internal isPointerOperation op t1 t2 =
-        (Types.IsPointer t1 || Types.IsBottom t1) && (Types.IsPointer t2 || Types.IsBottom t2) &&
+        let inline isNearlyPtr t = Types.IsPointer t || Types.IsBottom t
         match op with
-        | OperationType.Add
-        | OperationType.Subtract
         | OperationType.Equal
-        | OperationType.NotEqual -> true
+        | OperationType.NotEqual ->
+            isNearlyPtr t1 && isNearlyPtr t2
+        | OperationType.Subtract -> isNearlyPtr t1 && (isNearlyPtr t2 || Types.IsNumeric t2)
+        | OperationType.Add ->
+            (isNearlyPtr t1 && Types.IsNumeric t2) || (isNearlyPtr t2 && Types.IsNumeric t1)
         | _ -> false
