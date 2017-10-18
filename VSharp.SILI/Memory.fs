@@ -47,13 +47,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.MakeNullRef String metadata ZeroTime
-        | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
-        | ClassType _ as t ->Terms.MakeNullRef t metadata ZeroTime
-        | ArrayType _ as t -> Terms.MakeNullRef t metadata ZeroTime
+        | String -> Terms.MakeNullRef String metadata
+        | PointerType t -> Terms.MakeNullRef t metadata
+        | ClassType _ as t ->Terms.MakeNullRef t metadata
+        | ArrayType _ as t -> Terms.MakeNullRef t metadata
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Terms.MakeNullRef t metadata ZeroTime
-        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
+        | SubType _ as t -> Terms.MakeNullRef t metadata
+        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in

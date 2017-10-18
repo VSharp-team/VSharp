@@ -379,8 +379,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNullRef typ metadata time =
-        HeapRef (((MakeZeroAddress metadata), typ), []) time metadata
+    let public MakeNullRef typ metadata =
+        HeapRef (((MakeZeroAddress metadata), typ), []) 0u metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
