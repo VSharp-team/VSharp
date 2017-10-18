@@ -94,7 +94,7 @@ module public Dict =
 module public Stack =
     type 'a stack = 'a list
 
-    let peak = function
+    let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
         | hd::tl -> hd
 

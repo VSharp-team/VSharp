@@ -1421,22 +1421,39 @@ type internal Activator() =
             Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
 type internal SymbolicInterpreter() =
+    let reset() =
+        Memory.reset()
+        IdGenerator.reset()
+
+    let saveConfiguration() =
+        Memory.saveConfiguration()
+        IdGenerator.saveConfiguration()
+
+    let restore() =
+        Memory.restore()
+        IdGenerator.restore()
+
+    let restoreAfter k x = let r = k x in restore(); r
+    let restoreBefore k x = restore(); k x
+
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
 
         member x.Initialize state k =
+            reset()
             let time = Memory.tick() in
             let mtd = Metadata.empty in
             let stringTypeName = typeof<string>.AssemblyQualifiedName in
-            let emptyString, state = Strings.MakeString 0 "" time |> Memory.allocateInHeap Metadata.empty state in
+            let emptyString, state = Strings.MakeString 0 String.Empty time |> Memory.allocateInHeap Metadata.empty state in
             Interpreter.initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
             let emptyFieldRef, state = Memory.referenceStaticField mtd state false "System.String.Empty" VSharp.String stringTypeName in
-            Memory.mutate mtd state emptyFieldRef emptyString |> snd |> k)
+            Memory.mutate mtd state emptyFieldRef emptyString |> snd |> (restoreAfter k))
 
         member x.InitializeStaticMembers state qualifiedTypeName k =
-            // TODO: static members initialization should return statement result (for example exceptions)
             Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName k
 
         member x.Invoke funcId state this k =
+            saveConfiguration()
+            let k = restoreBefore k in
             match funcId with
             | MetadataMethodIdentifier mm ->
                 Interpreter.decompileAndReduceMethod null state this State.Unspecified mm.DeclaringType.AssemblyQualifiedName mm mm.Assembly.Location k

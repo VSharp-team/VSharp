@@ -66,7 +66,7 @@ module internal State =
     let internal pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let internal popStack (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
-        let { func = metadata; entries = locations; time = _ } = Stack.peak s.frames.f in
+        let { func = metadata; entries = locations; time = _ } = Stack.peek s.frames.f in
         let f' = Stack.pop s.frames.f in
         let sh = s.frames.sh in
         let sh' =

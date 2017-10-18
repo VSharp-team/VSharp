@@ -5,16 +5,14 @@ open System.Reflection
 
 module public SVM =
 
-    let private reset () =
-        IdGenerator.reset()
+    let private init = lazy(
         State.activator <- new Activator()
-        Functions.UnboundedRecursionExplorer.interpreter <- new SymbolicInterpreter()
-        Memory.reset()
+        Functions.UnboundedRecursionExplorer.interpreter <- new SymbolicInterpreter())
 
     let private interpret (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
         if m.IsAbstract then ()
         else
-            reset()
+            init.Force()
             let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
             let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
             match metadataMethodOption with

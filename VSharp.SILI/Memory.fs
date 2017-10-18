@@ -8,19 +8,25 @@ module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
 
-    let private pointer = ref 0
+    let private pointer = Persistent<int>(always 0, id)
     let internal ZeroTime = State.zeroTime
     let private infiniteTime : Timestamp = System.UInt32.MaxValue
-    let private timestamp = ref ZeroTime
+    let private timestamp = Persistent<Timestamp>(always ZeroTime, id)
     let internal freshAddress () =
-        pointer := !pointer + 1
-        !pointer
-    let internal tick () =
-        timestamp := !timestamp + 1u
-        !timestamp
-    let public reset () =
-        pointer := 0
-        timestamp := ZeroTime
+        pointer.Mutate(pointer.Read() + 1)
+        pointer.Read()
+    let internal tick() =
+        timestamp.Mutate(timestamp.Read() + 1u)
+        timestamp.Read()
+    let public reset() =
+        pointer.Reset()
+        timestamp.Reset()
+    let public saveConfiguration() =
+        pointer.Save()
+        timestamp.Save()
+    let public restore() =
+        pointer.Restore()
+        timestamp.Restore()
 
     type private LazyInstantiation(location : Term, isTopLevelHeapAddress : bool) =
         inherit SymbolicConstantSource()
@@ -452,7 +458,7 @@ module internal Memory =
 
     let internal allocateOnStack metadata (s : state) key term : state =
         let time = tick() in
-        let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peak s.frames.f in
+        let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peek s.frames.f in
         let newStack = pushToCurrentStackFrame s key (term, time, time) in
         let newEntries = { key = key; mtd = metadata; typ = None } in
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime } in
