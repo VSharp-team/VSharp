@@ -72,7 +72,7 @@ module internal Common =
         | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
-        | PointerType left, PointerType right -> Terms.MakeTrue metadata
+        | PointerType _, PointerType _ -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
         | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata

@@ -537,7 +537,7 @@ module internal Arithmetics =
     // otherwise you should use simplifyBinaryOperation with state
 
     let add mtd x y =
-            simplifyAddition mtd false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
+        simplifyAddition mtd false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
 
     let sub mtd x y =
         simplifySubtraction mtd false State.empty (Types.ToDotNetType (Terms.TypeOf x)) x y fst
