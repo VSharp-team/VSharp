@@ -13,7 +13,7 @@ module public Prelude =
 
     let public id1 x _ = x
     let public id2 _ x = x
-    let public always x = (fun _ -> x)
+    let public always x _ = x
 
     let public cons x xs = x :: xs
 

@@ -303,6 +303,7 @@ module public Terms =
     let rec public IsRef term =
         match term.term with
         | HeapRef _
+        | StaticRef _
         | StackRef _ -> true
         | Union gvs -> List.forall (snd >> IsRef) gvs
         | _ -> false
