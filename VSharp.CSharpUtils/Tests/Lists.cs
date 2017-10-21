@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using VSharp.CSharpUtils.Tests.Typecast;
 
 namespace VSharp.CSharpUtils.Tests
 {
@@ -161,6 +162,23 @@ namespace VSharp.CSharpUtils.Tests
                 arrOne[1,1,1] = 42;
             }
             return arr;
+        }
+
+        public static int RetSystemArrayElem1(System.Array arr)
+        {
+            int a = 8;
+            Tree b = null;
+            if (arr is int[])
+            {
+                var arrOne = arr as int[];
+                a = arrOne[1];
+            }
+            else if (arr is Tree[])
+            {
+                var arrOne = arr as Tree[];
+                a = arrOne[1].Key;
+            }
+            return a;
         }
     }
 }

@@ -929,28 +929,19 @@ module internal Interpreter =
         match term.term with
         | HeapRef _
         | StackRef _
-        | StaticRef _ -> Return mtd term, state
-        | _ ->
-            let leftType = Terms.TypeOf term in
-            let rec isUpCast l r =
-                match l, r with
-                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
-                | Func _, Func _ -> false
-                | ArrayType _, _ -> true
-                | _ -> __notImplemented__()
+        | StaticRef _ ->
+            let _, state =
+                Memory.hierarchicalAccess
+                    (fun v t ->
+                        match v.term with
+                        | Array(dim, len, lower, _, contents, lengths, (TermType.ArrayType(_, ArrayDimensionType.SymbolicDimension _) as typ)) ->
+                            let arrayConstant = Terms.Constant (State.nameOfLocation term) (SymbolicConstantSource()) typ mtd
+                            Terms.Array dim len lower [Terms.True , LazyInstantiator(arrayConstant, elementType targetType)] contents lengths typ mtd, t
+                        | _ -> v, t)
+                    mtd state term
             in
-            let result =
-                match isUpCast leftType targetType with
-                | true -> term
-                | false ->
-                    match term.term with
-                    | Concrete(value, _) -> Concrete value targetType term.metadata
-                    | Constant(name, source, _) -> Terms.Constant name source targetType term.metadata
-                    | Expression(operation, operands, _) -> Expression operation operands targetType term.metadata
-                    | Struct(m, _) -> Struct m targetType term.metadata
-                    | _ -> __notImplemented__()
-            in
-            Return mtd result, state
+            Return mtd term, state
+        | _ -> Return mtd term, state
 
     and throwInvalidCastException mtd state term targetType =
         let result, state =

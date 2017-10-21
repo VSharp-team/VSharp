@@ -313,7 +313,7 @@ module public Types =
             | n when numericTypes.Contains(n) -> Numeric n
             | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
-            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, ConcreteDimension <| a.GetArrayRank())
+            | a when a.IsArray -> ArrayType(fromDotNetTypeToSymbolic Global (a.GetElementType()) |> PointerFromReferenceType, ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke") in
@@ -358,7 +358,7 @@ module public Types =
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
             fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj>, SymbolicDimension "System.Array")
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj> |> PointerFromReferenceType, SymbolicDimension "System.Array")
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
