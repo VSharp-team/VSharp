@@ -1081,8 +1081,10 @@ module internal Interpreter =
             match Options.StaticFieldsValuation() with
             | Options.DefaultStaticFields ->
                 let mtd = State.mkMetadata caller state in
-                let fields, t, instance = Memory.mkDefaultStatic mtd qualifiedTypeName in
-                let state = Memory.allocateInStaticMemory mtd state qualifiedTypeName instance in
+                // TODO: when interpretation starts from Main entry point 'inPast' should be false
+                let inPast = true in
+                let fields, t, instance = Memory.mkDefaultStatic mtd inPast qualifiedTypeName in
+                let state = Memory.allocateInStaticMemory mtd inPast state qualifiedTypeName instance in
                 let initOneField (name, (typ, expression)) state k =
                     if expression = null then k (NoResult Metadata.empty, state)
                     else
@@ -1091,7 +1093,7 @@ module internal Interpreter =
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.throwOrIgnore value in
                         let mutate mtd value k =
-                            let term, state = Memory.mutate mtd state address value in
+                            let term, state = (if inPast then Memory.mutateInPast else Memory.mutate) mtd state address value in
                             k (ControlFlow.throwOrIgnore term, state) in
                         failOrInvoke
                             statementResult
@@ -1099,7 +1101,7 @@ module internal Interpreter =
                             (fun () -> mutate mtd' value k)
                             (fun _ exn _ state k ->
                             // TODO: uncomment it when ref and out will be Implemented
-//                                let args = [Terms.MakeConcreteString qualifiedTypeName; exn] in
+//                                let args = [MakeConcreteString qualifiedTypeName; exn] in
 //                                let term, state = State.activator.CreateInstance typeof<TypeInitializationException> args state in
                                 k (Throw exn.metadata exn, state))
                             (fun _ _ normal _ k -> mutate mtd' (ControlFlow.resultToTerm (Guarded mtd normal)) k)

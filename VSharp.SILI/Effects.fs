@@ -111,17 +111,8 @@ module Effects =
         | :? SymbolicEffectSource as es -> let res = es.Location.IsSome && es.Location.Value = reference in (*(if not res then printfn "NON-DEFAULT SYMBOLIC EFFECT SOURCE, %A %A" reference es.Location);*) res
         | _ -> false
 
-//    let counter = ref 0
     let internal parseEffects mtd id startTime result state =
         let freshLocations, mutatedLocations = Memory.affectedLocations defaultMemoryFilter startTime state in
-//        printfn "\n\nPARSING EFFECTS....\n\n"
-//        printfn "  fresh locations:\n"
-////        freshLocations |> Seq.iter (fun (k, v) -> printfn "   key: %O\n    value : %O\n" k v)
-//        freshLocations |> Seq.iter (fun (k, v) -> printfn "   %O" k)
-//        printfn "\n  mutated locations:\n"
-////        mutatedLocations |> Seq.iter (fun (k, v) -> printfn "   key: %O\n    value : %O\n" k v)
-//        mutatedLocations |> Seq.iter (fun (k, v) -> printfn "   %O" k)
-//        printfn "\n\n"
         // TODO: time!
         let markFresh = Terms.iter produceFreshAddressEffect in
         freshLocations |> Seq.iter (fun (k, (v, _, _)) -> markFresh k; markFresh v)

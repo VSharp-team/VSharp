@@ -73,9 +73,9 @@ module internal Memory =
     let internal mkDefault metadata typ =
         defaultOf (tick()) metadata typ
 
-    let internal mkDefaultStatic metadata qualifiedTypeName =
+    let internal mkDefaultStatic metadata inPast qualifiedTypeName =
         let t = qualifiedTypeName |> System.Type.GetType |> FromConcreteDotNetType  in
-        let time = tick() in
+        let time = if inPast then zeroTime else tick() in
         let fields = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName in
         let contents =
             fields
@@ -316,6 +316,10 @@ module internal Memory =
         let time = tick() in
         hierarchicalAccess (fun _ _ -> (value, time)) metadata state reference
 
+    let internal mutateInPast metadata state reference value =
+        assert(value <> Nop)
+        hierarchicalAccess (fun _ _ -> (value, zeroTime)) metadata state reference
+
     let rec private derefPathIfInstantiated term = function
         | [] -> Some term
         | (loc, _)::path' ->
@@ -468,8 +472,8 @@ module internal Memory =
         let pointer = HeapRef metadata ((address, Terms.TypeOf term), []) {time=time} in
         (pointer, { s with heap = s.heap.Add(address, (term, time, time)) } )
 
-    let internal allocateInStaticMemory metadata (s : state) typeName term =
-        let time = tick() in
+    let internal allocateInStaticMemory metadata inPast (s : state) typeName term =
+        let time = if inPast then zeroTime else tick() in
         let address = Terms.MakeConcreteString typeName metadata in
         { s with  statics = s.statics.Add(address, (term, time, time)) }
 
@@ -530,14 +534,15 @@ module internal Memory =
 
     let private sortMap mapper = List.sortWith (fun (k1, _) (k2, _) -> addrLess k1 k2) >> List.map mapper
 
-    let rec private isDefaultValue srcFilter reference term =
+    let rec private isDefaultValue srcFilter startTime reference (term, c, time) =
+        time <= startTime ||
         match term.term with
         | Constant(_, src, _) -> srcFilter reference src
         | Struct(contents, _)
         | Array(_, _, _, _, contents, _, _) ->
-            contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue srcFilter (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) (fst3 cell))
+            contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue srcFilter startTime (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) cell)
         | Union gvs ->
-            gvs |> List.forall (fun (_, v) -> isDefaultValue srcFilter reference v)
+            gvs |> List.forall (fun (_, v) -> isDefaultValue srcFilter startTime reference (v, c, time))
         | _ -> false
 
     let rec private isFreshLocation startTime (_, time, _) =
@@ -553,7 +558,7 @@ module internal Memory =
     let rec private inspectLocation srcFilter startTime ctx goDeep (fresh, mutated) k cell =
         let reference = ctx (k, cell) in
         if isFreshLocation startTime cell then (List.append (getSubLocations reference cell) fresh, mutated)
-        elif isDefaultValue srcFilter reference (fst3 cell) then (fresh, mutated)
+        elif isDefaultValue srcFilter startTime reference cell then (fresh, mutated)
         else
             let subFresh, subMutated = goDeep startTime reference cell in
             (List.append subFresh fresh, List.append subMutated mutated)
