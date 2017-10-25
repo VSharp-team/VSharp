@@ -39,7 +39,7 @@ type public TermNode =
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list
-    | HeapRef of (Term * TermType) NonEmptyList * Timestamp
+    | HeapRef of (Term * TermType) NonEmptyList * RefTime
     | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
@@ -184,17 +184,6 @@ and
 
 and
     [<CustomEquality;NoComparison>]
-    TermRef =
-        {reference : Term ref}
-        override x.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
-        override x.Equals(o : obj) =
-            match o with
-            | :? TermRef as other -> x.GetHashCode() = other.GetHashCode()
-            | _ -> false
-
-and
-    [<CustomEquality;NoComparison>]
     Term =
         {term : TermNode; metadata : TermMetadata}
         override x.ToString() = x.term.ToString()
@@ -212,6 +201,15 @@ and
             x.GetType().GetHashCode()
         override x.Equals(o : obj) = o.GetType() = x.GetType()
 
+and
+    [<CustomEquality;NoComparison>]
+    RefTime =
+        {time : Timestamp}
+        override x.ToString() = x.time.ToString()
+        override x.GetHashCode() = x.GetType().GetHashCode()
+        override x.Equals(o : obj) =
+            o :? RefTime
+
 and SymbolicHeap = Heap<Term, Term>
 
 [<AutoOpen>]
@@ -224,6 +222,7 @@ module public Terms =
         let addMisc t obj =
             if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
             t.metadata.misc.Add obj |> ignore
+        let miscContains t obj = t.metadata.misc <> null && t.metadata.misc.Contains(obj)
         let isEmpty m = List.isEmpty m.origins
         let firstOrigin m = List.head m.origins
         let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
@@ -376,8 +375,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNullRef typ metadata time =
-        HeapRef metadata (((MakeZeroAddress metadata), typ), []) time
+    let public MakeNullRef typ metadata =
+        HeapRef metadata (((MakeZeroAddress metadata), typ), []) {time = Timestamp.zero}
 
     let public MakeNumber n metadata =
         Concrete metadata n (Numeric(n.GetType()))

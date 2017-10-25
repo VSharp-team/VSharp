@@ -4,16 +4,6 @@ open System.Collections.Generic
 
 module Effects =
 
-//    type Effect =
-//        | FreshAddress
-//        | Sketch of Term
-
-//    type private SymbolicEffectSource(address : Effect, state : State.state) =
-//        inherit SymbolicConstantSource()
-//        override x.SubTerms = Seq.empty
-//        member x.Address = address
-//        member x.State = state
-
     type ConcreteHeapAddress = int list
 
     let private composeStates (s1 : State.state) (s2 : State.state) =
@@ -30,16 +20,12 @@ module Effects =
         member x.Compose(prefix : SymbolicEffectContext) =
             { state = composeStates prefix.state x.state; address = composeAddresses prefix.address x.address; time = composeTime prefix.time x.time }
 
-    type private SymbolicEffectSource(id : string, ctx : SymbolicEffectContext) =
+    type private SymbolicEffectSource(funcId : FunctionIdentifier, loc : Term option, ctx : SymbolicEffectContext) =
         inherit SymbolicConstantSource()
         override x.SubTerms = Seq.empty
-        member x.Id = id
+        member x.Id = funcId
+        member x.Location  = loc
         member x.Context = ctx
-
-    let private (|SymbolicEffectApplication|_|) src =
-        match src.term with
-        | Constant(_, (:? SymbolicEffectSource as li), _) -> Some(SymbolicEffectApplication(li))
-        | _ -> None
 
     type private FreshAddressMarker() = class end
     let private freshAddressMarker = FreshAddressMarker()
@@ -47,7 +33,6 @@ module Effects =
     let private convergedEffects = new HashSet<FunctionIdentifier>()
     let private returnValues = new Dictionary<FunctionIdentifier, StatementResult>()
     let private mutations = new Dictionary<FunctionIdentifier, IDictionary<Term, MemoryCell<Term>>>()
-    let private storage = new Dictionary<string, MemoryCell<Term>>()
 
     let private isFrozen = convergedEffects.Contains >> not
 
@@ -70,15 +55,22 @@ module Effects =
 
     and private apply (src : SymbolicEffectSource) mtd prefix =
         let composedCtx = src.Context.Compose(prefix) in
-        assert(storage.ContainsKey(src.Id))
-        fillInHoles mtd composedCtx (fst3 storage.[src.Id])
+        let pattern =
+            match src.Location with
+            | Some loc ->
+                assert(mutations.ContainsKey(src.Id) && mutations.[src.Id].ContainsKey(loc))
+                mutations.[src.Id].[loc] |> fst3
+            | None ->
+                assert(returnValues.ContainsKey(src.Id))
+                returnValues.[src.Id] |> ControlFlow.resultToTerm
+        fillInHoles mtd composedCtx pattern
 
     type private SymbolicEffectSource with
         member x.Apply mtd prefix = apply x mtd prefix
 
     let private produceFrozenReturnValue mtd id ctx =
         let effectName = toString id + "!!ret" in
-        Constant mtd effectName (SymbolicEffectSource(effectName, ctx)) (Types.ReturnType id) |> Return mtd
+        Constant mtd effectName (SymbolicEffectSource(id, None, ctx)) (Types.ReturnType id) |> Return mtd
 
     let private produceUnfrozenReturnValue mtd id ctx =
         assert(returnValues.ContainsKey(id))
@@ -89,8 +81,8 @@ module Effects =
         else produceUnfrozenReturnValue mtd id ctx
 
     let private produceFrozenEffect mtd id ctx ptr value =
-        let effectName = sprintf "%O!!%s!!eff" id (State.nameOfLocation ptr) in
-        Constant mtd effectName (SymbolicEffectSource(effectName, ctx)) (TypeOf value) in
+        let effectName = sprintf "%O!!%s!!%O!!eff" id (State.nameOfLocation ptr) ptr in
+        Constant mtd effectName (SymbolicEffectSource(id, Some ptr, ctx)) (TypeOf value) in
 
     let private produceEffect mtd id ctx (kvp : KeyValuePair<Term, MemoryCell<Term>>) =
         let ptr = fillInHoles mtd ctx kvp.Key in
@@ -113,32 +105,24 @@ module Effects =
         | ConcreteT(:? ConcreteHeapAddress, _) as t -> Metadata.addMisc t freshAddressMarker
         | t -> ()
 
-//    let private produceFreshAddressEffect metadata state loc =
-//        match loc.term with
-//        | HeapRef(((addr, typ), path), time) ->
-//            (addr, Concrete addr Types.pointerType metadata) |> Some
-//        | _ -> None
+    let internal defaultMemoryFilter reference (src : SymbolicConstantSource) =
+        match src with
+        | Memory.LazyInstantiation(reference', _) -> reference = reference'
+        | :? SymbolicEffectSource as es -> let res = es.Location.IsSome && es.Location.Value = reference in (*(if not res then printfn "NON-DEFAULT SYMBOLIC EFFECT SOURCE, %A %A" reference es.Location);*) res
+        | _ -> false
 
-    //let internal initialize (id : FunctionIdentifier) =
-    //    let mtd = Metadata.empty in
-    //    let returnType = Types.ReturnType id in
-        //let initialSymbolicResult =
-        //    match returnType with
-        //    | Void -> NoResult mtd
-        //    | _ ->
-        //        let resultName = IdGenerator.startingWith(toString id + "%%res") in
-        //        Memory.makeSymbolicInstance mtd (Memory.tick()) (SymbolicEffectSource ) resultName returnType |> Return mtd
-        //in resultsOfFunctions.[id] <- initialSymbolicResult
-
+//    let counter = ref 0
     let internal parseEffects mtd id startTime result state =
-        let freshLocations, mutatedLocations = Memory.affectedLocations startTime state in
-//        let freshSubst = List.filterMap (fst >> produceFreshAddressEffect mtd state) freshLocations |> Dict.ofSeq in
-//        let subst term = Dict.tryGetValue freshSubst term term in
+        let freshLocations, mutatedLocations = Memory.affectedLocations defaultMemoryFilter startTime state in
+//        printfn "\n\nPARSING EFFECTS....\n\n"
+//        printfn "  fresh locations:\n"
+////        freshLocations |> Seq.iter (fun (k, v) -> printfn "   key: %O\n    value : %O\n" k v)
+//        freshLocations |> Seq.iter (fun (k, v) -> printfn "   %O" k)
+//        printfn "\n  mutated locations:\n"
+////        mutatedLocations |> Seq.iter (fun (k, v) -> printfn "   key: %O\n    value : %O\n" k v)
+//        mutatedLocations |> Seq.iter (fun (k, v) -> printfn "   %O" k)
+//        printfn "\n\n"
         // TODO: time!
-//        let replaceFreshLocations = fun (loc, (value, _, _)) -> (substitute subst loc, substitute subst value)
-//        let freshEffects = List.map replaceFreshLocations freshLocations in
-//        let mutatedEffects = List.map replaceFreshLocations mutatedLocations in
-//        let result = result |> ControlFlow.resultToTerm |> substitute subst |> ControlFlow.throwOrReturn in
         let markFresh = Terms.iter produceFreshAddressEffect in
         freshLocations |> Seq.iter (fun (k, (v, _, _)) -> markFresh k; markFresh v)
         mutatedLocations |> Seq.iter (fun (k, (v, _, _)) -> markFresh k; markFresh v)
@@ -149,82 +133,3 @@ module Effects =
         returnValues.[id] <- result
         mutations.[id] <- effects
         resultsConverged && effectsConverged && convergedEffects.Add(id)
-
-//        let private findReadDependencies terms =
-//            let filterMapConstant deps = function
-//                | Constant(_, LazyInstantiation location, _) as term when not (List.exists (fst >> ((=) location)) deps) ->
-//                    Some (location, term)
-//                | _ -> None
-//            let unsorted = Terms.filterMapConstants filterMapConstant terms in
-//            List.sortWith (fun (loc1, _) (loc2, _) -> Memory.compareRefs loc1 loc2) unsorted
-//
-//        let private overwriteReadWriteDependencies id readDeps writeDeps =
-//            let currentWriteDeps = writeDependencies.[id] in
-//            readDependencies.[id] <- readDeps
-//            writeDependencies.[id] <- writeDeps
-//            let result = List.length currentWriteDeps = List.length writeDeps
-//            unboundedApproximationFinished.[id] <- result
-//            result
-//
-//        let private exceptionsFirst (xG, xS) (yG, yS) =
-//            match xS, yS with
-//            | _ when xS = yS -> 0
-//            | Throw _, _ -> -1
-//            | _, _ -> 1
-//
-//        let private bubbleUpExceptions = function
-//            | Guarded gvs -> List.sortWith exceptionsFirst gvs |> Guarded
-//            | r -> r
-//
-//        let rec private makeMutuallyExclusiveGuards acc res xs =
-//            match xs with
-//            | [] -> Terms.MakeNAry OperationType.LogicalAnd (List.map (fun t -> Terms.Negate t) acc) false Bool |> fun g -> g::res
-//            | x::xs -> Terms.MakeNAry OperationType.LogicalAnd (x::(List.map (fun t -> Terms.Negate t) acc)) false Bool |> fun g -> makeMutuallyExclusiveGuards (x::acc) (g::res) xs
-//
-//        let private mutuallyExclusiveGuards guards =
-//            match guards with
-//            | [] -> internalfail "empty guard"
-//            | [x] -> guards
-//            | x::xs -> makeMutuallyExclusiveGuards [] [] (List.rev xs)
-//
-//        let rec private symbolizeUnboundedResult source id = function
-//            | NoResult
-//            | Break
-//            | Return Nop -> NoResult
-//            | Return term ->
-//                let resultName = IdGenerator.startingWith(toString id + "%%res") in
-//                // TODO: time!
-//                let result = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf term) in
-//                Return result
-//            | Throw e ->
-//                let resultName = IdGenerator.startingWith(toString id + "%%err") in
-//                // TODO: time!
-//                let error = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf e) in
-//                Throw error
-//            | Guarded gvs ->
-//                let guards, results = List.unzip gvs in
-//                let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), source, Bool)) guards in
-//                let symbolizedGuards = mutuallyExclusiveGuards symbolizedGuards in
-//                let symbolizedResults = List.map (symbolizeUnboundedResult source id) results in
-//                Guarded(List.zip symbolizedGuards symbolizedResults)
-//            | r -> internalfail ("unexpected result of the unbounded encoding " + toString r)
-//
-//        let internal invokeUnboundedRecursion state id k =
-//            let sourceRef = ref Nop in
-//            let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
-//            let writeDepsLocations = writeDependencies.[id] in
-//            let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst in
-////            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
-//            let writeDeps, state' = [], state in
-//
-//            let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in
-//            let isSymbolizedConstant _ = function
-//                | Constant (_, UnboundedRecursion (TermRef r), _) as c when LanguagePrimitives.PhysicalEquality r sourceRef -> Some c
-//                | _ -> None
-//            in
-//            let resultConstants = Terms.filterMapConstants isSymbolizedConstant [ControlFlow.resultToTerm result] in
-//            let allResults = List.append resultConstants writeDeps in
-//
-//            let applicationTerm = Expression(Application id, List.append readDeps allResults, Bool) in
-//            sourceRef := applicationTerm
-//            k (result, state')

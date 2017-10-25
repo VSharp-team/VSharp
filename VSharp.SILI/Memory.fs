@@ -9,14 +9,12 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let private pointer = Persistent<int>(always 0, id)
-    let internal ZeroTime = State.zeroTime
-    let private infiniteTime : Timestamp = System.UInt32.MaxValue
-    let private timestamp = Persistent<Timestamp>(always ZeroTime, id)
+    let private timestamp = Persistent<Timestamp>(always Timestamp.zero, id)
     let internal freshAddress () =
         pointer.Mutate(pointer.Read() + 1)
         pointer.Read()
     let internal tick() =
-        timestamp.Mutate(timestamp.Read() + 1u)
+        timestamp.Mutate(timestamp.Read() |> Timestamp.inc)
         timestamp.Read()
     let public reset() =
         pointer.Reset()
@@ -57,13 +55,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
+        | PointerType t -> Terms.MakeNullRef t metadata
         | String
         | ClassType _
-        | ArrayType _ -> Terms.MakeNullRef typ metadata ZeroTime
+        | ArrayType _ -> Terms.MakeNullRef typ metadata
         | SubType(dotNetType, _, _,  _) when dotNetType.IsValueType -> Struct metadata Heap.empty typ
-        | SubType _ -> Terms.MakeNullRef typ metadata ZeroTime
-        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
+        | SubType _ -> Terms.MakeNullRef typ metadata
+        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) ->
             let contents =
                 Types.GetFieldsOf dotNetType false
@@ -105,7 +103,7 @@ module internal Memory =
                 | _ -> source
             in
             let constant = Constant metadata name source' pointerType in
-            HeapRef metadata ((constant, t), []) time
+            HeapRef metadata ((constant, t), []) {time=time}
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant metadata name source t
         | StructType _
         | SubType _
@@ -196,7 +194,7 @@ module internal Memory =
         Heap.add addr cell h
 
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
-        makeSymbolicInstance metadata ZeroTime (LazyInstantiation(fullyQualifiedLocation, false)) (toString field) fieldType
+        makeSymbolicInstance metadata Timestamp.zero (LazyInstantiation(fullyQualifiedLocation, false)) (toString field) fieldType
 
     let private arrayElementLazyInstantiator metadata time location array idx = function
         | DefaultInstantiator concreteType -> fun () -> defaultOf time metadata concreteType
@@ -264,7 +262,7 @@ module internal Memory =
 
     and private accessHeap metadata guard update h time mkCtx lazyInstantiator ptr ptrType ptrTime path =
         let gvas, h = heapDeref metadata time lazyInstantiator h ptr ptrType ptrTime in
-        let gvs, (h', newTime) = gvas |> ((h, ZeroTime) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
+        let gvs, (h', newTime) = gvas |> ((h, Timestamp.zero) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
             let ctx = mkCtx addr in
             let guard'' = guard &&& guard' in
             let accessedValue, newBaseValue, newTime = accessTerm metadata guard update created modified ptrTime ctx path baseValue in
@@ -290,7 +288,7 @@ module internal Memory =
             let addr = Terms.MakeStringKey location in
             let dnt = System.Type.GetType(location) in
             let t = FromConcreteDotNetType dnt in
-            let result, m', _ = accessHeap metadata (MakeTrue metadata) update (staticsOf state) ZeroTime firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t infiniteTime path in
+            let result, m', _ = accessHeap metadata (MakeTrue metadata) update (staticsOf state) Timestamp.zero firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t Timestamp.infinity path in
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time) ->
             let mkFirstLocation location = HeapRef term.metadata ((location, t), []) time in
@@ -299,7 +297,7 @@ module internal Memory =
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete metadata [0] pointerType) id, state))
                 (fun state k -> k (actionNull metadata state t))
                 (fun state k ->
-                    let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) ZeroTime mkFirstLocation (genericLazyInstantiator Metadata.empty time firstLocation t) addr t time path in
+                    let result, h', _ = accessHeap metadata (Terms.MakeTrue metadata) update (heapOf state) Timestamp.zero mkFirstLocation (genericLazyInstantiator Metadata.empty time.time firstLocation t) addr t time.time path in
                     k (result, withHeap state h'))
                 Merging.merge Merging.merge2Terms id id
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
@@ -467,7 +465,7 @@ module internal Memory =
     let internal allocateInHeap metadata (s : state) term : Term * state =
         let address = freshHeapLocation metadata in
         let time = tick() in
-        let pointer = HeapRef metadata ((address, Terms.TypeOf term), []) time in
+        let pointer = HeapRef metadata ((address, Terms.TypeOf term), []) {time=time} in
         (pointer, { s with heap = s.heap.Add(address, (term, time, time)) } )
 
     let internal allocateInStaticMemory metadata (s : state) typeName term =
@@ -478,10 +476,10 @@ module internal Memory =
     let internal allocateSymbolicInstance metadata state t =
         match t with
         | TermType.ClassType(tp, arg, interfaces) ->
-            let contents = makeSymbolicInstance metadata ZeroTime (LazyInstantiation(Nop, false)) "" (StructType(tp, arg, interfaces)) in
+            let contents = makeSymbolicInstance metadata Timestamp.zero (LazyInstantiation(Nop, false)) "" (StructType(tp, arg, interfaces)) in
             allocateInHeap metadata state contents
         | StructType _ ->
-            makeSymbolicInstance metadata ZeroTime (LazyInstantiation(Nop, false)) "" t, state
+            makeSymbolicInstance metadata Timestamp.zero (LazyInstantiation(Nop, false)) "" t, state
         | _ -> __notImplemented__()
 
 // ------------------------------- Comparison -------------------------------
@@ -532,40 +530,49 @@ module internal Memory =
 
     let private sortMap mapper = List.sortWith (fun (k1, _) (k2, _) -> addrLess k1 k2) >> List.map mapper
 
-    let rec private isDefaultValue reference cell =
-        match (fst3 cell).term with
-        | Constant(_, LazyInstantiation(reference', _), _) -> reference = reference'
+    let rec private isDefaultValue srcFilter reference term =
+        match term.term with
+        | Constant(_, src, _) -> srcFilter reference src
         | Struct(contents, _)
         | Array(_, _, _, _, contents, _, _) ->
-            contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) cell)
+            contents |> Heap.toSeq |> Seq.forall (fun (k, cell) -> isDefaultValue srcFilter (referenceSubLocation (k, Terms.TypeOf (fst3 cell)) reference) (fst3 cell))
+        | Union gvs ->
+            gvs |> List.forall (fun (_, v) -> isDefaultValue srcFilter reference v)
         | _ -> false
 
     let rec private isFreshLocation startTime (_, time, _) =
         time > startTime
 
-    let rec private inspectLocation startTime ctx goDeep (fresh, mutated) k cell =
+    let rec private getSubLocations reference cell =
+        match (fst3 cell).term with
+        | Struct(contents, _)
+        | Array(_, _, _, _, contents, _, _) ->
+            contents |> Heap.ofSeq |> Seq.map (fun (loc, cell') -> getSubLocations (referenceSubLocation (loc, TypeOf (fst3 cell')) reference) cell') |> Seq.concat |> List.ofSeq
+        | _ -> [(reference, cell)]
+
+    let rec private inspectLocation srcFilter startTime ctx goDeep (fresh, mutated) k cell =
         let reference = ctx (k, cell) in
-        if isFreshLocation startTime cell then ((reference, cell)::fresh, mutated)
-        elif isDefaultValue reference cell then (fresh, mutated)
+        if isFreshLocation startTime cell then (List.append (getSubLocations reference cell) fresh, mutated)
+        elif isDefaultValue srcFilter reference (fst3 cell) then (fresh, mutated)
         else
             let subFresh, subMutated = goDeep startTime reference cell in
             (List.append subFresh fresh, List.append subMutated mutated)
 
-    let rec private affectedStackLocations startTime ctx s =
-        s |> stackFold (inspectLocation startTime ctx affectedSubLocations) ([], [])
+    let rec private affectedStackLocations srcFilter startTime reference s =
+        s |> stackFold (inspectLocation srcFilter startTime reference (affectedSubLocations srcFilter)) ([], [])
 
-    and private affectedHeapLocations startTime ctx h =
-        h |> Heap.fold (inspectLocation startTime ctx affectedSubLocations) ([], [])
+    and private affectedHeapLocations srcFilter startTime reference h =
+        h |> Heap.fold (inspectLocation srcFilter startTime reference (affectedSubLocations srcFilter)) ([], [])
 
-    and private affectedSubLocations startTime ctx cell =
+    and private affectedSubLocations srcFilter startTime reference cell =
         match (fst3 cell).term with
         | Struct(contents, _)
         | Array(_, _, _, _, contents, _, _) ->
-            affectedHeapLocations startTime (fun (loc, (v, _, _)) -> referenceSubLocation (loc, TypeOf v) ctx) contents
-        | _ -> ([], [(ctx, cell)])
+            affectedHeapLocations srcFilter startTime (fun (loc, (v, _, _)) -> referenceSubLocation (loc, TypeOf v) reference) contents
+        | _ -> ([], [(reference, cell)])
 
-    let rec internal affectedLocations startTime (state : state) =
-        let freshStack,   mutatedStack    = affectedStackLocations startTime (fst >> stackLocationToReference state) state.stack in
-        let freshHeap,    mutatedHeap     = affectedHeapLocations startTime (fun (loc, (v, t, _)) -> HeapRef loc.metadata ((loc, TypeOf v), []) t) state.heap in
-        let freshStatics, mutatedStatics  = affectedHeapLocations startTime (fst >> staticLocationToReference) state.statics in
+    let rec internal affectedLocations srcFilter startTime (state : state) =
+        let freshStack,   mutatedStack    = affectedStackLocations srcFilter startTime (fst >> stackLocationToReference state) state.stack in
+        let freshHeap,    mutatedHeap     = affectedHeapLocations srcFilter startTime (fun (loc, (v, t, _)) -> HeapRef loc.metadata ((loc, TypeOf v), []) {time=t}) state.heap in
+        let freshStatics, mutatedStatics  = affectedHeapLocations srcFilter startTime (fst >> staticLocationToReference) state.statics in
         List.append3 freshStack freshHeap freshStatics, List.append3 mutatedStack mutatedHeap mutatedStatics

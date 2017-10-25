@@ -38,7 +38,7 @@ module internal Pointers =
             (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
 
     let internal isNull mtd ptr =
-        simplifyReferenceEquality mtd ptr (MakeNullRef Null mtd State.zeroTime) id
+        simplifyReferenceEquality mtd ptr (MakeNullRef Null mtd) id
 
     let internal simplifyBinaryOperation metadata op state x y k =
         match op with

@@ -4,7 +4,6 @@ open System.Collections
 open System.Collections.Generic
 open FSharpx.Collections
 
-type Timestamp = uint32
 type MemoryCell<'a> when 'a : equality = 'a * Timestamp * Timestamp  // Value * Creation timestamp * Modification timestamp
 
 [<CustomEquality;NoComparison>]
