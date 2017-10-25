@@ -11,6 +11,29 @@ module internal Pointers =
         member this.Pos = pos
         member this.Neg = neg
 
+        static member add (spd1: SymbolicPtrDiff) (spd2: SymbolicPtrDiff) = // TODO: add ~> (+)
+            let collectUniqueAndMatching (x: list<'a * int>) (y: list<'a * int>) =
+                let xsFromY, xUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) y) x
+                let ysFromX, yUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) xsFromY) y
+                let xsFromY = List.sortBy (fun x -> x.GetHashCode()) xsFromY
+                let ysFromX = List.sortBy (fun x -> x.GetHashCode()) ysFromX
+                xUnique, yUnique, xsFromY, ysFromX
+
+            let termlistDiff x y =
+                let xUnique, yUnique, xsFromY, ysFromX = collectUniqueAndMatching x y
+                let xy = List.filterMap2 (fun (a, n) (_, m) -> if n = m then None else Some(a, n - m)) xsFromY ysFromX
+                let ysFromX, xsFromY = List.mappedPartition (fun (t, n) -> if n < 0 then Some(t, -n) else None) xy
+                (xUnique @ xsFromY, yUnique @ ysFromX)
+
+            let termlistMerge x y =
+                let xUnique, yUnique, xsFromY, ysFromX = collectUniqueAndMatching x y
+                let xy = List.map2 (fun (a, n) (_, m) -> (a, n + m)) xsFromY ysFromX
+                xUnique @ yUnique @ xy
+
+            let (c, b) = termlistDiff spd2.Pos spd1.Neg
+            let (a, d) = termlistDiff spd1.Pos spd2.Neg
+            SymbolicPtrDiff(termlistMerge a c, termlistMerge b d)
+
     let private makeSPDConst spd = Terms.Constant (IdGenerator.startingWith "ptrDifference-") spd
 
     let private (~-) (spd: SymbolicPtrDiff) = SymbolicPtrDiff(spd.Neg, spd.Pos)
@@ -68,7 +91,15 @@ module internal Pointers =
             | _ -> k <| MakeUnary OperationType.UnaryMinus y ischk (TypeOf y) mtd)
 
     and private simplifySPDAddition mtd l r ischk tp s k =
-        __notImplemented__()
+        simplifySPDExpressionGeneric mtd l s k (fun l s k ->
+        simplifySPDExpressionGeneric mtd r s k (fun r s k ->
+            let k1 = withSnd s >> k
+            match term l, term r with
+            | ConstantPtr(nameX, spdX, _), ConstantPtr(nameY, spdY, _) ->
+                match SymbolicPtrDiff.add spdX spdY with
+                | SymbolicPtrDiffT([], []) -> k1 <| MakeNumber 0L mtd
+                | spdSum -> k1 <| makeSPDConst spdSum tp mtd
+            | _, _ -> k1 <| MakeBinary OperationType.Add l r ischk tp mtd))
 
     and private simplifySPDExpressionGeneric mtd y s k repeat =
         match term y with
