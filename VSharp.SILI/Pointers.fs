@@ -4,6 +4,19 @@ open JetBrains.Decompiler.Ast
 open VSharp.Common
 
 module internal Pointers =
+    type private SymbolicPtrDiff(pos: list<Term * int>, neg: list<Term * int>) =
+        inherit SymbolicConstantSource()
+        let pos = pos
+        let neg = neg
+        member this.Pos = pos
+        member this.Neg = neg
+
+    let private makeSPDConst spd = Terms.Constant (IdGenerator.startingWith "ptrDifference-") spd
+
+    let private (|SymbolicPtrDiffT|_|) (scs: SymbolicConstantSource) =
+        match scs with
+        | :? SymbolicPtrDiff as spd -> Some(spd.Pos, spd.Neg)
+        | _ -> None
 
     let internal locationEqual mtd addr1 addr2 =
         match TypeOf addr1, TypeOf addr2 with
