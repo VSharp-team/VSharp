@@ -49,7 +49,20 @@ module internal Pointers =
         | _ -> None
 
     let private AddPtrToSymbolicPtrDiff (p: Term) (spd: SymbolicPtrDiff) mkConst mtd k =
-        __notImplemented__()
+        match term p with
+        | HeapRef _
+        | StackRef _
+        | StaticRef _ ->
+            let spd = SymbolicPtrDiff.add (SymbolicPtrDiff([p, 1], [])) spd
+            let nil = MakeNullRef (TypeOf p) mtd
+            match spd.Pos, spd.Neg with
+            | [], [] -> k nil
+            | [lastp, 1], [] -> k <| lastp
+            | [lastp, 1], neg ->
+                let indent = mkConst <| SymbolicPtrDiff([], neg)
+                k <| IndentedRef lastp indent mtd
+            | _ -> k <| IndentedRef nil (SymbolicPtrDiff([], [nil, 1]) |> SymbolicPtrDiff.add spd |> mkConst) mtd
+        | _ -> internalfailf "expected reference but got %O" p
 
     let internal locationEqual mtd addr1 addr2 =
         match TypeOf addr1, TypeOf addr2 with
