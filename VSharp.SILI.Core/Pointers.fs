@@ -10,6 +10,22 @@ module internal Pointers =
         member this.Pos = pos
         member this.Neg = neg
 
+        override this.ToString() =
+            let toString =
+                List.map (function
+                    | (t, 1) -> sprintf "%O" t.term
+                    | (t, n) -> sprintf "%O * %O" n t.term)
+                >> function
+                    | [x] -> x
+                    | ss -> sprintf "[%s]" <| join " + " ss
+            let left = toString this.Pos
+            let right = toString this.Neg
+            match this.Pos, this.Neg with
+            | [], [] -> internalfail "Empty Symbolic Pointer Difference"
+            | _, [] -> left
+            | [], _ -> sprintf "- %s" right
+            | _ -> sprintf "{%s - %s}" left right
+
     let private makeSPDConst typ mtd spd = Terms.Constant mtd (IdGenerator.startingWith "ptrDifference-") spd typ
 
     let private (|SymbolicPointerDifferenceT|_|) (scs: ISymbolicConstantSource) =
