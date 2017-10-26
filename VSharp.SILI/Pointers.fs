@@ -11,6 +11,23 @@ module internal Pointers =
         member this.Pos = pos
         member this.Neg = neg
 
+        override this.ToString() =
+            let toString xs =
+                xs
+                |> List.map (function
+                    | (t, 1) -> sprintf "%O" t.term
+                    | (t, n) -> sprintf "%O * %O" n t.term)
+                |> function
+                    | [x] -> x
+                    | ss -> sprintf "[%s]" <| join " + " ss
+            let left = toString this.Pos
+            let right = toString this.Neg
+            match this.Pos, this.Neg with
+            | [], [] -> internalfail "Empty Symbolic Pointer Difference"
+            | _, [] -> left
+            | [], _ -> sprintf "- %s" right
+            | _ -> sprintf "{%s - %s}" left right
+
         static member add (spd1: SymbolicPtrDiff) (spd2: SymbolicPtrDiff) = // TODO: add ~> (+)
             let collectUniqueAndMatching (x: list<'a * int>) (y: list<'a * int>) =
                 let xsFromY, xUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) y) x
