@@ -28,6 +28,8 @@ module internal Pointers =
             | [], _ -> sprintf "- %s" right
             | _ -> sprintf "{%s - %s}" left right
 
+        static member empty = SymbolicPtrDiff([], [])
+
         static member add (spd1: SymbolicPtrDiff) (spd2: SymbolicPtrDiff) = // TODO: add ~> (+)
             let collectUniqueAndMatching (x: list<'a * int>) (y: list<'a * int>) =
                 let xsFromY, xUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) y) x
@@ -157,7 +159,23 @@ module internal Pointers =
         | _ -> k (y, s)
 
     let rec private simplifyPointerExpressionAddition mtd x y k =
-        __notImplemented__()
+        let tp = TypeOf y
+        let mkAdd l r = MakeBinary OperationType.Add l r false tp mtd
+        let rec collectSPDs expr summands spd k =
+            match term expr with
+            | Expression(Operator(OperationType.Add, _), [left; right], _) ->
+                collectSPDs left summands spd (fun (summands, spd) ->
+                collectSPDs right summands spd k)
+            | ConstantPtr(_, spd', _) -> k (summands, SymbolicPtrDiff.add spd spd')
+            | _ -> k (expr :: summands, spd)
+        collectSPDs y [] SymbolicPtrDiff.empty (fun (summands, spd) ->
+        Cps.List.reduce mkAdd summands (fun y ->
+        AddPtrToSymbolicPtrDiff x spd (fun spd -> makeSPDConst spd tp mtd) mtd (fun x ->
+        let x, y =
+            match term x with
+            | IndentedRef(x, shift) -> x, mkAdd shift y
+            | _ -> x, y
+        k <| IndentedRef x y mtd)))
 
     let rec private simplifyPointerAdditionGeneric mtd x y state k = // y must be normalized by Arithmetics!
         let rec simplifyIndentedPointerAddition x y s k =
