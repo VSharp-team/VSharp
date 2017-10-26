@@ -20,12 +20,19 @@ module Effects =
         member x.Compose(prefix : SymbolicEffectContext) =
             { state = composeStates prefix.state x.state; address = composeAddresses prefix.address x.address; time = composeTime prefix.time x.time }
 
-    type private SymbolicEffectSource(funcId : FunctionIdentifier, loc : Term option, ctx : SymbolicEffectContext) =
+    type private SymbolicEffectSource(funcId : FunctionIdentifier, ctx : SymbolicEffectContext) =
         inherit SymbolicConstantSource()
         override x.SubTerms = Seq.empty
         member x.Id = funcId
-        member x.Location  = loc
         member x.Context = ctx
+
+    type private ReturnSymbolicEffectSource(funcId : FunctionIdentifier, ctx : SymbolicEffectContext) =
+        inherit SymbolicEffectSource(funcId, ctx)
+
+    type private MutationtSymbolicEffectSource(funcId : FunctionIdentifier, ctx : SymbolicEffectContext, uloc : Term, oloc : Term) =
+        inherit SymbolicEffectSource(funcId, ctx)
+        member x.UltimateLocation = uloc
+        member x.OriginalLocation = oloc
 
     type private FreshAddressMarker() = class end
     let private freshAddressMarker = FreshAddressMarker()
@@ -41,8 +48,9 @@ module Effects =
         | Constant(_, source, _) ->
             match source with
             | Memory.LazyInstantiation(loc, isTop) ->
-                let result = Memory.derefIfInstantiated ctx.state loc |?? term in
-                if isTop then Pointers.topLevelLocation result else result
+                match Memory.derefIfInstantiated ctx.state loc with
+                | Some result -> if isTop then Pointers.topLevelLocation result else result
+                | None -> term
             | :? SymbolicEffectSource as e ->
                 apply e mtd ctx
             | _ -> term
@@ -56,21 +64,22 @@ module Effects =
     and private apply (src : SymbolicEffectSource) mtd prefix =
         let composedCtx = src.Context.Compose(prefix) in
         let pattern =
-            match src.Location with
-            | Some loc ->
-                assert(mutations.ContainsKey(src.Id) && mutations.[src.Id].ContainsKey(loc))
-                mutations.[src.Id].[loc] |> fst3
-            | None ->
+            match src with
+            | :? MutationtSymbolicEffectSource as src ->
+                assert(mutations.ContainsKey(src.Id) && mutations.[src.Id].ContainsKey(src.OriginalLocation))
+                mutations.[src.Id].[src.OriginalLocation] |> fst3
+            | :? ReturnSymbolicEffectSource as src ->
                 assert(returnValues.ContainsKey(src.Id))
                 returnValues.[src.Id] |> ControlFlow.resultToTerm
-        fillInHoles mtd composedCtx pattern
+            | _ -> __unreachable__()
+        in fillInHoles mtd composedCtx pattern
 
     type private SymbolicEffectSource with
         member x.Apply mtd prefix = apply x mtd prefix
 
     let private produceFrozenReturnValue mtd id ctx =
         let effectName = toString id + "!!ret" in
-        Constant mtd effectName (SymbolicEffectSource(id, None, ctx)) (Types.ReturnType id) |> Return mtd
+        Constant mtd effectName (ReturnSymbolicEffectSource(id, ctx)) (Types.ReturnType id) |> Return mtd
 
     let private produceUnfrozenReturnValue mtd id ctx =
         assert(returnValues.ContainsKey(id))
@@ -80,14 +89,14 @@ module Effects =
         if isFrozen id then produceFrozenReturnValue mtd id ctx
         else produceUnfrozenReturnValue mtd id ctx
 
-    let private produceFrozenEffect mtd id ctx ptr value =
-        let effectName = sprintf "%O!!%s!!%O!!eff" id (State.nameOfLocation ptr) ptr in
-        Constant mtd effectName (SymbolicEffectSource(id, Some ptr, ctx)) (TypeOf value) in
+    let private produceFrozenEffect mtd id ctx ptr origPtr value =
+        let effectName = sprintf "%O!!%O!!eff" id ptr in
+        Constant mtd effectName (MutationtSymbolicEffectSource(id, ctx, ptr, origPtr)) (TypeOf value) in
 
     let private produceEffect mtd id ctx (kvp : KeyValuePair<Term, MemoryCell<Term>>) =
         let ptr = fillInHoles mtd ctx kvp.Key in
         let effect =
-            if isFrozen id then produceFrozenEffect mtd id ctx ptr (fst3 kvp.Value)
+            if isFrozen id then produceFrozenEffect mtd id ctx ptr kvp.Key (fst3 kvp.Value)
             else fillInHoles mtd ctx (fst3 kvp.Value)
         in (ptr, effect)
 
@@ -108,7 +117,7 @@ module Effects =
     let internal defaultMemoryFilter reference (src : SymbolicConstantSource) =
         match src with
         | Memory.LazyInstantiation(reference', _) -> reference = reference'
-        | :? SymbolicEffectSource as es -> let res = es.Location.IsSome && es.Location.Value = reference in (*(if not res then printfn "NON-DEFAULT SYMBOLIC EFFECT SOURCE, %A %A" reference es.Location);*) res
+        | :? MutationtSymbolicEffectSource as es -> es.UltimateLocation = reference
         | _ -> false
 
     let internal parseEffects mtd id startTime result state =

@@ -89,7 +89,7 @@ module internal Interpreter =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod in
         match decompiledMethod with
         | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
-            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+//            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoResult Metadata.empty, state)) k
         | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
         | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
@@ -142,7 +142,7 @@ module internal Interpreter =
         let mtd = State.mkMetadata caller state in
         if metadataMethod.IsInternalCall then
             // TODO: internal calls should pass throught CallGraph.call too
-            printfn "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
+//            printfn "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
             let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
             if externalImplementations.ContainsKey(fullMethodName) then
                 let mtd = State.mkMetadata caller state in
@@ -954,7 +954,7 @@ module internal Interpreter =
             | Error _ -> term, state
             | Nop -> internalfailf "Internal error: casting void to %O!" targetType
             | StackRef _ ->
-                printfn "Warning: casting stack reference %O to %O!" term targetType
+//                printfn "Warning: casting stack reference %O to %O!" term targetType
                 term, state
             | _ ->
                 let message = MakeConcreteString "Specified cast is not valid." mtd in
@@ -1023,7 +1023,7 @@ module internal Interpreter =
             | Constant(_, _, t) -> (cast t targetType term, state)
             | Expression(operation, operands, t) -> (cast t targetType term, state)
             | StackRef _ ->
-                printfn "Warning: casting stack reference %O to %O!" term targetType
+//                printfn "Warning: casting stack reference %O to %O!" term targetType
                 hierarchyCast state term targetType
             | HeapRef _
             | Struct _ -> hierarchyCast state term targetType
@@ -1148,7 +1148,7 @@ module internal Interpreter =
         let composeResult result state k (result', state') = ControlFlow.composeSequentially result result' state state' |> k in
         match decompiledMethod with
         | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod ->
-            printfn "DECOMPILED MethodWithExplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+//            printfn "DECOMPILED MethodWithExplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             let initializerMethod = decompiledMethod.Initializer.MethodInstantiation.MethodSpecification.Method in
             let initializerQualifiedTypeName = initializerMethod.DeclaringType.AssemblyQualifiedName in
             let initializerAssemblyPath = initializerMethod.DeclaringType.Assembly.Location in
@@ -1159,20 +1159,20 @@ module internal Interpreter =
             initializeStaticMembersIfNeed caller state initializerQualifiedTypeName (fun (result, state) ->
             decompileAndReduceMethod decompiledMethod state this (State.Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k'))))) k
         | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod ->
-            printfn "DECOMPILED MethodWithImplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+//            printfn "DECOMPILED MethodWithImplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             let initializerQualifiedTypeName, initializerMethod, initializerAssemblyPath = baseCtorInfo metadataMethod in
             reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' ->
             initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
             initializeStaticMembersIfNeed caller state initializerQualifiedTypeName (fun (result, state) ->
             decompileAndReduceMethod caller state this (State.Specified []) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k')))) k
         | DecompilerServices.DecompilationResult.DefaultConstuctor ->
-            printfn "DECOMPILED default ctor %s" qualifiedTypeName
+//            printfn "DECOMPILED default ctor %s" qualifiedTypeName
             let baseCtorQualifiedTypeName, baseCtorMethod, baseCtorAssemblyPath = baseCtorInfo metadataMethod in
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) (baseCtorMethod.DeclaringType) qualifiedTypeName (fun state ->
             initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
             decompileAndReduceMethod caller state this (State.Specified []) baseCtorQualifiedTypeName baseCtorMethod baseCtorAssemblyPath (composeResult result state k)))
         | DecompilerServices.DecompilationResult.ObjectConstuctor objCtor ->
-            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(objCtor))
+//            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(objCtor))
             initializeFieldsIfNeed state (metadataMethod.DeclaringType) null qualifiedTypeName (fun state ->
             reduceDecompiledMethod caller state this parameters objCtor (fun state k' -> k' (NoResult Metadata.empty, state)) k)
         | _ -> __unreachable__()
@@ -1250,7 +1250,7 @@ module internal Interpreter =
         k (ControlFlow.throwOrIgnore result, state))
 
     and reducePropertyMemberInitializer this state (ast : IPropertyMemberInitializer) k =
-        __notImplemented__()
+        reduceMethodCall ast state (fun state k -> k (this, state)) ast.Property.Setter [fun state k -> reduceExpression state ast.Value k] (fun (result, state) -> k (ControlFlow.throwOrReturn result, state))
 
     and reduceCollectionInitializerList constructedType initializedObject state (ast : IExpressionList) k =
         let intializers = ast.Expressions |> Seq.map (reduceCollectionInitializer constructedType initializedObject) in
