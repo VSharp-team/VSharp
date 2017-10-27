@@ -246,6 +246,12 @@ module internal Pointers =
             Propositional.simplifyNegation metadata e (withSnd state >> k))
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
+    let add mtd x y =
+        simplifyBinaryOperation mtd OperationType.Add State.empty x y (typeof<System.Void>.MakePointerType()) fst
+
+    let sub mtd x y =
+        simplifyBinaryOperation mtd OperationType.Subtract State.empty x y (typeof<System.Void>.MakePointerType()) fst
+
     let isPointerOperation op t1 t2 =
         let isNearlyPtr t = Types.isPointer t || Types.isReference t
 
