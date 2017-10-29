@@ -4,21 +4,8 @@ open System.Collections.Generic
 
 module Effects =
 
-    type ConcreteHeapAddress = int list
-
-    let private composeStates (s1 : State.state) (s2 : State.state) =
-        s1
-
-    let private composeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) =
-        List.append a1 a2
-
-    let private composeTime (t1 : Timestamp) (t2 : Timestamp) =
-        // TODO
-        t1
-
-    type internal SymbolicEffectContext = { state : State.state; address : ConcreteHeapAddress; time : Timestamp } with
-        member x.Compose(prefix : SymbolicEffectContext) =
-            { state = composeStates prefix.state x.state; address = composeAddresses prefix.address x.address; time = composeTime prefix.time x.time }
+    type internal ConcreteHeapAddress = int list
+    type internal SymbolicEffectContext = { state : State.state; address : ConcreteHeapAddress; time : Timestamp }
 
     type private SymbolicEffectSource(funcId : FunctionIdentifier, ctx : SymbolicEffectContext) =
         inherit SymbolicConstantSource()
@@ -43,6 +30,14 @@ module Effects =
 
     let private isFrozen = convergedEffects.Contains >> not
 
+
+    let private composeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) =
+        List.append a1 a2
+
+    let private composeTime (t1 : Timestamp) (t2 : Timestamp) =
+        // TODO
+        t1
+
     let rec private fillInHole mtd ctx term =
         match term.term with
         | Constant(_, source, _) ->
@@ -62,7 +57,7 @@ module Effects =
         Common.substitute (fillInHole mtd ctx) term
 
     and private apply (src : SymbolicEffectSource) mtd prefix =
-        let composedCtx = src.Context.Compose(prefix) in
+        let composedCtx = compose mtd prefix src.Context in
         let pattern =
             match src with
             | :? MutationtSymbolicEffectSource as src ->
@@ -73,6 +68,16 @@ module Effects =
                 returnValues.[src.Id] |> ControlFlow.resultToTerm
             | _ -> __unreachable__()
         in fillInHoles mtd composedCtx pattern
+
+    and private composeStates mtd (ctx : SymbolicEffectContext) (state : State.state) =
+        let fillAndMutate s k v =
+            let k = fillInHoles mtd ctx k in
+            let v = fillInHoles mtd ctx (fst3 v) in
+            Memory.mutate mtd s k v |> snd
+        in Memory.fold fillAndMutate ctx.state state
+
+    and private compose mtd prefix x =
+        { state = composeStates mtd prefix x.state; address = composeAddresses prefix.address x.address; time = composeTime prefix.time x.time }
 
     type private SymbolicEffectSource with
         member x.Apply mtd prefix = apply x mtd prefix
