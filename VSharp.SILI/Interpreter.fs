@@ -1449,7 +1449,7 @@ type internal SymbolicInterpreter() =
             let emptyString, state = Strings.MakeString 0 String.Empty time |> Memory.allocateInHeap Metadata.empty state in
             Interpreter.initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
             let emptyFieldRef, state = Memory.referenceStaticField mtd state false "System.String.Empty" VSharp.String stringTypeName in
-            Memory.mutate mtd state emptyFieldRef emptyString |> snd |> (restoreAfter k))
+            Memory.mutate mtd state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
         member x.InitializeStaticMembers state qualifiedTypeName k =
             Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName k

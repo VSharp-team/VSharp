@@ -53,7 +53,7 @@ module Functions =
             recursiveFunctions.Add(id) |> ignore
 
         let internal reproduceEffect mtd id state k =
-            Effects.invoke mtd id {state = state; address = [Memory.freshAddress()]; time = Memory.tick() } k
+            Effects.invoke mtd id { state = state; address = [Memory.freshAddress()]; time = Memory.tick() } k
 
         let internal approximate mtd id (result, state) =
             let attempt = unboundedApproximationAttempts.[id] + 1 in
@@ -72,21 +72,7 @@ module Functions =
         let internal explore id k =
             let metadata = Metadata.empty in
             unboundedApproximationAttempts.[id] <- 0
-//<<<<<<< HEAD
-//            //Effects.initialize id
-//=======
-//            symbolicEffects.[id] <- []
-//            let initialSymbolicResult =
-//                NoResult metadata
-////                match returnType with
-////                | Void -> NoResult
-////                | _ ->
-////                    let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
-////                    // TODO: time!
-////                    State.makeSymbolicInstance 0u (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
-//            in symbolicResults.[id] <- initialSymbolicResult
             interpreter.Initialize State.empty (fun newState ->
-//>>>>>>> b89c9c788a11f871171ea79322805e3b3fd9954e
             let this, state =
                 match id with
                 | MetadataMethodIdentifier mm ->
@@ -105,16 +91,10 @@ module Functions =
                 | DelegateIdentifier ast ->
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
-//<<<<<<< HEAD
 //            in initialStates.[id] <- state
             in startTimes.[id] <- Memory.tick()
             doExplore metadata id state this k)
-//=======
-//            in initialStates.[id] <- state
-//            doExplore id state this k)
-//>>>>>>> b89c9c788a11f871171ea79322805e3b3fd9954e
 
-        let internal exploreIfShould id k =
-            if unboundedApproximationAttempts.ContainsKey id then k ()
-            else
-                explore id (fun _ -> k ())
+        let internal exploreIfShould id =
+            if not <| unboundedApproximationAttempts.ContainsKey id then
+                explore id (fun _ -> ())
