@@ -773,6 +773,7 @@ module internal Interpreter =
             match left with
             | :? IParameterReferenceExpression
             | :? ILocalVariableReferenceExpression
+            | :? IPointerIndirectionExpression
             | :? IArrayElementAccessExpression ->
                 fun state k -> k (Nop, state)
             | :? IMemberAccessExpression as memberAccess ->
@@ -841,6 +842,11 @@ module internal Interpreter =
             let reference, state = Memory.referenceArrayIndex mtd state array indices in
             let mtd = State.mkMetadata caller state in
             Memory.mutate mtd state reference rightTerm |> k)))
+        | :? IPointerIndirectionExpression as pointerIndirection ->
+            reduceExpression state pointerIndirection.Argument (fun (targetRef, state) ->
+            right state (fun (rightTerm, state) ->
+            let mtd = State.mkMetadata caller state in
+            Memory.mutate mtd state targetRef rightTerm |> k))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
@@ -1299,7 +1305,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        reduceExpression state ast.Argument (fun (term, state) -> Memory.deref mtd state term |> k)
 
     and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
         __notImplemented__() // TODO: [C#] __makeref(_) = [IL] mkrefany
