@@ -412,6 +412,10 @@ module public Types =
             | :? IMetadataClassType as ct ->
                 let dotnetType = MetadataToDotNetType ct in
                 FromDotNetType typeKind dotnetType
+            | :? IMetadataPointerType as pt ->
+                let dotnetType = MetadataToDotNetType pt in
+                FromDotNetType typeKind dotnetType
+                |> PointerType
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType typeKind
 
         let public FromConcreteDotNetType t = FromDotNetType Concrete t
