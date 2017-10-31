@@ -24,5 +24,14 @@ namespace VSharp.CSharpUtils.Tests
 
 //            return *s; // for debug
         }
+
+        public static void PtrDifference()
+        {
+            int x = 42;
+            int y = 37;
+            int* p = &x;
+            int* q = &y;
+            long d = p - q;
+        }
     }
 }

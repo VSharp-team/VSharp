@@ -4855,6 +4855,20 @@ System.String ==> STRUCT string[
 	| System.String.alignConst ~> 3
 	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Void VSharp.CSharpUtils.Tests.Unsafe.PtrDifference()
+RESULT: <VOID>
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
 RESULT: sqrt((double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
 HEAP:
