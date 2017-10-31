@@ -11,5 +11,18 @@ namespace VSharp.CSharpUtils.Tests
             *&x = *&z;
             return x; // 14
         }
+
+        public static void StackAllocInitialize()
+        {
+            var s = stackalloc int[30];
+
+            for (int i = 0; i < 3; i++)
+            {
+                var p = stackalloc char[20];
+//                var c = *p;
+            }
+
+//            return *s; // for debug
+        }
     }
 }
