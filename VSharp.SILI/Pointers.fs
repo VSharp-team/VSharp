@@ -55,15 +55,6 @@ module internal Pointers =
 
     let private makeSPDConst spd = Terms.Constant (IdGenerator.startingWith "ptrDifference-") spd
 
-    module private SymbolicPtrDiff =
-        let makeDiff mtd (p: Term) (q: Term) =
-            let tp = Numeric typedefof<int64>
-            if p = q
-            then MakeNumber 0L mtd
-            else
-                let spd = SymbolicPtrDiff([p, 1], [q, 1])
-                makeSPDConst spd tp mtd
-
     let private (~-) (spd: SymbolicPtrDiff) = SymbolicPtrDiff(spd.Neg, spd.Pos)
 
     let private (|SymbolicPtrDiffT|_|) (scs: SymbolicConstantSource) =
@@ -206,14 +197,21 @@ module internal Pointers =
         simplifyPointerAdditionGeneric mtd x' y' state k
 
     let rec private simplifyPointerSubtractionGeneric mtd x y state k =
+        let makeDiff mtd (p: Term) (q: Term) =
+            let tp = Numeric typedefof<int64>
+            if p = q
+            then MakeNumber 0L mtd
+            else
+                let spd = SymbolicPtrDiff([p, 1], [q, 1])
+                makeSPDConst spd tp mtd
         let simplifyPointerDiffWithOffset p q offset s =
-            simplifySPDExpression mtd (Arithmetics.add mtd (SymbolicPtrDiff.makeDiff mtd p q) offset) s k
+            simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff mtd p q) offset) s k
         let simplifyIndentedPointerSubtraction x y s k =
             match term x, term y with
             | IndentedRef(p, a), IndentedRef(q, b) -> simplifyPointerDiffWithOffset p q (Arithmetics.sub mtd a b) s
             | IndentedRef(p, a), _ -> simplifyPointerDiffWithOffset p y a s
             | _, IndentedRef(q, b) -> simplifyPointerDiffWithOffset x q (Arithmetics.neg mtd b) s
-            | _, _ -> k (SymbolicPtrDiff.makeDiff mtd x y, s)
+            | _, _ -> k (makeDiff mtd x y, s)
 
         simplifyGenericBinary "pointer1 - pointer2" state x y k
             (fun _ _ _ _ -> __unreachable__())
