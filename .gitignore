@@ -217,3 +217,10 @@ ModelManifest.xml
 
 # Custom files
 VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll
+
+# Vim swap
+
+
+# Vim swap
+*.swp
+

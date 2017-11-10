@@ -52,6 +52,7 @@ type public TermNode =
     | StackRef of StackKey * (Term * TermType) list
     | HeapRef of (Term * TermType) NonEmptyList * Timestamp
     | StaticRef of string * (Term * TermType) list
+    | IndentedRef of Term * Term // ptr * indent
     | Union of (Term * Term) list
 
     override x.ToString() =
@@ -125,6 +126,8 @@ type public TermNode =
             | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
             | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
             | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
+            | IndentedRef(term, shift) ->
+                sprintf "(IndentedRef %O[%O])" (toStr -1 false indent term.term) shift
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard in
@@ -243,6 +246,7 @@ module public Terms =
     let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
     let public HeapRef path time metadata = { term = HeapRef(path, time); metadata = metadata }
     let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
+    let public IndentedRef term shift metadata = { term = IndentedRef(term, shift); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
     let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
@@ -303,6 +307,8 @@ module public Terms =
     let rec public IsRef term =
         match term.term with
         | HeapRef _
+        | StaticRef _
+        | IndentedRef _
         | StackRef _ -> true
         | Union gvs -> List.forall (snd >> IsRef) gvs
         | _ -> false
@@ -327,6 +333,7 @@ module public Terms =
         | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
         | HeapRef(addrs, _) ->
             addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
+        | IndentedRef(t, _) -> TypeOf t
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
@@ -379,8 +386,8 @@ module public Terms =
     let public MakeBool predicate metadata =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
-    let public MakeNullRef typ metadata time =
-        HeapRef (((MakeZeroAddress metadata), typ), []) time metadata
+    let public MakeNullRef typ metadata =
+        HeapRef (((MakeZeroAddress metadata), typ), []) 0u metadata
 
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata

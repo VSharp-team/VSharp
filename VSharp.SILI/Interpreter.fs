@@ -645,7 +645,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (MakeNullRef Null mtd Memory.ZeroTime, state)
+        | null -> k (MakeNullRef Null mtd, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -727,15 +727,12 @@ module internal Interpreter =
             let time = Memory.tick() in
             let stringLength = String.length (obj.ToString()) in
             Strings.MakeString stringLength obj time |> Memory.allocateInHeap mtd state |> k
-        | _ when IsNull mType -> k (Terms.MakeNullRef Null mtd Memory.ZeroTime, state)
+        | _ when IsNull mType -> k (Terms.MakeNullRef Null mtd, state)
         | _ -> k (Concrete obj mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Variable.Name, getTokenBy (Choice2Of2 ast.Variable)))
-
-    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
-        __notImplemented__()
 
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -766,7 +763,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state in
-        let reduceTarget state k = k (Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
+        let reduceTarget state k = k (Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) mtd, state) in
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
         let reduceRightArg state k = reduceExpression state ast.RightArgument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -776,6 +773,7 @@ module internal Interpreter =
             match left with
             | :? IParameterReferenceExpression
             | :? ILocalVariableReferenceExpression
+            | :? IPointerIndirectionExpression
             | :? IArrayElementAccessExpression ->
                 fun state k -> k (Nop, state)
             | :? IMemberAccessExpression as memberAccess ->
@@ -844,6 +842,11 @@ module internal Interpreter =
             let reference, state = Memory.referenceArrayIndex mtd state array indices in
             let mtd = State.mkMetadata caller state in
             Memory.mutate mtd state reference rightTerm |> k)))
+        | :? IPointerIndirectionExpression as pointerIndirection ->
+            reduceExpression state pointerIndirection.Argument (fun (targetRef, state) ->
+            right state (fun (rightTerm, state) ->
+            let mtd = State.mkMetadata caller state in
+            Memory.mutate mtd state targetRef rightTerm |> k))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
@@ -971,12 +974,12 @@ module internal Interpreter =
             match term.term with
             | Error _ -> term, state
             | Nop -> internalfailf "Internal error: casting void to %O!" targetType
-            | _ -> Terms.MakeNullRef targetType mtd Memory.ZeroTime, state
+            | _ -> Terms.MakeNullRef targetType mtd, state
         in
         ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) Metadata.empty Memory.ZeroTime, state) in
+        let reduceTarget state k = k (MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) Metadata.empty, state) in
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
@@ -1018,7 +1021,7 @@ module internal Interpreter =
             match term.term with
             | Error _ -> term, state
             | Nop -> internalfailf "casting void to %O!" targetType
-            | _ when Terms.IsNull term -> Terms.MakeNullRef targetType mtd Memory.ZeroTime, state
+            | _ when Terms.IsNull term -> Terms.MakeNullRef targetType mtd, state
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then (Concrete value targetType term.metadata, state)
@@ -1295,29 +1298,48 @@ module internal Interpreter =
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
 
+    and reduceRefExpression state (ast : IRefExpression) k =
+        reduceExpressionToRef state false ast.Argument k
+
     and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
 
     and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        reduceExpression state ast.Argument (fun (term, state) -> Memory.deref mtd state term |> k)
 
-    and reduceRefExpression state (ast : IRefExpression) k =
-        reduceExpressionToRef state false ast.Argument k
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
+        __notImplemented__() // TODO: [C#] __makeref(_) = [IL] mkrefany
 
     and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __reftype(_) = [IL] refanytype
 
     and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceRefValueExpression state (ast : IRefValueExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __refvalue(_) = [IL] refanyval
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
+    and stackallocWithType mtd state (length : IExpression) eltyp k =
+        reduceExpression state length (fun (length, state) ->
+        let arrtyp = ArrayType(eltyp, ArrayDimensionType.ConcreteDimension 1)
+        let result = Arrays.makeDefault mtd [length] arrtyp
+        let uniqueName = IdGenerator.newId() in
+        let uniqueNameDescription = sprintf "stackalloc:%s" uniqueName in
+        let state = Memory.allocateOnStack mtd state (uniqueName, uniqueNameDescription) result in
+        k (result, state))
+
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        let eltyp = FromConcreteMetadataType ast.ElementType in
+        stackallocWithType mtd state ast.Length eltyp k
+
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
+        let mtd = State.mkMetadata ast state in
+        stackallocWithType mtd state ast.Length TermType.Void k
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -1328,35 +1350,31 @@ module internal Interpreter =
     and reduceUnboxExpression state (ast : IUnboxExpression) k =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
-        __notImplemented__()
-
-    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
-        __notImplemented__()
-
     and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] cpblk
 
     and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] initblk
 
     and reducePinStatement state (ast : IPinStatement) k =
-        __notImplemented__()
-
+        __notImplemented__() // TODO: what is it?
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
+        __notImplemented__()
+
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
         __notImplemented__()
 
     and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) k =
         __notImplemented__()
 
-    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
 // ------------------------------- Goto statements -------------------------------

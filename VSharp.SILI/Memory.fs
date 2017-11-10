@@ -47,13 +47,13 @@ module internal Memory =
         | Bool -> MakeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
-        | String -> Terms.MakeNullRef String metadata ZeroTime
-        | PointerType t -> Terms.MakeNullRef t metadata ZeroTime
-        | ClassType _ as t ->Terms.MakeNullRef t metadata ZeroTime
-        | ArrayType _ as t -> Terms.MakeNullRef t metadata ZeroTime
+        | String -> Terms.MakeNullRef String metadata
+        | PointerType t -> Terms.MakeNullRef t metadata
+        | ClassType _ as t ->Terms.MakeNullRef t metadata
+        | ArrayType _ as t -> Terms.MakeNullRef t metadata
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Terms.MakeNullRef t metadata ZeroTime
-        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata ZeroTime
+        | SubType _ as t -> Terms.MakeNullRef t metadata
+        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
@@ -99,7 +99,7 @@ module internal Memory =
         State.genericLazyInstantiator <- instantiator
         instantiator
 
-    let rec private referenceSubLocation location term =
+    let rec private referenceSubLocation location term = // TODO: [indent]
         match term.term with
         | Error _ -> term
         | StackRef(var, path) -> StackRef var (List.append path [location]) term.metadata
@@ -300,7 +300,7 @@ module internal Memory =
 
 // ------------------------------- Referencing -------------------------------
 
-    let rec private referenceTerm state name followHeapRefs term =
+    let rec private referenceTerm state name followHeapRefs term = // TODO: [indent]
         match term.term with
         | Error _
         | StackRef _
@@ -314,7 +314,7 @@ module internal Memory =
         let term, state = deref metadata state reference in
         referenceTerm state location followHeapRefs term
 
-    let rec private referenceFieldOf state field parentRef reference =
+    let rec private referenceFieldOf state field parentRef reference = // TODO: [indent]
         match reference with
         | ErrorT _ -> reference, state
         | { term = HeapRef((addr, path), t) } ->
@@ -327,12 +327,13 @@ module internal Memory =
         | UnionT gvs -> Merging.guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
         | t -> internalfailf "expected reference or struct, but got %O" t, state
 
-    let rec private followOrReturnReference metadata state reference =
+    let rec private followOrReturnReference metadata state reference = // TODO: [indent]
         let term, state = deref metadata state reference in
         match term.term with
         | Error _
         | StackRef _
         | StaticRef _
+        | IndentedRef _
         | HeapRef _ -> term, state
         | Union gvs when List.forall (fun (_, t) -> IsError t || IsRef t) gvs ->
             Merging.guardedStateMap (followOrReturnReference metadata) gvs state
@@ -366,7 +367,7 @@ module internal Memory =
         Seq.foldi (fun s i index -> mul mtd (MakeNumber i mtd) s |> add mtd index) (Concrete 0 Arrays.lengthTermType mtd) indices
 
     let internal checkIndices mtd state arrayRef dimension (indices : Term list) k =
-        let intToTerm i = MakeNumber i mtd in 
+        let intToTerm i = MakeNumber i mtd in
         let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound mtd arrayRef) in
         let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength mtd arrayRef) in
         Cps.Seq.mapFold (deref mtd) state idOfDimensionsForLowerBounds (fun (lowerBoundsList, state') ->
@@ -470,7 +471,7 @@ module internal Memory =
 
     let private comparePaths = List.compareWith (fun (a1, _) (a2, _) -> addrLess a1 a2)
 
-    let rec internal compareRefs ref1 ref2 =
+    let rec internal compareRefs ref1 ref2 = // TODO: [indent]
         match ref1, ref2 with
         | _ when ref1 = ref2 -> 0
         | HeapRef(((addr1, _), path1), _), HeapRef(((addr2, _), path2), _) ->
@@ -482,6 +483,10 @@ module internal Memory =
         | StaticRef(name1, path1), StaticRef(name2, path2) ->
             let h = compare name1 name2 in
             if h = 0 then comparePaths path1 path2 else h
+        | IndentedRef(t1, shift1), IndentedRef(t2, shift2) ->
+            let h = compareRefs (term t1) (term t2) in
+            h
+//            if h = 0 then compare shift1 shift2 else ???
         | StackRef _, _ -> -1
         | _, StackRef _ -> 1
         | HeapRef _, _ -> -1

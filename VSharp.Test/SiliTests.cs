@@ -176,6 +176,7 @@ namespace VSharp.Test
                 , "Employee"
                 , "Helper"
                 , "Array"
+//                , "Unsafe"
             };
 
             if (!Environment.OSVersion.ToString().Contains("Windows"))
