@@ -257,7 +257,7 @@ module internal Interpreter =
         | :? ICheckCastExpression as expression -> reduceCheckCastExpression state expression k
         | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression state expression k
         | :? IConditionalExpression as expression -> reduceConditionalExpression state expression k
-        | :? ICreationExpression as expression -> reduceCreationExpression state expression k
+        | :? ICreationExpression as expression -> reduceCreationExpression false state expression k
         | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression state expression k
         | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression state expression k
         | :? IDerefExpression as expression -> reduceDerefExpression state expression k
@@ -304,7 +304,7 @@ module internal Interpreter =
         | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceCreationExpression state (ast : ICreationExpression) k =
+    and reduceCreationExpression toRef state (ast : ICreationExpression) k =
         match ast with
         | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
         | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression k
@@ -312,7 +312,7 @@ module internal Interpreter =
         | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression k
         | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | :? ILambdaExpression as expression -> reduceLambdaExpression state expression k
-        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression k
+        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression toRef state expression k
         | _ -> __notImplemented__()
 
 // ------------------------------- Delegates and lambdas -------------------------------
@@ -656,6 +656,7 @@ module internal Interpreter =
             reduceExpressionToRef state true expression.Target (fun (target, state) ->
             referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
+        | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | _ -> reduceExpression state ast k
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -1178,7 +1179,7 @@ module internal Interpreter =
             reduceDecompiledMethod caller state this parameters objCtor (fun state k' -> k' (NoResult Metadata.empty, state)) k)
         | _ -> __unreachable__()
 
-    and reduceObjectCreation (caller : LocationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
+    and reduceObjectCreation returnRef (caller : LocationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType in
         let fields = DecompilerServices.getDefaultFieldValuesOf false true qualifiedTypeName in
         let names, typesAndInitializers = List.unzip fields in
@@ -1189,9 +1190,9 @@ module internal Interpreter =
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in
-        let isReference = Types.IsReferenceType t in
+        let isReferenceType = Types.IsReferenceType t in
         let reference, state =
-            if isReference
+            if isReferenceType
             then Memory.allocateInHeap mtd state freshValue
             else
                 let tempVar = "constructed instance" in
@@ -1202,7 +1203,7 @@ module internal Interpreter =
         let finish r =
             composeSequentially (fun () -> None) r
                 (fun state k ->
-                    if isReference
+                    if isReferenceType || returnRef
                     then k (Return mtd reference, state)
                     else
                         let term, state = Memory.deref mtd state reference in
@@ -1220,16 +1221,16 @@ module internal Interpreter =
             ) finish
         in
         if constructorSpecification = null
-            then k (Nop, state)
+            then finish (NoResult mtd, state)
             else
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
                 decompileAndReduceMethod caller state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath (invokeInitializers result state)))
 
 
-    and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
+    and reduceObjectCreationExpression toRef state (ast : IObjectCreationExpression) k =
         let arguments state = Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) in
-        reduceObjectCreation ast state ast.ConstructedType ast.ObjectInitializer ast.CollectionInitializer ast.ConstructorSpecification arguments k
+        reduceObjectCreation toRef ast state ast.ConstructedType ast.ObjectInitializer ast.CollectionInitializer ast.ConstructorSpecification arguments k
 
     and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
         let initializers = ast.Initializers |> Seq.map (reduceMemberInitializer initializedObject) in
@@ -1423,7 +1424,7 @@ type internal Activator() =
             let ctor = List.head ctorMethods in
             let methodSpecification = new MethodSpecification(ctor, Array.map (fun (p : IMetadataParameter) -> p.Type) ctor.Parameters) in
             let caller = (Metadata.firstOrigin mtd).location in
-            Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
+            Interpreter.reduceObjectCreation false caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
 type internal SymbolicInterpreter() =
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
