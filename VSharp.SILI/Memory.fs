@@ -176,25 +176,25 @@ module internal Memory =
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
         makeSymbolicInstance metadata ZeroTime (LazyInstantiation(fullyQualifiedLocation, false)) (toString field) fieldType
 
-    let private arrayElementLazyInstantiator metadata time location array (idx: Term) = function
-        | DefaultInstantiator concreteType -> fun () -> defaultOf time metadata concreteType
-        | LazyInstantiator(constant, concreteType) -> fun () ->
-            let id = sprintf "%s[%s]" (toString constant) (idx.term.IdicesToString()) |> IdGenerator.startingWith in
+    let private arrayElementLazyInstantiator metadata time location (idx: Term) = function
+        | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata concreteType
+        | LazyInstantiator(array, concreteType) -> fun () ->
+            let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith in
             makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id concreteType
 
-    let private arrayLowerBoundLazyInstantiator metadata time location array idx = function
-        | DefaultInstantiator concreteType -> fun () -> defaultOf time metadata Arrays.lengthTermType
-        | LazyInstantiator(constant, _) -> fun () ->
+    let private arrayLowerBoundLazyInstantiator metadata time location idx = function
+        | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata Arrays.lengthTermType
+        | LazyInstantiator(array, _) -> fun () ->
             match Options.SymbolicArrayLowerBoundStrategy() with
             | Options.AlwaysZero -> defaultOf time metadata Arrays.lengthTermType
             | Options.AlwaysSymbolic ->
-                let id = sprintf "%s.GetLowerBound(%s)" (toString constant) (toString idx) in
+                let id = sprintf "%s.GetLowerBound(%s)" (toString array) (toString idx) in
                 makeSymbolicInstance metadata time (ArrayLowerBoundLazyInstantiation (location, false, array, idx)) id Arrays.lengthTermType
 
-    let private arrayLengthLazyInstantiator metadata time location array idx = function
-        | DefaultInstantiator concreteType -> fun () -> MakeNumber 1 metadata
-        | LazyInstantiator(constant, _) -> fun () ->
-            let id = sprintf "%s.GetLength(%s)" (toString constant) (toString idx) in
+    let private arrayLengthLazyInstantiator metadata time location idx = function
+        | DefaultInstantiator (_, concreteType) -> fun () -> MakeNumber 1 metadata
+        | LazyInstantiator(array, _) -> fun () ->
+            let id = sprintf "%s.GetLength(%s)" (toString array) (toString idx) in
             makeSymbolicInstance metadata time (ArrayLengthLazyInstantiation(location, false, array, idx)) id Arrays.lengthTermType
 
     let private staticMemoryLazyInstantiator metadata t location () =
@@ -216,7 +216,7 @@ module internal Memory =
                 in result, Struct newFields t term.metadata, newTime
             | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
                 let ctx' = referenceSubLocation location ctx in
-                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata modified ctx' term key c ()) constant in
+                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata modified ctx' key c ()) constant in
                 let newHeap heap key instantiator = accessHeap metadata guard update heap created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path' in
                 match key with
                 | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.LowerBounds ->

@@ -54,7 +54,7 @@ type public TermNode =
     | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
-    member x.IdicesToString() =
+    member x.IndicesToString() =
         let sortKeyFromTerm = (fun t -> t.term) >> function
             | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
@@ -68,10 +68,9 @@ type public TermNode =
             Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
         in
         let indicesArrayToString = function
-            | Array(d, _, _, instantiators, contents, _, _) ->
-                assert(List.length instantiators = 1)
+            | Array(d, _, _, [(_, instantiator)], contents, _, _) ->
                 let printed =
-                    match List.head instantiators |> snd with
+                    match instantiator with
                     | DefaultInstantiator _ -> ""
                     | LazyInstantiator(constant, _) -> sprintf "%O: " constant
                 in
@@ -131,7 +130,7 @@ type public TermNode =
                 sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
             | Array(_, _, _, instantiators, contents, dimensions, typ) ->
                 let tryGetConstant = function
-                    | DefaultInstantiator t -> sprintf "default of %s" (toString t)
+                    | DefaultInstantiator(_, t) -> sprintf "default of %s" (toString t)
                     | LazyInstantiator(_, t) -> toString t
                 in
                 let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
@@ -145,7 +144,7 @@ type public TermNode =
                     | [_, i] ->
                         match i with
                         | DefaultInstantiator _ -> ""
-                        | LazyInstantiator _ -> sprintf "%O: " typ
+                        | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
@@ -175,7 +174,7 @@ type public TermNode =
             let mapper = toStringWithParentIndent parentIndent in
             let keyMapper key =
                 match key.term with
-                | Array _ -> key.term.IdicesToString()
+                | Array _ -> key.term.IndicesToString()
                 | _ -> toStringWithParentIndent parentIndent key
             in
             let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents in
@@ -188,7 +187,7 @@ type public TermNode =
 and
     [<StructuralEquality;NoComparison>]
     ArrayInstantiator =
-        | DefaultInstantiator of TermType
+        | DefaultInstantiator of Term * TermType
         | LazyInstantiator of Term * TermType
 
 and

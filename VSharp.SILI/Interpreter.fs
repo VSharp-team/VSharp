@@ -929,18 +929,7 @@ module internal Interpreter =
         match term.term with
         | HeapRef _
         | StackRef _
-        | StaticRef _ ->
-            let _, state =
-                Memory.hierarchicalAccess
-                    (fun v t ->
-                        match v.term with
-                        | Array(dim, len, lower, _, contents, lengths, (TermType.ArrayType(_, ArrayDimensionType.SymbolicDimension _) as typ)) ->
-                            let arrayConstant = Terms.Constant (State.nameOfLocation term) (SymbolicConstantSource()) typ mtd
-                            Terms.Array dim len lower [Terms.True , LazyInstantiator(arrayConstant, elementType targetType)] contents lengths typ mtd, t
-                        | _ -> v, t)
-                    mtd state term
-            in
-            Return mtd term, state
+        | StaticRef _
         | _ -> Return mtd term, state
 
     and throwInvalidCastException mtd state term targetType =

@@ -163,22 +163,5 @@ namespace VSharp.CSharpUtils.Tests
             }
             return arr;
         }
-
-        public static int RetSystemArrayElem1(System.Array arr)
-        {
-            int a = 8;
-            Tree b = null;
-            if (arr is int[])
-            {
-                var arrOne = arr as int[];
-                a = arrOne[1];
-            }
-            else if (arr is Tree[])
-            {
-                var arrOne = arr as Tree[];
-                a = arrOne[1].Key;
-            }
-            return a;
-        }
     }
 }
