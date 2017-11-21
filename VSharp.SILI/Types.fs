@@ -13,6 +13,7 @@ type public Variance =
 
 [<StructuralEquality;NoComparison>]
 type public ArrayDimensionType =
+    | Vector
     | ConcreteDimension of int
     | SymbolicDimension of string
 
@@ -43,6 +44,7 @@ type public TermType =
         | StructType(t, _, _)
         | ClassType (t, _, _) -> toString t
         | SubType(t, _, _, _) -> sprintf "<Subtype of %O>" t
+        | ArrayType(t, Vector) -> t.ToString() + "[]"
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(t, SymbolicDimension name) -> "System.Array"
@@ -177,6 +179,7 @@ module public Types =
         | ClassType(t, _, _)
         | SubType(t, _, _, _) -> t
         | ArrayType(t, SymbolicDimension _) -> typedefof<System.Array>
+        | ArrayType(t, Vector) -> (ToDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (ToDotNetType t).MakeArrayType(rank)
         | PointerType t -> ToDotNetType t
         | _ -> typedefof<obj>
@@ -241,7 +244,10 @@ module public Types =
             | _ when arg.AssemblyQualifiedName = "__Null" -> null
             | _ when arg.FullName = "System.Void" -> typedefof<System.Void>
             | :? IMetadataGenericArgumentReferenceType as g -> genericParameterFromMetadata g.Argument
-            | :? IMetadataArrayType as a -> (a.ElementType |> MetadataToDotNetType).MakeArrayType(int(a.Rank))
+            | :? IMetadataArrayType as a ->
+                if a.IsVector
+                    then (a.ElementType |> MetadataToDotNetType).MakeArrayType()
+                    else (a.ElementType |> MetadataToDotNetType).MakeArrayType(int(a.Rank))
             | :? IMetadataClassType as c ->
                 let originType = Type.GetType(c.Type.AssemblyQualifiedName, true) in
                 if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
@@ -313,7 +319,10 @@ module public Types =
             | n when numericTypes.Contains(n) -> Numeric n
             | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
-            | a when a.IsArray -> ArrayType(fromCommonDotNetType (a.GetElementType()) k |> PointerFromReferenceType, ConcreteDimension <| a.GetArrayRank())
+            | a when a.IsArray ->
+                ArrayType(
+                    fromDotNetTypeToSymbolic Global (a.GetElementType()) |> PointerFromReferenceType,
+                    if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke") in
@@ -358,7 +367,7 @@ module public Types =
         and private fromDotNetTypeToSymbolic typeKind dotNetType =
             fromCommonDotNetType dotNetType (function
             | p when p.IsGenericParameter -> fromDotNetGenericParameter typeKind p
-            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj>, SymbolicDimension "System.Array")
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typeKind typedefof<obj> |> PointerFromReferenceType, SymbolicDimension "System.Array")
             | c when c.IsClass ->
                 let interfaces = getInterfaces typeKind c
                 let genericArguments = getGenericArguments typeKind c
@@ -399,7 +408,7 @@ module public Types =
                 FromDotNetType typeKind arg
             | :? IMetadataArrayType as a ->
                 let elementType = FromMetadataType typeKind a.ElementType |> PointerFromReferenceType in
-                ArrayType(elementType, a.Rank |> int |> ConcreteDimension)
+                ArrayType(elementType, if a.IsVector then Vector else a.Rank |> int |> ConcreteDimension)
             | :? IMetadataClassType as ct ->
                 let dotnetType = MetadataToDotNetType ct in
                 FromDotNetType typeKind dotnetType
@@ -426,6 +435,7 @@ module public Types =
         let (|ReferenceType|_|) = function
             | String -> Some(ReferenceType(Hierarchy typedefof<string>, [], getInterfaces Global typedefof<string>))
             | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
+            | TermType.ArrayType(_, Vector)
             | TermType.ArrayType (_, ConcreteDimension _) as arr ->
                 let t = ToDotNetType arr in
                 Some(Hierarchy t, [], getInterfaces Global t)

@@ -54,6 +54,32 @@ type public TermNode =
     | StaticRef of string * (Term * TermType) list
     | Union of (Term * Term) list
 
+    member x.IndicesToString() =
+        let sortKeyFromTerm = (fun t -> t.term) >> function
+            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
+            | _ -> Int32.MaxValue
+        in
+        let indicesArrayConcreteContentsToString contents =
+            let separator = ", " in
+            Heap.toString "%s%s" separator (always "") toString (fst >> sortKeyFromTerm) contents
+        in
+        let indicesArraySymbolicContentsToString contents =
+            let separator = ", " in
+            Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
+        in
+        let indicesArrayToString = function
+            | Array(d, _, _, [(_, instantiator)], contents, _, _) ->
+                let printed =
+                    match instantiator with
+                    | DefaultInstantiator _ -> ""
+                    | LazyInstantiator(constant, _) -> sprintf "%O: " constant
+                in
+                match d.term with
+                | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
+                | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
+            | _ -> __unreachable__()
+        indicesArrayToString x
+
     override x.ToString() =
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
@@ -102,10 +128,10 @@ type public TermNode =
             | Struct(fields, t) ->
                 let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent) (fst >> toString) fields in
                 sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
-            | Array(_, _, _, instantiators, contents, dimensions, _) ->
+            | Array(_, _, _, instantiators, contents, dimensions, typ) ->
                 let tryGetConstant = function
-                    | DefaultInstantiator t -> sprintf "default of %s" (toString t)
-                    | LazyInstantiator(constant, _) -> toString constant
+                    | DefaultInstantiator(_, t) -> sprintf "default of %s" (toString t)
+                    | LazyInstantiator(_, t) -> toString t
                 in
                 let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
                 let guardedToString (guard, str) =
@@ -118,7 +144,7 @@ type public TermNode =
                     | [_, i] ->
                         match i with
                         | DefaultInstantiator _ -> ""
-                        | LazyInstantiator(constant, _) -> sprintf "%O: " constant
+                        | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
@@ -148,7 +174,7 @@ type public TermNode =
             let mapper = toStringWithParentIndent parentIndent in
             let keyMapper key =
                 match key.term with
-                | Array _ -> indicesArrayToString parentIndent key
+                | Array _ -> key.term.IndicesToString()
                 | _ -> toStringWithParentIndent parentIndent key
             in
             let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents in
@@ -156,33 +182,12 @@ type public TermNode =
             | _ when String.IsNullOrEmpty stringResult -> stringResult
             | _ -> "\n" + parentIndent + stringResult + separator
 
-        and indicesArrayToString parentIndent = (fun t -> t.term) >> function
-            | Array(d, _, _, instantiators, contents, _, _) ->
-                assert(List.length instantiators = 1)
-                let printed =
-                    match List.head instantiators |> snd with
-                    | DefaultInstantiator _ -> ""
-                    | LazyInstantiator(constant, _) -> sprintf "%O: " constant
-                in
-                match d.term with
-                | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
-                | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
-            | _ -> __unreachable__()
-
-        and indicesArrayConcreteContentsToString contents =
-            let separator = ", " in
-            Heap.toString "%s%s" separator (always "") toString (fst >> sortKeyFromTerm) contents
-
-        and indicesArraySymbolicContentsToString contents =
-            let separator = ", " in
-            Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
-
         toStr -1 false "\t" x
 
 and
     [<StructuralEquality;NoComparison>]
     ArrayInstantiator =
-        | DefaultInstantiator of TermType
+        | DefaultInstantiator of Term * TermType
         | LazyInstantiator of Term * TermType
 
 and
