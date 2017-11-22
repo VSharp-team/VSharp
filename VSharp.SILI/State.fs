@@ -33,7 +33,7 @@ module internal State =
         | StackRef((name, _), _) -> name
         | StaticRef(name, x::_) -> sprintf "%O.%O" name x
         | StaticRef(name, _) -> toString name
-        | l -> "requested name of an unexpected location " + (toString l) |> internalfail
+        | l -> internalfailf "requested name of an unexpected location %O" l
 
     let internal readStackLocation (s : state) key = MappedStack.find key s.stack
     let internal readHeapLocation (s : state) key = s.heap.[key] |> fst3

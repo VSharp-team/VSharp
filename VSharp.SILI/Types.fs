@@ -153,7 +153,7 @@ module public Types =
 
     let public elementType = function
         | ArrayType(t, _) -> t
-        | t -> internalfail ("expected array type, but got " + toString t)
+        | t -> internalfailf "expected array type, but got %O" t
 
     let public IsReferenceType = function
         | String

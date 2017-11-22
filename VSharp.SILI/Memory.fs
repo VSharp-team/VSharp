@@ -398,7 +398,7 @@ module internal Memory =
                         in k (Error exn metadata, state))
                     Merging.merge Merging.merge2Terms id id
             | Union gvs -> Merging.guardedStateMap reference gvs state
-            | t -> internalfail ("accessing index of non-array term " + toString t)
+            | t -> internalfailf "accessing index of non-array term %O" t
         in
         reference state array
 
