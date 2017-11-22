@@ -47,7 +47,7 @@ module internal Merging =
             let gs, vs = List.unzip gvs in
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
-                | t -> "Expected struct, got " + (toString t) |> internalfail
+                | t -> internalfailf "Expected struct, got %O" t
             in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
@@ -65,7 +65,7 @@ module internal Merging =
             let gs, vs = List.unzip gvs in
             let extractArrayInfo = term >> function
                 | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
-                | t -> "Expected array, got " + (toString t) |> internalfail
+                | t -> internalfailf "Expected array, got %O" t
             in
             let ds, lens, lows, inits, contents, lengths =
                 vs |> Seq.map extractArrayInfo

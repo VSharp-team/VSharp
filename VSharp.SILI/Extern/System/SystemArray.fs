@@ -74,7 +74,7 @@ module internal SystemArray =
                         let result, state = Memory.deref state boundRef in
                         k (Return result, state))
                     (fun (term, state) -> ControlFlow.resultToTerm term, state)
-            | term -> internalfail (sprintf "expected array, but %O got!" term)
+            | term -> internalfailf "expected array, but %O got!" term
         in
         let result, state =
             match array.term with
