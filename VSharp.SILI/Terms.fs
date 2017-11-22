@@ -351,19 +351,19 @@ module public Terms =
         | Struct(_, t) -> t
         | HeapPtr(_, _, t)
         | StaticPtr(_, _, t)
-        | StackPtr(_, _, t) -> PointerType t
+        | StackPtr(_, _, t) -> Reference t // TODO: PointerType t
         | StackRef(_, [], _)
-        | StaticRef(_, [], _) -> PointerType VSharp.Void
+        | StaticRef(_, [], _) -> Reference VSharp.Void // TODO: PointerType VSharp.Void
         | StackRef(_, addrs, _)
-        | StaticRef(_, addrs, _) -> List.last addrs |> snd |> PointerType
+        | StaticRef(_, addrs, _) -> List.last addrs |> snd |> Reference
         | HeapRef(addrs, _, _) ->
-            addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
+            addrs |> NonEmptyList.toList |> List.last |> snd |> Reference
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
             | [] -> TermType.Bottom
             | t::ts ->
-                let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
+                let allSame = List.forall ((=) t) ts || Types.IsReference t && List.forall Types.IsReference ts in
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
