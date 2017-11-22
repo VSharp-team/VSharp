@@ -5144,6 +5144,20 @@ System.String ==> STRUCT string[
 	| System.String.alignConst ~> 3
 	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ChangeThroughIndirection()
+RESULT: 14
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
 RESULT: <ERROR: UNION[
 	| !(0 == array) ~> (HeapRef 8)
@@ -5733,7 +5747,7 @@ HEAP:
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Object[]
-arr ==> <Pointer to <Subtype of System.Object>>: [|
+arr ==> <Reference to <Subtype of System.Object>>: [|
 	1, 1: UNION[
 		| !(0 == arr) & !System.Int32[] & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) & System.Array1 & System.Int32[,] ~> 7];
 	1: UNION[
@@ -5966,7 +5980,7 @@ HEAP:
 		| !(0 == arr) & !(1 < arr.GetLength(0)) & (!(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) & (!System.Int32[,] & System.Array1 | 0 == arr)) & (!System.Array1 | System.Int32[]) | !(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[,]) & (!System.Array1 | System.Int32[]) | !(0 == arr) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1) & (!System.Array1 | System.Int32[,]) & (!System.Int32[] & System.Array1 | 1 < arr.GetLength(0)) | (!(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | !System.Int32[,] & System.Array1 | (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | 0 == arr) & (!System.Int32[,,] & System.Array1 | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !(1 < arr.GetLength(2)) | !System.Int32[,] & System.Array1 | (!(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | (!(0 == arr) & !System.Int32[,] & System.Array1 & System.Int32[] | !(0 == arr) & (!(0 == arr) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1) & (!System.Array1 | System.Int32[]) | !(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!System.Array1 | System.Int32[,])) & (!System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0))) & (!System.Array1 | System.Int32[,]) | (!(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | (!System.Array1 | !System.Int32[] | 0 == arr | System.Int32[,]) & (!System.Int32[,] & System.Array1 | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) & (!System.Int32[] & System.Array1 | (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | 0 == arr) | 0 == arr)) & (!System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0))) & (!System.Array1 | System.Int32[,,]) | 0 == arr) & (!System.Int32[,] & System.Array1 | !System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0)) & (!System.Int32[] & System.Array1 | (!(0 == arr) & (!System.Array1 | System.Int32[,]) | !(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) | 0 == arr | 1 < arr.GetLength(0)) ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == arr) & !(1 < arr.GetLength(0)) & (!(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) & (!System.Int32[,] & System.Array1 | 0 == arr)) & (!System.Array1 | System.Int32[]) | !(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[,]) & (!System.Array1 | System.Int32[]) | !(0 == arr) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1) & (!System.Array1 | System.Int32[,]) & (!System.Int32[] & System.Array1 | 1 < arr.GetLength(0)) | (!(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | !System.Int32[,] & System.Array1 | (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | 0 == arr) & (!System.Int32[,,] & System.Array1 | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !(1 < arr.GetLength(2)) | !System.Int32[,] & System.Array1 | (!(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | (!(0 == arr) & !System.Int32[,] & System.Array1 & System.Int32[] | !(0 == arr) & (!(0 == arr) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1) & (!System.Array1 | System.Int32[]) | !(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!System.Array1 | System.Int32[,])) & (!System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0))) & (!System.Array1 | System.Int32[,]) | (!(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | (!System.Array1 | !System.Int32[] | 0 == arr | System.Int32[,]) & (!System.Int32[,] & System.Array1 | (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) & (!System.Int32[] & System.Array1 | (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) | 0 == arr) | 0 == arr)) & (!System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0))) & (!System.Array1 | System.Int32[,,]) | 0 == arr) & (!System.Int32[,] & System.Array1 | !System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0)) & (!System.Int32[] & System.Array1 | (!(0 == arr) & (!System.Array1 | System.Int32[,]) | !(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1 | 0 == arr) | 0 == arr | 1 < arr.GetLength(0)) ~> null]]
-arr ==> <Pointer to <Subtype of System.Object>>: [|
+arr ==> <Reference to <Subtype of System.Object>>: [|
 	1, 1, 1: UNION[
 		| !(0 == arr) & (!(0 == arr) & !(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | (!(0 == arr) & !System.Int32[,] & System.Array1 & System.Int32[] | !(0 == arr) & (!(0 == arr) & (!(1 < arr.GetLength(0)) | !(1 < arr.GetLength(1)) | !System.Int32[] & System.Array1) & (!System.Array1 | System.Int32[]) | !(0 == arr) & (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!System.Array1 | System.Int32[,])) & (!System.Int32[] & System.Array1 | 0 == arr | 1 < arr.GetLength(0))) & (!(1 < arr.GetLength(0)) & (!System.Array1 | System.Int32[]) | !System.Int32[,] & System.Array1 | (!System.Array1 | System.Int32[]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1)) & (!System.Array1 | System.Int32[,,]) & (!System.Array1 | System.Int32[,]) & 1 < arr.GetLength(0) & 1 < arr.GetLength(1) & 1 < arr.GetLength(2) ~> 42];
 	1, 1: UNION[

@@ -117,7 +117,7 @@ module internal Interpreter =
                         let mtd = State.mkMetadata ast state in
                         (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.WrapReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -735,9 +735,6 @@ module internal Interpreter =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Variable.Name, getTokenBy (Choice2Of2 ast.Variable)))
 
-    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
-        __notImplemented__()
-
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Parameter.Name, getTokenBy (Choice1Of2 ast.Parameter)))
@@ -777,6 +774,7 @@ module internal Interpreter =
             match left with
             | :? IParameterReferenceExpression
             | :? ILocalVariableReferenceExpression
+            | :? IPointerIndirectionExpression
             | :? IArrayElementAccessExpression ->
                 fun state k -> k (Nop, state)
             | :? IMemberAccessExpression as memberAccess ->
@@ -845,6 +843,11 @@ module internal Interpreter =
             let reference, state = Memory.referenceArrayIndex mtd state array indices in
             let mtd = State.mkMetadata caller state in
             Memory.mutate mtd state reference rightTerm |> k)))
+        | :? IPointerIndirectionExpression as pointerIndirection ->
+            reduceExpression state pointerIndirection.Argument (fun (targetRef, state) ->
+            right state (fun (rightTerm, state) ->
+            let mtd = State.mkMetadata caller state in
+            Memory.mutate mtd state targetRef rightTerm |> k))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
@@ -1181,7 +1184,7 @@ module internal Interpreter =
         in
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let finish r =
-            composeSequentially (fun () -> None) r
+            composeSequentially (always None) r
                 (fun state k ->
                     if isReferenceType || returnRef
                     then k (Return mtd reference, state)
@@ -1192,7 +1195,7 @@ module internal Interpreter =
         in
         let invokeInitializers result state (result', state') =
             let r = ControlFlow.composeSequentially result result' state state' in
-            composeSequentially (fun () -> None) r (fun state k ->
+            composeSequentially (always None) r (fun state k ->
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
                 elif collectionInitializerList <> null then
@@ -1276,29 +1279,36 @@ module internal Interpreter =
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
 
+    and reduceRefExpression state (ast : IRefExpression) k =
+        reduceExpressionToRef state false ast.Argument k
+
     and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
 
     and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        reduceExpression state ast.Argument (fun (term, state) -> Memory.deref mtd state term |> k)
 
-    and reduceRefExpression state (ast : IRefExpression) k =
-        reduceExpressionToRef state false ast.Argument k
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
+        __notImplemented__() // TODO: [C#] __makeref(_) = [IL] mkrefany
 
     and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __reftype(_) = [IL] refanytype
 
     and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceRefValueExpression state (ast : IRefValueExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __refvalue(_) = [IL] refanyval
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
         __notImplemented__()
+
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
+        __notImplemented__() // TODO: what is it?
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -1309,35 +1319,31 @@ module internal Interpreter =
     and reduceUnboxExpression state (ast : IUnboxExpression) k =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
-        __notImplemented__()
-
-    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
-        __notImplemented__()
-
     and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] cpblk
 
     and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] initblk
 
     and reducePinStatement state (ast : IPinStatement) k =
-        __notImplemented__()
-
+        __notImplemented__() // TODO: what is it?
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
+        __notImplemented__()
+
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
         __notImplemented__()
 
     and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) k =
         __notImplemented__()
 
-    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
 // ------------------------------- Goto statements -------------------------------
@@ -1389,7 +1395,7 @@ type internal Activator() =
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
             let argumentsTypes =
-                List.map (TypeOf >> function | PointerType t -> t | t -> t) arguments in
+                List.map (TypeOf >> function | Reference t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray

@@ -49,9 +49,9 @@ type public TermNode =
                * TermType                                 // Type
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
-    | StackRef of StackKey * (Term * TermType) list
-    | HeapRef of (Term * TermType) NonEmptyList * Timestamp
-    | StaticRef of string * (Term * TermType) list
+    | StackRef of StackKey * (Term * TermType) list * TermType option           // last TermType is for pointers
+    | HeapRef of (Term * TermType) NonEmptyList * Timestamp * TermType option   // last TermType is for pointers
+    | StaticRef of string * (Term * TermType) list * TermType option            // last TermType is for pointers
     | Union of (Term * Term) list
 
     member x.IndicesToString() =
@@ -147,10 +147,15 @@ type public TermNode =
                         | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
-            | StackRef(key, path) -> sprintf "(StackRef (%O, %O))" key (List.map fst path)
-            | HeapRef(((z, _), []), _) when z.term = Concrete(0, Types.pointerType) -> "null"
-            | HeapRef(path, _) -> sprintf "(HeapRef %s)" (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
-            | StaticRef(key, path) -> sprintf "(StaticRef (%O, %O))" key (List.map fst path)
+            | StackRef(key, path, mbtyp) ->
+                sprintf "(StackRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
+            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
+            | HeapRef(path, _, mbtyp) ->
+                sprintf "(HeapRef %s)%s"
+                    (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
+                    (Option.map (sprintf " as %O") mbtyp |?? "")
+            | StaticRef(key, path, mbtyp) ->
+                sprintf "(StaticRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard in
@@ -245,15 +250,30 @@ module public Terms =
     let public Array dimension length lower constant contents lengths typ metadata = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
     let public Expression op args typ metadata = { term = Expression(op, args, typ); metadata = metadata }
     let public Struct fields typ metadata = { term = Struct(fields, typ); metadata = metadata }
-    let public StackRef key path metadata = { term = StackRef(key, path); metadata = metadata }
-    let public HeapRef path time metadata = { term = HeapRef(path, time); metadata = metadata }
-    let public StaticRef key path metadata = { term = StaticRef(key, path); metadata = metadata }
+    let public StackPtr key path typ metadata = { term = StackRef(key, path, Some typ); metadata = metadata }
+    let public StackRef key path metadata = { term = StackRef(key, path, None); metadata = metadata }
+    let public HeapPtr path time typ metadata = { term = HeapRef(path, time, Some typ); metadata = metadata }
+    let public HeapRef path time metadata = { term = HeapRef(path, time, None); metadata = metadata }
+    let public StaticPtr key path typ metadata = { term = StaticRef(key, path, Some typ); metadata = metadata }
+    let public StaticRef key path metadata = { term = StaticRef(key, path, None); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
     let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
 
     let public MakeZeroAddress mtd = Concrete 0 Types.pointerType mtd
 
+
+    let public (|StackPtr|_|) = function
+        | StackRef(key, path, Some typ) -> Some(StackPtr(key, path, typ))
+        | _ -> None
+
+    let public (|StaticPtr|_|) = function
+        | StaticRef(key, path, Some typ) -> Some(StaticPtr(key, path, typ))
+        | _ -> None
+
+    let public (|HeapPtr|_|) = function
+        | HeapRef(path, time, Some typ) -> Some(HeapPtr(path, time, typ))
+        | _ -> None
 
     let public IsVoid = term >> function
         | Nop -> true
@@ -294,7 +314,7 @@ module public Terms =
             | _ -> false
 
     let public IsNull = term >> function
-        | HeapRef(((z, _), _), _) when z.term = ZeroAddress -> true
+        | HeapRef(((z, _), _), _, _) when z.term = ZeroAddress -> true
         | _ -> false
 
     let public IsStackRef = term >> function
@@ -329,16 +349,25 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | StackRef _
-        | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
-        | HeapRef(addrs, _) ->
-            addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
+        | HeapPtr(_, _, t)
+        | StaticPtr(_, _, t)
+        | StackPtr(_, _, t) -> Pointer t
+        | StackRef(_, [], _)
+        | StaticRef(_, [], _) -> Pointer VSharp.Void
+        | StackRef(_, addrs, _)
+        | StaticRef(_, addrs, _) -> List.last addrs |> snd |> Reference
+        | HeapRef(addrs, _, _) ->
+            addrs |> NonEmptyList.toList |> List.last |> snd |> Reference
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
-            match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
+            let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
+            match nonEmptyTypes with
             | [] -> TermType.Bottom
             | t::ts ->
-                let allSame = List.forall ((=) t) ts || Types.IsPointer t && List.forall Types.IsPointer ts in
+                let allSame =
+                    List.forall ((=) t) ts
+                    || List.forall Types.IsReference nonEmptyTypes
+                    || List.forall Types.IsPointer nonEmptyTypes
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
@@ -522,7 +551,7 @@ module public Terms =
             addConstantsMany mapper visited args acc
         | Struct(fields, _) ->
             addConstantsMany mapper visited (Heap.values fields) acc
-        | HeapRef(path, _) ->
+        | HeapRef(path, _, _) ->
             addConstantsMany mapper visited (NonEmptyList.toList path |> Seq.map fst) acc
         | GuardedValues(gs, vs) ->
             addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs

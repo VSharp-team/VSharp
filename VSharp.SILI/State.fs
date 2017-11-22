@@ -27,13 +27,13 @@ module internal State =
     let internal zeroTime : Timestamp = System.UInt32.MinValue
 
     let internal nameOfLocation = term >> function
-        | HeapRef((_, (x, _)::xs), _) -> toString x
-        | HeapRef(((x, _), _), _) -> toString x
-        | StackRef((name, _), x::_) -> sprintf "%s.%O" name x
-        | StackRef((name, _), _) -> name
-        | StaticRef(name, x::_) -> sprintf "%O.%O" name x
-        | StaticRef(name, _) -> toString name
-        | l -> "requested name of an unexpected location " + (toString l) |> internalfail
+        | HeapRef((_, (x, _)::_), _, _)
+        | HeapRef(((x, _), _), _, _) -> toString x
+        | StaticRef(name, x::_, _)
+        | StackRef((name, _), x::_, _) -> sprintf "%s.%O" name x
+        | StaticRef(name, _, _)
+        | StackRef((name, _), _, _) -> name
+        | l -> internalfailf "requested name of an unexpected location %O" l
 
     let internal readStackLocation (s : state) key = MappedStack.find key s.stack
     let internal readHeapLocation (s : state) key = s.heap.[key] |> fst3
