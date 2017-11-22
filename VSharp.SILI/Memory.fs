@@ -102,9 +102,9 @@ module internal Memory =
     let rec private referenceSubLocation location term =
         match term.term with
         | Error _ -> term
-        | StackRef(var, path) -> StackRef var (List.append path [location]) term.metadata
-        | StaticRef(var, path) -> StaticRef var (List.append path [location]) term.metadata
-        | HeapRef((addr, path), t) -> HeapRef (addr, List.append path [location]) t term.metadata
+        | StackRef(var, path, None) -> StackRef var (List.append path [location]) term.metadata
+        | StaticRef(var, path, None) -> StaticRef var (List.append path [location]) term.metadata
+        | HeapRef((addr, path), t, None) -> HeapRef (addr, List.append path [location]) t term.metadata
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (referenceSubLocation location) |> List.zip gs |> Union term.metadata
         | _ -> internalfailf "expected reference, but got %O" term
 
@@ -250,14 +250,14 @@ module internal Memory =
     let rec private commonHierarchicalAccess actionNull update metadata state term =
         match term.term with
         | Error _ -> (term, state)
-        | StackRef(location, path) ->
+        | StackRef(location, path, None) ->
             let firstLocation = StackRef location [] term.metadata in
             let time = frameTime state location in
             let (baseValue, created, modified), h' = stackDeref time (fun () -> stackLazyInstantiator state time location |> fst3) state location in
             let accessedValue, newBaseValue, newTime = accessTerm metadata (Terms.MakeTrue metadata) update created modified time firstLocation path baseValue in
             let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
             accessedValue, newState
-        | StaticRef(location, path) ->
+        | StaticRef(location, path, None) ->
             let firstLocation = Terms.term >> function
                 | Concrete(location, String) -> StaticRef (location :?> string) [] term.metadata
                 | _ -> __notImplemented__()
@@ -267,7 +267,7 @@ module internal Memory =
             let t = FromConcreteDotNetType dnt in
             let result, m', _ = accessHeap metadata (Terms.MakeTrue metadata) update (staticsOf state) ZeroTime firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t infiniteTime path in
             result, withStatics state m'
-        | HeapRef(((addr, t) as location, path), time) ->
+        | HeapRef(((addr, t) as location, path), time, None) ->
             let mkFirstLocation location = HeapRef ((location, t), []) time term.metadata in
             let firstLocation = HeapRef (location, []) time term.metadata in
             Common.reduceConditionalExecution state
@@ -314,7 +314,7 @@ module internal Memory =
     let rec private referenceFieldOf state field parentRef reference =
         match reference with
         | ErrorT _ -> reference, state
-        | { term = HeapRef((addr, path), t) } ->
+        | { term = HeapRef((addr, path), t, None) } ->
             assert(List.isEmpty path) // TODO: will this really be always empty?
             HeapRef (addr, [field]) t reference.metadata, state
         | Null ->
@@ -470,13 +470,13 @@ module internal Memory =
     let rec internal compareRefs ref1 ref2 =
         match ref1, ref2 with
         | _ when ref1 = ref2 -> 0
-        | HeapRef(((addr1, _), path1), _), HeapRef(((addr2, _), path2), _) ->
+        | HeapRef(((addr1, _), path1), _, _), HeapRef(((addr2, _), path2), _, _) ->
             let h = addrLess addr1 addr2 in
             if h = 0 then comparePaths path1 path2 else h
-        | StackRef(name1, path1), StackRef(name2, path2) ->
+        | StackRef(name1, path1, _), StackRef(name2, path2, _) ->
             let h = compare name1 name2 in
             if h = 0 then comparePaths path1 path2 else h
-        | StaticRef(name1, path1), StaticRef(name2, path2) ->
+        | StaticRef(name1, path1, _), StaticRef(name2, path2, _) ->
             let h = compare name1 name2 in
             if h = 0 then comparePaths path1 path2 else h
         | StackRef _, _ -> -1
