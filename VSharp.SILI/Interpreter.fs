@@ -1181,7 +1181,7 @@ module internal Interpreter =
         in
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let finish r =
-            composeSequentially (fun () -> None) r
+            composeSequentially (always None) r
                 (fun state k ->
                     if isReferenceType || returnRef
                     then k (Return mtd reference, state)
@@ -1192,7 +1192,7 @@ module internal Interpreter =
         in
         let invokeInitializers result state (result', state') =
             let r = ControlFlow.composeSequentially result result' state state' in
-            composeSequentially (fun () -> None) r (fun state k ->
+            composeSequentially (always None) r (fun state k ->
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
                 elif collectionInitializerList <> null then

@@ -438,7 +438,7 @@ module public Types =
             | TermType.ArrayType(_, Vector)
             | TermType.ArrayType (_, ConcreteDimension _) as arr ->
                 let t = ToDotNetType arr in
-                Some(Hierarchy t, [], getInterfaces Global t)
+                Some(ReferenceType(Hierarchy t, [], getInterfaces Global t))
             | _ -> None
 
         let (|ComplexType|_|) = function

@@ -363,7 +363,7 @@ module internal Memory =
         Seq.foldi (fun s i index -> mul mtd (MakeNumber i mtd) s |> add mtd index) (Concrete 0 Arrays.lengthTermType mtd) indices
 
     let internal checkIndices mtd state arrayRef dimension (indices : Term list) k =
-        let intToTerm i = MakeNumber i mtd in 
+        let intToTerm i = MakeNumber i mtd in
         let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound mtd arrayRef) in
         let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength mtd arrayRef) in
         Cps.Seq.mapFold (deref mtd) state idOfDimensionsForLowerBounds (fun (lowerBoundsList, state') ->
