@@ -48,7 +48,7 @@ module internal Memory =
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance(t)) t metadata
         | Numeric t -> CastConcrete 0 t metadata
         | String -> Terms.MakeNullRef String metadata
-        | PointerType t -> Terms.MakeNullRef t metadata
+        | Reference t -> Terms.MakeNullRef t metadata
         | ClassType _ as t ->Terms.MakeNullRef t metadata
         | ArrayType _ as t -> Terms.MakeNullRef t metadata
         | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
@@ -77,7 +77,7 @@ module internal Memory =
         fields, t, Struct contents t metadata
 
     let internal makeSymbolicInstance metadata time source name = function
-        | PointerType t ->
+        | Reference t ->
             let source' =
                 match source :> SymbolicConstantSource with
                 | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
@@ -336,14 +336,14 @@ module internal Memory =
         | _ -> reference, state
 
     let internal referenceField metadata state followHeapRefs name typ parentRef =
-        let typ = Types.PointerFromReferenceType typ in
+        let typ = Types.WrapReferenceType typ in
         let term, state = deref metadata state parentRef in
         let reference, newState = referenceFieldOf state (Terms.MakeStringKey name, typ) parentRef term in
         if followHeapRefs then followOrReturnReference metadata newState reference
         else (reference, newState)
 
     let internal referenceStaticField metadata state followHeapRefs fieldName typ typeName =
-        let typ = Types.PointerFromReferenceType typ in
+        let typ = Types.WrapReferenceType typ in
         let reference = StaticRef typeName [(Terms.MakeStringKey fieldName, typ)] metadata in
         if followHeapRefs then followOrReturnReference metadata state reference
         else (reference, state)

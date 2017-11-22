@@ -117,7 +117,7 @@ module internal Interpreter =
                         let mtd = State.mkMetadata ast state in
                         (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.WrapReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -1395,7 +1395,7 @@ type internal Activator() =
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
             let argumentsTypes =
-                List.map (TypeOf >> function | PointerType t -> t | t -> t) arguments in
+                List.map (TypeOf >> function | Reference t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray
