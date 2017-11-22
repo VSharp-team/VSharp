@@ -31,6 +31,7 @@ type public TermType =
     | ArrayType of TermType * ArrayDimensionType
     | Func of TermType list * TermType
     | Reference of TermType
+    | Pointer of TermType // int* and other C style pointers
 
     override x.ToString() =
         match x with
@@ -49,6 +50,7 @@ type public TermType =
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(t, SymbolicDimension name) -> "System.Array"
         | Reference t -> sprintf "<Reference to %O>" t
+        | Pointer t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;NoComparison>]
     TermTypeRef =
@@ -141,6 +143,10 @@ module public Types =
 
     let public IsReference = function
         | Reference _ -> true
+        | _ -> false
+
+    let public IsPointer = function
+        | Pointer _ -> true
         | _ -> false
 
     let public DomainOf = function
