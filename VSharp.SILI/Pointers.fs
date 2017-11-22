@@ -25,11 +25,11 @@ module internal Pointers =
                 let k = withSnd s >> k in
                 match x.term, y.term with
                 | _ when x = y -> MakeTrue mtd |> k
-                | HeapRef(xpath, _), HeapRef(ypath, _) ->
+                | HeapRef(xpath, _, None), HeapRef(ypath, _, None) ->
                     comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
-                | StackRef(key1, path1), StackRef(key2, path2) ->
+                | StackRef(key1, path1, None), StackRef(key2, path2, None) ->
                     MakeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
-                | StaticRef(key1, path1), StaticRef(key2, path2) ->
+                | StaticRef(key1, path1, None), StaticRef(key2, path2, None) ->
                     MakeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
                 | _ -> MakeFalse mtd |> k)
             (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
