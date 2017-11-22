@@ -360,10 +360,14 @@ module public Terms =
             addrs |> NonEmptyList.toList |> List.last |> snd |> Reference
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
-            match (List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)) with
+            let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
+            match nonEmptyTypes with
             | [] -> TermType.Bottom
             | t::ts ->
-                let allSame = List.forall ((=) t) ts || Types.IsReference t && List.forall Types.IsReference ts in
+                let allSame =
+                    List.forall ((=) t) ts
+                    || List.forall Types.IsReference nonEmptyTypes
+                    || List.forall Types.IsPointer nonEmptyTypes
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term

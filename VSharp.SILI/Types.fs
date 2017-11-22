@@ -31,6 +31,7 @@ type public TermType =
     | ArrayType of TermType * ArrayDimensionType
     | Func of TermType list * TermType
     | Reference of TermType
+    | Pointer of TermType // int* and other C style pointers
 
     override x.ToString() =
         match x with
@@ -141,6 +142,10 @@ module public Types =
 
     let public IsReference = function
         | Reference _ -> true
+        | _ -> false
+
+    let public IsPointer = function
+        | Pointer _ -> true
         | _ -> false
 
     let public DomainOf = function
