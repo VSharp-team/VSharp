@@ -41,7 +41,7 @@ module Functions =
         let private symbolicResults = new Dictionary<FunctionIdentifier, StatementResult>()
         let private terminationRelatedState = new Dictionary<FunctionIdentifier, Term seq>()
 
-        type IInterpreter =
+        type internal IInterpreter =
             abstract member Initialize : State.state -> (State.state -> 'a) -> 'a
             abstract member InitializeStaticMembers : State.state -> string -> (StatementResult * State.state -> 'a) -> 'a
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
@@ -53,7 +53,7 @@ module Functions =
                     internalfail "interpreter for unbounded recursion is not ready"
                 member this.Initialize _ _ =
                     internalfail "interpreter for unbounded recursion is not ready"
-        let mutable interpreter : IInterpreter = new NullActivator() :> IInterpreter
+        let mutable internal interpreter : IInterpreter = new NullActivator() :> IInterpreter
 
 //        let private findReadDependencies terms =
 //            let filterMapConstant deps = function

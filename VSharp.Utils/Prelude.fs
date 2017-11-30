@@ -7,26 +7,20 @@ module public Prelude =
     let public __notImplemented__() = raise (new System.NotImplementedException())
     let public __unreachable__() = internalfail "unreachable branch hit!"
 
-    let public toString x = x.ToString()
-    let public apply f x = f x
-    let public join s (ss : seq<string>) = System.String.Join(s, ss)
+    let inline public toString x = x.ToString()
+    let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 
-    let public id1 x _ = x
-    let public id2 _ x = x
-    let public always x = (fun _ -> x)
+    let public always x _ = x
 
-    let public cons x xs = x :: xs
+    let inline public cons x xs = x :: xs
 
     let public withFst x = fun y -> (x, y)
     let public withSnd y = fun x -> (x, y)
-    let public makePair x y = (x, y)
+    let inline public makePair x y = (x, y)
 
-    let fst3 (x, _, _) = x
-    let snd3 (_, y, _) = y
-    let thd3 (_, _, z) = z
+    let inline public fst3 (x, _, _) = x
+    let inline public snd3 (_, y, _) = y
+    let inline public thd3 (_, _, z) = z
 
-    let inline public (|?) lhs rhs = (if lhs = null then rhs else lhs)
-    let inline public (|??) lhs rhs =
-        match lhs with
-        | Some x -> x
-        | None -> rhs
+    let inline public (|?) lhs rhs = if lhs = null then rhs else lhs
+    let inline public (|??) lhs rhs = Option.defaultValue rhs lhs

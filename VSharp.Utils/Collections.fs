@@ -6,7 +6,13 @@ module public Seq =
                 match mapper x with
                 | Some y -> yield y
                 | None -> () }
-    
+
+    let foldi f st xs =
+        let i = ref (-1)
+        Seq.fold (fun s t ->
+            i := !i + 1
+            f s !i t) st xs
+
     let public (|Cons|Empty|) s =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)

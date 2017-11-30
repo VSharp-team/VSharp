@@ -33,7 +33,6 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Release\VSharp.Utils.XML</DocumentationFile>
-    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -55,6 +54,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Hierarchy.fs" />
     <Compile Include="IdGenerator.fs" />
+    <Compile Include="MemoryCell.fs" />
     <Compile Include="Prelude.fs" />
     <Compile Include="Collections.fs" />
     <Compile Include="Cps.fs" />

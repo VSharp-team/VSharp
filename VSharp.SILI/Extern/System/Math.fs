@@ -22,7 +22,7 @@ module private MathImpl =
             | Expression(_, _, t) ->
                 Expression (Application(StandardFunctionIdentifier standFunc)) [term] t
             | Union gvs -> Merging.guardedMap impl gvs
-            | term -> internalfail (sprintf "expected number, but %O got!" term) in
+            | term -> internalfailf "expected number, but %O got!" term in
         (Return (impl arg), state)
 
     let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete standFunc (state : State.state) args =
@@ -74,7 +74,7 @@ module private MathImpl =
                                         (!!pIsZero &&& !!pIsLessZero, infTerm)])
                         | _ -> Expression (Application(StandardFunctionIdentifier(standFunc))) [bConc; p] t
                     | Union gvs -> Merging.guardedMap pow gvs
-                    | term -> internalfail (sprintf "expected number for power, but %O got!" term)
+                    | term -> internalfailf "expected number for power, but %O got!" term
                 in
                 pow p
             | Constant(_, _, t) | Expression(_, _, t) ->
@@ -109,11 +109,11 @@ module private MathImpl =
                     | Constant(_, _, t) | Expression(_, _, t) ->
                         Expression (Application(StandardFunctionIdentifier(Operations.Power))) [b; term] t
                     | Union gvs -> Merging.guardedMap pow gvs
-                    | term -> internalfail (sprintf "expected number for power, but %O got!" term)
+                    | term -> internalfailf "expected number for power, but %O got!" term
                 in
                 pow p
             | Union gvs -> Merging.guardedMap (power p) gvs
-            | term -> internalfail (sprintf "expected number for base, but %O got!" term) in
+            | term -> internalfailf "expected number for base, but %O got!" term in
         (Return (power p b), state)
 
     let atan2<'a when 'a : comparison> convert isNan isInf concrete standFunc (state : State.state) args =
@@ -141,7 +141,7 @@ module private MathImpl =
                               Union([(xIsInf, MakeNumber Nan); (!!xIsInf, exp)])
                         | _ -> exp
                     | Union gvs -> Merging.guardedMap atanX gvs
-                    | term -> internalfail (sprintf "expected number for x, but %O got!" term) in
+                    | term -> internalfailf "expected number for x, but %O got!" term in
                     atanX x
             | Constant(_, _, t)
             | Expression(_, _, t) ->
@@ -163,13 +163,13 @@ module private MathImpl =
                     | Expression(_, _, t) ->
                         Expression (Application(StandardFunctionIdentifier standFunc)) [y; term] t
                     | Union gvs -> Merging.guardedMap atanX gvs
-                    | term -> internalfail (sprintf "expected number for x, but %O got!" term) in
+                    | term -> internalfailf "expected number for x, but %O got!" term in
                 atanX x
             | Union gvs -> Merging.guardedMap (atanY x) gvs
-            | term -> internalfail (sprintf "expected number for y, but %O got!" term) in
+            | term -> internalfailf "expected number for y, but %O got!" term in
         (Return (atanY x y), state)
 
-module Math =
+module internal Math =
     let Acos state args = MathImpl.impl<double> Math.Acos Operations.Arccosine state args
     let Asin state args = MathImpl.impl<double> Math.Asin Operations.Arcsine state args
     let Atan state args = MathImpl.impl<double> Math.Atan Operations.Arctangent state args

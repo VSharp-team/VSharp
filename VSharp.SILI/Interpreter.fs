@@ -7,6 +7,7 @@ open System.Collections.Generic
 open System.Reflection
 open Types.Constructor
 open Types
+open MemoryCell
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
@@ -63,7 +64,7 @@ module internal Interpreter =
                     | _ -> __unreachable__()))
         dict
 
-    let rec internalCall metadataMethod argsAndThis ((s, h, m, f, p) as state : State.state) k =
+    let rec internalCall metadataMethod argsAndThis (s : State.state) k =
         let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod in
         let k' (result, state) = k (result, State.popStack state) in
         let methodInfo = externalImplementations.[fullMethodName] in
@@ -75,8 +76,8 @@ module internal Interpreter =
         let parameters : obj[] =
             // Sometimes F# compiler merges tuple with the rest arguments!
             match methodInfo.GetParameters().Length with
-            | 2 -> [| state; argsAndThis |]
-            | 6 -> [| s; h; m; f; p; argsAndThis |]
+            | 2 -> [| s; argsAndThis |]
+            | 6 -> [| s.stack; s.heap; s.statics; s.frames; s.pc; argsAndThis |]
             | _ -> __notImplemented__()
         let result = methodInfo.Invoke(null, parameters) in
         match result with
@@ -117,7 +118,7 @@ module internal Interpreter =
                         let mtd = State.mkMetadata ast state in
                         (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.PointerFromReferenceType |> Some)
+                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.WrapReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values in
         let parametersAndThis =
@@ -257,7 +258,7 @@ module internal Interpreter =
         | :? ICheckCastExpression as expression -> reduceCheckCastExpression state expression k
         | :? ICheckFiniteExpression as expression -> reduceCheckFiniteExpression state expression k
         | :? IConditionalExpression as expression -> reduceConditionalExpression state expression k
-        | :? ICreationExpression as expression -> reduceCreationExpression state expression k
+        | :? ICreationExpression as expression -> reduceCreationExpression false state expression k
         | :? IDefaultValueExpression as expression -> reduceDefaultValueExpression state expression k
         | :? IDelegateCallExpression as expression -> reduceDelegateCallExpression state expression k
         | :? IDerefExpression as expression -> reduceDerefExpression state expression k
@@ -304,7 +305,7 @@ module internal Interpreter =
         | :? IPropertyAccessExpression as expression -> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
 
-    and reduceCreationExpression state (ast : ICreationExpression) k =
+    and reduceCreationExpression toRef state (ast : ICreationExpression) k =
         match ast with
         | :? IAnonymousMethodExpression as expression -> reduceAnonymousMethodExpression state expression k
         | :? IAnonymousObjectCreationExpression as expression -> reduceAnonymousObjectCreationExpression state expression k
@@ -312,7 +313,7 @@ module internal Interpreter =
         | :? IDelegateCreationExpression as expression -> reduceDelegateCreationExpression state expression k
         | :? ILambdaBlockExpression as expression -> reduceLambdaBlockExpression state expression k
         | :? ILambdaExpression as expression -> reduceLambdaExpression state expression k
-        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression state expression k
+        | :? IObjectCreationExpression as expression -> reduceObjectCreationExpression toRef state expression k
         | _ -> __notImplemented__()
 
 // ------------------------------- Delegates and lambdas -------------------------------
@@ -476,23 +477,8 @@ module internal Interpreter =
 
 // ------------------------------- Conditional operations -------------------------------
 
-    and reduceConditionalExecution state conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
-        let execution conditionState condition k =
-            thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
-            elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = merge2 condition !!condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
-            k (result, state)))
-        in
-        conditionInvocation state (fun (condition, conditionState) ->
-        match condition with
-        | Terms.True ->  thenBranch conditionState k
-        | Terms.False -> elseBranch conditionState k
-        | UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
-        | _ -> execution conditionState condition k)
-
     and reduceConditionalStatements state conditionInvocation thenBranch elseBranch k =
-         reduceConditionalExecution state conditionInvocation thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
+         Common.reduceConditionalExecution state conditionInvocation thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
 
     and npeOrInvokeStatement caller state isStatic reference statement k =
         if isStatic then statement state k
@@ -518,7 +504,7 @@ module internal Interpreter =
             k
 
     and reduceConditionalExpression state (ast : IConditionalExpression) k =
-        reduceConditionalExecution state
+        Common.reduceConditionalExecution state
             (fun state k -> reduceExpression state ast.Condition k)
             (fun state k -> reduceExpression state ast.Then k)
             (fun state k -> reduceExpression state ast.Else k)
@@ -561,8 +547,8 @@ module internal Interpreter =
     and reduceThrowStatement state (ast : IThrowStatement) k =
         let mtd = State.mkMetadata ast state in
         reduceExpression state ast.Argument (fun (arg, state) ->
-        match arg.term with
-        | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) ->
+        match arg with
+        | Null ->
             let term, state = State.activator.CreateInstance mtd typeof<NullReferenceException> [] state in
             k (Throw mtd term, state)
         | _ -> k (Throw mtd arg, state))
@@ -660,7 +646,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let mtd = State.mkMetadata ast state in
         match ast with
-        | null -> k (Concrete null Null mtd, state)
+        | null -> k (MakeNullRef Null mtd, state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.referenceLocalVariable mtd state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -671,6 +657,7 @@ module internal Interpreter =
             reduceExpressionToRef state true expression.Target (fun (target, state) ->
             referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
+        | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | _ -> reduceExpression state ast k
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -742,15 +729,12 @@ module internal Interpreter =
             let time = Memory.tick() in
             let stringLength = String.length (obj.ToString()) in
             Strings.MakeString stringLength obj time |> Memory.allocateInHeap mtd state |> k
-        | _ when IsNull mType -> k (Terms.MakeNull Null mtd Memory.ZeroTime, state)
+        | _ when IsNull mType -> k (Terms.MakeNullRef Null mtd, state)
         | _ -> k (Concrete obj mType mtd, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
         k (Memory.derefLocalVariable mtd state (ast.Variable.Name, getTokenBy (Choice2Of2 ast.Variable)))
-
-    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
-        __notImplemented__()
 
     and reduceParameterReferenceExpression state (ast : IParameterReferenceExpression) k =
         let mtd = State.mkMetadata ast state in
@@ -781,7 +765,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state in
-        let reduceTarget state k = k (Terms.MakeNull (FromGlobalSymbolicDotNetType typedefof<obj>) mtd Memory.ZeroTime, state) in
+        let reduceTarget state k = k (Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) mtd, state) in
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k in
         let reduceRightArg state k = reduceExpression state ast.RightArgument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -791,6 +775,7 @@ module internal Interpreter =
             match left with
             | :? IParameterReferenceExpression
             | :? ILocalVariableReferenceExpression
+            | :? IPointerIndirectionExpression
             | :? IArrayElementAccessExpression ->
                 fun state k -> k (Nop, state)
             | :? IMemberAccessExpression as memberAccess ->
@@ -859,6 +844,11 @@ module internal Interpreter =
             let reference, state = Memory.referenceArrayIndex mtd state array indices in
             let mtd = State.mkMetadata caller state in
             Memory.mutate mtd state reference rightTerm |> k)))
+        | :? IPointerIndirectionExpression as pointerIndirection ->
+            reduceExpression state pointerIndirection.Argument (fun (targetRef, state) ->
+            right state (fun (rightTerm, state) ->
+            let mtd = State.mkMetadata caller state in
+            Memory.mutate mtd state targetRef rightTerm |> k))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
@@ -943,28 +933,8 @@ module internal Interpreter =
         match term.term with
         | HeapRef _
         | StackRef _
-        | StaticRef _ -> Return mtd term, state
-        | _ ->
-            let leftType = Terms.TypeOf term in
-            let rec isUpCast l r =
-                match l, r with
-                | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
-                | Func _, Func _ -> false
-                | ArrayType _, _ -> true
-                | _ -> __notImplemented__()
-            in
-            let result =
-                match isUpCast leftType targetType with
-                | true -> term
-                | false ->
-                    match term.term with
-                    | Concrete(value, _) -> Concrete value targetType term.metadata
-                    | Constant(name, source, _) -> Terms.Constant name source targetType term.metadata
-                    | Expression(operation, operands, _) -> Expression operation operands targetType term.metadata
-                    | Struct(m, _) -> Struct m targetType term.metadata
-                    | _ -> __notImplemented__()
-            in
-            Return mtd result, state
+        | StaticRef _
+        | _ -> Return mtd term, state
 
     and throwInvalidCastException mtd state term targetType =
         let result, state =
@@ -986,12 +956,12 @@ module internal Interpreter =
             match term.term with
             | Error _ -> term, state
             | Nop -> internalfailf "Internal error: casting void to %O!" targetType
-            | _ -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
+            | _ -> Terms.MakeNullRef targetType mtd, state
         in
         ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (Memory.NullRefOf (FromGlobalSymbolicDotNetType typedefof<obj>), state) in
+        let reduceTarget state k = k (MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) Metadata.empty, state) in
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
@@ -1032,8 +1002,8 @@ module internal Interpreter =
         let rec primitiveCast state term targetType =
             match term.term with
             | Error _ -> term, state
-            | HeapRef(((z, _), []), _) when z.term = TermNode.Concrete(0, pointerType) -> Terms.MakeNull targetType mtd Memory.ZeroTime, state
             | Nop -> internalfailf "casting void to %O!" targetType
+            | _ when Terms.IsNull term -> Terms.MakeNullRef targetType mtd, state
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
                 then (Concrete value targetType term.metadata, state)
@@ -1088,8 +1058,8 @@ module internal Interpreter =
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
         let result =
             match initializer.term with
-            | Concrete(null, _) -> Array.makeDefault mtd dimensions typ (Array.zeroLowerBound mtd dimensions.Length)
-            | _ -> Array.fromInitializer mtd (Memory.tick()) (int ast.ArrayType.Rank) typ initializer
+            | Concrete(null, _) -> Arrays.makeDefault mtd dimensions typ
+            | _ -> Arrays.fromInitializer mtd (Memory.tick()) (int ast.ArrayType.Rank) typ initializer
         Memory.allocateInHeap mtd state result |> k))
 
     and initializeStaticMembersIfNeed (caller : LocationBinding) state qualifiedTypeName k =
@@ -1193,20 +1163,20 @@ module internal Interpreter =
             reduceDecompiledMethod caller state this parameters objCtor (fun state k' -> k' (NoResult Metadata.empty, state)) k)
         | _ -> __unreachable__()
 
-    and reduceObjectCreation (caller : LocationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
+    and reduceObjectCreation returnRef (caller : LocationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType in
         let fields = DecompilerServices.getDefaultFieldValuesOf false true qualifiedTypeName in
         let names, typesAndInitializers = List.unzip fields in
         let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
         let mtd = State.mkMetadata caller state in
-        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t), time, time) types
+        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t); created = time; modified = time }) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in
-        let isReference = Types.IsReferenceType t in
+        let isReferenceType = Types.IsReferenceType t in
         let reference, state =
-            if isReference
+            if isReferenceType
             then Memory.allocateInHeap mtd state freshValue
             else
                 let tempVar = "constructed instance" in
@@ -1215,9 +1185,9 @@ module internal Interpreter =
         in
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let finish r =
-            composeSequentially (fun () -> None) r
+            composeSequentially (always None) r
                 (fun state k ->
-                    if isReference
+                    if isReferenceType || returnRef
                     then k (Return mtd reference, state)
                     else
                         let term, state = Memory.deref mtd state reference in
@@ -1226,7 +1196,7 @@ module internal Interpreter =
         in
         let invokeInitializers result state (result', state') =
             let r = ControlFlow.composeSequentially result result' state state' in
-            composeSequentially (fun () -> None) r (fun state k ->
+            composeSequentially (always None) r (fun state k ->
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
                 elif collectionInitializerList <> null then
@@ -1235,16 +1205,16 @@ module internal Interpreter =
             ) finish
         in
         if constructorSpecification = null
-            then k (Nop, state)
+            then finish (NoResult mtd, state)
             else
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName in
                 decompileAndReduceMethod caller state (Some reference) (State.Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath (invokeInitializers result state)))
 
 
-    and reduceObjectCreationExpression state (ast : IObjectCreationExpression) k =
+    and reduceObjectCreationExpression toRef state (ast : IObjectCreationExpression) k =
         let arguments state = Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments) in
-        reduceObjectCreation ast state ast.ConstructedType ast.ObjectInitializer ast.CollectionInitializer ast.ConstructorSpecification arguments k
+        reduceObjectCreation toRef ast state ast.ConstructedType ast.ObjectInitializer ast.CollectionInitializer ast.ConstructorSpecification arguments k
 
     and reduceMemberInitializerList initializedObject state (ast : IMemberInitializerList) k =
         let initializers = ast.Initializers |> Seq.map (reduceMemberInitializer initializedObject) in
@@ -1310,29 +1280,36 @@ module internal Interpreter =
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
 
+    and reduceRefExpression state (ast : IRefExpression) k =
+        reduceExpressionToRef state false ast.Argument k
+
     and reducePointerElementAccessExpression state (ast : IPointerElementAccessExpression) k =
         __notImplemented__()
 
     and reducePointerIndirectionExpression state (ast : IPointerIndirectionExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        reduceExpression state ast.Argument (fun (term, state) -> Memory.deref mtd state term |> k)
 
-    and reduceRefExpression state (ast : IRefExpression) k =
-        reduceExpressionToRef state false ast.Argument k
+    and reduceMakeRefExpression state (ast : IMakeRefExpression) k =
+        __notImplemented__() // TODO: [C#] __makeref(_) = [IL] mkrefany
 
     and reduceRefTypeExpression state (ast : IRefTypeExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __reftype(_) = [IL] refanytype
 
     and reduceRefTypeTokenExpression state (ast : IRefTypeTokenExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceRefValueExpression state (ast : IRefValueExpression) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [C#] __refvalue(_) = [IL] refanyval
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         __notImplemented__()
 
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
         __notImplemented__()
+
+    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
+        __notImplemented__() // TODO: what is it?
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
         __notImplemented__()
@@ -1343,35 +1320,31 @@ module internal Interpreter =
     and reduceUnboxExpression state (ast : IUnboxExpression) k =
         __notImplemented__()
 
-    and reduceUntypedStackAllocExpression state (ast : IUntypedStackAllocExpression) k =
-        __notImplemented__()
-
-    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
-        __notImplemented__()
-
     and reduceMemoryCopyStatement state (ast : IMemoryCopyStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] cpblk
 
     and reduceMemoryInitializeStatement state (ast : IMemoryInitializeStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: [IL] initblk
 
     and reducePinStatement state (ast : IPinStatement) k =
-        __notImplemented__()
-
+        __notImplemented__() // TODO: what is it?
 
     and reduceUnpinStatement state (ast : IUnpinStatement) k =
-        __notImplemented__()
+        __notImplemented__() // TODO: what is it?
 
     and reduceFieldReferenceExpression state (ast : IFieldReferenceExpression) k =
+        __notImplemented__()
+
+    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
         __notImplemented__()
 
     and reduceFunctionPointerCallExpression state (ast : IFunctionPointerCallExpression) k =
         __notImplemented__()
 
-    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
+    and reduceVirtualMethodPointerExpression state (ast : IVirtualMethodPointerExpression) k =
         __notImplemented__()
 
-    and reduceMethodReferenceExpression state (ast : IMethodReferenceExpression) k =
+    and reduceMethodPointerExpression state (ast : IMethodPointerExpression) k =
         __notImplemented__()
 
 // ------------------------------- Goto statements -------------------------------
@@ -1413,7 +1386,7 @@ module internal Interpreter =
         __notImplemented__()
 
 
-type Activator() =
+type internal Activator() =
     interface State.IActivator with
         member x.CreateInstance mtd exceptionType arguments state =
             let assemblyQualifiedName = exceptionType.AssemblyQualifiedName in
@@ -1423,7 +1396,7 @@ type Activator() =
             let invokeArguments state k = k (arguments, state) in
             let argumentsLength = List.length arguments in
             let argumentsTypes =
-                List.map (TypeOf >> function | PointerType t -> t | t -> t) arguments in
+                List.map (TypeOf >> function | Reference t -> t | t -> t) arguments in
             let ctorMethods =
                 methods
                 |> List.ofArray
@@ -1438,9 +1411,9 @@ type Activator() =
             let ctor = List.head ctorMethods in
             let methodSpecification = new MethodSpecification(ctor, Array.map (fun (p : IMetadataParameter) -> p.Type) ctor.Parameters) in
             let caller = (Metadata.firstOrigin mtd).location in
-            Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
+            Interpreter.reduceObjectCreation false caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
-type SymbolicInterpreter() =
+type internal SymbolicInterpreter() =
     interface Functions.UnboundedRecursionExplorer.IInterpreter with
 
         member x.Initialize state k =

@@ -1,6 +1,7 @@
 namespace VSharp.Utils
 
 open VSharp
+open MemoryCell
 
 module public MappedStack =
     type stackContents<'a, 'b> when 'a : comparison = Map<'a * uint32, 'b>
@@ -84,7 +85,7 @@ module public MappedStack =
         let peaks = List.head stacks |> snd in
         assert(List.forall (snd >> ((=) peaks)) (List.tail stacks))
         let keys = new System.Collections.Generic.HashSet<_>() in
-        List.iter (fst >> Map.toSeq >> Seq.map (fun (k, (_, c, _)) -> (k, c)) >> keys.UnionWith) stacks
+        List.iter (fst >> Map.toSeq >> Seq.map (fun (k, cell) -> (k, cell.created)) >> keys.UnionWith) stacks
         let mergeOneKey (k, time) =
             let vals = List.map2 (fun g (s, _) -> (g, if Map.containsKey k s then s.[k] else k |> fst |> lazyInstantiate time)) guards stacks in
             (k, resolve vals)
@@ -92,8 +93,10 @@ module public MappedStack =
 
     let merge2 (contents1, peaks1) (contents2, peaks2) resolve lazyInstantiate =
         assert(peaks1 = peaks2)
-        let newEntries = contents2 |> Map.toSeq |> Seq.filterMap (fun (k, (v, c, _)) -> if Map.containsKey k contents1 then None else Some(k, c)) in
-        let modifiedEntries = contents1 |> Map.toSeq |> Seq.filterMap (fun (k, (v, c, _)) -> if not <| Map.containsKey k contents2 || fst3 contents2.[k] <> v then Some(k, c) else None) in
+        let newEntries = contents2 |> Map.toSeq |> Seq.filterMap (fun (k, cell) -> if Map.containsKey k contents1 then None else Some(k, cell.created)) in
+        let modifiedEntries =
+            contents1 |> Map.toSeq |> Seq.filterMap (fun (k, cell) ->
+                if not <| Map.containsKey k contents2 || contents2.[k].value <> cell.value then Some(k, cell.created) else None) in
         let relevantEntries = new System.Collections.Generic.HashSet<_>(newEntries) in
         relevantEntries.UnionWith(modifiedEntries)
         let mergeOneKey result (k, time) =

@@ -1,17 +1,20 @@
 namespace VSharp
 
 open VSharp.Terms
+open MemoryCell
 
 module internal Merging =
 
     type private MergeType =
         | StructMerge
+        | ArrayMerge
         | BoolMerge
         | DefaultMerge
 
     let private mergeTypeOf term =
         match term.term with
         | Struct _ -> StructMerge
+        | Array _ -> ArrayMerge
         | _ when IsBool term -> BoolMerge
         | _ -> DefaultMerge
 
@@ -21,30 +24,63 @@ module internal Merging =
         | Terms.GuardedValues(gs, _) -> disjunction term.metadata gs
         | _ -> Terms.MakeTrue term.metadata
 
-    let private boolMerge = function
+    let rec private boolMerge = function
         | [] -> []
-        | [_] as gvs -> gvs
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
         | [(g1, v1); (g2, v2)] -> [(g1 ||| g2, (g1 &&& v1) ||| (g2 &&& v2))]
         | (g, v)::gvs ->
             let guard = List.fold (|||) g (List.map fst gvs) in
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs in
             [(guard, value)]
 
-    let rec private structMerge = function
+    and private structMerge = function
         | [] -> []
-        | [_] as gvs -> gvs
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
         | (x :: _) as gvs ->
             let t = x |> snd |> TypeOf in
             assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs in
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
-                | t -> "Expected struct, got " + (toString t) |> internalfail
+                | t -> internalfailf "Expected struct, got %O" t
             in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
-            let guard = disjunction Metadata.empty gs in
             [(True, Struct merged t Metadata.empty)]
+
+    and private arrayMerge = function
+        | [] -> []
+        | [(g, v)] as gvs ->
+            match g with
+            | True -> gvs
+            | _ -> [propagateGuard g v]
+        | (x :: _) as gvs ->
+            let t = x |> snd |> TypeOf in
+            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
+            let gs, vs = List.unzip gvs in
+            let extractArrayInfo = term >> function
+                | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
+                | t -> internalfailf "Expected array, got %O" t
+            in
+            let ds, lens, lows, inits, contents, lengths =
+                vs |> Seq.map extractArrayInfo
+                |> fun info ->  Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
+            in
+            let d = List.head ds in
+            let l = List.head lens in
+            assert(Seq.forall ((=) d) ds)
+            assert(Seq.forall ((=) l) lens)
+            let mergedLower = Heap.merge gs lows mergeCells in
+            let mergedContents = Heap.merge gs contents mergeCells in
+            let mergedLengths = Heap.merge gs lengths mergeCells in
+            let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame in
+            [(True, Array d l mergedLower mergedInit mergedContents mergedLengths t Metadata.empty)]
 
     and private simplify gvs =
         let rec loop gvs out =
@@ -58,7 +94,7 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
-    and internal mergeSame = function
+    and internal mergeSame<'a when 'a : equality> : (Term * 'a) list -> (Term * 'a) list = function
         | [] -> []
         | [_] as xs -> xs
         | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
@@ -79,17 +115,20 @@ module internal Merging =
         match t with
         | BoolMerge -> boolMerge gvs
         | StructMerge -> structMerge gvs
-        // TODO: merge arrays too
+        | ArrayMerge -> arrayMerge gvs
         | DefaultMerge -> gvs
 
     and propagateGuard g v =
         match v.term with
         | Struct(contents, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            let contents' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents in
             (Terms.True, Struct contents' t v.metadata)
-        | Array(lower, constant, contents, lengths, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            (Terms.True, Array lower constant contents' lengths t v.metadata)
+        | Array(dimension, len, lower, init, contents, lengths, t) ->
+            let contents' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents in
+            let lower' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lower in
+            let lengths' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lengths in
+            let init' = List.map (fun (gi, i) -> gi &&& g, i) init
+            (Terms.True, Array dimension len lower' init' contents' lengths' t v.metadata)
         | _ -> (g, v)
 
     and private compress = function
@@ -114,9 +153,9 @@ module internal Merging =
         | gvs' -> Union Metadata.empty gvs'
 
     and internal mergeCells gcs =
-        let foldCell (acc1, acc2, acc3) (g, (v, c, m)) = ((g, v)::acc1, min acc2 c, max acc3 m) in
+        let foldCell (acc1, acc2, acc3) (g, cell) = ((g, cell.value)::acc1, min acc2 cell.created, max acc3 cell.modified) in
         let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue) in
-        (merge gvs, c, m)
+        { value = merge gvs; created = c; modified = m }
 
     let internal merge2Terms g h u v =
         let g = guardOf u &&& g in
@@ -131,17 +170,17 @@ module internal Merging =
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
-    let internal merge2Cells g h ((u, cu, mu) as ucell : MemoryCell<Term>) ((v, cv, mv) as vcell : MemoryCell<Term>) =
+    let internal merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : MemoryCell<Term>) ({value = v;created = cv;modified = mv} as vcell : MemoryCell<Term>) =
         let g = guardOf u &&& g in
         let h = guardOf v &&& h in
         match g, h with
-        | _, _ when u = v -> (u, min cu cv, min mu mv)
+        | _, _ when u = v -> { value = u; created = min cu cv; modified = min mu mv }
         | True, _
         | _, False -> ucell
         | False, _
         | _, True -> vcell
-        | ErrorT _, _ -> (g, cu, mu)
-        | _, ErrorT _ -> (h, cv, mv)
+        | ErrorT _, _ -> { ucell with value = g }
+        | _, ErrorT _ -> { vcell with value = h }
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     let internal merge2States condition1 condition2 state1 state2 =
@@ -175,8 +214,8 @@ module internal Merging =
 
     let internal commonGuardedErroredMapk mapper errorMapper gvs state merge k =
         let ges, gvs = List.partition (snd >> IsError) gvs in
-        let (egs, es) = List.unzip ges in
-        let (vgs, vs) = List.unzip gvs in
+        let egs, es = List.unzip ges in
+        let vgs, vs = List.unzip gvs in
         let eg = disjunction Metadata.empty egs in
         Cps.List.mapk (mapper state) vs (fun vsst ->
         let vs', states = List.unzip vsst in
@@ -188,3 +227,7 @@ module internal Merging =
     let internal guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
 
     let internal guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id
+
+    let internal unguardTerm = function
+        | {term = Union gvs} -> gvs
+        | term -> [True, term]
