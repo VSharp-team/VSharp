@@ -32,3 +32,10 @@ module internal Operators =
         | Numeric t -> Arithmetics.simplifyUnaryOperation mtd op state arg isChecked t k
         | String -> __notImplemented__()
         | _ -> __notImplemented__()
+
+    let simplifyHeapPointwiseEquality mtd h1 h2 =
+        Heap.unify (Terms.MakeTrue mtd) h1 h2 (fun s k v1 v2 ->
+            match v1, v2 with
+            | Some v1, Some v2 -> simplifyAnd mtd s (simplifyEquality mtd v1.value v2.value) id
+            | None, Some v2 -> s
+            | _ -> __notImplemented__())
