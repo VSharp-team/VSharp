@@ -70,18 +70,26 @@ module public Heap =
         in
         keys |> Seq.map mergeOneKey |> ofSeq
 
-    let public merge2 (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) resolve =
-        let resolveIfShould map key value =
-            if contains key map then
-                let oldValue = map.[key] in
+    let public unify state (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) unifier =
+        let unifyIfShould state key value =
+            if contains key h1 then
+                let oldValue = h1.[key] in
                 let newValue = value in
-                if oldValue = newValue then map
+                if oldValue = newValue then state
                 else
-                    add key (resolve oldValue newValue) map
+                    unifier state key (Some oldValue) (Some newValue)
             else
-                add key value map
+                unifier state key None (Some value)
         in
-        fold resolveIfShould h1 h2
+        fold unifyIfShould state h2
+        // TODO: handle values in h1 that are not contained in h2
+
+    let public merge2 (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) resolve =
+        unify h1 h1 h2 (fun s k v1 v2 ->
+            match v1, v2 with
+            | Some v1, Some v2 -> add k (resolve v1 v2) s
+            | None, Some v2 -> add k v2 s
+            | _ -> __notImplemented__())
 
     let public toString format separator keyMapper valueMapper sorter (h : Heap<'a, 'b>) =
         let elements =
