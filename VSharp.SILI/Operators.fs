@@ -5,6 +5,14 @@ open JetBrains.Decompiler.Ast
 [<AutoOpen>]
 module internal Operators =
 
+    let rec internal refToInt term =
+        match term.term with
+        | Error _ -> term
+        | Concrete(null, _) -> Concrete 0 Types.pointerType term.metadata
+        | HeapRef(((addr, _), _), _, _) -> addr
+        | Union gvs -> Merging.guardedMap refToInt gvs
+        | _ -> term
+
     let simplifyBinaryOperation mtd op isChecked state t left right k =
         let t1 = Terms.TypeOf left in
         let t2 = Terms.TypeOf right in
