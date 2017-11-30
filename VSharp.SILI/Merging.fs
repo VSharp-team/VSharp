@@ -1,6 +1,7 @@
 namespace VSharp
 
 open VSharp.Terms
+open MemoryCell
 
 module internal Merging =
 
@@ -120,12 +121,12 @@ module internal Merging =
     and propagateGuard g v =
         match v.term with
         | Struct(contents, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            let contents' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents in
             (Terms.True, Struct contents' t v.metadata)
         | Array(dimension, len, lower, init, contents, lengths, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            let lower' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
-            let lengths' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
+            let contents' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents in
+            let lower' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lower in
+            let lengths' = Heap.map (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lengths in
             let init' = List.map (fun (gi, i) -> gi &&& g, i) init
             (Terms.True, Array dimension len lower' init' contents' lengths' t v.metadata)
         | _ -> (g, v)
@@ -152,9 +153,9 @@ module internal Merging =
         | gvs' -> Union Metadata.empty gvs'
 
     and internal mergeCells gcs =
-        let foldCell (acc1, acc2, acc3) (g, (v, c, m)) = ((g, v)::acc1, min acc2 c, max acc3 m) in
+        let foldCell (acc1, acc2, acc3) (g, cell) = ((g, cell.value)::acc1, min acc2 cell.created, max acc3 cell.modified) in
         let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue) in
-        (merge gvs, c, m)
+        { value = merge gvs; created = c; modified = m }
 
     let internal merge2Terms g h u v =
         let g = guardOf u &&& g in
@@ -169,17 +170,17 @@ module internal Merging =
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
-    let internal merge2Cells g h ((u, cu, mu) as ucell : MemoryCell<Term>) ((v, cv, mv) as vcell : MemoryCell<Term>) =
+    let internal merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : MemoryCell<Term>) ({value = v;created = cv;modified = mv} as vcell : MemoryCell<Term>) =
         let g = guardOf u &&& g in
         let h = guardOf v &&& h in
         match g, h with
-        | _, _ when u = v -> (u, min cu cv, min mu mv)
+        | _, _ when u = v -> { value = u; created = min cu cv; modified = min mu mv }
         | True, _
         | _, False -> ucell
         | False, _
         | _, True -> vcell
-        | ErrorT _, _ -> (g, cu, mu)
-        | _, ErrorT _ -> (h, cv, mv)
+        | ErrorT _, _ -> { ucell with value = g }
+        | _, ErrorT _ -> { vcell with value = h }
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     let internal merge2States condition1 condition2 state1 state2 =

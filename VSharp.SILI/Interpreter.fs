@@ -7,6 +7,7 @@ open System.Collections.Generic
 open System.Reflection
 open Types.Constructor
 open Types
+open MemoryCell
 
 type ImplementsAttribute(name : string) =
     inherit System.Attribute()
@@ -159,7 +160,7 @@ module internal Interpreter =
                         | Some term -> term::parameters
                         | None -> parameters
                     in
-                    let extrn = concreteExternalImplementations.[fullMethodName]
+                    let extrn = concreteExternalImplementations.[fullMethodName] in
                     reduceFunction mtd state None (State.Specified parameters') returnType (MetadataMethodIdentifier extrn.MetadataMethod) extrn.Signature (invoke extrn) k
                 | _ -> internalfail "internal call with unspecified parameters!"
             else __notImplemented__()
@@ -1169,7 +1170,7 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers in
         let time = Memory.tick() in
         let mtd = State.mkMetadata caller state in
-        let fields = List.map (fun t -> Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t), time, time) types
+        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t); created = time; modified = time }) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq in
         let t = FromConcreteMetadataType constructedType in
         let freshValue = Struct fields t mtd in

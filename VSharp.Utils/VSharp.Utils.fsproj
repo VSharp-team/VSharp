@@ -54,6 +54,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Hierarchy.fs" />
     <Compile Include="IdGenerator.fs" />
+    <Compile Include="MemoryCell.fs" />
     <Compile Include="Prelude.fs" />
     <Compile Include="Collections.fs" />
     <Compile Include="Cps.fs" />

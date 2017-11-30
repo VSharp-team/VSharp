@@ -2,6 +2,7 @@
 open System.Collections.Immutable
 open VSharp.Utils
 open VSharp.Types
+open MemoryCell
 
 module internal State =
     module SymbolicHeap = Heap
@@ -36,8 +37,8 @@ module internal State =
         | l -> internalfailf "requested name of an unexpected location %O" l
 
     let internal readStackLocation (s : state) key = MappedStack.find key s.stack
-    let internal readHeapLocation (s : state) key = s.heap.[key] |> fst3
-    let internal readStaticLocation (s : state) key = s.statics.[key] |> fst3
+    let internal readHeapLocation (s : state) key = s.heap.[key].value
+    let internal readStaticLocation (s : state) key = s.statics.[key].value
 
     let internal isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
     let internal staticMembersInitialized (s : state) typeName =
@@ -46,7 +47,7 @@ module internal State =
     let internal newStackFrame time metadata (s : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         in
         let frameMetadata = Some(funcId, s.pc) in
@@ -58,7 +59,7 @@ module internal State =
     let internal newScope time metadata (s : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         in
         let locations, newStack = frame |> List.mapFold pushOne s.stack in
@@ -143,7 +144,7 @@ module internal State =
         let t = typeOfStackLocation state key in
         let metadata = metadataOfStackLocation state key in
         let fql = StackRef key [] metadata in
-        (genericLazyInstantiator metadata time fql t (), time, time)
+        { value = genericLazyInstantiator metadata time fql t (); created = time; modified = time }
 
     let internal dumpMemory (s : state) =
         let sh = Heap.dump s.heap toString in

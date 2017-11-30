@@ -3,6 +3,7 @@
 open VSharp.State
 open Types
 open Types.Constructor
+open MemoryCell
 
 module internal Memory =
 
@@ -56,7 +57,7 @@ module internal Memory =
         | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false in
-            let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, (defaultOf time metadata v, time, time))) (Map.toSeq fields) |> Heap.ofSeq in
+            let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, { value = defaultOf time metadata v; created = time; modified = time })) (Map.toSeq fields) |> Heap.ofSeq in
             Struct contents t metadata
         | _ -> __notImplemented__()
 
@@ -72,7 +73,7 @@ module internal Memory =
                 |> List.map (fun (n, (t, _)) ->
                                 let key = Terms.MakeConcreteString n metadata in
                                 let value = mkDefault metadata (FromConcreteMetadataType t) in
-                                (key, (value, time, time)))
+                                (key, { value = value; created = time; modified = time }))
                 |> Heap.ofSeq
         fields, t, Struct contents t metadata
 
@@ -135,12 +136,12 @@ module internal Memory =
         if isAllocatedOnStack state location then
             (readStackLocation state location, state)
         else
-            let lazyInstance = instantiateLazy(), time, time in
+            let lazyInstance = {value = instantiateLazy(); created = time; modified = time } in
             (lazyInstance, writeStackLocation state location lazyInstance)
 
     let private findSuitableLocations mtd h ptr ptrType ptrTime =
-        let filterMapKey (k, ((v, created, modified) as cell)) =
-            let guard = canPoint mtd ptr ptrType ptrTime k v created in
+        let filterMapKey (k, cell) =
+            let guard = canPoint mtd ptr ptrType ptrTime k cell.value cell.created in
             match guard with
             | False -> None
             | _ -> Some(guard, k, cell)
@@ -161,7 +162,7 @@ module internal Memory =
                 match baseGav with
                 | None ->
                     let lazyValue = instantiateLazy() in
-                    let baseCell = lazyValue, time, time in
+                    let baseCell = { value = lazyValue; created = time; modified = time} in
                     let h' = h.Add(ptr, baseCell) in
                     ptr, baseCell, h'
                 | Some(_, a, v) -> a, v, h
@@ -169,8 +170,8 @@ module internal Memory =
 
     let private mutateHeap metadata time guard h addr newValue =
         assert(Heap.contains addr h)
-        let (oldValue, created, modified) as oldCell = Heap.find addr h in
-        let cell = Merging.merge2Cells guard !!guard (newValue, created, time) oldCell in
+        let oldCell = Heap.find addr h in
+        let cell = Merging.merge2Cells guard !!guard { oldCell with value = newValue; modified = time } oldCell in
         Heap.add addr cell h
 
     let private structLazyInstantiator metadata fullyQualifiedLocation field fieldType () =
@@ -239,11 +240,11 @@ module internal Memory =
 
     and private accessHeap metadata guard update h time mkCtx lazyInstantiator ptr ptrType ptrTime path =
         let gvas, h = heapDeref metadata time lazyInstantiator h ptr ptrType ptrTime in
-        let gvs, (h', newTime) = gvas |> ((h, ZeroTime) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
+        let gvs, (h', newTime) = gvas |> ((h, ZeroTime) |> List.mapFold (fun (h, maxTime) (guard', addr, cell) ->
             let ctx = mkCtx addr in
             let guard'' = guard &&& guard' in
-            let accessedValue, newBaseValue, newTime = accessTerm metadata guard update created modified ptrTime ctx path baseValue in
-            let h' = if baseValue = newBaseValue then h else mutateHeap metadata newTime guard'' h addr newBaseValue
+            let accessedValue, newBaseValue, newTime = accessTerm metadata guard update cell.created cell.modified ptrTime ctx path cell.value in
+            let h' = if cell.value = newBaseValue then h else mutateHeap metadata newTime guard'' h addr newBaseValue
             ((guard, accessedValue), (h', max maxTime newTime))))
         in (Merging.merge gvs, h', newTime)
 
@@ -253,9 +254,9 @@ module internal Memory =
         | StackRef(location, path, None) ->
             let firstLocation = StackRef location [] term.metadata in
             let time = frameTime state location in
-            let (baseValue, created, modified), h' = stackDeref time (fun () -> stackLazyInstantiator state time location |> fst3) state location in
-            let accessedValue, newBaseValue, newTime = accessTerm metadata (Terms.MakeTrue metadata) update created modified time firstLocation path baseValue in
-            let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
+            let cell, h' = stackDeref time (fun () -> (stackLazyInstantiator state time location).value) state location in
+            let accessedValue, newBaseValue, newTime = accessTerm metadata (Terms.MakeTrue metadata) update cell.created cell.modified time firstLocation path cell.value in
+            let newState = if cell.value = newBaseValue then state else writeStackLocation state location { cell with value = newBaseValue; modified = newTime } in
             accessedValue, newState
         | StaticRef(location, path, None) ->
             let firstLocation = Terms.term >> function
@@ -413,7 +414,7 @@ module internal Memory =
     let internal allocateOnStack metadata (s : state) key term : state =
         let time = tick() in
         let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peak s.frames.f in
-        let newStack = pushToCurrentStackFrame s key (term, time, time) in
+        let newStack = pushToCurrentStackFrame s key { value = term; created = time; modified = time } in
         let newEntries = { key = key; mtd = metadata; typ = None } in
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime } in
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
@@ -423,12 +424,12 @@ module internal Memory =
         Metadata.addMisc address AddressMarker
         let time = tick() in
         let pointer = HeapRef ((address, Terms.TypeOf term), []) time metadata in
-        (pointer, { s with heap = s.heap.Add(address, (term, time, time)) } )
+        (pointer, { s with heap = s.heap.Add(address, { value = term; created = time; modified = time }) } )
 
     let internal allocateInStaticMemory metadata (s : state) typeName term =
         let time = tick() in
         let address = Terms.MakeConcreteString typeName metadata in
-        { s with  statics = s.statics.Add(address, (term, time, time)) }
+        { s with  statics = s.statics.Add(address, { value = term; created = time; modified = time }) }
 
     let internal allocateSymbolicInstance metadata state t =
         match t with
@@ -448,7 +449,7 @@ module internal Memory =
     let private compareHeaps h1 h2 =
         assert(Heap.size h1 <= Heap.size h2)
         let oldValues, newValues = Heap.partition (fun (k, _) -> Heap.contains k h1) h2 in
-        let changedValues = List.filter (fun (k, v) -> (fst3 h1.[k]) <> v) oldValues in
+        let changedValues = List.filter (fun (k, v) -> h1.[k].value <> v) oldValues in
         changedValues, newValues
 
     let rec private addrLess addr1 addr2 =
