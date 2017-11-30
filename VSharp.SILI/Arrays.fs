@@ -27,26 +27,32 @@ module internal Arrays =
     let internal lengthType = typedefof<int>
     let internal lengthTermType = Numeric lengthType
 
-    let internal makeArray mtd length contents instantiator =
+    let internal makeArray mtd length contents instantiator elemTyp =
         let zero = MakeZeroAddress mtd in
         let lowerBound = Heap.add zero { value = zero; created = State.zeroTime; modified = State.zeroTime } Heap.empty in
-        let typ = ArrayType(lengthTermType, ConcreteDimension 1) in
+        let typ = ArrayType(elemTyp, ConcreteDimension 1) in
         let lengths = Heap.add zero { value = length; created = State.zeroTime; modified = State.zeroTime } Heap.empty  in
         Array (MakeNumber 1 mtd) length lowerBound instantiator contents lengths typ mtd
 
-    let internal makeIntegerArray mtd maker length =
+    let internal makeLinearConreteArray mtd keyMaker valMaker length elemTyp =
         let contents =
-            Seq.init length maker |>
-            Seq.foldi (fun h i v -> Heap.add (MakeNumber i mtd) { value = v; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty
+            Seq.init length valMaker |>
+            Seq.foldi (fun h i v -> Heap.add (keyMaker i mtd) { value = v; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty
         in
         let length = MakeNumber length mtd in
         let constant = Constant defaultArrayName (DefaultArray()) (ArrayType(lengthTermType, ConcreteDimension 1)) mtd in
-        let instantiator = [Terms.True, DefaultInstantiator(constant, lengthTermType)] in
-        makeArray mtd length contents instantiator
+        let instantiator = [Terms.True, DefaultInstantiator(constant, elemTyp)] in
+        makeArray mtd length contents instantiator elemTyp
+
+    let internal makeIntegerArray mtd maker length =
+        makeLinearConreteArray mtd MakeNumber maker length lengthTermType
+
+    let internal makeLinearSymbolicArray mtd length symbolicValue elemType =
+        let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)] in
+        makeArray mtd length Heap.empty instantiator elemType
 
     let internal makeSymbolicIntegerArray mtd length symbolicValue =
-        let instantiator = [Terms.True, LazyInstantiator (symbolicValue, lengthTermType)] in
-        makeArray mtd length Heap.empty instantiator
+        makeLinearSymbolicArray mtd length symbolicValue lengthTermType
 
     let internal equalsArrayIndices mtd addr1 addr2 =
         let equalsHeap h1 h2 resolve1 resolve2 =
@@ -150,14 +156,14 @@ module internal Arrays =
         | Options.AlwaysSymbolic ->
             let idOfBound i = sprintf "%s.GetLowerBound(%i)" arrayName i in
             let mkLowerBound i = Constant (idOfBound i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, false)) lengthTermType metadata in
-            Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty (Seq.init dimension mkLowerBound)
+            Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty (Seq.init dimension mkLowerBound)
 
     and internal makeSymbolicLengths metadata arrayConstant arrayName dimension =
         let idOfLength i = sprintf "%s.GetLength(%i)" arrayName i in
         let mkLength i = Constant (idOfLength i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, true)) lengthTermType metadata in
         let lengths = Seq.init dimension mkLength in
         let length = Seq.reduce (mul metadata) lengths in
-        Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty lengths, length
+        Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty lengths, length
 
     and internal makeSymbolic metadata source (dimension : ArrayDimensionType) elemTyp typ arrayName =
         let arrayConstant = Constant arrayName source typ metadata in
