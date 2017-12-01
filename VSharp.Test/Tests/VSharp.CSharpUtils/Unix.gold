@@ -6713,6 +6713,18 @@ System.IntPtr ==> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.SimplePointerDifference(System.Int32, System.Double)
+RESULT: x
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.PointerTriangle(System.Int32, System.Int32, System.Int32)
+RESULT: x
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualB.F()
 RESULT: 8
 HEAP:
