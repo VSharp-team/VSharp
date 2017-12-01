@@ -5,6 +5,21 @@ open JetBrains.Decompiler.Ast
 [<AutoOpen>]
 module internal Operators =
 
+    let rec internal refToInt term =
+        match term.term with
+        | Error _ -> term
+        | Concrete(null, _) -> Concrete 0 Types.pointerType term.metadata
+        | HeapRef(((addr, _), _), _, _) -> addr
+        | Union gvs -> Merging.guardedMap refToInt gvs
+        | _ -> term
+
+    let rec internal referenceEqual mtd p1 p2 =
+        let addr1 = refToInt p1 in
+        let addr2 = refToInt p2 in
+        if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
+            internalfail "reference comparing non-reference types"
+        Arithmetics.simplifyEqual mtd addr1 addr2 id
+
     let simplifyBinaryOperation mtd op isChecked state t left right k =
         let t1 = Terms.TypeOf left in
         let t2 = Terms.TypeOf right in
