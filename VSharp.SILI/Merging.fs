@@ -256,20 +256,26 @@ module internal Merging =
             gvs2 |> List.map (fun (g2, v2) -> (g2, f t1 v2)) |> merge
         | _ -> f t1 t2
 
-    let rec private guardedCartesianProductRec mapper error ctor gacc xsacc = function
+    let rec private guardedCartesianProductRec mapper ctor gacc xsacc = function
         | [] -> [(gacc, ctor xsacc)]
         | x::xs ->
             mapper x
             |> List.map (fun (g, v) ->
                 let g' = gacc &&& g in
-                if error v then [(g', v)]
+                if IsError v then [(g', v)]
                 else
-                    guardedCartesianProductRec mapper error ctor g' (List.append xsacc [v]) xs)
+                    guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
             |> List.concat |> genericSimplify
 
 
-    let internal guardedCartesianProduct mapper error ctor terms =
-        guardedCartesianProductRec mapper error ctor True [] terms
+    let internal guardedCartesianProduct mapper ctor terms =
+        guardedCartesianProductRec mapper ctor True [] terms
 
-    let internal guardedApply error f gvs =
-        gvs |> List.map (fun (g, v) -> (g, if error v then v else f v))
+    let internal guardedApply f gvs =
+        gvs |> List.map (fun (g, v) -> (g, if IsError v then v else f v))
+
+    let internal map f t =
+        match t.term with
+        | Union gvs -> guardedApply f gvs |> merge
+        | Error e -> e
+        | _ -> f t

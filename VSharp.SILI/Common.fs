@@ -142,7 +142,7 @@ module internal Common =
             if path' = path then term else StaticRef term.metadata key path')
             |> Merging.merge
         | Error e ->
-            e |> substitute subst |> Merging.unguard |> Merging.guardedApply IsError (fun e' ->
+            e |> substitute subst |> Merging.unguard |> Merging.guardedApply (fun e' ->
             if e' = e then term else Error term.metadata e')
             |> Merging.merge
         | Expression(op, args, t) ->
@@ -189,8 +189,8 @@ module internal Common =
             ((k, (substitute subst v', c, m)), List.append errs ges)) [] heap
 
     and internal substituteMany subst ctor terms =
-        terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) IsError ctor
+        terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) ctor
 
     and internal substitutePath subst ctor path =
         let addrs, ts = List.unzip path in
-        addrs |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) IsError (fun addrs -> List.zip addrs ts |> ctor)
+        addrs |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) (fun addrs -> List.zip addrs ts |> ctor)

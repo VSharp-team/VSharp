@@ -339,7 +339,7 @@ module internal Memory =
             if staticMembersInitialized state addr then
                 derefPathIfInstantiated (readStaticLocation state (MakeStringKey addr)) path
             else None
-        | term -> internalfailf "expected reference, but %O got" term
+        | term -> internalfailf "expected reference, but got %O" term
 
 // ------------------------------- Referencing -------------------------------
 
@@ -528,26 +528,6 @@ module internal Memory =
         | Concrete _, _ -> -1
         | _, Concrete _ -> 1
         | _ -> __notImplemented__()
-
-    let private comparePaths = List.compareWith (fun (a1, _) (a2, _) -> addrLess a1 a2)
-
-    let rec internal compareRefs ref1 ref2 =
-        match ref1, ref2 with
-        | _ when ref1 = ref2 -> 0
-        | HeapRef(((addr1, _), path1), _), HeapRef(((addr2, _), path2), _) ->
-            let h = addrLess addr1 addr2 in
-            if h = 0 then comparePaths path1 path2 else h
-        | StackRef(name1, path1), StackRef(name2, path2) ->
-            let h = compare name1 name2 in
-            if h = 0 then comparePaths path1 path2 else h
-        | StaticRef(name1, path1), StaticRef(name2, path2) ->
-            let h = compare name1 name2 in
-            if h = 0 then comparePaths path1 path2 else h
-        | StackRef _, _ -> -1
-        | _, StackRef _ -> 1
-        | HeapRef _, _ -> -1
-        | _, HeapRef _ -> 1
-        | _ -> internalfail "compareRefs called with non-reference terms"
 
     let private sortMap mapper = List.sortWith (fun (k1, _) (k2, _) -> addrLess k1 k2) >> List.map mapper
 
