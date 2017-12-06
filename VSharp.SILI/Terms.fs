@@ -81,6 +81,8 @@ type public TermNode =
         indicesArrayToString x
 
     override x.ToString() =
+        let getTerm (term : Term) = term.term in
+
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
             | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
@@ -98,7 +100,6 @@ type public TermNode =
         let extendIndent = (+) "\t"
 
         let rec toStr parentPriority parentChecked indent term =
-            let getTerm (term : Term) = term.term in
             match term with
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
@@ -147,15 +148,6 @@ type public TermNode =
                         | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
-            | StackRef(key, path, mbtyp) ->
-                sprintf "(StackRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
-            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
-            | HeapRef(path, _, mbtyp) ->
-                sprintf "(HeapRef %s)%s"
-                    (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
-                    (Option.map (sprintf " as %O") mbtyp |?? "")
-            | StaticRef(key, path, mbtyp) ->
-                sprintf "(StaticRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard in
@@ -164,18 +156,34 @@ type public TermNode =
                 in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
+            | StackRef(_, _, mbtyp)
+            | HeapRef(_, _, mbtyp)
+            | StaticRef(_, _, mbtyp) ->
+                let templateRef name contents =
+                    match mbtyp with
+                    | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
+                    | None -> sprintf "(%sRef %s)" name contents
+                in
+                let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path) in
+                match term with
+                | StackRef(key, path, _) -> printref "Stack" key path
+                | StaticRef(key, path, _) -> printref "Static" key path
+                | HeapRef(path, _, _) ->
+                    templateRef "Heap"
+                        (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
+                | _ -> __unreachable__()
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
-        and toStringWithParentIndent parentIndent term = toStr -1 false (extendIndent parentIndent) term.term
+        and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
 
-        and sortKeyFromTerm = (fun t -> t.term) >> function
+        and sortKeyFromTerm = getTerm >> function
             | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
 
         and arrayContentsToString contents parentIndent =
             let separator = ";\n" + parentIndent in
-            let toString (t : Term) = toStr -1 false (extendIndent parentIndent) t.term in
             let mapper = toStringWithParentIndent parentIndent in
             let keyMapper key =
                 match key.term with
