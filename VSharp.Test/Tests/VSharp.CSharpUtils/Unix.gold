@@ -4841,6 +4841,34 @@ System.String ==> STRUCT string[
 	| System.String.alignConst ~> 3
 	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.CharSizeOf()
+RESULT: 2
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.StrangeSizeOf()
+RESULT: 70
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.RetOneDArray1(System.Boolean, System.Boolean)
 RESULT: (HeapRef 2)
 HEAP:

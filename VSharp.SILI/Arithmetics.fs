@@ -96,7 +96,7 @@ module internal Arithmetics =
         // (a << b) + (a << b) = 0            if unchecked, b = (size of a) * 8 - 1
         // (a << b) + (a << b) = a << (b + 1) if unchecked, b < (size of a) * 8 - 1
         | Concrete(x, _), ShiftLeft(c, ConcreteT(d, _), false, _) when a = c && x = d ->
-            let tooBigShift = Calculator.Compare(x, ((SizeOfNumeric (TypeOf a)) * 8) - 1) = 0 in
+            let tooBigShift = Calculator.Compare(x, ((Terms.SizeOf a) * 8) - 1) = 0 in
             if tooBigShift then
                 let mtd' = Metadata.combine3 mtd xmtd y.metadata in
                 (CastConcrete 0 t mtd', state) |> matched
@@ -450,7 +450,7 @@ module internal Arithmetics =
         // (a + a) << y = 0 if unchecked, y is concrete, y = (size of a) * 8 - 1
         // (a + a) << y = a << (y + 1) if unchecked, y is concrete, y < (size of a) * 8 - 1
         | Concrete(c, _) ->
-            let tooBigShift = Calculator.Compare(c, ((SizeOfNumeric (TypeOf a)) * 8) - 1) = 0 in
+            let tooBigShift = Calculator.Compare(c, ((Terms.SizeOf a) * 8) - 1) = 0 in
             if tooBigShift then (CastConcrete 0 t mtd, state) |> matched
             else
                 let mtd' = Metadata.combine xmtd b.metadata in
