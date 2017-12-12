@@ -203,11 +203,41 @@ module internal Pointers =
         let x', y' = if Terms.isNumeric y then x, y else y, x
         simplifyPointerAdditionGeneric mtd isNativeInt x' y' state k
 
+    let rec private simplifyPointerSubtractionGeneric mtd isNativeInt x y state k =
+        let makeDiff p q =
+            let tp = Numeric typedefof<int64>
+            if p = q
+            then makeNumber 0L mtd
+            else
+                SymbolicPointerDifference([p, 1], [q, 1])
+                |> makeSPDConst tp mtd
+        let divideBySizeof diff =
+            if isNativeInt then diff else Arithmetics.div mtd diff <| underlyingPointerTypeSizeof mtd x
+        let simplifyPointerDiffWithOffset p q offset s =
+            simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff p q) offset) s k (fun diff s k -> k (divideBySizeof diff, s))
+        let simplifyIndentedPointerSubtraction x y s k =
+            match term x, term y with
+            | IndentedPtr(p, a), IndentedPtr(q, b) -> simplifyPointerDiffWithOffset p q (Arithmetics.sub mtd a b) s
+            | IndentedPtr(p, a), _ -> simplifyPointerDiffWithOffset p y a s
+            | _, IndentedPtr(q, b) -> simplifyPointerDiffWithOffset x q (Arithmetics.neg mtd b) s
+            | _ -> k (divideBySizeof <| makeDiff x y, s)
+
+        simplifyGenericBinary "pointer1 - pointer2" state x y k
+            (fun _ _ _ _ -> __unreachable__())
+            simplifyIndentedPointerSubtraction
+            (simplifyPointerSubtractionGeneric mtd isNativeInt)
+
+    let private simplifyIndentedReferenceSubtraction mtd isNativeInt state x y k =
+        if isNumeric y
+        then simplifyPointerAdditionGeneric mtd isNativeInt x (Arithmetics.neg mtd y) state k
+        else simplifyPointerSubtractionGeneric mtd isNativeInt x y state k
+
     let simplifyBinaryOperation metadata op state x y targetType k =
         let isNativeInt = isNativeInt targetType
 
         match op with
-        | OperationType.Subtract -> __notImplemented__()
+        | OperationType.Subtract ->
+            simplifyIndentedReferenceSubtraction metadata isNativeInt state x y k
         | OperationType.Add ->
             simplifyIndentedReferenceAddition metadata isNativeInt state x y k
         | OperationType.Equal -> simplifyReferenceEquality metadata x y (withSnd state >> k)
