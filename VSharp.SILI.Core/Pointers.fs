@@ -37,7 +37,27 @@ module internal Pointers =
     let private (~-.) (spd: SymbolicPointerDifference) = SymbolicPointerDifference(spd.Neg, spd.Pos)
 
     let private (+.) (spd1: SymbolicPointerDifference) (spd2: SymbolicPointerDifference) : SymbolicPointerDifference =
-        __notImplemented__()
+        let collectUniqueAndMatching (x: list<'a * int>) (y: list<'a * int>) =
+            let xsFromY, xUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) y) x
+            let ysFromX, yUnique = List.partition (fun (u, _) -> List.exists (fun (v, _) -> v = u) xsFromY) y
+            let xsFromY = List.sortBy hash xsFromY
+            let ysFromX = List.sortBy hash ysFromX
+            xUnique, yUnique, xsFromY, ysFromX
+
+        let termlistDiff x y =
+            let xUnique, yUnique, xsFromY, ysFromX = collectUniqueAndMatching x y
+            let xy = List.filterMap2 (fun (a, n) (_, m) -> if n = m then None else Some(a, n - m)) xsFromY ysFromX
+            let ysFromX, xsFromY = List.mappedPartition (fun (t, n) -> if n < 0 then Some(t, -n) else None) xy
+            (xUnique @ xsFromY, yUnique @ ysFromX)
+
+        let termlistMerge x y =
+            let xUnique, yUnique, xsFromY, ysFromX = collectUniqueAndMatching x y
+            let xy = List.map2 (fun (a, n) (_, m) -> (a, n + m)) xsFromY ysFromX
+            xUnique @ yUnique @ xy
+
+        let (c, b) = termlistDiff spd2.Pos spd1.Neg
+        let (a, d) = termlistDiff spd1.Pos spd2.Neg
+        SymbolicPointerDifference(termlistMerge a c, termlistMerge b d)
 
     let private (|SymbolicPointerDifferenceT|_|) (scs: ISymbolicConstantSource) =
         match scs with
@@ -112,7 +132,13 @@ module internal Pointers =
         | _ -> k <| makeUnary OperationType.UnaryMinus y ischk (tp |?? typeOf y) mtd)
 
     and private simplifySPDAddition mtd l r ischk tp s k =
-        __notImplemented__()
+        simplifySPDExpression mtd l s k (fun l s k ->
+        simplifySPDExpression mtd r s k (fun r s k ->
+            let k1 = withSnd s >> k
+            match l, r with
+            | ConstantPtrT(spdX, _), ConstantPtrT(spdY, _) ->
+                spdX +. spdY |> makeSPDConst tp mtd |> k1
+            | _ -> k1 <| makeBinary OperationType.Add l r ischk tp mtd))
 
     and private simplifySPDExpression mtd y s k repeat =
         let k (y, s) = repeat y s k
