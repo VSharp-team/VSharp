@@ -34,6 +34,8 @@ module internal Pointers =
 
     let private makeSPDConst typ mtd spd = Terms.Constant mtd (IdGenerator.startingWith "ptrDifference-") spd typ
 
+    let private (~-.) (spd: SymbolicPointerDifference) = SymbolicPointerDifference(spd.Neg, spd.Pos)
+
     let private (+.) (spd1: SymbolicPointerDifference) (spd2: SymbolicPointerDifference) : SymbolicPointerDifference =
         __notImplemented__()
 
@@ -103,7 +105,11 @@ module internal Pointers =
         simplifyReferenceEquality mtd ptr (makeNullRef Null mtd) id
 
     let rec private simplifySPDUnaryMinus mtd y ischk tp s k =
-        __notImplemented__()
+        simplifySPDExpression mtd y s k (fun y s k ->
+        let k = withSnd s >> k
+        match y with
+        | ConstantPtrT(spd, tp) -> k <| makeSPDConst tp mtd (-. spd)
+        | _ -> k <| makeUnary OperationType.UnaryMinus y ischk (tp |?? typeOf y) mtd)
 
     and private simplifySPDAddition mtd l r ischk tp s k =
         __notImplemented__()
