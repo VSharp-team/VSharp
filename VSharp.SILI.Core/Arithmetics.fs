@@ -535,6 +535,9 @@ module internal Arithmetics =
     let mul mtd x y =
         simplifyMultiplication mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
 
+    let div mtd x y =
+        simplifyDivision mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+
     let rem mtd x y =
         simplifyRemainder mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
 
