@@ -53,13 +53,14 @@ module internal Pointers =
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let isPointerOperation op t1 t2 =
-        (Types.isPointer t1 || Types.isReference t1 || Types.isBottom t1) &&
-        (Types.isPointer t2 || Types.isReference t2 || Types.isBottom t2) &&
+        let isNearlyPtr t = Types.isPointer t || Types.isReference t
+
         match op with
-        | OperationType.Add
-        | OperationType.Subtract
         | OperationType.Equal
-        | OperationType.NotEqual -> true
+        | OperationType.NotEqual -> isNearlyPtr t1 && isNearlyPtr t2
+        | OperationType.Subtract -> isNearlyPtr t1 && (isNearlyPtr t2 || Types.isNumeric t2)
+        | OperationType.Add ->
+            (isNearlyPtr t1 && Types.isNumeric t2) || (isNearlyPtr t2 && Types.isNumeric t1)
         | _ -> false
 
     let rec topLevelLocation = Merging.map (function
