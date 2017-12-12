@@ -102,8 +102,23 @@ module internal Pointers =
     let isNull mtd ptr =
         simplifyReferenceEquality mtd ptr (makeNullRef Null mtd) id
 
-    let private simplifySPDExpression mtd y s k repeat =
+    let rec private simplifySPDUnaryMinus mtd y ischk tp s k =
         __notImplemented__()
+
+    and private simplifySPDAddition mtd l r ischk tp s k =
+        __notImplemented__()
+
+    and private simplifySPDExpression mtd y s k repeat =
+        let k (y, s) = repeat y s k
+        match y with
+        | Add(left, right, ischk, tp) ->
+            simplifySPDAddition mtd left right ischk tp s k
+        | UnaryMinusT(arg, ischk, tp) ->
+            simplifySPDUnaryMinus mtd arg ischk (Some tp) s k
+        | Sub(left, right, ischk, tp) ->
+            simplifySPDUnaryMinus mtd right ischk None s (fun (right, s) ->
+            simplifySPDAddition mtd left right ischk tp s k)
+        | _ -> k (y, s)
 
     let rec private simplifyPointerExpressionAddition mtd x y k =
         let shiftTyp = typeOf y
