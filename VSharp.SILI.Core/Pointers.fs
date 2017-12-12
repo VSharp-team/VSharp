@@ -4,6 +4,18 @@ open VSharp
 open VSharp.Core.Common
 
 module internal Pointers =
+    type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
+        interface ISymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+        member this.Pos = pos
+        member this.Neg = neg
+
+    let private makeSPDConst typ mtd spd = Terms.Constant mtd (IdGenerator.startingWith "ptrDifference-") spd typ
+
+    let private (|SymbolicPointerDifferenceT|_|) (scs: ISymbolicConstantSource) =
+        match scs with
+        | :? SymbolicPointerDifference as spd -> Some(spd.Pos, spd.Neg)
+        | _ -> None
 
     let isNativeInt typ = typ = typedefof<nativeint> || typ = typedefof<unativeint>
 
