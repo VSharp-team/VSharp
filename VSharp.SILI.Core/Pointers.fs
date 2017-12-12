@@ -30,6 +30,8 @@ module internal Pointers =
             | [], _ -> sprintf "- %s" right
             | _ -> sprintf "{%s - %s}" left right
 
+        static member empty = SymbolicPointerDifference([], [])
+
     let private makeSPDConst typ mtd spd = Terms.Constant mtd (IdGenerator.startingWith "ptrDifference-") spd typ
 
     let private (+.) (spd1: SymbolicPointerDifference) (spd2: SymbolicPointerDifference) : SymbolicPointerDifference =
@@ -104,7 +106,23 @@ module internal Pointers =
         __notImplemented__()
 
     let rec private simplifyPointerExpressionAddition mtd x y k =
-        __notImplemented__()
+        let shiftTyp = typeOf y
+        let mkAdd l r = makeBinary OperationType.Add l r false shiftTyp mtd
+        let rec collectSPDs expr summands spd k =
+            match expr with
+            | Add(left, right, _, _) ->
+                collectSPDs left summands spd (fun (summands, spd) ->
+                collectSPDs right summands spd k)
+            | ConstantPtrT(spd', _) -> k (summands, spd +. spd')
+            | _ -> k (expr :: summands, spd)
+        collectSPDs y [] SymbolicPointerDifference.empty (fun (summands, spd) ->
+        Cps.List.reduce mkAdd summands (fun y ->
+        addPtrToSymbolicPointerDifference x spd shiftTyp mtd (fun x ->
+        let x, y =
+            match term x with
+            | IndentedPtr(x, shift) -> x, mkAdd shift y
+            | _ -> x, y
+        k <| IndentedPtr x y mtd)))
 
     let rec private simplifyPointerAdditionGeneric mtd isNativeInt x y state k = // y must be normalized by Arithmetics!
         let simplifyIndentedPointerAddition x y s k =
