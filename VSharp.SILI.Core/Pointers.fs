@@ -32,12 +32,38 @@ module internal Pointers =
 
     let private makeSPDConst typ mtd spd = Terms.Constant mtd (IdGenerator.startingWith "ptrDifference-") spd typ
 
+    let private (+.) (spd1: SymbolicPointerDifference) (spd2: SymbolicPointerDifference) : SymbolicPointerDifference =
+        __notImplemented__()
+
     let private (|SymbolicPointerDifferenceT|_|) (scs: ISymbolicConstantSource) =
         match scs with
         | :? SymbolicPointerDifference as spd -> Some(spd.Pos, spd.Neg)
         | _ -> None
 
     let isNativeInt typ = typ = typedefof<nativeint> || typ = typedefof<unativeint>
+
+    let private (|ConstantPtrT|_|) = term >> function
+        | Constant(_, (SymbolicPointerDifferenceT _ as spd), tp) -> Some(spd :?> SymbolicPointerDifference, tp)
+        | _ -> None
+
+    let private addPtrToSymbolicPointerDifference (p: term) (spd: SymbolicPointerDifference) tp mtd k =
+        let mkConst = makeSPDConst tp mtd
+        match term p with
+        | HeapRef _
+        | StackRef _
+        | StaticRef _ ->
+            let spd = spd +. SymbolicPointerDifference([p, 1], [])
+            let nil = makeNullRef (typeOf p) mtd
+            match spd.Pos, spd.Neg with
+            | [], [] -> k nil
+            | [lastp, 1], [] -> k lastp
+            | [lastp, 1], neg ->
+                let indent =  SymbolicPointerDifference([], neg)
+                k <| IndentedPtr lastp (mkConst indent) mtd
+            | _ ->
+                let indent = spd +. SymbolicPointerDifference([], [nil, 1])
+                k <| IndentedPtr nil (mkConst indent) mtd
+        | _ -> internalfailf "expected reference but got %O" p
 
     let locationEqual mtd addr1 addr2 =
         match typeOf addr1, typeOf addr2 with
