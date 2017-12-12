@@ -11,5 +11,10 @@ namespace VSharp.CSharpUtils.Tests
             *&x = *&z;
             return x; // 14
         }
+
+        public static int CharSizeOf()
+        {
+            return sizeof(char); // sizeof() = 2; Marshal.SizeOf() = 1; we should be 2
+        }
     }
 }
