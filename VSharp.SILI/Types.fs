@@ -190,10 +190,11 @@ module public Types =
         | Reference t -> ToDotNetType t
         | _ -> typedefof<obj>
 
-    let internal SizeOfNumeric x =
+    let internal SizeOf x =
         System.Runtime.InteropServices.Marshal.SizeOf(ToDotNetType x)
 
-    let internal BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
+    let internal BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOf(typeOfA) * 8, t)
+
 
     module public Constructor =
         type private TypeKind =
