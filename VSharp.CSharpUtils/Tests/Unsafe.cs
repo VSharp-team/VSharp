@@ -16,5 +16,16 @@ namespace VSharp.CSharpUtils.Tests
         {
             return sizeof(char); // sizeof() = 2; Marshal.SizeOf() = 1; we should be 2
         }
+
+        struct FixedSizedBuffer
+        {
+            public fixed char buf[20];
+            public fixed bool bufs[29];
+        }
+
+        public static int StrangeSizeOf()
+        {
+            return sizeof(FixedSizedBuffer); // sizeof() = 70; Marshal.SizeOf() = 72; we should behave like sizeof()
+        }
     }
 }
