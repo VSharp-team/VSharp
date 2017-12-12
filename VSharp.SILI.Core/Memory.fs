@@ -657,6 +657,7 @@ module internal Memory =
         | Error _
         | StackRef _
         | StaticRef _
+        | IndentedPtr _
         | HeapRef _ -> term, state
         | Union gvs when List.forall (fun (_, t) -> isError t || isRef t) gvs ->
             Merging.guardedStateMap (followOrReturnReference metadata) gvs state
