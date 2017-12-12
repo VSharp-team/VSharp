@@ -1303,7 +1303,10 @@ module internal Interpreter =
         __notImplemented__() // TODO: [C#] __refvalue(_) = [IL] refanyval
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
-        __notImplemented__()
+        let mtd = State.mkMetadata ast state in
+        let termType = FromConcreteMetadataType ast.Type in
+        k (MakeNumber (Types.SizeOf termType) mtd, state)
+
 
     and reduceStackAllocExpression state (ast : IStackAllocExpression) k =
         __notImplemented__()
