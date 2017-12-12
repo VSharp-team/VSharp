@@ -373,6 +373,8 @@ module public Terms =
                     internalfailf "evaluating type of unexpected union %O!" term
 
 
+    let public SizeOf =                 TypeOf >> Types.SizeOf
+
     let public IsBool =                 TypeOf >> Types.IsBool
     let public IsInteger =              TypeOf >> Types.IsInteger
     let public IsReal =                 TypeOf >> Types.IsReal

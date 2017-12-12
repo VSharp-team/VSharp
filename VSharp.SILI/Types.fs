@@ -190,10 +190,21 @@ module public Types =
         | Reference t -> ToDotNetType t
         | _ -> typedefof<obj>
 
-    let internal SizeOfNumeric x =
-        System.Runtime.InteropServices.Marshal.SizeOf(ToDotNetType x)
+    let internal SizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+        let internalSizeOf (typ: Type) : uint32 =
+            let method = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
 
-    let internal BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOfNumeric(typeOfA) * 8, t)
+            let gen = method.GetILGenerator()
+            gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
+            gen.Emit(Reflection.Emit.OpCodes.Ret)
+
+            method.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
+            |> unbox
+        typ |> ToDotNetType |> internalSizeOf |> int
+
+
+    let internal BitSizeOf a typeOfA (t : System.Type) = System.Convert.ChangeType(SizeOf(typeOfA) * 8, t)
+
 
     module public Constructor =
         type private TypeKind =
