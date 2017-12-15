@@ -279,7 +279,13 @@ module internal Memory =
                     k (result, withHeap state h'))
                 Merging.merge Merging.merge2Terms id id
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
-        | t -> internalfailf "expected reference, but got %O" t
+        | PointerTo viewType ->
+            let ref = GetReferenceFromPointer metadata term
+            let term, state = commonHierarchicalAccess actionNull update metadata state ref
+            if TypeOf term = viewType
+            then term, state
+            else __notImplemented__() // TODO: [columpio] [Reinterpretation]
+        | t -> internalfailf "expected reference or pointer, but got %O" t
 
     let internal hierarchicalAccess = commonHierarchicalAccess (fun m s _ ->
         let res, state = npe m s
