@@ -471,6 +471,10 @@ module public Terms =
         assert(Operations.isUnary operation)
         Expression (Operator(operation, isChecked)) [x] t metadata
 
+    let public MakeCast srcTyp dstTyp expr isChecked metadata =
+        if srcTyp = dstTyp then expr
+        else Expression (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp metadata
+
     let public MakeStringKey typeName =
         MakeConcreteString typeName Metadata.empty
 

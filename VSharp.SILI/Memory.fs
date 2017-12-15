@@ -119,7 +119,7 @@ module internal Memory =
 
     let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
-        if locationTime > pointerTime then Terms.MakeFalse mtd
+        if locationTime > pointerTime then MakeFalse mtd
         else
             let addrEqual = Pointers.locationEqual mtd locationAddr pointerAddr in
             let typeSuits v =
@@ -132,7 +132,7 @@ module internal Memory =
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
             in
-            addrEqual &&& typeEqual
+            if IsConcrete addrEqual then addrEqual else addrEqual &&& typeEqual
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
