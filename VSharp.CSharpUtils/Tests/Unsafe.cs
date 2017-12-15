@@ -27,5 +27,11 @@ namespace VSharp.CSharpUtils.Tests
         {
             return sizeof(FixedSizedBuffer); // sizeof() = 70; Marshal.SizeOf() = 72; we should behave like sizeof()
         }
+
+        public static int ReturnConst()
+        {
+            int x = 421234123;
+            return *&x;
+        }
     }
 }
