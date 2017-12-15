@@ -78,15 +78,18 @@ module internal Memory =
                 |> Heap.ofSeq
         fields, t, Struct contents t metadata
 
+    let private makeSymbolicHeapReference metadata time source name typ constructor =
+        let source' =
+            match source :> SymbolicConstantSource with
+            | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
+            | _ -> source
+        in
+        let constant = Constant name source' pointerType metadata in
+        constructor ((constant, typ), []) time metadata
+
     let internal makeSymbolicInstance metadata time source name = function
-        | Reference t ->
-            let source' =
-                match source :> SymbolicConstantSource with
-                | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
-                | _ -> source
-            in
-            let constant = Constant name source' pointerType metadata in
-            HeapRef ((constant, t), []) time metadata
+        | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun path time -> HeapPtr path time typ
+        | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
         | SubType _
