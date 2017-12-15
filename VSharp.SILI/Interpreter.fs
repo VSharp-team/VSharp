@@ -941,8 +941,14 @@ module internal Interpreter =
             | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
             | _ -> false
 
+        let castPointer term typ = // For Pointers
+            match targetType with
+            | Pointer typ' when Types.SizeOf typ = Types.SizeOf typ' || typ = VSharp.Void || typ' = VSharp.Void ->
+                CastReferenceToPointer mtd typ' term
+            | _ -> MakeCast (TermType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
+
         match term.term with
-        | PointerTo typ -> __notImplemented__()
+        | PointerTo typ -> castPointer term typ
         | ReferenceTo typ when isUpCast typ targetType -> term
         | HeapRef (addrs, t, _) -> HeapRef (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) t mtd
         | StackRef (key, path, _) -> StackRef key (changeLast path) mtd
@@ -1024,6 +1030,7 @@ module internal Interpreter =
     and checkCast mtd state targetType term =
         let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
         match term.term with
+        | PointerTo typ -> Common.is mtd (TermType.Pointer typ) targetType, state
         | HeapRef _
         | StackRef _
         | StaticRef _ ->
