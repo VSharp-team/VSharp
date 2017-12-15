@@ -283,6 +283,18 @@ module public Terms =
         | HeapRef(path, time, Some typ) -> Some(HeapPtr(path, time, typ))
         | _ -> None
 
+    let internal CastReferenceToPointer mtd targetType = term >> function
+        | StackRef(key, path, _) -> StackPtr key path targetType mtd
+        | StaticRef(key, path, _) -> StaticPtr key path targetType mtd
+        | HeapRef(path, time, _) -> HeapPtr path time targetType mtd
+        | t -> internalfailf "Expected reference or pointer, got %O" t
+
+    let internal GetReferenceFromPointer mtd = term >> function
+        | StackPtr(key, path, _) -> StackRef key path mtd
+        | StaticPtr(key, path, _) -> StaticRef key path mtd
+        | HeapPtr(path, time, _) -> HeapRef path time mtd
+        | t -> internalfailf "Expected pointer, got %O" t
+
     let public IsVoid = term >> function
         | Nop -> true
         | _ -> false
@@ -349,6 +361,20 @@ module public Terms =
         | Expression(_, args, _) -> args
         | term -> internalfailf "expression expected, %O recieved" term
 
+    let internal (|ReferenceTo|_|) = // doesn't match references with empty path!
+        let someTypeOfAddrs = List.tryLast >> Option.map snd
+        function
+        | StackRef(_, addrs, None)
+        | StaticRef(_, addrs, None) -> someTypeOfAddrs addrs
+        | HeapRef(addrs, _, None) -> addrs |> NonEmptyList.toList |> someTypeOfAddrs
+        | _ -> None
+
+    let internal (|PointerTo|_|) = function
+        | HeapPtr(_, _, t)
+        | StaticPtr(_, _, t)
+        | StackPtr(_, _, t) -> Some t
+        | _ -> None
+
     let rec public TypeOf term =
         match term.term with
         | Error _ -> TermType.Bottom
@@ -357,15 +383,10 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | HeapPtr(_, _, t)
-        | StaticPtr(_, _, t)
-        | StackPtr(_, _, t) -> Pointer t
+        | PointerTo t -> Pointer t
+        | ReferenceTo t -> Reference t
         | StackRef(_, [], _)
-        | StaticRef(_, [], _) -> Pointer VSharp.Void
-        | StackRef(_, addrs, _)
-        | StaticRef(_, addrs, _) -> List.last addrs |> snd |> Reference
-        | HeapRef(addrs, _, _) ->
-            addrs |> NonEmptyList.toList |> List.last |> snd |> Reference
+        | StaticRef(_, [], _) -> Reference VSharp.Void
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
