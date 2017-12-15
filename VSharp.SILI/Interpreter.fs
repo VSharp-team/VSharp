@@ -658,6 +658,7 @@ module internal Interpreter =
             referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
+        | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | _ -> reduceExpression state ast k
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -1276,6 +1277,15 @@ module internal Interpreter =
         __notImplemented__()
 
 // ------------------------------- Unsafe code -------------------------------
+
+    and reduceLiteralExpressionToRef state (ast : ILiteralExpression) k =
+        let uniqueName = IdGenerator.startingWith "literalPtr#!"
+        let literalVariableName = (uniqueName, uniqueName)
+        reduceLiteralExpression state ast (fun (literal, state) ->
+        let mtd = State.mkMetadata ast state
+        let state = Memory.allocateOnStack mtd state literalVariableName literal
+        let literalRef = Memory.referenceLocalVariable mtd state literalVariableName true
+        k (literalRef, state))
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
         reduceExpressionToRef state true ast.Argument k
