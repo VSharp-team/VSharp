@@ -59,6 +59,7 @@ module internal Memory =
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, { value = defaultOf time metadata v; created = time; modified = time })) (Map.toSeq fields) |> Heap.ofSeq in
             Struct contents t metadata
+        | Pointer typ -> Terms.MakeNullPtr typ metadata
         | _ -> __notImplemented__()
 
     let internal mkDefault metadata typ =

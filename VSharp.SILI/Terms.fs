@@ -448,6 +448,9 @@ module public Terms =
     let public MakeNullRef typ metadata =
         HeapRef (((MakeZeroAddress metadata), typ), []) 0u metadata
 
+    let public MakeNullPtr typ metadata =
+        HeapPtr (((MakeZeroAddress metadata), typ), []) 0u typ metadata
+
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
 
