@@ -659,7 +659,10 @@ module internal Interpreter =
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
-        | _ -> reduceExpression state ast k
+        | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
+        | :? ITryCastExpression
+        | :? ITypeCastExpression -> reduceExpression state ast k
+        | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field in
@@ -1278,17 +1281,27 @@ module internal Interpreter =
 
 // ------------------------------- Unsafe code -------------------------------
 
-    and reduceLiteralExpressionToRef state (ast : ILiteralExpression) k =
-        let uniqueName = IdGenerator.startingWith "literalPtr#!"
-        let literalVariableName = (uniqueName, uniqueName)
-        reduceLiteralExpression state ast (fun (literal, state) ->
+    and reduceCompileOptimizedExpressionToRef state (ast : IExpression) prefixForGenerator k =
+        let uniqueName = IdGenerator.startingWith prefixForGenerator
+        let variableName = (uniqueName, uniqueName)
+        reduceExpression state ast (fun (term, state) ->
         let mtd = State.mkMetadata ast state
-        let state = Memory.allocateOnStack mtd state literalVariableName literal
-        let literalRef = Memory.referenceLocalVariable mtd state literalVariableName true
-        k (literalRef, state))
+        let state = Memory.allocateOnStack mtd state variableName term
+        let reference = Memory.referenceLocalVariable mtd state variableName true
+        k (reference, state))
+
+    and reduceLiteralExpressionToRef state (ast : ILiteralExpression) k =
+        reduceCompileOptimizedExpressionToRef state ast "literalPtr#!" k
+
+    and reduceAddressOfExpressionToRef state (ast : IAddressOfExpression) k =
+        reduceCompileOptimizedExpressionToRef state ast "addressOfPtr#!" k
 
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
-        reduceExpressionToRef state true ast.Argument k
+        let derefForCast = Memory.derefWith (fun m s _ -> MakeNullRef Null m, s)
+        reduceExpressionToRef state true ast.Argument (fun (reference, state) ->
+        let mtd = State.mkMetadata ast state
+        let term, state = derefForCast mtd state reference
+        k (CastReferenceToPointer mtd (TypeOf term) reference, state))
 
     and reduceRefExpression state (ast : IRefExpression) k =
         reduceExpressionToRef state false ast.Argument k

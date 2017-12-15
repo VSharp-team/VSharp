@@ -301,6 +301,7 @@ module internal Memory =
     let rec private referenceTerm state name followHeapRefs term =
         match term.term with
         | Error _
+        | PointerTo _ -> StackRef name [] term.metadata
         | StackRef _
         | StaticRef _
         | HeapRef _ when followHeapRefs -> term
