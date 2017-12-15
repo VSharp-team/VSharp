@@ -4897,6 +4897,24 @@ System.String ==> STRUCT string[
 	| System.String.alignConst ~> 3
 	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ReturnIntFromIntPtr(System.Int32)
+RESULT: myFavouriteParameter
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.RetOneDArray1(System.Boolean, System.Boolean)
 RESULT: (HeapRef 2)
 HEAP:

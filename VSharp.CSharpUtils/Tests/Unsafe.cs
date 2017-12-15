@@ -40,5 +40,11 @@ namespace VSharp.CSharpUtils.Tests
             int* p = &x;
             return **&p;
         }
+
+        public static int ReturnIntFromIntPtr(int myFavouriteParameter)
+        {
+            var s = new IntPtr(&myFavouriteParameter);
+            return *(int*) s.ToPointer();
+        }
     }
 }
