@@ -979,30 +979,8 @@ module internal Interpreter =
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
-    and reduceTryCastExpression state (ast : ITryCastExpression) k =
-        let targetType = FromGlobalSymbolicMetadataType ast.Type in
-        reduceExpression state ast.Argument (fun (term, state) ->
-        let mtd = State.mkMetadata ast state in
-        let isCasted state term = checkCast mtd state targetType term in
-        let mapper state term targetType k =
-            reduceConditionalStatements state
-                (fun state k -> k (isCasted state term))
-                (fun state k -> k (doCast mtd term targetType false, state))
-                (fun state k -> k (ifNotCasted mtd state term targetType))
-                (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
-        in
-        match term.term with
-        | Union gvs -> Merging.guardedStateMapk (fun state term k -> mapper state term targetType k) gvs state k
-        | _ -> mapper state term targetType k)
-
-    and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
-        let mtd = State.mkMetadata ast state in
-        let cast src dst expr =
-            if src = dst then expr
-            else Expression (Cast(src, dst, isChecked)) [expr] dst mtd
-        in
-        let targetType = FromGlobalSymbolicMetadataType ast.TargetType in
+    and reduceCastExpression mtd state argument metadataType isChecked primitiveCast ifNotCasted k =
+        let targetType = FromGlobalSymbolicMetadataType metadataType in
         let isCasted state term = checkCast mtd state targetType term in
         let hierarchyCast state term targetType k =
             reduceConditionalStatements state
@@ -1011,7 +989,19 @@ module internal Interpreter =
                 (fun state k -> k (throwInvalidCastException mtd state term targetType))
                 (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
         in
-        let primitiveCast state term targetType k =
+        reduceExpression state argument (fun (term, state) ->
+        match term.term with
+        | Union gvs -> Merging.guardedStateMapk (fun state term k -> primitiveCast hierarchyCast state term targetType k) gvs state k
+        | _ -> primitiveCast hierarchyCast state term targetType k)
+
+    and reduceTryCastExpression state (ast : ITryCastExpression) k =
+        let mtd = State.mkMetadata ast state in
+        reduceCastExpression mtd state ast.Argument ast.Type false id ifNotCasted k
+
+    and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
+        let mtd = State.mkMetadata ast state in
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
+        let primitiveCast hierarchyCast state term targetType k =
             match term.term with
             | Error _ -> k (term, state)
             | Nop -> internalfailf "casting void to %O!" targetType
@@ -1021,7 +1011,7 @@ module internal Interpreter =
                 then k (Concrete value targetType term.metadata, state)
                 else k (CastConcrete value (Types.ToDotNetType targetType) term.metadata, state)
             | Constant(_, _, t)
-            | Expression(_, _, t) -> k (cast t targetType term, state)
+            | Expression(_, _, t) -> k (MakeCast t targetType term isChecked mtd, state)
             | StackRef _ ->
                 printfn "Warning: casting stack reference %O to %O!" term targetType
                 hierarchyCast state term targetType k
@@ -1029,10 +1019,7 @@ module internal Interpreter =
             | Struct _ -> hierarchyCast state term targetType k
             | _ -> __notImplemented__()
         in
-        reduceExpression state ast.Argument (fun (term, state) ->
-            match term.term with
-            | Union gvs -> Merging.guardedStateMapk (fun state term k -> primitiveCast state term targetType k) gvs state k
-            | _ -> primitiveCast state term targetType k)
+        reduceCastExpression mtd state ast.Argument ast.TargetType isChecked primitiveCast throwInvalidCastException k
 
     and checkCast mtd state targetType term =
         let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
