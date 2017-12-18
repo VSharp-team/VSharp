@@ -33,5 +33,12 @@ namespace VSharp.CSharpUtils.Tests
             int x = 421234123;
             return *&x;
         }
+
+        public static int DoubleIndirection()
+        {
+            int x = 428999;
+            int* p = &x;
+            return **&p;
+        }
     }
 }
