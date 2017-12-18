@@ -187,10 +187,11 @@ module internal Merging =
         | False, _ -> state2
         | _, True -> state2
         | _, False -> state1
-        | _ -> State.merge2 state1 state2 (merge2Cells condition1 condition2)
+        | _ -> State.merge2 condition1 condition2 state1 state2 (merge2Cells condition1 condition2)
 
     let internal mergeStates conditions states =
-        State.merge conditions states mergeCells
+        let conditions, states = List.filter2 (fun g _ -> not <| IsFalse g) conditions states
+        State.merge conditions states mergeCells mergeSame
 
     let internal commonGuardedMapk mapper gvs merge k =
         let gs, vs = List.unzip gvs in

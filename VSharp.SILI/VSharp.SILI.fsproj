@@ -67,10 +67,10 @@
     <Compile Include="Arrays.fs" />
     <Compile Include="Pointers.fs" />
     <Compile Include="Operators.fs" />
-    <Compile Include="Memory.fs" />
     <Compile Include="Transformations.fs" />
     <Compile Include="ControlFlow.fs" />
-    <Compile Include="Effects.fs" />
+    <Compile Include="Database.fs" />
+    <Compile Include="Memory.fs" />
     <Compile Include="Functions.fs" />
     <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />

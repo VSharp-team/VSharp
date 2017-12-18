@@ -37,6 +37,7 @@ type public Heap<'a, 'b> when 'a : equality and 'b : equality =
 module public Heap =
 
     let public empty<'a, 'b when 'a : equality and 'b : equality> : Heap<'a, 'b> = Heap<'a, 'b>.Empty()
+    let public isEmpty h = PersistentHashMap.length h.heap = 0
 
     let public ofSeq  = Heap<'a, 'b>.ofSeq
     let public toSeq (h : Heap<'a, 'b>) = h :> seq<'a * MemoryCell<'b>>

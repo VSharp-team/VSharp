@@ -9,6 +9,7 @@ type StackKey = string * string // Name and token
 
 type LocationBinding = JetBrains.Decompiler.Ast.INode
 type StackHash = int list
+type ConcreteHeapAddress = int list
 type TermOrigin = { location : LocationBinding; stack : StackHash }
 type TermMetadata = { origins : TermOrigin list; mutable misc : HashSet<obj> }
 
@@ -68,7 +69,7 @@ type public TermNode =
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
-            | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
+            | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -117,7 +118,7 @@ type public TermNode =
             | HeapRef(((z, _), path), _) ->
                 let ks =
                     match z.term with
-                    | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
+                    | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
                     | t -> toString t
                 in
                 path |> List.map (fst >> toStringWithIndent indent) |> cons ks |> join "." |> sprintf "(HeapRef %s)"

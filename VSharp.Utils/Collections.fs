@@ -39,6 +39,17 @@ module public List =
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 
+    let rec public filter2k predicate xs ys k =
+        match xs, ys with
+        | [], [] -> k ([], [])
+        | x::xs, y::ys ->
+            let k' = if predicate x y then (fun (accx, accy) -> k (x::accx, y::accy)) else id
+            filter2k predicate xs ys k'
+        | _ -> internalfail "filter2k expects lists of equal lengths"
+
+    let public filter2 predicate xs ys =
+        filter2k predicate xs ys id
+
     let rec public filterMap mapper = function
         | [] -> []
         | x::xs ->

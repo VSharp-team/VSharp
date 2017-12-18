@@ -2,11 +2,11 @@
 
 namespace VSharp.CSharpUtils.Tests
 {
-    public class ListNode
-    {
-        public int Key { get; set; }
-        public ListNode Next { get; set; }
-    }
+//    public class ListNode
+//    {
+//        public int Key { get; set; }
+//        public ListNode Next { get; set; }
+//    }
 
     public class Lists
     {
