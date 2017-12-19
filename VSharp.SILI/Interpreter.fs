@@ -658,7 +658,11 @@ module internal Interpreter =
             referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
-        | _ -> reduceExpression state ast k
+        | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
+        | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
+        | :? ITryCastExpression
+        | :? ITypeCastExpression -> reduceExpression state ast k
+        | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field in
@@ -928,13 +932,29 @@ module internal Interpreter =
         | :? IUserDefinedTypeCastExpression as expression -> reduceUserDefinedTypeCastExpression state expression k
         | _ -> __notImplemented__()
 
-    //TODO: make with generic
-    and doCast mtd state term targetType =
+    and doCast mtd term targetType isChecked =
+        let changeLast = // For References
+            List.rev >> NonEmptyList.ofList >> (fun ((addr, typ), xs) -> (addr, targetType)::xs) >> List.rev
+
+        let isUpCast l r =
+            match l, r with
+            | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
+            | _ -> false
+
+        let castPointer term typ = // For Pointers
+            match targetType with
+            | Pointer typ' when Types.SizeOf typ = Types.SizeOf typ' || typ = VSharp.Void || typ' = VSharp.Void ->
+                CastReferenceToPointer mtd typ' term
+            | _ -> MakeCast (TermType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
+
         match term.term with
-        | HeapRef _
-        | StackRef _
-        | StaticRef _
-        | _ -> Return mtd term, state
+        | PointerTo typ -> castPointer term typ
+        | ReferenceTo typ when isUpCast typ targetType -> term
+        | HeapRef (addrs, t, _) -> HeapRef (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) t mtd
+        | StackRef (key, path, _) -> StackRef key (changeLast path) mtd
+        | StaticRef (key, path, _) -> StaticRef key (changeLast path) mtd
+        | _ -> __unreachable__()
+        |> Return mtd
 
     and throwInvalidCastException mtd state term targetType =
         let result, state =
@@ -965,68 +985,52 @@ module internal Interpreter =
         let reduceArg state k = reduceExpression state ast.Argument k in
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
-    and reduceTryCastExpression state (ast : ITryCastExpression) k =
-        let targetType = FromGlobalSymbolicMetadataType ast.Type in
-        reduceExpression state ast.Argument (fun (term, state) ->
-        let mtd = State.mkMetadata ast state in
+    and reduceCastExpression mtd state argument metadataType isChecked primitiveCast ifNotCasted k =
+        let targetType = FromGlobalSymbolicMetadataType metadataType in
         let isCasted state term = checkCast mtd state targetType term in
-        let mapper state term targetType =
+        let hierarchyCast state term targetType k =
             reduceConditionalStatements state
                 (fun state k -> k (isCasted state term))
-                (fun state k -> k (doCast mtd state term targetType))
-                (fun state k -> k (ifNotCasted mtd state term targetType))
-                (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
+                (fun state k -> k (doCast mtd term targetType isChecked, state))
+                (fun state k -> k (throwInvalidCastException mtd state term targetType))
+                (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
         in
-        let term, state =
-            match term.term with
-            | Union gvs -> Merging.guardedStateMap (fun state term -> mapper state term targetType) gvs state
-            | _ -> mapper state term targetType
-        in k (term, state))
+        reduceExpression state argument (fun (term, state) ->
+        match term.term with
+        | Union gvs -> Merging.guardedStateMapk (fun state term k -> primitiveCast hierarchyCast state term targetType k) gvs state k
+        | _ -> primitiveCast hierarchyCast state term targetType k)
+
+    and reduceTryCastExpression state (ast : ITryCastExpression) k =
+        let mtd = State.mkMetadata ast state in
+        reduceCastExpression mtd state ast.Argument ast.Type false id ifNotCasted k
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
         let mtd = State.mkMetadata ast state in
-        let cast src dst expr =
-            if src = dst then expr
-            else Expression (Cast(src, dst, isChecked)) [expr] dst mtd
-        in
-        let targetType = FromGlobalSymbolicMetadataType ast.TargetType in
-        let isCasted state term = checkCast mtd state targetType term in
-        let hierarchyCast state term targetType =
-            reduceConditionalStatements state
-                (fun state k -> k (isCasted state term))
-                (fun state k -> k (doCast mtd state term targetType))
-                (fun state k -> k (throwInvalidCastException mtd state term targetType))
-                (fun (statementResult, state) -> (ControlFlow.resultToTerm statementResult, state))
-        in
-        let rec primitiveCast state term targetType =
+        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled in
+        let primitiveCast hierarchyCast state term targetType k =
             match term.term with
-            | Error _ -> term, state
+            | Error _ -> k (term, state)
             | Nop -> internalfailf "casting void to %O!" targetType
-            | _ when Terms.IsNull term -> Terms.MakeNullRef targetType mtd, state
+            | _ when Terms.IsNull term -> k (Terms.MakeNullRef targetType mtd, state)
             | Concrete(value, _) ->
                 if Terms.IsFunction term && Types.IsFunction targetType
-                then (Concrete value targetType term.metadata, state)
-                else (CastConcrete value (Types.ToDotNetType targetType) term.metadata, state)
-            | Constant(_, _, t) -> (cast t targetType term, state)
-            | Expression(operation, operands, t) -> (cast t targetType term, state)
+                then k (Concrete value targetType term.metadata, state)
+                else k (CastConcrete value (Types.ToDotNetType targetType) term.metadata, state)
+            | Constant(_, _, t)
+            | Expression(_, _, t) -> k (MakeCast t targetType term isChecked mtd, state)
             | StackRef _ ->
                 printfn "Warning: casting stack reference %O to %O!" term targetType
-                hierarchyCast state term targetType
+                hierarchyCast state term targetType k
             | HeapRef _
-            | Struct _ -> hierarchyCast state term targetType
+            | Struct _ -> hierarchyCast state term targetType k
             | _ -> __notImplemented__()
         in
-        reduceExpression state ast.Argument (fun (term, state) ->
-        let newTerm, newState =
-            match term.term with
-            | Union gvs -> Merging.guardedStateMap (fun state term -> primitiveCast state term targetType) gvs state
-            | _ -> primitiveCast state term targetType
-        in k (newTerm, newState))
+        reduceCastExpression mtd state ast.Argument ast.TargetType isChecked primitiveCast throwInvalidCastException k
 
     and checkCast mtd state targetType term =
         let derefForCast = Memory.derefWith (fun m s t -> Concrete null Null m, s)
         match term.term with
+        | PointerTo typ -> Common.is mtd (TermType.Pointer typ) targetType, state
         | HeapRef _
         | StackRef _
         | StaticRef _ ->
@@ -1277,8 +1281,27 @@ module internal Interpreter =
 
 // ------------------------------- Unsafe code -------------------------------
 
+    and reduceCompileOptimizedExpressionToRef state (ast : IExpression) prefixForGenerator k =
+        let uniqueName = IdGenerator.startingWith prefixForGenerator
+        let variableName = (uniqueName, uniqueName)
+        reduceExpression state ast (fun (term, state) ->
+        let mtd = State.mkMetadata ast state
+        let state = Memory.allocateOnStack mtd state variableName term
+        let reference = Memory.referenceLocalVariable mtd state variableName true
+        k (reference, state))
+
+    and reduceLiteralExpressionToRef state (ast : ILiteralExpression) k =
+        reduceCompileOptimizedExpressionToRef state ast "literalPtr#!" k
+
+    and reduceAddressOfExpressionToRef state (ast : IAddressOfExpression) k =
+        reduceCompileOptimizedExpressionToRef state ast "addressOfPtr#!" k
+
     and reduceAddressOfExpression state (ast : IAddressOfExpression) k =
-        reduceExpressionToRef state true ast.Argument k
+        let derefForCast = Memory.derefWith (fun m s _ -> MakeNullRef Null m, s)
+        reduceExpressionToRef state true ast.Argument (fun (reference, state) ->
+        let mtd = State.mkMetadata ast state
+        let term, state = derefForCast mtd state reference
+        k (CastReferenceToPointer mtd (TypeOf term) reference, state))
 
     and reduceRefExpression state (ast : IRefExpression) k =
         reduceExpressionToRef state false ast.Argument k

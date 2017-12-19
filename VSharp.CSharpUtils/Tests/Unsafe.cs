@@ -27,5 +27,24 @@ namespace VSharp.CSharpUtils.Tests
         {
             return sizeof(FixedSizedBuffer); // sizeof() = 70; Marshal.SizeOf() = 72; we should behave like sizeof()
         }
+
+        public static int ReturnConst()
+        {
+            int x = 421234123;
+            return *&x;
+        }
+
+        public static int DoubleIndirection()
+        {
+            int x = 428999;
+            int* p = &x;
+            return **&p;
+        }
+
+        public static int ReturnIntFromIntPtr(int myFavouriteParameter)
+        {
+            var s = new IntPtr(&myFavouriteParameter);
+            return *(int*) s.ToPointer();
+        }
     }
 }

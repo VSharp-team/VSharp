@@ -59,6 +59,7 @@ module internal Memory =
             let fields = Types.GetFieldsOf dotNetType false in
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, { value = defaultOf time metadata v; created = time; modified = time })) (Map.toSeq fields) |> Heap.ofSeq in
             Struct contents t metadata
+        | Pointer typ -> Terms.MakeNullPtr typ metadata
         | _ -> __notImplemented__()
 
     let internal mkDefault metadata typ =
@@ -77,15 +78,18 @@ module internal Memory =
                 |> Heap.ofSeq
         fields, t, Struct contents t metadata
 
+    let private makeSymbolicHeapReference metadata time source name typ constructor =
+        let source' =
+            match source :> SymbolicConstantSource with
+            | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
+            | _ -> source
+        in
+        let constant = Constant name source' pointerType metadata in
+        constructor ((constant, typ), []) time metadata
+
     let internal makeSymbolicInstance metadata time source name = function
-        | Reference t ->
-            let source' =
-                match source :> SymbolicConstantSource with
-                | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
-                | _ -> source
-            in
-            let constant = Constant name source' pointerType metadata in
-            HeapRef ((constant, t), []) time metadata
+        | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun path time -> HeapPtr path time typ
+        | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
         | SubType _
@@ -115,7 +119,7 @@ module internal Memory =
 
     let private canPoint mtd pointerAddr pointerType pointerTime locationAddr locationValue locationTime =
         // TODO: what if locationType is Null?
-        if locationTime > pointerTime then Terms.MakeFalse mtd
+        if locationTime > pointerTime then MakeFalse mtd
         else
             let addrEqual = Pointers.locationEqual mtd locationAddr pointerAddr in
             let typeSuits v =
@@ -128,7 +132,7 @@ module internal Memory =
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
             in
-            addrEqual &&& typeEqual
+            if IsConcrete addrEqual then addrEqual else addrEqual &&& typeEqual
 
 // ------------------------------- Dereferencing/mutation -------------------------------
 
@@ -279,7 +283,13 @@ module internal Memory =
                     k (result, withHeap state h'))
                 Merging.merge Merging.merge2Terms id id
         | Union gvs -> Merging.guardedStateMap (commonHierarchicalAccess actionNull update metadata) gvs state
-        | t -> internalfailf "expected reference, but got %O" t
+        | PointerTo viewType ->
+            let ref = GetReferenceFromPointer metadata term
+            let term, state = commonHierarchicalAccess actionNull update metadata state ref
+            if TypeOf term = viewType
+            then term, state
+            else __notImplemented__() // TODO: [columpio] [Reinterpretation]
+        | t -> internalfailf "expected reference or pointer, but got %O" t
 
     let internal hierarchicalAccess = commonHierarchicalAccess (fun m s _ ->
         let res, state = npe m s
@@ -301,6 +311,7 @@ module internal Memory =
     let rec private referenceTerm state name followHeapRefs term =
         match term.term with
         | Error _
+        | PointerTo _ -> StackRef name [] term.metadata
         | StackRef _
         | StaticRef _
         | HeapRef _ when followHeapRefs -> term

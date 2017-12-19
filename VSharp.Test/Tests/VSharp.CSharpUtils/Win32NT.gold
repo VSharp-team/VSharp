@@ -5186,6 +5186,53 @@ System.String ==> STRUCT string[
 	| System.String.alignConst ~> 3
 	| System.String.charPtrAlignConst ~> 1]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ReturnConst()
+RESULT: 421234123
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.DoubleIndirection()
+RESULT: 428999
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ReturnIntFromIntPtr(System.Int32)
+RESULT: myFavouriteParameter
+HEAP:
+1 ==> STRUCT string[
+	| System.String.m_FirstChar ~> 
+	| System.String.m_StringLength ~> 0]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.Object ==> STRUCT System.Object[]
+System.String ==> STRUCT string[
+	| System.String.Empty ~> (HeapRef 1)
+	| System.String.TrimBoth ~> 2
+	| System.String.TrimHead ~> 0
+	| System.String.TrimTail ~> 1
+	| System.String.alignConst ~> 3
+	| System.String.charPtrAlignConst ~> 1]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
 RESULT: <ERROR: UNION[
 	| !(0 == array) ~> (HeapRef 8)
@@ -6424,9 +6471,7 @@ RESULT: UNION[
 HEAP:
 1 ==> STRUCT string[
 	| System.String.m_FirstChar ~> 
-	| System.String.m_StringLength ~> 0
-	| VSharp.CSharpUtils.Tests.Typecast.Piece.Rate ~> UNION[
-		| !(0 == obj) & (!System.Object1 | System.String) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) & 1 == obj ~> VSharp.CSharpUtils.Tests.Typecast.Piece.Rate]]
+	| System.String.m_StringLength ~> 0]
 10 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
 		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -2147467261]
@@ -6482,9 +6527,7 @@ HEAP:
 		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-2 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
-	| VSharp.CSharpUtils.Tests.Typecast.Piece.Rate ~> UNION[
-		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) & 2 == obj ~> VSharp.CSharpUtils.Tests.Typecast.Piece.Rate]]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 3 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
@@ -6573,7 +6616,7 @@ HEAP:
 		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
 obj ==> STRUCT <Subtype of System.Object>[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece.Rate ~> UNION[
-		| !(0 == obj) & (!(1 == obj) | !System.String & System.Object1) & (!(2 == obj) | !VSharp.CSharpUtils.Tests.Typecast.Piece & System.Object1) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> VSharp.CSharpUtils.Tests.Typecast.Piece.Rate]]
+		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> VSharp.CSharpUtils.Tests.Typecast.Piece.Rate]]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.MaxEnvVariableValueLength ~> UNION[
 		| !(0 == obj) & (!System.Object1 | VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 32767]

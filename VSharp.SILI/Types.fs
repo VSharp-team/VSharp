@@ -188,6 +188,7 @@ module public Types =
         | ArrayType(t, Vector) -> (ToDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (ToDotNetType t).MakeArrayType(rank)
         | Reference t -> ToDotNetType t
+        | Pointer t -> (ToDotNetType t).MakePointerType()
         | _ -> typedefof<obj>
 
     let internal SizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
@@ -329,8 +330,10 @@ module public Types =
             SubType typedefof<obj> [] intefaces typedefof<obj>.FullName
 
         and private fromCommonDotNetType (dotNetType : Type) k =
+            let fromCommonDotNetTypeK t = fromCommonDotNetType t k
             match dotNetType with
             | null -> Null
+            | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetTypeK |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when numericTypes.Contains(n) -> Numeric n
@@ -343,7 +346,7 @@ module public Types =
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke") in
-                let returnType = methodInfo.ReturnType |> (fun t -> fromCommonDotNetType t k) in
+                let returnType = methodInfo.ReturnType |> fromCommonDotNetTypeK in
                 let parameters = methodInfo.GetParameters() |>
                                     Seq.map (fun (p : System.Reflection.ParameterInfo) ->
                                     fromCommonDotNetType p.ParameterType k) in
@@ -432,7 +435,6 @@ module public Types =
             | :? IMetadataPointerType as pt ->
                 let dotnetType = MetadataToDotNetType pt in
                 FromDotNetType typeKind dotnetType
-                |> Reference // TODO: |> PointerType
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType typeKind
 
         let public FromConcreteDotNetType t = FromDotNetType Concrete t

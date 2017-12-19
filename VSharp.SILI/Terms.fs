@@ -81,6 +81,8 @@ type public TermNode =
         indicesArrayToString x
 
     override x.ToString() =
+        let getTerm (term : Term) = term.term in
+
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
             | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
@@ -98,7 +100,6 @@ type public TermNode =
         let extendIndent = (+) "\t"
 
         let rec toStr parentPriority parentChecked indent term =
-            let getTerm (term : Term) = term.term in
             match term with
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
@@ -147,15 +148,6 @@ type public TermNode =
                         | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
-            | StackRef(key, path, mbtyp) ->
-                sprintf "(StackRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
-            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
-            | HeapRef(path, _, mbtyp) ->
-                sprintf "(HeapRef %s)%s"
-                    (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
-                    (Option.map (sprintf " as %O") mbtyp |?? "")
-            | StaticRef(key, path, mbtyp) ->
-                sprintf "(StaticRef (%O, %O)%s)" key (List.map fst path) (Option.map (sprintf " as %O") mbtyp |?? "")
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard in
@@ -164,18 +156,34 @@ type public TermNode =
                 in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
+            | StackRef(_, _, mbtyp)
+            | HeapRef(_, _, mbtyp)
+            | StaticRef(_, _, mbtyp) ->
+                let templateRef name contents =
+                    match mbtyp with
+                    | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
+                    | None -> sprintf "(%sRef %s)" name contents
+                in
+                let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path) in
+                match term with
+                | StackRef(key, path, _) -> printref "Stack" key path
+                | StaticRef(key, path, _) -> printref "Static" key path
+                | HeapRef(path, _, _) ->
+                    templateRef "Heap"
+                        (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
+                | _ -> __unreachable__()
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
-        and toStringWithParentIndent parentIndent term = toStr -1 false (extendIndent parentIndent) term.term
+        and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
 
-        and sortKeyFromTerm = (fun t -> t.term) >> function
+        and sortKeyFromTerm = getTerm >> function
             | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
 
         and arrayContentsToString contents parentIndent =
             let separator = ";\n" + parentIndent in
-            let toString (t : Term) = toStr -1 false (extendIndent parentIndent) t.term in
             let mapper = toStringWithParentIndent parentIndent in
             let keyMapper key =
                 match key.term with
@@ -275,6 +283,18 @@ module public Terms =
         | HeapRef(path, time, Some typ) -> Some(HeapPtr(path, time, typ))
         | _ -> None
 
+    let internal CastReferenceToPointer mtd targetType = term >> function
+        | StackRef(key, path, _) -> StackPtr key path targetType mtd
+        | StaticRef(key, path, _) -> StaticPtr key path targetType mtd
+        | HeapRef(path, time, _) -> HeapPtr path time targetType mtd
+        | t -> internalfailf "Expected reference or pointer, got %O" t
+
+    let internal GetReferenceFromPointer mtd = term >> function
+        | StackPtr(key, path, _) -> StackRef key path mtd
+        | StaticPtr(key, path, _) -> StaticRef key path mtd
+        | HeapPtr(path, time, _) -> HeapRef path time mtd
+        | t -> internalfailf "Expected pointer, got %O" t
+
     let public IsVoid = term >> function
         | Nop -> true
         | _ -> false
@@ -341,6 +361,20 @@ module public Terms =
         | Expression(_, args, _) -> args
         | term -> internalfailf "expression expected, %O recieved" term
 
+    let internal (|ReferenceTo|_|) = // doesn't match references with empty path!
+        let someTypeOfAddrs = List.tryLast >> Option.map snd
+        function
+        | StackRef(_, addrs, None)
+        | StaticRef(_, addrs, None) -> someTypeOfAddrs addrs
+        | HeapRef(addrs, _, None) -> addrs |> NonEmptyList.toList |> someTypeOfAddrs
+        | _ -> None
+
+    let internal (|PointerTo|_|) = function
+        | HeapPtr(_, _, t)
+        | StaticPtr(_, _, t)
+        | StackPtr(_, _, t) -> Some t
+        | _ -> None
+
     let rec public TypeOf term =
         match term.term with
         | Error _ -> TermType.Bottom
@@ -349,15 +383,10 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | HeapPtr(_, _, t)
-        | StaticPtr(_, _, t)
-        | StackPtr(_, _, t) -> Pointer t
+        | PointerTo t -> Pointer t
+        | ReferenceTo t -> Reference t
         | StackRef(_, [], _)
-        | StaticRef(_, [], _) -> Pointer VSharp.Void
-        | StackRef(_, addrs, _)
-        | StaticRef(_, addrs, _) -> List.last addrs |> snd |> Reference
-        | HeapRef(addrs, _, _) ->
-            addrs |> NonEmptyList.toList |> List.last |> snd |> Reference
+        | StaticRef(_, [], _) -> Reference VSharp.Void
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
@@ -419,6 +448,9 @@ module public Terms =
     let public MakeNullRef typ metadata =
         HeapRef (((MakeZeroAddress metadata), typ), []) 0u metadata
 
+    let public MakeNullPtr typ metadata =
+        HeapPtr (((MakeZeroAddress metadata), typ), []) 0u typ metadata
+
     let public MakeNumber n metadata =
         Concrete n (Numeric(n.GetType())) metadata
 
@@ -438,6 +470,10 @@ module public Terms =
     let public MakeUnary operation x isChecked t metadata =
         assert(Operations.isUnary operation)
         Expression (Operator(operation, isChecked)) [x] t metadata
+
+    let public MakeCast srcTyp dstTyp expr isChecked metadata =
+        if srcTyp = dstTyp then expr
+        else Expression (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp metadata
 
     let public MakeStringKey typeName =
         MakeConcreteString typeName Metadata.empty

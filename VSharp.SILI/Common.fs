@@ -79,6 +79,7 @@ module internal Common =
         | leftType, (StructureType(t, _, _) as termType)
         | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
         | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
+        | Pointer _, Pointer _ -> Terms.MakeTrue metadata
         | _ -> Terms.MakeFalse metadata
 
     let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
