@@ -921,7 +921,7 @@ module internal Interpreter =
 
     and doCast mtd term targetType isChecked =
         let changeLast = // For References
-            List.rev >> NonEmptyList.ofList >> (fun ((addr, typ), xs) -> (addr, targetType)::xs) >> List.rev
+            List.changeLast (fun (addr, _) -> (addr, targetType))
 
         let isUpCast l r =
             match l, r with

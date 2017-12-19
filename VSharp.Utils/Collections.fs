@@ -40,6 +40,12 @@ module public List =
             | None -> (filterMap2 mapper xs ys)
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
 
+    let rec public changeLast f xs =
+        let cons x = function
+            | [] -> [f x]
+            | xs -> x :: xs
+        List.foldBack cons xs []
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 
