@@ -26,9 +26,9 @@ module internal Common =
         | _, Error _ -> matched (y, state)
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY state |> matched
         | Union(gvsx), Union(gvsy) ->
-            let compose (gx, vx) state (gy, vy) matched = repeat vx vy state (fun (xy, state) -> ((gx &&& gy, xy), state) |> matched) in
-                let join state (gx, vx) k = Cps.List.mapFoldk (compose (gx, vx)) state gvsy k in
-                    Cps.List.mapFoldk join state gvsx (fun (gvss, state) -> (Merging.merge (List.concat gvss), state) |> matched)
+            let compose (gx, vx) state (gy, vy) matched = repeat vx vy state (fun (xy, state) -> ((gx &&& gy, xy), state) |> matched)
+            let join state (gx, vx) k = Cps.List.mapFoldk (compose (gx, vx)) state gvsy k
+            Cps.List.mapFoldk join state gvsx (fun (gvss, state) -> (Merging.merge (List.concat gvss), state) |> matched)
         | GuardedValues(guardsX, valuesX), _ ->
             Cps.List.mapFoldk (fun state x matched -> repeat x y state matched) state valuesX (fun (values', state) ->
             (Merging.merge (List.zip guardsX values'), state) |> matched)
@@ -43,7 +43,7 @@ module internal Common =
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
         let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
-            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
+            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType
             function
             | ReferenceType(t, _, _)
             | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
@@ -56,7 +56,7 @@ module internal Common =
             | Reference _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
-            let b = makeBoolConst rightName rightTermType in
+            let b = makeBoolConst rightName rightTermType
             function
             | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
             | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
@@ -96,8 +96,8 @@ module internal Common =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = merge2 condition !!condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
+            let result = merge2 condition !!condition thenResult elseResult
+            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
             k (result, state)))
         conditionInvocation state (fun (condition, conditionState) ->
         let thenCondition =

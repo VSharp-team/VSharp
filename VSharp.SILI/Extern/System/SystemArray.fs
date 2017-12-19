@@ -17,22 +17,22 @@ module internal SystemArray =
             (fun state k -> k (inBounds, state))
             fits
             (fun state k ->
-                let term, state = indexOutOfRangeException state in
+                let term, state = indexOutOfRangeException state
                 k (Throw term, state))
             k)))
 
     let GetLength state args =
-        let this, dimension = List.item 0 args, List.item 1 args in
-        let array, state = Memory.deref state this in
+        let this, dimension = List.item 0 args, List.item 1 args
+        let array, state = Memory.deref state this
         let getLength state dimension term =
             match term.term with
             | Error _ -> (term, state)
             | Array(d, _, _, _, _, _, _) ->
-                let lowerBound = Concrete 0 Arrays.lengthTermType in
+                let lowerBound = Concrete 0 Arrays.lengthTermType
                 checkBounds state lowerBound d dimension
                     (fun state k ->
-                        let lengthRef = Memory.referenceArrayLength this dimension in
-                        let result, state = Memory.deref state lengthRef in
+                        let lengthRef = Memory.referenceArrayLength this dimension
+                        let result, state = Memory.deref state lengthRef
                         k (Return result, state))
                     (fun (term, state) -> ControlFlow.resultToTerm term, state)
             | term -> internalfailf "expected array, but %O got!" term
@@ -43,7 +43,7 @@ module internal SystemArray =
         in (ControlFlow.throwOrReturn result, state)
 
     let GetRank state args =
-        let array, state = Memory.deref state (List.head args) in
+        let array, state = Memory.deref state (List.head args)
         let rec getRank term =
             match term.term with
             | Error _ -> term
@@ -56,21 +56,21 @@ module internal SystemArray =
         GetRank state args
 
     let get_Length state args =
-        let array, state = Memory.deref state (List.head args) in
+        let array, state = Memory.deref state (List.head args)
         (Return (VSharp.Arrays.length array), state)
 
     let GetLowerBound state args =
-        let this, dimension = List.item 0 args, List.item 1 args in
-        let array, state = Memory.deref state this in
+        let this, dimension = List.item 0 args, List.item 1 args
+        let array, state = Memory.deref state this
         let getLowerBound state dimension term =
             match term.term with
             | Error _ -> (term, state)
             | Array(d, _, _, _, _, _, _) ->
-                let lowerBound = Concrete 0 Arrays.lengthTermType in
+                let lowerBound = Concrete 0 Arrays.lengthTermType
                 checkBounds state lowerBound d dimension
                     (fun state k ->
-                        let boundRef = Memory.referenceArrayLowerBound this dimension in
-                        let result, state = Memory.deref state boundRef in
+                        let boundRef = Memory.referenceArrayLowerBound this dimension
+                        let result, state = Memory.deref state boundRef
                         k (Return result, state))
                     (fun (term, state) -> ControlFlow.resultToTerm term, state)
             | term -> internalfailf "expected array, but %O got!" term

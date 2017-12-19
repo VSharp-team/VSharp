@@ -28,26 +28,26 @@ module internal Arrays =
     let internal lengthTermType = Numeric lengthType
 
     let internal makeArray mtd length contents instantiator elemTyp =
-        let zero = MakeZeroAddress mtd in
-        let lowerBound = Heap.add zero { value = zero; created = State.zeroTime; modified = State.zeroTime } Heap.empty in
-        let typ = ArrayType(elemTyp, ConcreteDimension 1) in
-        let lengths = Heap.add zero { value = length; created = State.zeroTime; modified = State.zeroTime } Heap.empty  in
+        let zero = MakeZeroAddress mtd
+        let lowerBound = Heap.add zero { value = zero; created = State.zeroTime; modified = State.zeroTime } Heap.empty
+        let typ = ArrayType(elemTyp, ConcreteDimension 1)
+        let lengths = Heap.add zero { value = length; created = State.zeroTime; modified = State.zeroTime } Heap.empty
         Array (MakeNumber 1 mtd) length lowerBound instantiator contents lengths typ mtd
 
     let internal makeLinearConreteArray mtd keyMaker valMaker length elemTyp =
         let contents =
             Seq.init length valMaker |>
             Seq.foldi (fun h i v -> Heap.add (keyMaker i mtd) { value = v; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty
-        let length = MakeNumber length mtd in
-        let constant = Constant defaultArrayName (DefaultArray()) (ArrayType(lengthTermType, ConcreteDimension 1)) mtd in
-        let instantiator = [Terms.True, DefaultInstantiator(constant, elemTyp)] in
+        let length = MakeNumber length mtd
+        let constant = Constant defaultArrayName (DefaultArray()) (ArrayType(lengthTermType, ConcreteDimension 1)) mtd
+        let instantiator = [Terms.True, DefaultInstantiator(constant, elemTyp)]
         makeArray mtd length contents instantiator elemTyp
 
     let internal makeIntegerArray mtd maker length =
         makeLinearConreteArray mtd MakeNumber maker length lengthTermType
 
     let internal makeLinearSymbolicArray mtd length symbolicValue elemType =
-        let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)] in
+        let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)]
         makeArray mtd length Heap.empty instantiator elemType
 
     let internal makeSymbolicIntegerArray mtd length symbolicValue =
@@ -55,9 +55,9 @@ module internal Arrays =
 
     let internal equalsArrayIndices mtd addr1 addr2 =
         let equalsHeap h1 h2 resolve1 resolve2 =
-            let keysSet = HashSet(Heap.locations h1) in
+            let keysSet = HashSet(Heap.locations h1)
             keysSet.UnionWith(HashSet(Heap.locations h2))
-            let keys = seq(keysSet) in
+            let keys = seq(keysSet)
             Seq.mapFold (fun (h1, h2) key ->
                 let fill val1 val2 h1 h2 =
                     Arithmetics.eq mtd val1.value val2.value, (h1, h2)
@@ -77,13 +77,13 @@ module internal Arrays =
         match addr1.term, addr2.term with
         | Array(d1, len1, lb1, init1, indices1, l1, t1), Array(d2, len2, lb2, init2, indices2, l2, t2) ->
             assert(List.length init1 = 1 && List.length init2 = 1)
-            let initTerm1, initTerm2 = List.head init1 |> snd, List.head init2 |> snd in
+            let initTerm1, initTerm2 = List.head init1 |> snd, List.head init2 |> snd
             let makeConstant mtd constant i =
-                let id = sprintf "%s[%s]" (toString constant) (toString i) |> IdGenerator.startingWith in
+                let id = sprintf "%s[%s]" (toString constant) (toString i) |> IdGenerator.startingWith
                 Some { value = Constant id (SymbolicArrayIndex(constant)) lengthTermType mtd; created = State.zeroTime; modified = State.zeroTime }
             let makeGvs h1 h2 val1 val2 =
-                let zero = MakeZeroAddress mtd in
-                let isSameLen = Arithmetics.eq mtd len1 len2 in
+                let zero = MakeZeroAddress mtd
+                let isSameLen = Arithmetics.eq mtd len1 len2
                 match isSameLen with
                 | False -> isSameLen, (addr1, addr2)
                 | _ ->
@@ -99,15 +99,15 @@ module internal Arrays =
         | _ -> __unreachable__()
 
     let private makeSymbolicDimensionsNumber metadata arrayConstant arrayName =
-        let dim = sprintf "|dimensions of %s|" arrayName in
-        Constant dim (SymbolicArrayDimensionNumber(arrayConstant)) lengthTermType metadata in
+        let dim = sprintf "|dimensions of %s|" arrayName
+        Constant dim (SymbolicArrayDimensionNumber(arrayConstant)) lengthTermType metadata
 
     let private makeSymbolicLength metadata arrayConstant arrayName =
-        let idOfDimension = sprintf "|%s|" arrayName in
+        let idOfDimension = sprintf "|%s|" arrayName
         Constant idOfDimension (SymbolicArrayLength(arrayConstant)) lengthTermType metadata
 
     let internal zeroLowerBound metadata dimension =
-        let bound = { value = Concrete 0 lengthTermType metadata; created = State.zeroTime; modified = State.zeroTime } in
+        let bound = { value = Concrete 0 lengthTermType metadata; created = State.zeroTime; modified = State.zeroTime }
         Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> MakeNumber i metadata))
 
     let rec internal length mtd term =
@@ -124,7 +124,7 @@ module internal Arrays =
                 match d.term with
                 | Union gvs -> gvs
                 | _ -> [(Terms.MakeTrue mtd, d)]
-            let rest = guardsProduct mtd ds in
+            let rest = guardsProduct mtd ds
             FSharpx.Collections.List.lift2 (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) current rest
 
     let rec internal makeDefault mtd lengthList typ =
@@ -132,13 +132,13 @@ module internal Arrays =
             match typ with
             | ArrayType(e, _) -> e
             | _ -> internalfail "unexpected type of array!"
-        let unguardedLengths = guardsProduct mtd lengthList in
+        let unguardedLengths = guardsProduct mtd lengthList
         let makeArray (lengthList : Term list) =
-            let dim = List.length lengthList in
-            let lowerBounds = zeroLowerBound mtd dim in
-            let length = List.reduce (mul mtd) lengthList in
-            let constant = Constant defaultArrayName (DefaultArray()) typ mtd in
-            let lengths = Seq.foldi (fun h i l -> Heap.add (MakeNumber i mtd) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty lengthList in
+            let dim = List.length lengthList
+            let lowerBounds = zeroLowerBound mtd dim
+            let length = List.reduce (mul mtd) lengthList
+            let constant = Constant defaultArrayName (DefaultArray()) typ mtd
+            let lengths = Seq.foldi (fun h i l -> Heap.add (MakeNumber i mtd) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty lengthList
             Array (MakeNumber dim mtd) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ mtd
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
@@ -146,30 +146,30 @@ module internal Arrays =
         match Options.SymbolicArrayLowerBoundStrategy() with
         | Options.AlwaysZero -> zeroLowerBound metadata dimension
         | Options.AlwaysSymbolic ->
-            let idOfBound i = sprintf "%s.GetLowerBound(%i)" arrayName i in
-            let mkLowerBound i = Constant (idOfBound i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, false)) lengthTermType metadata in
+            let idOfBound i = sprintf "%s.GetLowerBound(%i)" arrayName i
+            let mkLowerBound i = Constant (idOfBound i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, false)) lengthTermType metadata
             Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty (Seq.init dimension mkLowerBound)
 
     and internal makeSymbolicLengths metadata arrayConstant arrayName dimension =
-        let idOfLength i = sprintf "%s.GetLength(%i)" arrayName i in
-        let mkLength i = Constant (idOfLength i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, true)) lengthTermType metadata in
-        let lengths = Seq.init dimension mkLength in
-        let length = Seq.reduce (mul metadata) lengths in
+        let idOfLength i = sprintf "%s.GetLength(%i)" arrayName i
+        let mkLength i = Constant (idOfLength i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, true)) lengthTermType metadata
+        let lengths = Seq.init dimension mkLength
+        let length = Seq.reduce (mul metadata) lengths
         Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty lengths, length
 
     and internal makeSymbolic metadata source (dimension : ArrayDimensionType) elemTyp typ arrayName =
-        let arrayConstant = Constant arrayName source typ metadata in
-        let instantiator = [Terms.True , LazyInstantiator(arrayConstant, elemTyp)] in
+        let arrayConstant = Constant arrayName source typ metadata
+        let instantiator = [Terms.True , LazyInstantiator(arrayConstant, elemTyp)]
         let lowerBound, arrayLengths, arrayLength, dim =
             let makeConcrete d =
-                let lb = makeSymbolicLowerBound metadata arrayConstant arrayName d in
-                let al, length = makeSymbolicLengths metadata arrayConstant arrayName d in
+                let lb = makeSymbolicLowerBound metadata arrayConstant arrayName d
+                let al, length = makeSymbolicLengths metadata arrayConstant arrayName d
                 lb, al, length, MakeNumber d metadata
             match dimension with
             | Vector -> makeConcrete 1
             | ConcreteDimension d -> makeConcrete d
             | SymbolicDimension _ ->
-                let length = makeSymbolicLength metadata arrayConstant arrayName in
+                let length = makeSymbolicLength metadata arrayConstant arrayName
                 Heap.empty, Heap.empty, length, makeSymbolicDimensionsNumber metadata arrayConstant arrayName
         Array dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ metadata
 
@@ -181,7 +181,7 @@ module internal Arrays =
         let rec flatten depth term =
             match term.term with
             | Concrete(:? (Term list) as terms, _) ->
-                let children, dims = terms |> List.map (flatten (depth - 1)) |> List.unzip in
+                let children, dims = terms |> List.map (flatten (depth - 1)) |> List.unzip
                 match dims with
                 | d::ds when not (List.forall ((=) d) ds) ->
                     failwith "Unexpected jugged array in multidimesional initializer!"
@@ -189,19 +189,19 @@ module internal Arrays =
                     List.concat children, (List.length children)::d
                 | [] -> [], List.init depth (always 0)
             | _ -> [{ value = term; created = time; modified = time }], []
-        let linearContent, dimensions = flatten rank initializer in
-        let len = List.length linearContent in
+        let linearContent, dimensions = flatten rank initializer
+        let len = List.length linearContent
         assert(len = List.reduce (*) dimensions)
-        let intToTerm i = Concrete i lengthTermType mtd in
-        let dimensionList = dimensions |> List.map intToTerm in
-        let length = MakeNumber len mtd in
-        let lengths = Seq.foldi (fun h i l -> Heap.add (MakeNumber i mtd) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty dimensionList in
+        let intToTerm i = Concrete i lengthTermType mtd
+        let dimensionList = dimensions |> List.map intToTerm
+        let length = MakeNumber len mtd
+        let lengths = Seq.foldi (fun h i l -> Heap.add (MakeNumber i mtd) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty dimensionList
         let indices =
             List.foldBack (fun i s ->
-                let indicesInDim = Seq.init i intToTerm in
-                let res = Seq.map (fun x -> Seq.map (cons x) s) indicesInDim in
+                let indicesInDim = Seq.init i intToTerm
+                let res = Seq.map (fun x -> Seq.map (cons x) s) indicesInDim
                 res |> Seq.concat) dimensions (Seq.init 1 (always List.empty))
             |> Seq.map (fun index -> makeIntegerArray mtd (fun i -> index.[i]) index.Length)
-        let contents = Seq.zip indices linearContent |> Heap.ofSeq in
-        let constant = Constant defaultArrayName (DefaultArray()) typ mtd in
+        let contents = Seq.zip indices linearContent |> Heap.ofSeq
+        let constant = Constant defaultArrayName (DefaultArray()) typ mtd
         Array (MakeNumber rank mtd) length (zeroLowerBound mtd rank) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ mtd

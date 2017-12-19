@@ -22,7 +22,7 @@ module internal Pointers =
         simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
             (fun _ _ _ _ -> __unreachable__())
             (fun x y s k ->
-                let k = withSnd s >> k in
+                let k = withSnd s >> k
                 match x.term, y.term with
                 | _ when x = y -> MakeTrue mtd |> k
                 | HeapRef(xpath, _, None), HeapRef(ypath, _, None) ->

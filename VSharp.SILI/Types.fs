@@ -75,7 +75,7 @@ module public Types =
         | SubType(t, g ,i, name) -> Some(SubType(t.Inheritor, g, i, name))
         | _ -> None
 
-    let internal pointerType = Numeric typedefof<int> in
+    let internal pointerType = Numeric typedefof<int>
 
     let private integerTypes =
         new HashSet<System.Type>(
@@ -236,10 +236,10 @@ module public Types =
             match arg with
             | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[int arg.Index]
             | _ when arg.MethodOwner <> null ->
-                let metadataMethod = arg.MethodOwner in
-                let lengthGenericArguments = metadataMethod.GenericArguments.Length in
-                let parameters = metadataMethod.Parameters in
-                let declaringType = metadataMethod.DeclaringType in
+                let metadataMethod = arg.MethodOwner
+                let lengthGenericArguments = metadataMethod.GenericArguments.Length
+                let parameters = metadataMethod.Parameters
+                let declaringType = metadataMethod.DeclaringType
                 let method =
                     Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
                     Seq.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
@@ -266,7 +266,7 @@ module public Types =
                     then (a.ElementType |> MetadataToDotNetType).MakeArrayType()
                     else (a.ElementType |> MetadataToDotNetType).MakeArrayType(int(a.Rank))
             | :? IMetadataClassType as c ->
-                let originType = Type.GetType(c.Type.AssemblyQualifiedName, true) in
+                let originType = Type.GetType(c.Type.AssemblyQualifiedName, true)
                 if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
                 else originType.MakeGenericType(c.Arguments |> Array.map MetadataToDotNetType)
             | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
@@ -302,7 +302,7 @@ module public Types =
         let public GetVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
                 left &&& right = right
-            let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask in
+            let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask
             match variance with
             | _ when variance ==> GenericParameterAttributes.Contravariant -> Contravariant
             | _ when variance ==> GenericParameterAttributes.Covariant -> Covariant
@@ -315,7 +315,7 @@ module public Types =
             else []
 
         and private getConstraintFromDotNetInterface typeKind (interfaceType : Type) =
-            let genericArguments = getGenericArguments typeKind interfaceType in
+            let genericArguments = getGenericArguments typeKind interfaceType
             SubType interfaceType genericArguments [] interfaceType.FullName
 
         and private getInterfaces typeKind (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map (getConstraintFromDotNetInterface typeKind) |> List.ofSeq
@@ -342,11 +342,11 @@ module public Types =
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments Concrete s) (getInterfaces Concrete s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
-                let methodInfo = f.GetMethod("Invoke") in
-                let returnType = methodInfo.ReturnType |> fromCommonDotNetTypeK in
+                let methodInfo = f.GetMethod("Invoke")
+                let returnType = methodInfo.ReturnType |> fromCommonDotNetTypeK
                 let parameters = methodInfo.GetParameters() |>
                                     Seq.map (fun (p : System.Reflection.ParameterInfo) ->
-                                    fromCommonDotNetType p.ParameterType k) in
+                                    fromCommonDotNetType p.ParameterType k)
                 Func(List.ofSeq parameters, returnType)
             | _ -> k dotNetType
 
@@ -361,7 +361,7 @@ module public Types =
             constraints |> Seq.collect (fromDotNetGenericParameterConstraint typeKind) |> Seq.distinct |> List.ofSeq
 
         and private fromDotNetGenericParameter typeKind (genericParameter : Type) : TermType =
-            let constraints = genericParameter.GetGenericParameterConstraints() in
+            let constraints = genericParameter.GetGenericParameterConstraints()
             let listTypeConstraint =
                 constraints |>
                 fromDotNetGenericParameterConstraints typeKind |>
@@ -399,12 +399,12 @@ module public Types =
             | SymbolicType -> fromDotNetTypeToSymbolic typeKind dotNetType
 
         and private fromDotNetTypeRef (typeKind : TypeKind) dotNetType =
-            let key = dotNetType, typeKind in
+            let key = dotNetType, typeKind
             let res =
                 if TypesCache.Contains key then TypesCache.Find key
                 else
                     TypesCache.Prepare key
-                    let termType = fromDotNetType typeKind dotNetType in
+                    let termType = fromDotNetType typeKind dotNetType
                     TypesCache.Embody key termType
             match !res with
             | SubType(t, a, p, _) -> ref <| SubType t a p (getIdFromDotNetType typeKind dotNetType)
@@ -419,16 +419,16 @@ module public Types =
             | _ when t.AssemblyQualifiedName = "__Null" -> Null
             | _ when t.FullName = "System.Void" -> Void
             | :? IMetadataGenericArgumentReferenceType as g ->
-                let arg = MetadataToDotNetType g in
+                let arg = MetadataToDotNetType g
                 FromDotNetType typeKind arg
             | :? IMetadataArrayType as a ->
-                let elementType = FromMetadataType typeKind a.ElementType |> WrapReferenceType in
+                let elementType = FromMetadataType typeKind a.ElementType |> WrapReferenceType
                 ArrayType(elementType, if a.IsVector then Vector else a.Rank |> int |> ConcreteDimension)
             | :? IMetadataClassType as ct ->
-                let dotnetType = MetadataToDotNetType ct in
+                let dotnetType = MetadataToDotNetType ct
                 FromDotNetType typeKind dotnetType
             | :? IMetadataPointerType as pt ->
-                let dotnetType = MetadataToDotNetType pt in
+                let dotnetType = MetadataToDotNetType pt
                 FromDotNetType typeKind dotnetType
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType typeKind
 
@@ -455,7 +455,7 @@ module public Types =
             | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | TermType.ArrayType(_, Vector)
             | TermType.ArrayType (_, ConcreteDimension _) as arr ->
-                let t = ToDotNetType arr in
+                let t = ToDotNetType arr
                 Some(ReferenceType(Hierarchy t, [], getInterfaces Global t))
             | _ -> None
 
@@ -468,7 +468,7 @@ module public Types =
     open Constructor
 
     let public IsPrimitive t =
-        let dotNetType = ToDotNetType t in
+        let dotNetType = ToDotNetType t
         primitiveTypes.Contains dotNetType || dotNetType.IsEnum
 
     let public IsInteger = ToDotNetType >> integerTypes.Contains
@@ -485,7 +485,7 @@ module public Types =
             givenType.GetInterfaces() |>
             Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
         areInterfacesFound ||
-            let baseType = givenType.BaseType in
+            let baseType = givenType.BaseType
             baseType <> null &&
             if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
             else IsAssignableToGenericType baseType genericType
@@ -497,32 +497,32 @@ module public Types =
         | _ -> __unreachable__()
 
     let public FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = FromUniqueSymbolicMetadataType returnMetadataType in
+        let returnType = FromUniqueSymbolicMetadataType returnMetadataType
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> FromGlobalSymbolicMetadataType in
-        let args = Seq.map paramToType signature.Parameters |> List.ofSeq in
+            param.Type |> FromGlobalSymbolicMetadataType
+        let args = Seq.map paramToType signature.Parameters |> List.ofSeq
         Func(args, returnType)
 
     let public FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = FromUniqueSymbolicMetadataType m.ReturnValue.Type in
+        let returnType = FromUniqueSymbolicMetadataType m.ReturnValue.Type
         let paramToType (param : IMetadataParameter) =
             param.Type |> FromGlobalSymbolicMetadataType
-        let args = Seq.map paramToType m.Parameters |> List.ofSeq in
+        let args = Seq.map paramToType m.Parameters |> List.ofSeq
         Func(args, returnType)
 
     let public GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         DecompilerServices.getTypeOfNode node
 
     let public GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        let mt = GetMetadataTypeOfNode node in
+        let mt = GetMetadataTypeOfNode node
         if mt = null then typedefof<obj>
         else MetadataToDotNetType mt
 
     let public GetFieldsOf (t : System.Type) isStatic =
-        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance in
-        let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag in
-        let fields = t.GetFields(flags) in
+        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
+        let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
+        let fields = t.GetFields(flags)
         let extractFieldInfo (field : FieldInfo) =
-            let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name in
+            let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name
             (fieldName, FromConcreteDotNetType field.FieldType)
         fields |> Array.map extractFieldInfo |> Map.ofArray

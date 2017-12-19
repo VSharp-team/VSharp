@@ -13,13 +13,13 @@ module internal DecompilerServices =
     let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
 
     let rec loadAssemblyByName (name : string) =
-        let path = System.Reflection.Assembly.Load(name).Location in
+        let path = System.Reflection.Assembly.Load(name).Location
         if not(assemblies.ContainsKey(path)) then
-            let jbPath = JetBrains.Util.FileSystemPath.Parse(path) in
+            let jbPath = JetBrains.Util.FileSystemPath.Parse(path)
             loadAssembly jbPath |> ignore
 
     and loadAssembly (path : JetBrains.Util.FileSystemPath) =
-        let assembly = Dict.getValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true)) in
+        let assembly = Dict.getValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true))
         assembly.ReferencedAssembliesNames |> Seq.iter (fun reference -> loadAssemblyByName reference.FullName)
         assembly
 
@@ -40,7 +40,7 @@ module internal DecompilerServices =
         setTypeOfNode dst (getTypeOfNode src)
 
     let private createThisOf (typ : IMetadataTypeInfo) =
-        let this = AstFactory.CreateThisReference(null) in
+        let this = AstFactory.CreateThisReference(null)
         if typ.IsClass || typ.IsInterface
         then AstFactory.CreateDeref(this, null, true) :> IExpression
         else this :> IExpression
@@ -59,23 +59,23 @@ module internal DecompilerServices =
         | None -> ()
 
     let private embodyAutoGetter (property : IDecompiledProperty) (backingField : IMetadataField) =
-        let fieldSpecification = new FieldSpecification(backingField) in
-        let this = if property.Getter.MetadataMethod.IsStatic then null else createThisOf property.OwnerClass.TypeInfo in
-        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
-        let returnStatement = AstFactory.CreateReturn(fieldReference :> IExpression, null) in
-        let blockStatement = AstFactory.CreateBlockStatement([returnStatement]) in
+        let fieldSpecification = new FieldSpecification(backingField)
+        let this = if property.Getter.MetadataMethod.IsStatic then null else createThisOf property.OwnerClass.TypeInfo
+        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null)
+        let returnStatement = AstFactory.CreateReturn(fieldReference :> IExpression, null)
+        let blockStatement = AstFactory.CreateBlockStatement([returnStatement])
         property.Getter.Body <- blockStatement
 
     let private embodyAutoSetter (property : IDecompiledProperty) (backingField : IMetadataField) =
-        let fieldSpecification = new FieldSpecification(backingField) in
-        let this = if property.Getter.MetadataMethod.IsStatic then null else AstFactory.CreateThisReference(null) in
-        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null) in
-        let valueParameter = property.Setter.Signature.Parameters.Item(0) in
-        let valueParameterReference = AstFactory.CreateParameterReference(valueParameter, null) in
-        let assignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, fieldReference, valueParameterReference, null) in
+        let fieldSpecification = new FieldSpecification(backingField)
+        let this = if property.Getter.MetadataMethod.IsStatic then null else AstFactory.CreateThisReference(null)
+        let fieldReference = AstFactory.CreateFieldAccess(this, fieldSpecification, null)
+        let valueParameter = property.Setter.Signature.Parameters.Item(0)
+        let valueParameterReference = AstFactory.CreateParameterReference(valueParameter, null)
+        let assignment = AstFactory.CreateBinaryOperation(OperationType.Assignment, fieldReference, valueParameterReference, null)
         setTypeOfNode assignment valueParameter.Type
-        let assignmentStatement = AstFactory.CreateExpressionStatement(assignment, null) in
-        let blockStatement = AstFactory.CreateBlockStatement([assignmentStatement]) in
+        let assignmentStatement = AstFactory.CreateExpressionStatement(assignment, null)
+        let blockStatement = AstFactory.CreateBlockStatement([assignmentStatement])
         property.Setter.Body <- blockStatement
 
     let private embodyGetter (property : IDecompiledProperty) =
@@ -94,8 +94,8 @@ module internal DecompilerServices =
 
     let public decompileClass assemblyPath qualifiedTypeName =
         Dict.getValueOrUpdate decompiledClasses qualifiedTypeName (fun () ->
-            let metadataAssembly = loadAssembly assemblyPath in
-            let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
+            let metadataAssembly = loadAssembly assemblyPath
+            let possiblyUnresolvedMetadataTypeInfo = metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
             let metadataTypeInfo =
                 if possiblyUnresolvedMetadataTypeInfo.IsResolved then possiblyUnresolvedMetadataTypeInfo
                 else metadataAssembly.GetTypeInfoFromQualifiedName(qualifiedTypeName.Substring(0, qualifiedTypeName.IndexOf(",")), false)
@@ -118,7 +118,7 @@ module internal DecompilerServices =
         m.Name = ".ctor"
 
     let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
-        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
         // TODO: this list can be memorized for one time, implement it after indexer expressions
         List.append
             (List.ofSeq decompiledClass.Methods)
@@ -133,12 +133,12 @@ module internal DecompilerServices =
         | _ -> DecompilationError
 
     let public resolveType (typ : System.Type) =
-        let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)) in
+        let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location))
         if assembly = null then null
         else assembly.GetTypeFromQualifiedName(typ.AssemblyQualifiedName, false)
 
     let public locationOfType qualifiedTypeName =
-        let typ = System.Type.GetType(qualifiedTypeName) in
+        let typ = System.Type.GetType(qualifiedTypeName)
         if typ = null then __notImplemented__()
         JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)
 
@@ -146,10 +146,10 @@ module internal DecompilerServices =
         sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
 
     let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
-        let assemblyPath = locationOfType qualifiedTypeName in
-        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let assemblyPath = locationOfType qualifiedTypeName
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
         let initializerOf (f : IDecompiledField) =
-            let mf = f.MetadataField in
+            let mf = f.MetadataField
             if mf.IsLiteral
             then
                 let literal = AstFactory.CreateLiteral(Constant.FromValueAndType(mf.GetLiteralValue(), mf.Type), null) :> IExpression
@@ -164,21 +164,21 @@ module internal DecompilerServices =
             (idOfMetadataField f.BackingField, (f.BackingField.Type, f.Initializer))
         let isStaticBackingField required (p : IDecompiledProperty) =
             p.IsAuto && p.BackingField.IsStatic = required
-        let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
-        let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
+        let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq
+        let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq
         let parentFields =
             if not withParent || isStatic || decompiledClass.TypeInfo.Base = null then []
             else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
         List.concat [regularFields; backingFields; parentFields]
 
     let public getStaticConstructorOf qualifiedTypeName =
-        let assemblyPath = locationOfType qualifiedTypeName in
-        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
+        let assemblyPath = locationOfType qualifiedTypeName
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
         decompiledClass.Methods |> Seq.tryFind (fun (m : IDecompiledMethod) -> m.MetadataMethod.IsStatic && m.MetadataMethod.Name = ".cctor")
 
     let public metadataMethodToString (m : IMetadataMethod) =
-        let parameters = m.Parameters |> Array.map (fun p -> p.Type.FullName) |> List.ofArray in
-        let parametersAndThis = if m.Signature.HasThis then "this"::parameters else parameters in
+        let parameters = m.Parameters |> Array.map (fun p -> p.Type.FullName) |> List.ofArray
+        let parametersAndThis = if m.Signature.HasThis then "this"::parameters else parameters
         sprintf "%s %s.%s(%s)"
             m.Signature.ReturnType.FullName
             m.DeclaringType.FullyQualifiedName
@@ -186,20 +186,20 @@ module internal DecompilerServices =
             (join ", " parametersAndThis)
 
     let public methodInfoToMetadataMethod assemblyPath qualifiedTypeName (methodInfo : System.Reflection.MethodInfo) =
-        let assembly = loadAssembly assemblyPath in
-        let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false) in
+        let assembly = loadAssembly assemblyPath
+        let typ = assembly.GetTypeInfoFromQualifiedName(qualifiedTypeName, false)
         typ.GetMethods() |> Array.tryPick (fun m -> if m.Token.Value = uint32 methodInfo.MetadataToken then Some(m) else None)
 
     let internal getBaseCtorWithoutArgs qualifiedTypeName =
-        let assemblyPath = locationOfType qualifiedTypeName in
-        let decompiledClass = decompileClass assemblyPath qualifiedTypeName in
-        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0 && not m.IsStatic) in
+        let assemblyPath = locationOfType qualifiedTypeName
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
+        let ctors = decompiledClass.TypeInfo.GetMethods() |> Array.filter (fun (m : IMetadataMethod) -> isConstructor m && Array.length m.Parameters = 0 && not m.IsStatic)
         assert(Array.length ctors = 1)
         ctors.[0]
 
     let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
         | :? IMetadataClassType as t ->
-            let argsCount = Seq.length argTypes in
+            let argsCount = Seq.length argTypes
             let overloads =
                 t.Type.GetMethods()
                     |> Array.filter (fun m -> m.Name = "Add" && m.Parameters.Length = argsCount)
