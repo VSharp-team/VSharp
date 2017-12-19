@@ -7,7 +7,6 @@ module CallGraph =
             match frame.func with
             | Some(id', _) when id = id' -> true
             | _ -> false
-        in
         let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f in
         match bottomOccurence with
         | None -> false

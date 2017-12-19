@@ -49,7 +49,6 @@ module internal Merging =
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
                 | t -> internalfailf "Expected struct, got %O" t
-            in
             let fss = vs |> List.map extractFields in
             let merged = Heap.merge gs fss mergeCells in
             [(True, Struct merged t Metadata.empty)]
@@ -67,11 +66,9 @@ module internal Merging =
             let extractArrayInfo = term >> function
                 | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
                 | t -> internalfailf "Expected array, got %O" t
-            in
             let ds, lens, lows, inits, contents, lengths =
                 vs |> Seq.map extractArrayInfo
                 |> fun info ->  Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
-            in
             let d = List.head ds in
             let l = List.head lens in
             assert(Seq.forall ((=) d) ds)

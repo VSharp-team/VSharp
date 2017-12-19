@@ -53,7 +53,6 @@ module internal Arithmetics =
                 match y with
                 | Add(c, d, false, yt) -> [(c, state); (d, state)], Metadata.combine3 mtd xmtd y.metadata
                 | _ -> [(y, state)], Metadata.combine mtd xmtd
-            in
             simplifyPairwiseCombinations
                 [(a, state); (b, state)]
                 summandsOfY
@@ -157,7 +156,6 @@ module internal Arithmetics =
     and private simplifyUnaryMinus mtd isChecked state t x k =
         let simplifyConcrete x xc _ state =
             simplifyConcreteUnaryMinus (Metadata.combine mtd x.metadata) isChecked state t xc
-        in
         simplifyGenericUnary "unary minus" state x k simplifyConcrete (fun x state k ->
         match x with
         // -(-(x)) = x if both unchecked
@@ -208,7 +206,6 @@ module internal Arithmetics =
                 match y with
                 | Mul(c, d, false, yt) -> [(c, state); (d, state)], Metadata.combine3 mtd xmtd y.metadata
                 | _ -> [(y, state)], Metadata.combine mtd xmtd
-            in
             simplifyPairwiseCombinations
                 [(a, state); (b, state)]
                 factorsOfY
@@ -315,7 +312,6 @@ module internal Arithmetics =
         let defaultCase () =
             let sorted = if not isChecked && (IsConcrete y) then (y, x) else (x, y) in
             makeProduct mtd isChecked state t (fst sorted) (snd sorted) k
-        in
         simplifyGenericBinary "division" state x y k
             (simplifyConcreteBinary simplifyConcreteDivision mtd isChecked t)
             (fun x y state k ->

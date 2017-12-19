@@ -58,22 +58,18 @@ type public TermNode =
         let sortKeyFromTerm = (fun t -> t.term) >> function
             | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
-        in
         let indicesArrayConcreteContentsToString contents =
             let separator = ", " in
             Heap.toString "%s%s" separator (always "") toString (fst >> sortKeyFromTerm) contents
-        in
         let indicesArraySymbolicContentsToString contents =
             let separator = ", " in
             Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
-        in
         let indicesArrayToString = function
             | Array(d, _, _, [(_, instantiator)], contents, _, _) ->
                 let printed =
                     match instantiator with
                     | DefaultInstantiator _ -> ""
                     | LazyInstantiator(constant, _) -> sprintf "%O: " constant
-                in
                 match d.term with
                 | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
                 | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
@@ -133,12 +129,10 @@ type public TermNode =
                 let tryGetConstant = function
                     | DefaultInstantiator(_, t) -> sprintf "default of %s" (toString t)
                     | LazyInstantiator(_, t) -> toString t
-                in
                 let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
                 let guardedToString (guard, str) =
                     let guardString = toStringWithParentIndent indent guard in
                     sprintf "| %s ~> %s" guardString str
-                in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent) in
                 let printedOne =
                     match instantiators with
@@ -153,7 +147,6 @@ type public TermNode =
                     let guardString = toStringWithParentIndent indent guard in
                     let termString = toStringWithParentIndent indent term in
                     sprintf "| %s ~> %s" guardString termString
-                in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
             | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
@@ -164,7 +157,6 @@ type public TermNode =
                     match mbtyp with
                     | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
                     | None -> sprintf "(%sRef %s)" name contents
-                in
                 let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path) in
                 match term with
                 | StackRef(key, path, _) -> printref "Stack" key path
@@ -189,7 +181,6 @@ type public TermNode =
                 match key.term with
                 | Array _ -> key.term.IndicesToString()
                 | _ -> toStringWithParentIndent parentIndent key
-            in
             let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents in
             match stringResult with
             | _ when String.IsNullOrEmpty stringResult -> stringResult
@@ -574,7 +565,6 @@ module public Terms =
                 match instantiator with
                 | DefaultInstantiator _ -> None
                 | LazyInstantiator(t, _) -> Some t
-            in
             constant |> Seq.choose (snd >> tryGetValue)
             |> fun terms -> addConstantsMany mapper visited terms acc
             |> fun acc -> addConstants mapper visited acc dimension

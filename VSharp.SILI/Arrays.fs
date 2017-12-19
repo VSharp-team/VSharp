@@ -38,7 +38,6 @@ module internal Arrays =
         let contents =
             Seq.init length valMaker |>
             Seq.foldi (fun h i v -> Heap.add (keyMaker i mtd) { value = v; created = State.zeroTime; modified = State.zeroTime } h) Heap.empty
-        in
         let length = MakeNumber length mtd in
         let constant = Constant defaultArrayName (DefaultArray()) (ArrayType(lengthTermType, ConcreteDimension 1)) mtd in
         let instantiator = [Terms.True, DefaultInstantiator(constant, elemTyp)] in
@@ -62,7 +61,6 @@ module internal Arrays =
             Seq.mapFold (fun (h1, h2) key ->
                 let fill val1 val2 h1 h2 =
                     Arithmetics.eq mtd val1.value val2.value, (h1, h2)
-                in
                 match Heap.contains key h1, Heap.contains key h2 with
                 | true, false ->
                     let val2 = resolve2 key
@@ -76,7 +74,6 @@ module internal Arrays =
                     | None -> False, (h1, h2)
                 | true, true -> fill h1.[key] h2.[key] h1 h2
                 | false, false -> __unreachable__()) (h1, h2) keys
-        in
         match addr1.term, addr2.term with
         | Array(d1, len1, lb1, init1, indices1, l1, t1), Array(d2, len2, lb2, init2, indices2, l2, t2) ->
             assert(List.length init1 = 1 && List.length init2 = 1)
@@ -84,7 +81,6 @@ module internal Arrays =
             let makeConstant mtd constant i =
                 let id = sprintf "%s[%s]" (toString constant) (toString i) |> IdGenerator.startingWith in
                 Some { value = Constant id (SymbolicArrayIndex(constant)) lengthTermType mtd; created = State.zeroTime; modified = State.zeroTime }
-            in
             let makeGvs h1 h2 val1 val2 =
                 let zero = MakeZeroAddress mtd in
                 let isSameLen = Arithmetics.eq mtd len1 len2 in
@@ -95,7 +91,6 @@ module internal Arrays =
                     let arr1 = Array d1 len1 lb1 init1 h1 l1 t1 addr1.metadata
                     let arr2 = Array d2 len2 lb2 init2 h2 l2 t2 addr2.metadata
                     isSameLen &&& Propositional.conjunction mtd gvs, (arr1, arr2)
-            in
             match initTerm1, initTerm2 with
             | LazyInstantiator(constant1, _), LazyInstantiator(constant2, _) -> Arithmetics.eq mtd constant1 constant2, (addr1, addr2)
             | LazyInstantiator(constant1, _), DefaultInstantiator _ -> makeGvs indices1 indices2 (makeConstant mtd constant1) (always None)
@@ -129,7 +124,6 @@ module internal Arrays =
                 match d.term with
                 | Union gvs -> gvs
                 | _ -> [(Terms.MakeTrue mtd, d)]
-            in
             let rest = guardsProduct mtd ds in
             FSharpx.Collections.List.lift2 (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) current rest
 
@@ -138,7 +132,6 @@ module internal Arrays =
             match typ with
             | ArrayType(e, _) -> e
             | _ -> internalfail "unexpected type of array!"
-        in
         let unguardedLengths = guardsProduct mtd lengthList in
         let makeArray (lengthList : Term list) =
             let dim = List.length lengthList in
@@ -147,7 +140,6 @@ module internal Arrays =
             let constant = Constant defaultArrayName (DefaultArray()) typ mtd in
             let lengths = Seq.foldi (fun h i l -> Heap.add (MakeNumber i mtd) { value = l; created = State.zeroTime; modified = State.zeroTime} h) Heap.empty lengthList in
             Array (MakeNumber dim mtd) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ mtd
-        in
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
     and internal makeSymbolicLowerBound metadata arrayConstant arrayName dimension =
@@ -173,14 +165,12 @@ module internal Arrays =
                 let lb = makeSymbolicLowerBound metadata arrayConstant arrayName d in
                 let al, length = makeSymbolicLengths metadata arrayConstant arrayName d in
                 lb, al, length, MakeNumber d metadata
-            in
             match dimension with
             | Vector -> makeConcrete 1
             | ConcreteDimension d -> makeConcrete d
             | SymbolicDimension _ ->
                 let length = makeSymbolicLength metadata arrayConstant arrayName in
                 Heap.empty, Heap.empty, length, makeSymbolicDimensionsNumber metadata arrayConstant arrayName
-        in
         Array dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ metadata
 
     let rec internal fromInitializer mtd time rank typ initializer =
@@ -188,7 +178,6 @@ module internal Arrays =
             match typ with
             | ArrayType(e, _) -> e
             | _ -> internalfail "unexpected type of array!"
-        in
         let rec flatten depth term =
             match term.term with
             | Concrete(:? (Term list) as terms, _) ->
@@ -213,7 +202,6 @@ module internal Arrays =
                 let res = Seq.map (fun x -> Seq.map (cons x) s) indicesInDim in
                 res |> Seq.concat) dimensions (Seq.init 1 (always List.empty))
             |> Seq.map (fun index -> makeIntegerArray mtd (fun i -> index.[i]) index.Length)
-        in
         let contents = Seq.zip indices linearContent |> Heap.ofSeq in
         let constant = Constant defaultArrayName (DefaultArray()) typ mtd in
         Array (MakeNumber rank mtd) length (zeroLowerBound mtd rank) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ mtd

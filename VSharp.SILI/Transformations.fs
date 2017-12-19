@@ -12,7 +12,6 @@ module Transformations =
             | null -> null
             | :? ILocalVariableDeclarationScopeOwner as owner -> owner.DeclarationScope
             | _ -> findDeclarationScope node.Parent
-        in
         let scope = findDeclarationScope sibling in
         // Hack: here we use reflection because all local variable instantiation code is internal
         let localVariableClass = Assembly.GetAssembly(typedefof<ILocalVariable>).GetType("JetBrains.Decompiler.Ast.Impl.LocalVariable") in
@@ -71,7 +70,6 @@ module Transformations =
             | :? ILocalVariableDeclarationStatement as decl -> [decl]
             | :? IEmptyStatement -> []
             | _ -> __notImplemented__()
-        in
         let typeOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.VariableReference.Variable.Type |> Types.Constructor.MetadataToDotNetType in
         let variableOfIndexer (indexer : ILocalVariableDeclarationStatement) =

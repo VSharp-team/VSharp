@@ -251,7 +251,6 @@ module public Types =
                             l.ParameterType.FullName |? l.ParameterType.Name = r.Type.FullName) p parameters) |>
                     Seq.map fst |>
                     Array.ofSeq
-                in
                 assert(method.Length = 1)
                 method.[0].GetGenericArguments().[int arg.Index]
             | _ -> __notImplemented__()
@@ -303,7 +302,6 @@ module public Types =
         let public GetVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
                 left &&& right = right
-            in
             let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask in
             match variance with
             | _ when variance ==> GenericParameterAttributes.Contravariant -> Contravariant
@@ -326,7 +324,6 @@ module public Types =
             let intefaces =
                 Seq.append (Seq.singleton interfaceType) (interfaceType.GetInterfaces()) |>
                 Seq.map (getConstraintFromDotNetInterface typeKind) |> List.ofSeq
-            in
             SubType typedefof<obj> [] intefaces typedefof<obj>.FullName
 
         and private fromCommonDotNetType (dotNetType : Type) k =
@@ -369,7 +366,6 @@ module public Types =
                 constraints |>
                 fromDotNetGenericParameterConstraints typeKind |>
                 List.ofSeq
-            in
             match genericParameter with
                 | s when s.IsValueType -> StructType genericParameter [] listTypeConstraint
                 | _ -> match typeKind with
@@ -410,7 +406,6 @@ module public Types =
                     TypesCache.Prepare key
                     let termType = fromDotNetType typeKind dotNetType in
                     TypesCache.Embody key termType
-            in
             match !res with
             | SubType(t, a, p, _) -> ref <| SubType t a p (getIdFromDotNetType typeKind dotNetType)
             | ArrayType(e, SymbolicDimension _) -> ref <| ArrayType(e, SymbolicDimension <| getIdFromDotNetType typeKind dotNetType)
@@ -489,7 +484,6 @@ module public Types =
         let areInterfacesFound =
             givenType.GetInterfaces() |>
             Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
-        in
         areInterfacesFound ||
             let baseType = givenType.BaseType in
             baseType <> null &&
@@ -513,7 +507,6 @@ module public Types =
         let returnType = FromUniqueSymbolicMetadataType m.ReturnValue.Type in
         let paramToType (param : IMetadataParameter) =
             param.Type |> FromGlobalSymbolicMetadataType
-        in
         let args = Seq.map paramToType m.Parameters |> List.ofSeq in
         Func(args, returnType)
 
@@ -532,5 +525,4 @@ module public Types =
         let extractFieldInfo (field : FieldInfo) =
             let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name in
             (fieldName, FromConcreteDotNetType field.FieldType)
-        in
         fields |> Array.map extractFieldInfo |> Map.ofArray

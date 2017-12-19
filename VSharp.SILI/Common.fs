@@ -42,7 +42,6 @@ module internal Common =
 
     let rec is metadata leftType rightType =
         let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
-        in
         let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
             let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
             function
@@ -56,7 +55,6 @@ module internal Common =
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | Reference _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
-        in
         let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
             let b = makeBoolConst rightName rightTermType in
             function
@@ -67,7 +65,6 @@ module internal Common =
                 implies (makeBoolConst name termType) b metadata
             | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             | _ -> __notImplemented__()
-        in
         match leftType, rightType with
         | TermType.Null, _
         | Void, _   | _, Void
@@ -87,7 +84,6 @@ module internal Common =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
             k <| merge2 condition !!condition thenResult elseResult))
-        in
         conditionInvocation (fun condition ->
         match condition with
         | Terms.True ->  thenBranch k
@@ -103,16 +99,13 @@ module internal Common =
             let result = merge2 condition !!condition thenResult elseResult in
             let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
             k (result, state)))
-        in
         conditionInvocation state (fun (condition, conditionState) ->
         let thenCondition =
             Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
             |> Merging.unguardTerm |> Merging.merge
-        in
         let elseCondition =
             Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
             |> Merging.unguardTerm |> Merging.merge
-        in
         match thenCondition, elseCondition, condition with
         | False, _, _ -> elseBranch conditionState k
         | _, False, _ -> thenBranch conditionState k

@@ -53,7 +53,6 @@ module internal DecompilerServices =
         let backingField =
             property.OwnerClass.TypeInfo.GetFields()
                 |> Array.tryFind (fieldNameIs (sprintf "<%s>k__BackingField" property.MetadataProperty.Name))
-        in
         match backingField with
         | Some field ->
             embodier property field
@@ -165,7 +164,6 @@ module internal DecompilerServices =
             (idOfMetadataField f.BackingField, (f.BackingField.Type, f.Initializer))
         let isStaticBackingField required (p : IDecompiledProperty) =
             p.IsAuto && p.BackingField.IsStatic = required
-        in
         let regularFields = decompiledClass.Fields |> Seq.filter (isDecompiledFieldStatic isStatic) |> Seq.map extractDecompiledFieldInfo |> List.ofSeq in
         let backingFields = decompiledClass.Properties |> Seq.filter (isStaticBackingField isStatic) |> Seq.map extractBackingFieldInfo |> List.ofSeq in
         let parentFields =
@@ -206,7 +204,6 @@ module internal DecompilerServices =
                 t.Type.GetMethods()
                     |> Array.filter (fun m -> m.Name = "Add" && m.Parameters.Length = argsCount)
                     |> List.ofArray
-            in
             match overloads with
             | [] -> internalfail "suitable overload of Add not found in collection!"
             | [x] -> x

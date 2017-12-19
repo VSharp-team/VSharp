@@ -36,7 +36,6 @@ module internal SystemArray =
                         k (Return result, state))
                     (fun (term, state) -> ControlFlow.resultToTerm term, state)
             | term -> internalfailf "expected array, but %O got!" term
-        in
         let result, state =
             match array.term with
             | Union gvs -> Merging.guardedStateMap (fun state term -> getLength state dimension term) gvs state
@@ -75,7 +74,6 @@ module internal SystemArray =
                         k (Return result, state))
                     (fun (term, state) -> ControlFlow.resultToTerm term, state)
             | term -> internalfailf "expected array, but %O got!" term
-        in
         let result, state =
             match array.term with
             | Union gvs -> Merging.guardedStateMap (fun state term -> getLowerBound state dimension term) gvs state

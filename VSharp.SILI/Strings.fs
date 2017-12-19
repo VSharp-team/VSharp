@@ -8,7 +8,6 @@ module internal Strings =
         let fields : Heap<Term,Term> =
             Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", { value = Concrete length (Numeric typedefof<int>) Metadata.empty; created = timestamp; modified = timestamp };
             MakeStringKey "System.String.m_FirstChar", { value = Concrete str VSharp.String Metadata.empty; created = timestamp; modified = timestamp }])
-        in
         Struct fields VSharp.String Metadata.empty
 
     let internal simplifyEquality mtd x y =

@@ -67,7 +67,6 @@ module public Heap =
         let mergeOneKey k =
             let vals = List.filterMap2 (fun g s -> if contains k s then Some(g, s.[k]) else None) guards heaps in
             (k, resolve vals)
-        in
         keys |> Seq.map mergeOneKey |> ofSeq
 
     let public unify state (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) unifier =
@@ -80,7 +79,6 @@ module public Heap =
                     unifier state key (Some oldValue) (Some newValue)
             else
                 unifier state key None (Some value)
-        in
         fold unifyIfShould state h2
         // TODO: handle values in h1 that are not contained in h2
 

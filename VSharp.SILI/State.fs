@@ -49,7 +49,6 @@ module internal State =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
         let frameMetadata = Some(funcId, s.pc) in
         let locations, newStack = frame |> List.mapFold pushOne s.stack in
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time } in
@@ -61,7 +60,6 @@ module internal State =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
         let locations, newStack = frame |> List.mapFold pushOne s.stack in
         { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
 

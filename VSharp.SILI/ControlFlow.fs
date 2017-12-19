@@ -128,7 +128,6 @@ module internal ControlFlow =
                 | _ ->
                     let gs, vs = List.unzip gvs in
                     List.zip gs (List.map (composeFlat newRes) vs)
-            in
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata in
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
@@ -145,12 +144,10 @@ module internal ControlFlow =
             | Throw e -> [(True, result)]
             | Guarded gvs -> gvs
             | _ -> [(True, result)]
-        in
         let pickThrown (g, result) =
             match result.result with
             | Throw e -> Some(g, e)
             | _ -> None
-        in
         let thrown, normal = List.mappedPartition pickThrown gvs in
         match thrown with
         | [] -> None, normal
@@ -168,5 +165,4 @@ module internal ControlFlow =
             match gres with
             | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)
             | _ -> [gres]
-        in
         gvs |> List.map unguard |> List.concat

@@ -75,7 +75,6 @@ module private MathImpl =
                         | _ -> Expression (Application(StandardFunctionIdentifier(standFunc))) [bConc; p] t
                     | Union gvs -> Merging.guardedMap pow gvs
                     | term -> internalfailf "expected number for power, but %O got!" term
-                in
                 pow p
             | Constant(_, _, t) | Expression(_, _, t) ->
                 let b = term in
@@ -110,7 +109,6 @@ module private MathImpl =
                         Expression (Application(StandardFunctionIdentifier(Operations.Power))) [b; term] t
                     | Union gvs -> Merging.guardedMap pow gvs
                     | term -> internalfailf "expected number for power, but %O got!" term
-                in
                 pow p
             | Union gvs -> Merging.guardedMap (power p) gvs
             | term -> internalfailf "expected number for base, but %O got!" term in

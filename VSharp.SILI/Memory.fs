@@ -83,7 +83,6 @@ module internal Memory =
             match source :> SymbolicConstantSource with
             | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true) :> SymbolicConstantSource
             | _ -> source
-        in
         let constant = Constant name source' pointerType metadata in
         constructor ((constant, typ), []) time metadata
 
@@ -100,7 +99,6 @@ module internal Memory =
     let internal genericLazyInstantiator =
         let instantiator metadata time fullyQualifiedLocation typ () =
             makeSymbolicInstance metadata time (LazyInstantiation(fullyQualifiedLocation, false)) (nameOfLocation fullyQualifiedLocation) typ
-        in
         State.genericLazyInstantiator <- instantiator
         instantiator
 
@@ -125,13 +123,11 @@ module internal Memory =
             let typeSuits v =
                 let locationType = TypeOf v in
                 Common.is mtd locationType pointerType &&& Common.is mtd pointerType locationType
-            in
             let typeEqual =
                 match locationValue.term with
                 | Union gvs ->
                     gvs |> List.map (fun (g, v) -> (g, typeSuits v)) |> Merging.merge
                 | _ -> typeSuits locationValue
-            in
             if IsConcrete addrEqual then addrEqual else addrEqual &&& typeEqual
 
 // ------------------------------- Dereferencing/mutation -------------------------------
@@ -149,7 +145,6 @@ module internal Memory =
             match guard with
             | False -> None
             | _ -> Some(guard, k, cell)
-        in
         let gvs = h |> Heap.toSeq |> List.ofSeq |> List.filterMap filterMapKey in
         let baseGvs, restGvs = gvs |> List.partition (fst3 >> IsTrue) in
         assert(List.length baseGvs <= 1)
@@ -266,7 +261,6 @@ module internal Memory =
             let firstLocation = Terms.term >> function
                 | Concrete(location, String) -> StaticRef (location :?> string) [] term.metadata
                 | _ -> __notImplemented__()
-            in
             let addr = Terms.MakeStringKey location in
             let dnt = System.Type.GetType(location) in
             let t = FromConcreteDotNetType dnt in
@@ -411,7 +405,6 @@ module internal Memory =
                     Merging.merge Merging.merge2Terms id id
             | Union gvs -> Merging.guardedStateMap reference gvs state
             | t -> internalfailf "accessing index of non-array term %O" t
-        in
         reference state array
 
     let internal derefLocalVariable metadata state id =
