@@ -10,7 +10,7 @@ module public Cps =
             | [] -> k []
             | x::xs' -> map f xs' (k << cons (f x))
 
-        let rec mapk f xs k = 
+        let rec mapk f xs k =
             match xs with
             | [] -> k []
             | x::xs' -> f x (fun y -> mapk f xs' (k << cons y))
@@ -38,15 +38,15 @@ module public Cps =
         let rec mapFold f a xs k =
             match xs with
             | [] -> k ([], a)
-            | x::xs' -> 
-                let (x', a') = f a x in
-                    mapFold f a' xs' (fun (ys, b) -> k (x' :: ys, b))
+            | x::xs' ->
+                let (x', a') = f a x
+                mapFold f a' xs' (fun (ys, b) -> k (x' :: ys, b))
 
         let rec mapFoldk f a xs k =
             match xs with
             | [] -> k ([], a)
-            | x::xs' -> 
-                f a x (fun (x', a') -> 
+            | x::xs' ->
+                f a x (fun (x', a') ->
                     mapFoldk f a' xs' (fun (ys, b) -> k (x' :: ys, b)))
 
         let rec reduce f xs k =
@@ -67,7 +67,7 @@ module public Cps =
             | Seq.Empty -> k []
             | Seq.Cons(x, xs') -> map f xs' (k << cons (f x))
 
-        let rec mapk f xs k = 
+        let rec mapk f xs k =
             match xs with
             | Seq.Empty -> k []
             | Seq.Cons(x, xs') -> f x (fun y -> mapk f xs' (k << cons y))
@@ -95,9 +95,9 @@ module public Cps =
         let rec mapFold f a xs k =
             match xs with
             | Seq.Empty -> k ([], a)
-            | Seq.Cons(x, xs') -> 
-                let (x', a') = f a x in
-                    mapFold f a' xs' (fun (ys, b) -> k (x'::ys, b))
+            | Seq.Cons(x, xs') ->
+                let (x', a') = f a x
+                mapFold f a' xs' (fun (ys, b) -> k (x'::ys, b))
 
         let rec mapFoldk f a xs k =
             match xs with
@@ -105,13 +105,13 @@ module public Cps =
             | Seq.Cons(x, xs') ->
                 f a x (fun (x', a') ->
                     mapFoldk f a' xs' (fun (ys, b) -> k (x'::ys, b)))
-                    
+
         let rec mapFold2 f a xs ys k =
             match xs, ys with
             | Seq.Empty, Seq.Empty -> k ([], a)
-            | Seq.Cons(x, xs'), Seq.Cons(y, ys') -> 
-                let (z, a') = f a x y in
-                    mapFold2 f a' xs' ys' (fun (zs, b) -> k (z::zs, b))
+            | Seq.Cons(x, xs'), Seq.Cons(y, ys') ->
+                let (z, a') = f a x y
+                mapFold2 f a' xs' ys' (fun (zs, b) -> k (z::zs, b))
             | _ -> raise (System.ArgumentException("Sequences must have the same lengths"))
 
         let rec mapFold2k f a xs ys k =

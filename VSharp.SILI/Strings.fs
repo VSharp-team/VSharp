@@ -8,7 +8,6 @@ module internal Strings =
         let fields : Heap<Term,Term> =
             Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", { value = Concrete length (Numeric typedefof<int>) Metadata.empty; created = timestamp; modified = timestamp };
             MakeStringKey "System.String.m_FirstChar", { value = Concrete str VSharp.String Metadata.empty; created = timestamp; modified = timestamp }])
-        in
         Struct fields VSharp.String Metadata.empty
 
     let internal simplifyEquality mtd x y =
@@ -19,7 +18,7 @@ module internal Strings =
     let internal simplifyConcatenation mtd x y =
         match x.term, y.term with
         | Concrete(xval, _), Concrete(yval, _) ->
-            let mtd' = Metadata.combine3 mtd x.metadata y.metadata in
+            let mtd' = Metadata.combine3 mtd x.metadata y.metadata
             MakeConcreteString (VSharp.CSharpUtils.Calculator.Add(xval, yval, typedefof<string>) :?> string) mtd'
         | _ -> Terms.MakeBinary OperationType.Add x y false String mtd
 

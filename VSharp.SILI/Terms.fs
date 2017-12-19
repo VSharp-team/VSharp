@@ -58,22 +58,18 @@ type public TermNode =
         let sortKeyFromTerm = (fun t -> t.term) >> function
             | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
-        in
         let indicesArrayConcreteContentsToString contents =
-            let separator = ", " in
+            let separator = ", "
             Heap.toString "%s%s" separator (always "") toString (fst >> sortKeyFromTerm) contents
-        in
         let indicesArraySymbolicContentsToString contents =
-            let separator = ", " in
+            let separator = ", "
             Heap.toString "%s: %s" separator toString toString (fst >> sortKeyFromTerm) contents
-        in
         let indicesArrayToString = function
             | Array(d, _, _, [(_, instantiator)], contents, _, _) ->
                 let printed =
                     match instantiator with
                     | DefaultInstantiator _ -> ""
                     | LazyInstantiator(constant, _) -> sprintf "%O: " constant
-                in
                 match d.term with
                 | Concrete _ -> sprintf "%s%s" printed (indicesArrayConcreteContentsToString contents)
                 | _ -> sprintf "%s(%s)" printed (indicesArraySymbolicContentsToString contents)
@@ -81,7 +77,7 @@ type public TermNode =
         indicesArrayToString x
 
     override x.ToString() =
-        let getTerm (term : Term) = term.term in
+        let getTerm (term : Term) = term.term
 
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
@@ -110,9 +106,9 @@ type public TermNode =
                 match operation with
                 | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
-                    let operand = List.head operands in
-                    let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority in
-                    let printedOperand = toStr operation.priority (isCheckNeed isChecked parentChecked) indent operand.term in
+                    let operand = List.head operands
+                    let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority
+                    let printedOperand = toStr operation.priority (isCheckNeed isChecked parentChecked) indent operand.term
                     sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
                 | Operator(operator, isChecked) ->
                     assert (List.length operands >= 2)
@@ -127,19 +123,17 @@ type public TermNode =
                         checkExpression isChecked parentChecked operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent) (fst >> toString) fields in
+                let fieldsString = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent) (fst >> toString) fields
                 sprintf "STRUCT %O[%s]" t (formatIfNotEmpty indent fieldsString)
             | Array(_, _, _, instantiators, contents, dimensions, typ) ->
                 let tryGetConstant = function
                     | DefaultInstantiator(_, t) -> sprintf "default of %s" (toString t)
                     | LazyInstantiator(_, t) -> toString t
-                in
-                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r) in
+                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r)
                 let guardedToString (guard, str) =
-                    let guardString = toStringWithParentIndent indent guard in
+                    let guardString = toStringWithParentIndent indent guard
                     sprintf "| %s ~> %s" guardString str
-                in
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent) in
+                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 let printedOne =
                     match instantiators with
                     | [_, i] ->
@@ -150,10 +144,9 @@ type public TermNode =
                 in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
-                    let guardString = toStringWithParentIndent indent guard in
-                    let termString = toStringWithParentIndent indent term in
+                    let guardString = toStringWithParentIndent indent guard
+                    let termString = toStringWithParentIndent indent term
                     sprintf "| %s ~> %s" guardString termString
-                in
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
             | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
@@ -164,8 +157,7 @@ type public TermNode =
                     match mbtyp with
                     | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
                     | None -> sprintf "(%sRef %s)" name contents
-                in
-                let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path) in
+                let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path)
                 match term with
                 | StackRef(key, path, _) -> printref "Stack" key path
                 | StaticRef(key, path, _) -> printref "Static" key path
@@ -183,14 +175,13 @@ type public TermNode =
             | _ -> Int32.MaxValue
 
         and arrayContentsToString contents parentIndent =
-            let separator = ";\n" + parentIndent in
-            let mapper = toStringWithParentIndent parentIndent in
+            let separator = ";\n" + parentIndent
+            let mapper = toStringWithParentIndent parentIndent
             let keyMapper key =
                 match key.term with
                 | Array _ -> key.term.IndicesToString()
                 | _ -> toStringWithParentIndent parentIndent key
-            in
-            let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents in
+            let stringResult = Heap.toString "%s: %s" separator keyMapper mapper (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents
             match stringResult with
             | _ when String.IsNullOrEmpty stringResult -> stringResult
             | _ -> "\n" + parentIndent + stringResult + separator
@@ -415,7 +406,7 @@ module public Terms =
     let public RangeOf =                TypeOf >> Types.RangeOf
 
     let public CastConcrete value (t : System.Type) metadata =
-        let actualType = if box value = null then t else value.GetType() in
+        let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
                 Concrete value (FromConcreteDotNetType t) metadata
@@ -423,7 +414,7 @@ module public Terms =
                 let casted =
                     if t.IsPointer
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
-                    else Convert.ChangeType(value, t) in
+                    else Convert.ChangeType(value, t)
                 Concrete casted (FromConcreteDotNetType t) metadata
             elif t.IsAssignableFrom(actualType) then
                 Concrete value (FromConcreteDotNetType t) metadata
@@ -574,7 +565,6 @@ module public Terms =
                 match instantiator with
                 | DefaultInstantiator _ -> None
                 | LazyInstantiator(t, _) -> Some t
-            in
             constant |> Seq.choose (snd >> tryGetValue)
             |> fun terms -> addConstantsMany mapper visited terms acc
             |> fun acc -> addConstants mapper visited acc dimension

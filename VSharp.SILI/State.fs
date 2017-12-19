@@ -49,11 +49,10 @@ module internal State =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
-        let frameMetadata = Some(funcId, s.pc) in
-        let locations, newStack = frame |> List.mapFold pushOne s.stack in
-        let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time } in
-        let sh' = frameMetadata.GetHashCode()::s.frames.sh in
+        let frameMetadata = Some(funcId, s.pc)
+        let locations, newStack = frame |> List.mapFold pushOne s.stack
+        let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
+        let sh' = frameMetadata.GetHashCode()::s.frames.sh
         { s with stack = newStack; frames = {f = f'; sh = sh'} }
 
     let internal newScope time metadata (s : state) frame : state =
@@ -61,16 +60,15 @@ module internal State =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
-        let locations, newStack = frame |> List.mapFold pushOne s.stack in
+        let locations, newStack = frame |> List.mapFold pushOne s.stack
         { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
 
     let internal pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let internal popStack (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
-        let { func = metadata; entries = locations; time = _ } = Stack.peak s.frames.f in
-        let f' = Stack.pop s.frames.f in
-        let sh = s.frames.sh in
+        let { func = metadata; entries = locations; time = _ } = Stack.peak s.frames.f
+        let f' = Stack.pop s.frames.f
+        let sh = s.frames.sh
         let sh' =
             match metadata with
             | Some _ ->
@@ -140,15 +138,15 @@ module internal State =
         fun _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let internal stackLazyInstantiator state time key =
-        let time = frameTime state key in
-        let t = typeOfStackLocation state key in
-        let metadata = metadataOfStackLocation state key in
-        let fql = StackRef key [] metadata in
+        let time = frameTime state key
+        let t = typeOfStackLocation state key
+        let metadata = metadataOfStackLocation state key
+        let fql = StackRef key [] metadata
         { value = genericLazyInstantiator metadata time fql t (); created = time; modified = time }
 
     let internal dumpMemory (s : state) =
-        let sh = Heap.dump s.heap toString in
-        let mh = Heap.dump s.statics staticKeyToString in
+        let sh = Heap.dump s.heap toString
+        let mh = Heap.dump s.statics staticKeyToString
         let separator = if System.String.IsNullOrWhiteSpace(sh) then "" else "\n"
         sh + separator + mh
 
@@ -157,21 +155,21 @@ module internal State =
     let internal merge2 (s1 : state) (s2 : state) resolve : state =
         assert(s1.pc = s2.pc)
         assert(s1.frames = s2.frames)
-        let mergedStack = MappedStack.merge2 s1.stack s2.stack resolve (stackLazyInstantiator s1) in
-        let mergedHeap = Heap.merge2 s1.heap s2.heap resolve in
-        let mergedStatics = Heap.merge2 s1.statics s2.statics resolve in
-        let mergedMisc = s1.misc.Union s2.misc in
+        let mergedStack = MappedStack.merge2 s1.stack s2.stack resolve (stackLazyInstantiator s1)
+        let mergedHeap = Heap.merge2 s1.heap s2.heap resolve
+        let mergedStatics = Heap.merge2 s1.statics s2.statics resolve
+        let mergedMisc = s1.misc.Union s2.misc
         { s1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; misc = mergedMisc }
 
     let internal merge guards states resolve : state =
         assert(List.length states > 0)
-        let first = List.head states in
-        let frames = framesOf first in
-        let path = pathConditionOf first in
+        let first = List.head states
+        let frames = framesOf first
+        let path = pathConditionOf first
         assert(List.forall (fun s -> framesOf s = frames) states)
         assert(List.forall (fun s -> pathConditionOf s = path) states)
-        let mergedStack = MappedStack.merge guards (List.map stackOf states) resolve (stackLazyInstantiator first) in
-        let mergedHeap = Heap.merge guards (List.map heapOf states) resolve in
-        let mergedStatics = Heap.merge guards (List.map staticsOf states) resolve in
-        let mergedMisc = states |> List.tail |> List.fold (fun (acc : miscellaneous) s -> acc.Union s.misc) first.misc in
+        let mergedStack = MappedStack.merge guards (List.map stackOf states) resolve (stackLazyInstantiator first)
+        let mergedHeap = Heap.merge guards (List.map heapOf states) resolve
+        let mergedStatics = Heap.merge guards (List.map staticsOf states) resolve
+        let mergedMisc = states |> List.tail |> List.fold (fun (acc : miscellaneous) s -> acc.Union s.misc) first.misc
         { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; misc = mergedMisc }

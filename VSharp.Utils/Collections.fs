@@ -58,7 +58,7 @@ module public Map =
 
     let foldMap mapping state table =
         let mapFolder (map, state) key value =
-            let newValue, newState = mapping key state value in
+            let newValue, newState = mapping key state value
             (Map.add key newValue map, newState)
         Map.fold mapFolder (Map.empty, state) table
 
@@ -74,7 +74,7 @@ module public Dict =
     let public getValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
-            let newVal = fallback() in
+            let newVal = fallback()
             dict.Add(key, newVal)
             newVal
 

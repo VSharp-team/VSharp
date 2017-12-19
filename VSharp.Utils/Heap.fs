@@ -62,25 +62,23 @@ module public Heap =
         h |> toSeq |> Seq.map (fun (k, v) -> (k, v.value)) |> List.ofSeq |> List.partition predicate
 
     let public merge<'a, 'b, 'c when 'a : equality and 'b : equality> (guards : 'c list) (heaps : Heap<'a, 'b> list) resolve : Heap<'a, 'b> =
-        let keys = new System.Collections.Generic.HashSet<'a>() in
+        let keys = new System.Collections.Generic.HashSet<'a>()
         List.iter (locations >> keys.UnionWith) heaps
         let mergeOneKey k =
-            let vals = List.filterMap2 (fun g s -> if contains k s then Some(g, s.[k]) else None) guards heaps in
+            let vals = List.filterMap2 (fun g s -> if contains k s then Some(g, s.[k]) else None) guards heaps
             (k, resolve vals)
-        in
         keys |> Seq.map mergeOneKey |> ofSeq
 
     let public unify state (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) unifier =
         let unifyIfShould state key value =
             if contains key h1 then
-                let oldValue = h1.[key] in
-                let newValue = value in
+                let oldValue = h1.[key]
+                let newValue = value
                 if oldValue = newValue then state
                 else
                     unifier state key (Some oldValue) (Some newValue)
             else
                 unifier state key None (Some value)
-        in
         fold unifyIfShould state h2
         // TODO: handle values in h1 that are not contained in h2
 
@@ -97,7 +95,7 @@ module public Heap =
             |> toSeq
             |> Seq.map (fun (k, v) -> k, v.value)
             |> Seq.sortBy sorter
-            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v)) in
+            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v))
         elements |> join separator
 
     let public dump (h : Heap<'a, 'b>) keyToString = toString "%s ==> %O" "\n" keyToString id Prelude.toString h

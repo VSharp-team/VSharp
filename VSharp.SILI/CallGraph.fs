@@ -7,8 +7,7 @@ module CallGraph =
             match frame.func with
             | Some(id', _) when id = id' -> true
             | _ -> false
-        in
-        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f in
+        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
         match bottomOccurence with
         | None -> false
         | Some { func = Some(_, p'); entries = _; time =  _ } when s.pc = p' ->
@@ -49,6 +48,6 @@ module CallGraph =
         //    Then we repeat the process with new write-dependencies and do it until dependencies set converges.
         // 3. For mutual recursion we can't just do these steps for each function separately: read- and
         //    write-dependencies of a mutually recursive component is a union of dependencies of each function.
-        let shouldStopUnrolling = detectUnboundRecursion funcId state in
+        let shouldStopUnrolling = detectUnboundRecursion funcId state
         callOrApplyEffect shouldStopUnrolling body funcId state (fun (result, state) ->
         k (result, State.popStack state))

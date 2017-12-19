@@ -12,16 +12,16 @@ module Functions =
     type internal SymbolicLambda<'a> = LocationBinding -> State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
 
     let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromMetadataMethodSignature metadataMethod in
-        let term = Concrete lambda typ metadata in
+        let typ = Types.FromMetadataMethodSignature metadataMethod
+        let term = Concrete lambda typ metadata
         Memory.allocateInHeap metadata state term
 
     let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromDecompiledSignature signature returnMetadataType in
+        let typ = Types.FromDecompiledSignature signature returnMetadataType
         Concrete lambda typ metadata
 
     let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let term = MakeLambdaTerm metadata signature returnMetadataType lambda in
+        let term = MakeLambdaTerm metadata signature returnMetadataType lambda
         if Transformations.isInlinedSignatureCall signature
             then Memory.allocateInHeap metadata state term
             else term, state
@@ -60,11 +60,11 @@ module Functions =
 //                | Constant(_, LazyInstantiation location, _) as term when not (List.exists (fst >> ((=) location)) deps) ->
 //                    Some (location, term)
 //                | _ -> None
-//            let unsorted = Terms.filterMapConstants filterMapConstant terms in
+//            let unsorted = Terms.filterMapConstants filterMapConstant terms
 //            List.sortWith (fun (loc1, _) (loc2, _) -> Memory.compareRefs loc1 loc2) unsorted
 //
 //        let private overwriteReadWriteDependencies id readDeps writeDeps =
-//            let currentWriteDeps = writeDependencies.[id] in
+//            let currentWriteDeps = writeDependencies.[id]
 //            readDependencies.[id] <- readDeps
 //            writeDependencies.[id] <- writeDeps
 //            let result = List.length currentWriteDeps = List.length writeDeps
@@ -97,40 +97,40 @@ module Functions =
 //            | Break
 //            | Return Nop -> NoResult
 //            | Return term ->
-//                let resultName = IdGenerator.startingWith(toString id + "%%res") in
+//                let resultName = IdGenerator.startingWith(toString id + "%%res")
 //                // TODO: time!
-//                let result = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf term) in
+//                let result = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf term)
 //                Return result
 //            | Throw e ->
-//                let resultName = IdGenerator.startingWith(toString id + "%%err") in
+//                let resultName = IdGenerator.startingWith(toString id + "%%err")
 //                // TODO: time!
-//                let error = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf e) in
+//                let error = State.makeSymbolicInstance 0u source resultName (Terms.TypeOf e)
 //                Throw error
 //            | Guarded gvs ->
-//                let guards, results = List.unzip gvs in
-//                let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), source, Bool)) guards in
-//                let symbolizedGuards = mutuallyExclusiveGuards symbolizedGuards in
-//                let symbolizedResults = List.map (symbolizeUnboundedResult source id) results in
+//                let guards, results = List.unzip gvs
+//                let symbolizedGuards = List.map (fun _ -> VSharp.Constant(IdGenerator.startingWith(toString id + "%%guard"), source, Bool)) guards
+//                let symbolizedGuards = mutuallyExclusiveGuards symbolizedGuards
+//                let symbolizedResults = List.map (symbolizeUnboundedResult source id) results
 //                Guarded(List.zip symbolizedGuards symbolizedResults)
 //            | r -> internalfail ("unexpected result of the unbounded encoding " + toString r)
 //
 //        let internal invokeUnboundedRecursion state id k =
-//            let sourceRef = ref Nop in
-//            let readDepsLocations = readDependencies.[id] |> List.unzip |> fst in
-//            let writeDepsLocations = writeDependencies.[id] in
-//            let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst in
-////            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef in
-//            let writeDeps, state' = [], state in
+//            let sourceRef = ref Nop
+//            let readDepsLocations = readDependencies.[id] |> List.unzip |> fst
+//            let writeDepsLocations = writeDependencies.[id]
+//            let readDeps = readDepsLocations |> List.map (Memory.deref state) |> List.unzip |> fst
+////            let writeDeps, state' = writeDepsLocations |> Memory.symbolizeLocations state sourceRef
+//            let writeDeps, state' = [], state
 //
-//            let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id] in
+//            let result = symbolizeUnboundedResult (UnboundedRecursion (TermRef sourceRef)) id unboundedFunctionResult.[id]
 //            let isSymbolizedConstant _ = function
 //                | Constant (_, UnboundedRecursion (TermRef r), _) as c when LanguagePrimitives.PhysicalEquality r sourceRef -> Some c
 //                | _ -> None
-//            in
-//            let resultConstants = Terms.filterMapConstants isSymbolizedConstant [ControlFlow.resultToTerm result] in
-//            let allResults = List.append resultConstants writeDeps in
 //
-//            let applicationTerm = Expression(Application id, List.append readDeps allResults, Bool) in
+//            let resultConstants = Terms.filterMapConstants isSymbolizedConstant [ControlFlow.resultToTerm result]
+//            let allResults = List.append resultConstants writeDeps
+//
+//            let applicationTerm = Expression(Application id, List.append readDeps allResults, Bool)
 //            sourceRef := applicationTerm
 //            k (result, state')
 
@@ -138,17 +138,17 @@ module Functions =
             k (NoResult Metadata.empty, state)
 
         let internal approximate id (result, state) =
-            let attempt = unboundedApproximationAttempts.[id] + 1 in
+            let attempt = unboundedApproximationAttempts.[id] + 1
             if attempt > Options.WriteDependenciesApproximationTreshold() then
                 failwith "Approximating iterations limit exceeded! Either this is an iternal error or some function is really complex. Consider either increasing approximation treshold or reporing it."
             else
                 unboundedApproximationAttempts.[id] <- attempt
-                let initialState = initialStates.[id] in
+                let initialState = initialStates.[id]
                 true
-//                let writeDependencies = Memory.diff symbolicState state in
+//                let writeDependencies = Memory.diff symbolicState state
 //                let writeDependenciesTerms = writeDependencies |> List.map (function | Memory.Mutation (_, t) -> t | Memory.Allocation (_, t) -> t)
-//                let result = bubbleUpExceptions result in
-//                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms) in
+//                let result = bubbleUpExceptions result
+//                let readDependencies = findReadDependencies ((ControlFlow.resultToTerm result)::writeDependenciesTerms)
 //                unboundedFunctionResult.[id] <- result
 //                overwriteReadWriteDependencies id readDependencies writeDependencies
 
@@ -158,7 +158,7 @@ module Functions =
             else doExplore id state this k)
 
         let internal explore id k =
-            let metadata = Metadata.empty in
+            let metadata = Metadata.empty
             unboundedApproximationAttempts.[id] <- 0
             symbolicEffects.[id] <- []
             let initialSymbolicResult =
@@ -166,7 +166,7 @@ module Functions =
 //                match returnType with
 //                | Void -> NoResult
 //                | _ ->
-//                    let resultName = IdGenerator.startingWith(toString id + "%%initial-res") in
+//                    let resultName = IdGenerator.startingWith(toString id + "%%initial-res")
 //                    // TODO: time!
 //                    State.makeSymbolicInstance 0u (UnboundedRecursion (TermRef (ref Nop))) resultName returnType |> Return
             in symbolicResults.[id] <- initialSymbolicResult
@@ -179,12 +179,12 @@ module Functions =
                     | _ when mm.IsStatic -> (None, state)
                     | _ ->
                         // TODO: declaring type should be symbolic here
-                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
-                        let instance, state = Memory.allocateSymbolicInstance metadata state declaringType in
+                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType
+                        let instance, state = Memory.allocateSymbolicInstance metadata state declaringType
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
-                            let key = ("external data", mm.Token.ToString()) in
-                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)] in
+                            let key = ("external data", mm.Token.ToString())
+                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)]
                             (Some <| Memory.referenceLocalVariable metadata state key true, state))
                 | DelegateIdentifier ast ->
                     __notImplemented__()

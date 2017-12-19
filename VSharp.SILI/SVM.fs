@@ -15,8 +15,8 @@ module public SVM =
         if m.IsAbstract then ()
         else
             reset()
-            let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName in
-            let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m in
+            let qualifiedTypeName = m.DeclaringType.AssemblyQualifiedName
+            let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
             match metadataMethodOption with
             | None ->
                 printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
@@ -27,8 +27,8 @@ module public SVM =
                 dictionary.[m] <- (ControlFlow.resultToTerm result, state))
 
     let private runType ignoreList dictionary assemblyPath (t : System.Type) =
-        let (|||) = Microsoft.FSharp.Core.Operators.(|||) in
-        let bindingFlags = BindingFlags.Instance ||| BindingFlags.Static ||| BindingFlags.Public ||| BindingFlags.DeclaredOnly in
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        let bindingFlags = BindingFlags.Instance ||| BindingFlags.Static ||| BindingFlags.Public ||| BindingFlags.DeclaredOnly
         if List.forall (fun keyword -> not(t.AssemblyQualifiedName.Contains(keyword))) ignoreList && t.IsPublic then
             t.GetMethods(bindingFlags) |> FSharp.Collections.Array.iter (interpret dictionary assemblyPath)
 
@@ -36,12 +36,12 @@ module public SVM =
         System.Text.RegularExpressions.Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "")
 
     let private resultToString (kvp : KeyValuePair<_, _>) =
-        let term, state = kvp.Value in
+        let term, state = kvp.Value
         sprintf "%s\nHEAP:\n%s" (toString term) (replaceLambdaLines (State.dumpMemory state))
 
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList
         let dictionary = new Dictionary<MethodInfo, Term * State.state>()
-        let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location) in
+        let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location)
         assembly.GetTypes() |> FSharp.Collections.Array.iter (fun elem -> runType ignoreList dictionary path elem) |> ignore
         System.Linq.Enumerable.ToDictionary(dictionary :> IEnumerable<_>, (fun kvp -> kvp.Key), resultToString) :> IDictionary<_, _>
