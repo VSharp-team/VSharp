@@ -605,22 +605,33 @@ module internal Memory =
         in
         mutateStatics mtd target loc path time v |> snd3
 
-    let private mergeGeneralizedHeaps gs hs =
-        State.mergeGeneralizedHeaps gs hs Merging.mergeCells Merging.mergeSame
+    let private composeDefinedHeaps writer s h h' =
+        foldHeapLocations (writer s) h h' |> Defined
 
-    let rec internal composeHeaps writer mtd addr time s h h' =
-        match h, h' with
-        | Defined h, Defined h' -> foldHeapLocations (writer s) h h' |> Defined
+    let rec private composeHeaps writer mtd addr time getter setter s h' =
+        match getter s, h' with
+        | Defined h, Defined h' -> composeDefinedHeaps writer s h h'
         | Merged ghs, _ ->
             let gs, hs = List.unzip ghs in
-            hs |> List.map (fun h -> composeHeaps writer mtd addr time s h h') |> mergeGeneralizedHeaps gs
+            hs |> List.map (fun h -> composeHeaps writer mtd addr time getter setter (setter s h) h') |> Merging.mergeGeneralizedHeaps gs
         | _, Merged ghs' ->
             let gs, hs' = List.unzip ghs' in
             let gs' = List.map (fillHoles mtd addr time s) gs in
-            hs' |> List.map (composeHeaps writer mtd addr time s h) |> mergeGeneralizedHeaps gs
-        | Defined h, HigherOrderApplication(f', a', t') -> __notImplemented__()
-        | Defined h, RecursiveApplication(f', a', t') -> __notImplemented__()
-        | Defined h, Composition(h', h'') -> __notImplemented__()
+            hs' |> List.map (composeHeaps writer mtd addr time getter setter s) |> Merging.mergeGeneralizedHeaps gs
+        | Defined _, Composition(s', h'') ->
+            let s = composeStates mtd addr time s s' in
+            composeHeaps writer mtd addr time getter setter s h'
+        | Defined _, HigherOrderApplication _
+        | Defined _, RecursiveApplication _
+        | Composition _, HigherOrderApplication _
+        | Composition _, RecursiveApplication _ ->
+            Composition(s, h')
+        | Composition(s', h), Defined h'' ->
+            match h with
+            | Defined h ->
+                let h = composeDefinedHeaps writer s h h''
+                composeHeaps writer mtd addr time getter setter s' h
+            | _ -> Composition(s, h')
         | HigherOrderApplication(f, a, t), Defined h' -> __notImplemented__()
         | HigherOrderApplication(f, a, t), HigherOrderApplication(f', a', t') -> __notImplemented__()
         | HigherOrderApplication(f, a, t), RecursiveApplication(f', a', t') -> __notImplemented__()
@@ -629,13 +640,10 @@ module internal Memory =
         | RecursiveApplication(f, a, t), HigherOrderApplication(f', a', t') -> __notImplemented__()
         | RecursiveApplication(f, a, t), RecursiveApplication(f', a', t') -> __notImplemented__()
         | RecursiveApplication(f, a, t), Composition(h', h'') -> __notImplemented__()
-        | Composition(h1, h2), Defined h3 -> __notImplemented__()
-        | Composition(h1, h2), HigherOrderApplication(f', a', t') -> __notImplemented__()
-        | Composition(h1, h2), RecursiveApplication(f', a', t') -> __notImplemented__()
         | Composition(h1, h2), Composition(h3, h4) -> __notImplemented__()
 
-    let internal composeStates mtd addr time state state' =
+    and composeStates mtd addr time state state' =
         let stack = (foldStackLocations (fillAndMutateStack mtd addr time state) state state'.stack).stack in
-        let heap = composeHeaps (fillAndMutateHeap mtd addr time) mtd addr time state state.heap state'.heap in
-        let statics = composeHeaps (fillAndMutateStatics mtd addr time) mtd addr time state state.statics state'.statics in
+        let heap = composeHeaps (fillAndMutateHeap mtd addr time) mtd addr time heapOf (fun s h -> {s with heap = h}) state state'.heap in
+        let statics = composeHeaps (fillAndMutateStatics mtd addr time) mtd addr time staticsOf (fun s h -> {s with statics = h}) state state'.statics in
         { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc }

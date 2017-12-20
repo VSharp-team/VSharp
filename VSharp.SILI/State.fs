@@ -1,4 +1,7 @@
 ﻿namespace VSharp
+
+open System.Text
+open System.Collections.Generic
 open VSharp.Utils
 open VSharp.Types
 
@@ -122,7 +125,7 @@ module internal State =
         | [] -> internalfail "cannot pop empty path condition"
         | _::p' -> { s with pc = p' }
 
-    let private stackOf (s : state) = s.stack
+    let internal stackOf (s : state) = s.stack
     let internal heapOf (s : state) = s.heap
     let internal staticsOf (s : state) = s.statics
     let private framesOf (s : state) = s.frames
@@ -169,73 +172,39 @@ module internal State =
         let fql = StackRef metadata key [] in
         (genericLazyInstantiator metadata time fql t (), time, time)
 
-    let private compositionToString s1 s2 =
-        sprintf "%s o %s" s1 s2
+// ------------------------------- Pretty-printing -------------------------------
 
-    let rec private dumpGeneralizedHeap keyToString n (concrete : System.Text.StringBuilder) = function
+    let private compositionToString s1 s2 =
+        sprintf "%s ⚪ %s" s1 s2
+
+    let rec private dumpGeneralizedHeap keyToString prefix n (concrete : StringBuilder) (ids : Dictionary<SymbolicHeap, string>) = function
         | Defined s when Heap.isEmpty s -> "<empty>", n, concrete
         | Defined s ->
-            let freshIdentifier = sprintf "s%d" n in
-            freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s= ----------" freshIdentifier).Append(Heap.dump s keyToString)
+            let id = ref ""
+            if ids.TryGetValue(s, id) then !id, n, concrete
+            else
+                let freshIdentifier = sprintf "%s%d" prefix n in
+                ids.Add(s, freshIdentifier)
+                freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump s keyToString)
         | HigherOrderApplication(f, _, _) -> sprintf "app(%O)" f, n, concrete
         | RecursiveApplication(f, _, _) -> sprintf "recapp(%O)" f, n, concrete // TODO: add recursive definition into concrete section
         | Composition(state, h') ->
-            let s, n, concrete = dumpMemoryRec state n concrete in
-            let s', n, concrete = dumpGeneralizedHeap keyToString n concrete h' in
+            let s, n, concrete = dumpMemoryRec state n concrete ids in
+            let s', n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h' in
             compositionToString s s', n, concrete
         | Merged ghs ->
             let gss, (n, concrete) =
                 List.mapFold (fun (n, concrete) (g, h) ->
-                        let s, n, concrete = dumpGeneralizedHeap keyToString n concrete h in
+                        let s, n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h in
                         sprintf "(%O, %s)" g s, (n, concrete))
                     (n, concrete) ghs
-            in gss |> join ", " |> sprintf "merge[%s]", n, concrete
+            in gss |> join ",\n\t" |> sprintf "merge[\n\t%s]", n, concrete
 
-    and private dumpMemoryRec s n concrete =
-        let sh, n, concrete = dumpGeneralizedHeap heapKeyToString n concrete s.heap in
-        let mh, n, concrete = dumpGeneralizedHeap staticKeyToString n concrete s.statics in
-        (sprintf "{ heap=%s, statics=%s }" sh mh, n, concrete)
+    and private dumpMemoryRec s n concrete ids =
+        let sh, n, concrete = dumpGeneralizedHeap heapKeyToString "h" n concrete ids s.heap in
+        let mh, n, concrete = dumpGeneralizedHeap staticKeyToString "s" n concrete ids s.statics in
+        (sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete)
 
     let internal dumpMemory (s : state) =
-        let dump, _, concrete = dumpMemoryRec s 0 (new System.Text.StringBuilder()) in
+        let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<SymbolicHeap, string>()) in
         if concrete.Length = 0 then dump else sprintf "%s where%O" dump concrete
-
-// ------------------------------- Merging -------------------------------
-
-    let private merge2GeneralizedHeaps g1 g2 h1 h2 resolve =
-        match h1, h2 with
-        | Defined h1, Defined h2 -> Heap.merge2 h1 h2 resolve |> Defined
-        | _ -> Merged [(g1, h1); (g2, h2)]
-
-    let internal mergeGeneralizedHeaps guards heaps resolve mergeSame =
-        let defined, undefined =
-            heaps
-                |> List.zip guards
-                |> List.mappedPartition (function | (g, Defined s) -> Some(g, s) | _ -> None)
-        in
-        let definedGuards, definedHeaps = List.unzip defined in
-        let definedHeap = Heap.merge definedGuards definedHeaps resolve |> Defined in
-        if undefined.IsEmpty then definedHeap
-        else
-            let defined = definedGuards |> List.map (withSnd definedHeap) in
-            List.append defined undefined |> mergeSame |> Merged
-
-    let internal merge2 g1 g2 (s1 : state) (s2 : state) resolve : state =
-        assert(s1.pc = s2.pc)
-        assert(s1.frames = s2.frames)
-        let mergedStack = MappedStack.merge2 s1.stack s2.stack resolve (stackLazyInstantiator s1) in
-        let mergedHeap = merge2GeneralizedHeaps g1 g2 s1.heap s2.heap resolve in
-        let mergedStatics = merge2GeneralizedHeaps g1 g2 s1.statics s2.statics resolve in
-        { s1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
-
-    let internal merge guards states resolve mergeSame : state =
-        assert(List.length states > 0)
-        let first = List.head states in
-        let frames = framesOf first in
-        let path = pathConditionOf first in
-        assert(List.forall (fun s -> framesOf s = frames) states)
-        assert(List.forall (fun s -> pathConditionOf s = path) states)
-        let mergedStack = MappedStack.merge guards (List.map stackOf states) resolve (stackLazyInstantiator first) in
-        let mergedHeap = mergeGeneralizedHeaps guards (List.map heapOf states) resolve mergeSame in
-        let mergedStatics = mergeGeneralizedHeaps guards (List.map staticsOf states) resolve mergeSame in
-        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path }

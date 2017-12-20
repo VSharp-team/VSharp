@@ -31,3 +31,7 @@ module public Prelude =
         match lhs with
         | Some x -> x
         | None -> rhs
+    let inline public (||??) (lhs : 'a option) (rhs : 'a Lazy) =
+        match lhs with
+        | Some x -> x
+        | None -> rhs.Force()

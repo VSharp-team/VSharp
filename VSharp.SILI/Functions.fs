@@ -81,7 +81,7 @@ module Functions =
                 let recursiveState = { state with heap = State.RecursiveApplication(funcId, addr, time) } in
                 k (recursiveResult, recursiveState)
             else
-                let exploredResult, exploredState = Database.query funcId |?? explore funcId id in
+                let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id) in
                 let result = Memory.fillHoles mtd addr time state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn in
                 let state = Memory.composeStates mtd addr time state exploredState in
                 k (result, state)
