@@ -1,12 +1,6 @@
 namespace VSharp
 
 module public Seq =
-    let filterMap mapper xs =
-        seq { for x in xs do
-                match mapper x with
-                | Some y -> yield y
-                | None -> () }
-
     let foldi f st xs =
         let i = ref (-1)
         Seq.fold (fun s t ->
@@ -36,13 +30,6 @@ module public List =
         | Seq.Cons(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
-
-    let rec public filterMap mapper = function
-        | [] -> []
-        | x::xs ->
-            match mapper x with
-            | Some y -> y::(filterMap mapper xs)
-            | None -> (filterMap mapper xs)
 
     let rec public filterMap2 mapper xs ys =
         match xs, ys with

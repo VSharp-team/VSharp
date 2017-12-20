@@ -70,7 +70,7 @@ module public MappedStack =
 
     let compare keyMapper valueMapper (contents1, peaks1) (contents2, peaks2) =
         assert(peaks1 = peaks2)
-        peaks1 |> Map.toList |> List.filterMap
+        peaks1 |> Map.toList |> List.choose
             (fun (k, v) ->
                 let key = makeExtendedKey k v
                 let v1 = Map.find key contents1
@@ -93,9 +93,9 @@ module public MappedStack =
 
     let merge2 (contents1, peaks1) (contents2, peaks2) resolve lazyInstantiate =
         assert(peaks1 = peaks2)
-        let newEntries = contents2 |> Map.toSeq |> Seq.filterMap (fun (k, cell) -> if Map.containsKey k contents1 then None else Some(k, cell.created))
+        let newEntries = contents2 |> Map.toSeq |> Seq.choose (fun (k, cell) -> if Map.containsKey k contents1 then None else Some(k, cell.created))
         let modifiedEntries =
-            contents1 |> Map.toSeq |> Seq.filterMap (fun (k, cell) ->
+            contents1 |> Map.toSeq |> Seq.choose (fun (k, cell) ->
                 if not <| Map.containsKey k contents2 || contents2.[k].value <> cell.value then Some(k, cell.created) else None)
         let relevantEntries = new System.Collections.Generic.HashSet<_>(newEntries)
         relevantEntries.UnionWith(modifiedEntries)
