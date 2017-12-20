@@ -1,12 +1,6 @@
 namespace VSharp
 
 module public Seq =
-    let filterMap mapper xs =
-        seq { for x in xs do
-                match mapper x with
-                | Some y -> yield y
-                | None -> () }
-
     let foldi f st xs =
         let i = ref (-1)
         Seq.fold (fun s t ->
@@ -37,13 +31,6 @@ module public List =
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 
-    let rec public filterMap mapper = function
-        | [] -> []
-        | x::xs ->
-            match mapper x with
-            | Some y -> y::(filterMap mapper xs)
-            | None -> (filterMap mapper xs)
-
     let rec public filterMap2 mapper xs ys =
         match xs, ys with
         | [], [] -> []
@@ -52,6 +39,12 @@ module public List =
             | Some z -> z::(filterMap2 mapper xs ys)
             | None -> (filterMap2 mapper xs ys)
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
+
+    let rec public changeLast f xs =
+        let cons x = function
+            | [] -> [f x]
+            | xs -> x :: xs
+        List.foldBack cons xs []
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)

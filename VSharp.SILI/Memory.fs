@@ -145,7 +145,7 @@ module internal Memory =
             match guard with
             | False -> None
             | _ -> Some(guard, k, cell)
-        let gvs = h |> Heap.toSeq |> List.ofSeq |> List.filterMap filterMapKey
+        let gvs = h |> Heap.toSeq |> List.ofSeq |> List.choose filterMapKey
         let baseGvs, restGvs = gvs |> List.partition (fst3 >> IsTrue)
         assert(List.length baseGvs <= 1)
         List.tryHead baseGvs, restGvs
