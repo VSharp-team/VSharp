@@ -5,6 +5,7 @@ open VSharp.Types.Constructor
 open Hierarchy
 
 module internal Common =
+    open System
 
     let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
@@ -37,32 +38,32 @@ module internal Common =
             (Merging.merge (List.zip guardsY values'), state) |> matched)
         | _ -> unmatched x y state matched
 
-    type private SymbolicTypeSource(t : TermType) =
+    type private SymbolicSubtypeSource(left : TermType, right : TermType) =
         inherit SymbolicConstantSource()
 
     let rec is metadata leftType rightType =
-        let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
+        let subtypeName lname rname = String.concat "" ["("; lname; " <: "; rname; ")"]
+        let makeBoolConst lname rname leftTermType rightTermType =
+            Constant (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool Metadata.empty
         let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
-            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType
             function
             | ReferenceType(t, _, _)
             | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
             | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) b metadata
+                makeBoolConst name dotNetTypeHierarchy.Name termType rightTermType
             | ArrayType (t, SymbolicDimension name) as termType ->
-                implies (makeBoolConst name termType) b metadata
+                makeBoolConst name dotNetTypeHierarchy.Name  termType rightTermType
             | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
             // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
             | Reference _ -> Terms.MakeFalse metadata
             | _ -> __notImplemented__()
         let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
-            let b = makeBoolConst rightName rightTermType
             function
             | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
             | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
             | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
             | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) b metadata
+                makeBoolConst name rightName  termType rightTermType
             | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
             | _ -> __notImplemented__()
         match leftType, rightType with
