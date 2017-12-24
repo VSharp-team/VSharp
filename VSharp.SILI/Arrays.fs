@@ -142,9 +142,9 @@ module internal Arrays =
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
     and internal makeSymbolicLowerBound metadata arrayConstant arrayName dimension =
-        match Options.SymbolicArrayLowerBoundStrategy() with
-        | Options.AlwaysZero -> zeroLowerBound metadata dimension
-        | Options.AlwaysSymbolic ->
+        match Options.ExplorationMode() with
+        | Options.TrustConventions -> zeroLowerBound metadata dimension
+        | Options.CompleteExploration ->
             let idOfBound i = sprintf "%s.GetLowerBound(%i)" arrayName i in
             let mkLowerBound i = Constant metadata (idOfBound i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, false)) lengthTermType in
             Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) (l, State.zeroTime, State.zeroTime) h) Heap.empty (Seq.init dimension mkLowerBound)

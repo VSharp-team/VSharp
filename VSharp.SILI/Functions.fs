@@ -27,50 +27,56 @@ module Functions =
             Some(Lambda(lambda :?> SymbolicLambda<'a>))
         | _ -> None
 
-    module UnboundedRecursionExplorer =
+    module Explorer =
 
         let private currentlyExploredFunctions = new HashSet<FunctionIdentifier>()
 
         type internal IInterpreter =
-            abstract member Initialize : State.state -> (State.state -> 'a) -> 'a
-            abstract member InitializeStaticMembers : State.state -> string -> (StatementResult * State.state -> 'a) -> 'a
+            abstract member Reset : unit -> unit
             abstract member Invoke : FunctionIdentifier -> State.state -> Term option -> (StatementResult * State.state -> 'a) -> 'a
-        type private NullActivator() =
+        type private NullInterpreter() =
             interface IInterpreter with
-                member x.InitializeStaticMembers _ _ _ =
-                    internalfail "interpreter for unbounded recursion is not ready"
-                member x.Invoke _ _ _ _ =
-                    internalfail "interpreter for unbounded recursion is not ready"
-                member this.Initialize _ _ =
-                    internalfail "interpreter for unbounded recursion is not ready"
-        let mutable internal interpreter : IInterpreter = new NullActivator() :> IInterpreter
+                member this.Reset() =
+                    internalfail "interpreter is not ready"
+                member this.Invoke _ _ _ _ =
+                    internalfail "interpreter is not ready"
+        let mutable internal interpreter : IInterpreter = new NullInterpreter() :> IInterpreter
+
+        let private formInitialStatics metadata typ typeName =
+                let staticMemoryKey = Terms.MakeStringKey typeName
+                let staticMemoryEntry = Struct metadata Heap.empty typ
+                Heap.empty.Add(staticMemoryKey, (staticMemoryEntry, Timestamp.zero, Timestamp.zero))
+
+        let internal invoke id state this k =
+            interpreter.Invoke id state this k
 
         let internal explore id k =
-            let metadata = Metadata.empty in
+            interpreter.Reset()
+            let metadata = Metadata.empty
             currentlyExploredFunctions.Add id |> ignore
-            interpreter.Initialize State.empty (fun newState ->
             let this, state =
                 match id with
                 | MetadataMethodIdentifier mm ->
-                    interpreter.InitializeStaticMembers newState mm.DeclaringType.AssemblyQualifiedName (fun (_, state) ->
+                    let declaringQualifiedName = mm.DeclaringType.AssemblyQualifiedName
+                    let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
+                    let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType declaringQualifiedName) }
                     match mm with
-                    | _ when mm.IsStatic -> (None, state)
+                    | _ when mm.IsStatic -> (None, initialState)
                     | _ ->
                         // TODO: declaring type should be symbolic here
-                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
-                        let instance, state = Memory.allocateSymbolicInstance metadata state declaringType in
+                        let instance, state = Memory.allocateSymbolicInstance metadata initialState declaringType
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
                             let key = ("external data", mm.Token.ToString()) in
                             let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)] in
-                            (Some <| Memory.referenceLocalVariable metadata state key true, state))
+                            (Some <| Memory.referenceLocalVariable metadata state key true, state)
                 | DelegateIdentifier ast ->
                     __notImplemented__()
                 | StandardFunctionIdentifier _ -> __notImplemented__()
-            interpreter.Invoke id state this (fun r ->
+            invoke id state this (fun r ->
                 currentlyExploredFunctions.Remove id |> ignore
                 Database.report id r
-                k r))
+                k r)
 
         let internal reproduceEffect mtd funcId (state : State.state) k =
             let addr = [Memory.freshAddress()] in
@@ -78,7 +84,7 @@ module Functions =
             if currentlyExploredFunctions.Contains funcId then
                 // TODO: this is just a temporary hack!!
                 let recursiveResult = NoResult mtd in
-                let recursiveState = { state with heap = State.RecursiveApplication(funcId, addr, time) } in
+                let recursiveState = { state with heap = State.RecursiveApplication(funcId, addr, time); statics = State.RecursiveApplication(funcId, addr, time) } in
                 k (recursiveResult, recursiveState)
             else
                 let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id) in

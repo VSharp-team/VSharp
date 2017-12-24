@@ -14,7 +14,7 @@ module internal State =
     type internal stackFrame = { func : (FunctionIdentifier * pathCondition) option; entries : list<entry> ; time : Timestamp }
     type internal frames = { f : Stack.stack<stackFrame>; sh : StackHash }
     type internal GeneralizedHeap =
-        | Defined of SymbolicHeap
+        | Defined of bool * SymbolicHeap  // bool = restricted
         | HigherOrderApplication of Term * ConcreteHeapAddress * Timestamp
         | RecursiveApplication of FunctionIdentifier * ConcreteHeapAddress * Timestamp
         | Composition of state * GeneralizedHeap
@@ -25,10 +25,20 @@ module internal State =
 
 // ------------------------------- Primitives -------------------------------
 
+    let internal Defined r h = Defined(r, h)
+
     let internal empty : state = {
         stack = MappedStack.empty;
-        heap = Defined SymbolicHeap.empty;
-        statics = Defined SymbolicHeap.empty;
+        heap = Defined false SymbolicHeap.empty;
+        statics = Defined false SymbolicHeap.empty;
+        frames = { f = Stack.empty; sh = List.empty };
+        pc = List.empty
+    }
+
+    let internal emptyRestricted : state = {
+        stack = MappedStack.empty;
+        heap = Defined true SymbolicHeap.empty;
+        statics = Defined true SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
         pc = List.empty
     }
@@ -52,10 +62,6 @@ module internal State =
     let internal readHeapLocation (h : SymbolicHeap) key = h.[key] |> fst3
 
     let internal isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
-    let internal staticMembersInitialized (s : state) typeName =
-        match s.statics with
-        | Defined h ->  SymbolicHeap.contains (Terms.MakeStringKey typeName) h
-        | _ -> __notImplemented__()
 
     let internal newStackFrame time metadata (s : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
@@ -178,12 +184,12 @@ module internal State =
         sprintf "%s ⚪ %s" s1 s2
 
     let rec private dumpGeneralizedHeap keyToString prefix n (concrete : StringBuilder) (ids : Dictionary<SymbolicHeap, string>) = function
-        | Defined s when Heap.isEmpty s -> "<empty>", n, concrete
-        | Defined s ->
+        | Defined(r, s) when Heap.isEmpty s -> (if r then "<empty[restr.]>" else "<empty>"), n, concrete
+        | Defined(r, s) ->
             let id = ref ""
             if ids.TryGetValue(s, id) then !id, n, concrete
             else
-                let freshIdentifier = sprintf "%s%d" prefix n in
+                let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "") in
                 ids.Add(s, freshIdentifier)
                 freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump s keyToString)
         | HigherOrderApplication(f, _, _) -> sprintf "app(%O)" f, n, concrete

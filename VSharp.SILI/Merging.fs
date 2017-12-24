@@ -15,7 +15,6 @@ module internal Merging =
         | _ when IsBool term -> BoolMerge
         | _ -> DefaultMerge
 
-    // TODO: This is a pretty performance-critical function. We should store the result into the union itself.
     let internal guardOf term =
         match term.term with
         | Terms.GuardedValues(gs, _) -> disjunction term.metadata gs
@@ -70,10 +69,8 @@ module internal Merging =
                 |> Seq.map extractArrayInfo
                 |> fun info -> Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
             in
-            let d = List.head ds in
-            let l = List.head lens in
-            assert(Seq.forall ((=) d) ds)
-            assert(Seq.forall ((=) l) lens)
+            let d = List.unique ds
+            let l = List.unique lens
             let mergedLower = Heap.merge gs lows mergeCells in
             let mergedContents = Heap.merge gs contents mergeCells in
             let mergedLengths = Heap.merge gs lengths mergeCells in
@@ -184,13 +181,15 @@ module internal Merging =
         // TODO: get rid of extra zips/unzips
         let (|MergedHeap|_|) = function | State.Merged gvs -> Some gvs | _ -> None
         let guards, heaps = List.zip guards heaps |> simplify (|MergedHeap|_|) |> List.unzip
+        // TODO: non-restricted heaps should be merged in a different way
         let defined, undefined =
             heaps
                 |> List.zip guards
-                |> List.mappedPartition (function | (g, State.Defined s) -> Some(g, s) | _ -> None)
+                |> List.mappedPartition (function | (g, State.Defined(r, s)) -> Some(g, r, s) | _ -> None)
         in
-        let definedGuards, definedHeaps = List.unzip defined in
-        let definedHeap = Heap.merge definedGuards definedHeaps mergeCells |> State.Defined in
+        let definedGuards, restricted, definedHeaps = List.unzip3 defined in
+        let restricted = List.unique restricted
+        let definedHeap = Heap.merge definedGuards definedHeaps mergeCells |> State.Defined restricted
         if undefined.IsEmpty then definedHeap
         else
             let definedGuard = disjunction Metadata.empty definedGuards in
@@ -199,7 +198,9 @@ module internal Merging =
 
     let private merge2GeneralizedHeaps g1 g2 h1 h2 resolve =
         match h1, h2 with
-        | State.Defined h1, State.Defined h2 -> Heap.merge2 h1 h2 resolve |> State.Defined
+        | State.Defined(r1, h1), State.Defined(r2, h2) ->
+            assert(r1 = r2)
+            Heap.merge2 h1 h2 resolve |> State.Defined r1
         | _ -> mergeGeneralizedHeaps [g1; g2] [h1; h2]
 
     let internal merge2States condition1 condition2 (state1 : State.state) (state2 : State.state) =

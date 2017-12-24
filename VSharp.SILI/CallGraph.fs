@@ -22,7 +22,7 @@ module CallGraph =
 
     let internal callOrApplyEffect mtd areWeStuck body id state k =
         if areWeStuck then
-            Functions.UnboundedRecursionExplorer.reproduceEffect mtd id state k
+            Functions.Explorer.reproduceEffect mtd id state k
         else
             body state k
 

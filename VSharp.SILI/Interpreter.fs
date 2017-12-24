@@ -14,10 +14,27 @@ type ImplementsAttribute(name : string) =
 
 module internal Interpreter =
 
-// ------------------------------- Environment -------------------------------
+// ------------------------------- Utilities -------------------------------
 
     let private getTokenBy = DecompilerServices.getTokenBy
     let private getThisTokenBy = DecompilerServices.getThisTokenBy
+
+    let reset() =
+        Memory.reset()
+        IdGenerator.reset()
+
+    let saveConfiguration() =
+        Memory.saveConfiguration()
+        IdGenerator.saveConfiguration()
+
+    let restore() =
+        Memory.restore()
+        IdGenerator.restore()
+
+    let restoreAfter k x = let r = k x in restore(); r
+    let restoreBefore k x = restore(); k x
+
+// ------------------------------- Environment interaction -------------------------------
 
     let mutable internal currentInternalCallMetadata : TermMetadata = Metadata.empty
 
@@ -82,6 +99,18 @@ module internal Interpreter =
         match result with
         | :? (StatementResult * State.state) as r -> k' r
         | _ -> internalfail "internal call should return tuple StatementResult * State!"
+
+// ------------------------------- Preparation -------------------------------
+
+    and initialize state k =
+        reset()
+        let time = Memory.tick()
+        let mtd = Metadata.empty
+        let stringTypeName = typeof<string>.AssemblyQualifiedName
+        let emptyString, state = Strings.MakeString 0 String.Empty time |> Memory.allocateInHeap Metadata.empty state
+        initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
+        let emptyFieldRef, state = Memory.referenceStaticField mtd state false "System.String.Empty" VSharp.String stringTypeName
+        Memory.mutate mtd state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
 // ------------------------------- Member calls -------------------------------
 
@@ -1075,16 +1104,14 @@ module internal Interpreter =
         Memory.allocateInHeap mtd state result |> k))
 
     and initializeStaticMembersIfNeed (caller : LocationBinding) state qualifiedTypeName k =
-        if State.staticMembersInitialized state qualifiedTypeName then
-            k (NoResult Metadata.empty, state)
-        else
-            match Options.StaticFieldsValuation() with
-            | Options.DefaultStaticFields ->
-                let mtd = State.mkMetadata caller state in
-                // TODO: when interpretation starts from Main entry point 'inPast' should be false
-                let inPast = true in
-                let fields, t, instance = Memory.mkDefaultStatic mtd inPast qualifiedTypeName in
-                let state = Memory.allocateInStaticMemory mtd inPast state qualifiedTypeName instance in
+        let mtd = State.mkMetadata caller state
+        reduceConditionalStatements state
+            (fun state k -> k (Memory.typeNameInitialized mtd qualifiedTypeName state, state))
+            (fun state k ->
+                k (NoResult Metadata.empty, state))
+            (fun state k ->
+                let fields, t, instance = Memory.mkDefaultStatic mtd qualifiedTypeName in
+                let state = Memory.allocateInStaticMemory mtd state qualifiedTypeName instance in
                 let initOneField (name, (typ, expression)) state k =
                     if expression = null then k (NoResult Metadata.empty, state)
                     else
@@ -1093,7 +1120,7 @@ module internal Interpreter =
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.throwOrIgnore value in
                         let mutate mtd value k =
-                            let term, state = (if inPast then Memory.mutateInPast else Memory.mutate) mtd state address value in
+                            let term, state = Memory.mutate mtd state address value in
                             k (ControlFlow.throwOrIgnore term, state) in
                         failOrInvoke
                             statementResult
@@ -1112,8 +1139,8 @@ module internal Interpreter =
                 match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
                 | Some constr ->
                     reduceDecompiledMethod null state None (State.Specified []) constr (fun state k -> k (result, state)) k
-                | None -> k (result, state))
-            | Options.SymbolizeStaticFields -> k (NoResult Metadata.empty, state)
+                | None -> k (result, state)))
+            k
 
     and reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k =
         let rec mutateFields this names types values initializers state =
@@ -1424,39 +1451,14 @@ type internal Activator() =
             Interpreter.reduceObjectCreation caller state (DecompilerServices.resolveType exceptionType) null null methodSpecification invokeArguments id
 
 type internal SymbolicInterpreter() =
-    let reset() =
-        Memory.reset()
-        IdGenerator.reset()
 
-    let saveConfiguration() =
-        Memory.saveConfiguration()
-        IdGenerator.saveConfiguration()
+    interface Functions.Explorer.IInterpreter with
 
-    let restore() =
-        Memory.restore()
-        IdGenerator.restore()
-
-    let restoreAfter k x = let r = k x in restore(); r
-    let restoreBefore k x = restore(); k x
-
-    interface Functions.UnboundedRecursionExplorer.IInterpreter with
-
-        member x.Initialize state k =
-            reset()
-            let time = Memory.tick() in
-            let mtd = Metadata.empty in
-            let stringTypeName = typeof<string>.AssemblyQualifiedName in
-            let emptyString, state = Strings.MakeString 0 String.Empty time |> Memory.allocateInHeap Metadata.empty state in
-            Interpreter.initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-            let emptyFieldRef, state = Memory.referenceStaticField mtd state false "System.String.Empty" VSharp.String stringTypeName in
-            Memory.mutate mtd state emptyFieldRef emptyString |> snd |> restoreAfter k)
-
-        member x.InitializeStaticMembers state qualifiedTypeName k =
-            Interpreter.initializeStaticMembersIfNeed null state qualifiedTypeName k
+        member x.Reset() = Interpreter.reset()
 
         member x.Invoke funcId state this k =
-            saveConfiguration()
-            let k = restoreBefore k in
+            Interpreter.saveConfiguration()
+            let k = Interpreter.restoreBefore k in
             match funcId with
             | MetadataMethodIdentifier mm ->
                 Interpreter.decompileAndReduceMethod null state this State.Unspecified mm.DeclaringType.AssemblyQualifiedName mm mm.Assembly.Location k

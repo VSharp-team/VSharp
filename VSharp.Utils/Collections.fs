@@ -64,6 +64,12 @@ module public List =
             optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
 
+    let public unique = function
+        | [] -> internalfail "unexpected non-empty list"
+        | x::xs ->
+            assert(List.forall ((=)x) xs)
+            x
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

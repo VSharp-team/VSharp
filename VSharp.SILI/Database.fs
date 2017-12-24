@@ -19,11 +19,14 @@ module Database =
         | None -> ()
 
     let internal query id =
-        assert(exploredResults.ContainsKey(id) = exploredStates.ContainsKey(id))
-        if exploredResults.ContainsKey(id) then Some(exploredResults.[id], exploredStates.[id]) else None
+        assert(exploredResults.ContainsKey id = exploredStates.ContainsKey id)
+        if exploredResults.ContainsKey id then Some(exploredResults.[id], exploredStates.[id]) else None
+
+    let internal queryState id =
+        if exploredStates.ContainsKey id then Some exploredStates.[id] else None
 
     let internal queryExceptionsGuard id =
-        if exploredExceptionGuards.ContainsKey(id) then Some exploredExceptionGuards.[id] else None
+        if exploredExceptionGuards.ContainsKey id then Some exploredExceptionGuards.[id] else None
 
     let internal queryExceptions id =
-        if exploredExceptions.ContainsKey(id) then Some exploredExceptions.[id] else None
+        if exploredExceptions.ContainsKey id then Some exploredExceptions.[id] else None
