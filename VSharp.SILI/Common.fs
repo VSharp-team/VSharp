@@ -44,41 +44,60 @@ module internal Common =
     let rec is metadata leftType rightType =
         let subtypeName lname rname = String.concat "" ["("; lname; " <: "; rname; ")"]
         let makeBoolConst lname rname leftTermType rightTermType =
-            Constant (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool Metadata.empty
-        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
-            function
-            | ReferenceType(t, _, _)
-            | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                makeBoolConst name dotNetTypeHierarchy.Name termType rightTermType
-            | ArrayType (t, SymbolicDimension name) as termType ->
-                makeBoolConst name dotNetTypeHierarchy.Name  termType rightTermType
-            | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
-            // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
-            | Reference _ -> Terms.MakeFalse metadata
-            | _ -> __notImplemented__()
-        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
-            function
-            | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
-            | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                makeBoolConst name rightName  termType rightTermType
-            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
-            | _ -> __notImplemented__()
+            Constant (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool metadata
         match leftType, rightType with
         | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | Reference _, Reference _ -> Terms.MakeTrue metadata
+        | Pointer _, Pointer _ -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
         | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
-        | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | leftType, (StructureType(t, _, _) as termType)
-        | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
-        | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
-        | Pointer _, Pointer _ -> Terms.MakeTrue metadata
+        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2) ->
+            if t1 <> t2 then (makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2) else MakeTrue metadata
+        | ArrayType(t1, c1), ArrayType(t2, c2) ->
+            if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
+        | GeneralType(GeneralName (lname, t)) as t1, t2 ->
+            (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst lname (t2.ToString()) t1 t2
+        | t1, (GeneralType(GeneralName (rname, t)) as t2) ->
+            is metadata t1 t &&& makeBoolConst (t1.ToString()) rname t1 t2 
+        | ConcreteType lt as t1, (ConcreteType rt as t2) ->
+            if lt.IsGround && rt.IsGround
+                then Terms.MakeBool (lt.Is rt) metadata
+                else if lt.Is rt then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | _ -> Terms.MakeFalse metadata
+
+    type private IsValueType(termType : TermType) =
+        inherit SymbolicConstantSource()
+
+    let internal isValueType metadata termType =
+        let makeBoolConst name = Constant (sprintf "IsValueType(%s)" name) (IsValueType termType) Bool metadata
+        match termType with
+        | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
+        | GeneralType(GeneralName(name, t)) ->
+            if (Types.ToDotNetType t).IsValueType
+                then makeBoolConst name
+                else MakeFalse metadata
+        | _ -> MakeFalse metadata
+
+    let internal fromDotNetGeneralTypeWithConstraint metadata dotnetType =
+        let name = "GeneralArrayType"
+        let CreatedDim = function
+            | SymbolicDimension _ -> SymbolicDimension (IdGenerator.startingWith name)
+            | d -> d
+        let termType = FromDotNetType dotnetType
+        let rec getNewType termType =
+            match termType with
+            | ArrayType(elemType, dim) ->
+                let newElemType = getNewType elemType
+                ArrayType(newElemType, CreatedDim dim)
+            | ConcreteType t when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
+            | _ -> CreateGeneralType termType ()
+        getNewType termType
+
+    let internal fromMetadataGeneralTypeWithConstraint metadata metadataType =
+        let dotnetType = MetadataToDotNetType metadataType
+        fromDotNetGeneralTypeWithConstraint metadata dotnetType
 
     let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =

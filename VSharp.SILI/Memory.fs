@@ -52,9 +52,14 @@ module internal Memory =
         | Reference t -> Terms.MakeNullRef t metadata
         | ClassType _ as t ->Terms.MakeNullRef t metadata
         | ArrayType _ as t -> Terms.MakeNullRef t metadata
-        | SubType(dotNetType, _, _,  _) as t when dotNetType.IsValueType -> Struct Heap.empty t metadata
-        | SubType _ as t -> Terms.MakeNullRef t metadata
-        | Func _ -> Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<System.Delegate>) metadata
+        | InterfaceType _ as t -> Terms.MakeNullRef t metadata
+        | GeneralType _ as t ->
+            Common.simpleConditionalExecution
+                (fun k -> k <| Common.isValueType metadata t)
+                (fun k -> k <| Struct Heap.empty t metadata)
+                (fun k -> k <| Terms.MakeNullRef t metadata)
+                Merging.merge Merging.merge2Terms id
+        | Func _ -> Terms.MakeNullRef (FromDotNetType typedefof<System.Delegate>) metadata
         | StructType(dotNetType, _, _) as t ->
             let fields = Types.GetFieldsOf dotNetType false
             let contents = Seq.map (fun (k, v) -> (Terms.MakeConcreteString k metadata, { value = defaultOf time metadata v; created = time; modified = time })) (Map.toSeq fields) |> Heap.ofSeq
@@ -66,14 +71,14 @@ module internal Memory =
         defaultOf (tick()) metadata typ
 
     let internal mkDefaultStatic metadata qualifiedTypeName =
-        let t = qualifiedTypeName |> System.Type.GetType |> FromConcreteDotNetType
+        let t = qualifiedTypeName |> System.Type.GetType |> FromDotNetType
         let time = tick()
         let fields = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName
         let contents =
             fields
                 |> List.map (fun (n, (t, _)) ->
                                 let key = Terms.MakeConcreteString n metadata
-                                let value = mkDefault metadata (FromConcreteMetadataType t)
+                                let value = mkDefault metadata (FromMetadataType t)
                                 (key, { value = value; created = time; modified = time }))
                 |> Heap.ofSeq
         fields, t, Struct contents t metadata
@@ -91,7 +96,7 @@ module internal Memory =
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
-        | SubType _
+        | GeneralType _
         | ClassType _ as t -> Struct Heap.empty t metadata
         | ArrayType(e, d) as t -> Arrays.makeSymbolic metadata source d e t name
         | _ -> __notImplemented__()
@@ -198,7 +203,7 @@ module internal Memory =
             makeSymbolicInstance metadata time (ArrayLengthLazyInstantiation(location, false, array, idx)) id Arrays.lengthTermType
 
     let private staticMemoryLazyInstantiator metadata t location () =
-        Struct Heap.empty (FromConcreteDotNetType t) metadata
+        Struct Heap.empty (FromDotNetType t) metadata
 
     let rec private accessTerm metadata guard update created modified ptrTime ctx path term =
         match path with
@@ -263,7 +268,7 @@ module internal Memory =
                 | _ -> __notImplemented__()
             let addr = Terms.MakeStringKey location
             let dnt = System.Type.GetType(location)
-            let t = FromConcreteDotNetType dnt
+            let t = FromDotNetType dnt
             let result, m', _ = accessHeap metadata (Terms.MakeTrue metadata) update (staticsOf state) ZeroTime firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t infiniteTime path
             result, withStatics state m'
         | HeapRef(((addr, t) as location, path), time, None) ->

@@ -1,5 +1,6 @@
 ﻿namespace VSharp
 
+open System.Reflection
 open JetBrains.Decompiler.Ast
 open JetBrains.Metadata.Reader.API
 open System.Collections.Generic
@@ -9,15 +10,31 @@ type WriteDependence =
     | UnboundedAllocation of Term * Term
 
 module Functions =
+    open Terms
+
     type internal SymbolicLambda<'a> = LocationBinding -> State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
 
+    let internal FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
+        let returnType = Common.fromMetadataGeneralTypeWithConstraint Metadata.empty returnMetadataType
+        let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
+            param.Type |> Types.Constructor.FromMetadataType
+        let args = Seq.map paramToType signature.Parameters |> List.ofSeq
+        Func(args, returnType)
+
+    let internal FromMetadataMethodSignature (m : IMetadataMethod) =
+        let returnType = Common.fromMetadataGeneralTypeWithConstraint Metadata.empty m.ReturnValue.Type
+        let paramToType (param : IMetadataParameter) =
+            param.Type |> Types.Constructor.FromMetadataType
+        let args = Seq.map paramToType m.Parameters |> List.ofSeq
+        Func(args, returnType)
+
     let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromMetadataMethodSignature metadataMethod
+        let typ = FromMetadataMethodSignature metadataMethod
         let term = Concrete lambda typ metadata
         Memory.allocateInHeap metadata state term
 
     let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromDecompiledSignature signature returnMetadataType
+        let typ = FromDecompiledSignature signature returnMetadataType
         Concrete lambda typ metadata
 
     let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
@@ -179,7 +196,7 @@ module Functions =
                     | _ when mm.IsStatic -> (None, state)
                     | _ ->
                         // TODO: declaring type should be symbolic here
-                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType
+                        let declaringType = mm.DeclaringType.AssemblyQualifiedName |> System.Type.GetType |> Types.Constructor.FromDotNetType
                         let instance, state = Memory.allocateSymbolicInstance metadata state declaringType
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else

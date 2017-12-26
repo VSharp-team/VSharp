@@ -24,3 +24,6 @@ module public Prelude =
 
     let inline public (|?) lhs rhs = if lhs = null then rhs else lhs
     let inline public (|??) lhs rhs = Option.defaultValue rhs lhs
+
+    let inline (&&&&) a b = (&&&) a b
+    let inline (||||) a b = (|||) a b

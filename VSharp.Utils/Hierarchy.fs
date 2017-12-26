@@ -24,6 +24,8 @@ module public Hierarchy =
         member x.Inheritor = List.head hierarchy
         member x.Hierarchy = hierarchy
         member x.Name = x.Inheritor.ToString()
+        member x.IsGround =
+            (not x.Inheritor.IsGenericType && not x.Inheritor.IsGenericParameter) || (x.Inheritor.IsConstructedGenericType)
         member x.Is (r : Hierarchy) = Seq.contains r.Inheritor hierarchy
         member x.Equals (r : Hierarchy) = x.Inheritor = r.Inheritor
         member x.Equals (r : System.Type) = x.Inheritor = r
