@@ -113,11 +113,11 @@ module internal Interpreter =
                 if areParametersSpecified then
                     if param.MetadataParameter.HasDefaultValue
                     then
-                        let typ = FromConcreteMetadataType param.Type
+                        let typ = Types.Variable.fromMetadataType param.Type
                         let mtd = State.mkMetadata ast state
                         (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, FromUniqueSymbolicMetadataType param.Type |> Types.WrapReferenceType |> Some)
+                else (stackKey, State.Unspecified, Types.Variable.fromMetadataType param.Type |> Types.WrapReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =
@@ -133,7 +133,7 @@ module internal Interpreter =
         CallGraph.call state funcId invoke returnType (fun (result, state) -> (ControlFlow.consumeBreak result, state) |> k))
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
-        let returnType = FromGlobalSymbolicMetadataType (ast.MetadataMethod.Signature.ReturnType)
+        let returnType = FromMetadataType (ast.MetadataMethod.Signature.ReturnType)
         let metadataMethod = ast.MetadataMethod
         let qualifiedTypeName = ast.MetadataMethod.DeclaringType.AssemblyQualifiedName
         let invoke (ast : IDecompiledMethod) state k =
@@ -447,7 +447,7 @@ module internal Interpreter =
         let name = ast.VariableReference.Variable.Name
         let mtd = State.mkMetadata ast state
         let initialize k =
-            let t = FromConcreteMetadataType ast.VariableReference.Variable.Type
+            let t = FromMetadataType ast.VariableReference.Variable.Type
             match t with
             | StructType _ when ast.Initializer = null -> k (Memory.mkDefault mtd t, state)
             | _ -> reduceExpression state ast.Initializer k
@@ -578,7 +578,7 @@ module internal Interpreter =
             else
                 DecompilerServices.setPropertyOfNode ast "Thrown" exn
                 // catch (...) {...} case
-                let targetType = FromGlobalSymbolicMetadataType ast.VariableReference.Variable.Type
+                let targetType = FromMetadataType ast.VariableReference.Variable.Type
                 let typeMatches, state = checkCast mtd state targetType exn
                 let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)
                 let state = Memory.newScope mtd state [(stackKey, State.Specified exn, None)]
@@ -655,7 +655,7 @@ module internal Interpreter =
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let id = DecompilerServices.idOfMetadataField field
-        let typ = FromConcreteMetadataType field.Type
+        let typ = FromMetadataType field.Type
         let mtd = State.mkMetadata caller state
         if field.IsStatic then
             k (Memory.referenceStaticField mtd state followHeapRefs id typ field.DeclaringType.AssemblyQualifiedName)
@@ -681,7 +681,7 @@ module internal Interpreter =
 
     and reduceDefaultValueExpression state (ast : IDefaultValueExpression) k =
         let mtd = State.mkMetadata ast state
-        (Memory.mkDefault mtd (FromConcreteMetadataType ast.Type), state) |> k
+        (Memory.mkDefault mtd (FromMetadataType ast.Type), state) |> k
 
     and reduceDerefExpression state (ast : IDerefExpression) k =
         reduceExpression state ast.Argument (fun (reference, state) ->
@@ -704,7 +704,7 @@ module internal Interpreter =
 
     and readField caller state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
         let fieldName = DecompilerServices.idOfMetadataField field
-        let fieldType = FromConcreteMetadataType field.Type
+        let fieldType = FromMetadataType field.Type
         let mtd = State.mkMetadata caller state
         if field.IsStatic then
             let reference, state = Memory.referenceStaticField mtd state false fieldName fieldType field.DeclaringType.AssemblyQualifiedName
@@ -714,7 +714,7 @@ module internal Interpreter =
             Memory.deref mtd state reference |> k
 
     and reduceLiteralExpression state (ast : ILiteralExpression) k =
-        let mType = FromConcreteMetadataType ast.Value.Type
+        let mType = FromMetadataType ast.Value.Type
         let mtd = State.mkMetadata ast state
         let obj = ast.Value.Value
         match mType with
@@ -758,7 +758,7 @@ module internal Interpreter =
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
         let mtd = State.mkMetadata ast state
-        let reduceTarget state k = k (Terms.MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) mtd, state)
+        let reduceTarget state k = k (Terms.MakeNullRef (FromDotNetType typedefof<obj>) mtd, state)
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k
         let reduceRightArg state k = reduceExpression state ast.RightArgument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
@@ -886,7 +886,7 @@ module internal Interpreter =
         let op = ast.OperationType
         let isChecked = (ast.OverflowCheck = OverflowCheckType.Enabled)
         let dotNetType = Types.GetSystemTypeOfNode ast
-        let t = dotNetType |> FromConcreteDotNetType
+        let t = dotNetType |> FromDotNetType
         let mtd = State.mkMetadata ast state
         match op with
         | OperationType.PrefixIncrement
@@ -966,12 +966,12 @@ module internal Interpreter =
         ControlFlow.throwOrReturn result, state
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        let reduceTarget state k = k (MakeNullRef (FromGlobalSymbolicDotNetType typedefof<obj>) Metadata.empty, state)
+        let reduceTarget state k = k (MakeNullRef (FromDotNetType typedefof<obj>) Metadata.empty, state)
         let reduceArg state k = reduceExpression state ast.Argument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
     and reduceCastExpression mtd state argument metadataType isChecked primitiveCast ifNotCasted k =
-        let targetType = FromGlobalSymbolicMetadataType metadataType
+        let targetType = FromMetadataType metadataType
         let isCasted state term = checkCast mtd state targetType term
         let hierarchyCast state term targetType k =
             reduceConditionalStatements state
@@ -1023,7 +1023,7 @@ module internal Interpreter =
         | _ -> Common.is mtd (TypeOf term) targetType, state
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
-        let targetType = FromGlobalSymbolicMetadataType ast.Type
+        let targetType = FromMetadataType ast.Type
         let mtd = State.mkMetadata ast state
         reduceExpression state ast.Argument (fun (term, state) ->
         checkCast mtd state targetType term |> k)
@@ -1039,7 +1039,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceArrayCreationExpression state (ast : IArrayCreationExpression) k =
-        let typ = FromConcreteMetadataType ast.ArrayType
+        let typ = FromMetadataType ast.ArrayType
         let mtd = State.mkMetadata ast state
         Cps.Seq.mapFoldk reduceExpression state ast.Dimensions (fun (dimensions, state) ->
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
@@ -1095,7 +1095,7 @@ module internal Interpreter =
                 if Terms.IsVoid value then mutateFields this names types values initializers state
                 else
                     let mtd = State.mkMetadata initializer state
-                    let reference, state = Memory.referenceField mtd state false name (FromConcreteMetadataType typ) this
+                    let reference, state = Memory.referenceField mtd state false name (FromMetadataType typ) this
                     let _, state = Memory.mutate mtd state reference value
                     mutateFields this names types values initializers state
             | _ -> internalfail "unexpected number of initializers"
@@ -1153,9 +1153,9 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers
         let time = Memory.tick()
         let mtd = State.mkMetadata caller state
-        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (FromUniqueSymbolicMetadataType t); created = time; modified = time }) types
+        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (Types.Variable.fromMetadataType t); created = time; modified = time }) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq
-        let t = FromConcreteMetadataType constructedType
+        let t = FromMetadataType constructedType
         let freshValue = Struct fields t mtd
         let isReferenceType = Types.IsReferenceType t
         let reference, state =
@@ -1209,7 +1209,7 @@ module internal Interpreter =
 
     and reduceFieldMemberInitializer this state (ast : IFieldMemberInitializer) k =
         reduceExpression state ast.Value (fun (value, state) ->
-        let typ = FromConcreteMetadataType ast.Field.Type
+        let typ = FromMetadataType ast.Field.Type
         let mtd = State.mkMetadata ast state
         let fieldReference, state = Memory.referenceField mtd state false (DecompilerServices.idOfMetadataField ast.Field) typ this
         let result, state = Memory.mutate mtd state fieldReference value
@@ -1302,7 +1302,7 @@ module internal Interpreter =
 
     and reduceSizeOfExpression state (ast : ISizeOfExpression) k =
         let mtd = State.mkMetadata ast state
-        let termType = FromConcreteMetadataType ast.Type
+        let termType = FromMetadataType ast.Type
         k (MakeNumber (Types.SizeOf termType) mtd, state)
 
 
@@ -1405,7 +1405,7 @@ type internal Activator() =
                                     -> m.Name = ".ctor"
                                         && m.Parameters.Length = argumentsLength
                                         && m.Parameters
-                                            |> Seq.forall2 (fun p1 p2 -> Common.is mtd (FromConcreteMetadataType (p2.Type)) p1 |> Terms.IsTrue) argumentsTypes)
+                                            |> Seq.forall2 (fun p1 p2 -> Common.is mtd (FromMetadataType (p2.Type)) p1 |> Terms.IsTrue) argumentsTypes)
             assert(List.length ctorMethods = 1)
             assert(not <| Metadata.isEmpty mtd)
             let ctor = List.head ctorMethods

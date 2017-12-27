@@ -409,15 +409,15 @@ module public Terms =
         let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
-                Concrete value (FromConcreteDotNetType t) metadata
+                Concrete value (FromDotNetType t) metadata
             elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
                 let casted =
                     if t.IsPointer
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     else Convert.ChangeType(value, t)
-                Concrete casted (FromConcreteDotNetType t) metadata
+                Concrete casted (FromDotNetType t) metadata
             elif t.IsAssignableFrom(actualType) then
-                Concrete value (FromConcreteDotNetType t) metadata
+                Concrete value (FromDotNetType t) metadata
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->

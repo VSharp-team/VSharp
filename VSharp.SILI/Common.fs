@@ -5,6 +5,7 @@ open VSharp.Types.Constructor
 open Hierarchy
 
 module internal Common =
+    open System
 
     let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
@@ -37,47 +38,51 @@ module internal Common =
             (Merging.merge (List.zip guardsY values'), state) |> matched)
         | _ -> unmatched x y state matched
 
-    type private SymbolicTypeSource(t : TermType) =
+    //TODO: need support composition for this constant source
+    type private SymbolicSubtypeSource(left : TermType, right : TermType) =
         inherit SymbolicConstantSource()
 
     let rec is metadata leftType rightType =
-        let makeBoolConst name termType = Constant name (SymbolicTypeSource termType) Bool Metadata.empty
-        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType =
-            let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType
-            function
-            | ReferenceType(t, _, _)
-            | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) b metadata
-            | ArrayType (t, SymbolicDimension name) as termType ->
-                implies (makeBoolConst name termType) b metadata
-            | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
-            // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
-            | Reference _ -> Terms.MakeFalse metadata
-            | _ -> __notImplemented__()
-        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName =
-            let b = makeBoolConst rightName rightTermType
-            function
-            | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
-            | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) b metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
-            | _ -> __notImplemented__()
+        let subtypeName lname rname = sprintf  "(%s <: %s)" lname rname
+        let makeBoolConst lname rname leftTermType rightTermType =
+            Constant (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool metadata
         match leftType, rightType with
+        | _ when leftType = rightType -> Terms.MakeTrue metadata
         | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | Reference _, Reference _ -> Terms.MakeTrue metadata
-        | Func _, Func _ -> Terms.MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
-        | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | leftType, (StructureType(t, _, _) as termType)
-        | leftType, (ReferenceType(t, _, _) as termType) -> concreteIs t termType leftType
-        | leftType, (SubType(t, _, _, name) as termType) -> subTypeIs t termType name leftType
         | Pointer _, Pointer _ -> Terms.MakeTrue metadata
+        | Func _, Func _ -> Terms.MakeTrue metadata
+        | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
+            if name = "System.Array" then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
+            makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            if d1 = d2 then is metadata t1 t2 else Terms.MakeFalse metadata
+        | TypeVariable(Explicit (_, t)) as t1, t2 ->
+            (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | t1, (TypeVariable(Explicit (_, t)) as t2) ->
+            is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ConcreteType lt as t1, (ConcreteType rt as t2) ->
+            if lt.IsGround && rt.IsGround
+                then Terms.MakeBool (lt.Is rt) metadata
+                else if lt.Is rt then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | _ -> Terms.MakeFalse metadata
+
+    //TODO: need support composition for this constant source
+    type private IsValueTypeConstantSource(termType : TermType) =
+        inherit SymbolicConstantSource()
+
+    let internal isValueType metadata termType =
+        let makeBoolConst name = Constant (sprintf "IsValueType(%s)" name) (IsValueTypeConstantSource termType) Bool metadata
+        match termType with
+        | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
+        | TypeVariable(Explicit(name, t)) ->
+            if (Types.ToDotNetType t).IsValueType
+                then makeBoolConst name
+                else MakeFalse metadata
+        | _ -> MakeFalse metadata
 
     let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =

@@ -11,13 +11,13 @@ open Types.Constructor
 module internal Arithmetics =
 
     let private makeAddition mtd isChecked state t x y k =
-        (MakeBinary OperationType.Add x y isChecked (FromConcreteDotNetType t) mtd, state) |> k
+        (MakeBinary OperationType.Add x y isChecked (FromDotNetType t) mtd, state) |> k
 
     let private makeProduct mtd isChecked state t x y k =
-        (MakeBinary OperationType.Multiply x y isChecked (FromConcreteDotNetType t) mtd, state) |> k
+        (MakeBinary OperationType.Multiply x y isChecked (FromDotNetType t) mtd, state) |> k
 
     let private makeShift mtd op state isChecked t x y k =
-        (MakeBinary op x y isChecked (FromConcreteDotNetType t) mtd, state) |> k
+        (MakeBinary op x y isChecked (FromDotNetType t) mtd, state) |> k
 
 // ------------------------------- Simplification of "+" -------------------------------
 
@@ -169,7 +169,7 @@ module internal Arithmetics =
         | Mul(ConcreteT(_, at) as a, y, false, _) when not isChecked ->
             simplifyUnaryMinus mtd isChecked state (Types.ToDotNetType at) a (fun (minusA, state) ->
             simplifyMultiplication x.metadata false state t minusA y k)
-        | _ -> k (MakeUnary OperationType.UnaryMinus x isChecked (FromConcreteDotNetType t) mtd, state))
+        | _ -> k (MakeUnary OperationType.UnaryMinus x isChecked (FromDotNetType t) mtd, state))
 
 // ------------------------------- Simplification of "*" -------------------------------
 
@@ -340,7 +340,7 @@ module internal Arithmetics =
                 | Div(a, (ConcreteT(bval, _) as b), false, _), ConcreteT(yval, _) when not isChecked ->
                     let bMulY, state = simplifyConcreteMultiplication (Metadata.combine3 mtd b.metadata y.metadata) false state t bval yval
                     simplifyDivision x.metadata false state t a bMulY k
-                | _ -> (MakeBinary OperationType.Divide x y isChecked (FromConcreteDotNetType t) mtd, state) |> k)
+                | _ -> (MakeBinary OperationType.Divide x y isChecked (FromDotNetType t) mtd, state) |> k)
             (fun x y state k -> simplifyDivision mtd isChecked state t x y k)
 
     and private checkNotZero doDivide mtd isChecked state t x y k =
@@ -399,7 +399,7 @@ module internal Arithmetics =
                 // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
                 | Mul(ConcreteT(a, _), b, false, _), ConcreteT(y, _) when not isChecked && isRemainderZero state t a y ->
                      (CastConcrete 0 t mtd, state) |> k
-                | _ -> (MakeBinary OperationType.Remainder x y isChecked (FromConcreteDotNetType t) mtd, state) |> k)
+                | _ -> (MakeBinary OperationType.Remainder x y isChecked (FromDotNetType t) mtd, state) |> k)
             (fun x y state k -> simplifyRemainder mtd isChecked state t x y k)
 
 // ---------------------------------------- Simplification of "<<", ">>" ----------------------------------------
