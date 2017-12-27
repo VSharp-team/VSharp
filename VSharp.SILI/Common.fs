@@ -38,69 +38,51 @@ module internal Common =
             (Merging.merge (List.zip guardsY values'), state) |> matched)
         | _ -> unmatched x y state matched
 
+    //TODO: need support composition for this constant source
     type private SymbolicSubtypeSource(left : TermType, right : TermType) =
         inherit SymbolicConstantSource()
 
     let rec is metadata leftType rightType =
-        let subtypeName lname rname = String.concat "" ["("; lname; " <: "; rname; ")"]
+        let subtypeName lname rname = sprintf  "(%s <: %s)" lname rname
         let makeBoolConst lname rname leftTermType rightTermType =
             Constant (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool metadata
         match leftType, rightType with
+        | _ when leftType = rightType -> Terms.MakeTrue metadata
         | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | Reference _, Reference _ -> Terms.MakeTrue metadata
         | Pointer _, Pointer _ -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
-        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2) ->
-            if t1 <> t2 then (makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2) else MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(t2, c2) ->
-            if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | GeneralType(GeneralName (lname, t)) as t1, t2 ->
-            (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst lname (t2.ToString()) t1 t2
-        | t1, (GeneralType(GeneralName (rname, t)) as t2) ->
-            is metadata t1 t &&& makeBoolConst (t1.ToString()) rname t1 t2
+        | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
+            if name = "System.Array" then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
+            makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            if d1 = d2 then is metadata t1 t2 else Terms.MakeFalse metadata
+        | TypeVariable(Explicit (_, t)) as t1, t2 ->
+            (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | t1, (TypeVariable(Explicit (_, t)) as t2) ->
+            is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.IsGround && rt.IsGround
                 then Terms.MakeBool (lt.Is rt) metadata
                 else if lt.Is rt then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | _ -> Terms.MakeFalse metadata
 
-    type private IsValueType(termType : TermType) =
+    //TODO: need support composition for this constant source
+    type private IsValueTypeConstantSource(termType : TermType) =
         inherit SymbolicConstantSource()
 
     let internal isValueType metadata termType =
-        let makeBoolConst name = Constant (sprintf "IsValueType(%s)" name) (IsValueType termType) Bool metadata
+        let makeBoolConst name = Constant (sprintf "IsValueType(%s)" name) (IsValueTypeConstantSource termType) Bool metadata
         match termType with
         | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
-        | GeneralType(GeneralName(name, t)) ->
+        | TypeVariable(Explicit(name, t)) ->
             if (Types.ToDotNetType t).IsValueType
                 then makeBoolConst name
                 else MakeFalse metadata
         | _ -> MakeFalse metadata
-
-    let internal fromTermTypeGeneralType metadata termType =
-        let name = "GeneralArrayType"
-        let CreatedDim = function
-            | SymbolicDimension _ -> SymbolicDimension (IdGenerator.startingWith name)
-            | d -> d
-        let rec getNewType termType =
-            match termType with
-            | ArrayType(elemType, dim) ->
-                let newElemType = getNewType elemType
-                ArrayType(newElemType, CreatedDim dim)
-            | ConcreteType t when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
-            | _ -> CreateGeneralType termType ()
-        getNewType termType
-
-    let internal fromDotNetGeneralType metadata dotnetType =
-        let termType = FromDotNetType dotnetType
-        fromTermTypeGeneralType metadata termType
-
-    let internal fromMetadataGeneralType metadata metadataType =
-        let dotnetType = MetadataToDotNetType metadataType
-        fromDotNetGeneralType metadata dotnetType
 
     let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =

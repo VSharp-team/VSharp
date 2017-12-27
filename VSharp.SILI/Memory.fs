@@ -53,7 +53,7 @@ module internal Memory =
         | ClassType _ as t ->Terms.MakeNullRef t metadata
         | ArrayType _ as t -> Terms.MakeNullRef t metadata
         | InterfaceType _ as t -> Terms.MakeNullRef t metadata
-        | GeneralType _ as t ->
+        | TypeVariable _ as t ->
             Common.simpleConditionalExecution
                 (fun k -> k <| Common.isValueType metadata t)
                 (fun k -> k <| Struct Heap.empty t metadata)
@@ -96,7 +96,7 @@ module internal Memory =
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.IsPrimitive t || Types.IsFunction t -> Constant name source t metadata
         | StructType _
-        | GeneralType _
+        | TypeVariable _
         | ClassType _ as t -> Struct Heap.empty t metadata
         | ArrayType(e, d) as t -> Arrays.makeSymbolic metadata source d e t name
         | _ -> __notImplemented__()
@@ -185,7 +185,7 @@ module internal Memory =
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata concreteType
         | LazyInstantiator(array, concreteType) -> fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith
-            makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id (Common.fromTermTypeGeneralType metadata concreteType)
+            makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id (Types.Variable.fromTermType concreteType)
 
     let private arrayLowerBoundLazyInstantiator metadata time location idx = function
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata Arrays.lengthTermType

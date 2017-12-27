@@ -113,11 +113,11 @@ module internal Interpreter =
                 if areParametersSpecified then
                     if param.MetadataParameter.HasDefaultValue
                     then
-                        let typ = Common.fromMetadataGeneralType mtd param.Type
+                        let typ = Types.Variable.fromMetadataType param.Type
                         let mtd = State.mkMetadata ast state
                         (stackKey, State.Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ mtd), Some typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, State.Unspecified, Common.fromMetadataGeneralType mtd param.Type |> Types.WrapReferenceType |> Some)
+                else (stackKey, State.Unspecified, Types.Variable.fromMetadataType param.Type |> Types.WrapReferenceType |> Some)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), State.Specified value, None)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =
@@ -1153,7 +1153,7 @@ module internal Interpreter =
         let types, _ = List.unzip typesAndInitializers
         let time = Memory.tick()
         let mtd = State.mkMetadata caller state
-        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (Common.fromMetadataGeneralType mtd t); created = time; modified = time }) types
+        let fields = List.map (fun t -> { value = Memory.defaultOf time mtd (Types.Variable.fromMetadataType t); created = time; modified = time }) types
                         |> List.zip (List.map (fun n -> Terms.MakeConcreteString n mtd) names) |> Heap.ofSeq
         let t = FromMetadataType constructedType
         let freshValue = Struct fields t mtd

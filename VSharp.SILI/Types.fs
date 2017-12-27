@@ -28,7 +28,7 @@ type public TermType =
     | StructType of Hierarchy * TermTypeRef list * TermType list // some value type with generic argument and interfaces
     | ClassType of Hierarchy * TermTypeRef list * TermType list // some reference type with generic argument and interfaces
     | InterfaceType of Hierarchy * TermTypeRef list * TermType list // some interface type with generic argument and interfaces
-    | GeneralType of TypeId
+    | TypeVariable of TypeId
     | ArrayType of TermType * ArrayDimensionType
     | Func of TermType list * TermType
     | Reference of TermType
@@ -45,9 +45,9 @@ type public TermType =
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
         | ClassType(t, _, _)
-        | InterfaceType(t, _, _) -> toString t
-        | GeneralType(GenericParameter t) -> t.ToString()
-        | GeneralType(GeneralName (name, _)) -> name
+        | InterfaceType(t, _, _)
+        | TypeVariable(Implicit t) -> toString t
+        | TypeVariable(Explicit (name, t)) -> sprintf "%s{%O}" name t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
@@ -67,8 +67,8 @@ and [<CustomEquality;NoComparison>]
 
 and [<StructuralEquality;NoComparison>]
     TypeId =
-        | GenericParameter of Hierarchy
-        | GeneralName of string * TermType
+        | Implicit of Hierarchy
+        | Explicit of string * TermType
 
 module public Types =
     let (|StructType|_|) = function
@@ -175,8 +175,8 @@ module public Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | GeneralType(GenericParameter t) when not t.Inheritor.IsValueType-> true
-        | GeneralType(GeneralName(_, t)) -> IsReferenceType t
+        | TypeVariable(Implicit t) when not t.Inheritor.IsValueType-> true
+        | TypeVariable(Explicit(_, t)) -> IsReferenceType t
         | _ -> false
 
     let public IsValueType = not << IsReferenceType
@@ -194,7 +194,7 @@ module public Types =
         | StructType(t, _, _)
         | InterfaceType(t, _, _)
         | ClassType(t, _, _) -> t
-        | GeneralType(GenericParameter t) -> t.Inheritor
+        | TypeVariable(Implicit t) -> t.Inheritor
         | ArrayType(t, SymbolicDimension _) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (ToDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (ToDotNetType t).MakeArrayType(rank)
@@ -264,7 +264,7 @@ module public Types =
 
         let private InterfaceType (t : Type) g i = InterfaceType(Hierarchy t, g, i)
 
-        let private GenericParameter (t : Type) = GenericParameter(Hierarchy t)
+        let private Implicit (t : Type) = Implicit(Hierarchy t)
 
         module private TypesCache =
 
@@ -291,15 +291,15 @@ module public Types =
 
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
-                Seq.map (fun t -> TermTypeRef (fromDotNetTypeRef t)) (dotNetType.GetGenericArguments()) |>
+                Seq.map (TermTypeRef << fromDotNetTypeRef) (dotNetType.GetGenericArguments()) |>
                 List.ofSeq
             else []
 
-        and private getConstraintFromDotNetInterface (interfaceType : Type) =
+        and private makeInterfaceType (interfaceType : Type) =
             let genericArguments = getGenericArguments interfaceType
             InterfaceType interfaceType genericArguments []
 
-        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map getConstraintFromDotNetInterface |> List.ofSeq
+        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map makeInterfaceType |> List.ofSeq
 
         and private fromCommonDotNetType (dotNetType : Type) =
             match dotNetType with
@@ -324,25 +324,22 @@ module public Types =
                                     fromCommonDotNetType p.ParameterType)
                 Func(List.ofSeq parameters, returnType)
             | p when p.IsGenericParameter -> fromDotNetGenericParameter p
-            // Actually interface is not nessesary a reference type, but if the implementation is unknown we consider it to be class (to check non-null).
             | c when c.IsClass -> ClassType c (getGenericArguments c) (getInterfaces c)
-            | i when i.IsInterface -> getConstraintFromDotNetInterface i
+            | i when i.IsInterface -> makeInterfaceType i
             | _ -> __notImplemented__()
 
         and private fromDotNetGenericParameterConstraint (dotNetType : Type) =
             match dotNetType with
             | g when g.IsGenericParameter ->
                 fromDotNetGenericParameter g :: fromDotNetGenericParameterConstraints (g.GetGenericParameterConstraints())
-            | i when i.IsInterface -> getConstraintFromDotNetInterface i |> List.singleton
+            | i when i.IsInterface -> makeInterfaceType i |> List.singleton
             | _ -> List.Empty
 
         and private fromDotNetGenericParameterConstraints (constraints : Type[]) =
             constraints |> Seq.collect fromDotNetGenericParameterConstraint |> Seq.distinct |> List.ofSeq
 
         and private fromDotNetGenericParameter (genericParameter : Type) : TermType =
-            GeneralType(GenericParameter genericParameter)
-
-        and private fromDotNetType dotNetType = fromCommonDotNetType dotNetType
+            TypeVariable(Implicit genericParameter)
 
         and private fromDotNetTypeRef dotNetType =
             let key = dotNetType
@@ -350,7 +347,7 @@ module public Types =
                 if TypesCache.Contains key then TypesCache.Find key
                 else
                     TypesCache.Prepare key
-                    let termType = fromDotNetType dotNetType
+                    let termType = fromCommonDotNetType dotNetType
                     TypesCache.Embody key termType
             res
 
@@ -375,15 +372,11 @@ module public Types =
                 FromDotNetType dotnetType
             | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
 
-        let private generalTypeName = "GeneralType" 
-
-        let public CreateGeneralType termType () = GeneralType(GeneralName(IdGenerator.startingWith generalTypeName, termType))
-
         let (|StructureType|_|) = function
             | TermType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
             | Numeric t -> Some(StructureType(Hierarchy t, [], getInterfaces t))
             | Bool -> Some(StructureType(Hierarchy typedefof<bool>, [], getInterfaces typedefof<bool>))
-            | GeneralType(GenericParameter t) when t.Inheritor.IsValueType -> Some(StructureType(t, [], getInterfaces t.Inheritor))
+            | TypeVariable(Implicit t) when t.Inheritor.IsValueType -> Some(StructureType(t, [], getInterfaces t.Inheritor))
             | _ -> None
 
         let (|ReferenceType|_|) = function
@@ -398,7 +391,7 @@ module public Types =
         let (|ComplexType|_|) = function
             | StructureType(t, genArg, interfaces)
             | ReferenceType(t, genArg, interfaces) -> Some(ComplexType(t, genArg, interfaces))
-            | GeneralType(GenericParameter t)-> Some(ComplexType(t, [], getInterfaces t.Inheritor))
+            | TypeVariable(Implicit t)-> Some(ComplexType(t, [], getInterfaces t.Inheritor))
             | _ -> None
 
         let (|ConcreteType|_|) = function
@@ -406,6 +399,30 @@ module public Types =
             | _ -> None
 
     open Constructor
+
+    module public Variable =
+        let private typeVariabeName = "TypeVariable"
+        let public create termType () = TypeVariable(Explicit(IdGenerator.startingWith typeVariabeName, termType))
+
+        let internal fromTermType termType =
+            let updateDimension = function
+                | SymbolicDimension _ -> SymbolicDimension (IdGenerator.startingWith "ArrayTypeVariable")
+                | d -> d
+            let rec getNewType = function
+                | ArrayType(elemType, dim) ->
+                    let newElemType = getNewType elemType
+                    ArrayType(newElemType, updateDimension dim)
+                | ConcreteType t as termType when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
+                | termType -> create termType ()
+            getNewType termType
+
+        let internal fromDotNetType dotnetType =
+            let termType = FromDotNetType dotnetType
+            fromTermType termType
+
+        let internal fromMetadataType metadataType =
+            let dotnetType = MetadataToDotNetType metadataType
+            fromDotNetType dotnetType
 
     let public IsPrimitive t =
         let dotNetType = ToDotNetType t
@@ -434,6 +451,20 @@ module public Types =
         | TermType.ClassType(t, g, _) -> ClassType(t, g, constraints)
         | TermType.StructType(t, g, _) -> StructType(t, g, constraints)
         | _ -> __unreachable__()
+
+    let internal FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
+        let returnType = Variable.fromMetadataType returnMetadataType
+        let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
+            param.Type |> FromMetadataType
+        let args = Seq.map paramToType signature.Parameters |> List.ofSeq
+        Func(args, returnType)
+
+    let internal FromMetadataMethodSignature (m : IMetadataMethod) =
+        let returnType = Variable.fromMetadataType m.ReturnValue.Type
+        let paramToType (param : IMetadataParameter) =
+            param.Type |> Constructor.FromMetadataType
+        let args = Seq.map paramToType m.Parameters |> List.ofSeq
+        Func(args, returnType)
 
     let internal GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         DecompilerServices.getTypeOfNode node

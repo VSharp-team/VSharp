@@ -14,27 +14,13 @@ module Functions =
 
     type internal SymbolicLambda<'a> = LocationBinding -> State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
 
-    let internal FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = Common.fromMetadataGeneralType Metadata.empty returnMetadataType
-        let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> Types.Constructor.FromMetadataType
-        let args = Seq.map paramToType signature.Parameters |> List.ofSeq
-        Func(args, returnType)
-
-    let internal FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = Common.fromMetadataGeneralType Metadata.empty m.ReturnValue.Type
-        let paramToType (param : IMetadataParameter) =
-            param.Type |> Types.Constructor.FromMetadataType
-        let args = Seq.map paramToType m.Parameters |> List.ofSeq
-        Func(args, returnType)
-
     let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
-        let typ = FromMetadataMethodSignature metadataMethod
+        let typ = Types.FromMetadataMethodSignature metadataMethod
         let term = Concrete lambda typ metadata
         Memory.allocateInHeap metadata state term
 
     let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let typ = FromDecompiledSignature signature returnMetadataType
+        let typ = Types.FromDecompiledSignature signature returnMetadataType
         Concrete lambda typ metadata
 
     let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
