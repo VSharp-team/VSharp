@@ -29,22 +29,6 @@ module public List =
         | Seq.Cons(x1, xs1'), [] -> f (Some x1) None :: map2Different f xs1' xs2
         | Seq.Cons(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
 
-    let rec public mapFold2Different f acc xs1 xs2 =
-        match xs1, xs2 with
-        | Seq.Empty, [] -> [], acc
-        | Seq.Empty, x2::xs2' ->
-            let res, acc =  f acc None (Some x2)
-            let ress, acc = mapFold2Different f acc xs1 xs2'
-            res :: ress, acc
-        | Seq.Cons(x1, xs1'), [] ->
-            let res, acc = f acc (Some x1) None
-            let ress, acc = mapFold2Different f acc xs1' xs2
-            res :: ress, acc
-        | Seq.Cons(x1, xs1'), x2::xs2' ->
-            let res, acc = f acc (Some x1) (Some x2)
-            let ress, acc = mapFold2Different f acc xs1' xs2'
-            res :: ress, acc
-
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 
     let rec public filterMap2 mapper xs ys =

@@ -301,12 +301,6 @@ module public Types =
 
         and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map getConstraintFromDotNetInterface |> List.ofSeq
 
-//        and private getObjectFromDotNetInterface typeKind (interfaceType : Type) =
-//            let intefaces =
-//                Seq.append (Seq.singleton interfaceType) (interfaceType.GetInterfaces()) |>
-//                Seq.map (getConstraintFromDotNetInterface typeKind) |> List.ofSeq
-//            SubType typedefof<obj> [] intefaces typedefof<obj>.FullName
-
         and private fromCommonDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
@@ -451,7 +445,7 @@ module public Types =
 
     let internal GetFieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
-        let flags = BindingFlags.Instance |||| BindingFlags.Public |||| BindingFlags.NonPublic |||| staticFlag
+        let flags = BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)
         let extractFieldInfo (field : FieldInfo) =
             let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name

@@ -80,12 +80,11 @@ module internal Common =
                 else MakeFalse metadata
         | _ -> MakeFalse metadata
 
-    let internal fromDotNetGeneralTypeWithConstraint metadata dotnetType =
+    let internal fromTermTypeGeneralType metadata termType =
         let name = "GeneralArrayType"
         let CreatedDim = function
             | SymbolicDimension _ -> SymbolicDimension (IdGenerator.startingWith name)
             | d -> d
-        let termType = FromDotNetType dotnetType
         let rec getNewType termType =
             match termType with
             | ArrayType(elemType, dim) ->
@@ -95,9 +94,13 @@ module internal Common =
             | _ -> CreateGeneralType termType ()
         getNewType termType
 
-    let internal fromMetadataGeneralTypeWithConstraint metadata metadataType =
+    let internal fromDotNetGeneralType metadata dotnetType =
+        let termType = FromDotNetType dotnetType
+        fromTermTypeGeneralType metadata termType
+
+    let internal fromMetadataGeneralType metadata metadataType =
         let dotnetType = MetadataToDotNetType metadataType
-        fromDotNetGeneralTypeWithConstraint metadata dotnetType
+        fromDotNetGeneralType metadata dotnetType
 
     let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =

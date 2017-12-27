@@ -185,7 +185,7 @@ module internal Memory =
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata concreteType
         | LazyInstantiator(array, concreteType) -> fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith
-            makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id concreteType
+            makeSymbolicInstance metadata time (ArrayElementLazyInstantiation(location, false, array, idx)) id (Common.fromTermTypeGeneralType metadata concreteType)
 
     let private arrayLowerBoundLazyInstantiator metadata time location idx = function
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata Arrays.lengthTermType
