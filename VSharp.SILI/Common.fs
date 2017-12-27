@@ -60,7 +60,7 @@ module internal Common =
         | GeneralType(GeneralName (lname, t)) as t1, t2 ->
             (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst lname (t2.ToString()) t1 t2
         | t1, (GeneralType(GeneralName (rname, t)) as t2) ->
-            is metadata t1 t &&& makeBoolConst (t1.ToString()) rname t1 t2 
+            is metadata t1 t &&& makeBoolConst (t1.ToString()) rname t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.IsGround && rt.IsGround
                 then Terms.MakeBool (lt.Is rt) metadata

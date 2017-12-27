@@ -169,13 +169,14 @@ module public Types =
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
 
-    let public IsReferenceType = function
+    let rec public IsReferenceType = function
         | String
         | ClassType _
         | InterfaceType _
         | ArrayType _
-        | GeneralType _
         | Func _ -> true
+        | GeneralType(GenericParameter t) when not t.Inheritor.IsValueType-> true
+        | GeneralType(GeneralName(_, t)) -> IsReferenceType t
         | _ -> false
 
     let public IsValueType = not << IsReferenceType
@@ -260,9 +261,9 @@ module public Types =
         let private StructType (t : Type) g i = StructType(Hierarchy t, g, i)
 
         let private ClassType (t : Type) g i = ClassType(Hierarchy t, g, i)
-        
+
         let private InterfaceType (t : Type) g i = InterfaceType(Hierarchy t, g, i)
-        
+
         let private GenericParameter (t : Type) = GenericParameter(Hierarchy t)
 
         module private TypesCache =
