@@ -21,6 +21,9 @@ module public Prelude =
     let inline public withSnd y = fun x -> (x, y)
     let inline public makePair x y = (x, y)
 
+    let public mapfst f (x, y) = (f x, y)
+    let public mapsnd f (x, y) = (x, f y)
+
     let inline fst3 (x, _, _) = x
     let inline snd3 (_, y, _) = y
     let inline thd3 (_, _, z) = z

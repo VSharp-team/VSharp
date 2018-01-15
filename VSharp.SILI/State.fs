@@ -8,6 +8,8 @@ open VSharp.Types
 module internal State =
     module SymbolicHeap = Heap
 
+    type internal CompositionContext = { mtd : TermMetadata; addr : ConcreteHeapAddress; time : Timestamp }
+
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal pathCondition = Term list
     type internal entry = { key : StackKey; mtd : TermMetadata; typ : TermType option }
@@ -17,7 +19,7 @@ module internal State =
         | Defined of bool * SymbolicHeap  // bool = restricted
         | HigherOrderApplication of Term * ConcreteHeapAddress * Timestamp
         | RecursiveApplication of FunctionIdentifier * ConcreteHeapAddress * Timestamp
-        | Composition of state * GeneralizedHeap
+        | Composition of state * CompositionContext * GeneralizedHeap
         | Merged of (Term * GeneralizedHeap) list
     and internal heap = GeneralizedHeap
     and internal staticMemory = GeneralizedHeap
@@ -43,11 +45,19 @@ module internal State =
         pc = List.empty
     }
 
+    let internal emptyCompositionContext : CompositionContext = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
+    let internal composeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) : ConcreteHeapAddress =
+        List.append a1 a2
+    let internal decomposeAddresses (a1 : ConcreteHeapAddress) (a2 : ConcreteHeapAddress) : ConcreteHeapAddress =
+        List.minus a1 a2
+    let internal composeContexts (c1 : CompositionContext) (c2 : CompositionContext) : CompositionContext =
+        { mtd = Metadata.combine c1.mtd c2.mtd; addr = composeAddresses c1.addr c2.addr; time = Timestamp.compose c1.time c2.time }
+    let internal decomposeContexts (c1 : CompositionContext) (c2 : CompositionContext) : CompositionContext =
+        { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
+
     type internal 'a SymbolicValue =
         | Specified of 'a
         | Unspecified
-
-    let internal zeroTime : Timestamp = System.UInt32.MinValue
 
     let internal nameOfLocation = term >> function
         | HeapRef(((_, t), []), _) -> toString t
@@ -56,7 +66,7 @@ module internal State =
         | HeapRef((_, path), _)
         | StackRef(_, path)
         | StaticRef(_, path) -> path |> Seq.map (fst >> toString) |> join "."
-        | l -> "requested name of an unexpected location " + (toString l) |> internalfail
+        | l ->  internalfailf "requested name of an unexpected location %O" l
 
     let internal readStackLocation (s : state) key = MappedStack.find key s.stack
     let internal readHeapLocation (h : SymbolicHeap) key = h.[key] |> fst3
@@ -168,15 +178,15 @@ module internal State =
             member x.CreateInstance _ _ _ _ =
                 internalfail "activator is not ready"
     let mutable activator : IActivator = new NullActivator() :> IActivator
-    let mutable genericLazyInstantiator : TermMetadata -> Timestamp -> Term -> TermType -> unit -> Term =
-        fun _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
+    let mutable genericLazyInstantiator : TermMetadata -> GeneralizedHeap option -> Timestamp -> Term -> TermType -> unit -> Term =
+        fun _ _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let internal stackLazyInstantiator state time key =
         let time = frameTime state key in
         let t = typeOfStackLocation state key in
         let metadata = metadataOfStackLocation state key in
         let fql = StackRef metadata key [] in
-        (genericLazyInstantiator metadata time fql t (), time, time)
+        (genericLazyInstantiator metadata None time fql t (), time, time)
 
 // ------------------------------- Pretty-printing -------------------------------
 
@@ -194,7 +204,7 @@ module internal State =
                 freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump s keyToString)
         | HigherOrderApplication(f, _, _) -> sprintf "app(%O)" f, n, concrete
         | RecursiveApplication(f, _, _) -> sprintf "recapp(%O)" f, n, concrete // TODO: add recursive definition into concrete section
-        | Composition(state, h') ->
+        | Composition(state, _, h') ->
             let s, n, concrete = dumpMemoryRec state n concrete ids in
             let s', n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h' in
             compositionToString s s', n, concrete

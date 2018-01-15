@@ -70,6 +70,13 @@ module public List =
             assert(List.forall ((=)x) xs)
             x
 
+    let public minus xs ys =
+        let l1 = List.length xs
+        let l2 = List.length ys
+        let result, tail = List.splitAt (l2 - l1) xs
+        assert(tail = ys)
+        result
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

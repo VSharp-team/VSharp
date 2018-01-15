@@ -320,8 +320,12 @@ module public Terms =
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
         | Struct(_, t) -> t
-        | StackRef _
-        | StaticRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
+        | StackRef _ -> PointerType VSharp.Void // TODO: this is temporary hack, support normal typing
+        | StaticRef(qtn, path) ->
+            let t =
+                if path.IsEmpty then Type.GetType(qtn) |> FromGlobalSymbolicDotNetType
+                else path |> List.last |> snd
+            PointerType t
         | HeapRef(addrs, _) ->
             addrs |> NonEmptyList.toList |> List.last |> snd |> PointerType
         | Array(_, _, _, _, _, _, t) -> t
