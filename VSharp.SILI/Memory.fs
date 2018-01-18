@@ -189,13 +189,18 @@ module internal Memory =
     let private mkStaticKeyGuard mtd key =
         Constant mtd (IdGenerator.startingWith "hasKey#") (StaticsInitializedSource key) Bool
 
-    let rec private staticGuardOfHeap (exploredRecursiveIds : ImmutableHashSet<FunctionIdentifier>) mtd key = function
-        | Defined(r, h) ->
+    let private staticGuardOfDefinedHeap mtd key r (h : SymbolicHeap) =
             if h.ContainsKey key then Merging.guardOf (fst3 h.[key])
             elif r then False
             else mkStaticKeyGuard mtd key
+
+    let rec private staticGuardOfHeap (exploredRecursiveIds : ImmutableHashSet<FunctionIdentifier>) mtd key = function
+        | Defined(r, h) -> staticGuardOfDefinedHeap mtd key r h
         | Merged ghs -> Merging.guardedMap (staticGuardOfHeap exploredRecursiveIds mtd key) ghs
-        | Composition(s, ctx, h) -> staticGuardOfHeap exploredRecursiveIds mtd key s.statics ||| staticGuardOfHeap exploredRecursiveIds mtd (* TODO: state o *)key h
+        | Mutation(h, h') ->
+            staticGuardOfHeap exploredRecursiveIds mtd key h ||| staticGuardOfDefinedHeap mtd key false h'
+        | Composition(s, ctx, h) ->
+            staticGuardOfHeap exploredRecursiveIds mtd key s.statics ||| staticGuardOfHeap exploredRecursiveIds mtd (* TODO: state o *)key h
         | RecursiveApplication(f, _, _) when exploredRecursiveIds.Contains f -> False
         | RecursiveApplication(f, _, _) ->
             match Database.queryState f with
@@ -288,7 +293,7 @@ module internal Memory =
 
 // ------------------------------- Core -------------------------------
 
-    let rec private accessTerm metadata srcHeap guard update created modified ptrTime ctx path term =
+    let rec private accessTerm metadata groundHeap guard update created modified ptrTime ctx path term =
         match path with
         | [] ->
             let newTerm, newTime = update term modified in
@@ -297,15 +302,15 @@ module internal Memory =
             match term.term with
             | Error _ -> term, term, modified
             | Struct(fields, t) ->
-                let ctx' = referenceSubLocation location ctx in
-                let instantiator = structLazyInstantiator term.metadata srcHeap ctx' key typ in
+                let ctx' = referenceSubLocation location ctx
+                let instantiator = structLazyInstantiator term.metadata groundHeap ctx' key typ
                 let result, newFields, newTime =
-                    accessHeap false metadata srcHeap guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
-                in result, Struct term.metadata newFields t, newTime
+                    accessHeap false metadata groundHeap guard update fields created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
+                result, Struct term.metadata newFields t, newTime
             | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
-                let ctx' = referenceSubLocation location ctx in
-                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata srcHeap modified ctx' term key c ()) constant in
-                let newHeap heap key instantiator = accessHeap false metadata srcHeap guard update heap created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path' in
+                let ctx' = referenceSubLocation location ctx
+                let makeInstantiator key instantiator = always <| Merging.guardedMap (fun c -> instantiator term.metadata groundHeap modified ctx' term key c ()) constant
+                let newHeap heap key instantiator = accessHeap false metadata groundHeap guard update heap created (fun loc -> referenceSubLocation (loc, typ) ctx) instantiator key typ ptrTime path'
                 match key with
                 | _ when key.metadata.misc.Contains Arrays.ArrayIndicesType.LowerBounds ->
                     let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
@@ -325,12 +330,12 @@ module internal Memory =
             | t ->
                 internalfailf "expected complex type, but got %O" t
 
-    and private accessHeap restricted metadata srcHeap guard update h time mkCtx lazyInstantiator ptr ptrType ptrTime path =
+    and private accessHeap restricted metadata groundHeap guard update h time mkCtx lazyInstantiator ptr ptrType ptrTime path =
         let gvas, h = heapDeref restricted metadata time lazyInstantiator h ptr ptrType ptrTime in
         let gvs, (h', newTime) = gvas |> ((h, Timestamp.zero) |> List.mapFold (fun (h, maxTime) (guard', addr, (baseValue, created, modified)) ->
             let ctx = mkCtx addr in
             let guard'' = guard &&& guard' in
-            let accessedValue, newBaseValue, newTime = accessTerm metadata srcHeap guard update created modified ptrTime ctx path baseValue in
+            let accessedValue, newBaseValue, newTime = accessTerm metadata groundHeap guard update created modified ptrTime ctx path baseValue in
             let h' = if baseValue = newBaseValue then h else writeHeap newTime guard'' h addr newBaseValue
             ((guard, accessedValue), (h', max maxTime newTime))))
         in (Merging.merge gvs, h', newTime)
@@ -343,27 +348,42 @@ module internal Memory =
         let newState = if baseValue = newBaseValue then state else writeStackLocation state location (newBaseValue, created, newTime) in
         accessedValue, newState
 
-    let private commonHierarchicalHeapAccess restricted update metadata heap ((addr, t) as location) path time =
+    let private commonHierarchicalHeapAccess restricted update metadata groundHeap heap ((addr, t) as location) path time =
         let mkFirstLocation location = HeapRef metadata ((location, t), []) time in
         let firstLocation = HeapRef metadata (location, []) time in
-        accessHeap restricted metadata None (MakeTrue metadata) update heap Timestamp.zero mkFirstLocation (genericLazyInstantiator Metadata.empty None time.time firstLocation t) addr t time.time path
+        accessHeap restricted metadata groundHeap (MakeTrue metadata) update heap Timestamp.zero mkFirstLocation (genericLazyInstantiator Metadata.empty None time.time firstLocation t) addr t time.time path
 
-    let private commonHierarchicalStaticsAccess restricted update metadata statics location path =
+    let private commonHierarchicalStaticsAccess restricted update metadata groundHeap statics location path =
         let firstLocation = Terms.term >> function
             | Concrete(location, String) -> StaticRef metadata (location :?> string) []
             | _ -> __notImplemented__()
         let addr = Terms.MakeStringKey location
         let dnt = System.Type.GetType(location)
         let t = FromConcreteDotNetType dnt
-        accessHeap restricted metadata None (MakeTrue metadata) update statics Timestamp.zero firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t Timestamp.infinity path
+        accessHeap restricted metadata groundHeap (MakeTrue metadata) update statics Timestamp.zero firstLocation (staticMemoryLazyInstantiator Metadata.empty dnt location) addr t Timestamp.infinity path
 
-    let rec private assertHoleLayerInvariant state term =
-        let term' = fillHoles emptyCompositionContext state term
-        if term <> term' then
-            internalfail "important internal invariant violated! Accessing heap with a bad-shaped term %O" term
+    let rec private accessGeneralizedHeap accessDefined = function
+        | Defined(r, h) ->
+            let result, heap, _ = accessDefined None r h
+            result, Defined r heap
+        | Merged ghs ->
+            let gs, hs = List.unzip ghs
+            let rs, hs' = hs |> List.map (accessGeneralizedHeap accessDefined) |> List.unzip
+            let grs = List.zip gs rs
+            Merging.merge grs, Merging.mergeGeneralizedHeaps gs hs'
+        | Mutation(h, h') ->
+            let result, h'', _ = accessDefined (Some h) false h'
+            result, Mutation(h, h'')
+        | Composition(s, ctx, Defined(r, h)) ->
+            internalfail "composition with the defined heap should not be met, it must be simplified to a simple mutation!"
+        // TODO: elaborate here
+        | Composition _
+        | RecursiveApplication _
+        | HigherOrderApplication _ as h ->
+            let r, e, _ = accessDefined (Some h) false Heap.empty
+            r, if Heap.isEmpty e then h else Mutation(h, e)
 
-    and private hierarchicalAccess actionNull updateDefined metadata state term =
-        assertHoleLayerInvariant state term
+    let rec private hierarchicalAccess actionNull updateDefined metadata state term =
         match term.term with
         | Error _ -> (term, state)
         | StackRef(location, path) ->
@@ -373,13 +393,13 @@ module internal Memory =
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete metadata [0] pointerType) id, state))
                 (fun state k -> k (actionNull metadata state t))
                 (fun state k ->
-                    let accessDefined r h = commonHierarchicalHeapAccess r updateDefined metadata h location path time
-                    let result, h' = accessGeneralizedHeap accessDefined withHeap (heapOf state)
+                    let accessDefined groundHeap r h = commonHierarchicalHeapAccess r updateDefined metadata groundHeap h location path time
+                    let result, h' = accessGeneralizedHeap accessDefined (heapOf state)
                     k (result, withHeap state h'))
                 Merging.merge Merging.merge2Terms id id
         | StaticRef(location, path) ->
-            let accessDefined r h = commonHierarchicalStaticsAccess r updateDefined metadata h location path
-            let result, m' = accessGeneralizedHeap accessDefined withStatics (staticsOf state)
+            let accessDefined groundHeap r h = commonHierarchicalStaticsAccess r updateDefined metadata groundHeap h location path
+            let result, m' = accessGeneralizedHeap accessDefined (staticsOf state)
             result, withStatics state m'
         | Union gvs -> Merging.guardedStateMap (hierarchicalAccess actionNull updateDefined metadata) gvs state
         | t -> internalfailf "expected reference, but got %O" t
@@ -438,38 +458,14 @@ module internal Memory =
             | _ -> __notImplemented__()
         mutateStatics restricted ctx.mtd target loc path time v |> snd3
 
-    and private accessGeneralizedHeap accessDefined setter = function
-        | Defined(r, h) ->
-            let result, heap, _ = accessDefined r h
-            result, Defined r heap
-        | Merged ghs ->
-            let gs, hs = List.unzip ghs
-            let rs, hs' = hs |> List.map (accessGeneralizedHeap accessDefined setter) |> List.unzip
-            let grs = List.zip gs rs
-            Merging.merge grs, Merging.mergeGeneralizedHeaps gs hs'
-        // TODO: this is not the unique case when simplification should be tried!
-        | Composition(s, ctx, Defined(r, h)) ->
-            let result, heap, _ = accessDefined r h
-            fillHoles ctx s result, Composition(s, ctx, Defined r heap)
-        | Composition _ as h ->
-            let r, e', _ = accessDefined false Heap.empty
-            r, if Heap.isEmpty e' then h else Composition(setter State.empty h, emptyCompositionContext, Defined false e')
-        | RecursiveApplication(f, a, t) as h ->
-            // TODO: elaborate here
-            let r, e', _ = accessDefined false Heap.empty
-            r, if Heap.isEmpty e' then h else Composition(setter State.empty h, emptyCompositionContext, Defined false e')
-        | HigherOrderApplication _ as h ->
-            let r, e', _ = accessDefined false Heap.empty
-            r, if Heap.isEmpty e' then h else Composition(setter State.empty h, emptyCompositionContext, Defined false e')
-
     and private composeDefinedHeaps writer restricted s h h' =
-        foldHeapLocations (writer restricted s) h h' |> Defined restricted
+        foldHeapLocations (writer restricted s) h h'
 
     and private composeGeneralizedHeaps writer ctx getter setter s h' =
         match getter s, h' with
         | Defined(r, h), Defined(r', h') ->
             assert(not r')
-            composeDefinedHeaps (writer ctx) r s h h'
+            composeDefinedHeaps (writer ctx) r s h h' |> Defined r
         | Merged ghs, _ ->
             let gs, hs = List.unzip ghs
             hs |> List.map (fun h -> composeGeneralizedHeaps writer ctx getter setter (setter s h) h') |> Merging.mergeGeneralizedHeaps gs
@@ -480,20 +476,29 @@ module internal Memory =
         | Defined _, Composition(s', ctx', h'') ->
             let s = composeStates ctx s s'
             composeGeneralizedHeaps writer ctx' getter setter s h'
+        | Defined(r, h), Mutation(h', h'') ->
+            let res = composeGeneralizedHeaps writer ctx getter setter s h'
+            let res' = composeDefinedHeaps (writer ctx) r s h h''
+            Mutation(res, res')
         | Defined _, HigherOrderApplication _
         | Defined _, RecursiveApplication _
         | Composition _, HigherOrderApplication _
         | Composition _, RecursiveApplication _
-        | RecursiveApplication _, RecursiveApplication _ ->
+        | RecursiveApplication _, RecursiveApplication _
+        | Mutation _, Mutation _ ->
             Composition(s, ctx, h')
-        | Composition(s', ctx', h'), Defined(r'', h'') ->
+        | Composition(s', ctx', h') as h, Defined(r'', h'') ->
             assert(not r'')
             match h' with
             | Defined(r, h') ->
                 let ctx'' = decomposeContexts ctx ctx'
-                let h = composeDefinedHeaps (writer ctx'') r s h' h''
+                let h = composeDefinedHeaps (writer ctx'') r s h' h'' |> Defined r
                 composeGeneralizedHeaps writer ctx' getter setter s' h
-            | _ -> Composition(s, ctx', h')
+            | _ ->
+                let h'' = Heap.map (fun k (v, c, m) -> (fillHoles ctx s k, (fillHoles ctx s v, c, m))) h''
+                Mutation(h, h'')
+        | Mutation(h, h'), Defined(r, h'') ->
+            Mutation(h, composeDefinedHeaps (writer ctx) r s h' h'')
         | HigherOrderApplication(f, a, t), Defined(r', h') -> __notImplemented__()
         | HigherOrderApplication(f, a, t), HigherOrderApplication(f', a', t') -> __notImplemented__()
         | HigherOrderApplication(f, a, t), RecursiveApplication(f', a', t') -> __notImplemented__()
@@ -502,6 +507,8 @@ module internal Memory =
         | RecursiveApplication(f, a, t), HigherOrderApplication(f', a', t') -> __notImplemented__()
         | RecursiveApplication(f, a, t), Composition _ -> __notImplemented__()
         | Composition _, Composition _ -> __notImplemented__()
+        | _, Mutation _
+        | Mutation _, _ -> __notImplemented__()
 
     and composeStacksOf ctx state state' =
         (foldStackLocations (fillAndMutateStack ctx state) state state'.stack).stack
@@ -527,16 +534,15 @@ module internal Memory =
         commonHierarchicalStackAccess (fun _ _ -> (value, time)) metadata state location path
 
     and private mutateHeap restricted metadata h location path time value =
-        commonHierarchicalHeapAccess restricted (fun _  _ -> (value, time)) metadata h location path {time=time}
+        commonHierarchicalHeapAccess restricted (fun _  _ -> (value, time)) metadata None h location path {time=time}
 
     and private mutateStatics restricted metadata statics location path time value =
-        commonHierarchicalStaticsAccess restricted (fun _ _ -> (value, time)) metadata statics location path
+        commonHierarchicalStaticsAccess restricted (fun _ _ -> (value, time)) metadata None statics location path
 
     and internal derefWith actionNull metadata state location = hierarchicalAccess actionNull makePair metadata state location
 
     let internal mutate metadata state reference value =
         assert(value <> Nop)
-        assertHoleLayerInvariant state value
         let time = tick()
         hierarchicalAccess npeTerm (fun _ _ -> (value, time)) metadata state reference
 

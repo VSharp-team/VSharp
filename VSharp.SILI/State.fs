@@ -20,6 +20,7 @@ module internal State =
         | HigherOrderApplication of Term * ConcreteHeapAddress * Timestamp
         | RecursiveApplication of FunctionIdentifier * ConcreteHeapAddress * Timestamp
         | Composition of state * CompositionContext * GeneralizedHeap
+        | Mutation of GeneralizedHeap * SymbolicHeap
         | Merged of (Term * GeneralizedHeap) list
     and internal heap = GeneralizedHeap
     and internal staticMemory = GeneralizedHeap
@@ -193,17 +194,23 @@ module internal State =
     let private compositionToString s1 s2 =
         sprintf "%s ⚪ %s" s1 s2
 
+    let private dumpHeap keyToString prefix n r h (concrete : StringBuilder) (ids : Dictionary<SymbolicHeap, string>) =
+        let id = ref ""
+        if ids.TryGetValue(h, id) then !id, n, concrete
+        else
+            let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "") in
+            ids.Add(h, freshIdentifier)
+            freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump h keyToString)
+
     let rec private dumpGeneralizedHeap keyToString prefix n (concrete : StringBuilder) (ids : Dictionary<SymbolicHeap, string>) = function
         | Defined(r, s) when Heap.isEmpty s -> (if r then "<empty[restr.]>" else "<empty>"), n, concrete
-        | Defined(r, s) ->
-            let id = ref ""
-            if ids.TryGetValue(s, id) then !id, n, concrete
-            else
-                let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "") in
-                ids.Add(s, freshIdentifier)
-                freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump s keyToString)
+        | Defined(r, s) -> dumpHeap keyToString prefix n r s concrete ids
         | HigherOrderApplication(f, _, _) -> sprintf "app(%O)" f, n, concrete
         | RecursiveApplication(f, _, _) -> sprintf "recapp(%O)" f, n, concrete // TODO: add recursive definition into concrete section
+        | Mutation(h, h') ->
+            let s, n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h
+            let s', n, concrete = dumpHeap keyToString prefix n false h' concrete ids
+            sprintf "write(%s, %s)" s s', n, concrete
         | Composition(state, _, h') ->
             let s, n, concrete = dumpMemoryRec state n concrete ids in
             let s', n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h' in

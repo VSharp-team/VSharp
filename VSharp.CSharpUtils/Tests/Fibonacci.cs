@@ -21,6 +21,7 @@
 
 //        private static int a = 0;
 //        private static int b = 0;
+//        private static int c = 0;
 //
 //        private static void MutatingFib(int n)
 //        {
@@ -40,10 +41,11 @@
 //
 //        public static int FibUnbound(int n)
 //        {
+//            c = 42;
 //            MutatingFib(n);
 //            MutatingFib(n + 1);
 //            MutatingFib(n + 2);
-//            return b;
+//            return a + b + c;
 //        }
     }
 }

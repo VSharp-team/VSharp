@@ -116,12 +116,12 @@ module internal Merging =
     and propagateGuard g v =
         match v.term with
         | Struct(contents, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            let contents' = Heap.map' (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
             (Terms.True, Struct v.metadata contents' t)
         | Array(dimension, len, lower, constant, contents, lengths, t) ->
-            let contents' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
-            let lower' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
-            let lengths' = Heap.map (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
+            let contents' = Heap.map' (fun _ (v, c, m) -> (merge [(g, v)], c, m)) contents in
+            let lower' = Heap.map' (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lower in
+            let lengths' = Heap.map' (fun _ (v, c, m) -> (merge [(g, v)], c, m)) lengths in
             (Terms.True, Array v.metadata dimension len lower' constant contents' lengths' t)
         | _ -> (g, v)
 
@@ -186,15 +186,17 @@ module internal Merging =
             heaps
                 |> List.zip guards
                 |> List.mappedPartition (function | (g, State.Defined(r, s)) -> Some(g, r, s) | _ -> None)
-        in
-        let definedGuards, restricted, definedHeaps = List.unzip3 defined in
-        let restricted = List.unique restricted
-        let definedHeap = Heap.merge definedGuards definedHeaps mergeCells |> State.Defined restricted
-        if undefined.IsEmpty then definedHeap
+        if defined.IsEmpty then
+            undefined |> mergeSame |> State.Merged
         else
-            let definedGuard = disjunction Metadata.empty definedGuards in
-            let defined = definedGuards |> List.map (withSnd definedHeap) in
-            (definedGuard, definedHeap)::undefined |> mergeSame |> State.Merged
+            let definedGuards, restricted, definedHeaps = List.unzip3 defined
+            let restricted = List.unique restricted
+            let definedHeap = Heap.merge definedGuards definedHeaps mergeCells |> State.Defined restricted
+            if undefined.IsEmpty then definedHeap
+            else
+                let definedGuard = disjunction Metadata.empty definedGuards in
+                let defined = definedGuards |> List.map (withSnd definedHeap) in
+                (definedGuard, definedHeap)::undefined |> mergeSame |> State.Merged
 
     let private merge2GeneralizedHeaps g1 g2 h1 h2 resolve =
         match h1, h2 with

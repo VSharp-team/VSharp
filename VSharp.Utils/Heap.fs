@@ -49,6 +49,8 @@ module public Heap =
     let public size (h : Heap<'a, 'b>) = h.Length
 
     let public map mapper (h : Heap<'a, 'b>) : Heap<'a, 'c> =
+        h |> toSeq |> Seq.map (fun (k, v) -> mapper k v) |> ofSeq
+    let public map' mapper (h : Heap<'a, 'b>) : Heap<'a, 'c> =
         h |> toSeq |> Seq.map (fun (k, v) -> k, mapper k v) |> ofSeq
     let public fold folder state (h : Heap<'a, 'b>) =
         h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
