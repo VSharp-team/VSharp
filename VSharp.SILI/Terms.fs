@@ -212,7 +212,7 @@ and
 and
     [<CustomEquality;NoComparison>]
     RefTime =
-        {time : Timestamp}
+        {time : timestamp}
         override x.ToString() = x.time.ToString()
         override x.GetHashCode() = x.GetType().GetHashCode()
         override x.Equals(o : obj) =

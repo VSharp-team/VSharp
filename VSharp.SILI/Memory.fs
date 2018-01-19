@@ -10,7 +10,7 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let private pointer = Persistent<int>(always 0, id)
-    let private timestamp = Persistent<Timestamp>(always Timestamp.zero, id)
+    let private timestamp = Persistent<timestamp>(always Timestamp.zero, id)
     let internal freshAddress () =
         pointer.Mutate(pointer.Read() + 1)
         pointer.Read()
@@ -127,13 +127,13 @@ module internal Memory =
     //                    |> Heap.ofSeq
     //    Struct fields t metadata
 
-    let private makeSymbolicHeapReference metadata time (source : SymbolicConstantSource) name typ constructor =
+    let private makeSymbolicHeapReference metadata time (source : SymbolicConstantSource) name typ construct =
         let source' =
             match source with
             | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true, None) :> SymbolicConstantSource
             | _ -> source
         let constant = Constant metadata name source' pointerType
-        constructor metadata ((constant, typ), []) {time=time}
+        construct metadata ((constant, typ), []) ({time=time} : RefTime)
 
     let internal makeSymbolicInstance metadata time source name = function
         | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path time -> HeapPtr mtd path time typ

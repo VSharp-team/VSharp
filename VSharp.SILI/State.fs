@@ -8,17 +8,17 @@ open VSharp.Types
 module internal State =
     module SymbolicHeap = Heap
 
-    type internal CompositionContext = { mtd : TermMetadata; addr : ConcreteHeapAddress; time : Timestamp }
+    type internal CompositionContext = { mtd : TermMetadata; addr : ConcreteHeapAddress; time : timestamp }
 
     type internal stack = MappedStack.stack<StackKey, MemoryCell<Term>>
     type internal pathCondition = Term list
     type internal entry = { key : StackKey; mtd : TermMetadata; typ : TermType option }
-    type internal stackFrame = { func : (FunctionIdentifier * pathCondition) option; entries : list<entry> ; time : Timestamp }
+    type internal stackFrame = { func : (FunctionIdentifier * pathCondition) option; entries : list<entry> ; time : timestamp }
     type internal frames = { f : Stack.stack<stackFrame>; sh : StackHash }
     type internal GeneralizedHeap =
         | Defined of bool * SymbolicHeap  // bool = restricted
-        | HigherOrderApplication of Term * ConcreteHeapAddress * Timestamp
-        | RecursiveApplication of FunctionIdentifier * ConcreteHeapAddress * Timestamp
+        | HigherOrderApplication of Term * ConcreteHeapAddress * timestamp
+        | RecursiveApplication of FunctionIdentifier * ConcreteHeapAddress * timestamp
         | Composition of state * CompositionContext * GeneralizedHeap
         | Mutation of GeneralizedHeap * SymbolicHeap
         | Merged of (Term * GeneralizedHeap) list
@@ -177,7 +177,7 @@ module internal State =
             member x.CreateInstance _ _ _ _ =
                 internalfail "activator is not ready"
     let mutable activator : IActivator = new NullActivator() :> IActivator
-    let mutable genericLazyInstantiator : TermMetadata -> GeneralizedHeap option -> Timestamp -> Term -> TermType -> unit -> Term =
+    let mutable genericLazyInstantiator : TermMetadata -> GeneralizedHeap option -> timestamp -> Term -> TermType -> unit -> Term =
         fun _ _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let internal stackLazyInstantiator state time key =
@@ -198,7 +198,7 @@ module internal State =
         else
             let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "")
             ids.Add(h, freshIdentifier)
-            freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump h keyToString)
+            freshIdentifier, n+1, concrete.Append(sprintf "\n---------- %s = ----------\n" freshIdentifier).Append(Heap.dump h keyToString)
 
     let rec private dumpGeneralizedHeap keyToString prefix n (concrete : StringBuilder) (ids : Dictionary<SymbolicHeap, string>) = function
         | Defined(r, s) when Heap.isEmpty s -> (if r then "<empty[restr.]>" else "<empty>"), n, concrete

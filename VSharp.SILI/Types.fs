@@ -204,13 +204,13 @@ module public Types =
 
     let internal SizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =
-            let method = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+            let meth = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
 
-            let gen = method.GetILGenerator()
+            let gen = meth.GetILGenerator()
             gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
             gen.Emit(Reflection.Emit.OpCodes.Ret)
 
-            method.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
+            meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
             |> unbox
         typ |> ToDotNetType |> internalSizeOf |> int
 
@@ -227,7 +227,7 @@ module public Types =
                 let lengthGenericArguments = metadataMethod.GenericArguments.Length
                 let parameters = metadataMethod.Parameters
                 let declaringType = metadataMethod.DeclaringType
-                let method =
+                let meth =
                     Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
                     Seq.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
                     Seq.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
@@ -238,8 +238,8 @@ module public Types =
                             l.ParameterType.FullName |? l.ParameterType.Name = r.Type.FullName) p parameters) |>
                     Seq.map fst |>
                     Array.ofSeq
-                assert(method.Length = 1)
-                method.[0].GetGenericArguments().[int arg.Index]
+                assert(meth.Length = 1)
+                meth.[0].GetGenericArguments().[int arg.Index]
             | _ -> __notImplemented__()
 
         let rec public MetadataToDotNetType (arg : IMetadataType) =
