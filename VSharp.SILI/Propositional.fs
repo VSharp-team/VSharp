@@ -30,9 +30,9 @@ module internal Propositional =
 
 
     let public (|IntersectionExceptOneNegation|_|) (list1 : Term list) (list2 : Term list) =
-        let s1 = System.Collections.Generic.HashSet<Term>(list1) in
-        let s2 = System.Collections.Generic.HashSet<Term>(list2) in
-        let intersection = list2 |> Seq.fold (fun acc x -> if s1.Remove(x) then s2.Remove(x) |> ignore; x::acc else acc) [] in
+        let s1 = System.Collections.Generic.HashSet<Term>(list1)
+        let s2 = System.Collections.Generic.HashSet<Term>(list2)
+        let intersection = list2 |> Seq.fold (fun acc x -> if s1.Remove(x) then s2.Remove(x) |> ignore; x::acc else acc) []
         if s1.Count <> 1 then None
         else
             match Seq.head s1 with
@@ -43,17 +43,17 @@ module internal Propositional =
     let internal isPermutationOf list1 list2 =
         if List.length list1 <> List.length list2 then false
         else
-            let s1 = System.Collections.Generic.HashSet<Term>(list1) in
-            let s2 = System.Collections.Generic.HashSet<Term>(list2) in
+            let s1 = System.Collections.Generic.HashSet<Term>(list1)
+            let s2 = System.Collections.Generic.HashSet<Term>(list2)
             s1.SymmetricExceptWith(s2); Seq.isEmpty s1
 
     // Trying to simplify pairwise combinations of x- and y-operands.
     // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
     // by successively trying to combine (a * c), (a * d), (b * c) and (b * d).
     let internal simplifyPairwiseCombinations xs ys t operand simplify reduce matched unmatched =
-        let initialYs = ys in
+        let initialYs = ys
 
-        let reduce t1 t2 = reduce (operand t1) (operand t2) in
+        let reduce t1 t2 = reduce (operand t1) (operand t2)
 
         let rec combineOne x ys failed k =
             match ys with
@@ -70,7 +70,7 @@ module internal Propositional =
                 if List.length ys = List.length initialYs then unmatched () // Nothing matched, the whole process is failed
                 else
                     // Something matched, the work is done, just combining results together...
-                    let toReduce = List.append (List.rev acc) ys in
+                    let toReduce = List.append (List.rev acc) ys
                     // TODO: care about different types...
                     Cps.List.reducek reduce toReduce (operand >> matched)
             | x::xs ->
@@ -79,7 +79,7 @@ module internal Propositional =
         combine xs ys []
 
     let rec private simplifyConnective mtd operation opposite stopValue ignoreValue x y k =
-        let defaultCase () = makeBin mtd operation x y |> k in
+        let defaultCase () = makeBin mtd operation x y |> k
         match x.term, y.term with
         | Error _, _ -> k x
         | _, Error _ -> k y
@@ -154,12 +154,12 @@ module internal Propositional =
         | _, Expression(Operator(co', false), IntersectionExceptOneNegation list (a, ys, zs), _) when co' = co ->
             if zs.IsEmpty then MakeNAry co ys false Bool (Metadata.combine3 mtd x.metadata y.metadata) |> matched
             else
-                let xymtd = Metadata.combine x.metadata y.metadata in
-                let coZs = MakeNAry co zs false Bool xymtd in
+                let xymtd = Metadata.combine x.metadata y.metadata
+                let coZs = MakeNAry co zs false Bool xymtd
                 simplifyExt mtd op co stopValue ignoreValue a coZs
                     (fun aOpZs -> MakeNAry co (aOpZs::ys) false Bool xymtd |> matched)
                     (fun () ->
-                        let y' = MakeNAry co (List.append ys zs) false Bool y.metadata in
+                        let y' = MakeNAry co (List.append ys zs) false Bool y.metadata
                         simplifyCoOp mtd op co stopValue ignoreValue x list y' matched (fun () ->
                         MakeNAry op [x; y'] false Bool mtd |> matched))
         // Co(list) op Co(permutation of list) -> Co(list)
@@ -167,7 +167,7 @@ module internal Propositional =
         | _, Expression(Operator(co', false), ys, _)  when co' = co && isPermutationOf list ys -> matched x
         // Co(...) op OP(...) -> pairwise
         | _, Expression(Operator(op', false), y', _) when op = op' ->
-            let mtd' = Metadata.combine3 mtd x.metadata y.metadata in
+            let mtd' = Metadata.combine3 mtd x.metadata y.metadata
             // Trying to simplify pairwise combinations of x- and y-summands
             simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType mtd' op co stopValue ignoreValue) (simplifyConnective mtd' op co stopValue ignoreValue) matched unmatched
         | _ -> unmatched ()

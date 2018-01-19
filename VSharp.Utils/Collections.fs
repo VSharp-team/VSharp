@@ -3,12 +3,6 @@ namespace VSharp
 open System.Collections.Generic
 
 module public Seq =
-    let filterMap mapper xs =
-        seq { for x in xs do
-                match mapper x with
-                | Some y -> yield y
-                | None -> () }
-
     let foldi f st xs =
         let i = ref (-1)
         Seq.fold (fun s t ->
@@ -39,28 +33,11 @@ module public List =
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 
-    let rec public filter2k predicate xs ys k =
-        match xs, ys with
-        | [], [] -> k ([], [])
-        | x::xs, y::ys ->
-            let k' = if predicate x y then (fun (accx, accy) -> k (x::accx, y::accy)) else id
-            filter2k predicate xs ys k'
-        | _ -> internalfail "filter2k expects lists of equal lengths"
-
-    let public filter2 predicate xs ys =
-        filter2k predicate xs ys id
-
-    let rec public filterMap mapper = function
-        | [] -> []
-        | x::xs ->
-            let y = mapper x in
-            optCons (filterMap mapper xs) y
-
     let rec public filterMap2 mapper xs ys =
         match xs, ys with
         | [], [] -> []
         | x::xs, y::ys ->
-            let z = mapper x y in
+            let z = mapper x y
             optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
 
@@ -77,12 +54,18 @@ module public List =
         assert(tail = ys)
         result
 
+    let rec public changeLast f xs =
+        let cons x = function
+            | [] -> [f x]
+            | xs -> x :: xs
+        List.foldBack cons xs []
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 
     let foldMap mapping state table =
         let mapFolder (map, state) key value =
-            let newValue, newState = mapping key state value in
+            let newValue, newState = mapping key state value
             (Map.add key newValue map, newState)
         Map.fold mapFolder (Map.empty, state) table
 
@@ -98,7 +81,7 @@ module public Dict =
     let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
-            let newVal = fallback() in
+            let newVal = fallback()
             dict.Add(key, newVal)
             newVal
 
@@ -107,7 +90,7 @@ module public Dict =
         else defaultValue
 
     let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
-        let result = new Dictionary<'a, 'b>() in
+        let result = new Dictionary<'a, 'b>()
         Seq.iter result.Add s
         result :> IDictionary<'a, 'b>
 

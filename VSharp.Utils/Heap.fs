@@ -4,8 +4,6 @@ open System.Collections
 open System.Collections.Generic
 open FSharpx.Collections
 
-type MemoryCell<'a> when 'a : equality = 'a * Timestamp * Timestamp  // Value * Creation timestamp * Modification timestamp
-
 [<CustomEquality;NoComparison>]
 type public Heap<'a, 'b> when 'a : equality and 'b : equality =
     {heap : PersistentHashMap<'a, MemoryCell<'b>>}
@@ -58,40 +56,46 @@ module public Heap =
         h |> toSeq |> Seq.mapFold (fun state (k, v) -> folder state k v) state |> fun (r, s) -> ofSeq r, s
 
     let public locations (h : Heap<'a, 'b>) = h |> toSeq |> Seq.map fst
-    let public values (h : Heap<'a, 'b>) = h |> toSeq |> Seq.map (snd >> fst3)
+    let public values (h : Heap<'a, 'b>) = h |> toSeq |> Seq.map (fun (k, v) -> v.value)
 
     let public partition predicate (h : Heap<'a, 'b>) =
-        h |> toSeq |> Seq.map (fun (k, v) -> (k, fst3 v)) |> List.ofSeq |> List.partition predicate
+        h |> toSeq |> Seq.map (fun (k, v) -> (k, v.value)) |> List.ofSeq |> List.partition predicate
 
     let public merge<'a, 'b, 'c when 'a : equality and 'b : equality> (guards : 'c list) (heaps : Heap<'a, 'b> list) resolve : Heap<'a, 'b> =
-        let keys = new System.Collections.Generic.HashSet<'a>() in
+        let keys = new System.Collections.Generic.HashSet<'a>()
         List.iter (locations >> keys.UnionWith) heaps
         let mergeOneKey k =
-            let vals = List.filterMap2 (fun g s -> if contains k s then Some(g, s.[k]) else None) guards heaps in
+            let vals = List.filterMap2 (fun g s -> if contains k s then Some(g, s.[k]) else None) guards heaps
             (k, resolve vals)
-        in
         keys |> Seq.map mergeOneKey |> ofSeq
 
-    let public merge2 (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) resolve =
-        let resolveIfShould map key value =
-            if contains key map then
-                let oldValue = map.[key] in
-                let newValue = value in
-                if oldValue = newValue then map
+    let public unify state (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) unifier =
+        let unifyIfShould state key value =
+            if contains key h1 then
+                let oldValue = h1.[key]
+                let newValue = value
+                if oldValue = newValue then state
                 else
-                    add key (resolve oldValue newValue) map
+                    unifier state key (Some oldValue) (Some newValue)
             else
-                add key value map
-        in
-        fold resolveIfShould h1 h2
+                unifier state key None (Some value)
+        fold unifyIfShould state h2
+        // TODO: handle values in h1 that are not contained in h2
+
+    let public merge2 (h1 : Heap<'a, 'b>) (h2 : Heap<'a, 'b>) resolve =
+        unify h1 h1 h2 (fun s k v1 v2 ->
+            match v1, v2 with
+            | Some v1, Some v2 -> add k (resolve v1 v2) s
+            | None, Some v2 -> add k v2 s
+            | _ -> __notImplemented__())
 
     let public toString format separator keyMapper valueMapper sorter (h : Heap<'a, 'b>) =
         let elements =
             h
             |> toSeq
-            |> Seq.map (fun (k, (v, _, _)) -> k, v)
+            |> Seq.map (fun (k, v) -> k, v.value)
             |> Seq.sortBy sorter
-            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v)) in
+            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v))
         elements |> join separator
 
     let public dump (h : Heap<'a, 'b>) keyToString = toString "%s ==> %O" "\n" keyToString id Prelude.toString h

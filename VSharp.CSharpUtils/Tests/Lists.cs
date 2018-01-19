@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using VSharp.CSharpUtils.Tests.Typecast;
 
 namespace VSharp.CSharpUtils.Tests
 {

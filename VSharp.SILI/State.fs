@@ -61,46 +61,44 @@ module internal State =
         | Unspecified
 
     let internal nameOfLocation = term >> function
-        | HeapRef(((_, t), []), _) -> toString t
-        | StackRef((name, _), []) -> name
-        | StaticRef(name, []) -> System.Type.GetType(name).FullName
-        | HeapRef((_, path), _)
-        | StackRef(_, path)
-        | StaticRef(_, path) -> path |> Seq.map (fst >> toString) |> join "."
+        | HeapRef(((_, t), []), _, _) -> toString t
+        | StackRef((name, _), [], _) -> name
+        | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
+        | HeapRef((_, path), _, _)
+        | StackRef(_, path, _)
+        | StaticRef(_, path, _) -> path |> Seq.map (fst >> toString) |> join "."
         | l ->  internalfailf "requested name of an unexpected location %O" l
 
     let internal readStackLocation (s : state) key = MappedStack.find key s.stack
-    let internal readHeapLocation (h : SymbolicHeap) key = h.[key] |> fst3
+    let internal readHeapLocation (s : SymbolicHeap) key = s.heap.[key].value
 
     let internal isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
 
     let internal newStackFrame time metadata (s : state) funcId frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
-        let frameMetadata = Some(funcId, s.pc) in
-        let locations, newStack = frame |> List.mapFold pushOne s.stack in
-        let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time } in
-        let sh' = frameMetadata.GetHashCode()::s.frames.sh in
+        let frameMetadata = Some(funcId, s.pc)
+        let locations, newStack = frame |> List.mapFold pushOne s.stack
+        let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
+        let sh' = frameMetadata.GetHashCode()::s.frames.sh
         { s with stack = newStack; frames = {f = f'; sh = sh'} }
 
     let internal newScope time metadata (s : state) frame : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key (term, time, time) map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        in
-        let locations, newStack = frame |> List.mapFold pushOne s.stack in
+        let locations, newStack = frame |> List.mapFold pushOne s.stack
         { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
 
     let internal pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let internal popStack (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
-        let { func = metadata; entries = locations; time = _ } = Stack.peek s.frames.f in
-        let f' = Stack.pop s.frames.f in
-        let sh = s.frames.sh in
+        let { func = metadata; entries = locations; time = _ } = Stack.peek s.frames.f
+        let f' = Stack.pop s.frames.f
+        let sh = s.frames.sh
         let sh' =
             match metadata with
             | Some _ ->
@@ -183,11 +181,11 @@ module internal State =
         fun _ _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let internal stackLazyInstantiator state time key =
-        let time = frameTime state key in
-        let t = typeOfStackLocation state key in
-        let metadata = metadataOfStackLocation state key in
-        let fql = StackRef metadata key [] in
-        (genericLazyInstantiator metadata None time fql t (), time, time)
+        let time = frameTime state key
+        let t = typeOfStackLocation state key
+        let metadata = metadataOfStackLocation state key
+        let fql = StackRef metadata key []
+        { value = genericLazyInstantiator metadata None time fql t (); created = time; modified = time }
 
 // ------------------------------- Pretty-printing -------------------------------
 
@@ -198,7 +196,7 @@ module internal State =
         let id = ref ""
         if ids.TryGetValue(h, id) then !id, n, concrete
         else
-            let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "") in
+            let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "")
             ids.Add(h, freshIdentifier)
             freshIdentifier, n+1, concrete.AppendLine(sprintf "\n---------- %s = ----------" freshIdentifier).Append(Heap.dump h keyToString)
 
@@ -212,22 +210,22 @@ module internal State =
             let s', n, concrete = dumpHeap keyToString prefix n false h' concrete ids
             sprintf "write(%s, %s)" s s', n, concrete
         | Composition(state, _, h') ->
-            let s, n, concrete = dumpMemoryRec state n concrete ids in
-            let s', n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h' in
+            let s, n, concrete = dumpMemoryRec state n concrete ids
+            let s', n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h'
             compositionToString s s', n, concrete
         | Merged ghs ->
             let gss, (n, concrete) =
                 List.mapFold (fun (n, concrete) (g, h) ->
-                        let s, n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h in
+                        let s, n, concrete = dumpGeneralizedHeap keyToString prefix n concrete ids h
                         sprintf "(%O, %s)" g s, (n, concrete))
                     (n, concrete) ghs
-            in gss |> join ",\n\t" |> sprintf "merge[\n\t%s]", n, concrete
+            gss |> join ",\n\t" |> sprintf "merge[\n\t%s]", n, concrete
 
     and private dumpMemoryRec s n concrete ids =
-        let sh, n, concrete = dumpGeneralizedHeap heapKeyToString "h" n concrete ids s.heap in
-        let mh, n, concrete = dumpGeneralizedHeap staticKeyToString "s" n concrete ids s.statics in
+        let sh, n, concrete = dumpGeneralizedHeap heapKeyToString "h" n concrete ids s.heap
+        let mh, n, concrete = dumpGeneralizedHeap staticKeyToString "s" n concrete ids s.statics
         (sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete)
 
     let internal dumpMemory (s : state) =
-        let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<SymbolicHeap, string>()) in
+        let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<SymbolicHeap, string>())
         if concrete.Length = 0 then dump else sprintf "%s where%O" dump concrete

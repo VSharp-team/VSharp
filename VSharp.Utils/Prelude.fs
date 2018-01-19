@@ -10,7 +10,7 @@ module public Prelude =
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 
-    let inline public always x _ = x
+    let public always x _ = x
 
     let inline public cons x xs = x :: xs
     let inline public optCons xs = function
@@ -24,9 +24,9 @@ module public Prelude =
     let public mapfst f (x, y) = (f x, y)
     let public mapsnd f (x, y) = (x, f y)
 
-    let inline fst3 (x, _, _) = x
-    let inline snd3 (_, y, _) = y
-    let inline thd3 (_, _, z) = z
+    let inline public fst3 (x, _, _) = x
+    let inline public snd3 (_, y, _) = y
+    let inline public thd3 (_, _, z) = z
 
     let inline public (|?) lhs rhs =
         if lhs = null then rhs else lhs

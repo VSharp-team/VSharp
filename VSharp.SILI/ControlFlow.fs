@@ -35,7 +35,7 @@ module internal ControlFlow =
     type private ReturnMarker() = class end
 
     let rec internal merge2Results condition1 condition2 thenRes elseRes =
-        let metadata = Metadata.combine thenRes.metadata elseRes.metadata in
+        let metadata = Metadata.combine thenRes.metadata elseRes.metadata
         match thenRes.result, elseRes.result with
         | _, _ when thenRes = elseRes -> thenRes
         | Return thenVal, Return elseVal -> Return metadata (Merging.merge2Terms condition1 condition2 thenVal elseVal)
@@ -51,7 +51,7 @@ module internal ControlFlow =
 
     and private mergeGuarded gvs cond1 cond2 guard other thenArg elseArg =
         let mergeOne (g, v) =
-            let merged = merge2Results cond1 cond2 (thenArg (v, other)) (elseArg (v, other)) in
+            let merged = merge2Results cond1 cond2 (thenArg (v, other)) (elseArg (v, other))
             match merged.result with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard (g &&& g2), v2))
             | _ -> List.singleton (guard(g), merged)
@@ -120,18 +120,17 @@ module internal ControlFlow =
         | Throw _, _
         | Return _, _ -> oldRes, oldState
         | Guarded gvs, _ ->
-            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs in
+            let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs
             let result =
                 match newRes.result with
                 | Guarded gvs' ->
                     let composeOne (g, v) =
-                        List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs' in
+                        List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs'
                     gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not) |> Merging.mergeSame
                 | _ ->
-                    let gs, vs = List.unzip gvs in
+                    let gs, vs = List.unzip gvs
                     List.zip gs (List.map (composeFlat newRes) vs)
-            in
-            let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata in
+            let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
     let rec internal resultToTerm result =
@@ -147,19 +146,17 @@ module internal ControlFlow =
             | Throw e -> [(True, result)]
             | Guarded gvs -> gvs
             | _ -> [(True, result)]
-        in
         let pickThrown (g, result) =
             match result.result with
             | Throw e -> Some(g, e)
             | _ -> None
-        in
-        let thrown, normal = List.mappedPartition pickThrown gvs in
+        let thrown, normal = List.mappedPartition pickThrown gvs
         match thrown with
         | [] -> None, normal
         | gvs ->
-            let gs, vs = List.unzip gvs in
-            let mergedGuard = disjunction result.metadata gs in
-            let mergedValue = Merging.merge gvs in
+            let gs, vs = List.unzip gvs
+            let mergedGuard = disjunction result.metadata gs
+            let mergedValue = Merging.merge gvs
             Some(mergedGuard, mergedValue), normal
 
     let internal mergeResults grs =
@@ -170,5 +167,4 @@ module internal ControlFlow =
             match gres with
             | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)
             | _ -> [gres]
-        in
         gvs |> List.map unguard |> List.concat

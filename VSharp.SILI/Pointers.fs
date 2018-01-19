@@ -25,14 +25,14 @@ module internal Pointers =
         simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
             (fun _ _ _ _ -> __unreachable__())
             (fun x y s k ->
-                let k = withSnd s >> k in
+                let k = withSnd s >> k
                 match x.term, y.term with
                 | _ when x = y -> MakeTrue mtd |> k
-                | HeapRef(xpath, _), HeapRef(ypath, _) ->
+                | HeapRef(xpath, _, None), HeapRef(ypath, _, None) ->
                     comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
-                | StackRef(key1, path1), StackRef(key2, path2) ->
+                | StackRef(key1, path1, None), StackRef(key2, path2, None) ->
                     MakeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
-                | StaticRef(key1, path1), StaticRef(key2, path2) ->
+                | StaticRef(key1, path1, None), StaticRef(key2, path2, None) ->
                     MakeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
                 | _ -> MakeFalse mtd |> k)
             (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
@@ -51,7 +51,8 @@ module internal Pointers =
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let internal isPointerOperation op t1 t2 =
-        (Types.IsPointer t1 || Types.IsBottom t1) && (Types.IsPointer t2 || Types.IsBottom t2) &&
+        (Types.IsPointer t1 || Types.IsReference t1 || Types.IsBottom t1) &&
+        (Types.IsPointer t2 || Types.IsReference t2 || Types.IsBottom t2) &&
         match op with
         | OperationType.Add
         | OperationType.Subtract
@@ -61,6 +62,6 @@ module internal Pointers =
 
     let rec internal topLevelLocation t =
         match t.term with
-        | HeapRef(((a, _), []), _) -> a
+        | HeapRef(((a, _), []), _, _) -> a
         | Union gvs -> Merging.guardedMap topLevelLocation gvs
         | _ -> __notImplemented__()

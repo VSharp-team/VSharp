@@ -5,6 +5,7 @@ open VSharp.Types.Constructor
 open Hierarchy
 
 module internal Common =
+    open System
 
 // ------------------------------- Simplification -------------------------------
 
@@ -28,9 +29,9 @@ module internal Common =
         | _, Error _ -> matched (y, state)
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY state |> matched
         | Union(gvsx), Union(gvsy) ->
-            let compose (gx, vx) state (gy, vy) matched = repeat vx vy state (fun (xy, state) -> ((gx &&& gy, xy), state) |> matched) in
-                let join state (gx, vx) k = Cps.List.mapFoldk (compose (gx, vx)) state gvsy k in
-                    Cps.List.mapFoldk join state gvsx (fun (gvss, state) -> (Merging.merge (List.concat gvss), state) |> matched)
+            let compose (gx, vx) state (gy, vy) matched = repeat vx vy state (fun (xy, state) -> ((gx &&& gy, xy), state) |> matched)
+            let join state (gx, vx) k = Cps.List.mapFoldk (compose (gx, vx)) state gvsy k
+            Cps.List.mapFoldk join state gvsx (fun (gvss, state) -> (Merging.merge (List.concat gvss), state) |> matched)
         | GuardedValues(guardsX, valuesX), _ ->
             Cps.List.mapFoldk (fun state x matched -> repeat x y state matched) state valuesX (fun (values', state) ->
             (Merging.merge (List.zip guardsX values'), state) |> matched)
@@ -41,48 +42,53 @@ module internal Common =
 
 // ------------------------------- Type casting -------------------------------
 
-    type private SymbolicTypeSource(t : TermType) =
+    // TODO: support composition for this constant source
+    type private SymbolicSubtypeSource(left : TermType, right : TermType) =
         inherit SymbolicConstantSource()
         override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
-        let makeBoolConst name termType = Constant Metadata.empty name (SymbolicTypeSource termType) Bool
-        in
-        let concreteIs (dotNetTypeHierarchy : Hierarchy) rightTermType = function
-            | ReferenceType(t, _, _)
-            | StructureType(t, _ ,_) -> Terms.MakeBool (t.Equals dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
-                implies (makeBoolConst name termType) b metadata
-            | ArrayType(_, SymbolicDimension name) as termType ->
-                let b = makeBoolConst (dotNetTypeHierarchy.Name) rightTermType in
-                implies (makeBoolConst name termType) b metadata
-            | SubType(t, _, _, _) when not <| dotNetTypeHierarchy.Is t -> Terms.MakeFalse metadata
-            // TODO: squash all Terms.MakeFalse into default case and get rid of __notImplemented__()
-            | PointerType _ -> Terms.MakeFalse metadata
-            | _ -> __notImplemented__()
-        in
-        let subTypeIs (dotNetTypeHierarchy : Hierarchy) rightTermType rightName = function
-            | ReferenceType(t, _, _) -> Terms.MakeBool (t.Is dotNetTypeHierarchy) metadata
-            | StructureType _ -> Terms.MakeBool (Hierarchy(typedefof<System.ValueType>).Is dotNetTypeHierarchy) metadata
-            | SubType(t, _, _, _) when t.Is dotNetTypeHierarchy -> Terms.MakeTrue metadata
-            | SubType(t, _, _, name) as termType when dotNetTypeHierarchy.Is t ->
-                implies (makeBoolConst name termType) (makeBoolConst rightName rightTermType) metadata
-            | ArrayType _ -> Terms.MakeBool (dotNetTypeHierarchy.Equals typedefof<obj>) metadata
-            | _ -> __notImplemented__()
-        in
+        let subtypeName lname rname = sprintf  "(%s <: %s)" lname rname
+        let makeBoolConst lname rname leftTermType rightTermType =
+            Constant metadata (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool
         match leftType, rightType with
+        | _ when leftType = rightType -> Terms.MakeTrue metadata
         | TermType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
-        | PointerType left, PointerType right -> Terms.MakeTrue metadata
+        | Reference _, Reference _ -> Terms.MakeTrue metadata
+        | Pointer _, Pointer _ -> Terms.MakeTrue metadata
         | Func _, Func _ -> Terms.MakeTrue metadata
-        | ArrayType(t1, c1), ArrayType(_, SymbolicDimension _) -> Terms.MakeTrue metadata
-        | ArrayType(t1, ConcreteDimension c1), ArrayType(t2, ConcreteDimension c2) -> if c1 = c2 then is metadata t1 t2 else Terms.MakeFalse metadata
-        | _, StructureType(t, _, _)
-        | _, ReferenceType(t, _, _) -> concreteIs t rightType leftType
-        | _, SubType(t, _, _, name) -> subTypeIs t rightType name leftType
+        | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
+            if name = "System.Array" then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
+            makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            if d1 = d2 then is metadata t1 t2 else Terms.MakeFalse metadata
+        | TypeVariable(Explicit (_, t)) as t1, t2 ->
+            (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | t1, (TypeVariable(Explicit (_, t)) as t2) ->
+            is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | ConcreteType lt as t1, (ConcreteType rt as t2) ->
+            if lt.IsGround && rt.IsGround
+                then Terms.MakeBool (lt.Is rt) metadata
+                else if lt.Is rt then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | _ -> Terms.MakeFalse metadata
+
+    // TODO: support composition for this constant source
+    type private IsValueTypeConstantSource(termType : TermType) =
+        inherit SymbolicConstantSource()
+        override x.SubTerms = Seq.empty
+
+    let internal isValueType metadata termType =
+        let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) (IsValueTypeConstantSource termType) Bool
+        match termType with
+        | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
+        | TypeVariable(Explicit(name, t)) ->
+            if (Types.ToDotNetType t).IsValueType
+                then makeBoolConst name
+                else MakeFalse metadata
+        | _ -> MakeFalse metadata
 
 // ------------------------------- Branching -------------------------------
 
@@ -91,7 +97,6 @@ module internal Common =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
             k <| merge2 condition !!condition thenResult elseResult))
-        in
         conditionInvocation (fun condition ->
         match condition with
         | Terms.True ->  thenBranch k
@@ -104,19 +109,16 @@ module internal Common =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = merge2 condition !!condition thenResult elseResult in
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState) in
+            let result = merge2 condition !!condition thenResult elseResult
+            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
             k (result, state)))
-        in
         conditionInvocation state (fun (condition, conditionState) ->
         let thenCondition =
             Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
             |> Merging.unguard |> Merging.merge
-        in
         let elseCondition =
             Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
             |> Merging.unguard |> Merging.merge
-        in
         match thenCondition, elseCondition, condition with
         | False, _, _ -> elseBranch conditionState k
         | _, False, _ -> thenBranch conditionState k
@@ -128,18 +130,18 @@ module internal Common =
 
     let rec internal substitute subst term =
         match term.term with
-        | HeapRef(path, t) ->
+        | HeapRef(path, t, v) ->
             path |> NonEmptyList.toList |> substitutePath subst (fun path' ->
-            let path'' = NonEmptyList.ofList path' in
-            if path'' = path then term else HeapRef term.metadata path'' t)
+            let path'' = NonEmptyList.ofList path'
+            if path'' = path then term else HeapView term.metadata path'' t v)
             |> Merging.merge
-        | StackRef(key, path) ->
+        | StackRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else StackRef term.metadata key path')
+            if path' = path then term else StackView term.metadata key path' v)
             |> Merging.merge
-        | StaticRef(key, path) ->
+        | StaticRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else StaticRef term.metadata key path')
+            if path' = path then term else StaticView term.metadata key path' v)
             |> Merging.merge
         | Error e ->
             e |> substitute subst |> Merging.unguard |> Merging.guardedApply (fun e' ->
@@ -151,46 +153,44 @@ module internal Common =
             |> Merging.merge
         | Union gvs ->
             let gvs' = gvs |> List.map (fun (g, v) ->
-                let ges, ggs = substitute subst g |> Merging.erroredUnguard in
+                let ges, ggs = substitute subst g |> Merging.erroredUnguard
                 (ggs, substitute subst v)::ges) |> List.concat
-            in
             if gvs' = gvs then term else Merging.merge gvs'
         | Struct(contents, typ) ->
-            let contents', errs = substituteHeap subst contents in
-            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False in
+            let contents', errs = substituteHeap subst contents
+            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
             (!!guard, Struct term.metadata contents' typ)::errs |> Merging.merge
         | Array(dim, len, lower, inst, contents, lengths, typ) ->
-            let dimerrs, dim' = dim |> substitute subst |> Merging.erroredUnguard in
-            let lenerrs, len' = len |> substitute subst |> Merging.erroredUnguard in
-            let lower', lowererrs = substituteHeap subst lower in
-            let contents', contentserrs = substituteHeap subst contents in
-            let lengths', lengthserrs = substituteHeap subst lengths in
+            let dimerrs, dim' = dim |> substitute subst |> Merging.erroredUnguard
+            let lenerrs, len' = len |> substitute subst |> Merging.erroredUnguard
+            let lower', lowererrs = substituteHeap subst lower
+            let contents', contentserrs = substituteHeap subst contents
+            let lengths', lengthserrs = substituteHeap subst lengths
             let insterrs, inst' =
                 inst
                 |> List.map (fun (g, i) ->
-                    let ges, g' = g |> substitute subst |> Merging.erroredUnguard in
+                    let ges, g' = g |> substitute subst |> Merging.erroredUnguard
                     let ges, gis =
                         match i with
                         | DefaultInstantiator _ -> ges, [(g, i)]
                         | LazyInstantiator(term, typ) ->
-                            let ges', gts' = term |> substitute subst |> Merging.unguard |> List.partition (snd >> IsError) in
+                            let ges', gts' = term |> substitute subst |> Merging.unguard |> List.partition (snd >> IsError)
                             List.append ges ges', List.map (fun (g, t) -> (g' &&& g, LazyInstantiator(t, typ))) gts'
-                    in ges, Merging.genericSimplify gis)
+                    ges, Merging.genericSimplify gis)
                 |> List.unzip
-            in
-            let insterrs, inst' = List.concat insterrs, List.concat inst' in
-            let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs] in
-            Array term.metadata dim' len' lower' inst' contents' lengths' typ
+            let insterrs, inst' = List.concat insterrs, List.concat inst'
+            let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs]
+            Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
         | _ -> subst term
 
     and internal substituteHeap subst heap =
-        Heap.mapFold (fun errs k (v, c, m) ->
-            let ges, v' = Merging.erroredUnguard v in
-            ((k, (substitute subst v', c, m)), List.append errs ges)) [] heap
+        Heap.mapFold (fun errs k cell ->
+            let ges, v' = Merging.erroredUnguard cell.value
+            ((k, {cell with value = substitute subst v'}), List.append errs ges)) [] heap
 
     and internal substituteMany subst ctor terms =
         terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) ctor
 
     and internal substitutePath subst ctor path =
-        let addrs, ts = List.unzip path in
+        let addrs, ts = List.unzip path
         addrs |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) (fun addrs -> List.zip addrs ts |> ctor)

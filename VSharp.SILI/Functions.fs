@@ -1,23 +1,26 @@
 ﻿namespace VSharp
 
+open System.Reflection
 open JetBrains.Decompiler.Ast
 open JetBrains.Metadata.Reader.API
 open System.Collections.Generic
 
 module Functions =
+    open Terms
+
     type internal SymbolicLambda<'a> = LocationBinding -> State.state -> Term list State.SymbolicValue -> (StatementResult * State.state -> 'a) -> 'a
 
     let internal MakeLambda metadata state (metadataMethod : IMetadataMethod) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromMetadataMethodSignature metadataMethod in
-        let term = Concrete metadata lambda typ in
+        let typ = Types.FromMetadataMethodSignature metadataMethod
+        let term = Concrete metadata lambda typ
         Memory.allocateInHeap metadata state term
 
     let internal MakeLambdaTerm metadata (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let typ = Types.FromDecompiledSignature signature returnMetadataType in
+        let typ = Types.FromDecompiledSignature signature returnMetadataType
         Concrete metadata lambda typ
 
     let internal MakeLambda2 metadata state (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : SymbolicLambda<'a>) =
-        let term = MakeLambdaTerm metadata signature returnMetadataType lambda in
+        let term = MakeLambdaTerm metadata signature returnMetadataType lambda
         if Transformations.isInlinedSignatureCall signature
             then Memory.allocateInHeap metadata state term
             else term, state
@@ -43,9 +46,9 @@ module Functions =
         let mutable internal interpreter : IInterpreter = new NullInterpreter() :> IInterpreter
 
         let private formInitialStatics metadata typ typeName =
-                let staticMemoryKey = Terms.MakeStringKey typeName
-                let staticMemoryEntry = Struct metadata Heap.empty typ
-                Heap.empty.Add(staticMemoryKey, (staticMemoryEntry, Timestamp.zero, Timestamp.zero))
+            let staticMemoryKey = Terms.MakeStringKey typeName
+            let staticMemoryEntry = Struct metadata Heap.empty typ
+            Heap.empty.Add(staticMemoryKey, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
 
         let internal invoke id state this k =
             interpreter.Invoke id state this k
@@ -58,7 +61,7 @@ module Functions =
                 match id with
                 | MetadataMethodIdentifier mm ->
                     let declaringQualifiedName = mm.DeclaringType.AssemblyQualifiedName
-                    let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.FromConcreteDotNetType in
+                    let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.FromDotNetType
                     let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType declaringQualifiedName) }
                     match mm with
                     | _ when mm.IsStatic -> (None, initialState)
@@ -67,8 +70,8 @@ module Functions =
                         let instance, state = Memory.allocateSymbolicInstance metadata initialState declaringType
                         if Terms.IsHeapRef instance then (Some instance, state)
                         else
-                            let key = ("external data", mm.Token.ToString()) in
-                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)] in
+                            let key = ("external data", mm.Token.ToString())
+                            let state = Memory.newStackFrame state metadata (MetadataMethodIdentifier null) [(key, State.Specified instance, Some declaringType)]
                             (Some <| Memory.referenceLocalVariable metadata state key true, state)
                 | DelegateIdentifier ast ->
                     __notImplemented__()
@@ -79,16 +82,16 @@ module Functions =
                 k r)
 
         let internal reproduceEffect mtd funcId (state : State.state) k =
-            let addr = [Memory.freshAddress()] in
-            let time = Memory.tick() in
+            let addr = [Memory.freshAddress()]
+            let time = Memory.tick()
             if currentlyExploredFunctions.Contains funcId then
                 // TODO: this is just a temporary hack!!
-                let recursiveResult = NoResult mtd in
-                let recursiveState = { state with heap = State.RecursiveApplication(funcId, addr, time); statics = State.RecursiveApplication(funcId, addr, time) } in
+                let recursiveResult = NoResult mtd
+                let recursiveState = { state with heap = State.RecursiveApplication(funcId, addr, time); statics = State.RecursiveApplication(funcId, addr, time) }
                 k (recursiveResult, recursiveState)
             else
                 let ctx : State.CompositionContext = { mtd = mtd; addr = addr; time = time }
-                let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id) in
-                let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn in
-                let state = Memory.composeStates ctx state exploredState in
+                let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id)
+                let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn
+                let state = Memory.composeStates ctx state exploredState
                 k (result, state)

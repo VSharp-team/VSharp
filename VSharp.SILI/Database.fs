@@ -11,7 +11,7 @@ module Database =
     let internal report id (result, state) =
         exploredResults.Add(id, result) |> ignore
         exploredStates.Add(id, state) |> ignore
-        let thrown, _ = ControlFlow.pickOutExceptions result in
+        let thrown, _ = ControlFlow.pickOutExceptions result
         match thrown with
         | Some(g, e) ->
             exploredExceptionGuards.Add(id, g)

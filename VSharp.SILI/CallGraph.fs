@@ -7,8 +7,7 @@ module CallGraph =
             match frame.func with
             | Some(id', _) when id = id' -> true
             | _ -> false
-        in
-        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f in
+        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
         match bottomOccurence with
         | None -> false
         | Some { func = Some(_, p'); entries = _; time =  _ } when s.pc = p' ->
@@ -27,6 +26,6 @@ module CallGraph =
             body state k
 
     let internal call mtd funcId state body k =
-        let shouldStopUnrolling = detectUnboundRecursion funcId state in
+        let shouldStopUnrolling = detectUnboundRecursion funcId state
         callOrApplyEffect mtd shouldStopUnrolling body funcId state (fun (result, state) ->
         k (result, State.popStack state))

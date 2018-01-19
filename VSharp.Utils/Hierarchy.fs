@@ -4,12 +4,12 @@ module public Hierarchy =
 
     let rec private getBaseTypeFromGenericParameter (t : System.Type) =
         let mergeHierarchy (l : System.Type) (r : System.Type) =
-            if l.IsAssignableFrom(r) then r else l in
+            if l.IsAssignableFrom(r) then r else l
         let nakedTypes =
             t.GetGenericParameterConstraints() |>
             Seq.filter (fun nt -> nt.IsGenericParameter) |>
             Seq.map getBaseTypeFromGenericParameter |>
-            List.ofSeq in
+            List.ofSeq
         t.BaseType :: nakedTypes |> Seq.reduce mergeHierarchy
 
     and private getInheritanceHierarchy (t : System.Type) =
@@ -24,6 +24,8 @@ module public Hierarchy =
         member x.Inheritor = List.head hierarchy
         member x.Hierarchy = hierarchy
         member x.Name = x.Inheritor.ToString()
+        member x.IsGround =
+            (not x.Inheritor.IsGenericType && not x.Inheritor.IsGenericParameter) || (x.Inheritor.IsConstructedGenericType)
         member x.Is (r : Hierarchy) = Seq.contains r.Inheritor hierarchy
         member x.Equals (r : Hierarchy) = x.Inheritor = r.Inheritor
         member x.Equals (r : System.Type) = x.Inheritor = r

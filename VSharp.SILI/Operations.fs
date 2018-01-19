@@ -128,7 +128,7 @@ module Operations =
         | OperationType.AssignmentShiftLeft -> OperationType.ShiftLeft
         | OperationType.AssignmentShiftRight -> OperationType.ShiftRight
         | OperationType.AssignmentSubtract -> OperationType.Subtract
-        | op -> internalfail (toString op + " is not an assignment operation")
+        | op -> internalfailf "%O is not an assignment operation" op
 
     type StandardFunction =
         | Arccosine
