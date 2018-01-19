@@ -11,7 +11,7 @@ namespace VSharp.CSharpUtils.Tests
 
     public class Lists
     {
-//        private void IncN(ListNode l, int n)
+//        public void IncN(ListNode l, int n)
 //        {
 //            if (l == null || n == 0)
 //                return;

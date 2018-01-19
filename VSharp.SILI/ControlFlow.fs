@@ -32,6 +32,8 @@ module internal ControlFlowConstructors =
 
 module internal ControlFlow =
 
+    type private ReturnMarker() = class end
+
     let rec internal merge2Results condition1 condition2 thenRes elseRes =
         let metadata = Metadata.combine thenRes.metadata elseRes.metadata
         match thenRes.result, elseRes.result with
@@ -91,7 +93,7 @@ module internal ControlFlow =
         match term.term with
         | Error t -> Throw term.metadata t
         | GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded term.metadata
-        | Nop -> NoResult term.metadata
+        | Nop when not <| Metadata.miscContains term (ReturnMarker()) -> NoResult term.metadata
         | _ -> Return term.metadata term
 
     let rec internal consumeErrorOrReturn consumer term =
@@ -133,8 +135,8 @@ module internal ControlFlow =
 
     let rec internal resultToTerm result =
         match result.result with
-        | Return term -> { term = term.term; metadata = result.metadata }
-        | Throw err -> Error err result.metadata
+        | Return term -> Metadata.addMisc term (ReturnMarker()); { term = term.term; metadata = result.metadata }
+        | Throw err -> Error result.metadata err
         | Guarded gvs -> Merging.guardedMap resultToTerm gvs
         | _ -> Nop
 

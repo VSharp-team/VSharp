@@ -4,6 +4,17 @@ open JetBrains.Metadata.Reader.API
 open JetBrains.Decompiler.Ast
 open System.Collections.Generic
 
+[<StructuralEquality;NoComparison>]
+type FunctionIdentifier =
+    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
+    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
+    | StandardFunctionIdentifier of Operations.StandardFunction
+    override x.ToString() =
+        match x with
+        | MetadataMethodIdentifier mm -> mm.Name
+        | DelegateIdentifier _ -> "<delegate>"
+        | StandardFunctionIdentifier sf -> sf.ToString()
+
 module internal DecompilerServices =
     let private assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private assemblies = new Dictionary<string, JetBrains.Metadata.Reader.API.IMetadataAssembly>()
@@ -48,7 +59,7 @@ module internal DecompilerServices =
     // For some reason DotPeek poorly handles Mono-compiled auto-properties. Backing field is not initialized,
     // the property is not an auto-one, but body is still null!
     let private hackBuggyAutoProperty (property : IDecompiledProperty) embodier =
-        printfn "Warning: hacking buggy auto-property %s.%s" property.OwnerClass.TypeInfo.FullyQualifiedName property.MetadataProperty.Name
+//        printfn "Warning: hacking buggy auto-property %s.%s" property.OwnerClass.TypeInfo.FullyQualifiedName property.MetadataProperty.Name
         let fieldNameIs name (field : IMetadataField) = field.Name = name
         let backingField =
             property.OwnerClass.TypeInfo.GetFields()

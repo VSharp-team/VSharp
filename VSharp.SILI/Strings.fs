@@ -6,9 +6,9 @@ module internal Strings =
 
     let MakeString length str timestamp =
         let fields : Heap<Term,Term> =
-            Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", { value = Concrete length (Numeric typedefof<int>) Metadata.empty; created = timestamp; modified = timestamp };
-            MakeStringKey "System.String.m_FirstChar", { value = Concrete str VSharp.String Metadata.empty; created = timestamp; modified = timestamp }])
-        Struct fields VSharp.String Metadata.empty
+            Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length (Numeric typedefof<int>); created = timestamp; modified = timestamp };
+            MakeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str VSharp.String; created = timestamp; modified = timestamp }])
+        Struct Metadata.empty fields VSharp.String
 
     let internal simplifyEquality mtd x y =
         match x.term, y.term with

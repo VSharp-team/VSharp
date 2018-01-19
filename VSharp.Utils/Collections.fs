@@ -1,5 +1,7 @@
 namespace VSharp
 
+open System.Collections.Generic
+
 module public Seq =
     let foldi f st xs =
         let i = ref (-1)
@@ -35,10 +37,22 @@ module public List =
         match xs, ys with
         | [], [] -> []
         | x::xs, y::ys ->
-            match mapper x y with
-            | Some z -> z::(filterMap2 mapper xs ys)
-            | None -> (filterMap2 mapper xs ys)
+            let z = mapper x y
+            optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
+
+    let public unique = function
+        | [] -> internalfail "unexpected non-empty list"
+        | x::xs ->
+            assert(List.forall ((=)x) xs)
+            x
+
+    let public minus xs ys =
+        let l1 = List.length xs
+        let l2 = List.length ys
+        let result, tail = List.splitAt (l2 - l1) xs
+        assert(tail = ys)
+        result
 
     let rec public changeLast f xs =
         let cons x = function
@@ -64,21 +78,30 @@ module public Map =
             Map.empty map
 
 module public Dict =
-    let public getValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
+    let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
             let newVal = fallback()
             dict.Add(key, newVal)
             newVal
 
-    let public tryGetValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+    let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
+
+    let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
+        let result = new Dictionary<'a, 'b>()
+        Seq.iter result.Add s
+        result :> IDictionary<'a, 'b>
+
+    let public equals (dict1 : IDictionary<'a,'b>) (dict2 : IDictionary<'a, 'b>) =
+        dict1.Keys.Count = dict2.Keys.Count &&
+        dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
 
 module public Stack =
     type 'a stack = 'a list
 
-    let peak = function
+    let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
         | hd::tl -> hd
 

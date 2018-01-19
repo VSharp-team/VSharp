@@ -19,15 +19,15 @@ namespace VSharp.CSharpUtils
         public static void Clear(object thisNull, System.Array array, int index, int length)
         {
             if (array == null)
-                throw new ArgumentNullException("array");
+                throw new ArgumentNullException(nameof(array), "Array cannot be null");
             if (length < 0)
-                throw new IndexOutOfRangeException("length < 0");
+                throw new IndexOutOfRangeException();
             int lowerBound = array.GetLowerBound(0);
             if (index < lowerBound)
-                throw new IndexOutOfRangeException("index < lower bound");
+                throw new IndexOutOfRangeException();
             index -= lowerBound;
             if (index > array.Length - length)
-                throw new IndexOutOfRangeException("index + length > size");
+                throw new IndexOutOfRangeException();
             ClearInternal(thisNull, array, index, length);
         }
 

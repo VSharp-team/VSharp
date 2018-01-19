@@ -8,7 +8,10 @@ module internal Pointers =
     let internal locationEqual mtd addr1 addr2 =
         match TypeOf addr1, TypeOf addr2 with
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
-        | Numeric _, Numeric _ -> Arithmetics.eq mtd addr1 addr2
+        | Numeric _, Numeric _ ->
+            if addr1 = addr2 then MakeTrue mtd
+            elif IsConcrete addr1 && IsConcrete addr2 then Terms.MakeFalse mtd
+            else MakeBinary OperationType.Equal addr1 addr2 false Bool mtd
         | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
         | _ -> __notImplemented__()
 
@@ -56,3 +59,9 @@ module internal Pointers =
         | OperationType.Equal
         | OperationType.NotEqual -> true
         | _ -> false
+
+    let rec internal topLevelLocation t =
+        match t.term with
+        | HeapRef(((a, _), []), _, _) -> a
+        | Union gvs -> Merging.guardedMap topLevelLocation gvs
+        | _ -> __notImplemented__()

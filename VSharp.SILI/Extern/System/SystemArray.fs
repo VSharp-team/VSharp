@@ -40,7 +40,7 @@ module internal SystemArray =
             match array.term with
             | Union gvs -> Merging.guardedStateMap (fun state term -> getLength state dimension term) gvs state
             | _ -> getLength state dimension array
-        in (ControlFlow.throwOrReturn result, state)
+        (ControlFlow.throwOrReturn result, state)
 
     let GetRank state args =
         let array, state = Memory.deref state (List.head args)
@@ -50,7 +50,7 @@ module internal SystemArray =
             | Array(d, _, _, _, _, _, _) -> d
             | Union gvs -> Merging.guardedMap getRank gvs
             | term -> internalfailf "expected array, but %O got!" term
-        in (Return (getRank array), state)
+        (Return (getRank array), state)
 
     let get_Rank state args =
         GetRank state args
@@ -78,4 +78,4 @@ module internal SystemArray =
             match array.term with
             | Union gvs -> Merging.guardedStateMap (fun state term -> getLowerBound state dimension term) gvs state
             | _ -> getLowerBound state dimension array
-        in (ControlFlow.throwOrReturn result, state)
+        (ControlFlow.throwOrReturn result, state)

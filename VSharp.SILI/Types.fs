@@ -25,9 +25,9 @@ type public TermType =
     | Bool
     | Numeric of System.Type
     | String
-    | StructType of Hierarchy * TermTypeRef list * TermType list // some value type with generic argument and interfaces
-    | ClassType of Hierarchy * TermTypeRef list * TermType list // some reference type with generic argument and interfaces
-    | InterfaceType of Hierarchy * TermTypeRef list * TermType list // some interface type with generic argument and interfaces
+    | StructType of Hierarchy * TermTypeRef list * TermType list        // Value type with generic argument and interfaces
+    | ClassType of Hierarchy * TermTypeRef list * TermType list         // Reference type with generic argument and interfaces
+    | InterfaceType of Hierarchy * TermTypeRef list * TermType list     // Interface type with generic argument and interfaces
     | TypeVariable of TypeId
     | ArrayType of TermType * ArrayDimensionType
     | Func of TermType list * TermType
@@ -103,7 +103,7 @@ module public Types =
 
     let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
 
-    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>; typedefof<string>])
+    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
     let public IsNumeric = function
         | Numeric _ -> true
@@ -204,13 +204,13 @@ module public Types =
 
     let internal SizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =
-            let method = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+            let meth = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
 
-            let gen = method.GetILGenerator()
+            let gen = meth.GetILGenerator()
             gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
             gen.Emit(Reflection.Emit.OpCodes.Ret)
 
-            method.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
+            meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
             |> unbox
         typ |> ToDotNetType |> internalSizeOf |> int
 
@@ -227,7 +227,7 @@ module public Types =
                 let lengthGenericArguments = metadataMethod.GenericArguments.Length
                 let parameters = metadataMethod.Parameters
                 let declaringType = metadataMethod.DeclaringType
-                let method =
+                let meth =
                     Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
                     Seq.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
                     Seq.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
@@ -238,8 +238,8 @@ module public Types =
                             l.ParameterType.FullName |? l.ParameterType.Name = r.Type.FullName) p parameters) |>
                     Seq.map fst |>
                     Array.ofSeq
-                assert(method.Length = 1)
-                method.[0].GetGenericArguments().[int arg.Index]
+                assert(meth.Length = 1)
+                meth.[0].GetGenericArguments().[int arg.Index]
             | _ -> __notImplemented__()
 
         let rec public MetadataToDotNetType (arg : IMetadataType) =
@@ -482,3 +482,8 @@ module public Types =
             let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name
             (fieldName, FromDotNetType field.FieldType)
         fields |> FSharp.Collections.Array.map extractFieldInfo |> Map.ofArray
+
+    let public ReturnType = function
+        | MetadataMethodIdentifier mm -> FromMetadataType mm.Signature.ReturnType
+        | DelegateIdentifier _ -> Void // TODO
+        | StandardFunctionIdentifier sf -> __notImplemented__()

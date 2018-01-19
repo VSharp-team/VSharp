@@ -1,7 +1,6 @@
 namespace VSharp.Utils
 
 open VSharp
-open MemoryCell
 
 module public MappedStack =
     type stackContents<'a, 'b> when 'a : comparison = Map<'a * uint32, 'b>
@@ -89,7 +88,7 @@ module public MappedStack =
         let mergeOneKey (k, time) =
             let vals = List.map2 (fun g (s, _) -> (g, if Map.containsKey k s then s.[k] else k |> fst |> lazyInstantiate time)) guards stacks
             (k, resolve vals)
-        in (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
+        (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
 
     let merge2 (contents1, peaks1) (contents2, peaks2) resolve lazyInstantiate =
         assert(peaks1 = peaks2)
@@ -103,4 +102,4 @@ module public MappedStack =
             let val1 = if Map.containsKey k contents1 then contents1.[k] else k |> fst |> lazyInstantiate time
             let val2 = if Map.containsKey k contents2 then contents2.[k] else k |> fst |> lazyInstantiate time
             Map.add k (resolve val1 val2) result
-        in (relevantEntries |> Seq.fold mergeOneKey contents1, peaks1)
+        (relevantEntries |> Seq.fold mergeOneKey contents1, peaks1)

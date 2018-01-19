@@ -53,13 +53,15 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Hierarchy.fs" />
-    <Compile Include="IdGenerator.fs" />
+    <Compile Include="Timestamp.fs" />
     <Compile Include="MemoryCell.fs" />
     <Compile Include="Prelude.fs" />
     <Compile Include="Collections.fs" />
     <Compile Include="Cps.fs" />
     <Compile Include="MappedStack.fs" />
     <Compile Include="Heap.fs" />
+    <Compile Include="Persistent.fs" />
+    <Compile Include="IdGenerator.fs" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

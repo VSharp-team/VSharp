@@ -5,21 +5,11 @@ open global.System
 open System.Collections.Generic
 open Types.Constructor
 
-[<StructuralEquality;NoComparison>]
-type FunctionIdentifier =
-    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
-    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
-    | StandardFunctionIdentifier of Operations.StandardFunction
-    override x.ToString() =
-        match x with
-        | MetadataMethodIdentifier mm -> mm.Name
-        | DelegateIdentifier _ -> "<delegate>"
-        | StandardFunctionIdentifier sf -> sf.ToString()
-
-type StackKey = string * string  // Name and token
+type StackKey = string * string // Name and token
 
 type LocationBinding = JetBrains.Decompiler.Ast.INode
 type StackHash = int list
+type ConcreteHeapAddress = int list
 type TermOrigin = { location : LocationBinding; stack : StackHash }
 type TermMetadata = { origins : TermOrigin list; mutable misc : HashSet<obj> }
 
@@ -38,10 +28,10 @@ type public Operation =
 type public TermNode =
     | Nop
     | Error of Term
-    | Concrete of Object * TermType
+    | Concrete of obj * TermType
     | Constant of string * SymbolicConstantSource * TermType
     | Array of Term                                       // Dimension
-               * Term                                     // Length
+               * Term                                     // Overal length (product of lengths by dimensions)
                * SymbolicHeap                             // Lower bounds
                * (Term * ArrayInstantiator) list          // Element instantiator with guards
                * SymbolicHeap                             // Contents
@@ -50,7 +40,7 @@ type public TermNode =
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list * TermType option           // last TermType is for pointers
-    | HeapRef of (Term * TermType) NonEmptyList * Timestamp * TermType option   // last TermType is for pointers
+    | HeapRef of (Term * TermType) NonEmptyList * RefTime * TermType option   // last TermType is for pointers
     | StaticRef of string * (Term * TermType) list * TermType option            // last TermType is for pointers
     | Union of (Term * Term) list
 
@@ -101,6 +91,8 @@ type public TermNode =
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
+            | Concrete(_, Null) -> "null"
+            | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -141,15 +133,15 @@ type public TermNode =
                         | DefaultInstantiator _ -> ""
                         | LazyInstantiator(_, t) -> sprintf "%O: " t
                     | _ -> sprintf "%s: " printed
-                in sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
+                sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") toString (fst >> toString) dimensions)
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard
                     let termString = toStringWithParentIndent indent term
                     sprintf "| %s ~> %s" guardString termString
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                in sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
-            | HeapRef(((z, _), []), _, _) when z.term = Concrete(0, Types.pointerType) -> "null"
+                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+            | HeapRef(((z, _), []), _, _) when z.term = Concrete([0], Types.pointerType) -> "null"
             | StackRef(_, _, mbtyp)
             | HeapRef(_, _, mbtyp)
             | StaticRef(_, _, mbtyp) ->
@@ -161,9 +153,13 @@ type public TermNode =
                 match term with
                 | StackRef(key, path, _) -> printref "Stack" key path
                 | StaticRef(key, path, _) -> printref "Static" key path
-                | HeapRef(path, _, _) ->
-                    templateRef "Heap"
-                        (path |> NonEmptyList.toList |> List.map (fst >> toStringWithIndent indent) |> join ".")
+                | HeapRef(((z, _), path), _, _) ->
+                    let ks =
+                        match z.term with
+                        | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+                        | t -> toString t
+                    path |> List.map (fst >> toStringWithIndent indent) |> cons ks |> join "." |> templateRef "Heap"
+
                 | _ -> __unreachable__()
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
@@ -196,33 +192,31 @@ and
 
 and
     [<CustomEquality;NoComparison>]
-    TermRef =
-        {reference : Term ref}
-        override x.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
-        override x.Equals(o : obj) =
-            match o with
-            | :? TermRef as other -> x.GetHashCode() = other.GetHashCode()
-            | _ -> false
-
-and
-    [<CustomEquality;NoComparison>]
     Term =
         {term : TermNode; metadata : TermMetadata}
-        override x.ToString() =
-            x.term.ToString()
-        override x.GetHashCode() =
-            x.term.GetHashCode()
+        override x.ToString() = x.term.ToString()
+        override x.GetHashCode() = x.term.GetHashCode()
         override x.Equals(o : obj) =
             match o with
             | :? Term as other -> x.term.Equals(other.term)
             | _ -> false
 
-and SymbolicConstantSource() =
-    override x.GetHashCode() =
-        x.GetType().GetHashCode()
-    override x.Equals(o : obj) =
-        o.GetType() = x.GetType()
+and
+    [<AbstractClass>]
+    SymbolicConstantSource() =
+        abstract SubTerms : Term seq
+        override x.GetHashCode() =
+            x.GetType().GetHashCode()
+        override x.Equals(o : obj) = o.GetType() = x.GetType()
+
+and
+    [<CustomEquality;NoComparison>]
+    RefTime =
+        {time : timestamp}
+        override x.ToString() = x.time.ToString()
+        override x.GetHashCode() = x.GetType().GetHashCode()
+        override x.Equals(o : obj) =
+            o :? RefTime
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -236,6 +230,7 @@ module public Terms =
         let addMisc t obj =
             if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
             t.metadata.misc.Add obj |> ignore
+        let miscContains t obj = t.metadata.misc <> null && t.metadata.misc.Contains(obj)
         let isEmpty m = List.isEmpty m.origins
         let firstOrigin m = List.head m.origins
         let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
@@ -243,23 +238,26 @@ module public Terms =
     let public term (term : Term) = term.term
 
     let public Nop = { term = Nop; metadata = Metadata.empty }
-    let public Error term metadata = { term = Error term; metadata = metadata }
-    let public Concrete obj typ metadata = { term = Concrete(obj, typ); metadata = metadata }
-    let public Constant name source typ metadata = { term = Constant(name, source, typ); metadata = metadata }
-    let public Array dimension length lower constant contents lengths typ metadata = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
-    let public Expression op args typ metadata = { term = Expression(op, args, typ); metadata = metadata }
-    let public Struct fields typ metadata = { term = Struct(fields, typ); metadata = metadata }
-    let public StackPtr key path typ metadata = { term = StackRef(key, path, Some typ); metadata = metadata }
-    let public StackRef key path metadata = { term = StackRef(key, path, None); metadata = metadata }
-    let public HeapPtr path time typ metadata = { term = HeapRef(path, time, Some typ); metadata = metadata }
-    let public HeapRef path time metadata = { term = HeapRef(path, time, None); metadata = metadata }
-    let public StaticPtr key path typ metadata = { term = StaticRef(key, path, Some typ); metadata = metadata }
-    let public StaticRef key path metadata = { term = StaticRef(key, path, None); metadata = metadata }
+    let public Error metadata term = { term = Error term; metadata = metadata }
+    let public Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
+    let public Constant metadata name source typ = { term = Constant(name, source, typ); metadata = metadata }
+    let public Array metadata dimension length lower constant contents lengths typ = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
+    let public Expression metadata op args typ = { term = Expression(op, args, typ); metadata = metadata }
+    let public Struct metadata fields typ = { term = Struct(fields, typ); metadata = metadata }
+    let public StackView metadata key path view = { term = StackRef(key, path, view); metadata = metadata }
+    let public StackPtr metadata key path typ = { term = StackRef(key, path, Some typ); metadata = metadata }
+    let public StackRef metadata key path = { term = StackRef(key, path, None); metadata = metadata }
+    let public HeapView metadata path time view = { term = HeapRef(path, time, view); metadata = metadata }
+    let public HeapPtr metadata path time typ = { term = HeapRef(path, time, Some typ); metadata = metadata }
+    let public HeapRef metadata path time = { term = HeapRef(path, time, None); metadata = metadata }
+    let public StaticView metadata key path view = { term = StaticRef(key, path, view); metadata = metadata }
+    let public StaticPtr metadata key path typ = { term = StaticRef(key, path, Some typ); metadata = metadata }
+    let public StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
     let public Union metadata gvs = { term = Union gvs; metadata = metadata }
 
-    let public ZeroAddress = TermNode.Concrete(0, Types.pointerType)
+    let public ZeroAddress = TermNode.Concrete([0], Types.pointerType)
 
-    let public MakeZeroAddress mtd = Concrete 0 Types.pointerType mtd
+    let public MakeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 
 
     let public (|StackPtr|_|) = function
@@ -275,15 +273,15 @@ module public Terms =
         | _ -> None
 
     let internal CastReferenceToPointer mtd targetType = term >> function
-        | StackRef(key, path, _) -> StackPtr key path targetType mtd
-        | StaticRef(key, path, _) -> StaticPtr key path targetType mtd
-        | HeapRef(path, time, _) -> HeapPtr path time targetType mtd
+        | StackRef(key, path, _) -> StackPtr mtd key path targetType
+        | StaticRef(key, path, _) -> StaticPtr mtd key path targetType
+        | HeapRef(path, time, _) -> HeapPtr mtd path time targetType
         | t -> internalfailf "Expected reference or pointer, got %O" t
 
     let internal GetReferenceFromPointer mtd = term >> function
-        | StackPtr(key, path, _) -> StackRef key path mtd
-        | StaticPtr(key, path, _) -> StaticRef key path mtd
-        | HeapPtr(path, time, _) -> HeapRef path time mtd
+        | StackPtr(key, path, _) -> StackRef mtd key path
+        | StaticPtr(key, path, _) -> StaticRef mtd key path
+        | HeapPtr(path, time, _) -> HeapRef mtd path time
         | t -> internalfailf "Expected pointer, got %O" t
 
     let public IsVoid = term >> function
@@ -352,12 +350,11 @@ module public Terms =
         | Expression(_, args, _) -> args
         | term -> internalfailf "expression expected, %O recieved" term
 
-    let internal (|ReferenceTo|_|) = // doesn't match references with empty path!
-        let someTypeOfAddrs = List.tryLast >> Option.map snd
-        function
+    // Doesn't match stack and static references with empty path!
+    let internal (|ReferenceTo|_|) = function
         | StackRef(_, addrs, None)
-        | StaticRef(_, addrs, None) -> someTypeOfAddrs addrs
-        | HeapRef(addrs, _, None) -> addrs |> NonEmptyList.toList |> someTypeOfAddrs
+        | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
+        | HeapRef(addrs, _, None) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
         | _ -> None
 
     let internal (|PointerTo|_|) = function
@@ -376,8 +373,8 @@ module public Terms =
         | Struct(_, t) -> t
         | PointerTo t -> Pointer t
         | ReferenceTo t -> Reference t
-        | StackRef(_, [], _)
-        | StaticRef(_, [], _) -> Reference VSharp.Void
+        | StackRef(_, [], _) -> Reference VSharp.Void // TODO: this is temporary hack, support normal typing
+        | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> FromDotNetType |> Reference
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
@@ -391,6 +388,7 @@ module public Terms =
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
+        | _ -> __unreachable__()
 
 
     let public SizeOf =                 TypeOf >> Types.SizeOf
@@ -409,25 +407,25 @@ module public Terms =
         let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
-                Concrete value (FromDotNetType t) metadata
+                Concrete metadata value (FromDotNetType t)
             elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
                 let casted =
                     if t.IsPointer
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     else Convert.ChangeType(value, t)
-                Concrete casted (FromDotNetType t) metadata
+                Concrete metadata casted (FromDotNetType t)
             elif t.IsAssignableFrom(actualType) then
-                Concrete value (FromDotNetType t) metadata
+                Concrete metadata value (FromDotNetType t)
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->
             internalfailf "cannot cast %s to %s!" t.FullName actualType.FullName
 
     let public MakeTrue metadata =
-        Concrete (box true) Bool metadata
+        Concrete metadata (box true) Bool
 
     let public MakeFalse metadata =
-        Concrete (box false) Bool metadata
+        Concrete metadata (box false) Bool
 
     let public True = MakeTrue Metadata.empty
 
@@ -437,34 +435,34 @@ module public Terms =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
     let public MakeNullRef typ metadata =
-        HeapRef (((MakeZeroAddress metadata), typ), []) 0u metadata
+        HeapRef metadata (((MakeZeroAddress metadata), typ), []) {time = Timestamp.zero}
 
     let public MakeNullPtr typ metadata =
-        HeapPtr (((MakeZeroAddress metadata), typ), []) 0u typ metadata
+        HeapPtr metadata (((MakeZeroAddress metadata), typ), []) {time = Timestamp.zero} typ
 
     let public MakeNumber n metadata =
-        Concrete n (Numeric(n.GetType())) metadata
+        Concrete metadata n (Numeric(n.GetType()))
 
     let public MakeConcreteString (s : string) metadata =
-        Concrete s VSharp.String metadata
+        Concrete metadata s VSharp.String
 
     let public MakeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)
-        Expression (Operator(operation, isChecked)) [x; y] t metadata
+        Expression metadata (Operator(operation, isChecked)) [x; y] t
 
     let public MakeNAry operation x isChecked t metadata =
         match x with
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x
-        | _ -> Expression (Operator(operation, isChecked)) x t metadata
+        | _ -> Expression metadata (Operator(operation, isChecked)) x t
 
     let public MakeUnary operation x isChecked t metadata =
         assert(Operations.isUnary operation)
-        Expression (Operator(operation, isChecked)) [x] t metadata
+        Expression metadata (Operator(operation, isChecked)) [x] t
 
     let public MakeCast srcTyp dstTyp expr isChecked metadata =
         if srcTyp = dstTyp then expr
-        else Expression (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp metadata
+        else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
 
     let public MakeStringKey typeName =
         MakeConcreteString typeName Metadata.empty
@@ -554,41 +552,53 @@ module public Terms =
         | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
         | _ -> None
 
-    let rec private addConstants mapper (visited : HashSet<Term>) acc term =
+    // TODO: can we already get rid of visited?
+    let rec private foldChildren folder (visited : HashSet<Term>) state term =
         match term.term with
         | Constant(name, source, t) when visited.Add(term) ->
-            match mapper acc term with
-            | Some value -> value::acc
-            | None -> acc
+            foldSeq folder visited source.SubTerms state
         | Array(dimension, len, lowerBounds, constant, contents, lengths, _) ->
-            let tryGetValue instantiator =
-                match instantiator with
-                | DefaultInstantiator _ -> None
-                | LazyInstantiator(t, _) -> Some t
-            constant |> Seq.choose (snd >> tryGetValue)
-            |> fun terms -> addConstantsMany mapper visited terms acc
-            |> fun acc -> addConstants mapper visited acc dimension
-            |> fun acc -> addConstants mapper visited acc len
-            |> addConstantsMany mapper visited (Heap.locations lowerBounds)
-            |> addConstantsMany mapper visited (Heap.values lowerBounds)
-            |> addConstantsMany mapper visited (Heap.locations contents)
-            |> addConstantsMany mapper visited (Heap.values contents)
-            |> addConstantsMany mapper visited (Heap.locations lengths)
-            |> addConstantsMany mapper visited (Heap.values lengths)
+            constant
+            |> Seq.fold (fun s (_, i) ->
+                match i with
+                | DefaultInstantiator _ -> s
+                | LazyInstantiator(t, _) -> doFold folder visited s t) state
+            |> fun acc -> doFold folder visited state dimension
+            |> fun acc -> doFold folder visited state len
+            |> foldSeq folder visited (Heap.locations lowerBounds)
+            |> foldSeq folder visited (Heap.values lowerBounds)
+            |> foldSeq folder visited (Heap.locations contents)
+            |> foldSeq folder visited (Heap.values contents)
+            |> foldSeq folder visited (Heap.locations lengths)
+            |> foldSeq folder visited (Heap.values lengths)
         | Expression(_, args, _) ->
-            addConstantsMany mapper visited args acc
+            foldSeq folder visited args state
         | Struct(fields, _) ->
-            addConstantsMany mapper visited (Heap.values fields) acc
+            foldSeq folder visited (Heap.values fields) state
         | HeapRef(path, _, _) ->
-            addConstantsMany mapper visited (NonEmptyList.toList path |> Seq.map fst) acc
+            foldSeq folder visited (NonEmptyList.toList path |> Seq.map fst) state
+        | StackRef(_, path, _)
+        | StaticRef(_, path, _) ->
+            foldSeq folder visited (path |> Seq.map fst) state
         | GuardedValues(gs, vs) ->
-            addConstantsMany mapper visited gs acc |> addConstantsMany mapper visited vs
+            foldSeq folder  visited gs state |> foldSeq folder visited vs
         | Error e ->
-            addConstants mapper visited acc e
-        | _ -> acc
+            doFold folder visited state e
+        | _ -> state
 
-    and private addConstantsMany mapper visited terms acc =
-        Seq.fold (addConstants mapper visited) acc terms
+    and doFold folder (visited : HashSet<Term>) state term =
+        let state = foldChildren folder visited state term
+        folder state term
+
+    and private foldSeq folder visited terms state =
+        Seq.fold (doFold folder visited) state terms
+
+    let public fold folder state terms =
+        foldSeq folder (new HashSet<Term>()) state terms
+
+    let public iter action term =
+        doFold (fun () -> action) (new HashSet<Term>()) () term
 
     let public filterMapConstants mapper terms =
-        List.fold (addConstants mapper (new HashSet<Term>())) [] terms
+        let folder state term = mapper state term |> optCons state
+        fold folder [] terms

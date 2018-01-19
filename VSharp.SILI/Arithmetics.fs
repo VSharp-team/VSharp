@@ -28,7 +28,7 @@ module internal Arithmetics =
             if !success then CastConcrete result t mtd, state
             else
                 let t, s = State.activator.CreateInstance mtd typeof<System.OverflowException> [] state
-                Error t mtd, s
+                Error mtd t, s
         else
             CastConcrete (Calculator.Add(x, y, t)) t mtd, state
 
@@ -149,7 +149,7 @@ module internal Arithmetics =
             if !success then CastConcrete result t mtd, state
             else
                 let t, s = State.activator.CreateInstance mtd typeof<System.OverflowException> [] state
-                Error t mtd, s
+                Error mtd t, s
         else
             CastConcrete (Calculator.UnaryMinus(x, t)) t mtd, state
 
@@ -180,7 +180,7 @@ module internal Arithmetics =
             if !success then CastConcrete result t mtd, state
             else
                 let t, s = State.activator.CreateInstance mtd typeof<System.OverflowException> [] state
-                Error t mtd, s
+                Error mtd t, s
         else
             CastConcrete (Calculator.Mul(x, y, t)) t mtd, state
 
@@ -306,7 +306,7 @@ module internal Arithmetics =
             | :? System.DivideByZeroException -> State.activator.CreateInstance mtd typeof<System.DivideByZeroException> [] state
             | :? System.OverflowException -> State.activator.CreateInstance mtd typeof<System.OverflowException> [] state
             | _ -> __notImplemented__()
-        in Error t mtd, s
+        Error mtd t, s
 
     and private simplifyDivision mtd isChecked state t x y k =
         let defaultCase () =
@@ -347,10 +347,10 @@ module internal Arithmetics =
         simplifyEqual mtd y (CastConcrete 0 (ToDotNetType(TypeOf y)) mtd) (fun yIsZero ->
             if Terms.IsFalse yIsZero then doDivide mtd isChecked state t x y k
             elif Terms.IsTrue yIsZero
-            then State.activator.CreateInstance mtd typeof<System.DivideByZeroException> [] state |> (fun (t, s) -> k (Error t mtd, s))
+            then State.activator.CreateInstance mtd typeof<System.DivideByZeroException> [] state |> (fun (t, s) -> k (Error mtd t, s))
             else
                 let errorTerm, errorState = State.activator.CreateInstance mtd typeof<System.DivideByZeroException> [] state
-                let y = Merging.merge2Terms !!yIsZero yIsZero y (Error errorTerm mtd)
+                let y = Merging.merge2Terms !!yIsZero yIsZero y (Error mtd errorTerm)
                 let state = Merging.merge2States !!yIsZero yIsZero state errorState
                 doDivide mtd isChecked state t x y k)
 
@@ -370,7 +370,7 @@ module internal Arithmetics =
             | :? System.DivideByZeroException -> State.activator.CreateInstance mtd typeof<System.DivideByZeroException> [] state
             | :? System.OverflowException -> State.activator.CreateInstance mtd typeof<System.OverflowException> [] state
             | _ -> __notImplemented__()
-        in Error t mtd, s
+        Error mtd t, s
 
 
     and private isRemainderZero state t x y =
@@ -498,14 +498,19 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
     and private simplifyConcreteComparison operator mtd _ state _ x y =
-        Concrete (Calculator.Compare(x, y) |> operator) Bool mtd, state
+        let bx = box x
+        let by = box y
+        if (bx :? int list) && (by :? int list) then
+            Concrete mtd (List.compareWith compare (bx :?> int list) (by :?> int list) |> operator) Bool, state
+        else
+            Concrete mtd (Calculator.Compare(bx, by) |> operator) Bool, state
 
     and private simplifyComparison mtd op x y comparator sameIsTrue k =
         simplifyGenericBinary "comparison" State.empty x y (fst >> k)
             (simplifyConcreteBinary (simplifyConcreteComparison comparator) mtd false Bool)
             (fun x y s k ->
                 match x, y with
-                | _ when x = y -> (Concrete sameIsTrue Bool mtd, s) |> k
+                | _ when x = y -> (Concrete mtd sameIsTrue Bool, s) |> k
                 | Add((ConcreteT(_, t) as c), x, false, _), y when x = y ->
                     simplifyComparison mtd op c (CastConcrete 0 (ToDotNetType t) mtd) comparator sameIsTrue (withSnd s >> k)
                 | x, Add((ConcreteT(_, t) as c), y, false, _) when x = y ->

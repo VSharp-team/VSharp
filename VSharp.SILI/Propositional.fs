@@ -13,8 +13,8 @@ module internal Propositional =
         match x.term, y.term with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
             Terms.MakeNAry operation (List.append list' list'') false Bool metadata
-        | Expression(Operator(op', false), list', _), _ when list'.IsEmpty -> y
-        | _, Expression(Operator(op', false), list', _) when list'.IsEmpty -> y
+        | Expression(Operator(op', false), [], _), _ -> y
+        | _, Expression(Operator(op', false), [], _) -> y
         | Expression(Operator(op', false), list', _), _ when op' = operation ->
             Terms.MakeNAry operation (y::list') false Bool metadata
         | _, Expression(Operator(op', false), list', _) when op' = operation ->
@@ -26,20 +26,19 @@ module internal Propositional =
         match list with
         | [] -> x
         | [y] -> makeBin metadata op x y
-        | _ -> makeBin metadata op (Expression (Operator(listOp, false)) list Bool listMetadata) x
+        | _ -> makeBin metadata op (Expression listMetadata (Operator(listOp, false)) list Bool) x
 
 
-    let public (|IntersectionExceptOne|_|) list1 list2 =
-        if List.length list1 = List.length list2 then
-            let s1 = System.Collections.Generic.HashSet<Term>(list1)
-            let s2 = System.Collections.Generic.HashSet<Term>(list2)
-            s1.SymmetricExceptWith(s2)
-            let symmetricExcept = List.ofSeq s1
-            match symmetricExcept with
-            | [x; NegationT(y, _)] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
-            | [NegationT(y, _); x] when x = y -> s2.ExceptWith(s1); Some(List.ofSeq s2)
+    let public (|IntersectionExceptOneNegation|_|) (list1 : Term list) (list2 : Term list) =
+        let s1 = System.Collections.Generic.HashSet<Term>(list1)
+        let s2 = System.Collections.Generic.HashSet<Term>(list2)
+        let intersection = list2 |> Seq.fold (fun acc x -> if s1.Remove(x) then s2.Remove(x) |> ignore; x::acc else acc) []
+        if s1.Count <> 1 then None
+        else
+            match Seq.head s1 with
+            | NegationT(y, _) as x when s2.RemoveWhere(System.Predicate<Term>((=)y)) > 0 -> Some(x, intersection, List.ofSeq s2)
+            | x when s2.RemoveWhere(System.Predicate<Term>(function | NegationT(y, _) when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
             | _ -> None
-        else None
 
     let internal isPermutationOf list1 list2 =
         if List.length list1 <> List.length list2 then false
@@ -149,8 +148,20 @@ module internal Propositional =
         | _, Negation(y',_) when List.contains y' list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [y'] list) co op)
         // Co(... !y ...) op y = Co(... ...) op y
         | _ when List.contains (Negate y Metadata.empty) list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [Negate y Metadata.empty] list) co op)
-        // Co(!x xs) op Co(x xs) = xs
-        | _, Expression(Operator(co', false), IntersectionExceptOne list ys, _) when co' = co -> matched (MakeNAry co ys false Bool (Metadata.combine x.metadata y.metadata))
+        // Co(!a ys) op Co(a ys) = ys
+        // Co(a ys) op Co(!a ys zs) = ys co (a op Co(zs)) if (a op Co(zs)) simplifies
+        // Co(a ys) op Co(!a ys zs) = Co(a ys) op Co(ys zs)
+        | _, Expression(Operator(co', false), IntersectionExceptOneNegation list (a, ys, zs), _) when co' = co ->
+            if zs.IsEmpty then MakeNAry co ys false Bool (Metadata.combine3 mtd x.metadata y.metadata) |> matched
+            else
+                let xymtd = Metadata.combine x.metadata y.metadata
+                let coZs = MakeNAry co zs false Bool xymtd
+                simplifyExt mtd op co stopValue ignoreValue a coZs
+                    (fun aOpZs -> MakeNAry co (aOpZs::ys) false Bool xymtd |> matched)
+                    (fun () ->
+                        let y' = MakeNAry co (List.append ys zs) false Bool y.metadata
+                        simplifyCoOp mtd op co stopValue ignoreValue x list y' matched (fun () ->
+                        MakeNAry op [x; y'] false Bool mtd |> matched))
         // Co(list) op Co(permutation of list) -> Co(list)
         // TODO: sort terms to avoid permutation checking
         | _, Expression(Operator(co', false), ys, _)  when co' = co && isPermutationOf list ys -> matched x
@@ -178,14 +189,14 @@ module internal Propositional =
     and internal simplifyNegation mtd x k =
         match x.term with
         | Error _ -> k x
-        | Concrete(b, t) -> Concrete (not (b :?> bool)) t (Metadata.combine x.metadata mtd) |> k
+        | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
         | Negation(x, _) -> k x
         | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> MakeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
         | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> MakeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
         | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
             List.zip gs nvs |> Union mtd |> k)
-        | _ -> Terms.MakeUnary OperationType.LogicalNeg x false Bool mtd |> k
+        | _ -> MakeUnary OperationType.LogicalNeg x false Bool mtd |> k
 
     and private simplifyExtWithType mtd op co stopValue ignoreValue _ x y matched unmatched =
         simplifyExt mtd op co stopValue ignoreValue x y matched unmatched

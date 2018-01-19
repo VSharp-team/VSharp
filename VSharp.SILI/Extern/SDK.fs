@@ -5,15 +5,15 @@ module ExternSDK =
     let private m() =
         Interpreter.currentInternalCallMetadata
 
-    let public Error term = Error term (m())
-    let public Concrete obj typ = Concrete obj typ (m())
-    let public Constant name source typ = Constant name source typ (m())
-    let public Array dimension length lower constant contents lengths typ = Array dimension length lower constant contents lengths typ (m())
-    let public Expression op args typ = Expression op args typ (m())
-    let public Struct fields typ = Struct fields typ (m())
-    let public StackRef key path = StackRef key path (m())
-    let public HeapRef path time = HeapRef path time (m())
-    let public StaticRef key path = StaticRef key path (m())
+    let public Error term = Error (m()) term
+    let public Concrete obj typ = Concrete (m()) obj typ
+    let public Constant name source typ = Constant (m()) name source typ
+    let public Array lower constant contents lengths typ = Array (m()) lower constant contents lengths typ
+    let public Expression op args typ = Expression (m()) op args typ
+    let public Struct fields typ = Struct (m()) fields typ
+    let public StackRef key path = StackRef (m()) key path
+    let public HeapRef path time = HeapRef (m()) path time
+    let public StaticRef key path = StaticRef (m()) key path
     let public Union gvs = Union (m()) gvs
 
     let NoResult () = NoResult (m())

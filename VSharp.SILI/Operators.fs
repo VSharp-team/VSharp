@@ -8,7 +8,7 @@ module internal Operators =
     let rec internal refToInt term =
         match term.term with
         | Error _ -> term
-        | Concrete(null, _) -> Concrete 0 Types.pointerType term.metadata
+        | Concrete(null, _) -> Concrete term.metadata 0 Types.pointerType
         | HeapRef(((addr, _), _), _, _) -> addr
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term

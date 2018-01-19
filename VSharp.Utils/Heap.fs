@@ -3,9 +3,6 @@ namespace VSharp
 open System.Collections
 open System.Collections.Generic
 open FSharpx.Collections
-open MemoryCell
-
-type Timestamp = uint32
 
 [<CustomEquality;NoComparison>]
 type public Heap<'a, 'b> when 'a : equality and 'b : equality =
@@ -38,6 +35,7 @@ type public Heap<'a, 'b> when 'a : equality and 'b : equality =
 module public Heap =
 
     let public empty<'a, 'b when 'a : equality and 'b : equality> : Heap<'a, 'b> = Heap<'a, 'b>.Empty()
+    let public isEmpty h = PersistentHashMap.length h.heap = 0
 
     let public ofSeq  = Heap<'a, 'b>.ofSeq
     let public toSeq (h : Heap<'a, 'b>) = h :> seq<'a * MemoryCell<'b>>
@@ -49,6 +47,8 @@ module public Heap =
     let public size (h : Heap<'a, 'b>) = h.Length
 
     let public map mapper (h : Heap<'a, 'b>) : Heap<'a, 'c> =
+        h |> toSeq |> Seq.map (fun (k, v) -> mapper k v) |> ofSeq
+    let public map' mapper (h : Heap<'a, 'b>) : Heap<'a, 'c> =
         h |> toSeq |> Seq.map (fun (k, v) -> k, mapper k v) |> ofSeq
     let public fold folder state (h : Heap<'a, 'b>) =
         h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
