@@ -54,11 +54,21 @@ module internal Memory =
 // ------------------------------- Lazy Instantiation -------------------------------
 
     type private LazyInstantiation(location : Term, isTopLevelHeapAddress : bool, heap : GeneralizedHeap option) =
-        inherit SymbolicConstantSource()
-        override x.SubTerms = Seq.singleton location
+        interface SymbolicConstantSource with
+            override x.SubTerms = Seq.singleton location
         member x.Location = location
         member x.IsTopLevelHeapAddress = isTopLevelHeapAddress
         member x.Heap = heap
+        override x.GetHashCode() =
+            let h = x.GetType().GetHashCode()
+            let h = h * 23 + hash location
+            let h = h * 23 + hash isTopLevelHeapAddress
+            let h = h * 23 + hash heap
+            h
+        override x.Equals (o : obj) =
+            match o with
+            | :? LazyInstantiation as o -> location = o.Location && isTopLevelHeapAddress = o.IsTopLevelHeapAddress && heap = o.Heap
+            | _ -> false
 
     let private (|LazyInstantiation|_|) (src : SymbolicConstantSource) =
         match src with
@@ -67,12 +77,59 @@ module internal Memory =
 
     type private ArrayElementLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, heap : GeneralizedHeap option, array : Term, index : Term) =
         inherit LazyInstantiation(location, isTopLevelHeapAddress, heap)
+        member x.Array = array
+        member x.Index = index
+        override x.GetHashCode() =
+            let h = x.GetType().GetHashCode()
+            let h = h * 23 + hash location
+            let h = h * 23 + hash isTopLevelHeapAddress
+            let h = h * 23 + hash heap
+            let h = h * 23 + hash array
+            let h = h * 23 + hash index
+            h
+        override x.Equals (o : obj) =
+            match o with
+            | :? ArrayElementLazyInstantiation as o ->
+                location = o.Location && isTopLevelHeapAddress = o.IsTopLevelHeapAddress && heap = o.Heap && array = o.Array && index = o.Index
+            | _ -> false
+
+    let hashes = new System.Collections.Generic.HashSet<int>()
 
     type private ArrayLengthLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, heap : GeneralizedHeap option, array : Term, dim : Term) =
         inherit LazyInstantiation(location, isTopLevelHeapAddress, heap)
+        member x.Array = array
+        member x.Dim = dim
+        override x.GetHashCode() =
+            let h = x.GetType().GetHashCode()
+            let h = h * 23 + hash location
+            let h = h * 23 + hash isTopLevelHeapAddress
+            let h = h * 23 + hash heap
+            let h = h * 23 + hash array
+            let h = h * 23 + hash dim
+            h
+        override x.Equals (o : obj) =
+            match o with
+            | :? ArrayLengthLazyInstantiation as o ->
+                location = o.Location && isTopLevelHeapAddress = o.IsTopLevelHeapAddress && heap = o.Heap && array = o.Array && dim = o.Dim
+            | _ -> false
 
     type private ArrayLowerBoundLazyInstantiation(location : Term, isTopLevelHeapAddress : bool, heap : GeneralizedHeap option, array : Term, dim : Term) =
         inherit LazyInstantiation(location, isTopLevelHeapAddress, heap)
+        member x.Array = array
+        member x.Dim = dim
+        override x.GetHashCode() =
+            let h = x.GetType().GetHashCode()
+            let h = h * 23 + hash location
+            let h = h * 23 + hash isTopLevelHeapAddress
+            let h = h * 23 + hash heap
+            let h = h * 23 + hash array
+            let h = h * 23 + hash dim
+            h
+        override x.Equals (o : obj) =
+            match o with
+            | :? ArrayLowerBoundLazyInstantiation as o ->
+                location = o.Location && isTopLevelHeapAddress = o.IsTopLevelHeapAddress && heap = o.Heap && array = o.Array && dim = o.Dim
+            | _ -> false
 
     let private isStaticLocation = function
         | StaticRef _ -> true
@@ -133,7 +190,7 @@ module internal Memory =
             | :? LazyInstantiation as li -> LazyInstantiation(li.Location, true, None) :> SymbolicConstantSource
             | _ -> source
         let constant = Constant metadata name source' pointerType
-        construct metadata ((constant, typ), []) ({time=time} : RefTime)
+        construct metadata ((constant, typ), []) {v=time}
 
     let internal makeSymbolicInstance metadata time source name = function
         | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path time -> HeapPtr mtd path time typ
@@ -181,18 +238,19 @@ module internal Memory =
 
 // ------------------------------- Static Memory Initialization -------------------------------
 
-    type private StaticsInitializedSource(key : Term) =
-        inherit SymbolicConstantSource()
-        override x.SubTerms = Seq.singleton key
-        member x.Key = key
+    [<StructuralEquality;NoComparison>]
+    type private StaticsInitializedSource =
+        {key : Term}
+        interface SymbolicConstantSource with
+            override x.SubTerms = Seq.singleton x.key
 
     let private (|StaticsInitializedSource|_|) (src : SymbolicConstantSource) =
         match src with
-        | :? StaticsInitializedSource as si -> Some(si.Key)
+        | :? StaticsInitializedSource as si -> Some(si.key)
         | _ -> None
 
     let private mkStaticKeyGuard mtd key =
-        Constant mtd (IdGenerator.startingWith "hasKey#") (StaticsInitializedSource key) Bool
+        Constant mtd (IdGenerator.startingWith "hasKey#") ({key = key} : StaticsInitializedSource) Bool
 
     let private staticGuardOfDefinedHeap mtd key r (h : SymbolicHeap) =
             if h.ContainsKey key then Merging.guardOf h.[key].value
@@ -353,7 +411,7 @@ module internal Memory =
     let private commonHierarchicalHeapAccess restricted update metadata groundHeap heap ((addr, t) as location) path time =
         let mkFirstLocation location = HeapRef metadata ((location, t), []) time
         let firstLocation = HeapRef metadata (location, []) time
-        accessHeap restricted metadata groundHeap (MakeTrue metadata) update heap Timestamp.zero mkFirstLocation (genericLazyInstantiator Metadata.empty None time.time firstLocation t) addr t time.time path
+        accessHeap restricted metadata groundHeap (MakeTrue metadata) update heap Timestamp.zero mkFirstLocation (genericLazyInstantiator Metadata.empty None time.v firstLocation t) addr t time.v path
 
     let private commonHierarchicalStaticsAccess restricted update metadata groundHeap statics location path =
         let firstLocation = Terms.term >> function
@@ -542,7 +600,7 @@ module internal Memory =
         commonHierarchicalStackAccess (fun _ _ -> (value, time)) metadata state location path
 
     and private mutateHeap restricted metadata h location path time value =
-        commonHierarchicalHeapAccess restricted (fun _  _ -> (value, time)) metadata None h location path {time=time}
+        commonHierarchicalHeapAccess restricted (fun _  _ -> (value, time)) metadata None h location path {v=time}
 
     and private mutateStatics restricted metadata statics location path time value =
         commonHierarchicalStaticsAccess restricted (fun _ _ -> (value, time)) metadata None statics location path
@@ -683,7 +741,7 @@ module internal Memory =
     let internal allocateInHeap metadata (s : state) term : Term * state =
         let address = freshHeapLocation metadata
         let time = tick()
-        let pointer = HeapRef metadata ((address, Terms.TypeOf term), []) {time=time}
+        let pointer = HeapRef metadata ((address, Terms.TypeOf term), []) {v=time}
         (pointer, { s with heap = allocateInGeneralizedHeap address term time s.heap } )
 
     let internal allocateInStaticMemory metadata (s : state) typeName term =

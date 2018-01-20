@@ -38,3 +38,11 @@ module public Prelude =
         match lhs with
         | Some x -> x
         | None -> rhs.Force()
+
+[<CustomEquality;NoComparison>]
+type 'a Transparent =
+    { v : 'a }
+    override x.ToString() = x.v.ToString()
+    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.Equals(o : obj) =
+        o :? 'a Transparent

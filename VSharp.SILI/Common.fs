@@ -43,14 +43,16 @@ module internal Common =
 // ------------------------------- Type casting -------------------------------
 
     // TODO: support composition for this constant source
-    type private SymbolicSubtypeSource(left : TermType, right : TermType) =
-        inherit SymbolicConstantSource()
-        override x.SubTerms = Seq.empty
+    [<StructuralEquality;NoComparison>]
+    type private SymbolicSubtypeSource =
+        {left : TermType; right : TermType}
+        interface SymbolicConstantSource with
+            override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
         let subtypeName lname rname = sprintf  "(%s <: %s)" lname rname
         let makeBoolConst lname rname leftTermType rightTermType =
-            Constant metadata (subtypeName lname rname) (SymbolicSubtypeSource(leftTermType, rightTermType)) Bool
+            Constant metadata (subtypeName lname rname) ({left = leftTermType; right = rightTermType} : SymbolicSubtypeSource) Bool
         match leftType, rightType with
         | _ when leftType = rightType -> Terms.MakeTrue metadata
         | TermType.Null, _
@@ -76,12 +78,14 @@ module internal Common =
         | _ -> Terms.MakeFalse metadata
 
     // TODO: support composition for this constant source
-    type private IsValueTypeConstantSource(termType : TermType) =
-        inherit SymbolicConstantSource()
-        override x.SubTerms = Seq.empty
+    [<StructuralEquality;NoComparison>]
+    type private IsValueTypeConstantSource =
+        {termType : TermType}
+        interface SymbolicConstantSource with
+            override x.SubTerms = Seq.empty
 
     let internal isValueType metadata termType =
-        let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) (IsValueTypeConstantSource termType) Bool
+        let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) ({termType = termType} : IsValueTypeConstantSource) Bool
         match termType with
         | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
         | TypeVariable(Explicit(name, t)) ->

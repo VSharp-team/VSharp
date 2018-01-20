@@ -29,7 +29,7 @@ type public TermNode =
     | Nop
     | Error of Term
     | Concrete of obj * TermType
-    | Constant of string * SymbolicConstantSource * TermType
+    | Constant of string Transparent * SymbolicConstantSource * TermType
     | Array of Term                                       // Dimension
                * Term                                     // Overal length (product of lengths by dimensions)
                * SymbolicHeap                             // Lower bounds
@@ -39,9 +39,9 @@ type public TermNode =
                * TermType                                 // Type
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
-    | StackRef of StackKey * (Term * TermType) list * TermType option           // last TermType is for pointers
-    | HeapRef of (Term * TermType) NonEmptyList * RefTime * TermType option   // last TermType is for pointers
-    | StaticRef of string * (Term * TermType) list * TermType option            // last TermType is for pointers
+    | StackRef of StackKey * (Term * TermType) list * TermType option                       // If last field is (Some T) then this is pointer T*
+    | HeapRef of (Term * TermType) NonEmptyList * timestamp Transparent * TermType option   // If last field is (Some T) then this is pointer T*
+    | StaticRef of string * (Term * TermType) list * TermType option                        // If last field is (Some T) then this is pointer T*
     | Union of (Term * Term) list
 
     member x.IndicesToString() =
@@ -89,7 +89,7 @@ type public TermNode =
             match term with
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
-            | Constant(name, _, _) -> name
+            | Constant(name, _, _) -> name.v
             | Concrete(lambda, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
             | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
@@ -202,21 +202,8 @@ and
             | _ -> false
 
 and
-    [<AbstractClass>]
-    SymbolicConstantSource() =
+    SymbolicConstantSource =
         abstract SubTerms : Term seq
-        override x.GetHashCode() =
-            x.GetType().GetHashCode()
-        override x.Equals(o : obj) = o.GetType() = x.GetType()
-
-and
-    [<CustomEquality;NoComparison>]
-    RefTime =
-        {time : timestamp}
-        override x.ToString() = x.time.ToString()
-        override x.GetHashCode() = x.GetType().GetHashCode()
-        override x.Equals(o : obj) =
-            o :? RefTime
 
 and SymbolicHeap = Heap<Term, Term>
 
@@ -240,7 +227,7 @@ module public Terms =
     let public Nop = { term = Nop; metadata = Metadata.empty }
     let public Error metadata term = { term = Error term; metadata = metadata }
     let public Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
-    let public Constant metadata name source typ = { term = Constant(name, source, typ); metadata = metadata }
+    let public Constant metadata name source typ = { term = Constant({v=name}, source, typ); metadata = metadata }
     let public Array metadata dimension length lower constant contents lengths typ = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
     let public Expression metadata op args typ = { term = Expression(op, args, typ); metadata = metadata }
     let public Struct metadata fields typ = { term = Struct(fields, typ); metadata = metadata }
@@ -435,10 +422,10 @@ module public Terms =
         if predicate then MakeTrue metadata else MakeFalse metadata
 
     let public MakeNullRef typ metadata =
-        HeapRef metadata (((MakeZeroAddress metadata), typ), []) {time = Timestamp.zero}
+        HeapRef metadata (((MakeZeroAddress metadata), typ), []) {v = Timestamp.zero}
 
     let public MakeNullPtr typ metadata =
-        HeapPtr metadata (((MakeZeroAddress metadata), typ), []) {time = Timestamp.zero} typ
+        HeapPtr metadata (((MakeZeroAddress metadata), typ), []) {v = Timestamp.zero} typ
 
     let public MakeNumber n metadata =
         Concrete metadata n (Numeric(n.GetType()))
