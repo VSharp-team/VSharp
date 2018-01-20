@@ -2,24 +2,34 @@
 open System.Collections.Generic
 
 module internal Arrays =
-    type private DefaultArray() =
-        inherit SymbolicConstantSource()
+    [<StructuralEquality;NoComparison>]
+    type private DefaultArray =
+        struct end
+        interface SymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    type private SymbolicArrayBound(array : Term, index : Term, upper : bool) =
-        inherit SymbolicConstantSource()
+    [<StructuralEquality;NoComparison>]
+    type private SymbolicArrayBound =
+        {array : Term; index : Term; upper : bool}
+        interface SymbolicConstantSource with
+            override x.SubTerms = Seq.singleton x.index
+
+    [<StructuralEquality;NoComparison>]
+    type private SymbolicArrayDimensionNumber =
+        {array : Term}
+        interface SymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    type private SymbolicArrayDimensionNumber(array : Term) =
-        inherit SymbolicConstantSource()
+    [<StructuralEquality;NoComparison>]
+    type private SymbolicArrayIndex =
+        {indices : Term}
+        interface SymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    type private SymbolicArrayIndex(indices : Term) =
-        inherit SymbolicConstantSource()
-            override x.SubTerms = Seq.empty
-
-    type private SymbolicArrayLength(array : Term) =
-        inherit SymbolicConstantSource()
+    [<StructuralEquality;NoComparison>]
+    type private SymbolicArrayLength =
+        {array : Term}
+        interface SymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     type internal ArrayIndicesType =
@@ -85,7 +95,7 @@ module internal Arrays =
             let initTerm1, initTerm2 = List.head init1 |> snd, List.head init2 |> snd
             let makeConstant mtd constant i =
                 let id = sprintf "%s[%s]" (toString constant) (toString i) |> IdGenerator.startingWith
-                Some { value = Constant mtd id (SymbolicArrayIndex(constant)) lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
+                Some { value = Constant mtd id ({indices = constant} : SymbolicArrayIndex) lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
             let makeGvs h1 h2 val1 val2 =
                 let zero = MakeZeroAddress mtd
                 let isSameLen = Arithmetics.eq mtd len1 len2
@@ -105,11 +115,11 @@ module internal Arrays =
 
     let private makeSymbolicDimensionsNumber metadata arrayConstant arrayName =
         let dim = sprintf "|dimensions of %s|" arrayName
-        Constant metadata dim (SymbolicArrayDimensionNumber(arrayConstant)) lengthTermType
+        Constant metadata dim ({array = arrayConstant} : SymbolicArrayDimensionNumber) lengthTermType
 
     let private makeSymbolicLength metadata arrayConstant arrayName =
         let idOfDimension = sprintf "|%s|" arrayName
-        Constant metadata idOfDimension (SymbolicArrayLength(arrayConstant)) lengthTermType
+        Constant metadata idOfDimension ({array = arrayConstant} : SymbolicArrayLength) lengthTermType
 
     let internal zeroLowerBound metadata dimension =
         let bound = { value = Concrete metadata 0 lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
@@ -152,12 +162,12 @@ module internal Arrays =
         | Options.TrustConventions -> zeroLowerBound metadata dimension
         | Options.CompleteExploration ->
             let idOfBound i = sprintf "%s.GetLowerBound(%i)" arrayName i
-            let mkLowerBound i = Constant metadata (idOfBound i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, false)) lengthTermType
+            let mkLowerBound i = Constant metadata (idOfBound i) ({array=arrayConstant; index = MakeNumber i metadata; upper = false} : SymbolicArrayBound) lengthTermType
             Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
 
     and internal makeSymbolicLengths metadata arrayConstant arrayName dimension =
         let idOfLength i = sprintf "%s.GetLength(%i)" arrayName i
-        let mkLength i = Constant metadata (idOfLength i) (SymbolicArrayBound(arrayConstant, MakeNumber i metadata, true)) lengthTermType
+        let mkLength i = Constant metadata (idOfLength i) ({array=arrayConstant; index = MakeNumber i metadata; upper = true} : SymbolicArrayBound) lengthTermType
         let lengths = Seq.init dimension mkLength
         let length = Seq.reduce (mul metadata) lengths
         Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length

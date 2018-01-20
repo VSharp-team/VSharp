@@ -3632,11 +3632,11 @@ System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
+	| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
 		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
 		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(1)) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < ArrayTypeVariable1.GetLength(0) | !(0 == arr) & ((!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & 1 < ArrayTypeVariable1.GetLength(0) ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) ~> <ERROR: (HeapRef 6)>
+	| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[,]) & 1 < ArrayTypeVariable1.GetLength(0) | !(0 == arr) & ((!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & 1 < ArrayTypeVariable1.GetLength(0) ~> (HeapRef arr)
+	| !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) ~> <ERROR: (HeapRef 6)>
 	| !(1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
@@ -3703,7 +3703,8 @@ arr ==> TypeVariable1{System.Object}: [|
 	1: UNION[
 		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) ~> 5];
 	 ... UNION[
-	| !(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> ArrayTypeVariable1.GetLength(0)] x UNION[
+	| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) ~> ArrayTypeVariable1.GetLength(0)
+	| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> ArrayTypeVariable1.GetLength(0)] x UNION[
 	| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) ~> ArrayTypeVariable1.GetLength(1)] ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
