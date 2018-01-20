@@ -2,7 +2,7 @@ namespace VSharp
 
 [<CustomEquality;NoComparison>]
 type public MemoryCell<'a> when 'a : equality =
-    { value : 'a; created : Timestamp; modified : Timestamp }  // Value * Creation timestamp * Modification timestamp
+    { value : 'a; created : timestamp; modified : timestamp }  // Value * Creation timestamp * Modification timestamp
     override x.GetHashCode() = x.value.GetHashCode()
     override x.Equals(y) =
         match y with

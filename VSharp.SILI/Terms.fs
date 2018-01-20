@@ -40,7 +40,7 @@ type public TermNode =
     | Expression of Operation * Term list * TermType
     | Struct of SymbolicHeap * TermType
     | StackRef of StackKey * (Term * TermType) list * TermType option                       // If last field is (Some T) then this is pointer T*
-    | HeapRef of (Term * TermType) NonEmptyList * Timestamp Transparent * TermType option   // If last field is (Some T) then this is pointer T*
+    | HeapRef of (Term * TermType) NonEmptyList * timestamp Transparent * TermType option   // If last field is (Some T) then this is pointer T*
     | StaticRef of string * (Term * TermType) list * TermType option                        // If last field is (Some T) then this is pointer T*
     | Union of (Term * Term) list
 
