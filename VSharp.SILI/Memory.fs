@@ -499,6 +499,9 @@ module internal Memory =
     and internal fillHoles ctx state term =
         Common.substitute (fillHole ctx state) term
 
+    and internal fillHolesInHeap ctx state heap =
+        Heap.map (fun k cell -> (fillHoles ctx state k, {cell with value = fillHoles ctx state cell.value})) heap
+
     and private fillAndMutateStack (ctx : CompositionContext) source target loc path cell =
         let time = Timestamp.compose ctx.time cell.modified
         let path = path |> List.map (mapfst <| fillHoles ctx source)
@@ -544,7 +547,7 @@ module internal Memory =
             composeGeneralizedHeaps writer ctx' getter setter s h'
         | Defined(r, h), Mutation(h', h'') ->
             let res = composeGeneralizedHeaps writer ctx getter setter s h'
-            let res' = composeDefinedHeaps (writer ctx) r s h h''
+            let res' = fillHolesInHeap ctx s h''
             Mutation(res, res')
         | Defined _, HigherOrderApplication _
         | Defined _, RecursiveApplication _
@@ -561,7 +564,7 @@ module internal Memory =
                 let h = composeDefinedHeaps (writer ctx'') r s h' h'' |> Defined r
                 composeGeneralizedHeaps writer ctx' getter setter s' h
             | _ ->
-                let h'' = Heap.map (fun k cell -> (fillHoles ctx s k, {cell with value = fillHoles ctx s cell.value})) h''
+                let h'' = fillHolesInHeap ctx s h''
                 Mutation(h, h'')
         | Mutation(h, h'), Defined(r, h'') ->
             Mutation(h, composeDefinedHeaps (writer ctx) r s h' h'')
