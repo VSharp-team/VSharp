@@ -4,7 +4,7 @@ open VSharp
 
 [<AutoOpen>]
 module public API =
-    let private m = let r = new Persistent<_>(always Metadata.empty, id) in r.Reset(); r
+    let private m = let r = new persistent<_>(always Metadata.empty, id) in r.Reset(); r
     let Enter location state k =
         m.Save()
         m.Mutate(State.mkMetadata location state)
@@ -113,8 +113,8 @@ module public API =
         let NoResult () = NoResult m.Value
         let Break () = Break m.Value
         let Continue () = Continue m.Value
-        let Return (term : Term) = Return term.metadata term
-        let Throw (term : Term) = Throw term.metadata term
+        let Return (term : term) = Return term.metadata term
+        let Throw (term : term) = Throw term.metadata term
         let Guarded grs = Guarded m.Value grs
 
     module public ControlFlow =

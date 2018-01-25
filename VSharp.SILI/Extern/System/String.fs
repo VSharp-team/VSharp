@@ -8,5 +8,5 @@ open VSharp.Core
 
 module internal String =
 
-    let ctorOfCharArray (state : State) (args : Term list) =
+    let ctorOfCharArray (state : state) (args : term list) =
         Return <| __notImplemented__(), state

@@ -37,7 +37,7 @@ module internal TypeCasting =
             match targetType with
             | Pointer typ' when Types.SizeOf typ = Types.SizeOf typ' || typ = Core.Void || typ' = Core.Void ->
                 CastReferenceToPointer mtd typ' term
-            | _ -> MakeCast (TermType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
+            | _ -> MakeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
 
         match term.term with
         | PointerTo typ -> castPointer term typ
@@ -50,7 +50,7 @@ module internal TypeCasting =
     let rec canCast mtd state targetType term =
         let derefForCast = Memory.derefWith (fun m s _ -> Concrete m null Null, s)
         match term.term with
-        | PointerTo typ -> Common.is mtd (TermType.Pointer typ) targetType, state
+        | PointerTo typ -> Common.is mtd (termType.Pointer typ) targetType, state
         | HeapRef _
         | StackRef _
         | StaticRef _ ->

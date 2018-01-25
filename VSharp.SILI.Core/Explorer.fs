@@ -5,8 +5,8 @@ open System.Collections.Generic
 
 type public IInterpreter =
     abstract member Reset : unit -> unit
-    abstract member InitEntryPoint : State -> string -> (State -> 'a) -> 'a
-    abstract member Invoke : IFunctionIdentifier -> State -> Term option -> (StatementResult * State -> 'a) -> 'a
+    abstract member InitEntryPoint : state -> string -> (state -> 'a) -> 'a
+    abstract member Invoke : IFunctionIdentifier -> state -> term option -> (statementResult * state -> 'a) -> 'a
 
 module internal Explorer =
 
@@ -62,7 +62,7 @@ module internal Explorer =
             k r)
 
     let private detectUnboundRecursion id s =
-        let isRecursiveFrame (frame : StackFrame) =
+        let isRecursiveFrame (frame : stackFrame) =
             match frame.func with
             | Some(id', _) when id = id' -> true
             | _ -> false
@@ -87,7 +87,7 @@ module internal Explorer =
             let recursiveState = { state with heap = RecursiveApplication(funcId, addr, time); statics = RecursiveApplication(funcId, addr, time) }
             k (recursiveResult, recursiveState)
         else
-            let ctx : CompositionContext = { mtd = mtd; addr = addr; time = time }
+            let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
             let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id)
             let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn
             let state = Memory.composeStates ctx state exploredState

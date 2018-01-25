@@ -2992,7 +2992,7 @@ HEAP:
 19 ==> STRUCT string[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i) I
 	| System.String.m_StringLength ~> 33]
-2 ==> STRUCT System.Collections.Generic.List`1[System.String][
+2 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 16
@@ -3104,7 +3104,7 @@ RESULT: 15
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.Collections.Generic.List`1[System.String][
+1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 12

@@ -66,7 +66,7 @@ module internal Interpreter =
                     | _ -> __unreachable__()))
         dict
 
-    let rec internalCall metadataMethod argsAndThis (s : State) k =
+    let rec internalCall metadataMethod argsAndThis (s : state) k =
         let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
         let k' (result, state) = k (result, Memory.PopStack state)
         let methodInfo = externalImplementations.[fullMethodName]
@@ -83,7 +83,7 @@ module internal Interpreter =
             | _ -> __notImplemented__()
         let result = methodInfo.Invoke(null, parameters)
         match result with
-        | :? (StatementResult * State) as r -> k' r
+        | :? (statementResult * state) as r -> k' r
         | _ -> internalfail "internal call should return tuple StatementResult * State!"
 
 // ------------------------------- Preparation -------------------------------
@@ -183,7 +183,7 @@ module internal Interpreter =
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (result, state) ->
         __notImplemented__())
 
-    and reduceMethodCall (caller : LocationBinding) state target (metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod) arguments k =
+    and reduceMethodCall (caller : locationBinding) state target (metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod) arguments k =
         let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         target state (fun (targetTerm, state) ->
@@ -586,7 +586,7 @@ module internal Interpreter =
             if node = null then internalfail "exception register not found for rethowing!"
             match DecompilerServices.getPropertyOfNode node "Thrown" null with
             | null -> findException node.Parent
-            | exn -> exn :?> Term
+            | exn -> exn :?> term
         let exn = findException ast
         k (Throw exn, state)
 
@@ -791,7 +791,7 @@ module internal Interpreter =
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
-    and mutate (caller : LocationBinding) state (left : IExpression) right target k =
+    and mutate (caller : locationBinding) state (left : IExpression) right target k =
         // Pre-calculated term is used to support conceptually two different cases: "new A().N = 10" and "new A().N++".
         // In both we mutate fresh instance of A, but second one uses target of previous evaluation of "new A().N".
         // C# compiler generates "dup" instruction in that case.
@@ -940,7 +940,7 @@ module internal Interpreter =
             | _ -> MakeInitializedArray (int ast.ArrayType.Rank) typ initializer
         Memory.AllocateInHeap state result |> k))
 
-    and initializeStaticMembersIfNeed (caller : LocationBinding) state qualifiedTypeName k =
+    and initializeStaticMembersIfNeed (caller : locationBinding) state qualifiedTypeName k =
         let k = Enter caller state k
         BranchStatements state
             (fun state k -> k (Memory.IsTypeNameInitialized qualifiedTypeName state, state))
@@ -1038,7 +1038,7 @@ module internal Interpreter =
             reduceDecompiledMethod caller state this parameters objCtor (fun state k' -> k' (NoComputation, state)) k)
         | _ -> __unreachable__()
 
-    and reduceObjectCreation returnRef (caller : LocationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
+    and reduceObjectCreation returnRef (caller : locationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let k = Enter caller state k
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType
         let freshValue = Memory.MakeDefaultStruct qualifiedTypeName

@@ -10,16 +10,16 @@ open VSharp.Interpreter
 module internal SystemArray =
 
     [<Implements("System.Int32 System.Array.GetLength(this, System.Int32)")>]
-    val GetLength : State -> Term list -> StatementResult * State
+    val GetLength : state -> term list -> statementResult * state
 
     [<Implements("System.Int32 System.Array.GetRank(this)")>]
-    val GetRank : State -> Term list -> StatementResult * State
+    val GetRank : state -> term list -> statementResult * state
 
     [<Implements("System.Int32 System.Array.get_Rank(this)")>]
-    val get_Rank : State -> Term list -> StatementResult * State
+    val get_Rank : state -> term list -> statementResult * state
 
     [<Implements("System.Int32 System.Array.get_Length(this)")>]
-    val get_Length : State -> Term list -> StatementResult * State
+    val get_Length : state -> term list -> statementResult * state
 
     [<Implements("System.Int32 System.Array.GetLowerBound(this, System.Int32)")>]
-    val GetLowerBound : State -> Term list -> StatementResult * State
+    val GetLowerBound : state -> term list -> statementResult * state

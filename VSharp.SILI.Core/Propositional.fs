@@ -28,22 +28,22 @@ module internal Propositional =
         | _ -> makeBin metadata op (Expression listMetadata (Operator(listOp, false)) list Bool) x
 
 
-    let private (|IntersectionExceptOneNegation|_|) (list1 : Term list) (list2 : Term list) =
-        let s1 = System.Collections.Generic.HashSet<Term>(list1)
-        let s2 = System.Collections.Generic.HashSet<Term>(list2)
+    let private (|IntersectionExceptOneNegation|_|) (list1 : term list) (list2 : term list) =
+        let s1 = System.Collections.Generic.HashSet<term>(list1)
+        let s2 = System.Collections.Generic.HashSet<term>(list2)
         let intersection = list2 |> Seq.fold (fun acc x -> if s1.Remove(x) then s2.Remove(x) |> ignore; x::acc else acc) []
         if s1.Count <> 1 then None
         else
             match Seq.head s1 with
-            | NegationT(y, _) as x when s2.RemoveWhere(System.Predicate<Term>((=)y)) > 0 -> Some(x, intersection, List.ofSeq s2)
-            | x when s2.RemoveWhere(System.Predicate<Term>(function | NegationT(y, _) when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
+            | NegationT(y, _) as x when s2.RemoveWhere(System.Predicate<term>((=)y)) > 0 -> Some(x, intersection, List.ofSeq s2)
+            | x when s2.RemoveWhere(System.Predicate<term>(function | NegationT(y, _) when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
             | _ -> None
 
     let private isPermutationOf list1 list2 =
         if List.length list1 <> List.length list2 then false
         else
-            let s1 = System.Collections.Generic.HashSet<Term>(list1)
-            let s2 = System.Collections.Generic.HashSet<Term>(list2)
+            let s1 = System.Collections.Generic.HashSet<term>(list1)
+            let s2 = System.Collections.Generic.HashSet<term>(list2)
             s1.SymmetricExceptWith(s2); Seq.isEmpty s1
 
 // ------------------------------- Simplification of logical operations -------------------------------

@@ -2,25 +2,25 @@
 
 open VSharp
 
-type StatementResultNode =
+type statementResultNode =
     | NoResult
     | Break
     | Continue
-    | Return of Term
-    | Throw of Term
-    | Guarded of (Term * StatementResult) list
+    | Return of term
+    | Throw of term
+    | Guarded of (term * statementResult) list
 
 and
     [<CustomEquality;NoComparison>]
-    StatementResult =
-        {result : StatementResultNode; metadata : TermMetadata}
+    statementResult =
+        {result : statementResultNode; metadata : termMetadata}
         override x.ToString() =
             x.result.ToString()
         override x.GetHashCode() =
             x.result.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? StatementResult as other -> x.result.Equals(other.result)
+            | :? statementResult as other -> x.result.Equals(other.result)
             | _ -> false
 
 [<AutoOpen>]

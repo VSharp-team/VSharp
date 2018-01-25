@@ -5,13 +5,13 @@ open global.System
 open System.Collections.Generic
 open Types.Constructor
 
-type StackKey = string * string // Name and token
+type stackKey = string * string // Name and token
 
-type LocationBinding = obj
-type StackHash = int list
-type ConcreteHeapAddress = int list
-type TermOrigin = { location : LocationBinding; stack : StackHash }
-type TermMetadata = { origins : TermOrigin list; mutable misc : HashSet<obj> }
+type locationBinding = obj
+type stackHash = int list
+type concreteHeapAddress = int list
+type termOrigin = { location : locationBinding; stack : stackHash }
+type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
 type IFunctionIdentifier =
     interface end
@@ -31,10 +31,10 @@ type EmptyIdentifier() =
     interface IFunctionIdentifier
 
 [<StructuralEquality;NoComparison>]
-type Operation =
+type operation =
     | Operator of OperationType * bool
     | Application of IFunctionIdentifier
-    | Cast of TermType * TermType * bool
+    | Cast of termType * termType * bool
     member x.priority =
         match x with
         | Operator (op, _) -> Operations.operationPriority op
@@ -42,24 +42,24 @@ type Operation =
         | Cast _ -> Operations.maxPriority - 1
 
 [<StructuralEquality;NoComparison>]
-type TermNode =
+type termNode =
     | Nop
-    | Error of Term
-    | Concrete of obj * TermType
-    | Constant of string Transparent * SymbolicConstantSource * TermType
-    | Array of Term                                       // Dimension
-               * Term                                     // Overal length (product of lengths by dimensions)
-               * SymbolicHeap                             // Lower bounds
-               * (Term * ArrayInstantiator) list          // Element instantiator with guards
-               * SymbolicHeap                             // Contents
-               * SymbolicHeap                             // Lengths by dimensions
-               * TermType                                 // Type
-    | Expression of Operation * Term list * TermType
-    | Struct of SymbolicHeap * TermType
-    | StackRef of StackKey * (Term * TermType) list * TermType option                       // If last field is (Some T) then this is pointer T*
-    | HeapRef of (Term * TermType) NonEmptyList * timestamp Transparent * TermType option   // If last field is (Some T) then this is pointer T*
-    | StaticRef of string * (Term * TermType) list * TermType option                        // If last field is (Some T) then this is pointer T*
-    | Union of (Term * Term) list
+    | Error of term
+    | Concrete of obj * termType
+    | Constant of string transparent * ISymbolicConstantSource * termType
+    | Array of term                                       // Dimension
+               * term                                     // Overal length (product of lengths by dimensions)
+               * symbolicHeap                             // Lower bounds
+               * (term * arrayInstantiator) list          // Element instantiator with guards
+               * symbolicHeap                             // Contents
+               * symbolicHeap                             // Lengths by dimensions
+               * termType                                 // Type
+    | Expression of operation * term list * termType
+    | Struct of symbolicHeap * termType
+    | StackRef of stackKey * (term * termType) list * termType option                       // If last field is (Some T) then this is pointer T*
+    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * termType option   // If last field is (Some T) then this is pointer T*
+    | StaticRef of string * (term * termType) list * termType option                        // If last field is (Some T) then this is pointer T*
+    | Union of (term * term) list
 
     member x.IndicesToString() =
         let sortKeyFromTerm = (fun t -> t.term) >> function
@@ -84,7 +84,7 @@ type TermNode =
         indicesArrayToString x
 
     override x.ToString() =
-        let getTerm (term : Term) = term.term
+        let getTerm (term : term) = term.term
 
         let checkExpression curChecked parentChecked priority parentPriority str =
             match curChecked, parentChecked with
@@ -109,7 +109,7 @@ type TermNode =
             | Constant(name, _, _) -> name.v
             | Concrete(_, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
-            | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+            | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -173,7 +173,7 @@ type TermNode =
                 | HeapRef(((z, _), path), _, _) ->
                     let ks =
                         match z.term with
-                        | Concrete(:? ConcreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+                        | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
                         | t -> toString t
                     path |> List.map (fst >> toStringWithIndent indent) |> cons ks |> join "." |> templateRef "Heap"
 
@@ -199,26 +199,26 @@ type TermNode =
 
 and
     [<StructuralEquality;NoComparison>]
-    ArrayInstantiator =
-        | DefaultInstantiator of Term * TermType
-        | LazyInstantiator of Term * TermType
+    arrayInstantiator =
+        | DefaultInstantiator of term * termType
+        | LazyInstantiator of term * termType
 
 and
     [<CustomEquality;NoComparison>]
-    Term =
-        {term : TermNode; metadata : TermMetadata}
+    term =
+        {term : termNode; metadata : termMetadata}
         override x.ToString() = x.term.ToString()
         override x.GetHashCode() = x.term.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? Term as other -> x.term.Equals(other.term)
+            | :? term as other -> x.term.Equals(other.term)
             | _ -> false
 
 and
-    SymbolicConstantSource =
-        abstract SubTerms : Term seq
+    ISymbolicConstantSource =
+        abstract SubTerms : term seq
 
-and SymbolicHeap = Heap<Term, Term>
+and symbolicHeap = heap<term, term>
 
 [<AutoOpen>]
 module internal Terms =
@@ -237,7 +237,7 @@ module internal Terms =
             | x::_ -> x.location
         let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
 
-    let term (term : Term) = term.term
+    let term (term : term) = term.term
 
     let Nop = { term = Nop; metadata = Metadata.empty }
     let Error metadata term = { term = Error term; metadata = metadata }
@@ -257,7 +257,7 @@ module internal Terms =
     let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
 
-    let ZeroAddress = TermNode.Concrete([0], Types.pointerType)
+    let ZeroAddress = termNode.Concrete([0], Types.pointerType)
 
     let MakeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 
@@ -367,8 +367,8 @@ module internal Terms =
 
     let rec TypeOf term =
         match term.term with
-        | Error _ -> TermType.Bottom
-        | Nop -> TermType.Void
+        | Error _ -> termType.Bottom
+        | Nop -> termType.Void
         | Concrete(_, t) -> t
         | Constant(_, _, t) -> t
         | Expression(_, _, t) -> t
@@ -381,7 +381,7 @@ module internal Terms =
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
             match nonEmptyTypes with
-            | [] -> TermType.Bottom
+            | [] -> termType.Bottom
             | t::ts ->
                 let allSame =
                     List.forall ((=) t) ts
@@ -555,7 +555,7 @@ module internal Terms =
         | _ -> None
 
     // TODO: can we already get rid of visited?
-    let rec private foldChildren folder (visited : HashSet<Term>) state term =
+    let rec private foldChildren folder (visited : HashSet<term>) state term =
         match term.term with
         | Constant(_, source, _) when visited.Add(term) ->
             foldSeq folder visited source.SubTerms state
@@ -588,7 +588,7 @@ module internal Terms =
             doFold folder visited state e
         | _ -> state
 
-    and doFold folder (visited : HashSet<Term>) state term =
+    and doFold folder (visited : HashSet<term>) state term =
         let state = foldChildren folder visited state term
         folder state term
 
@@ -596,10 +596,10 @@ module internal Terms =
         Seq.fold (doFold folder visited) state terms
 
     let fold folder state terms =
-        foldSeq folder (new HashSet<Term>()) state terms
+        foldSeq folder (new HashSet<term>()) state terms
 
     let iter action term =
-        doFold (fun () -> action) (new HashSet<Term>()) () term
+        doFold (fun () -> action) (new HashSet<term>()) () term
 
     let filterMapConstants mapper terms =
         let folder state term = mapper state term |> optCons state

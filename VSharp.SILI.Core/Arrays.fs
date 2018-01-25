@@ -7,31 +7,31 @@ module internal Arrays =
     [<StructuralEquality;NoComparison>]
     type private DefaultArray =
         struct end
-        interface SymbolicConstantSource with
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     [<StructuralEquality;NoComparison>]
     type private SymbolicArrayBound =
-        {array : Term; index : Term; upper : bool}
-        interface SymbolicConstantSource with
+        {array : term; index : term; upper : bool}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.index
 
     [<StructuralEquality;NoComparison>]
     type private SymbolicArrayDimensionNumber =
-        {array : Term}
-        interface SymbolicConstantSource with
+        {array : term}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     [<StructuralEquality;NoComparison>]
     type private SymbolicArrayIndex =
-        {indices : Term}
-        interface SymbolicConstantSource with
+        {indices : term}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     [<StructuralEquality;NoComparison>]
     type private SymbolicArrayLength =
-        {array : Term}
-        interface SymbolicConstantSource with
+        {array : term}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     type ArrayIndicesType =
@@ -149,7 +149,7 @@ module internal Arrays =
             | ArrayType(e, _) -> e
             | _ -> internalfail "unexpected type of array!"
         let unguardedLengths = guardsProduct mtd lengthList
-        let makeArray (lengthList : Term list) =
+        let makeArray (lengthList : term list) =
             let dim = List.length lengthList
             let lowerBounds = zeroLowerBound mtd dim
             let length = List.reduce (mul mtd) lengthList
@@ -173,7 +173,7 @@ module internal Arrays =
         let length = Seq.reduce (mul metadata) lengths
         Seq.foldi (fun h i l -> Heap.add (MakeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
 
-    and makeSymbolic metadata source (dimension : ArrayDimensionType) elemTyp typ arrayName =
+    and makeSymbolic metadata source (dimension : arrayDimensionType) elemTyp typ arrayName =
         let arrayConstant = Constant metadata arrayName source typ
         let instantiator = [Terms.True , LazyInstantiator(arrayConstant, elemTyp)]
         let lowerBound, arrayLengths, arrayLength, dim =
@@ -196,7 +196,7 @@ module internal Arrays =
             | _ -> internalfail "unexpected type of array!"
         let rec flatten depth term =
             match term.term with
-            | Concrete(:? (Term list) as terms, _) ->
+            | Concrete(:? (term list) as terms, _) ->
                 let children, dims = terms |> List.map (flatten (depth - 1)) |> List.unzip
                 match dims with
                 | d::ds when not (List.forall ((=) d) ds) ->

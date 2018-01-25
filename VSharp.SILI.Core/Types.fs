@@ -1,38 +1,37 @@
 namespace VSharp.Core
 
 open VSharp
-open VSharp.Hierarchy
 open global.System
 open System.Collections.Generic
 open System.Reflection
 
-type Variance =
+type variance =
     | Contravariant
     | Covariant
     | Invarinat
 
 [<StructuralEquality;NoComparison>]
-type ArrayDimensionType =
+type arrayDimensionType =
     | Vector
     | ConcreteDimension of int
     | SymbolicDimension of string
 
 [<StructuralEquality;NoComparison>]
-type TermType =
+type termType =
     | Void
     | Bottom
     | Null
     | Bool
     | Numeric of System.Type
     | String
-    | StructType of Hierarchy * TermTypeRef list * TermType list        // Value type with generic argument and interfaces
-    | ClassType of Hierarchy * TermTypeRef list * TermType list         // Reference type with generic argument and interfaces
-    | InterfaceType of Hierarchy * TermTypeRef list * TermType list     // Interface type with generic argument and interfaces
-    | TypeVariable of TypeId
-    | ArrayType of TermType * ArrayDimensionType
-    | Func of TermType list * TermType
-    | Reference of TermType
-    | Pointer of TermType // int* and other C style pointers
+    | StructType of hierarchy * termTypeRef list * termType list        // Value type with generic argument and interfaces
+    | ClassType of hierarchy * termTypeRef list * termType list         // Reference type with generic argument and interfaces
+    | InterfaceType of hierarchy * termTypeRef list * termType list     // Interface type with generic argument and interfaces
+    | TypeVariable of typeId
+    | ArrayType of termType * arrayDimensionType
+    | Func of termType list * termType
+    | Reference of termType
+    | Pointer of termType // C-style pointers like int*
 
     override x.ToString() =
         match x with
@@ -56,19 +55,19 @@ type TermType =
         | Pointer t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;NoComparison>]
-    TermTypeRef =
-        | TermTypeRef of TermType ref
+    termTypeRef =
+        | TermTypeRef of termType ref
         override x.GetHashCode() =
             Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
         override x.Equals(o : obj) =
             match o with
-            | :? TermTypeRef as other -> x.GetHashCode() = other.GetHashCode()
+            | :? termTypeRef as other -> x.GetHashCode() = other.GetHashCode()
             | _ -> false
 
 and [<StructuralEquality;NoComparison>]
-    TypeId =
-        | Implicit of Hierarchy
-        | Explicit of string * TermType
+    typeId =
+        | Implicit of hierarchy
+        | Explicit of string * termType
 
 module public Types =
     let (|StructType|_|) = function
@@ -219,14 +218,14 @@ module public Types =
 
 
     module public Constructor =
-        let private StructType (t : Type) g i = StructType(Hierarchy t, g, i)
-        let private ClassType (t : Type) g i = ClassType(Hierarchy t, g, i)
-        let private InterfaceType (t : Type) g i = InterfaceType(Hierarchy t, g, i)
-        let private Implicit (t : Type) = Implicit(Hierarchy t)
+        let private StructType (t : Type) g i = StructType(hierarchy t, g, i)
+        let private ClassType (t : Type) g i = ClassType(hierarchy t, g, i)
+        let private InterfaceType (t : Type) g i = InterfaceType(hierarchy t, g, i)
+        let private Implicit (t : Type) = Implicit(hierarchy t)
 
         module private TypesCache =
 
-            let private types = new Dictionary<System.Type, TermType ref>()
+            let private types = new Dictionary<System.Type, termType ref>()
 
             let Contains t = types.ContainsKey t
             let Prepare t = types.Add (t, ref Null)
@@ -294,7 +293,7 @@ module public Types =
         and private fromDotNetGenericParameterConstraints (constraints : Type[]) =
             constraints |> Seq.collect fromDotNetGenericParameterConstraint |> Seq.distinct |> List.ofSeq
 
-        and private fromDotNetGenericParameter (genericParameter : Type) : TermType =
+        and private fromDotNetGenericParameter (genericParameter : Type) : termType =
             TypeVariable(Implicit genericParameter)
 
         and private fromDotNetTypeRef dotNetType =
@@ -310,19 +309,19 @@ module public Types =
         let FromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else !(fromDotNetTypeRef dotNetType)
 
         let (|StructureType|_|) = function
-            | TermType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
-            | Numeric t -> Some(StructureType(Hierarchy t, [], getInterfaces t))
-            | Bool -> Some(StructureType(Hierarchy typedefof<bool>, [], getInterfaces typedefof<bool>))
+            | termType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
+            | Numeric t -> Some(StructureType(hierarchy t, [], getInterfaces t))
+            | Bool -> Some(StructureType(hierarchy typedefof<bool>, [], getInterfaces typedefof<bool>))
             | TypeVariable(Implicit t) when t.Inheritor.IsValueType -> Some(StructureType(t, [], getInterfaces t.Inheritor))
             | _ -> None
 
         let (|ReferenceType|_|) = function
-            | String -> Some(ReferenceType(Hierarchy typedefof<string>, [], getInterfaces typedefof<string>))
-            | TermType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
-            | TermType.InterfaceType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
-            | TermType.ArrayType _ as arr ->
+            | String -> Some(ReferenceType(hierarchy typedefof<string>, [], getInterfaces typedefof<string>))
+            | termType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
+            | termType.InterfaceType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
+            | termType.ArrayType _ as arr ->
                 let t = ToDotNetType arr
-                Some(ReferenceType(Hierarchy t, [], getInterfaces t))
+                Some(ReferenceType(hierarchy t, [], getInterfaces t))
             | _ -> None
 
         let (|ComplexType|_|) = function
@@ -381,8 +380,8 @@ module public Types =
             else IsAssignableToGenericType baseType genericType
 
     let private updateConstraints constraints = function
-        | TermType.ClassType(t, g, _) -> ClassType(t, g, constraints)
-        | TermType.StructType(t, g, _) -> StructType(t, g, constraints)
+        | termType.ClassType(t, g, _) -> ClassType(t, g, constraints)
+        | termType.StructType(t, g, _) -> StructType(t, g, constraints)
         | _ -> __unreachable__()
 
     let rec GetFieldsOf (t : System.Type) isStatic =

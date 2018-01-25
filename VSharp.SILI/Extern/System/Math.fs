@@ -10,7 +10,7 @@ module private MathImpl =
 
     open Arithmetics
 
-    let impl<'a when 'a : comparison> (concrete : 'a -> 'a) standFunc (state : State) args =
+    let impl<'a when 'a : comparison> (concrete : 'a -> 'a) standFunc (state : state) args =
         assert(List.length args = 1)
         let arg = List.head args
         let result = GuardedApplyExpression arg (fun term ->
@@ -24,7 +24,7 @@ module private MathImpl =
             | term -> internalfailf "expected number, but %O got!" term)
         Return result, state
 
-    let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete (state : State) args =
+    let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete (state : state) args =
         let mkPowExpr args typ = Expression (Application(StandardFunctionIdentifier StandardFunction.Power)) args typ
         let zero = convert 0.0
         let one = convert 1.0
@@ -104,7 +104,7 @@ module private MathImpl =
             | term -> internalfailf "expected number for base, but %O got!" term)
         Return result, state
 
-    let atan2<'a when 'a : comparison> convert isNan isInf concrete (state : State) args =
+    let atan2<'a when 'a : comparison> convert isNan isInf concrete (state : state) args =
         let atanOp = Application(StandardFunctionIdentifier StandardFunction.Arctangent2)
         let y, x = List.item 0 args, List.item 1 args
         let inf, Nan = convert infinity, convert nan

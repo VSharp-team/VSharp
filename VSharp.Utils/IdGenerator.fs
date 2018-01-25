@@ -8,7 +8,7 @@ open System.Collections.Generic
 /// </summary>
 module public IdGenerator =
     let private defaultPrefix = "v#!"
-    let private values = Persistent((fun () -> new Dictionary<string, uint32>()), fun x -> new Dictionary<string, uint32>(x))
+    let private values = persistent((fun () -> new Dictionary<string, uint32>()), fun x -> new Dictionary<string, uint32>(x))
 
     /// <summary>
     /// Generates new string identifiers starting from the given prefix unique per application domain
@@ -17,9 +17,9 @@ module public IdGenerator =
         let nonEmptyPrefix = if String.IsNullOrWhiteSpace(prefix) then defaultPrefix else prefix
         // Generated ids may actually still collide if prefix ends with digit. Adding
         let validPrefix = if Char.IsDigit(nonEmptyPrefix.[nonEmptyPrefix.Length - 1]) then nonEmptyPrefix + "!!" else nonEmptyPrefix
-        let id = if values.Read().ContainsKey(validPrefix) then values.Read().[validPrefix] + 1u else 1u
-        values.Read().Remove(validPrefix) |> ignore
-        values.Read().Add(validPrefix, id)
+        let id = if values.Value.ContainsKey(validPrefix) then values.Value.[validPrefix] + 1u else 1u
+        values.Value.Remove(validPrefix) |> ignore
+        values.Value.Add(validPrefix, id)
         validPrefix + string(id)
 
     /// <summary>
@@ -30,7 +30,7 @@ module public IdGenerator =
     /// <summary>
     /// Clears internal identifiers cache; the identifiers will duplicate ones that were generated until the reset.
     /// </summary>
-    let public clear() = values.Read().Clear()
+    let public clear() = values.Value.Clear()
 
     /// <summary>
     /// Persistent version of clear(): clears cache saving old configuration of IdGenerator until restore() is called.

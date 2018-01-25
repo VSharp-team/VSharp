@@ -44,7 +44,7 @@ module public SVM =
 
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList
-        let dictionary = new Dictionary<MethodInfo, Term * State>()
+        let dictionary = new Dictionary<MethodInfo, term * state>()
         let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location)
         let ep = assembly.EntryPoint
         assembly.GetTypes() |> FSharp.Collections.Array.iter (fun elem -> exploreType ignoreList ep dictionary path elem)

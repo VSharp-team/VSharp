@@ -10,4 +10,4 @@ open VSharp.Interpreter
 module internal String =
 
     [<Implements("System.Void System.String..ctor(this, System.Char[])")>]
-    val ctorOfCharArray : State -> Term list -> StatementResult * State
+    val ctorOfCharArray : state -> term list -> statementResult * state

@@ -10,61 +10,61 @@ open VSharp.Interpreter
 module internal Math =
 
     [<Implements("System.Double System.Math.Acos(System.Double)")>]
-    val Acos : State -> Term list -> StatementResult * State
+    val Acos : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Asin(System.Double)")>]
-    val Asin : State -> Term list -> StatementResult * State
+    val Asin : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Atan(System.Double)")>]
-    val Atan : State -> Term list -> StatementResult * State
+    val Atan : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Atan2(System.Double, System.Double)")>]
-    val Atan2 : State -> Term list -> StatementResult * State
+    val Atan2 : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Ceiling(System.Double)")>]
-    val Ceiling : State -> Term list -> StatementResult * State
+    val Ceiling : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Cos(System.Double)")>]
-    val Cos : State -> Term list -> StatementResult * State
+    val Cos : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Cosh(System.Double)")>]
-    val Cosh : State -> Term list -> StatementResult * State
+    val Cosh : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Floor(System.Double)")>]
-    val Floor : State -> Term list -> StatementResult * State
+    val Floor : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Sin(System.Double)")>]
-    val Sin : State -> Term list -> StatementResult * State
+    val Sin : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Tan(System.Double)")>]
-    val Tan : State -> Term list -> StatementResult * State
+    val Tan : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Sinh(System.Double)")>]
-    val Sinh : State -> Term list -> StatementResult * State
+    val Sinh : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Tanh(System.Double)")>]
-    val Tanh : State -> Term list -> StatementResult * State
+    val Tanh : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Round(System.Double)")>]
-    val Round : State -> Term list -> StatementResult * State
+    val Round : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Sqrt(System.Double)")>]
-    val Sqrt : State -> Term list -> StatementResult * State
+    val Sqrt : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Log(System.Double)")>]
-    val Log : State -> Term list -> StatementResult * State
+    val Log : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Log10(System.Double)")>]
-    val Log10 : State -> Term list -> StatementResult * State
+    val Log10 : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Exp(System.Double)")>]
-    val Exp : State -> Term list -> StatementResult * State
+    val Exp : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Pow(System.Double, System.Double)")>]
-    val Pow : State -> Term list -> StatementResult * State
+    val Pow : state -> term list -> statementResult * state
 
     [<Implements("System.Double System.Math.Abs(System.Double)")>]
-    val Abs : State -> Term list -> StatementResult * State
+    val Abs : state -> term list -> statementResult * state
 
     [<Implements("System.Single System.Math.Abs(System.Single)")>]
-    val AbsS : State -> Term list -> StatementResult * State
+    val AbsS : state -> term list -> statementResult * state

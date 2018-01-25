@@ -1,7 +1,6 @@
 ﻿namespace VSharp.Core
 
 open VSharp
-open VSharp.Hierarchy
 open VSharp.Core.Types.Constructor
 
 module internal Common =
@@ -45,8 +44,8 @@ module internal Common =
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]
     type private SymbolicSubtypeSource =
-        {left : TermType; right : TermType}
-        interface SymbolicConstantSource with
+        {left : termType; right : termType}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
@@ -55,7 +54,7 @@ module internal Common =
             Constant metadata (subtypeName lname rname) ({left = leftTermType; right = rightTermType} : SymbolicSubtypeSource) Bool
         match leftType, rightType with
         | _ when leftType = rightType -> Terms.MakeTrue metadata
-        | TermType.Null, _
+        | termType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
         | Reference _, Reference _ -> Terms.MakeTrue metadata
@@ -80,8 +79,8 @@ module internal Common =
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]
     type private IsValueTypeConstantSource =
-        {termType : TermType}
-        interface SymbolicConstantSource with
+        {termType : termType}
+        interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     let internal isValueType metadata termType =
@@ -109,7 +108,7 @@ module internal Common =
         | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
         | _ -> execution condition k)
 
-    let reduceConditionalExecution (state : State) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let reduceConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->

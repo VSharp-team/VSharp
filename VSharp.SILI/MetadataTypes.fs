@@ -57,7 +57,7 @@ module internal MetadataTypes =
 
     let rec FromMetadataType (t : IMetadataType) =
         match t with
-        | null -> ClassType(Hierarchy.Hierarchy typedefof<obj>, [], [])
+        | null -> ClassType(hierarchy typedefof<obj>, [], [])
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Void" -> Core.Void
         | :? IMetadataGenericArgumentReferenceType as g ->

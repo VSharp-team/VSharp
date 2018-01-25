@@ -5,7 +5,7 @@ open VSharp
 module internal Strings =
 
     let makeString length str timestamp =
-        let fields : Heap<Term,Term> =
+        let fields : symbolicHeap =
             Heap.ofSeq (seq [ MakeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length (Numeric typedefof<int>); created = timestamp; modified = timestamp };
             MakeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str Core.String; created = timestamp; modified = timestamp }])
         Struct Metadata.empty fields Core.String

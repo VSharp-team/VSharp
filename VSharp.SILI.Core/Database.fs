@@ -3,10 +3,10 @@ namespace VSharp.Core
 open System.Collections.Generic
 
 module internal Database =
-    let private exploredResults= new Dictionary<IFunctionIdentifier, StatementResult>()
-    let private exploredExceptionGuards = new Dictionary<IFunctionIdentifier, Term>()
-    let private exploredExceptions = new Dictionary<IFunctionIdentifier, Term>()
-    let private exploredStates = new Dictionary<IFunctionIdentifier, State>()
+    let private exploredResults= new Dictionary<IFunctionIdentifier, statementResult>()
+    let private exploredExceptionGuards = new Dictionary<IFunctionIdentifier, term>()
+    let private exploredExceptions = new Dictionary<IFunctionIdentifier, term>()
+    let private exploredStates = new Dictionary<IFunctionIdentifier, state>()
 
     let report id (result, state) =
         exploredResults.Add(id, result) |> ignore

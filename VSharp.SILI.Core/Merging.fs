@@ -88,7 +88,7 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs []
 
-    and mergeSame<'a when 'a : equality> : (Term * 'a) list -> (Term * 'a) list = function
+    and mergeSame<'a when 'a : equality> : (term * 'a) list -> (term * 'a) list = function
         | [] -> []
         | [_] as xs -> xs
         | [(g1, v1); (g2, v2)] as gvs -> if v1 = v2 then [(g1 ||| g2, v1)] else gvs
@@ -164,7 +164,7 @@ module internal Merging =
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
-    let merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : MemoryCell<Term>) ({value = v;created = cv;modified = mv} as vcell : MemoryCell<Term>) =
+    let merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : term memoryCell) ({value = v;created = cv;modified = mv} as vcell : term memoryCell) =
         let g = guardOf u &&& g
         let h = guardOf v &&& h
         match g, h with
@@ -204,7 +204,7 @@ module internal Merging =
             Heap.merge2 h1 h2 resolve |> State.Defined r1
         | _ -> mergeGeneralizedHeaps [g1; g2] [h1; h2]
 
-    let merge2States condition1 condition2 (state1 : State) (state2 : State) =
+    let merge2States condition1 condition2 (state1 : state) (state2 : state) =
         match condition1, condition2 with
         | True, _ -> state1
         | False, _ -> state2
@@ -219,9 +219,9 @@ module internal Merging =
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics resolve
             { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
 
-    let mergeStates conditions states : State =
+    let mergeStates conditions states : state =
         assert(List.length states > 0)
-        let first : State = List.head states
+        let first : state = List.head states
         let frames = first.frames
         let path = first.pc
         assert(states |> List.forall (fun s -> s.frames = frames))

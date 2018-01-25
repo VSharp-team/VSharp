@@ -10,4 +10,4 @@ open VSharp.Interpreter
 module Environment =
 
     [<Implements("System.String System.Environment.GetResourceFromDefault(System.String)")>]
-    val internal GetResourceFromDefault : State -> Term list -> StatementResult * State
+    val internal GetResourceFromDefault : state -> term list -> statementResult * state

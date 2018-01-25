@@ -2,13 +2,13 @@
 
 open VSharp
 
-type public SymbolicLambda<'a> = LocationBinding -> State -> Term list SymbolicValue -> (StatementResult * State -> 'a) -> 'a
+type public 'a symbolicLambda = locationBinding -> state -> term list symbolicValue -> (statementResult * state -> 'a) -> 'a
 
 module internal Lambdas =
 
-    let make mtd (body : SymbolicLambda<'a>) typ = Concrete mtd body typ
+    let make mtd (body : 'a symbolicLambda) typ = Concrete mtd body typ
 
     let (|Lambda|_|) = function
-        | Concrete(lambda, t) when Types.IsFunction t && (lambda :? SymbolicLambda<'a>) ->
-            Some(Lambda(lambda :?> SymbolicLambda<'a>))
+        | Concrete(lambda, t) when Types.IsFunction t && (lambda :? 'a symbolicLambda) ->
+            Some(Lambda(lambda :?> 'a symbolicLambda))
         | _ -> None

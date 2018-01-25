@@ -8,5 +8,5 @@ open VSharp.Core
 
 module Environment =
 
-    let internal GetResourceFromDefault (state : State) (args : Term list) =
+    let internal GetResourceFromDefault (state : state) (args : term list) =
         Return (Concrete "Getting resource strings currently not supported!" String), state
