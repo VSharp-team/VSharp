@@ -40,9 +40,13 @@ module public Prelude =
         | None -> rhs.Force()
 
 [<CustomEquality;NoComparison>]
-type 'a Transparent =
+type 'a transparent =
     { v : 'a }
     override x.ToString() = x.v.ToString()
     override x.GetHashCode() = x.GetType().GetHashCode()
     override x.Equals(o : obj) =
-        o :? 'a Transparent
+        o :? 'a transparent
+
+type 'a symbolicValue =
+    | Specified of 'a
+    | Unspecified

@@ -1,11 +1,11 @@
-namespace VSharp
+namespace VSharp.Core
 
-open JetBrains.Decompiler.Ast
-open VSharp.Common
+open VSharp
+open VSharp.Core.Common
 
 module internal Pointers =
 
-    let internal locationEqual mtd addr1 addr2 =
+    let locationEqual mtd addr1 addr2 =
         match TypeOf addr1, TypeOf addr2 with
         | String, String -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ ->
@@ -15,13 +15,13 @@ module internal Pointers =
         | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
         | _ -> __notImplemented__()
 
-    let internal comparePath mtd path1 path2 =
+    let comparePath mtd path1 path2 =
         if List.length path1 <> List.length path2 then
             Terms.MakeFalse mtd
         else
             List.map2 (fun (x, _) (y, _) -> locationEqual mtd x y) path1 path2 |> conjunction mtd
 
-    let rec internal simplifyReferenceEquality mtd x y k =
+    let rec simplifyReferenceEquality mtd x y k =
         simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
             (fun _ _ _ _ -> __unreachable__())
             (fun x y s k ->
@@ -37,10 +37,10 @@ module internal Pointers =
                 | _ -> MakeFalse mtd |> k)
             (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
 
-    let internal isNull mtd ptr =
+    let isNull mtd ptr =
         simplifyReferenceEquality mtd ptr (MakeNullRef Null mtd) id
 
-    let internal simplifyBinaryOperation metadata op state x y k =
+    let simplifyBinaryOperation metadata op state x y k =
         match op with
         | OperationType.Add
         | OperationType.Subtract -> __notImplemented__()
@@ -50,7 +50,7 @@ module internal Pointers =
             Propositional.simplifyNegation metadata e (withSnd state >> k))
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
-    let internal isPointerOperation op t1 t2 =
+    let isPointerOperation op t1 t2 =
         (Types.IsPointer t1 || Types.IsReference t1 || Types.IsBottom t1) &&
         (Types.IsPointer t2 || Types.IsReference t2 || Types.IsBottom t2) &&
         match op with
@@ -60,7 +60,7 @@ module internal Pointers =
         | OperationType.NotEqual -> true
         | _ -> false
 
-    let rec internal topLevelLocation t =
+    let rec topLevelLocation t =
         match t.term with
         | HeapRef(((a, _), []), _, _) -> a
         | Union gvs -> Merging.guardedMap topLevelLocation gvs

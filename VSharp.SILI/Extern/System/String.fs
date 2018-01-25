@@ -2,10 +2,11 @@ namespace VSharp.System
 
 open global.System
 open VSharp
+open VSharp.Core
 
 // ------------------------------- mscorelib.System.Array -------------------------------
 
 module internal String =
 
-    let ctorOfCharArray (state : State.state) (args : Term list) =
+    let ctorOfCharArray (state : state) (args : term list) =
         Return <| __notImplemented__(), state

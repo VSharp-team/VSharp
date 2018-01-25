@@ -2,10 +2,11 @@ namespace VSharp.Utils
 
 open VSharp
 
+type mappedStackContents<'a, 'b> when 'a : comparison = Map<'a * uint32, 'b>
+type mappedStackPeaks<'a> when 'a : comparison = Map<'a, uint32>
+type mappedStack<'a, 'b> when 'a : comparison = mappedStackContents<'a, 'b> * mappedStackPeaks<'a>
+
 module public MappedStack =
-    type stackContents<'a, 'b> when 'a : comparison = Map<'a * uint32, 'b>
-    type stackPeaks<'a> when 'a : comparison = Map<'a, uint32>
-    type stack<'a, 'b> when 'a : comparison = stackContents<'a, 'b> * stackPeaks<'a>
 
     let private defaultPeak = 0ul
 

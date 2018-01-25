@@ -2,10 +2,11 @@ namespace VSharp.System
 
 open global.System
 open VSharp
+open VSharp.Core
 
 // ------------------------------- mscorelib.System.Environment -------------------------------
 
 module Environment =
 
-    let internal GetResourceFromDefault (state : State.state) (args : Term list) =
-        Return (MakeConcreteString "Getting resource strings currently not supported!"), state
+    let internal GetResourceFromDefault (state : state) (args : term list) =
+        Return (Concrete "Getting resource strings currently not supported!" String), state

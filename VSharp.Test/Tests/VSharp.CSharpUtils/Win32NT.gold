@@ -1637,8 +1637,8 @@ System.Math ==> STRUCT System.Math[
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod16(System.Double)
 RESULT: UNION[
-	| !(-1 == x) & !(1 == x) & (!(-1 < x) | 1 <= x) ~> 0
-	| !(1 <= x) & -1 < x ~> Infinity
+	| !(-1 == x) & !(1 == x) & (!(-1 < x) | !(x < 1)) ~> 0
+	| -1 < x & x < 1 ~> Infinity
 	| -1 == x ~> NaN
 	| 1 == x ~> 1]
 HEAP:
@@ -2992,7 +2992,7 @@ HEAP:
 19 ==> STRUCT string[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i) I
 	| System.String.m_StringLength ~> 33]
-2 ==> STRUCT System.Collections.Generic.List`1[System.String][
+2 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 16
@@ -3104,7 +3104,7 @@ RESULT: 15
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.Collections.Generic.List`1[System.String][
+1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 12
@@ -3754,7 +3754,7 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
+2 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null

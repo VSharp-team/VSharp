@@ -98,8 +98,9 @@ module public Dict =
         dict1.Keys.Count = dict2.Keys.Count &&
         dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
 
+type 'a stack = 'a list
+
 module public Stack =
-    type 'a stack = 'a list
 
     let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
@@ -133,10 +134,10 @@ module public Stack =
 
     let tryFindBottom = List.tryFindBack
 
-type 'a NonEmptyList = 'a * 'a list
+type 'a nonEmptyList = 'a * 'a list
 
 module public NonEmptyList =
-    let ofList : 'a list -> 'a NonEmptyList = function
+    let ofList : 'a list -> 'a nonEmptyList = function
         | x::xs -> (x, xs)
         | _ -> internalfail "constructing non-empty list from empty list"
 

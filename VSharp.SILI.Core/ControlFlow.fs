@@ -1,24 +1,26 @@
-﻿namespace VSharp
+﻿namespace VSharp.Core
 
-type StatementResultNode =
+open VSharp
+
+type statementResultNode =
     | NoResult
     | Break
     | Continue
-    | Return of Term
-    | Throw of Term
-    | Guarded of (Term * StatementResult) list
+    | Return of term
+    | Throw of term
+    | Guarded of (term * statementResult) list
 
 and
     [<CustomEquality;NoComparison>]
-    StatementResult =
-        {result : StatementResultNode; metadata : TermMetadata}
+    statementResult =
+        {result : statementResultNode; metadata : termMetadata}
         override x.ToString() =
             x.result.ToString()
         override x.GetHashCode() =
             x.result.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? StatementResult as other -> x.result.Equals(other.result)
+            | :? statementResult as other -> x.result.Equals(other.result)
             | _ -> false
 
 [<AutoOpen>]
@@ -34,7 +36,7 @@ module internal ControlFlow =
 
     type private ReturnMarker() = class end
 
-    let rec internal merge2Results condition1 condition2 thenRes elseRes =
+    let rec merge2Results condition1 condition2 thenRes elseRes =
         let metadata = Metadata.combine thenRes.metadata elseRes.metadata
         match thenRes.result, elseRes.result with
         | _, _ when thenRes = elseRes -> thenRes
@@ -57,53 +59,50 @@ module internal ControlFlow =
             | _ -> List.singleton (guard(g), merged)
         gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not)
 
-    let rec private createImplicitPathCondition (statement : Option<JetBrains.Decompiler.Ast.IStatement>) accTerm (term, statementResult) =
+    let rec private createImplicitPathCondition consumeContinue accTerm (term, statementResult) =
         match statementResult.result with
         | NoResult -> term ||| accTerm
-        | Continue ->
-            match statement with
-            | Some(statement) -> if Transformations.isContinueConsumer statement then term ||| accTerm else accTerm
-            | None -> accTerm
+        | Continue when consumeContinue -> term ||| accTerm
         | Guarded gvs ->
-            List.fold (createImplicitPathCondition statement) accTerm gvs
+            List.fold (createImplicitPathCondition consumeContinue) accTerm gvs
         | _ -> accTerm
 
-    let internal currentCalculationPathCondition (statement : Option<JetBrains.Decompiler.Ast.IStatement>) statementResult =
-         createImplicitPathCondition statement False (True, statementResult)
+    let currentCalculationPathCondition consumeContinue statementResult =
+         createImplicitPathCondition consumeContinue False (True, statementResult)
 
-    let rec internal consumeContinue result =
+    let rec consumeContinue result =
         match result.result with
         | Continue -> NoResult result.metadata
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeContinue v)) |> Guarded result.metadata
         | _ -> result
 
-    let rec internal consumeBreak result =
+    let rec consumeBreak result =
         match result.result with
         | Break -> NoResult result.metadata
         | Guarded gvs -> gvs |> List.map (fun (g, v) -> (g, consumeBreak v)) |> Guarded result.metadata
         | _ -> result
 
-    let rec internal throwOrIgnore term =
+    let rec throwOrIgnore term =
         match term.term with
         | Error t -> Throw term.metadata t
         | GuardedValues(gs, vs) -> vs |> List.map throwOrIgnore |> List.zip gs |> Guarded term.metadata
         | _ -> NoResult term.metadata
 
-    let rec internal throwOrReturn term =
+    let rec throwOrReturn term =
         match term.term with
         | Error t -> Throw term.metadata t
         | GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded term.metadata
         | Nop when not <| Metadata.miscContains term (ReturnMarker()) -> NoResult term.metadata
         | _ -> Return term.metadata term
 
-    let rec internal consumeErrorOrReturn consumer term =
+    let rec consumeErrorOrReturn consumer term =
         match term.term with
         | Error t -> consumer t
         | Nop -> NoResult term.metadata
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded term.metadata
         | _ -> Return term.metadata term
 
-    let rec internal composeSequentially oldRes newRes oldState newState =
+    let rec composeSequentially oldRes newRes oldState newState =
         let calculationDone result =
             match result.result with
             | NoResult -> false
@@ -133,17 +132,29 @@ module internal ControlFlow =
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
-    let rec internal resultToTerm result =
+    let invokeAfter consumeContinue (result, state) statement k =
+        let pathCondition = currentCalculationPathCondition consumeContinue result
+        match pathCondition with
+        | Terms.True -> statement state (fun (newRes, newState) -> k (composeSequentially result newRes state newState))
+        | Terms.False -> k (result, state)
+        | _ ->
+            statement
+                (State.withPathCondition state pathCondition)
+                (fun (newRes, newState) ->
+                    let newState = State.popPathCondition newState
+                    k (composeSequentially result newRes state newState))
+
+    let rec resultToTerm result =
         match result.result with
         | Return term -> Metadata.addMisc term (ReturnMarker()); { term = term.term; metadata = result.metadata }
         | Throw err -> Error result.metadata err
         | Guarded gvs -> Merging.guardedMap resultToTerm gvs
         | _ -> Nop
 
-    let internal pickOutExceptions result =
+    let pickOutExceptions result =
         let gvs =
             match result.result with
-            | Throw e -> [(True, result)]
+            | Throw _ -> [(True, result)]
             | Guarded gvs -> gvs
             | _ -> [(True, result)]
         let pickThrown (g, result) =
@@ -154,15 +165,15 @@ module internal ControlFlow =
         match thrown with
         | [] -> None, normal
         | gvs ->
-            let gs, vs = List.unzip gvs
+            let gs, _ = List.unzip gvs
             let mergedGuard = disjunction result.metadata gs
             let mergedValue = Merging.merge gvs
             Some(mergedGuard, mergedValue), normal
 
-    let internal mergeResults grs =
+    let mergeResults grs =
         Merging.guardedMap resultToTerm grs |> throwOrReturn
 
-    let internal unguardResults gvs =
+    let unguardResults gvs =
         let unguard gres =
             match gres with
             | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)

@@ -1,11 +1,11 @@
-namespace VSharp
+namespace VSharp.Core
 
-open JetBrains.Decompiler.Ast
+open VSharp
 
 [<AutoOpen>]
 module internal Operators =
 
-    let rec internal refToInt term =
+    let rec refToInt term =
         match term.term with
         | Error _ -> term
         | Concrete(null, _) -> Concrete term.metadata 0 Types.pointerType
@@ -13,7 +13,7 @@ module internal Operators =
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
 
-    let rec internal referenceEqual mtd p1 p2 =
+    let rec referenceEqual mtd p1 p2 =
         let addr1 = refToInt p1
         let addr2 = refToInt p2
         if not(Terms.IsInteger addr1 || Terms.IsInteger addr2) then
@@ -35,7 +35,7 @@ module internal Operators =
         | _ -> __notImplemented__()
 
     let ksimplifyEquality mtd x y k =
-        simplifyBinaryOperation mtd JetBrains.Decompiler.Ast.OperationType.Equal false State.empty typeof<bool> x y (fst >> k)
+        simplifyBinaryOperation mtd OperationType.Equal false State.empty typeof<bool> x y (fst >> k)
 
     let simplifyEquality mtd x y =
         ksimplifyEquality mtd x y id
@@ -51,10 +51,10 @@ module internal Operators =
         | _ -> __notImplemented__()
 
     let simplifyHeapPointwiseEquality mtd h1 h2 =
-        Heap.unify (Terms.MakeTrue mtd) h1 h2 (fun s k v1 v2 ->
+        Heap.unify (Terms.MakeTrue mtd) h1 h2 (fun s _ v1 v2 ->
             match v1, v2 with
             | Some v1, Some v2 -> simplifyAnd mtd s (simplifyEquality mtd v1.value v2.value) id
-            | None, Some v2 -> s
+            | None, Some _ -> s
             | _ -> __notImplemented__())
 
     let simplifyArraysEquality mtd x y =
