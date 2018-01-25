@@ -1,19 +1,24 @@
-﻿namespace VSharp
+﻿namespace VSharp.Interpreter
 
+open VSharp
 open JetBrains.Metadata.Reader.API
 open JetBrains.Decompiler.Ast
 open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
-type FunctionIdentifier =
-    | MetadataMethodIdentifier of JetBrains.Metadata.Reader.API.IMetadataMethod
-    | DelegateIdentifier of JetBrains.Decompiler.Ast.INode
-    | StandardFunctionIdentifier of Operations.StandardFunction
-    override x.ToString() =
-        match x with
-        | MetadataMethodIdentifier mm -> mm.Name
-        | DelegateIdentifier _ -> "<delegate>"
-        | StandardFunctionIdentifier sf -> sf.ToString()
+type MetadataMethodIdentifier =
+    { metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod}
+    interface Core.IMethodIdentifier with
+        member x.IsStatic = x.metadataMethod.IsStatic
+        member x.DeclaringTypeAQN = x.metadataMethod.DeclaringType.AssemblyQualifiedName
+        member x.Token = x.metadataMethod.Token.ToString()
+    override x.ToString() = x.metadataMethod.Name
+
+[<StructuralEquality;NoComparison>]
+type DelegateIdentifier =
+    { metadataDelegate : JetBrains.Decompiler.Ast.INode }
+    interface Core.IDelegateIdentifier
+    override x.ToString() = "<delegate>"
 
 module internal DecompilerServices =
     let private assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
@@ -23,25 +28,25 @@ module internal DecompilerServices =
 
     let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
 
-    let rec loadAssemblyByName (name : string) =
+    let rec internal loadAssemblyByName (name : string) =
         let path = System.Reflection.Assembly.Load(name).Location
         if not(assemblies.ContainsKey(path)) then
             let jbPath = JetBrains.Util.FileSystemPath.Parse(path)
             loadAssembly jbPath |> ignore
 
-    and loadAssembly (path : JetBrains.Util.FileSystemPath) =
+    and internal loadAssembly (path : JetBrains.Util.FileSystemPath) =
         let assembly = Dict.getValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true))
         assembly.ReferencedAssembliesNames |> Seq.iter (fun reference -> loadAssemblyByName reference.FullName)
         assembly
 
-    let public getPropertyOfNode (node : INode) key defaultValue =
+    let internal getPropertyOfNode (node : INode) key defaultValue =
         // node.Data.TryGetValue is poorly implemented (it checks for reference equality of keys), so searching manually...
         node.Data |> Seq.tryPick (fun keyValue -> if (keyValue.Key.ToString() = key) then Some(keyValue.Value) else None) |?? defaultValue
 
-    let public setPropertyOfNode (node : INode) property value =
+    let internal setPropertyOfNode (node : INode) property value =
         node.Data.SetValue(JetBrains.Decompiler.Utils.DataKey<obj>(property), box value)
 
-    let public getTypeOfNode (node : INode) =
+    let internal getTypeOfNode (node : INode) =
         getPropertyOfNode node "Type" null :?> JetBrains.Metadata.Reader.API.IMetadataType
 
     let public setTypeOfNode (node : INode) (t : JetBrains.Metadata.Reader.API.IMetadataType) =
@@ -156,17 +161,18 @@ module internal DecompilerServices =
     let idOfMetadataField (field : IMetadataField) =
         sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
 
+    let private initializerOf (f : IDecompiledField) =
+        let mf = f.MetadataField
+        if mf.IsLiteral
+        then
+            let literal = AstFactory.CreateLiteral(Constant.FromValueAndType(mf.GetLiteralValue(), mf.Type), null) :> IExpression
+            setTypeOfNode literal mf.Type
+            literal
+        else f.Initializer
+
     let rec getDefaultFieldValuesOf isStatic withParent qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName
-        let initializerOf (f : IDecompiledField) =
-            let mf = f.MetadataField
-            if mf.IsLiteral
-            then
-                let literal = AstFactory.CreateLiteral(Constant.FromValueAndType(mf.GetLiteralValue(), mf.Type), null) :> IExpression
-                setTypeOfNode literal mf.Type
-                literal
-            else f.Initializer
         let extractDecompiledFieldInfo (f : IDecompiledField) =
             (idOfMetadataField f.MetadataField, (f.MetadataField.Type, initializerOf f))
         let isDecompiledFieldStatic required (f : IDecompiledField) =
@@ -208,7 +214,7 @@ module internal DecompilerServices =
         assert(Array.length ctors = 1)
         ctors.[0]
 
-    let public resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
+    let internal resolveAdd argTypes : IMetadataType -> IMetadataMethod = function
         | :? IMetadataClassType as t ->
             let argsCount = Seq.length argTypes
             let overloads =
@@ -221,7 +227,7 @@ module internal DecompilerServices =
             | _ -> __notImplemented__() // TODO: args should be matched typewise
         | _ -> __notImplemented__()
 
-    let public assemblyQualifiedName : IMetadataType -> string = function
+    let internal assemblyQualifiedName : IMetadataType -> string = function
         | :? IMetadataClassType as t -> t.Type.AssemblyQualifiedName
         | t -> t.AssemblyQualifiedName
 
@@ -234,3 +240,60 @@ module internal DecompilerServices =
         match node with
         | :? IDecompiledMethod as m -> m.MetadataMethod.Token.ToString()
         | _ -> getThisTokenBy node.Parent
+
+    let internal isOperationAssignment = function
+        | OperationType.AssignmentAdd
+        | OperationType.AssignmentDivide
+        | OperationType.AssignmentLogicalAnd
+        | OperationType.AssignmentLogicalOr
+        | OperationType.AssignmentLogicalXor
+        | OperationType.AssignmentMultiply
+        | OperationType.AssignmentRemainder
+        | OperationType.AssignmentShiftLeft
+        | OperationType.AssignmentShiftRight
+        | OperationType.AssignmentSubtract
+        | OperationType.PostfixIncrement
+        | OperationType.PostfixDecrement
+        | OperationType.PrefixIncrement
+        | OperationType.PrefixDecrement -> true
+        | _ -> false
+
+    let internal getAssignmentOperation = function
+        | OperationType.AssignmentAdd -> Core.OperationType.Add
+        | OperationType.AssignmentDivide -> Core.OperationType.Divide
+        | OperationType.AssignmentLogicalAnd -> Core.OperationType.LogicalAnd
+        | OperationType.AssignmentLogicalOr -> Core.OperationType.LogicalOr
+        | OperationType.AssignmentLogicalXor -> Core.OperationType.LogicalXor
+        | OperationType.AssignmentMultiply -> Core.OperationType.Multiply
+        | OperationType.AssignmentRemainder -> Core.OperationType.Remainder
+        | OperationType.AssignmentShiftLeft -> Core.OperationType.ShiftLeft
+        | OperationType.AssignmentShiftRight -> Core.OperationType.ShiftRight
+        | OperationType.AssignmentSubtract -> Core.OperationType.Subtract
+        | op -> internalfailf "%O is not an assignment operation" op
+
+    let internal convertOperation = function
+        | OperationType.Add -> Core.OperationType.Add
+        | OperationType.Divide -> Core.OperationType.Divide
+        | OperationType.Equal -> Core.OperationType.Equal
+        | OperationType.NotEqual -> Core.OperationType.NotEqual
+        | OperationType.Greater -> Core.OperationType.Greater
+        | OperationType.GreaterOrEqual -> Core.OperationType.GreaterOrEqual
+        | OperationType.Less -> Core.OperationType.Less
+        | OperationType.LessOrEqual -> Core.OperationType.LessOrEqual
+        | OperationType.LogicalAnd -> Core.OperationType.LogicalAnd
+        | OperationType.LogicalOr -> Core.OperationType.LogicalOr
+        | OperationType.LogicalNeg -> Core.OperationType.LogicalNeg
+        | OperationType.LogicalXor -> Core.OperationType.LogicalXor
+        | OperationType.Multiply -> Core.OperationType.Multiply
+        | OperationType.Not -> Core.OperationType.Not
+        | OperationType.Remainder -> Core.OperationType.Remainder
+        | OperationType.ShiftLeft -> Core.OperationType.ShiftLeft
+        | OperationType.ShiftRight -> Core.OperationType.ShiftRight
+        | OperationType.Subtract -> Core.OperationType.Subtract
+        | OperationType.UnaryMinus -> Core.OperationType.UnaryMinus
+        | _ -> __notImplemented__()
+
+    let internal isConditionalOperation = function
+        | OperationType.ConditionalAnd
+        | OperationType.ConditionalOr -> true
+        | _ -> false

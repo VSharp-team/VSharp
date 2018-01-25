@@ -1,20 +1,20 @@
-﻿namespace VSharp
+﻿namespace VSharp.Core
 
-open VSharp.Terms
-open VSharp.Types.Constructor
-open Hierarchy
+open VSharp
+open VSharp.Hierarchy
+open VSharp.Core.Types.Constructor
 
 module internal Common =
     open System
 
 // ------------------------------- Simplification -------------------------------
 
-    let internal simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
+    let simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
-    let internal simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
+    let simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
         simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
 
-    let rec internal simplifyGenericUnary name state x matched concrete unmatched =
+    let rec simplifyGenericUnary name state x matched concrete unmatched =
         match x.term with
         | Error _ -> matched (x, state)
         | Concrete(xval, typeofX) -> concrete x xval typeofX state |> matched
@@ -23,7 +23,7 @@ module internal Common =
                 (Merging.merge (List.zip guards values'), state) |> matched)
         | _ -> unmatched x state matched
 
-    let rec internal simplifyGenericBinary name state x y matched concrete unmatched repeat =
+    let rec simplifyGenericBinary _ state x y matched concrete unmatched repeat =
         match x.term, y.term with
         | Error _, _ -> matched (x, state)
         | _, Error _ -> matched (y, state)
@@ -96,7 +96,7 @@ module internal Common =
 
 // ------------------------------- Branching -------------------------------
 
-    let internal simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
+    let simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
@@ -105,11 +105,11 @@ module internal Common =
         match condition with
         | Terms.True ->  thenBranch k
         | Terms.False -> elseBranch k
-        | Terms.ErrorT e -> k condition
+        | Terms.ErrorT _ -> k condition
         | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
         | _ -> execution condition k)
 
-    let internal reduceConditionalExecution (state : State.state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let reduceConditionalExecution (state : State) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
@@ -132,7 +132,7 @@ module internal Common =
 
 // ------------------------------- Substitution -------------------------------
 
-    let rec internal substitute subst term =
+    let rec substitute subst term =
         match term.term with
         | HeapRef(path, t, v) ->
             path |> NonEmptyList.toList |> substitutePath subst (fun path' ->
@@ -184,17 +184,19 @@ module internal Common =
                 |> List.unzip
             let insterrs, inst' = List.concat insterrs, List.concat inst'
             let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs]
-            Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
+            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
+            let result = Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
+            (guard, result)::errs |> Merging.merge
         | _ -> subst term
 
-    and internal substituteHeap subst heap =
+    and substituteHeap subst heap =
         Heap.mapFold (fun errs k cell ->
             let ges, v' = Merging.erroredUnguard cell.value
             ((k, {cell with value = substitute subst v'}), List.append errs ges)) [] heap
 
-    and internal substituteMany subst ctor terms =
+    and substituteMany subst ctor terms =
         terms |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) ctor
 
-    and internal substitutePath subst ctor path =
+    and substitutePath subst ctor path =
         let addrs, ts = List.unzip path
         addrs |> Merging.guardedCartesianProduct (substitute subst >> Merging.unguard) (fun addrs -> List.zip addrs ts |> ctor)

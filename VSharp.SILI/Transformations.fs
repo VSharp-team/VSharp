@@ -1,5 +1,6 @@
-﻿namespace VSharp
+﻿namespace VSharp.Interpreter
 
+open VSharp
 open JetBrains.Decompiler.Ast
 open global.System
 open System.Reflection
@@ -42,7 +43,7 @@ module Transformations =
             | _ -> __notImplemented__()
         let leftArgument = unaryOperation.Argument
         unaryOperation.ReplaceChild(leftArgument, null)
-        let rightArgument = AstFactory.CreateLiteral(Constant.FromValueAndType(1, Types.GetMetadataTypeOfNode unaryOperation), null)
+        let rightArgument = AstFactory.CreateLiteral(Constant.FromValueAndType(1, MetadataTypes.GetMetadataTypeOfNode unaryOperation), null)
         let assignment = AstFactory.CreateBinaryOperation(op, leftArgument, rightArgument, null, unaryOperation.OverflowCheck)
         DecompilerServices.copyTypeTo unaryOperation assignment
         unaryOperation.ReplaceWith(assignment)
@@ -71,7 +72,7 @@ module Transformations =
             | :? IEmptyStatement -> []
             | _ -> __notImplemented__()
         let typeOfIndexer (indexer : ILocalVariableDeclarationStatement) =
-            indexer.VariableReference.Variable.Type |> Types.Constructor.MetadataToDotNetType
+            indexer.VariableReference.Variable.Type |> MetadataTypes.MetadataToDotNetType
         let variableOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.VariableReference.TypedClone<IExpression>()
         let initializerOfIndexer (indexer : ILocalVariableDeclarationStatement) =

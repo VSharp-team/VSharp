@@ -1,20 +1,19 @@
-namespace VSharp
+namespace VSharp.Core
 
-open JetBrains.Decompiler.Ast
+open VSharp
 open VSharp.CSharpUtils
-open VSharp.Terms
 
 [<AutoOpen>]
 module internal Propositional =
 
-// ------------------------------- Simplification of logical operations -------------------------------
+// ------------------------------- Utilities -------------------------------
 
-    let internal makeBin metadata operation x y =
+    let makeBin metadata operation x y =
         match x.term, y.term with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
             Terms.MakeNAry operation (List.append list' list'') false Bool metadata
-        | Expression(Operator(op', false), [], _), _ -> y
-        | _, Expression(Operator(op', false), [], _) -> y
+        | Expression(Operator(_, false), [], _), _ -> y
+        | _, Expression(Operator(_, false), [], _) -> y
         | Expression(Operator(op', false), list', _), _ when op' = operation ->
             Terms.MakeNAry operation (y::list') false Bool metadata
         | _, Expression(Operator(op', false), list', _) when op' = operation ->
@@ -22,14 +21,14 @@ module internal Propositional =
         | _ -> Terms.MakeNAry operation [x; y] false Bool metadata
 
 
-    let internal makeCoOpBinaryTerm metadata listMetadata x list listOp op =
+    let private makeCoOpBinaryTerm metadata listMetadata x list listOp op =
         match list with
         | [] -> x
         | [y] -> makeBin metadata op x y
         | _ -> makeBin metadata op (Expression listMetadata (Operator(listOp, false)) list Bool) x
 
 
-    let public (|IntersectionExceptOneNegation|_|) (list1 : Term list) (list2 : Term list) =
+    let private (|IntersectionExceptOneNegation|_|) (list1 : Term list) (list2 : Term list) =
         let s1 = System.Collections.Generic.HashSet<Term>(list1)
         let s2 = System.Collections.Generic.HashSet<Term>(list2)
         let intersection = list2 |> Seq.fold (fun acc x -> if s1.Remove(x) then s2.Remove(x) |> ignore; x::acc else acc) []
@@ -40,17 +39,19 @@ module internal Propositional =
             | x when s2.RemoveWhere(System.Predicate<Term>(function | NegationT(y, _) when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
             | _ -> None
 
-    let internal isPermutationOf list1 list2 =
+    let private isPermutationOf list1 list2 =
         if List.length list1 <> List.length list2 then false
         else
             let s1 = System.Collections.Generic.HashSet<Term>(list1)
             let s2 = System.Collections.Generic.HashSet<Term>(list2)
             s1.SymmetricExceptWith(s2); Seq.isEmpty s1
 
+// ------------------------------- Simplification of logical operations -------------------------------
+
     // Trying to simplify pairwise combinations of x- and y-operands.
     // For example, it tries to simplify (a + b) + (c + d) or (a * b) * (c * d)
     // by successively trying to combine (a * c), (a * d), (b * c) and (b * d).
-    let internal simplifyPairwiseCombinations xs ys t operand simplify reduce matched unmatched =
+    let simplifyPairwiseCombinations xs ys t operand simplify reduce matched unmatched =
         let initialYs = ys
 
         let reduce t1 t2 = reduce (operand t1) (operand t2)
@@ -180,13 +181,13 @@ module internal Propositional =
             simplifyCoOp mtd op co stopValue ignoreValue x xs y matched unmatched
         | _ -> unmatched ()
 
-    and internal simplifyAnd mtd x y k =
+    and simplifyAnd mtd x y k =
         simplifyConnective mtd OperationType.LogicalAnd OperationType.LogicalOr False True x y k
 
-    and internal simplifyOr mtd x y k =
+    and simplifyOr mtd x y k =
         simplifyConnective mtd OperationType.LogicalOr OperationType.LogicalAnd True False x y k
 
-    and internal simplifyNegation mtd x k =
+    and simplifyNegation mtd x k =
         match x.term with
         | Error _ -> k x
         | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
@@ -203,38 +204,38 @@ module internal Propositional =
 
 // ------------------------------- General functions -------------------------------
 
-    let internal (!!) x =
+    let (!!) x =
         simplifyNegation Metadata.empty x id
 
-    let internal (&&&) x y =
+    let (&&&) x y =
         simplifyAnd Metadata.empty x y id
 
-    let internal (|||) x y =
+    let (|||) x y =
         simplifyOr Metadata.empty x y id
 
-    let internal eq x y =
+    let eq x y =
         simplifyOr Metadata.empty !!x y (fun x' -> simplifyOr Metadata.empty x !!y (fun y' -> simplifyAnd Metadata.empty x' y' id))
 
-    let internal neq x y =
+    let neq x y =
         !! (eq x y)
 
-    let internal implies x y mtd =
+    let implies x y mtd =
         simplifyNegation mtd x (fun notX ->
         simplifyOr mtd notX y id)
 
-    let internal conjunction mtd = function
+    let conjunction mtd = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
         | _ -> Terms.MakeTrue mtd
 
-    let internal disjunction mtd = function
+    let disjunction mtd = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> Terms.MakeFalse mtd
 
-    let internal simplifyBinaryConnective mtd op x y k =
+    let simplifyBinaryConnective mtd op x y k =
         match op with
         | OperationType.LogicalAnd -> simplifyAnd mtd x y k
         | OperationType.LogicalOr -> simplifyOr mtd x y k
@@ -245,12 +246,12 @@ module internal Propositional =
         | OperationType.NotEqual -> simplifyOr mtd !!x y (fun x' -> simplifyOr mtd x !!y (fun y' -> simplifyAnd mtd x' y' (fun res -> simplifyNegation mtd res k)))
         | _ -> internalfailf "%O is not a binary logical operator" op
 
-    let internal simplifyUnaryConnective mtd op x k =
+    let simplifyUnaryConnective mtd op x k =
         match op with
         | OperationType.LogicalNeg -> simplifyNegation mtd x k
         | _ -> internalfailf "%O is not an unary logical operator" op
 
-    let internal isLogicalOperation op t1 t2 =
+    let isLogicalOperation op t1 t2 =
         Types.IsBool t1 && Types.IsBool t2 &&
         match op with
         | OperationType.LogicalAnd
@@ -259,10 +260,4 @@ module internal Propositional =
         | OperationType.LogicalNeg
         | OperationType.Equal
         | OperationType.NotEqual -> true
-        | _ -> false
-
-    let internal isConditionalOperation op =
-        match op with
-        | OperationType.ConditionalAnd
-        | OperationType.ConditionalOr -> true
         | _ -> false

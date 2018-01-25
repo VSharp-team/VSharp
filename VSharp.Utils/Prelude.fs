@@ -46,3 +46,7 @@ type 'a Transparent =
     override x.GetHashCode() = x.GetType().GetHashCode()
     override x.Equals(o : obj) =
         o :? 'a Transparent
+
+type public 'a SymbolicValue =
+    | Specified of 'a
+    | Unspecified
