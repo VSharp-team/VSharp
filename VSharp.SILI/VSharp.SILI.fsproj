@@ -68,6 +68,7 @@
     <Compile Include="Extern\System\Environment.fs" />
     <Compile Include="SVM.fs" />
     <None Include="packages.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
@@ -80,6 +81,9 @@
     </ProjectReference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.4.2.2\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FSharpx.Collections">
+      <HintPath>..\packages\FSharpx.Collections.1.17.0\lib\net40\FSharpx.Collections.dll</HintPath>
     </Reference>
     <Reference Include="JetBrains.Decompiler.Core">
       <HintPath>..\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
@@ -101,9 +105,6 @@
     <Reference Include="JetBrains.Annotations">
       <HintPath>..\packages\JetBrains.Annotations.10.1.4\lib\net20\JetBrains.Annotations.dll</HintPath>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
