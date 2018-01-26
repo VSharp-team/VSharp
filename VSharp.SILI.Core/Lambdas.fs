@@ -9,6 +9,6 @@ module internal Lambdas =
     let make mtd (body : 'a symbolicLambda) typ = Concrete mtd body typ
 
     let (|Lambda|_|) = function
-        | Concrete(lambda, t) when Types.IsFunction t && (lambda :? 'a symbolicLambda) ->
+        | Concrete(lambda, t) when Types.isFunction t && (lambda :? 'a symbolicLambda) ->
             Some(Lambda(lambda :?> 'a symbolicLambda))
         | _ -> None

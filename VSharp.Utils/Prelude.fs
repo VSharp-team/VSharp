@@ -39,6 +39,9 @@ module public Prelude =
         | Some x -> x
         | None -> rhs.Force()
 
+    let safeGenericTypeDefinition (t : System.Type) =
+        if t.IsGenericType && not t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
+
 [<CustomEquality;NoComparison>]
 type 'a transparent =
     { v : 'a }

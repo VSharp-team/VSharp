@@ -2,10 +2,9 @@ namespace VSharp.Core
 
 open VSharp
 
-[<AutoOpen>]
-module public API =
+module API =
     let private m = let r = new persistent<_>(always Metadata.empty, id) in r.Reset(); r
-    let Enter location state k =
+    let Enter (location : locationBinding) state k =
         m.Save()
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
@@ -23,8 +22,8 @@ module public API =
         Memory.restore()
         IdGenerator.restore()
 
-    let InterpretEntryPoint = Explorer.interpretEntryPoint
-    let Explore = Explorer.explore
+    let InterpretEntryPoint id k = Explorer.interpretEntryPoint id k
+    let Explore id k = Explorer.explore id k
 
     let Call funcId state body k = Explorer.call m.Value funcId state body k
     let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
@@ -37,7 +36,7 @@ module public API =
 
     let GuardedApplyExpressionK term mapper k =
         match term.term with
-        | Error _ -> term
+        | Error _ -> k term
         | Union gvs -> Merging.guardedMapk mapper gvs k
         | _ -> mapper term k
     let GuardedApplyExpression term mapper =
@@ -65,49 +64,56 @@ module public API =
         let Error term = Error m.Value term
         let Concrete obj typ = Concrete m.Value obj typ
         let Constant name source typ = Constant m.Value name source typ
-        let Array lower constant contents lengths typ = Array m.Value lower constant contents lengths typ
         let Expression op args typ = Expression m.Value op args typ
         let Union gvs = Union m.Value gvs
 
         let True = True
         let False = False
 
-        let MakeNullRef typ = MakeNullRef typ m.Value
+        let MakeNullRef typ = makeNullRef typ m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ
-        let MakeNumber n = MakeNumber n m.Value
+        let MakeNumber n = makeNumber n m.Value
         let MakeString length str = Strings.makeString length str (Memory.tick())
         let MakeLambda body signature = Lambdas.make m.Value body signature
         let MakeDefaultArray dimensions typ = Arrays.makeDefault m.Value dimensions typ
         let MakeInitializedArray rank typ initializer = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer
 
-        let TypeOf = TypeOf
-        let (|Lambda|_|) = Lambdas.(|Lambda|_|)
+        let TypeOf term = typeOf term
+        let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =
             let term, state = Memory.npe m.Value state
             thrower term, state
         let InvalidCastException state thrower =
-            let message = MakeConcreteString "Specified cast is not valid." m.Value
+            let message = makeConcreteString "Specified cast is not valid." m.Value
             let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
             thrower term, state
         let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let args = [MakeConcreteString qualifiedTypeName m.Value; innerException]
+            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
             let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
-            thrower term state
+            thrower term, state
         let IndexOutOfRangeException state thrower =
             let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
             thrower term, state
 
     module Types =
+        let FromDotNetType t = Types.Constructor.fromDotNetType t
+        let ToDotNetType t = Types.toDotNetType t
+        let WrapReferenceType t = Types.wrapReferenceType t
+        let NewTypeVariable t = Types.Variable.fromDotNetType t
+
+        let SizeOf t = Types.sizeOf t
+
         let TLength = Arrays.lengthTermType
+        let IsInteger t = Types.isInteger t
+
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k
         let CastConcrete value typ = CastConcrete value typ m.Value
         let CastReferenceToPointer state reference k = TypeCasting.castReferenceToPointer m.Value state reference k
 
-    [<AutoOpen>]
     module public ControlFlowConstructors =
         let NoComputation = NoResult Metadata.empty
         let NoResult () = NoResult m.Value
@@ -118,15 +124,14 @@ module public API =
         let Guarded grs = Guarded m.Value grs
 
     module public ControlFlow =
-        let ResultToTerm = ControlFlow.resultToTerm
-        let ThrowOrReturn = ControlFlow.throwOrReturn
-        let ThrowOrIgnore = ControlFlow.throwOrIgnore
-        let ConsumeErrorOrReturn = ControlFlow.consumeErrorOrReturn
-        let ComposeSequentially = ControlFlow.composeSequentially
-        let ConsumeBreak = ControlFlow.consumeBreak
-        let PickOutExceptions = ControlFlow.pickOutExceptions
+        let ResultToTerm r = ControlFlow.resultToTerm r
+        let ThrowOrReturn t = ControlFlow.throwOrReturn t
+        let ThrowOrIgnore t = ControlFlow.throwOrIgnore t
+        let ConsumeErrorOrReturn consumer t = ControlFlow.consumeErrorOrReturn consumer t
+        let ComposeSequentially oldRes newRes oldState newState = ControlFlow.composeSequentially oldRes newRes oldState newState
+        let ConsumeBreak r = ControlFlow.consumeBreak r
+        let PickOutExceptions r = ControlFlow.pickOutExceptions r
 
-    [<AutoOpen>]
     module public Operators =
         let (!!) x = Propositional.simplifyNegation m.Value x id
         let (&&&) x y = Propositional.simplifyAnd m.Value x y id
@@ -141,7 +146,6 @@ module public API =
         let (<<=) x y = Arithmetics.simplifyLessOrEqual m.Value x y id
         let (>>) x y = Arithmetics.simplifyGreater m.Value x y id
         let (>>=) x y = Arithmetics.simplifyGreaterOrEqual m.Value x y id
-        // Lightweight version: divide by zero exceptions are ignored!
         let (%%%) x y = Arithmetics.simplifyRemainder m.Value false State.empty (x |> TypeOf |> Types.ToDotNetType) x y fst
 
     module public Memory =
@@ -151,7 +155,7 @@ module public API =
 
         let ReferenceField state followHeapRefs name typ parentRef = Memory.referenceField m.Value state followHeapRefs name typ parentRef
         let ReferenceLocalVariable state location followHeapRefs = Memory.referenceLocalVariable m.Value state location followHeapRefs
-        let ReferenceStaticField state followHeapRefs fieldName typ typeName = Memory.referenceStaticField m.Value state followHeapRefs fieldName typ typeName
+        let ReferenceStaticField state followHeapRefs fieldName fieldType typeName = Memory.referenceStaticField m.Value state followHeapRefs fieldName fieldType typeName
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
@@ -164,7 +168,7 @@ module public API =
         let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value false qualifiedTypeName
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
-        let Dump = State.dumpMemory
+        let Dump state = State.dumpMemory state
 
         let ArrayLength arrayTerm = Arrays.length m.Value arrayTerm
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state

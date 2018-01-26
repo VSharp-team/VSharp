@@ -161,7 +161,7 @@ module internal State =
         | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName
         | t -> toString t
 
-    let mkMetadata location state =
+    let mkMetadata (location : locationBinding) state =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
 // ------------------------------- Memory layer -------------------------------
