@@ -50,6 +50,18 @@ module internal Operators =
         | String -> __notImplemented__()
         | _ -> __notImplemented__()
 
+    let simplifyOperation mtd op isChecked t args k =
+        let arity = Operations.operationArity op
+        match arity with
+        | 1 ->
+            assert(List.length args = 1)
+            simplifyUnaryOperation mtd op isChecked State.empty t (List.head args) (fst >> k)
+        | 2 ->
+            assert(List.length args >= 2)
+            let dnt = Types.toDotNetType t
+            Cps.List.reducek (fun x y k -> simplifyBinaryOperation mtd op isChecked State.empty dnt x y (fst >> k)) args k
+        | _ -> internalfailf "unknown operation %O" op
+
     let simplifyHeapPointwiseEquality mtd h1 h2 =
         Heap.unify (makeTrue mtd) h1 h2 (fun s _ v1 v2 ->
             match v1, v2 with
@@ -70,7 +82,7 @@ module internal Operators =
                 | DefaultInstantiator(term1, typ1), LazyInstantiator(term2, typ2)
                 | LazyInstantiator(term1, typ1), DefaultInstantiator(term2, typ2) ->
                     eqTypes mtd typ1 typ2 (fun equalTypes ->
-                    simplifyAnd mtd equalTypes (makeBinary (OperationType.Equal) term1 term2 false Bool mtd) k)
+                    simplifyAnd mtd equalTypes (makeBinary OperationType.Equal term1 term2 false Bool mtd) k)
 
             List.fold (fun acc (g1, instor1) ->
                 simplifyOr mtd acc (List.fold (fun acc (g2, instor2) ->

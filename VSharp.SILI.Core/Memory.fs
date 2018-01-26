@@ -492,7 +492,7 @@ module internal Memory =
         | _ -> term
 
     and fillHoles ctx state term =
-        Common.substitute (fillHole ctx state) term
+        Substitution.substitute (fillHole ctx state) term
 
     and fillHolesInHeap ctx state heap =
         Heap.map (fun k cell -> (fillHoles ctx state k, {cell with value = fillHoles ctx state cell.value})) heap
@@ -742,7 +742,7 @@ module internal Memory =
     let allocateInStaticMemory metadata (s : state) typeName term =
         let time = tick()
         let address = makeConcreteString typeName metadata
-        { s with  statics = allocateInGeneralizedHeap address term time s.statics }
+        { s with statics = allocateInGeneralizedHeap address term time s.statics }
 
     let allocateSymbolicInstance metadata state = function
         | termType.ClassType(tp, arg, interfaces) ->

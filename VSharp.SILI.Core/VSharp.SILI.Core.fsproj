@@ -67,6 +67,7 @@
     <Compile Include="Arrays.fs" />
     <Compile Include="Pointers.fs" />
     <Compile Include="Operators.fs" />
+    <Compile Include="Substitution.fs" />
     <Compile Include="ControlFlow.fs" />
     <Compile Include="Lambdas.fs" />
     <Compile Include="Database.fs" />
