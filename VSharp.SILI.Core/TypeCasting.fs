@@ -10,13 +10,13 @@ module internal TypeCasting =
         match term.term with
         | Error _ -> k (term, state)
         | Nop -> internalfailf "casting void to %O!" targetType
-        | _ when Terms.IsNull term -> k (Terms.MakeNullRef targetType mtd, state)
+        | _ when Terms.isNull term -> k (Terms.makeNullRef targetType mtd, state)
         | Concrete(value, _) ->
-            if Terms.IsFunction term && Types.IsFunction targetType
+            if Terms.isFunction term && Types.isFunction targetType
             then k (Concrete term.metadata value targetType, state)
-            else k (CastConcrete value (Types.ToDotNetType targetType) term.metadata, state)
+            else k (CastConcrete value (Types.toDotNetType targetType) term.metadata, state)
         | Constant(_, _, t)
-        | Expression(_, _, t) -> k (MakeCast t targetType term isChecked mtd, state)
+        | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
         | StackRef _ ->
             // printfn "Warning: casting stack reference %O to %O!" term targetType
             hierarchyCast targetType state term k
@@ -35,9 +35,9 @@ module internal TypeCasting =
 
         let castPointer term typ = // For Pointers
             match targetType with
-            | Pointer typ' when Types.SizeOf typ = Types.SizeOf typ' || typ = Core.Void || typ' = Core.Void ->
-                CastReferenceToPointer mtd typ' term
-            | _ -> MakeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
+            | Pointer typ' when Types.sizeOf typ = Types.sizeOf typ' || typ = termType.Void || typ' = termType.Void ->
+                castReferenceToPointer mtd typ' term
+            | _ -> makeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
 
         match term.term with
         | PointerTo typ -> castPointer term typ
@@ -57,7 +57,7 @@ module internal TypeCasting =
             let contents, state = derefForCast mtd state term
             canCast mtd state targetType contents
         | Union gvs -> Merging.guardedStateMap (fun state term -> canCast mtd state targetType term) gvs state
-        | _ -> Common.is mtd (TypeOf term) targetType, state
+        | _ -> Common.is mtd (typeOf term) targetType, state
 
     let cast mtd state argument targetType isChecked primitiveCast fail k =
         let isCasted state term = canCast mtd state targetType term
@@ -71,6 +71,6 @@ module internal TypeCasting =
         Merging.statedMapk (primitiveCast hierarchyCast targetType) state argument k
 
     let castReferenceToPointer mtd state reference k =
-        let derefForCast = Memory.derefWith (fun m s _ -> MakeNullRef Null m, s)
+        let derefForCast = Memory.derefWith (fun m s _ -> makeNullRef Null m, s)
         let term, state = derefForCast mtd state reference
-        k (CastReferenceToPointer mtd (TypeOf term) reference, state)
+        k (castReferenceToPointer mtd (typeOf term) reference, state)

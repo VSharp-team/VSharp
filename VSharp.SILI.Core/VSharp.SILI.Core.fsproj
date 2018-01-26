@@ -73,6 +73,7 @@
     <Compile Include="Memory.fs" />
     <Compile Include="TypeCasting.fs" />
     <Compile Include="Explorer.fs" />
+    <Compile Include="API.fsi" />
     <Compile Include="API.fs" />
     <None Include="packages.config" />
   </ItemGroup>

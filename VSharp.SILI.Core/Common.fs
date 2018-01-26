@@ -53,28 +53,28 @@ module internal Common =
         let makeBoolConst lname rname leftTermType rightTermType =
             Constant metadata (subtypeName lname rname) ({left = leftTermType; right = rightTermType} : SymbolicSubtypeSource) Bool
         match leftType, rightType with
-        | _ when leftType = rightType -> Terms.MakeTrue metadata
+        | _ when leftType = rightType -> makeTrue metadata
         | termType.Null, _
         | Void, _   | _, Void
-        | Bottom, _ | _, Bottom -> Terms.MakeFalse metadata
-        | Reference _, Reference _ -> Terms.MakeTrue metadata
-        | Pointer _, Pointer _ -> Terms.MakeTrue metadata
-        | Func _, Func _ -> Terms.MakeTrue metadata
+        | Bottom, _ | _, Bottom -> makeFalse metadata
+        | Reference _, Reference _ -> makeTrue metadata
+        | Pointer _, Pointer _ -> makeTrue metadata
+        | Func _, Func _ -> makeTrue metadata
         | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
-            if name = "System.Array" then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            if name = "System.Array" then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
             makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
-            if d1 = d2 then is metadata t1 t2 else Terms.MakeFalse metadata
+            if d1 = d2 then is metadata t1 t2 else makeFalse metadata
         | TypeVariable(Explicit (_, t)) as t1, t2 ->
             (is metadata t t2 ||| is metadata t2 t) &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | t1, (TypeVariable(Explicit (_, t)) as t2) ->
             is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.IsGround && rt.IsGround
-                then Terms.MakeBool (lt.Is rt) metadata
-                else if lt.Is rt then Terms.MakeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
-        | _ -> Terms.MakeFalse metadata
+                then makeBool (lt.Is rt) metadata
+                else if lt.Is rt then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+        | _ -> makeFalse metadata
 
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]
@@ -86,12 +86,12 @@ module internal Common =
     let internal isValueType metadata termType =
         let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) ({termType = termType} : IsValueTypeConstantSource) Bool
         match termType with
-        | ConcreteType t when t.Inheritor.IsValueType -> MakeTrue metadata
+        | ConcreteType t when t.Inheritor.IsValueType -> makeTrue metadata
         | TypeVariable(Explicit(name, t)) ->
-            if (Types.ToDotNetType t).IsValueType
+            if (Types.toDotNetType t).IsValueType
                 then makeBoolConst name
-                else MakeFalse metadata
-        | _ -> MakeFalse metadata
+                else makeFalse metadata
+        | _ -> makeFalse metadata
 
 // ------------------------------- Branching -------------------------------
 
@@ -177,7 +177,7 @@ module internal Common =
                         match i with
                         | DefaultInstantiator _ -> ges, [(g, i)]
                         | LazyInstantiator(term, typ) ->
-                            let ges', gts' = term |> substitute subst |> Merging.unguard |> List.partition (snd >> IsError)
+                            let ges', gts' = term |> substitute subst |> Merging.unguard |> List.partition (snd >> isError)
                             List.append ges ges', List.map (fun (g, t) -> (g' &&& g, LazyInstantiator(t, typ))) gts'
                     ges, Merging.genericSimplify gis)
                 |> List.unzip

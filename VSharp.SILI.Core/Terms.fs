@@ -107,7 +107,7 @@ type termNode =
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name.v
-            | Concrete(_, t) when Types.IsFunction t -> sprintf "<Lambda Expression %O>" t
+            | Concrete(_, t) when Types.isFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
@@ -257,9 +257,9 @@ module internal Terms =
     let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
 
-    let ZeroAddress = termNode.Concrete([0], Types.pointerType)
+    let zeroAddress = termNode.Concrete([0], Types.pointerType)
 
-    let MakeZeroAddress mtd = Concrete mtd [0] Types.pointerType
+    let makeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 
 
     let (|StackPtr|_|) = function
@@ -274,81 +274,75 @@ module internal Terms =
         | HeapRef(path, time, Some typ) -> Some(HeapPtr(path, time, typ))
         | _ -> None
 
-    let CastReferenceToPointer mtd targetType = term >> function
+    let castReferenceToPointer mtd targetType = term >> function
         | StackRef(key, path, _) -> StackPtr mtd key path targetType
         | StaticRef(key, path, _) -> StaticPtr mtd key path targetType
         | HeapRef(path, time, _) -> HeapPtr mtd path time targetType
         | t -> internalfailf "Expected reference or pointer, got %O" t
 
-    let GetReferenceFromPointer mtd = term >> function
+    let getReferenceFromPointer mtd = term >> function
         | StackPtr(key, path, _) -> StackRef mtd key path
         | StaticPtr(key, path, _) -> StaticRef mtd key path
         | HeapPtr(path, time, _) -> HeapRef mtd path time
         | t -> internalfailf "Expected pointer, got %O" t
 
-    let IsVoid = term >> function
+    let isVoid = term >> function
         | Nop -> true
         | _ -> false
 
-    let IsError = term >> function
+    let isError = term >> function
         | Error _ -> true
         | _ -> false
 
-    let IsConcrete = term >> function
+    let isConcrete = term >> function
         | Concrete _ -> true
         | _ -> false
 
-    let IsExpression = term >> function
+    let isExpression = term >> function
         | Expression _ -> true
         | _ -> false
 
-    let IsArray = term >> function
+    let isArray = term >> function
         | Array _ -> true
         | _ -> false
 
-    let IsUnion = term >> function
+    let isUnion = term >> function
         | Union _ -> true
         | _ -> false
 
-    let IsTrue = term >> function
-        | Concrete(b, t) when Types.IsBool t && (b :?> bool) -> true
+    let isTrue = term >> function
+        | Concrete(b, t) when Types.isBool t && (b :?> bool) -> true
         | _ -> false
 
-    let IsFalse = term >> function
-        | Concrete(b, t) when Types.IsBool t && not (b :?> bool) -> true
+    let isFalse = term >> function
+        | Concrete(b, t) when Types.isBool t && not (b :?> bool) -> true
         | _ -> false
 
-    let rec Just predicate term =
-        predicate term ||
-            match term.term with
-            | Union gvs -> List.forall predicate (List.map snd gvs)
-            | _ -> false
-
-    let IsNull = term >> function
-        | HeapRef(((z, _), _), _, _) when z.term = ZeroAddress -> true
+    let isNull = term >> function
+        | HeapRef(((z, _), _), _, _) when z.term = zeroAddress -> true
         | _ -> false
 
-    let IsStackRef = term >> function
+    let isStackRef = term >> function
         | StackRef _ -> true
         | _ -> false
 
-    let IsHeapRef = term >> function
+    let isHeapRef = term >> function
         | HeapRef _ -> true
         | _ -> false
 
-    let rec IsRef term =
+    let rec isRef term =
         match term.term with
         | HeapRef _
         | StaticRef _
         | StackRef _ -> true
-        | Union gvs -> List.forall (snd >> IsRef) gvs
+        | Union gvs -> List.forall (snd >> isRef) gvs
         | _ -> false
 
-    let OperationOf = term >> function
+    let operationOf = term >> function
         | Expression(op, _, _) -> op
         | term -> internalfailf "expression expected, %O recieved" term
 
-    let ArgumentsOf = term >> function
+    let argumentsOf = term >> function
         | Expression(_, args, _) -> args
         | term -> internalfailf "expression expected, %O recieved" term
 
@@ -365,7 +359,7 @@ module internal Terms =
         | StackPtr(_, _, t) -> Some t
         | _ -> None
 
-    let rec TypeOf term =
+    let rec typeOf term =
         match term.term with
         | Error _ -> termType.Bottom
         | Nop -> termType.Void
@@ -376,107 +370,108 @@ module internal Terms =
         | PointerTo t -> Pointer t
         | ReferenceTo t -> Reference t
         | StackRef(_, [], _) -> Reference Core.Void // TODO: this is temporary hack, support normal typing
-        | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> FromDotNetType |> Reference
+        | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> fromDotNetType |> Reference
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
-            let nonEmptyTypes = List.filter (fun t -> not (Types.IsBottom t || Types.IsVoid t)) (List.map (snd >> TypeOf) gvs)
+            let nonEmptyTypes = List.filter (fun t -> not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)
             match nonEmptyTypes with
             | [] -> termType.Bottom
             | t::ts ->
                 let allSame =
                     List.forall ((=) t) ts
-                    || List.forall Types.IsReference nonEmptyTypes
-                    || List.forall Types.IsPointer nonEmptyTypes
+                    || List.forall Types.isReference nonEmptyTypes
+                    || List.forall Types.isPointer nonEmptyTypes
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
         | _ -> __unreachable__()
 
 
-    let SizeOf =                 TypeOf >> Types.SizeOf
+    let sizeOf = typeOf >> Types.sizeOf
+    let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
-    let IsBool =                 TypeOf >> Types.IsBool
-    let IsInteger =              TypeOf >> Types.IsInteger
-    let IsReal =                 TypeOf >> Types.IsReal
-    let IsNumeric =              TypeOf >> Types.IsNumeric
-    let IsString =               TypeOf >> Types.IsString
-    let IsFunction =             TypeOf >> Types.IsFunction
-    let IsPrimitive =            TypeOf >> Types.IsPrimitive
-    let DomainOf =               TypeOf >> Types.DomainOf
-    let sRangeOf =                TypeOf >> Types.RangeOf
+    let isBool =                 typeOf >> Types.isBool
+    let isInteger =              typeOf >> Types.isInteger
+    let isReal =                 typeOf >> Types.isReal
+    let isNumeric =              typeOf >> Types.isNumeric
+    let isString =               typeOf >> Types.isString
+    let isFunction =             typeOf >> Types.isFunction
+    let isPrimitive =            typeOf >> Types.isPrimitive
+    let domainOf =               typeOf >> Types.domainOf
+    let rangeOf =                typeOf >> Types.rangeOf
 
     let CastConcrete value (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
-                Concrete metadata value (FromDotNetType t)
+                Concrete metadata value (fromDotNetType t)
             elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
                 let casted =
                     if t.IsPointer
                     then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     else Convert.ChangeType(value, t)
-                Concrete metadata casted (FromDotNetType t)
+                Concrete metadata casted (fromDotNetType t)
             elif t.IsAssignableFrom(actualType) then
-                Concrete metadata value (FromDotNetType t)
+                Concrete metadata value (fromDotNetType t)
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->
             internalfailf "cannot cast %s to %s!" t.FullName actualType.FullName
 
-    let MakeTrue metadata =
+    let makeTrue metadata =
         Concrete metadata (box true) Bool
 
-    let MakeFalse metadata =
+    let makeFalse metadata =
         Concrete metadata (box false) Bool
 
-    let True = MakeTrue Metadata.empty
+    let True = makeTrue Metadata.empty
 
-    let False = MakeFalse Metadata.empty
+    let False = makeFalse Metadata.empty
 
-    let MakeBool predicate metadata =
-        if predicate then MakeTrue metadata else MakeFalse metadata
+    let makeBool predicate metadata =
+        if predicate then makeTrue metadata else makeFalse metadata
 
-    let MakeNullRef typ metadata =
-        HeapRef metadata (((MakeZeroAddress metadata), typ), []) {v = Timestamp.zero}
+    let makeNullRef typ metadata =
+        HeapRef metadata (((makeZeroAddress metadata), typ), []) {v = Timestamp.zero}
 
-    let MakeNullPtr typ metadata =
-        HeapPtr metadata (((MakeZeroAddress metadata), typ), []) {v = Timestamp.zero} typ
+    let makeNullPtr typ metadata =
+        HeapPtr metadata (((makeZeroAddress metadata), typ), []) {v = Timestamp.zero} typ
 
-    let MakeNumber n metadata =
+    let makeNumber n metadata =
         Concrete metadata n (Numeric(n.GetType()))
 
-    let MakeConcreteString (s : string) metadata =
+    let makeConcreteString (s : string) metadata =
         Concrete metadata s Core.String
 
-    let MakeBinary operation x y isChecked t metadata =
+    let makeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)
         Expression metadata (Operator(operation, isChecked)) [x; y] t
 
-    let MakeNAry operation x isChecked t metadata =
+    let makeNAry operation x isChecked t metadata =
         match x with
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x
         | _ -> Expression metadata (Operator(operation, isChecked)) x t
 
-    let MakeUnary operation x isChecked t metadata =
+    let makeUnary operation x isChecked t metadata =
         assert(Operations.isUnary operation)
         Expression metadata (Operator(operation, isChecked)) [x] t
 
-    let MakeCast srcTyp dstTyp expr isChecked metadata =
+    let makeCast srcTyp dstTyp expr isChecked metadata =
         if srcTyp = dstTyp then expr
         else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
 
-    let MakeStringKey typeName =
-        MakeConcreteString typeName Metadata.empty
+    let makeStringKey typeName =
+        makeConcreteString typeName Metadata.empty
 
-    let Negate term metadata =
-        assert(IsBool term)
-        MakeUnary OperationType.LogicalNeg term false Bool metadata
+    let negate term metadata =
+        assert(isBool term)
+        makeUnary OperationType.LogicalNeg term false Bool metadata
 
 
-    let (|True|_|) term = if IsTrue term then Some True else None
-    let (|False|_|) term = if IsFalse term then Some False else None
-    let (|Null|_|) term = if IsNull term then Some Null else None
+    let (|True|_|) term = if isTrue term then Some True else None
+    let (|False|_|) term = if isFalse term then Some False else None
+    let (|Null|_|) term = if isNull term then Some Null else None
 
     let (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))

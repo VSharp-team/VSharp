@@ -69,7 +69,7 @@ and [<StructuralEquality;NoComparison>]
         | Implicit of hierarchy
         | Explicit of string * termType
 
-module public Types =
+module internal Types =
     let (|StructType|_|) = function
         | StructType(t, g ,i) -> Some(StructType(t.Inheritor, g, i))
         | _ -> None
@@ -104,63 +104,63 @@ module public Types =
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
-    let IsNumeric = function
+    let isNumeric = function
         | Numeric _ -> true
         | _ -> false
 
-    let IsBool = function
+    let isBool = function
         | Bool -> true
         | _ -> false
 
-    let IsString = function
+    let isString = function
         | String -> true
         | _ -> false
 
-    let IsFunction = function
+    let isFunction = function
         | Func _ -> true
         | _ -> false
 
-    let IsClass = function
+    let isClass = function
         | ClassType _ -> true
         | _ -> false
 
-    let IsStruct = function
+    let isStruct = function
         | StructType _ -> true
         | _ -> false
 
-    let IsArray = function
+    let isArray = function
         | ArrayType _ -> true
         | _ -> false
 
-    let IsObject = function
+    let isObject = function
         | ClassType(t, _, _) when t = typedefof<obj> -> true
         | _ -> false
 
-    let IsVoid = function
+    let isVoid = function
         | Void -> true
         | _ -> false
 
-    let IsBottom = function
+    let isBottom = function
         | Bottom -> true
         | _ -> false
 
-    let IsNull = function
+    let isNull = function
         | Null -> true
         | _ -> false
 
-    let IsReference = function
+    let isReference = function
         | Reference _ -> true
         | _ -> false
 
-    let IsPointer = function
+    let isPointer = function
         | Pointer _ -> true
         | _ -> false
 
-    let DomainOf = function
+    let domainOf = function
         | Func(domain, _) -> domain
         | _ -> []
 
-    let RangeOf = function
+    let rangeOf = function
         | Func(_, range) -> range
         | t -> t
 
@@ -168,23 +168,23 @@ module public Types =
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
 
-    let rec IsReferenceType = function
+    let rec isReferenceType = function
         | String
         | ClassType _
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
         | TypeVariable(Implicit t) when not t.Inheritor.IsValueType-> true
-        | TypeVariable(Explicit(_, t)) -> IsReferenceType t
+        | TypeVariable(Explicit(_, t)) -> isReferenceType t
         | _ -> false
 
-    let IsValueType = not << IsReferenceType
+    let isValueType = not << isReferenceType
 
-    let WrapReferenceType = function
-        | t when IsReferenceType t -> Reference t
+    let wrapReferenceType = function
+        | t when isReferenceType t -> Reference t
         | t -> t
 
-    let rec ToDotNetType t =
+    let rec toDotNetType t =
         match t with
         | Null -> null
         | Bool -> typedefof<bool>
@@ -195,13 +195,13 @@ module public Types =
         | ClassType(t, _, _) -> t
         | TypeVariable(Implicit t) -> t.Inheritor
         | ArrayType(_, SymbolicDimension _) -> typedefof<System.Array>
-        | ArrayType(t, Vector) -> (ToDotNetType t).MakeArrayType()
-        | ArrayType(t, ConcreteDimension rank) -> (ToDotNetType t).MakeArrayType(rank)
-        | Reference t -> ToDotNetType t
-        | Pointer t -> (ToDotNetType t).MakePointerType()
+        | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
+        | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
+        | Reference t -> toDotNetType t
+        | Pointer t -> (toDotNetType t).MakePointerType()
         | _ -> typedefof<obj>
 
-    let SizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+    let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =
             let meth = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
 
@@ -211,13 +211,13 @@ module public Types =
 
             meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
             |> unbox
-        typ |> ToDotNetType |> internalSizeOf |> int
+        typ |> toDotNetType |> internalSizeOf |> int
 
 
-    let BitSizeOf typeOfA (resultingType : System.Type) = System.Convert.ChangeType(SizeOf(typeOfA) * 8, resultingType)
+    let bitSizeOfType t (resultingType : System.Type) = System.Convert.ChangeType(sizeOf(t) * 8, resultingType)
 
 
-    module public Constructor =
+    module internal Constructor =
         let private StructType (t : Type) g i = StructType(hierarchy t, g, i)
         let private ClassType (t : Type) g i = ClassType(hierarchy t, g, i)
         let private InterfaceType (t : Type) g i = InterfaceType(hierarchy t, g, i)
@@ -227,15 +227,15 @@ module public Types =
 
             let private types = new Dictionary<System.Type, termType ref>()
 
-            let Contains t = types.ContainsKey t
-            let Prepare t = types.Add (t, ref Null)
-            let Find t = types.[t]
+            let contains t = types.ContainsKey t
+            let prepare t = types.Add (t, ref Null)
+            let find t = types.[t]
 
-            let Embody t value =
+            let embody t value =
                 types.[t] := value
                 types.[t]
 
-        let GetVariance (genericParameterAttributes : GenericParameterAttributes) =
+        let getVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
                 left &&& right = right
             let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask
@@ -268,7 +268,7 @@ module public Types =
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
-                    fromCommonDotNetType (a.GetElementType()) |> WrapReferenceType,
+                    fromCommonDotNetType (a.GetElementType()) |> wrapReferenceType,
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments s) (getInterfaces s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
@@ -299,14 +299,14 @@ module public Types =
         and private fromDotNetTypeRef dotNetType =
             let key = dotNetType
             let res =
-                if TypesCache.Contains key then TypesCache.Find key
+                if TypesCache.contains key then TypesCache.find key
                 else
-                    TypesCache.Prepare key
+                    TypesCache.prepare key
                     let termType = fromCommonDotNetType dotNetType
-                    TypesCache.Embody key termType
+                    TypesCache.embody key termType
             res
 
-        let FromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else !(fromDotNetTypeRef dotNetType)
+        let fromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else !(fromDotNetTypeRef dotNetType)
 
         let (|StructureType|_|) = function
             | termType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
@@ -320,7 +320,7 @@ module public Types =
             | termType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.InterfaceType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.ArrayType _ as arr ->
-                let t = ToDotNetType arr
+                let t = toDotNetType arr
                 Some(ReferenceType(hierarchy t, [], getInterfaces t))
             | _ -> None
 
@@ -353,23 +353,20 @@ module public Types =
             getNewType termType
 
         let fromDotNetType dotnetType =
-            let termType = FromDotNetType dotnetType
+            let termType = fromDotNetType dotnetType
             fromTermType termType
 
-    let IsPrimitive t =
-        let dotNetType = ToDotNetType t
+    let isPrimitive t =
+        let dotNetType = toDotNetType t
         primitiveTypes.Contains dotNetType || dotNetType.IsEnum
 
-    let IsInteger = ToDotNetType >> integerTypes.Contains
+    let isInteger = toDotNetType >> integerTypes.Contains
 
-    let IsReal = ToDotNetType >> realTypes.Contains
+    let isReal = toDotNetType >> realTypes.Contains
 
-    let IsUnsigned = unsignedTypes.Contains
+    let isUnsigned = unsignedTypes.Contains
 
-    let SystemGenericTypeDefinition (t : System.Type) =
-        if t.IsGenericType && not <| t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
-
-    let rec IsAssignableToGenericType (givenType : Type) (genericType : Type) =
+    let rec isAssignableToGenericType (givenType : Type) (genericType : Type) =
         let areInterfacesFound =
             givenType.GetInterfaces() |>
             Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
@@ -377,14 +374,14 @@ module public Types =
             let baseType = givenType.BaseType
             baseType <> null &&
             if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
-            else IsAssignableToGenericType baseType genericType
+            else isAssignableToGenericType baseType genericType
 
     let private updateConstraints constraints = function
         | termType.ClassType(t, g, _) -> ClassType(t, g, constraints)
         | termType.StructType(t, g, _) -> StructType(t, g, constraints)
         | _ -> __unreachable__()
 
-    let rec GetFieldsOf (t : System.Type) isStatic =
+    let rec fieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)
@@ -392,8 +389,8 @@ module public Types =
             // Events may appear at this point. Filtering them out...
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
             else
-                let fieldName = sprintf "%s.%s" ((SystemGenericTypeDefinition field.DeclaringType).FullName) field.Name
-                Some (fieldName, FromDotNetType field.FieldType)
+                let fieldName = sprintf "%s.%s" ((safeGenericTypeDefinition field.DeclaringType).FullName) field.Name
+                Some (fieldName, fromDotNetType field.FieldType)
         let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
         if isStatic || t.BaseType = null then ourFields
-        else Array.append (GetFieldsOf t.BaseType false) ourFields
+        else Array.append (fieldsOf t.BaseType false) ourFields

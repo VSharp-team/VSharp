@@ -14,13 +14,13 @@ module internal Merging =
         match term.term with
         | Struct _ -> StructMerge
         | Array _ -> ArrayMerge
-        | _ when IsBool term -> BoolMerge
+        | _ when isBool term -> BoolMerge
         | _ -> DefaultMerge
 
     let guardOf term =
         match term.term with
-        | Terms.GuardedValues(gs, _) -> disjunction term.metadata gs
-        | _ -> Terms.MakeTrue term.metadata
+        | GuardedValues(gs, _) -> disjunction term.metadata gs
+        | _ -> makeTrue term.metadata
 
     let rec private boolMerge = function
         | [] -> []
@@ -41,8 +41,8 @@ module internal Merging =
             | True -> gvs
             | _ -> [propagateGuard g v]
         | (x :: _) as gvs ->
-            let t = x |> snd |> TypeOf
-            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
+            let t = x |> snd |> typeOf
+            assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
@@ -58,8 +58,8 @@ module internal Merging =
             | True -> gvs
             | _ -> [propagateGuard g v]
         | (x :: _) as gvs ->
-            let t = x |> snd |> TypeOf
-            assert(gvs |> Seq.map (snd >> TypeOf) |> Seq.forall ((=) t))
+            let t = x |> snd |> typeOf
+            assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs
             let extractArrayInfo = term >> function
                 | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
@@ -143,7 +143,7 @@ module internal Merging =
     and merge gvs =
         match compress (simplify (|UnionT|_|) gvs) with
         | [(True, v)] -> v
-        | [(g, v)] when Terms.IsBool v -> g &&& v
+        | [(g, v)] when Terms.isBool v -> g &&& v
         | gvs' -> Union Metadata.empty gvs'
 
     and mergeCells gcs =
@@ -255,7 +255,7 @@ module internal Merging =
     let guardedStateMap mapper gvs state = guardedStateMapk (Cps.ret2 mapper) gvs state id
 
     let commonGuardedErroredMapk mapper errorMapper gvs state merge k =
-        let ges, gvs = List.partition (snd >> IsError) gvs
+        let ges, gvs = List.partition (snd >> isError) gvs
         let egs, es = List.unzip ges
         let vgs, vs = List.unzip gvs
         let eg = disjunction Metadata.empty egs
@@ -273,7 +273,7 @@ module internal Merging =
         | t -> [(True, t)]
 
     let erroredUnguard term =
-        let ges, gvs = term |> unguard |> List.partition (snd >> IsError)
+        let ges, gvs = term |> unguard |> List.partition (snd >> isError)
         ges, merge gvs
 
     let productUnion f t1 t2 =
@@ -295,7 +295,7 @@ module internal Merging =
             mapper x
             |> List.map (fun (g, v) ->
                 let g' = gacc &&& g
-                if IsError v then [(g', v)]
+                if isError v then [(g', v)]
                 else
                     guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
             |> List.concat |> genericSimplify
@@ -305,7 +305,7 @@ module internal Merging =
         guardedCartesianProductRec mapper ctor True [] terms
 
     let guardedApply f gvs =
-        gvs |> List.map (fun (g, v) -> (g, if IsError v then v else f v))
+        gvs |> List.map (fun (g, v) -> (g, if isError v then v else f v))
 
     let map f t =
         match t.term with
