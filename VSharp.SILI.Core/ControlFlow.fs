@@ -57,7 +57,7 @@ module internal ControlFlow =
             match merged.result with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard (g &&& g2), v2))
             | _ -> List.singleton (guard(g), merged)
-        gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not)
+        gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.isFalse >> not)
 
     let rec private createImplicitPathCondition consumeContinue accTerm (term, statementResult) =
         match statementResult.result with
@@ -125,7 +125,7 @@ module internal ControlFlow =
                 | Guarded gvs' ->
                     let composeOne (g, v) =
                         List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs'
-                    gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.IsFalse >> not) |> Merging.mergeSame
+                    gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.isFalse >> not) |> Merging.mergeSame
                 | _ ->
                     let gs, vs = List.unzip gvs
                     List.zip gs (List.map (composeFlat newRes) vs)

@@ -21,7 +21,7 @@ module internal Explorer =
     let configure itprtr = interpreter <- itprtr
 
     let private formInitialStatics metadata typ typeName =
-        let staticMemoryKey = Terms.MakeStringKey typeName
+        let staticMemoryKey = makeStringKey typeName
         let staticMemoryEntry = Struct metadata Heap.empty typ
         Heap.empty.Add(staticMemoryKey, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
 
@@ -45,12 +45,12 @@ module internal Explorer =
             match id with
             | :? IMethodIdentifier as m ->
                 let declaringQualifiedName = m.DeclaringTypeAQN
-                let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.FromDotNetType
+                let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.fromDotNetType
                 let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType declaringQualifiedName) }
                 if m.IsStatic then (None, initialState)
                 else
                     let instance, state = Memory.allocateSymbolicInstance metadata initialState declaringType
-                    if Terms.IsHeapRef instance then (Some instance, state)
+                    if Terms.isHeapRef instance then (Some instance, state)
                     else
                         let key = ("external data", m.Token)
                         let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, Some declaringType)]

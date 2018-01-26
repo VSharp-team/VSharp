@@ -2,8 +2,6 @@ namespace VSharp.Interpreter
 
 open VSharp
 open VSharp.Core
-open VSharp.Core.Types
-open VSharp.Core.Types.Constructor
 open global.System
 open System.Reflection
 open JetBrains.Metadata.Reader.API
@@ -33,7 +31,7 @@ module internal MetadataTypes =
             meth.[0].GetGenericArguments().[int arg.Index]
         | _ -> __notImplemented__()
 
-    let rec MetadataToDotNetType (arg : IMetadataType) =
+    let rec metadataToDotNetType (arg : IMetadataType) =
         match arg with
         | null -> null
         | _ when arg.AssemblyQualifiedName = "__Null" -> null
@@ -41,57 +39,57 @@ module internal MetadataTypes =
         | :? IMetadataGenericArgumentReferenceType as g -> genericParameterFromMetadata g.Argument
         | :? IMetadataArrayType as a ->
             if a.IsVector
-                then (a.ElementType |> MetadataToDotNetType).MakeArrayType()
-                else (a.ElementType |> MetadataToDotNetType).MakeArrayType(int(a.Rank))
+                then (a.ElementType |> metadataToDotNetType).MakeArrayType()
+                else (a.ElementType |> metadataToDotNetType).MakeArrayType(int(a.Rank))
         | :? IMetadataClassType as c ->
             let originType = Type.GetType(c.Type.AssemblyQualifiedName, true)
             if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
-            else originType.MakeGenericType(c.Arguments |> Array.map MetadataToDotNetType)
+            else originType.MakeGenericType(c.Arguments |> Array.map metadataToDotNetType)
         | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
 
-    let VariableFromMetadataType = MetadataToDotNetType >> Variable.fromDotNetType
+    let variableFromMetadataType = metadataToDotNetType >> Types.NewTypeVariable
 
-    let IsReferenceType (t : IMetadataType) =
-        let dnt = MetadataToDotNetType t
+    let isReferenceType (t : IMetadataType) =
+        let dnt = metadataToDotNetType t
         not dnt.IsValueType
 
-    let rec FromMetadataType (t : IMetadataType) =
+    let rec fromMetadataType (t : IMetadataType) =
         match t with
         | null -> ClassType(hierarchy typedefof<obj>, [], [])
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Void" -> Core.Void
         | :? IMetadataGenericArgumentReferenceType as g ->
-            let arg = MetadataToDotNetType g
-            FromDotNetType arg
+            let arg = metadataToDotNetType g
+            Types.FromDotNetType arg
         | :? IMetadataArrayType as a ->
-            let elementType = FromMetadataType a.ElementType |> WrapReferenceType
+            let elementType = fromMetadataType a.ElementType |> Types.WrapReferenceType
             ArrayType(elementType, if a.IsVector then Vector else a.Rank |> int |> ConcreteDimension)
         | :? IMetadataClassType as ct ->
-            let dotnetType = MetadataToDotNetType ct
-            FromDotNetType dotnetType
+            let dotnetType = metadataToDotNetType ct
+            Types.FromDotNetType dotnetType
         | :? IMetadataPointerType as pt ->
-            let dotnetType = MetadataToDotNetType pt
-            FromDotNetType dotnetType
-        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> FromDotNetType
+            let dotnetType = metadataToDotNetType pt
+            Types.FromDotNetType dotnetType
+        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> Types.FromDotNetType
 
-    let FromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = VariableFromMetadataType returnMetadataType
+    let fromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
+        let returnType = variableFromMetadataType returnMetadataType
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> FromMetadataType
+            param.Type |> fromMetadataType
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq
         Func(args, returnType)
 
-    let FromMetadataMethodSignature (m : IMetadataMethod) =
-        let returnType = VariableFromMetadataType m.ReturnValue.Type
+    let fromMetadataMethodSignature (m : IMetadataMethod) =
+        let returnType = variableFromMetadataType m.ReturnValue.Type
         let paramToType (param : IMetadataParameter) =
-            param.Type |> FromMetadataType
+            param.Type |> fromMetadataType
         let args = Seq.map paramToType m.Parameters |> List.ofSeq
         Func(args, returnType)
 
-    let GetMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
+    let getMetadataTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
         DecompilerServices.getTypeOfNode node
 
-    let GetSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
-        let mt = GetMetadataTypeOfNode node
+    let getSystemTypeOfNode (node : JetBrains.Decompiler.Ast.INode) =
+        let mt = getMetadataTypeOfNode node
         if mt = null then typedefof<obj>
-        else MetadataToDotNetType mt
+        else metadataToDotNetType mt

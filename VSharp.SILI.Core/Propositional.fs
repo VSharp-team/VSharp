@@ -11,14 +11,14 @@ module internal Propositional =
     let makeBin metadata operation x y =
         match x.term, y.term with
         | Expression(Operator(op', false), list', _), Expression(Operator(op'', false), list'', _) when op' = operation && op'' = operation ->
-            Terms.MakeNAry operation (List.append list' list'') false Bool metadata
+            makeNAry operation (List.append list' list'') false Bool metadata
         | Expression(Operator(_, false), [], _), _ -> y
         | _, Expression(Operator(_, false), [], _) -> y
         | Expression(Operator(op', false), list', _), _ when op' = operation ->
-            Terms.MakeNAry operation (y::list') false Bool metadata
+            makeNAry operation (y::list') false Bool metadata
         | _, Expression(Operator(op', false), list', _) when op' = operation ->
-            Terms.MakeNAry operation (x::list') false Bool metadata
-        | _ -> Terms.MakeNAry operation [x; y] false Bool metadata
+            makeNAry operation (x::list') false Bool metadata
+        | _ -> makeNAry operation [x; y] false Bool metadata
 
 
     let private makeCoOpBinaryTerm metadata listMetadata x list listOp op =
@@ -148,21 +148,21 @@ module internal Propositional =
         // Co(... y ...) op !y = Co(... ...) op !y
         | _, Negation(y',_) when List.contains y' list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [y'] list) co op)
         // Co(... !y ...) op y = Co(... ...) op y
-        | _ when List.contains (Negate y Metadata.empty) list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [Negate y Metadata.empty] list) co op)
+        | _ when List.contains (negate y Metadata.empty) list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [negate y Metadata.empty] list) co op)
         // Co(!a ys) op Co(a ys) = ys
         // Co(a ys) op Co(!a ys zs) = ys co (a op Co(zs)) if (a op Co(zs)) simplifies
         // Co(a ys) op Co(!a ys zs) = Co(a ys) op Co(ys zs)
         | _, Expression(Operator(co', false), IntersectionExceptOneNegation list (a, ys, zs), _) when co' = co ->
-            if zs.IsEmpty then MakeNAry co ys false Bool (Metadata.combine3 mtd x.metadata y.metadata) |> matched
+            if zs.IsEmpty then makeNAry co ys false Bool (Metadata.combine3 mtd x.metadata y.metadata) |> matched
             else
                 let xymtd = Metadata.combine x.metadata y.metadata
-                let coZs = MakeNAry co zs false Bool xymtd
+                let coZs = makeNAry co zs false Bool xymtd
                 simplifyExt mtd op co stopValue ignoreValue a coZs
-                    (fun aOpZs -> MakeNAry co (aOpZs::ys) false Bool xymtd |> matched)
+                    (fun aOpZs -> makeNAry co (aOpZs::ys) false Bool xymtd |> matched)
                     (fun () ->
-                        let y' = MakeNAry co (List.append ys zs) false Bool y.metadata
+                        let y' = makeNAry co (List.append ys zs) false Bool y.metadata
                         simplifyCoOp mtd op co stopValue ignoreValue x list y' matched (fun () ->
-                        MakeNAry op [x; y'] false Bool mtd |> matched))
+                        makeNAry op [x; y'] false Bool mtd |> matched))
         // Co(list) op Co(permutation of list) -> Co(list)
         // TODO: sort terms to avoid permutation checking
         | _, Expression(Operator(co', false), ys, _)  when co' = co && isPermutationOf list ys -> matched x
@@ -192,12 +192,12 @@ module internal Propositional =
         | Error _ -> k x
         | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
         | Negation(x, _) -> k x
-        | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> MakeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
-        | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> MakeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
+        | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
+        | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
         | Terms.GuardedValues(gs, vs) ->
             Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
             List.zip gs nvs |> Union mtd |> k)
-        | _ -> MakeUnary OperationType.LogicalNeg x false Bool mtd |> k
+        | _ -> makeUnary OperationType.LogicalNeg x false Bool mtd |> k
 
     and private simplifyExtWithType mtd op co stopValue ignoreValue _ x y matched unmatched =
         simplifyExt mtd op co stopValue ignoreValue x y matched unmatched
@@ -227,13 +227,13 @@ module internal Propositional =
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
-        | _ -> Terms.MakeTrue mtd
+        | _ -> makeTrue mtd
 
     let disjunction mtd = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
-        | _ -> Terms.MakeFalse mtd
+        | _ -> makeFalse mtd
 
     let simplifyBinaryConnective mtd op x y k =
         match op with
@@ -252,7 +252,7 @@ module internal Propositional =
         | _ -> internalfailf "%O is not an unary logical operator" op
 
     let isLogicalOperation op t1 t2 =
-        Types.IsBool t1 && Types.IsBool t2 &&
+        Types.isBool t1 && Types.isBool t2 &&
         match op with
         | OperationType.LogicalAnd
         | OperationType.LogicalOr

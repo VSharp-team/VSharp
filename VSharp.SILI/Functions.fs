@@ -8,11 +8,11 @@ open JetBrains.Metadata.Reader.API
 module Functions =
 
     let internal MakeLambdaTerm (signature : IFunctionSignature) (returnMetadataType : IMetadataType) (lambda : 'a symbolicLambda) =
-        let typ = MetadataTypes.FromDecompiledSignature signature returnMetadataType
+        let typ = MetadataTypes.fromDecompiledSignature signature returnMetadataType
         MakeLambda lambda typ
 
     let internal MakeLambda state (metadataMethod : IMetadataMethod) (lambda : 'a symbolicLambda) =
-        let typ = MetadataTypes.FromMetadataMethodSignature metadataMethod
+        let typ = MetadataTypes.fromMetadataMethodSignature metadataMethod
         let term = Concrete lambda typ
         Memory.AllocateInHeap state term
 
