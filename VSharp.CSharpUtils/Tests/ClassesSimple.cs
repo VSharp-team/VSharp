@@ -206,6 +206,18 @@ namespace VSharp.CSharpUtils.Tests
             a.DecN();
             return n == a.GetN();
         }
+
+        struct MyStruct
+        {
+            public int MyValue;
+        }
+
+        public static int SimpleStructureAccess(int newMyValue)
+        {
+            var x = new MyStruct();
+            x.MyValue = newMyValue;
+            return x.MyValue;
+        }
     }
 
     public static class ClassesSimpleException

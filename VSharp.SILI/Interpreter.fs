@@ -634,7 +634,7 @@ module internal Interpreter =
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
         | :? ITryCastExpression
-        | :? ITypeCastExpression -> reduceExpression state ast k
+        | :? IAbstractTypeCastExpression -> reduceExpression state ast k
         | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -1070,7 +1070,7 @@ module internal Interpreter =
                 else k (NoComputation, state)
             ) finish
         if constructorSpecification = null
-            then finish (NoResult(), state)
+            then invokeInitializers result state (NoResult(), state)
             else
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName
