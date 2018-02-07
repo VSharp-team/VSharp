@@ -349,6 +349,7 @@ module internal Types =
                     let newElemType = getNewType elemType
                     ArrayType(newElemType, updateDimension dim)
                 | ConcreteType t as termType when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
+                | Pointer _ -> termType
                 | termType -> create termType ()
             getNewType termType
 
