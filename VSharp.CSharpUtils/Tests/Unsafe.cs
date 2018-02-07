@@ -46,5 +46,11 @@ namespace VSharp.CSharpUtils.Tests
             var s = new IntPtr(&myFavouriteParameter);
             return *(int*) s.ToPointer();
         }
+
+        public static void* CompilerHackLikePtrReturn(void* ptr)
+        {
+            var x = (IntPtr) ptr;
+            return x.ToPointer();
+        }
     }
 }
