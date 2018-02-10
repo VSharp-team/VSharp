@@ -24,6 +24,8 @@ module internal Operators =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right
         match op with
+        | _ when Types.isBottom t1 -> k (left, state)
+        | _ when Types.isBottom t2 -> k (right, state)
         | op when Propositional.isLogicalOperation op t1 t2 ->
             Propositional.simplifyBinaryConnective mtd op left right (withSnd state >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 ->

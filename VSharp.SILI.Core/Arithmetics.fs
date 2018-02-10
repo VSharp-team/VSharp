@@ -567,7 +567,7 @@ module internal Arithmetics =
         | _ -> internalfailf "%O is not an unary arithmetical operator" op
 
     let isArithmeticalOperation op t1 t2 =
-        (Types.isNumeric t1 || Types.isBottom t1) && (Types.isNumeric t2 || Types.isBottom t2) &&
+        Types.isNumeric t1 && Types.isNumeric t2 &&
         match op with
         | OperationType.Add
         | OperationType.Subtract
