@@ -30,14 +30,8 @@ module public Prelude =
 
     let inline public (|?) lhs rhs =
         if lhs = null then rhs else lhs
-    let inline public (|??) lhs rhs =
-        match lhs with
-        | Some x -> x
-        | None -> rhs
-    let inline public (||??) (lhs : 'a option) (rhs : 'a Lazy) =
-        match lhs with
-        | Some x -> x
-        | None -> rhs.Force()
+    let inline public (|??) lhs rhs = Option.defaultValue rhs lhs
+    let inline public (||??) (lhs : 'a option) (rhs : 'a Lazy) = Option.defaultWith rhs.Force lhs
 
     let safeGenericTypeDefinition (t : System.Type) =
         if t.IsGenericType && not t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t

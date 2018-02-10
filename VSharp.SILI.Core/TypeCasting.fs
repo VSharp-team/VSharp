@@ -17,9 +17,8 @@ module internal TypeCasting =
             else k (CastConcrete value (Types.toDotNetType targetType) term.metadata, state)
         | Constant(_, _, t)
         | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
-        | StackRef _ ->
-            // printfn "Warning: casting stack reference %O to %O!" term targetType
-            hierarchyCast targetType state term k
+        | StackRef _
+        | StaticRef _
         | HeapRef _
         | Struct _ -> hierarchyCast targetType state term k
         | _ -> __notImplemented__()

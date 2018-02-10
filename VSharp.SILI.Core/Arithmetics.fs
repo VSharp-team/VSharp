@@ -222,7 +222,7 @@ module internal Arithmetics =
         match a, b, y with
         // (a / y) * y = a if unchecked
         | _ when b = y -> matched (a, state)
-        // (a / b) * y = (a * y) / b if a and y are concrete and unckecked
+        // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
             let mtd' = Metadata.combine3 mtd a.metadata y.metadata
             let aMulY, state = simplifyConcreteMultiplication mtd' false state t aval yval
