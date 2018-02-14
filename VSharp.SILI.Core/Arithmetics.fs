@@ -221,6 +221,7 @@ module internal Arithmetics =
         // Simplifying (a / b) * y at this step
         match a, b, y with
         // (a / y) * y = a if unchecked
+        | _, ConcreteT(bval, _), ConcreteT(yval, _) when Calculator.Compare(bval, yval) = 0 -> matched (a, state)
         | _ when b = y -> matched (a, state)
         // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
