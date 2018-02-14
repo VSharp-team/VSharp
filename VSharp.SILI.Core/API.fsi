@@ -75,6 +75,7 @@ module API =
         val IsBool : termType -> bool
         val IsInteger : termType -> bool
         val IsReal : termType -> bool
+        val IsNativeInt : System.Type -> bool
 
         val String : termType
         val (|StringType|_|) : termType -> unit option

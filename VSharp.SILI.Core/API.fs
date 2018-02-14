@@ -102,6 +102,7 @@ module API =
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
+        let IsNativeInt t = Pointers.isNativeInt t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t

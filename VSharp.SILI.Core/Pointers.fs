@@ -5,6 +5,8 @@ open VSharp.Core.Common
 
 module internal Pointers =
 
+    let isNativeInt typ = typ = typedefof<nativeint> || typ = typedefof<unativeint>
+
     let locationEqual mtd addr1 addr2 =
         match typeOf addr1, typeOf addr2 with
         | Types.StringType, Types.StringType -> Strings.simplifyEquality mtd addr1 addr2
