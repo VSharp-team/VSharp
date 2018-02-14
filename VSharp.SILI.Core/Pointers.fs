@@ -42,7 +42,9 @@ module internal Pointers =
     let isNull mtd ptr =
         simplifyReferenceEquality mtd ptr (makeNullRef Null mtd) id
 
-    let simplifyBinaryOperation metadata op state x y k =
+    let simplifyBinaryOperation metadata op state x y targetType k =
+        let isNativeInt = isNativeInt targetType
+
         match op with
         | OperationType.Add
         | OperationType.Subtract -> __notImplemented__()
