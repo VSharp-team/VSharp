@@ -74,12 +74,51 @@ module internal Pointers =
     let isNull mtd ptr =
         simplifyReferenceEquality mtd ptr (makeNullRef Null mtd) id
 
+    let private simplifySPDExpression mtd y s k repeat =
+        __notImplemented__()
+
+    let rec private simplifyPointerExpressionAddition mtd x y k =
+        __notImplemented__()
+
+    let rec private simplifyPointerAdditionGeneric mtd isNativeInt x y state k = // y must be normalized by Arithmetics!
+        let simplifyIndentedPointerAddition x y s k =
+            let multWithSizeOf t =
+                if isNativeInt then t else Arithmetics.mul mtd t <| underlyingPointerTypeSizeof mtd x
+
+            let simplifyRawPointerAddition x y s k = // x is not Indented Ptr
+                let k1 = withSnd s >> k
+                match y with
+                | ConcreteT(zero, _) when CSharpUtils.Calculator.IsZero zero -> k1 x
+                | ConstantPtrT(spd, tp) -> addPtrToSymbolicPointerDifference x spd tp mtd k1
+                | Add _ -> simplifyPointerExpressionAddition mtd x y k1
+                | _ ->
+                    match term y with
+                    | Expression _
+                    | Concrete _
+                    | Constant _ -> k1 <| IndentedPtr x y mtd
+                    | _ -> internalfailf "expected primitive value but got: %O" y
+
+            match term x with
+            | IndentedPtr(p, shift) ->
+                simplifySPDExpression mtd (Arithmetics.add mtd shift <| multWithSizeOf y) s k (simplifyRawPointerAddition p)
+            | _ -> simplifySPDExpression mtd (multWithSizeOf y) s k (simplifyRawPointerAddition x)
+
+        simplifyGenericBinary "add shift to pointer" state x y k
+            (fun _ _ _ _ -> __unreachable__())
+            simplifyIndentedPointerAddition
+            (simplifyPointerAdditionGeneric mtd isNativeInt)
+
+    let private simplifyIndentedReferenceAddition mtd isNativeInt state x y k =
+        let x', y' = if Terms.isNumeric y then x, y else y, x
+        simplifyPointerAdditionGeneric mtd isNativeInt x' y' state k
+
     let simplifyBinaryOperation metadata op state x y targetType k =
         let isNativeInt = isNativeInt targetType
 
         match op with
-        | OperationType.Add
         | OperationType.Subtract -> __notImplemented__()
+        | OperationType.Add ->
+            simplifyIndentedReferenceAddition metadata isNativeInt state x y k
         | OperationType.Equal -> simplifyReferenceEquality metadata x y (withSnd state >> k)
         | OperationType.NotEqual ->
             simplifyReferenceEquality metadata x y (fun e ->
