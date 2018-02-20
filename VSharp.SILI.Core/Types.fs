@@ -84,26 +84,6 @@ module internal Types =
 
     let pointerType = Numeric typedefof<int>
 
-    let private integerTypes =
-        new HashSet<System.Type>(
-                          [typedefof<byte>; typedefof<sbyte>;
-                           typedefof<int16>; typedefof<uint16>;
-                           typedefof<int32>; typedefof<uint32>;
-                           typedefof<int64>; typedefof<uint64>;
-                           typedefof<char>])
-
-    let private unsignedTypes =
-        new HashSet<System.Type>(
-                          [typedefof<byte>; typedefof<uint16>;
-                           typedefof<uint32>; typedefof<uint64>;])
-
-    let private realTypes =
-        new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
-
-    let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
-
-    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
-
     let isNumeric = function
         | Numeric _ -> true
         | _ -> false
@@ -263,7 +243,7 @@ module internal Types =
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension "System.Array")
             | b when b.Equals(typedefof<bool>) -> Bool
-            | n when numericTypes.Contains(n) -> Numeric n
+            | n when TypeUtils.isNumeric n -> Numeric n
             | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
@@ -357,15 +337,11 @@ module internal Types =
             let termType = fromDotNetType dotnetType
             fromTermType termType
 
-    let isPrimitive t =
-        let dotNetType = toDotNetType t
-        primitiveTypes.Contains dotNetType || dotNetType.IsEnum
+    let isPrimitive = toDotNetType >> TypeUtils.isPrimitive
 
-    let isInteger = toDotNetType >> integerTypes.Contains
+    let isInteger = toDotNetType >> TypeUtils.isIntegral
 
-    let isReal = toDotNetType >> realTypes.Contains
-
-    let isUnsigned = unsignedTypes.Contains
+    let isReal = toDotNetType >> TypeUtils.isReal
 
     let rec isAssignableToGenericType (givenType : Type) (genericType : Type) =
         let areInterfacesFound =

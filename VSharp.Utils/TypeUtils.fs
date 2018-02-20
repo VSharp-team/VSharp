@@ -1,5 +1,7 @@
 namespace VSharp
 
+open System.Collections.Generic
+
 type hierarchy(h: System.Type list) =
     member x.Inheritor = List.head h
     member x.Hierarchy = h
@@ -36,3 +38,31 @@ module private Hierarchy =
 
 type hierarchy with
     new (typ : System.Type) = hierarchy (Hierarchy.getInheritanceHierarchy typ)
+
+module TypeUtils =
+    let private integralTypes =
+        new HashSet<System.Type>(
+                          [typedefof<byte>; typedefof<sbyte>;
+                           typedefof<int16>; typedefof<uint16>;
+                           typedefof<int32>; typedefof<uint32>;
+                           typedefof<int64>; typedefof<uint64>;
+                           typedefof<char>])
+
+    let private unsignedTypes =
+        new HashSet<System.Type>(
+                          [typedefof<byte>; typedefof<uint16>;
+                           typedefof<uint32>; typedefof<uint64>;])
+
+    let private realTypes =
+        new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
+
+    let private numericTypes = new HashSet<System.Type>(Seq.append integralTypes realTypes)
+
+    let private primitiveTypes = new HashSet<System.Type>(Seq.append numericTypes [typedefof<bool>])
+
+    let isNumeric = numericTypes.Contains
+    let isPrimitive t = primitiveTypes.Contains t || t.IsEnum
+    let isIntegral = integralTypes.Contains
+    let isReal = realTypes.Contains
+    let isUnsigned = unsignedTypes.Contains
+
