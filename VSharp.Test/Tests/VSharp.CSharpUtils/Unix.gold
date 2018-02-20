@@ -135,7 +135,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -210,7 +210,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -272,7 +272,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -337,7 +337,7 @@ HEAP:
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -385,7 +385,7 @@ HEAP:
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -443,7 +443,7 @@ System.Byte ==> STRUCT byte[
 	| System.Byte.MinValue ~> 0]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2623,6 +2623,13 @@ VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.Class
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimple.SimpleStructureAccess(System.Int32)
+RESULT: newMyValue
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct[]
+VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test1()
 RESULT: UNION[
 	| !hasKey#1 ~> <ERROR: (HeapRef 2)>
@@ -2661,7 +2668,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2714,7 +2721,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2904,7 +2911,7 @@ nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[
 	| VSharp.CSharpUtils.Tests.Conditional+NewBool.BoolValue ~> !(0 == nb) & VSharp.CSharpUtils.Tests.Conditional+NewBool.BoolValue]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3002,7 +3009,7 @@ nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[
 	| VSharp.CSharpUtils.Tests.Conditional+NewBool.BoolValue ~> !(0 == nb) & VSharp.CSharpUtils.Tests.Conditional+NewBool.BoolValue]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3080,7 +3087,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3242,7 +3249,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3341,7 +3348,7 @@ array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3429,7 +3436,7 @@ array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3618,7 +3625,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3708,7 +3715,7 @@ arr ==> TypeVariable1{System.Object}: [|
 	| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) ~> ArrayTypeVariable1.GetLength(1)] ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1050400003
+	| System.Environment.mono_corlib_version ~> 1050800000
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3888,7 +3895,7 @@ arr ==> TypeVariable1{System.Object}: [|
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.mono_corlib_version ~> UNION[
-		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> 1050400003]
+		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> 1050800000]
 	| System.Environment.nl ~> UNION[
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> null]
 	| System.Environment.os ~> UNION[
@@ -3937,6 +3944,16 @@ HEAP:
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ReturnIntFromIntPtr(System.Int32)
 RESULT: myFavouriteParameter
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Void* VSharp.CSharpUtils.Tests.Unsafe.CompilerHackLikePtrReturn(System.Void*)
+RESULT: (HeapPtr ptr as void)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -4299,7 +4316,7 @@ obj ==> STRUCT TypeVariable1{System.Object}[
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.mono_corlib_version ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1050400003]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1050800000]
 	| System.Environment.nl ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Environment.os ~> UNION[

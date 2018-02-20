@@ -68,7 +68,6 @@
     <Compile Include="Extern\System\Environment.fs" />
     <Compile Include="SVM.fs" />
     <None Include="packages.config" />
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">

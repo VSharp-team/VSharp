@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.TypeUtils
 open VSharp.CSharpUtils
 open VSharp.Core.Common
 open VSharp.Core.Types
@@ -221,8 +222,9 @@ module internal Arithmetics =
         // Simplifying (a / b) * y at this step
         match a, b, y with
         // (a / y) * y = a if unchecked
+        | _, ConcreteT(bval, _), ConcreteT(yval, _) when Calculator.Compare(bval, yval) = 0 -> matched (a, state)
         | _ when b = y -> matched (a, state)
-        // (a / b) * y = (a * y) / b if a and y are concrete and unckecked
+        // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
             let mtd' = Metadata.combine3 mtd a.metadata y.metadata
             let aMulY, state = simplifyConcreteMultiplication mtd' false state t aval yval
@@ -518,29 +520,39 @@ module internal Arithmetics =
 
 // ------------------------------- General functions -------------------------------
 
+
     // WARNING: These operators are safe versions of concrete simplifyBinaryOperation.
     // Use them, only if you can guarantee that operation will complete without exceptions,
     // otherwise you should use simplifyBinaryOperation with state
 
+    let private getDotNetType = typeOf >> toDotNetType
+    let inline private deduceArithmeticTargetType x y =
+        TypeUtils.deduceSimpleArithmeticOperationTargetType (getDotNetType x) (getDotNetType y)
+
     let add mtd x y =
-        simplifyAddition mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyAddition mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let sub mtd x y =
-        simplifySubtraction mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifySubtraction mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let neg mtd x =
-        simplifyUnaryMinus mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x fst
+        simplifyUnaryMinus mtd false State.empty (getDotNetType x) x fst
 
     let mul mtd x y =
-        simplifyMultiplication mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyMultiplication mtd false State.empty (deduceArithmeticTargetType x y) x y fst
+
+    let div mtd x y =
+        simplifyDivision mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let rem mtd x y =
-        simplifyRemainder mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyRemainder mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let eq mtd x y =
         simplifyEqual mtd x y id
 
-    let simplifyBinaryOperation metadata op state x y isChecked t k =
+    let simplifyBinaryOperation metadata op state x y isChecked k =
+        let getDotNetType = typeOf >> toDotNetType
+        let t = Operations.deduceArithmeticBinaryExpressionTargetType op (getDotNetType x) (getDotNetType y)
         match op with
         | OperationType.Add -> simplifyAddition metadata isChecked state t x y k
         | OperationType.Subtract -> simplifySubtraction metadata isChecked state t x y k
@@ -567,7 +579,7 @@ module internal Arithmetics =
         | _ -> internalfailf "%O is not an unary arithmetical operator" op
 
     let isArithmeticalOperation op t1 t2 =
-        (Types.isNumeric t1 || Types.isBottom t1) && (Types.isNumeric t2 || Types.isBottom t2) &&
+        Types.isNumeric t1 && Types.isNumeric t2 &&
         match op with
         | OperationType.Add
         | OperationType.Subtract
