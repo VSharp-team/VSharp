@@ -20,7 +20,7 @@ module internal Operators =
             internalfail "reference comparing non-reference types"
         Arithmetics.simplifyEqual mtd addr1 addr2 id
 
-    let simplifyBinaryOperation mtd op isChecked state t left right k =
+    let simplifyBinaryOperation mtd op isChecked state (t: System.Type) left right k =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right
         match op with
@@ -29,7 +29,7 @@ module internal Operators =
         | op when Propositional.isLogicalOperation op t1 t2 ->
             Propositional.simplifyBinaryConnective mtd op left right (withSnd state >> k)
         | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation mtd op state left right isChecked t k
+            Arithmetics.simplifyBinaryOperation mtd op state left right isChecked k
         | op when Strings.isStringOperation op t1 t2 ->
             Strings.simplifyOperation mtd op left right |> (withSnd state >> k)
         | op when Pointers.isPointerOperation op t1 t2 ->

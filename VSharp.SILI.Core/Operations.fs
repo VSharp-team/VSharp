@@ -67,6 +67,7 @@ type StandardFunction =
         | AbsoluteS -> "abs"
 
 module internal Operations =
+    open VSharp
 
     let operationArity = function
         | OperationType.LogicalNeg
@@ -130,3 +131,23 @@ module internal Operations =
         | OperationType.Subtract -> " - "
         | OperationType.UnaryMinus -> "-%s"
         | _ -> ""
+
+    let deduceArithmeticBinaryExpressionTargetType op x y =
+        match op with
+        | OperationType.Equal
+        | OperationType.NotEqual
+        | OperationType.Greater
+        | OperationType.GreaterOrEqual
+        | OperationType.Less
+        | OperationType.LessOrEqual -> TypeUtils.deduceComparisonTargetType x y
+        | OperationType.Multiply
+        | OperationType.Add
+        | OperationType.Subtract
+        | OperationType.Divide
+        | OperationType.Remainder -> TypeUtils.deduceSimpleArithmeticOperationTargetType x y
+        | OperationType.ShiftLeft
+        | OperationType.ShiftRight -> TypeUtils.deduceShiftTargetType x y
+        | OperationType.LogicalAnd
+        | OperationType.LogicalOr
+        | OperationType.LogicalXor -> TypeUtils.deduceLogicalArithmeticOperationTargetType x y
+        | _ -> TypeUtils.failDeduceBinaryTargetType (operationToString op) x y

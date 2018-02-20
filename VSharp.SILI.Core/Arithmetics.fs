@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.TypeUtils
 open VSharp.CSharpUtils
 open VSharp.Core.Common
 open VSharp.Core.Types
@@ -519,32 +520,39 @@ module internal Arithmetics =
 
 // ------------------------------- General functions -------------------------------
 
+
     // WARNING: These operators are safe versions of concrete simplifyBinaryOperation.
     // Use them, only if you can guarantee that operation will complete without exceptions,
     // otherwise you should use simplifyBinaryOperation with state
 
+    let private getDotNetType = typeOf >> toDotNetType
+    let inline private deduceArithmeticTargetType x y =
+        TypeUtils.deduceSimpleArithmeticOperationTargetType (getDotNetType x) (getDotNetType y)
+
     let add mtd x y =
-        simplifyAddition mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyAddition mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let sub mtd x y =
-        simplifySubtraction mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifySubtraction mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let neg mtd x =
-        simplifyUnaryMinus mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x fst
+        simplifyUnaryMinus mtd false State.empty (getDotNetType x) x fst
 
     let mul mtd x y =
-        simplifyMultiplication mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyMultiplication mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let div mtd x y =
-        simplifyDivision mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyDivision mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let rem mtd x y =
-        simplifyRemainder mtd false State.empty (Types.toDotNetType (Terms.typeOf x)) x y fst
+        simplifyRemainder mtd false State.empty (deduceArithmeticTargetType x y) x y fst
 
     let eq mtd x y =
         simplifyEqual mtd x y id
 
-    let simplifyBinaryOperation metadata op state x y isChecked t k =
+    let simplifyBinaryOperation metadata op state x y isChecked k =
+        let getDotNetType = typeOf >> toDotNetType
+        let t = Operations.deduceArithmeticBinaryExpressionTargetType op (getDotNetType x) (getDotNetType y)
         match op with
         | OperationType.Add -> simplifyAddition metadata isChecked state t x y k
         | OperationType.Subtract -> simplifySubtraction metadata isChecked state t x y k
