@@ -78,8 +78,8 @@ module internal Operators =
                 simplifyOr mtd acc (List.fold (fun acc (g2, instor2) ->
                     simplifyAnd mtd g1 g2 (fun guardsEq ->
                     instorEq mtd instor1 instor2 (fun instantiatorEq ->
-                    simplifyAnd mtd acc (implies guardsEq instantiatorEq mtd) id))) (makeTrue mtd) gInstor2) id)
-                (makeTrue mtd)
+                    simplifyOr mtd acc (simplifyAnd mtd guardsEq instantiatorEq id) id))) (makeFalse mtd) gInstor2) id)
+                (makeFalse mtd)
                 gInstor1
 
         match x.term, y.term with
@@ -94,4 +94,4 @@ module internal Operators =
                     simplifyHeapPointwiseEquality mtd l1 l2;
                     eqTypes mtd t1 t2 id
                 ]
-        | _ -> internalfail "not array!"
+        | term1, term2 -> internalfail "expected array and array, but %O and %O got!" term1 term2
