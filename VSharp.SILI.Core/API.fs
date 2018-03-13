@@ -29,8 +29,8 @@ module API =
     let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
 
     let BranchStatements state condition thenBranch elseBranch k =
-         Common.reduceConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
-    let BranchExpressions state condition thenExpression elseExpression k = Common.reduceConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
+         Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
+    let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
     let BranchStatementsOnNull state reference thenBranch elseBranch k =
         BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenBranch elseBranch k
 
