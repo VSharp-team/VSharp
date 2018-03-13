@@ -13,13 +13,6 @@ module internal Operators =
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
 
-    let rec referenceEqual mtd p1 p2 =
-        let addr1 = refToInt p1
-        let addr2 = refToInt p2
-        if not(Terms.isInteger addr1 || Terms.isInteger addr2) then
-            internalfail "reference comparing non-reference types"
-        Arithmetics.simplifyEqual mtd addr1 addr2 id
-
     let simplifyBinaryOperation mtd op isChecked state (t: System.Type) left right k =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right
