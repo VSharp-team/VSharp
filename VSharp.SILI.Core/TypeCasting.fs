@@ -61,7 +61,7 @@ module internal TypeCasting =
     let cast mtd state argument targetType isChecked primitiveCast fail k =
         let isCasted state term = canCast mtd state targetType term
         let hierarchyCast targetType state term k =
-            Common.reduceConditionalExecution state
+            Common.statedConditionalExecution state
                 (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd term targetType isChecked |> Return mtd, state))
                 (fun state k -> k (fail state term targetType))

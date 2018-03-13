@@ -155,7 +155,7 @@ module internal Memory =
         | ArrayType _
         | InterfaceType _ -> Terms.makeNullRef typ metadata
         | TypeVariable _ ->
-            Common.simpleConditionalExecution
+            Common.statelessConditionalExecution
                 (fun k -> k <| Common.isValueType metadata typ)
                 (fun k -> k <| Struct metadata Heap.empty typ)
                 (fun k -> k <| Terms.makeNullRef typ metadata)
@@ -444,7 +444,7 @@ module internal Memory =
         | StackRef(location, path, None) ->
             commonHierarchicalStackAccess updateDefined metadata state location path
         | HeapRef(((addr, t) as location, path), time, None) ->
-            Common.reduceConditionalExecution state
+            Common.statedConditionalExecution state
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete metadata [0] pointerType) id, state))
                 (fun state k -> k (actionNull metadata state t))
                 (fun state k ->
@@ -698,7 +698,7 @@ module internal Memory =
             match term.term with
             | Error _ -> (term, state)
             | Array(_, _, _, _, _, _, ArrayType(elementType, _)) ->
-                Common.reduceConditionalExecution state
+                Common.statedConditionalExecution state
                     (fun state k -> checkIndices metadata state arrayRef indices k)
                     (fun state k ->
                         let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length
