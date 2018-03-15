@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 
-// ------------------------------- mscorelib.System.Environment -------------------------------
+// ------------------------------- mscorlib.System.Environment -------------------------------
 
 module Environment =
 
