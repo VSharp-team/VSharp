@@ -95,7 +95,7 @@ module internal Common =
 
 // ------------------------------- Branching -------------------------------
 
-    let simpleConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
+    let statelessConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
         let execution condition k =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
@@ -108,7 +108,7 @@ module internal Common =
         | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
         | _ -> execution condition k)
 
-    let reduceConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let statedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
