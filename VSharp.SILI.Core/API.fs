@@ -67,6 +67,7 @@ module API =
         let Concrete obj typ = Concrete m.Value obj typ
         let Constant name source typ = Constant m.Value name source typ
         let Expression op args typ = Expression m.Value op args typ
+        let Struct fields typ = Struct m.Value fields typ
         let Union gvs = Union m.Value gvs
 
         let True = True
