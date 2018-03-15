@@ -257,7 +257,7 @@ module internal Memory =
         | Merged ghs -> Merging.guardedMap (staticGuardOfHeap exploredRecursiveIds mtd key) ghs
         | Mutation(h, h') ->
             staticGuardOfHeap exploredRecursiveIds mtd key h ||| staticGuardOfDefinedHeap mtd key false h'
-        | Composition(s, ctx, h) ->
+        | Composition(s, _, h) ->
             staticGuardOfHeap exploredRecursiveIds mtd key s.statics ||| staticGuardOfHeap exploredRecursiveIds mtd (* TODO: state o *)key h
         | RecursiveApplication(f, _, _) when exploredRecursiveIds.Contains f -> False
         | RecursiveApplication(f, _, _) ->
