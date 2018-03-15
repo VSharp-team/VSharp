@@ -20,6 +20,7 @@ module API =
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
     val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
+    val BranchExpressionsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
 
     val GuardedApplyExpressionK : term -> (term -> (term -> 'a) -> 'a) -> (term -> 'a) -> 'a
     val GuardedApplyExpression : term -> (term -> term) -> term

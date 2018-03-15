@@ -33,6 +33,8 @@ module API =
     let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
     let BranchStatementsOnNull state reference thenBranch elseBranch k =
         BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenBranch elseBranch k
+    let BranchExpressionsOnNull state reference thenExpression elseExpression k =
+        BranchExpressions state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenExpression elseExpression k
 
     let GuardedApplyExpressionK term mapper k =
         match term.term with
