@@ -732,6 +732,7 @@ module internal Interpreter =
         let op = ast.OperationType
         match op with
         | OperationType.Assignment -> reduceAssignment ast state ast.LeftArgument ast.RightArgument k
+        | OperationType.NullCoalescing -> reduceNullCoalescing ast state ast.LeftArgument ast.RightArgument k
         | _ when DecompilerServices.isOperationAssignment op -> reduceOperationAssignment state ast k
         | _ when DecompilerServices.isConditionalOperation op ->
             reduceConditionalOperation state ast.OperationType ast.LeftArgument ast.RightArgument k
@@ -759,6 +760,14 @@ module internal Interpreter =
             | _ -> __notImplemented__()
         let rightReducer state k = reduceExpression state right k
         mutate caller state left rightReducer targetReducer k
+
+    and reduceNullCoalescing ast state left right k =
+        let k = Enter ast state k
+        reduceExpression state left (fun (leftTerm, state) ->
+        BranchExpressionsOnNull state leftTerm
+            (fun state k -> reduceExpression state right k)
+            (fun state k -> k (leftTerm, state))
+            k)
 
     and reduceOperationAssignment state (ast : IBinaryOperationExpression) k =
         let op = DecompilerServices.getAssignmentOperation ast.OperationType

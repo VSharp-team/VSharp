@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 
-// ------------------------------- mscorelib.System.Array -------------------------------
+// ------------------------------- mscorlib.System.Array -------------------------------
 
 module internal String =
 

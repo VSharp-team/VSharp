@@ -5,7 +5,7 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter
 
-// ------------------------------- mscorelib.System.Math -------------------------------
+// ------------------------------- mscorlib.System.Math -------------------------------
 
 module internal Math =
 
