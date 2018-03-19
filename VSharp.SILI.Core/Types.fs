@@ -327,6 +327,14 @@ module internal Types =
             let termType = fromDotNetType dotnetType
             fromTermType termType
 
+    let public String = fromDotNetType typedefof<string>
+
+    let (|StringType|_|) = function
+        | typ when typ = String -> Some()
+        | _ -> None
+
+    let isString = (=) String
+
     let isPrimitive = toDotNetType >> TypeUtils.isPrimitive
 
     let isInteger = toDotNetType >> TypeUtils.isIntegral

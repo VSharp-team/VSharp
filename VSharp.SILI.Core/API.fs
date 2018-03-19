@@ -111,6 +111,9 @@ module API =
         let TLength = Arrays.lengthTermType
         let IsInteger t = Types.isInteger t
 
+        let String = Types.String
+        let (|StringType|_|) t = Types.(|StringType|_|) t
+
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k
