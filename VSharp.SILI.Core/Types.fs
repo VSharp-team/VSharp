@@ -23,7 +23,6 @@ type termType =
     | Null
     | Bool
     | Numeric of System.Type
-    | String
     | StructType of hierarchy * termTypeRef list * termType list        // Value type with generic argument and interfaces
     | ClassType of hierarchy * termTypeRef list * termType list         // Reference type with generic argument and interfaces
     | InterfaceType of hierarchy * termTypeRef list * termType list     // Interface type with generic argument and interfaces
@@ -40,7 +39,6 @@ type termType =
         | Null -> "<nullType>"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
-        | String -> "string"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
         | ClassType(t, _, _)
@@ -90,10 +88,6 @@ module internal Types =
 
     let isBool = function
         | Bool -> true
-        | _ -> false
-
-    let isString = function
-        | String -> true
         | _ -> false
 
     let isFunction = function
@@ -149,7 +143,6 @@ module internal Types =
         | t -> internalfailf "expected array type, but got %O" t
 
     let rec isReferenceType = function
-        | String
         | ClassType _
         | InterfaceType _
         | ArrayType _
@@ -168,7 +161,6 @@ module internal Types =
         match t with
         | Null -> null
         | Bool -> typedefof<bool>
-        | String -> typedefof<string>
         | Numeric t
         | StructType(t, _, _)
         | InterfaceType(t, _, _)
@@ -244,7 +236,6 @@ module internal Types =
             | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension "System.Array")
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
-            | s when s.Equals(typedefof<string>) -> String
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
@@ -296,7 +287,6 @@ module internal Types =
             | _ -> None
 
         let (|ReferenceType|_|) = function
-            | String -> Some(ReferenceType(hierarchy typedefof<string>, [], getInterfaces typedefof<string>))
             | termType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.InterfaceType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.ArrayType _ as arr ->
