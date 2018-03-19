@@ -441,7 +441,7 @@ module internal Terms =
         Concrete metadata n (Numeric(n.GetType()))
 
     let makeConcreteString (s : string) metadata =
-        Concrete metadata s Core.String
+        Concrete metadata s Types.String
 
     let makeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)

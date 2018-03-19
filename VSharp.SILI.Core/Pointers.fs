@@ -7,7 +7,7 @@ module internal Pointers =
 
     let locationEqual mtd addr1 addr2 =
         match typeOf addr1, typeOf addr2 with
-        | String, String -> Strings.simplifyEquality mtd addr1 addr2
+        | Types.StringType, Types.StringType -> Strings.simplifyEquality mtd addr1 addr2
         | Numeric _, Numeric _ ->
             if addr1 = addr2 then makeTrue mtd
             elif isConcrete addr1 && isConcrete addr2 then makeFalse mtd

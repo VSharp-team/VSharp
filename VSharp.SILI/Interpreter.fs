@@ -94,7 +94,7 @@ module internal Interpreter =
         let stringTypeName = typeof<string>.AssemblyQualifiedName
         let emptyString, state = MakeString 0 String.Empty |> Memory.AllocateInHeap state
         initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Core.String stringTypeName
+        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String stringTypeName
         Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
 // ------------------------------- Member calls -------------------------------
@@ -702,7 +702,7 @@ module internal Interpreter =
         let k = Enter ast state k
         let obj = ast.Value.Value
         match mType with
-        | Core.String ->
+        | Types.StringType ->
             let stringLength = String.length (obj.ToString())
             MakeString stringLength obj |> Memory.AllocateInHeap state |> k
         | Core.Null -> k (Terms.MakeNullRef Null, state)
