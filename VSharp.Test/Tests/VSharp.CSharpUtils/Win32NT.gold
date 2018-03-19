@@ -34,7 +34,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Not odd!
 	| System.String.m_StringLength ~> 8]
 12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -65,7 +65,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Argument should not be zero!
 	| System.String.m_StringLength ~> 28]
 4 ==> STRUCT System.Object[]
@@ -74,7 +74,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.InvalidOperationException[
@@ -99,7 +99,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Hmm.. negative numbers are also not allowed!
 	| System.String.m_StringLength ~> 44]
 9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -152,7 +152,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.Object[]
@@ -161,7 +161,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -225,7 +225,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.Object[]
@@ -234,7 +234,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.DivideByZeroException[
@@ -259,7 +259,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -341,7 +341,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.Object[]
@@ -350,7 +350,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -431,7 +431,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_OverflowException
 	| System.String.m_StringLength ~> 21]
 3 ==> STRUCT System.Object[]
@@ -440,7 +440,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -503,7 +503,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_OverflowException
 	| System.String.m_StringLength ~> 21]
 3 ==> STRUCT System.Object[]
@@ -512,7 +512,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -581,7 +581,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.Object[]
@@ -590,7 +590,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2835,7 +2835,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.Object[]
@@ -2844,7 +2844,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2912,7 +2912,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.Object[]
@@ -2921,7 +2921,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2969,34 +2969,34 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.num ~> 121
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA1.num1 ~> 122
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.num2 ~> 123]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA1 I
 	| System.String.m_StringLength ~> 15]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA1 II
 	| System.String.m_StringLength ~> 16]
-12 ==> STRUCT string[
+12 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num1 I
 	| System.String.m_StringLength ~> 12]
-13 ==> STRUCT string[
+13 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA1(int i) : base I
 	| System.String.m_StringLength ~> 44]
-14 ==> STRUCT string[
+14 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA I
 	| System.String.m_StringLength ~> 14]
-15 ==> STRUCT string[
+15 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA II
 	| System.String.m_StringLength ~> 15]
-16 ==> STRUCT string[
+16 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num I
 	| System.String.m_StringLength ~> 11]
-17 ==> STRUCT string[
+17 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA(int i) I
 	| System.String.m_StringLength ~> 32]
-18 ==> STRUCT string[
+18 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA1(int i) I
 	| System.String.m_StringLength ~> 33]
-19 ==> STRUCT string[
+19 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i) I
 	| System.String.m_StringLength ~> 33]
 2 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -3010,7 +3010,7 @@ HEAP:
 		| !hasKey#6 & !hasKey#7 ~> 16
 		| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 14
 		| hasKey#6 & hasKey#7 ~> 12]]
-20 ==> STRUCT string[
+20 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i, int j) I
 	| System.String.m_StringLength ~> 40]
 3 ==> [| ... 0 ... |]
@@ -3074,19 +3074,19 @@ HEAP:
 		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) ~> (HeapRef 16)
 		| !hasKey#7 & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) ~> (HeapRef 14)];
 	 ... 20 ... |]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA2 I
 	| System.String.m_StringLength ~> 15]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA2 II
 	| System.String.m_StringLength ~> 16]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA2(int i, int j) : this I
 	| System.String.m_StringLength ~> 51]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num2 I
 	| System.String.m_StringLength ~> 12]
-9 ==> STRUCT string[
+9 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA2(int i) : base I
 	| System.String.m_StringLength ~> 44]
 ---------- s1 = ----------
@@ -3122,25 +3122,25 @@ HEAP:
 		| !hasKey#6 & !hasKey#7 ~> 12
 		| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 10
 		| hasKey#6 & hasKey#7 ~> 8]]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num1 I
 	| System.String.m_StringLength ~> 12]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA I
 	| System.String.m_StringLength ~> 14]
-12 ==> STRUCT string[
+12 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA II
 	| System.String.m_StringLength ~> 15]
-13 ==> STRUCT string[
+13 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num I
 	| System.String.m_StringLength ~> 11]
-14 ==> STRUCT string[
+14 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA I
 	| System.String.m_StringLength ~> 25]
-15 ==> STRUCT string[
+15 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA1 I
 	| System.String.m_StringLength ~> 26]
-16 ==> STRUCT string[
+16 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2 I
 	| System.String.m_StringLength ~> 26]
 2 ==> [| ... 0 ... |]
@@ -3186,23 +3186,23 @@ HEAP:
 		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) ~> (HeapRef 14)
 		| !hasKey#7 & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) ~> (HeapRef 12)];
 	 ... 20 ... |]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA2 I
 	| System.String.m_StringLength ~> 15]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA2 II
 	| System.String.m_StringLength ~> 16]
 6 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.num ~> 10
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA1.num1 ~> 2
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.num2 ~> 3]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> field num2 I
 	| System.String.m_StringLength ~> 12]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA1 I
 	| System.String.m_StringLength ~> 15]
-9 ==> STRUCT string[
+9 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> staticFieldA1 II
 	| System.String.m_StringLength ~> 16]
 ---------- s1 = ----------
@@ -3295,7 +3295,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Hey! Gimme number!
 	| System.String.m_StringLength ~> 18]
 3 ==> STRUCT System.Object[]
@@ -3304,7 +3304,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -3354,7 +3354,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.Object[]
@@ -3363,7 +3363,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -3407,7 +3407,7 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
@@ -3486,7 +3486,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.Object[]
@@ -3495,7 +3495,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -3539,7 +3539,7 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
@@ -3617,10 +3617,10 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.Object[]
@@ -3629,7 +3629,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NotImplementedException[
@@ -3654,7 +3654,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NotImplementedException
 	| System.String.m_StringLength ~> 27]
 8 ==> STRUCT System.Object[]
@@ -3747,7 +3747,7 @@ RESULT: null
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-System.String ==> STRUCT string[
+System.String ==> STRUCT System.String[
 	| System.String.Empty ~> null
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
@@ -3839,7 +3839,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 5 ==> STRUCT System.Object[]
@@ -3848,7 +3848,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -3917,7 +3917,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.NullReferenceException[
@@ -3942,7 +3942,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.Object[]
@@ -3951,7 +3951,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -3976,7 +3976,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Object[]
@@ -4037,7 +4037,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.NullReferenceException[
@@ -4062,7 +4062,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.Object[]
@@ -4071,7 +4071,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -4096,7 +4096,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Object[]
@@ -4237,7 +4237,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4267,7 +4267,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-14 ==> STRUCT string[
+14 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 15 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4297,7 +4297,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 4 ==> STRUCT System.Object[]
@@ -4306,7 +4306,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -4331,7 +4331,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4404,10 +4404,10 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.Object[]
@@ -4416,7 +4416,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.IndexOutOfRangeException[
@@ -4441,7 +4441,7 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 8 ==> STRUCT System.Object[]
@@ -4545,7 +4545,7 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> 0]]]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr ~> Arg_IndexOutOfRangeException]
 	| System.String.m_StringLength ~> UNION[
@@ -4559,7 +4559,7 @@ HEAP:
 		| !(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr ~> null]]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> Arg_IndexOutOfRangeException]
 	| System.String.m_StringLength ~> UNION[
@@ -4574,7 +4574,7 @@ HEAP:
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> null]]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> CLR_SafeSerializationManager_RealType]
 	| System.String.m_StringLength ~> UNION[
@@ -4620,7 +4620,7 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> 0]]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (!(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(1) | 0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(1 < ArrayTypeVariable1.GetLength(2)) | !(ArrayTypeVariable1 <: int32[,,]) | !(ArrayTypeVariable1 <: int32[,]) | (!(0 == arr) & !(1 < ArrayTypeVariable1.GetLength(0)) & (ArrayTypeVariable1 <: int32[]) | (!(ArrayTypeVariable1 <: int32[,]) | (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | (ArrayTypeVariable1 <: int32[,]) | 0 == arr)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(0 == arr) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1))) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < ArrayTypeVariable1.GetLength(0) & 1 < ArrayTypeVariable1.GetLength(1)) & (!(1 < ArrayTypeVariable1.GetLength(0)) | !(1 < ArrayTypeVariable1.GetLength(1)) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr) | 0 == arr | 1 < ArrayTypeVariable1.GetLength(0)) ~> Arg_IndexOutOfRangeException]
 	| System.String.m_StringLength ~> UNION[
@@ -4914,7 +4914,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 obj ==> STRUCT TypeVariable1{System.Object}[]
@@ -4990,7 +4990,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 piece ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece}[]
@@ -5042,7 +5042,7 @@ HEAP:
 1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece.Rate ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) & 1 == obj ~> VSharp.CSharpUtils.Tests.Typecast.Piece.Rate]]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
@@ -5084,7 +5084,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -5128,7 +5128,7 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
