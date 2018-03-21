@@ -688,7 +688,7 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceUsingStatement state (ast : IUsingStatement) k =
-        __notImplemented__()
+        reduceBlockStatement state (Transformations.usingStatementToBlock ast) k
 
 // ------------------------------- Memory access -------------------------------
 
