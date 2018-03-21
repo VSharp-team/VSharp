@@ -42,7 +42,7 @@ module internal Operators =
         match t with
         | Bool -> Propositional.simplifyUnaryConnective mtd op arg (withSnd state >> k)
         | Numeric t -> Arithmetics.simplifyUnaryOperation mtd op state arg isChecked t k
-        | String -> __notImplemented__()
+        | Types.StringType -> __notImplemented__()
         | _ -> __notImplemented__()
 
     let simplifyHeapPointwiseEquality mtd h1 h2 =

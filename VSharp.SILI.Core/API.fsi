@@ -71,6 +71,9 @@ module API =
         val TLength : termType
         val IsInteger : termType -> bool
 
+        val String : termType
+        val (|StringType|_|) : termType -> unit option
+
         val CanCast : state -> termType -> term -> term * state
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b

@@ -150,7 +150,6 @@ module internal Memory =
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance t) t metadata
         | Numeric t -> CastConcrete 0 t metadata
         | Reference t -> Terms.makeNullRef t metadata
-        | String
         | ClassType _
         | ArrayType _
         | InterfaceType _ -> Terms.makeNullRef typ metadata
@@ -410,7 +409,7 @@ module internal Memory =
 
     let private commonHierarchicalStaticsAccess restricted update metadata groundHeap statics location path =
         let firstLocation = Terms.term >> function
-            | Concrete(location, String) -> StaticRef metadata (location :?> string) []
+            | Concrete(location, StringType) -> StaticRef metadata (location :?> string) []
             | _ -> __notImplemented__()
         let addr = Terms.makeStringKey location
         let dnt = System.Type.GetType(location)
@@ -518,7 +517,7 @@ module internal Memory =
         let v = fillHoles ctx source cell.value
         let loc =
             match addr.term with
-            | Concrete(s, String) -> string s
+            | Concrete(s, StringType) -> string s
             | _ -> __notImplemented__()
         mutateStatics restricted ctx.mtd target loc path time v |> snd3
 

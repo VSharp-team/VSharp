@@ -150,7 +150,7 @@ module internal State =
         StackRef (metadataOfStackLocation state location) location []
     let staticLocationToReference term =
         match term.term with
-        | Concrete(location, String) -> StaticRef term.metadata (location :?> string) []
+        | Concrete(location, Types.StringType) -> StaticRef term.metadata (location :?> string) []
         | _ -> __notImplemented__()
 
     let private heapKeyToString = term >> function
@@ -158,7 +158,7 @@ module internal State =
         | t -> toString t
 
     let private staticKeyToString = term >> function
-        | Concrete(typeName, String) -> System.Type.GetType(typeName :?> string).FullName
+        | Concrete(typeName, Types.StringType) -> System.Type.GetType(typeName :?> string).FullName
         | t -> toString t
 
     let mkMetadata (location : locationBinding) state =
