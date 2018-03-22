@@ -28,7 +28,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Not odd!
 	| System.String.m_StringLength ~> 8]
 12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -53,7 +53,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Argument should not be zero!
 	| System.String.m_StringLength ~> 28]
 4 ==> STRUCT System.Object[]
@@ -62,7 +62,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.InvalidOperationException[
@@ -81,7 +81,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Hmm.. negative numbers are also not allowed!
 	| System.String.m_StringLength ~> 44]
 9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -121,7 +121,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 3 ==> STRUCT System.Object[]
@@ -130,12 +130,13 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -170,7 +171,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Attempted to divide by zero.
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.Object[]
@@ -179,7 +180,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.DivideByZeroException[
@@ -198,7 +199,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Attempted to divide by zero.
 	| System.String.m_StringLength ~> 28]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -210,7 +211,8 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -256,7 +258,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Attempted to divide by zero.
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.Object[]
@@ -265,14 +267,15 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -322,7 +325,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arithmetic operation resulted in an overflow.
 	| System.String.m_StringLength ~> 45]
 3 ==> STRUCT System.Object[]
@@ -331,13 +334,14 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -370,7 +374,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arithmetic operation resulted in an overflow.
 	| System.String.m_StringLength ~> 45]
 3 ==> STRUCT System.Object[]
@@ -379,13 +383,14 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -424,7 +429,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Attempted to divide by zero.
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.Object[]
@@ -433,7 +438,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -443,7 +448,8 @@ System.Byte ==> STRUCT byte[
 	| System.Byte.MinValue ~> 0]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2623,6 +2629,13 @@ VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.Class
 VSharp.CSharpUtils.Tests.ClassesSimpleA ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleA[]
 VSharp.CSharpUtils.Tests.ClassesSimpleB ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleB[]
 VSharp.CSharpUtils.Tests.ClassesSimpleC ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleC[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimple.SimpleStructureAccess(System.Int32)
+RESULT: newMyValue
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct[]
+VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test1()
 RESULT: UNION[
 	| !hasKey#1 ~> <ERROR: (HeapRef 2)>
@@ -2647,7 +2660,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 4 ==> STRUCT System.Object[]
@@ -2656,12 +2669,13 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2700,7 +2714,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 4 ==> STRUCT System.Object[]
@@ -2709,12 +2723,13 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2797,7 +2812,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Hey! Gimme number!
 	| System.String.m_StringLength ~> 18]
 3 ==> STRUCT System.Object[]
@@ -2806,7 +2821,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2843,7 +2858,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 3 ==> STRUCT System.Object[]
@@ -2852,7 +2867,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -2886,7 +2901,7 @@ HEAP:
 		| !(0 == nb) ~> null]
 	| System.Exception.native_trace_ips ~> UNION[
 		| !(0 == nb) ~> null]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Object reference not set to an instance of an object.]
 	| System.String.m_StringLength ~> UNION[
@@ -2903,7 +2918,8 @@ HEAP:
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -2940,7 +2956,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 3 ==> STRUCT System.Object[]
@@ -2949,7 +2965,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -2983,7 +2999,7 @@ HEAP:
 		| !(0 == nb) ~> null]
 	| System.Exception.native_trace_ips ~> UNION[
 		| !(0 == nb) ~> null]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Object reference not set to an instance of an object.]
 	| System.String.m_StringLength ~> UNION[
@@ -3000,7 +3016,8 @@ HEAP:
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3036,10 +3053,10 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 3 ==> STRUCT System.Object[]
@@ -3048,7 +3065,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NotImplementedException[
@@ -3067,7 +3084,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> The method or operation is not implemented.
 	| System.String.m_StringLength ~> 43]
 8 ==> STRUCT System.Object[]
@@ -3078,7 +3095,8 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3173,7 +3191,7 @@ RESULT: null
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-System.String ==> STRUCT string[
+System.String ==> STRUCT System.String[
 	| System.String.Empty ~> null
 	| System.String.TrimBoth ~> 2
 	| System.String.TrimHead ~> 0
@@ -3257,7 +3275,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 5 ==> STRUCT System.Object[]
@@ -3266,12 +3284,13 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3315,7 +3334,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.NullReferenceException[
@@ -3334,7 +3353,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 4 ==> STRUCT System.Object[]
@@ -3343,7 +3362,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -3362,7 +3381,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 9 ==> STRUCT System.Object[]
@@ -3370,7 +3389,8 @@ array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3403,7 +3423,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.NullReferenceException[
@@ -3422,7 +3442,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Object reference not set to an instance of an object.
 	| System.String.m_StringLength ~> 53]
 4 ==> STRUCT System.Object[]
@@ -3431,7 +3451,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -3450,7 +3470,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 9 ==> STRUCT System.Object[]
@@ -3458,7 +3478,8 @@ array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3561,7 +3582,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-11 ==> STRUCT string[
+11 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3585,7 +3606,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-14 ==> STRUCT string[
+14 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 15 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3609,7 +3630,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT string[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 4 ==> STRUCT System.Object[]
@@ -3618,7 +3639,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT string[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
@@ -3637,7 +3658,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-8 ==> STRUCT string[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3647,7 +3668,8 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3686,10 +3708,10 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 3 ==> STRUCT System.Object[]
@@ -3698,7 +3720,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.IndexOutOfRangeException[
@@ -3717,7 +3739,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 8 ==> STRUCT System.Object[]
@@ -3734,7 +3756,8 @@ arr ==> TypeVariable1{System.Object}: [|
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3775,7 +3798,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3783,7 +3806,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-2 ==> STRUCT string[
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 3 ==> STRUCT System.Object[]
@@ -3792,7 +3815,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.IndexOutOfRangeException[
@@ -3811,7 +3834,7 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3845,7 +3868,8 @@ arr ==> TypeVariable1{System.Object}: [|
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
-	| System.Environment.mono_corlib_version ~> 1051000002
+	| System.Environment.<Platform>k__BackingField ~> Win32S
+	| System.Environment.mono_corlib_version ~> 1051000003
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3889,6 +3913,16 @@ HEAP:
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.ReturnIntFromIntPtr(System.Int32)
 RESULT: myFavouriteParameter
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Void* VSharp.CSharpUtils.Tests.Unsafe.CompilerHackLikePtrReturn(System.Void*)
+RESULT: (HeapPtr ptr as void)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -4022,7 +4056,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 obj ==> STRUCT TypeVariable1{System.Object}[]
@@ -4085,7 +4119,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT string[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 piece ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece}[]
@@ -4125,7 +4159,7 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
-10 ==> STRUCT string[
+10 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Object reference not set to an instance of an object.]
 	| System.String.m_StringLength ~> UNION[
@@ -4161,7 +4195,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT string[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
@@ -4195,7 +4229,7 @@ HEAP:
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Exception.native_trace_ips ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-7 ==> STRUCT string[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Object reference not set to an instance of an object.]
 	| System.String.m_StringLength ~> UNION[
@@ -4243,8 +4277,10 @@ HEAP:
 obj ==> STRUCT TypeVariable1{System.Object}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
+	| System.Environment.<Platform>k__BackingField ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Win32S]
 	| System.Environment.mono_corlib_version ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1051000002]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1051000003]
 	| System.Environment.nl ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Environment.os ~> UNION[

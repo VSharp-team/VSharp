@@ -45,7 +45,7 @@ module internal Arrays =
         let lengths = Heap.add zero { value = length; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
         Array mtd (makeNumber 1 mtd) length lowerBound instantiator contents lengths typ
 
-    let makeLinearConreteArray mtd keyMaker valMaker length elemTyp =
+    let makeLinearConcreteArray mtd keyMaker valMaker length elemTyp =
         let contents =
             valMaker
             |> Seq.init length
@@ -56,7 +56,7 @@ module internal Arrays =
         makeArray mtd length contents instantiator elemTyp
 
     let makeIntegerArray mtd maker length =
-        makeLinearConreteArray mtd makeNumber maker length lengthTermType
+        makeLinearConcreteArray mtd makeNumber maker length lengthTermType
 
     let makeLinearSymbolicArray mtd length symbolicValue elemType =
         let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)]

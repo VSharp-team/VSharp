@@ -17,9 +17,8 @@ module internal TypeCasting =
             else k (CastConcrete value (Types.toDotNetType targetType) term.metadata, state)
         | Constant(_, _, t)
         | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
-        | StackRef _ ->
-            // printfn "Warning: casting stack reference %O to %O!" term targetType
-            hierarchyCast targetType state term k
+        | StackRef _
+        | StaticRef _
         | HeapRef _
         | Struct _ -> hierarchyCast targetType state term k
         | _ -> __notImplemented__()
@@ -62,7 +61,7 @@ module internal TypeCasting =
     let cast mtd state argument targetType isChecked primitiveCast fail k =
         let isCasted state term = canCast mtd state targetType term
         let hierarchyCast targetType state term k =
-            Common.reduceConditionalExecution state
+            Common.statedConditionalExecution state
                 (fun state k -> k (isCasted state term))
                 (fun state k -> k (doCast mtd term targetType isChecked |> Return mtd, state))
                 (fun state k -> k (fail state term targetType))

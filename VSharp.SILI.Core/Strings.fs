@@ -1,18 +1,19 @@
 ﻿namespace VSharp.Core
 
 open VSharp
+open Types
 
 module internal Strings =
 
     let makeString (length : int) str timestamp =
         let fields : symbolicHeap =
             Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length (Numeric typedefof<int>); created = timestamp; modified = timestamp };
-            makeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str Core.String; created = timestamp; modified = timestamp }])
-        Struct Metadata.empty fields Core.String
+            makeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str String; created = timestamp; modified = timestamp }])
+        Struct Metadata.empty fields String
 
     let simplifyEquality mtd x y =
         match x.term, y.term with
-        | Concrete(x, String), Concrete(y, String) -> makeBool ((x :?> string) = (y :?> string)) mtd
+        | Concrete(x, StringType), Concrete(y, StringType) -> makeBool ((x :?> string) = (y :?> string)) mtd
         | _ -> __notImplemented__()
 
     let simplifyConcatenation mtd x y =
@@ -30,7 +31,7 @@ module internal Strings =
         | _ -> __notImplemented__()
 
     let isStringOperation op t1 t2 =
-        Types.isString t1 && Types.isString t2 &&
+        isString t1 && isString t2 &&
         match op with
         | OperationType.Add
         | OperationType.Equal

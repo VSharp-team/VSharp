@@ -5,7 +5,7 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter
 
-// ------------------------------- mscorelib.System.Array -------------------------------
+// ------------------------------- mscorlib.System.Array -------------------------------
 
 module internal SystemArray =
 

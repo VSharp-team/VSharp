@@ -66,8 +66,9 @@
     <Compile Include="Extern\System\Math.fs" />
     <Compile Include="Extern\System\Environment.fsi" />
     <Compile Include="Extern\System\Environment.fs" />
+    <Compile Include="Extern\System\Thread.fsi" />
+    <Compile Include="Extern\System\Thread.fs" />
     <Compile Include="SVM.fs" />
-    <None Include="packages.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

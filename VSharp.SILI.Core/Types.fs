@@ -23,7 +23,6 @@ type termType =
     | Null
     | Bool
     | Numeric of System.Type
-    | String
     | StructType of hierarchy * termTypeRef list * termType list        // Value type with generic argument and interfaces
     | ClassType of hierarchy * termTypeRef list * termType list         // Reference type with generic argument and interfaces
     | InterfaceType of hierarchy * termTypeRef list * termType list     // Interface type with generic argument and interfaces
@@ -40,7 +39,6 @@ type termType =
         | Null -> "<nullType>"
         | Bool -> "bool"
         | Numeric t -> t.Name.ToLower()
-        | String -> "string"
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, _, _)
         | ClassType(t, _, _)
@@ -84,36 +82,12 @@ module internal Types =
 
     let pointerType = Numeric typedefof<int>
 
-    let private integerTypes =
-        new HashSet<System.Type>(
-                          [typedefof<byte>; typedefof<sbyte>;
-                           typedefof<int16>; typedefof<uint16>;
-                           typedefof<int32>; typedefof<uint32>;
-                           typedefof<int64>; typedefof<uint64>;
-                           typedefof<char>])
-
-    let private unsignedTypes =
-        new HashSet<System.Type>(
-                          [typedefof<byte>; typedefof<uint16>;
-                           typedefof<uint32>; typedefof<uint64>;])
-
-    let private realTypes =
-        new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
-
-    let private numericTypes = new HashSet<System.Type>(Seq.append integerTypes realTypes)
-
-    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
-
     let isNumeric = function
         | Numeric _ -> true
         | _ -> false
 
     let isBool = function
         | Bool -> true
-        | _ -> false
-
-    let isString = function
-        | String -> true
         | _ -> false
 
     let isFunction = function
@@ -169,7 +143,6 @@ module internal Types =
         | t -> internalfailf "expected array type, but got %O" t
 
     let rec isReferenceType = function
-        | String
         | ClassType _
         | InterfaceType _
         | ArrayType _
@@ -188,7 +161,6 @@ module internal Types =
         match t with
         | Null -> null
         | Bool -> typedefof<bool>
-        | String -> typedefof<string>
         | Numeric t
         | StructType(t, _, _)
         | InterfaceType(t, _, _)
@@ -263,8 +235,7 @@ module internal Types =
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension "System.Array")
             | b when b.Equals(typedefof<bool>) -> Bool
-            | n when numericTypes.Contains(n) -> Numeric n
-            | s when s.Equals(typedefof<string>) -> String
+            | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
@@ -316,7 +287,6 @@ module internal Types =
             | _ -> None
 
         let (|ReferenceType|_|) = function
-            | String -> Some(ReferenceType(hierarchy typedefof<string>, [], getInterfaces typedefof<string>))
             | termType.ClassType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.InterfaceType(t, genArg, interfaces) -> Some(ReferenceType(t, genArg, interfaces))
             | termType.ArrayType _ as arr ->
@@ -349,6 +319,7 @@ module internal Types =
                     let newElemType = getNewType elemType
                     ArrayType(newElemType, updateDimension dim)
                 | ConcreteType t as termType when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
+                | Pointer _ -> termType
                 | termType -> create termType ()
             getNewType termType
 
@@ -356,15 +327,19 @@ module internal Types =
             let termType = fromDotNetType dotnetType
             fromTermType termType
 
-    let isPrimitive t =
-        let dotNetType = toDotNetType t
-        primitiveTypes.Contains dotNetType || dotNetType.IsEnum
+    let public String = fromDotNetType typedefof<string>
 
-    let isInteger = toDotNetType >> integerTypes.Contains
+    let (|StringType|_|) = function
+        | typ when typ = String -> Some()
+        | _ -> None
 
-    let isReal = toDotNetType >> realTypes.Contains
+    let isString = (=) String
 
-    let isUnsigned = unsignedTypes.Contains
+    let isPrimitive = toDotNetType >> TypeUtils.isPrimitive
+
+    let isInteger = toDotNetType >> TypeUtils.isIntegral
+
+    let isReal = toDotNetType >> TypeUtils.isReal
 
     let rec isAssignableToGenericType (givenType : Type) (genericType : Type) =
         let areInterfacesFound =

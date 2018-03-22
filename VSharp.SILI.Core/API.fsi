@@ -20,6 +20,7 @@ module API =
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
     val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
+    val BranchExpressionsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
 
     val GuardedApplyExpressionK : term -> (term -> (term -> 'a) -> 'a) -> (term -> 'a) -> 'a
     val GuardedApplyExpression : term -> (term -> term) -> term
@@ -36,6 +37,7 @@ module API =
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
+        val Struct : symbolicHeap -> termType -> term
         val Union : (term * term) list -> term
 
         val True : term
@@ -68,6 +70,9 @@ module API =
 
         val TLength : termType
         val IsInteger : termType -> bool
+
+        val String : termType
+        val (|StringType|_|) : termType -> unit option
 
         val CanCast : state -> termType -> term -> term * state
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b

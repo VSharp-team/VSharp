@@ -94,7 +94,7 @@ module internal Interpreter =
         let stringTypeName = typeof<string>.AssemblyQualifiedName
         let emptyString, state = MakeString 0 String.Empty |> Memory.AllocateInHeap state
         initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Core.String stringTypeName
+        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String stringTypeName
         Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
 // ------------------------------- Member calls -------------------------------
@@ -634,7 +634,7 @@ module internal Interpreter =
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
         | :? ITryCastExpression
-        | :? ITypeCastExpression -> reduceExpression state ast k
+        | :? IAbstractTypeCastExpression -> reduceExpression state ast k
         | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -702,7 +702,7 @@ module internal Interpreter =
         let k = Enter ast state k
         let obj = ast.Value.Value
         match mType with
-        | Core.String ->
+        | Types.StringType ->
             let stringLength = String.length (obj.ToString())
             MakeString stringLength obj |> Memory.AllocateInHeap state |> k
         | Core.Null -> k (Terms.MakeNullRef Null, state)
@@ -732,6 +732,7 @@ module internal Interpreter =
         let op = ast.OperationType
         match op with
         | OperationType.Assignment -> reduceAssignment ast state ast.LeftArgument ast.RightArgument k
+        | OperationType.NullCoalescing -> reduceNullCoalescing ast state ast.LeftArgument ast.RightArgument k
         | _ when DecompilerServices.isOperationAssignment op -> reduceOperationAssignment state ast k
         | _ when DecompilerServices.isConditionalOperation op ->
             reduceConditionalOperation state ast.OperationType ast.LeftArgument ast.RightArgument k
@@ -759,6 +760,14 @@ module internal Interpreter =
             | _ -> __notImplemented__()
         let rightReducer state k = reduceExpression state right k
         mutate caller state left rightReducer targetReducer k
+
+    and reduceNullCoalescing ast state left right k =
+        let k = Enter ast state k
+        reduceExpression state left (fun (leftTerm, state) ->
+        BranchExpressionsOnNull state leftTerm
+            (fun state k -> reduceExpression state right k)
+            (fun state k -> k (leftTerm, state))
+            k)
 
     and reduceOperationAssignment state (ast : IBinaryOperationExpression) k =
         let op = DecompilerServices.getAssignmentOperation ast.OperationType
@@ -1070,7 +1079,7 @@ module internal Interpreter =
                 else k (NoComputation, state)
             ) finish
         if constructorSpecification = null
-            then finish (NoResult(), state)
+            then invokeInitializers result state (NoResult(), state)
             else
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName

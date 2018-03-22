@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 
-// ------------------------------- mscorelib.System.Math -------------------------------
+// ------------------------------- mscorlib.System.Math -------------------------------
 
 module private MathImpl =
 

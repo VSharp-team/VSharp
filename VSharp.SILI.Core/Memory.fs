@@ -87,12 +87,11 @@ module internal Memory =
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance t) t metadata
         | Numeric t -> CastConcrete 0 t metadata
         | Reference t -> Terms.makeNullRef t metadata
-        | String
         | ClassType _
         | ArrayType _
         | InterfaceType _ -> Terms.makeNullRef typ metadata
         | TypeVariable _ ->
-            Common.simpleConditionalExecution
+            Common.statelessConditionalExecution
                 (fun k -> k <| Common.isValueType metadata typ)
                 (fun k -> k <| Struct metadata Heap.empty typ)
                 (fun k -> k <| Terms.makeNullRef typ metadata)
@@ -176,7 +175,6 @@ module internal Memory =
         | ArrayLengths -> fun () -> instantiateArrayLength metadata time (nameOfLocation fullyQualifiedLocation + "_Length") fullyQualifiedLocation heap
         | ArrayLowerBounds -> fun () -> instantiateArrayLowerBound metadata time (nameOfLocation fullyQualifiedLocation + "_LowerBound") fullyQualifiedLocation heap
         | _ -> genericLazyInstantiator metadata heap time fullyQualifiedLocation typ
-
 
 // ------------------------------- Locations comparison -------------------------------
 
@@ -319,7 +317,6 @@ module internal Memory =
 
     let private commonHierarchicalHeapAccess read restricted update metadata groundHeap heap keyMapper valueMapper lazyInstantiator ((addr, t) as location) path time arrayMode =
         let firstLocation = HeapRef metadata (location, []) arrayMode time
-        // TODO: do not give instantitor when writing
         let lazyInstantiator = lazyInstantiator |?? selectLazyInstantiator metadata groundHeap time.v arrayMode (HeapRef metadata (location, path) arrayMode time) (if path.IsEmpty then t else path |> List.last |> snd)
         let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = t; time = time.v; path = path; isTopLevel = true; arrayTarget = arrayMode}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update heap Timestamp.zero keyMapper valueMapper lazyInstantiator ptr
@@ -328,7 +325,6 @@ module internal Memory =
         let addr = Terms.makeStringKey location
         let dnt = System.Type.GetType(location)
         let t = fromDotNetType dnt
-        // TODO: do not give instantitor when writing
         let lazyInstantiator = lazyInstantiator |?? genericLazyInstantiator metadata groundHeap Timestamp.zero (StaticRef metadata location path) (if path.IsEmpty then t else path |> List.last |> snd)
         let ptr = {location = addr; fullyQualifiedLocation = StaticRef metadata location []; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update statics Timestamp.zero keyMapper valueMapper lazyInstantiator ptr
@@ -392,7 +388,7 @@ module internal Memory =
         | StackRef(location, path, None) ->
             commonHierarchicalStackAccess read updateDefined metadata state location path
         | HeapRef(((addr, t) as location, path), time, arrayMode, None) ->
-            Common.reduceConditionalExecution state
+            Common.statedConditionalExecution state
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete metadata [0] pointerType) id, state))
                 (fun state k -> k (actionNull metadata state t))
                 (fun state k ->
@@ -469,7 +465,7 @@ module internal Memory =
         let v = fillHoles ctx source cell.value
         let loc =
             match addr.term with
-            | Concrete(s, String) -> string s
+            | Concrete(s, StringType) -> string s
             | _ -> __notImplemented__()
         mutateStatics restricted ctx.mtd target loc path time v |> snd3
 
@@ -647,7 +643,7 @@ module internal Memory =
             match term.term with
             | Error _ -> (term, state)
             | Array(_, _, _, _, _, _, ArrayType(elementType, _)) ->
-                Common.reduceConditionalExecution state
+                Common.statedConditionalExecution state
                     (fun state k -> checkIndices metadata state arrayRef indices k)
                     (fun state k ->
                         let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length
