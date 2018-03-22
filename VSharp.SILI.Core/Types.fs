@@ -80,6 +80,10 @@ module internal Types =
         | InterfaceType(t, g ,i) -> Some(InterfaceType(t.Inheritor, g, i))
         | _ -> None
 
+    let (|Char|_|) = function
+        | Numeric t when t = typeof<char> -> Some()
+        | _ -> None
+
     let pointerType = Numeric typedefof<int>
 
     let isNumeric = function
