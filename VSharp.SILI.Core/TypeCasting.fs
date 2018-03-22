@@ -42,7 +42,7 @@ module internal TypeCasting =
         match term.term with
         | PointerTo typ -> castPointer term typ
         | ReferenceTo typ when isUpCast typ targetType -> term
-        | HeapRef (addrs, t, _) -> HeapRef mtd (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) t
+        | HeapRef (addrs, t, at, _) -> HeapRef mtd (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) at t
         | StackRef (key, path, _) -> StackRef mtd key (changeLast path)
         | StaticRef (key, path, _) -> StaticRef mtd key (changeLast path)
         | _ -> __unreachable__()

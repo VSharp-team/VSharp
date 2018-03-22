@@ -9,7 +9,7 @@ module internal Operators =
         match term.term with
         | Error _ -> term
         | Concrete(null, _) -> Concrete term.metadata 0 Types.pointerType
-        | HeapRef(((addr, _), _), _, _) -> addr
+        | HeapRef(((addr, _), _), _, _, _) -> addr
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
 

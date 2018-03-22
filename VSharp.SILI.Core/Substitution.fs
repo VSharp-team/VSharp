@@ -5,10 +5,10 @@ open VSharp
 module Substitution =
     let rec substitute subst term =
         match term.term with
-        | HeapRef(path, t, v) ->
+        | HeapRef(path, t, at, v) ->
             path |> NonEmptyList.toList |> substitutePath subst (fun path' ->
             let path'' = NonEmptyList.ofList path'
-            if path'' = path then term else HeapView term.metadata path'' t v)
+            if path'' = path then term else HeapView term.metadata path'' t at v)
             |> Merging.merge
         | StackRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->

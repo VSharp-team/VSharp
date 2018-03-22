@@ -59,12 +59,16 @@ module internal State =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
 
     let nameOfLocation = term >> function
-        | HeapRef(((_, t), []), _, _) -> toString t
+        | HeapRef(((_, t), []), _, _, _) -> toString t
         | StackRef((name, _), [], _) -> name
         | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
-        | HeapRef((_, path), _, _)
+        | HeapRef(path, _, _, _) ->
+            let printElement (l, t) =
+                if isArray l then sprintf "[%s]" (l.term.IndicesToString())
+                else toString l
+            path |> NonEmptyList.toList |> Seq.map printElement |> join "."
         | StackRef(_, path, _)
-        | StaticRef(_, path, _) -> path |> Seq.map (fst >> toString) |> join "."
+        | StaticRef(_, path, _) -> path |> List.map (fun (l, _) -> l.term.IndicesToString()) |> join "."
         | l ->  internalfailf "requested name of an unexpected location %O" l
 
     let readStackLocation (s : state) key = MappedStack.find key s.stack
