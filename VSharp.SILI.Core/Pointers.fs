@@ -28,8 +28,8 @@ module internal Pointers =
                 let k = withSnd s >> k
                 match x.term, y.term with
                 | _ when x = y -> makeTrue mtd |> k
-                | HeapRef(xpath, _, None), HeapRef(ypath, _, None) ->
-                    comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
+                | HeapRef(xpath, _, xtgt, None), HeapRef(ypath, _, ytgt, None) ->
+                    makeBool (xtgt = ytgt) mtd &&& comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
                 | StackRef(key1, path1, None), StackRef(key2, path2, None) ->
                     makeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
                 | StaticRef(key1, path1, None), StaticRef(key2, path2, None) ->
@@ -62,6 +62,6 @@ module internal Pointers =
 
     let rec topLevelLocation t =
         match t.term with
-        | HeapRef(((a, _), []), _, _) -> a
+        | HeapRef(((a, _), []), _, _, _) -> a
         | Union gvs -> Merging.guardedMap topLevelLocation gvs
         | _ -> __notImplemented__()

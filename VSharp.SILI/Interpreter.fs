@@ -154,7 +154,7 @@ module internal Interpreter =
         let k = Enter caller state k
         if metadataMethod.IsInternalCall then
             // TODO: internal calls should pass throught CallGraph.call too
-//            printfn "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
+            printfn "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
             let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
             if externalImplementations.ContainsKey(fullMethodName) then
                 reduceFunctionSignature {metadataMethod = metadataMethod} state ast.Signature this parameters (fun (argsAndThis, state) ->

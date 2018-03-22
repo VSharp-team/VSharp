@@ -34,11 +34,6 @@ module internal Arrays =
         interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    type ArrayIndicesType =
-        | Contents
-        | LowerBounds
-        | Lengths
-
     let private defaultArrayName = "<defaultArray>"
     let lengthType = typedefof<int>
     let lengthTermType = Numeric lengthType

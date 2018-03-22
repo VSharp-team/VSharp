@@ -54,6 +54,8 @@ module public Heap =
         h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public mapFold folder state (h : heap<'a, 'b>) =
         h |> toSeq |> Seq.mapFold (fun state (k, v) -> folder state k v) state |> fun (r, s) -> ofSeq r, s
+    let public forall predicate (h : heap<'a, 'b>) =
+        h |> toSeq |> Seq.forall predicate
 
     let public locations (h : heap<'a, 'b>) = h |> toSeq |> Seq.map fst
     let public values (h : heap<'a, 'b>) = h |> toSeq |> Seq.map (fun (k, v) -> v.value)
