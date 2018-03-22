@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
 {
@@ -246,6 +247,45 @@ namespace VSharp.CSharpUtils.Tests
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
             return a.GetNum2();
+        }
+    }
+
+    public class ClassSimplePropertyAccess
+    {
+        private SimpleStruct _structProperty;
+
+        public struct SimpleStruct
+        {
+            public int X;
+
+            public void Set(int x)
+            {
+                X = x;
+            }
+        }
+
+        public SimpleStruct StructProperty
+        {
+            get { return _structProperty;}
+            set { _structProperty = value; }
+        }
+
+        private List<Boolean> SecretProperty { get; set; }
+
+        public int Property
+        {
+            get { return this.SecretProperty.Count; }
+        }
+
+        public ClassSimplePropertyAccess()
+        {
+            SecretProperty = new List<bool>();
+        }
+
+        public void TestProperty1()
+        {
+            var st = new ClassSimplePropertyAccess();
+            st.StructProperty.Set(42);
         }
     }
 }
