@@ -635,6 +635,7 @@ module internal Interpreter =
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
         | :? ITryCastExpression
         | :? IAbstractTypeCastExpression -> reduceExpression state ast k
+        | :? IPropertyAccessExpression as expression-> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =

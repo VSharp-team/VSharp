@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
 {
@@ -246,6 +247,19 @@ namespace VSharp.CSharpUtils.Tests
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
             return a.GetNum2();
+        }
+    }
+
+    public class ClassSimplePropertyAccess
+    {
+        private List<Boolean> SecretProperty { get; set; }
+        public int Property
+        {
+            get { return this.SecretProperty.Count; }
+        }
+        public ClassSimplePropertyAccess()
+        {
+            SecretProperty = new List<bool>();
         }
     }
 }
