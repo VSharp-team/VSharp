@@ -225,6 +225,9 @@ and
 
 and symbolicHeap = heap<term, term>
 
+type INonComposableSymbolicConstantSource =
+    inherit ISymbolicConstantSource
+
 [<AutoOpen>]
 module internal Terms =
 

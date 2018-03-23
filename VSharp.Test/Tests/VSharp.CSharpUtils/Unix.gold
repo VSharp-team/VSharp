@@ -3385,7 +3385,7 @@ HEAP:
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 9 ==> STRUCT System.Object[]
-array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
+array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
@@ -3474,7 +3474,7 @@ HEAP:
 	| System.String.m_FirstChar ~> Index was outside the bounds of the array.
 	| System.String.m_StringLength ~> 42]
 9 ==> STRUCT System.Object[]
-array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
+array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
