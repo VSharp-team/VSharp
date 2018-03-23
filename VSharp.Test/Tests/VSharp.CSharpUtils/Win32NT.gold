@@ -4133,7 +4133,7 @@ HEAP:
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Object[]
-array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
+array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
@@ -4253,7 +4253,7 @@ HEAP:
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.Object[]
-array ==> int32: [| ... int32[,].GetLength(0) x int32[,].GetLength(1) ... |]
+array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071

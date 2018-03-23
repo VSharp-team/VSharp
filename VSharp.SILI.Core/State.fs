@@ -10,7 +10,7 @@ type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time
 type stack = mappedStack<stackKey, term memoryCell>
 type pathCondition = term list
 type entry = { key : stackKey; mtd : termMetadata; typ : termType option }
-type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list ; time : timestamp }
+type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
 type frames = { f : stackFrame stack; sh : stackHash }
 type generalizedHeap =
     | Defined of bool * symbolicHeap  // bool = restricted
@@ -24,6 +24,10 @@ and state = { stack : stack; heap : generalizedHeap; statics : staticMemory; fra
 
 type IActivator =
     abstract member CreateInstance : locationBinding -> System.Type -> term list -> state -> (term * state)
+
+type IStatedSymbolicConstantSource =
+    inherit ISymbolicConstantSource
+    abstract Compose : compositionContext -> state -> term
 
 module internal State =
     module SymbolicHeap = Heap

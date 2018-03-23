@@ -12,7 +12,7 @@ module internal Pointers =
             if addr1 = addr2 then makeTrue mtd
             elif isConcrete addr1 && isConcrete addr2 then makeFalse mtd
             else makeBinary OperationType.Equal addr1 addr2 false Bool mtd
-        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
+        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2
         | _ -> __notImplemented__()
 
     let comparePath mtd path1 path2 =

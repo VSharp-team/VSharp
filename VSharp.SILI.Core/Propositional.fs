@@ -223,6 +223,16 @@ module internal Propositional =
         simplifyNegation mtd x (fun notX ->
         simplifyOr mtd notX y id)
 
+    let lazyAnd mtd x y k =
+        match x with
+        | False -> x
+        | _ -> simplifyAnd mtd x (y()) k
+
+    let lazyOr mtd x y k =
+        match x with
+        | False -> x
+        | _ -> simplifyOr mtd x (y()) k
+
     let conjunction mtd = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
@@ -234,6 +244,12 @@ module internal Propositional =
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> makeFalse mtd
+
+    let lazyConjunction mtd xs =
+        Cps.Seq.foldlk (lazyAnd mtd) (makeTrue mtd) xs id
+
+    let lazyDisjunction mtd xs k =
+        Cps.Seq.foldlk (lazyOr mtd) (makeFalse mtd) xs k
 
     let simplifyBinaryConnective mtd op x y k =
         match op with

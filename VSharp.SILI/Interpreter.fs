@@ -119,7 +119,7 @@ module internal Interpreter =
             match paramValues with
             | Specified values -> values, true
             | Unspecified -> [], false
-        let valueOrFreshConst (param : Option<IMethodParameter>) value =
+        let valueOrFreshConst (param : IMethodParameter option) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
