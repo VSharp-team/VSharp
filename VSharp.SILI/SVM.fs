@@ -47,6 +47,6 @@ module public SVM =
         let dictionary = new Dictionary<MethodInfo, term * state>()
         let path = JetBrains.Util.FileSystemPath.Parse(assembly.Location)
         let ep = assembly.EntryPoint
-        assembly.GetTypes() |> FSharp.Collections.Array.iter (fun elem -> exploreType ignoreList ep dictionary path elem)
+        assembly.GetTypes() |> FSharp.Collections.Array.iter (exploreType ignoreList ep dictionary path)
         if ep <> null then interpretEntryPoint dictionary path ep
         System.Linq.Enumerable.ToDictionary(dictionary :> IEnumerable<_>, (fun kvp -> kvp.Key), resultToString) :> IDictionary<_, _>

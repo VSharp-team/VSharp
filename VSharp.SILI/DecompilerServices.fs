@@ -7,7 +7,7 @@ open System.Collections.Generic
 
 [<StructuralEquality;NoComparison>]
 type MetadataMethodIdentifier =
-    { metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod}
+    { metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod }
     interface Core.IMethodIdentifier with
         member x.IsStatic = x.metadataMethod.IsStatic
         member x.DeclaringTypeAQN = x.metadataMethod.DeclaringType.AssemblyQualifiedName
