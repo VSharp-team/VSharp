@@ -80,24 +80,22 @@ module internal State =
 
     let isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
 
-    let newStackFrame time metadata (s : state) funcId frame : state =
+    let private newStackRegion time metadata (s : state) frame frameMetadata sh : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        let frameMetadata = Some(funcId, s.pc)
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
+        { s with stack = newStack; frames = {f = f'; sh = sh} }
+
+    let newStackFrame time metadata (s : state) funcId frame : state =
+        let frameMetadata = Some(funcId, s.pc)
         let sh' = frameMetadata.GetHashCode()::s.frames.sh
-        { s with stack = newStack; frames = {f = f'; sh = sh'} }
+        newStackRegion time metadata s frame frameMetadata sh'
 
     let newScope time metadata (s : state) frame : state =
-        let pushOne (map : stack) (key, value, typ) =
-            match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
-            | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        let locations, newStack = frame |> List.mapFold pushOne s.stack
-        { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
+        newStackRegion time metadata s frame None s.frames.sh
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popStack (s : state) : state =

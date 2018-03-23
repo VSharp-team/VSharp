@@ -16,8 +16,9 @@ type MetadataMethodIdentifier =
 
 [<StructuralEquality;NoComparison>]
 type DelegateIdentifier =
-    { metadataDelegate : JetBrains.Decompiler.Ast.INode }
-    interface Core.IDelegateIdentifier
+    { metadataDelegate : JetBrains.Decompiler.Ast.INode; closureContext : Core.frames transparent }
+    interface Core.IDelegateIdentifier with
+        member x.ContextFrames = x.closureContext.v
     override x.ToString() = "<delegate>"
 
 module internal DecompilerServices =

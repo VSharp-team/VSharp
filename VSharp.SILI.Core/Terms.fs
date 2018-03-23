@@ -15,13 +15,6 @@ type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
 type IFunctionIdentifier =
     interface end
-type IMethodIdentifier =
-    inherit IFunctionIdentifier
-    abstract IsStatic : bool
-    abstract DeclaringTypeAQN : string
-    abstract Token : string
-type IDelegateIdentifier =
-    inherit IFunctionIdentifier
 type StandardFunctionIdentifier(id : StandardFunction) =
     interface IFunctionIdentifier
     member x.Function = id
