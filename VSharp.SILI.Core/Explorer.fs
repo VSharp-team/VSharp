@@ -53,7 +53,7 @@ module internal Explorer =
                     if Terms.isHeapRef instance then (Some instance, state)
                     else
                         let key = ("external data", m.Token)
-                        let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, Some declaringType)]
+                        let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, declaringType)]
                         (Some <| Memory.referenceLocalVariable metadata state key true, state)
             | _ -> __notImplemented__()
         invoke id state this (fun r ->

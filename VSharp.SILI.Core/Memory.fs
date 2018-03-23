@@ -708,7 +708,7 @@ module internal Memory =
         let time = tick()
         let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peek s.frames.f
         let newStack = pushToCurrentStackFrame s key { value = term; created = time; modified = time }
-        let newEntries = { key = key; mtd = metadata; typ = None }
+        let newEntries = { key = key; mtd = metadata; typ = typeOf term }
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
 

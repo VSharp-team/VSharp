@@ -128,16 +128,16 @@ module internal Interpreter =
                     if param.MetadataParameter.HasDefaultValue
                     then
                         let typ = MetadataTypes.variableFromMetadataType param.Type
-                        (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), Some typ)
+                        (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType |> Some)
-            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, None)
+                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType)
+            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, TypeOf value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =
             match this with
             | Some thisValue ->
                 let thisKey = ("this", getThisTokenBy ast)
-                (thisKey, Specified thisValue, None)::parameters
+                (thisKey, Specified thisValue, TypeOf thisValue)::parameters
             | None -> parameters
         k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
 
@@ -566,7 +566,7 @@ module internal Interpreter =
                 let targetType = MetadataTypes.fromMetadataType ast.VariableReference.Variable.Type
                 let typeMatches, state = Types.CanCast state targetType exn
                 let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)
-                let state = Memory.NewScope state [(stackKey, Specified exn, None)]
+                let state = Memory.NewScope state [(stackKey, Specified exn, TypeOf exn)]
                 typeMatches, state
         if ast.Filter = null then k (typeMatches, state)
         else
@@ -1058,7 +1058,7 @@ module internal Interpreter =
             then Memory.AllocateInHeap state freshValue
             else
                 let tempVar = "constructed instance"
-                let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, None)]
+                let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, TypeOf freshValue)]
                 (Memory.ReferenceLocalVariable state (tempVar, tempVar) false, state)
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let finish r =

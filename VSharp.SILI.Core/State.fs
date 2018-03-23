@@ -9,7 +9,7 @@ type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time
 
 type stack = mappedStack<stackKey, term memoryCell>
 type pathCondition = term list
-type entry = { key : stackKey; mtd : termMetadata; typ : termType option }
+type entry = { key : stackKey; mtd : termMetadata; typ : termType }
 type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
 type frames = { f : stackFrame stack; sh : stackHash }
 type generalizedHeap =
@@ -129,8 +129,7 @@ module internal State =
     let private typeOfStackLocation (s : state) key =
         let forMatch = List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; mtd = _; typ = t } -> if l = key then Some t else None)) s.frames.f
         match forMatch with
-        | Some (Some t) -> t
-        | Some None -> internalfailf "unknown type of stack location %O!" key
+        | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let private metadataOfStackLocation (s : state) key =
