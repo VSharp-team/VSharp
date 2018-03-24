@@ -8,7 +8,7 @@ open Logger
 
 module public SVM =
 
-    let private init = lazy(Core.API.Configure (new Activator()) (new SymbolicInterpreter()))
+    let private init = lazy(Core.API.Configure (Activator()) (SymbolicInterpreter()))
 
     let private prepareAndInvoke (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) invoke =
         init.Force()

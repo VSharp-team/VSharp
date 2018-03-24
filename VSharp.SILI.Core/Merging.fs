@@ -214,7 +214,8 @@ module internal Merging =
             assert(state1.pc = state2.pc)
             assert(state1.frames = state2.frames)
             let resolve = merge2Cells condition1 condition2
-            let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
+            let stackInstantiator = fun _ k -> {value=((State.liFactory()).TopLevelStackInstantiator state1 k).Instantiate(); created=Timestamp.zero; modified=Timestamp.zero}
+            let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve stackInstantiator
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap resolve
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics resolve
             { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
@@ -227,8 +228,9 @@ module internal Merging =
         let tv = first.typeVariables
         assert(states |> List.forall (fun s -> s.frames = frames))
         assert(states |> List.forall (fun s -> s.pc = path))
-        assert(states |> List.forall (fun s -> s.typeVariables = tv))
-        let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells (State.stackLazyInstantiator first)
+        assert(states |> List.forall (fun s -> s.typeVariables = tv)) //TODO: #merge was in master
+        let stackInstantiator = fun _ k -> {value=((State.liFactory()).TopLevelStackInstantiator first k).Instantiate(); created=Timestamp.zero; modified=Timestamp.zero}
+        let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells stackInstantiator
         let mergedHeap = mergeGeneralizedHeaps conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps conditions (List.map State.staticsOf states)
         { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }

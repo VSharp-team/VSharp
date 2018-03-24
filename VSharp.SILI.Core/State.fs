@@ -106,6 +106,7 @@ module internal State =
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
+        let frameMetadata = Some(funcId, s.pc)
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
         { s with stack = newStack; frames = {f = f'; sh = sh} }
 
@@ -144,13 +145,13 @@ module internal State =
         | Some { func = _; entries = _; time = t} -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let private typeOfStackLocation (s : state) key =
+    let typeOfStackLocation (s : state) key =
         let forMatch = List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; mtd = _; typ = t } -> if l = key then Some t else None)) s.frames.f
         match forMatch with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
-    let private metadataOfStackLocation (s : state) key =
+    let metadataOfStackLocation (s : state) key =
         match List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; mtd = m; typ = _ } -> if l = key then Some m else None)) s.frames.f with
         | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
@@ -170,13 +171,6 @@ module internal State =
 
     let withHeap (s : state) h' = { s with heap = h' }
     let withStatics (s : state) m' = { s with statics = m' }
-
-    let stackLocationToReference state location =
-        StackRef (metadataOfStackLocation state location) location []
-    let staticLocationToReference term =
-        match term.term with
-        | Concrete(location, Types.StringType) -> StaticRef term.metadata (location :?> string) []
-        | _ -> __notImplemented__()
 
     let private heapKeyToString = term >> function
         | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
@@ -202,7 +196,7 @@ module internal State =
         let oldMappedStack, oldStack = state.typeVariables
         let toPop = Stack.peek oldStack
         let newStack = Stack.pop oldStack
-        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
+        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop //TODO: #merge
         { state with typeVariables = (newMappedStack, newStack) }
 
     let rec substituteTypeVariables (state : state) typ =
@@ -229,24 +223,36 @@ module internal State =
         | Reference t -> Reference (substituteTypeVariables t)
         | Pointer t -> Pointer(substituteTypeVariables t)
 
-// ------------------------------- Memory layer -------------------------------
+// ------------------------------- Instantiation (lazy & eager) -------------------------------
 
     type private NullActivator() =
         interface IActivator with
-            member x.CreateInstance _ _ _ _ =
-                internalfail "activator is not ready"
-    let mutable private activator : IActivator = new NullActivator() :> IActivator
+            member x.CreateInstance _ _ _ _ = internalfail "activator is not ready"
+    let mutable private activator : IActivator = NullActivator() :> IActivator
+
+    type ILazyInstantiator =
+        abstract Instantiate : unit -> term
+        abstract GoDeeperToStruct : term -> termType -> ILazyInstantiator
+        abstract GoDeeperToArray : arrayReferenceTarget -> (term * arrayInstantiator) list -> timestamp -> term -> termType -> ILazyInstantiator
+    type ILazyInstantiatorFactory =
+        abstract TopLevelStackInstantiator : state -> stackKey -> ILazyInstantiator
+        abstract TopLevelHeapInstantiator : arrayReferenceTarget -> termMetadata -> generalizedHeap option -> timestamp transparent -> term -> termType -> ILazyInstantiator
+        abstract TopLevelStaticsInstantiator : termMetadata -> generalizedHeap option -> string -> termType -> ILazyInstantiator
+        abstract EndPointInstantiator : arrayReferenceTarget -> termMetadata -> generalizedHeap option -> term -> termType -> ILazyInstantiator
+        abstract CustomInstantiator : (unit -> term) -> termMetadata -> timestamp -> termType -> ILazyInstantiator
+    type private NullLazyInstantiatorFactory() =
+        interface ILazyInstantiatorFactory with
+            override x.TopLevelStackInstantiator _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.TopLevelHeapInstantiator _ _ _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.TopLevelStaticsInstantiator _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.EndPointInstantiator _ _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.CustomInstantiator _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+    let mutable private lazyInstantiatorFactory : ILazyInstantiatorFactory = NullLazyInstantiatorFactory() :> ILazyInstantiatorFactory
+
     let configure act = activator <- act
+    let configureFactory liFactory = lazyInstantiatorFactory <- liFactory
     let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
-
-    let mutable genericLazyInstantiator : termMetadata -> generalizedHeap option -> timestamp -> term -> termType -> unit -> term =
-        fun _ _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
-
-    let stackLazyInstantiator state time key =
-        let t = typeOfStackLocation state key
-        let metadata = metadataOfStackLocation state key
-        let fql = StackRef metadata key []
-        { value = genericLazyInstantiator metadata None time fql t (); created = time; modified = time }
+    let liFactory () = lazyInstantiatorFactory
 
 // ------------------------------- Pretty-printing -------------------------------
 

@@ -77,8 +77,8 @@ module public Heap =
         let unifyIfShould acc key =
             match contains key h1, contains key h2 with
             | true, true  -> unifier acc key h1.[key] h2.[key]
-            | true, false -> instantiate1 acc key h1.[key]
-            | false, true -> instantiate2 acc key h2.[key]
+            | true, false -> instantiate1 acc key h1.[key] //unifier acc key h1.[key] (instantiate2 key)
+            | false, true -> instantiate2 acc key h2.[key] //unifier acc key (instantiate1 key) h2.[key]
             | _ -> __unreachable__()
         Seq.fold unifyIfShould acc keysSet
 
