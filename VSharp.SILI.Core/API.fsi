@@ -119,8 +119,8 @@ module API =
 
     module public Memory =
         val PopStack : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType option) list -> state
-        val NewScope : state -> (stackKey * term symbolicValue * termType option) list -> state
+        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
+        val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
 
         val ReferenceField : state -> bool -> string -> termType -> term -> term * state
         val ReferenceLocalVariable : state -> stackKey -> bool -> term

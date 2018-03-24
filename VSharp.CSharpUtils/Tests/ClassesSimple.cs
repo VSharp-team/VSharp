@@ -250,7 +250,7 @@ namespace VSharp.CSharpUtils.Tests
         }
     }
 
-    public class ClassSimplePropertyAccess
+    public class ClassesSimplePropertyAccess
     {
         private SimpleStruct _structProperty;
 
@@ -277,14 +277,14 @@ namespace VSharp.CSharpUtils.Tests
             get { return this.SecretProperty.Count; }
         }
 
-        public ClassSimplePropertyAccess()
+        public ClassesSimplePropertyAccess()
         {
             SecretProperty = new List<bool>();
         }
 
         public void TestProperty1()
         {
-            var st = new ClassSimplePropertyAccess();
+            var st = new ClassesSimplePropertyAccess();
             st.StructProperty.Set(42);
         }
     }

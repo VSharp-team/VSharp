@@ -71,9 +71,9 @@ module internal Common =
         | t1, (TypeVariable(Explicit (_, t)) as t2) ->
             is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
-            if lt.IsGround && rt.IsGround
-                then makeBool (lt.Is rt) metadata
-                else if lt.Is rt then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            if lt.Is rt then makeTrue metadata
+            elif lt.IsGround && rt.IsGround then makeFalse metadata
+            else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | _ -> makeFalse metadata
 
     // TODO: support composition for this constant source
