@@ -61,9 +61,9 @@ type termNode =
                * termType                                 // Type
     | Expression of operation * term list * termType
     | Struct of symbolicHeap * termType
-    | StackRef of stackKey * (term * termType) list * termType option                                              // If last field is (Some T) then this is pointer T*
-    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType option   // If last field is (Some T) then this is pointer T*
-    | StaticRef of string * (term * termType) list * termType option                                               // If last field is (Some T) then this is pointer T*
+    | StackRef of stackKey * (term * termType) list * termType option                                       // If last field is (Some T) then this is pointer T*
+    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Some T) then this is pointer T*
+    | StaticRef of string * (term * termType) list * termType option                                        // If last field is (Some T) then this is pointer T*
     | Union of (term * term) list
 
     member x.IndicesToString() =
@@ -164,9 +164,13 @@ type termNode =
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
             | HeapRef(((z, _), []), _,_, _) when z.term = Concrete([0], Types.pointerType) -> "null"
-            | StackRef(_, _, mbtyp)
-            | HeapRef(_, _, _, mbtyp)
-            | StaticRef(_, _, mbtyp) ->
+            | HeapRef(_, _, _, Pointer mbtyp) -> printRef term indent <| Some mbtyp
+            | HeapRef(_, _, _, Reference _) -> printRef term indent None
+            | StackRef(_, _, mbtyp) 
+            | StaticRef(_, _, mbtyp) -> printRef term indent mbtyp
+            | _ -> __unreachable__()
+
+        and printRef term indent mbtyp =
                 let templateRef name contents =
                     match mbtyp with
                     | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
@@ -181,7 +185,6 @@ type termNode =
                         | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
                         | t -> toString t
                     path |> List.map (fst >> toStringWithIndent indent) |> cons ks |> join "." |> templateRef "Heap"
-
                 | _ -> __unreachable__()
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
@@ -255,8 +258,8 @@ module internal Terms =
     let StackPtr metadata key path typ = { term = StackRef(key, path, Some typ); metadata = metadata }
     let StackRef metadata key path = { term = StackRef(key, path, None); metadata = metadata }
     let HeapView metadata path time arrayTarget view = { term = HeapRef(path, time, arrayTarget, view); metadata = metadata }
-    let HeapPtr metadata path time typ = { term = HeapRef(path, time, ArrayContents, Some typ); metadata = metadata }
-    let HeapRef metadata path arrayTarget time = { term = HeapRef(path, time, arrayTarget, None); metadata = metadata }
+    let HeapPtr metadata path time typ = { term = HeapRef(path, time, ArrayContents, Pointer typ); metadata = metadata }
+    let HeapRef metadata path arrayTarget time typ = { term = HeapRef(path, time, arrayTarget, Reference (Types.specifyType typ)); metadata = metadata }
     let StaticView metadata key path view = { term = StaticRef(key, path, view); metadata = metadata }
     let StaticPtr metadata key path typ = { term = StaticRef(key, path, Some typ); metadata = metadata }
     let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
@@ -276,7 +279,7 @@ module internal Terms =
         | _ -> None
 
     let (|HeapPtr|_|) = function
-        | HeapRef(path, time, arrayTarget, Some typ) ->
+        | HeapRef(path, time, arrayTarget, Pointer typ) ->
             assert(arrayTarget = ArrayContents)
             Some(HeapPtr(path, time, typ))
         | _ -> None
@@ -292,7 +295,7 @@ module internal Terms =
     let getReferenceFromPointer mtd = term >> function
         | StackPtr(key, path, _) -> StackRef mtd key path
         | StaticPtr(key, path, _) -> StaticRef mtd key path
-        | HeapPtr(path, time, _) -> HeapRef mtd path ArrayContents time
+        | HeapPtr(path, time, Pointer typ) -> HeapRef mtd path ArrayContents time typ
         | t -> internalfailf "Expected pointer, got %O" t
 
     let isVoid = term >> function
@@ -359,7 +362,13 @@ module internal Terms =
     let (|ReferenceTo|_|) = function
         | StackRef(_, addrs, None)
         | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
-        | HeapRef(addrs, _, _, None) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
+        | HeapRef(addrs, _, _, Reference _) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
+        | _ -> None
+
+    let (|ReferenceType|_|) = function
+        | StackRef(_, addrs, None)
+        | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
+        | HeapRef(_, _, _, Reference t) -> Some t
         | _ -> None
 
     let (|PointerTo|_|) = function
@@ -441,7 +450,7 @@ module internal Terms =
         if predicate then makeTrue metadata else makeFalse metadata
 
     let makeNullRef typ metadata =
-        HeapRef metadata (((makeZeroAddress metadata), typ), []) ArrayContents {v = Timestamp.zero}
+        HeapRef metadata (((makeZeroAddress metadata), typ), []) ArrayContents {v = Timestamp.zero} typ
 
     let makeNullPtr typ metadata =
         HeapPtr metadata (((makeZeroAddress metadata), typ), []) {v = Timestamp.zero} typ

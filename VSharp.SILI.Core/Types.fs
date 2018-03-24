@@ -43,8 +43,8 @@ type termType =
         | StructType(t, _, _)
         | ClassType(t, _, _)
         | InterfaceType(t, _, _)
-        | TypeVariable(Implicit t) -> toString t
-        | TypeVariable(Explicit (name, t)) -> sprintf "%s{%O}" name t
+        | TypeVariable(Explicit t) -> toString t
+        | TypeVariable(Implicit (name, t)) -> sprintf "%s{%O}" name t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
@@ -64,8 +64,8 @@ and [<CustomEquality;NoComparison>]
 
 and [<StructuralEquality;NoComparison>]
     typeId =
-        | Implicit of hierarchy
-        | Explicit of string * termType
+        | Explicit of hierarchy
+        | Implicit of string * termType
 
 module internal Types =
     let (|StructType|_|) = function
@@ -147,8 +147,8 @@ module internal Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Implicit t) when not t.Inheritor.IsValueType-> true
-        | TypeVariable(Explicit(_, t)) -> isReferenceType t
+        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType-> true
+        | TypeVariable(Implicit(_, t)) -> isReferenceType t
         | _ -> false
 
     let isValueType = not << isReferenceType
@@ -165,7 +165,8 @@ module internal Types =
         | StructType(t, _, _)
         | InterfaceType(t, _, _)
         | ClassType(t, _, _) -> t
-        | TypeVariable(Implicit t) -> t.Inheritor
+        | TypeVariable(Explicit t) -> t.Inheritor
+        | TypeVariable(Implicit(_, t)) -> toDotNetType t
         | ArrayType(_, SymbolicDimension _) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
@@ -193,7 +194,7 @@ module internal Types =
         let private StructType (t : Type) g i = StructType(hierarchy t, g, i)
         let private ClassType (t : Type) g i = ClassType(hierarchy t, g, i)
         let private InterfaceType (t : Type) g i = InterfaceType(hierarchy t, g, i)
-        let private Implicit (t : Type) = Implicit(hierarchy t)
+        let private Explicit (t : Type) = Explicit(hierarchy t)
 
         module private TypesCache =
 
@@ -265,7 +266,7 @@ module internal Types =
             constraints |> Seq.collect fromDotNetGenericParameterConstraint |> Seq.distinct |> List.ofSeq
 
         and private fromDotNetGenericParameter (genericParameter : Type) : termType =
-            TypeVariable(Implicit genericParameter)
+            TypeVariable(Explicit genericParameter)
 
         and private fromDotNetTypeRef dotNetType =
             let key = dotNetType
@@ -283,7 +284,7 @@ module internal Types =
             | termType.StructType(t, genArg, interfaces) -> Some(StructureType(t, genArg, interfaces))
             | Numeric t -> Some(StructureType(hierarchy t, [], getInterfaces t))
             | Bool -> Some(StructureType(hierarchy typedefof<bool>, [], getInterfaces typedefof<bool>))
-            | TypeVariable(Implicit t) when t.Inheritor.IsValueType -> Some(StructureType(t, [], getInterfaces t.Inheritor))
+            | TypeVariable(Explicit t) when t.Inheritor.IsValueType -> Some(StructureType(t, [], getInterfaces t.Inheritor))
             | _ -> None
 
         let (|ReferenceType|_|) = function
@@ -297,7 +298,7 @@ module internal Types =
         let (|ComplexType|_|) = function
             | StructureType(t, genArg, interfaces)
             | ReferenceType(t, genArg, interfaces) -> Some(ComplexType(t, genArg, interfaces))
-            | TypeVariable(Implicit t)-> Some(ComplexType(t, [], getInterfaces t.Inheritor))
+            | TypeVariable(Explicit t)-> Some(ComplexType(t, [], getInterfaces t.Inheritor))
             | _ -> None
 
         let (|ConcreteType|_|) = function
@@ -308,7 +309,7 @@ module internal Types =
 
     module public Variable =
         let private typeVariabeName = "TypeVariable"
-        let create termType () = TypeVariable(Explicit(IdGenerator.startingWith typeVariabeName, termType))
+        let create termType () = TypeVariable(Implicit(IdGenerator.startingWith typeVariabeName, termType))
 
         let fromTermType termType =
             let updateDimension = function
@@ -341,21 +342,6 @@ module internal Types =
 
     let isReal = toDotNetType >> TypeUtils.isReal
 
-    let rec isAssignableToGenericType (givenType : Type) (genericType : Type) =
-        let areInterfacesFound =
-            givenType.GetInterfaces() |>
-            Seq.exists (fun it -> it.IsGenericType && it.GetGenericTypeDefinition() = genericType)
-        areInterfacesFound ||
-            let baseType = givenType.BaseType
-            baseType <> null &&
-            if baseType.IsGenericType then baseType.GetGenericTypeDefinition() = genericType
-            else isAssignableToGenericType baseType genericType
-
-    let private updateConstraints constraints = function
-        | termType.ClassType(t, g, _) -> ClassType(t, g, constraints)
-        | termType.StructType(t, g, _) -> StructType(t, g, constraints)
-        | _ -> __unreachable__()
-
     let rec fieldsOf (t : System.Type) isStatic =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
@@ -369,3 +355,7 @@ module internal Types =
         let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
         if isStatic || t.BaseType = null then ourFields
         else Array.append (fieldsOf t.BaseType false) ourFields
+
+    let rec specifyType = function
+        | TypeVariable(Implicit(_, typ)) -> specifyType typ
+        | typ -> typ

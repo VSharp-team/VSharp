@@ -3222,15 +3222,15 @@ VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2 ==> STRUCT VSharp.CSharpUtils.
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.staticFieldA2 ~> 2]
 VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator.entries ~> (HeapRef 1)]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.get_Property()
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_Property()
 RESULT: UNION[
-	| !(0 == 1.VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.<SecretProperty>k__BackingField) ~> 1.VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.<SecretProperty>k__BackingField.System.Collections.Generic.List`1._size
-	| 0 == 1.VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.<SecretProperty>k__BackingField ~> <ERROR: (HeapRef 3)>]
+	| !(0 == 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField) ~> 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField.System.Collections.Generic.List`1._size
+	| 0 == 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> <ERROR: (HeapRef 3)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
-1.VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
 2 ==> [| ... 0 ... |]
 3 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
@@ -3300,34 +3300,34 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
-VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
-METHOD: VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.get_StructProperty()
-RESULT: STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct[]
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+METHOD: VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_StructProperty()
+RESULT: STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct)
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
 RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct[]]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.TestProperty1()
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.TestProperty1()
 RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
-2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 5)
-	| VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct[
-		| VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct.X ~> 0]]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 5)
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
+		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
 3 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> 0
@@ -3344,8 +3344,8 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 4)]
 System.Object ==> STRUCT System.Object[]
-VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess+SimpleStruct[]
-VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassSimplePropertyAccess[]
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
 RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2
 HEAP:
@@ -4526,11 +4526,11 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
+	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
 		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
 		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
+	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
 	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
@@ -4647,7 +4647,7 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray2(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & (!(0 == arr) & !(1 < arr.0_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[])) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: int32[,,]) | (!(0 == arr) & !(1 < arr.0_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[])) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) ~> <ERROR: (HeapRef 1)>
+	| !(0 == arr) & (!(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[])) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: int32[,,]) | (!(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[])) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) ~> <ERROR: (HeapRef 1)>
 	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: (HeapRef 6)>
 	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) ~> <ERROR: (HeapRef 9)>
 	| (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
@@ -4750,11 +4750,11 @@ HEAP:
 		| System.IntPtr.m_value ~> 0]]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1, 1: UNION[
-		| !(0 == arr) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
+		| !(0 == arr) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
 	1, 1: UNION[
-		| !(0 == arr) & (!(0 == arr) & !(1 < arr.0_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,,]) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length | !(0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,,])) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 0 == arr | 1 < arr.0_Length) ~> 7];
+		| !(0 == arr) & (!(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,])) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length | !(0 == arr) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
 	1: UNION[
-		| (!(0 == arr) & !(1 < arr.0_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) | (!(0 == arr) & ((!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,,]) | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length)) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 0 == arr | 1 < arr.0_Length) ~> 5];
+		| !(0 == arr) & (!(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,])) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,,])) & (!(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[]) | !(ArrayTypeVariable1 <: int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable1 <: int32[,]) | !(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | (!(0 == arr) & (ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 0 == arr | 1 < arr.0_Length) ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -5014,8 +5014,8 @@ obj ==> STRUCT TypeVariable1{System.Object}[]
 VSharp.CSharpUtils.Tests.Typecast.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Typecast[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Typecast.TryUpCast(VSharp.CSharpUtils.Tests.Typecast.Piece)
 RESULT: UNION[
-	| !(0 == piece) & (TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece} <: System.Object) & (TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 33
-	| !(TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece} <: System.Object) | !(TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == piece ~> 42]
+	| !(0 == piece) ~> 33
+	| 0 == piece ~> 42]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------

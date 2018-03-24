@@ -27,11 +27,6 @@ module internal TypeCasting =
         let changeLast = // For References
             List.changeLast (fun (addr, _) -> (addr, targetType))
 
-        let isUpCast l r =
-            match l, r with
-            | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
-            | _ -> false
-
         let castPointer term typ = // For Pointers
             match targetType with
             | Pointer typ' when Types.sizeOf typ = Types.sizeOf typ' || typ = termType.Void || typ' = termType.Void ->
@@ -40,8 +35,7 @@ module internal TypeCasting =
 
         match term.term with
         | PointerTo typ -> castPointer term typ
-        | ReferenceTo typ when isUpCast typ targetType -> term
-        | HeapRef (addrs, t, at, _) -> HeapRef mtd (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) at t
+        | HeapRef (addrs, t, at, Reference _) -> HeapRef term.metadata addrs at t targetType
         | StackRef (key, path, _) -> StackRef mtd key (changeLast path)
         | StaticRef (key, path, _) -> StaticRef mtd key (changeLast path)
         | _ -> __unreachable__()
