@@ -77,13 +77,13 @@ module public Heap =
         let unifyIfShould acc key =
             match contains key h1, contains key h2 with
             | true, true  -> unifier acc key h1.[key] h2.[key]
-            | true, false -> instantiate1 acc key h1.[key]
-            | false, true -> instantiate2 acc key h2.[key]
+            | true, false -> instantiate1 acc key h1.[key] //unifier acc key h1.[key] (instantiate2 key)
+            | false, true -> instantiate2 acc key h2.[key] //unifier acc key (instantiate1 key) h2.[key]
             | _ -> __unreachable__()
         Seq.fold unifyIfShould acc keysSet
 
-    let public merge2 (h1 : heap<'a, 'b>) (h2 : heap<'a, 'b>) resolve =
-        unify h1 h1 h2 (fun s k v1 v2 -> add k (resolve v1 v2) s) (fun s k v1 -> add k v1 s) (fun s k v2 -> add k v2 s)
+    let public merge2 (h1 : heap<'a, 'b>) (h2 : heap<'a, 'b>) resolve = //instantiate1 instantiate2 =
+        unify h1 h1 h2 (fun s k v1 v2 -> add k (resolve v1 v2) s) (fun s k v1 -> add k v1 s) (fun s k v2 -> add k v2 s) //instantiate1 instantiate2
 
     let public toString format separator keyMapper valueMapper sorter (h : heap<'a, 'b>) =
         let elements =

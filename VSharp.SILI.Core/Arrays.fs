@@ -46,8 +46,8 @@ module internal Arrays =
         // TODO: make comparison finish when acc is false
         Heap.unify (makeTrue mtd) h1 h2
             (fun acc _ v1 v2 -> acc &&& eq mtd v1.value v2.value)
-            (fun acc key v1 -> acc &&& eq mtd v1.value (instantiate2 key))
-            (fun acc key v2 -> acc &&& eq mtd (instantiate1 key) v2.value)
+            instantiate1
+            instantiate2
 
     let simplifyArraysEquality mtd x y eq instantiate1 instantiate2 =
         let simplifyGInstantiatorEquality mtd gInstor1 gInstor2 =
