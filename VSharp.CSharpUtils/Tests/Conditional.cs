@@ -139,5 +139,17 @@ namespace VSharp.CSharpUtils.Tests
                 return 56;
             }
         }
+
+        public static int DeclareAfterReturn(bool flag, bool f, int x)
+        {
+            if (f)
+            {
+                if (flag)
+                    return 42;
+                int y = x + x;
+                return x + x + y;
+            }
+            return x;
+        }
     }
 }
