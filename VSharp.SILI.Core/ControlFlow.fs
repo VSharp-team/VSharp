@@ -111,14 +111,14 @@ module internal ControlFlow =
             match oldRes.result with
             | NoResult -> newRes
             | _ -> oldRes
-        match oldRes.result, newRes.result with
-        | NoResult, _ ->
+        match oldRes.result with
+        | NoResult->
             newRes, newState
-        | Break, _
-        | Continue, _
-        | Throw _, _
-        | Return _, _ -> oldRes, oldState
-        | Guarded gvs, _ ->
+        | Break
+        | Continue
+        | Throw _
+        | Return _-> oldRes, oldState
+        | Guarded gvs ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs
             let result =
                 match newRes.result with
