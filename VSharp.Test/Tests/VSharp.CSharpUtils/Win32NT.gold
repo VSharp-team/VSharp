@@ -3325,7 +3325,7 @@ HEAP:
 ---------- h0 = ----------
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 5)
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 3)
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
 		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
 3 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -3334,11 +3334,6 @@ HEAP:
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 0]
 4 ==> [| ... 0 ... |]
-5 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
-	| System.Collections.Generic.List`1._size ~> 0
-	| System.Collections.Generic.List`1._syncRoot ~> null
-	| System.Collections.Generic.List`1._version ~> 0]
 ---------- s1 = ----------
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
