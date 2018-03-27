@@ -635,6 +635,7 @@ module internal Interpreter =
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
+        | :? IAbstractBinaryOperationExpression
         | :? ITryCastExpression
         | :? IAbstractTypeCastExpression -> reduceExpression state ast k
         | :? IPropertyAccessExpression as expression-> reducePropertyAccessExpression state expression k
@@ -823,7 +824,9 @@ module internal Interpreter =
         | :? IPropertyAccessExpression as property ->
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
-            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] k))
+            let target state k = k (targetTerm, state)
+            let right state k = k (rightTerm, state)
+            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] (fun (_, state) -> k (rightTerm, state))))
         | :? IArrayElementAccessExpression as arrayAccess ->
             reduceExpressionToRef state true arrayAccess.Array (fun (array, state) ->
             Cps.Seq.mapFoldk reduceExpression state arrayAccess.Indexes (fun (indices, state) ->
