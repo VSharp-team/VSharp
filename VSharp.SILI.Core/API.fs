@@ -26,6 +26,7 @@ module API =
     let Explore id k = Explorer.explore id k
 
     let Call funcId state body k = Explorer.call m.Value funcId state body k
+    let HigherOrderApply funcId state parameters returnType k = Explorer.higherOrderApply m.Value funcId state parameters returnType k
     let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
 
     let BranchStatements state condition thenBranch elseBranch k =
@@ -83,6 +84,8 @@ module API =
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
+        let (|TypeOfReference|_|) t = Terms.(|TypeOfReference|_|) t
+        let (|ReferenceTo|_|) t = Terms.(|ReferenceTo|_|) t
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =
@@ -114,6 +117,7 @@ module API =
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
+        let IsSubtype leftType rightType = Common.is m.Value leftType rightType
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k

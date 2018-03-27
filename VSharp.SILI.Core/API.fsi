@@ -15,6 +15,7 @@ module API =
     val Explore : IFunctionIdentifier -> (statementResult * state -> 'a) -> 'a
 
     val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
+    val HigherOrderApply : IFunctionIdentifier -> state -> term list -> termType -> (statementResult * state -> 'a) -> 'a
     val InvokeAfter : bool -> (statementResult * state) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
 
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
@@ -53,6 +54,8 @@ module API =
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+        val (|TypeOfReference|_|) : termNode -> termType option
+        val (|ReferenceTo|_|) : termNode -> termType option
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
@@ -74,6 +77,7 @@ module API =
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
+        val IsSubtype : termType -> termType -> term
         val CanCast : state -> termType -> term -> term * state
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b

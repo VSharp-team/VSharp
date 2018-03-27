@@ -13,6 +13,11 @@ type ImplementsAttribute(name : string) =
     member x.Name = name
 
 module internal Interpreter =
+    open JetBrains.Metadata.Reader.Impl
+    open JetBrains.Util.Reflection
+    open VSharp.Core.API
+    open VSharp.Core.API
+    open VSharp.Core.API
 
 // ------------------------------- Utilities -------------------------------
 
@@ -99,19 +104,65 @@ module internal Interpreter =
 
 // ------------------------------- Member calls -------------------------------
 
-    and decompileAndReduceMethod caller state this parameters qualifiedTypeName metadataMethod assemblyPath k =
+    and decompileAndReduceMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
+        let reduceMethod caller state parameters assemblyPath this qualifiedTypeName (metadataMethod : IMetadataMethod) decompiledMethod k =
+            match decompiledMethod with
+            | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
+                printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+                reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoComputation, state)) k
+            | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
+            | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
+            | DecompilerServices.DecompilationResult.ObjectConstuctor _
+            | DecompilerServices.DecompilationResult.DefaultConstuctor ->
+                reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
+            | DecompilerServices.DecompilationResult.AbstractMethod decompiledMethod ->
+                reduceAbstractMethodApplication caller {metadataMethod = decompiledMethod.MetadataMethod} state parameters this k
+            | DecompilerServices.DecompilationResult.DecompilationError ->
+                failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
+        let methodComapator (lt : IMetadataMethod) (rt : IMetadataMethod) =
+            lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
-        match decompiledMethod with
-        | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
-            printfn "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-            reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoComputation, state)) k
-        | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
-        | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
-        | DecompilerServices.DecompilationResult.ObjectConstuctor _
-        | DecompilerServices.DecompilationResult.DefaultConstuctor ->
-            reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
-        | DecompilerServices.DecompilationResult.DecompilationError ->
-            failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
+        let decompiler = DecompilerServices.decomplieSuitableMethod methodComapator assemblyPath
+        let qualifiedTypeNameFrom = Types.ToDotNetType >> (fun t -> t.AssemblyQualifiedName)
+        let localTermType = metadataMethod.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType
+        //TODO: support virtualMethod reduceMethod for type variable
+        let findAndDecompileAndReduceMethod persistentType localType state metadataMethod this k =
+            BranchStatements state
+                (fun state k -> k <| (API.Types.IsSubtype localType persistentType, state))
+                (fun state k ->
+                    let decompiledMethod = decompiler (qualifiedTypeNameFrom localType) metadataMethod
+                    reduceMethod caller state parameters assemblyPath this qualifiedTypeName metadataMethod decompiledMethod k)
+                (fun state k ->
+                    reduceMethod caller state parameters assemblyPath this qualifiedTypeName metadataMethod decompiledMethod k)
+                k
+        if not (metadataMethod.IsAbstract || metadataMethod.IsVirtual)
+            then
+                reduceMethod caller state parameters assemblyPath this qualifiedTypeName metadataMethod decompiledMethod k
+            else
+                assert(Option.isSome this)
+                let this = Option.get this
+                GuardedApplyStatement state this
+                    (fun state term k ->
+                        let persistentType =
+                            match term.term with
+                            | ReferenceTo t -> t
+                            | _ -> Terms.TypeOf this
+                        let localType =
+                            match term.term with
+                            | Terms.TypeOfReference t -> t
+                            | _ -> localTermType
+                        findAndDecompileAndReduceMethod persistentType localType state metadataMethod (Some this) k) k
+
+    and reduceAbstractMethodApplication caller funcId state parameters this k =
+        let k = Enter caller state k
+        let parameters =
+            let withoutThis =
+                match parameters with
+                | Specified p -> p
+                | Unspecified -> []
+            if Option.isSome this then Option.get this :: withoutThis else withoutThis
+        let returnType = MetadataTypes.fromMetadataType funcId.metadataMethod.Signature.ReturnType
+        HigherOrderApply funcId state parameters returnType k
 
     and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =
         let k = Enter ast state k

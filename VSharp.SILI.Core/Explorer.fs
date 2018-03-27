@@ -115,3 +115,11 @@ module internal Explorer =
         let shouldStopUnrolling = detectUnboundRecursion funcId state
         callOrApplyEffect mtd shouldStopUnrolling body funcId state (fun (result, state) ->
         k (result, State.popStack state))
+
+    let higherOrderApply mtd funcId (state : state) parameters returnType k =
+        let addr = [Memory.freshAddress()]
+        let time = Memory.tick()
+        let expr = Expression mtd (Application funcId) parameters returnType
+        let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
+        let hopHeap = HigherOrderApplication(expr, addr, time)
+        k (expr |> ControlFlow.throwOrReturn, {state with heap = Memory.composeHeapsOf ctx state hopHeap})

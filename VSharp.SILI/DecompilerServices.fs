@@ -124,6 +124,7 @@ module internal DecompilerServices =
             decompiler.Decompile(metadataTypeInfo, JetBrains.Application.Progress.NullProgressIndicator.Instance))
 
     type DecompilationResult =
+        | AbstractMethod of IDecompiledMethod
         | MethodWithExplicitInitializer of IDecompiledMethod
         | MethodWithImplicitInitializer of IDecompiledMethod
         | MethodWithoutInitializer of IDecompiledMethod
@@ -134,20 +135,24 @@ module internal DecompilerServices =
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
 
-    let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
+    let public decomplieSuitableMethod methodComparator assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName
         // TODO: this list can be memorized for one time, implement it after indexer expressions
         List.append
             (List.ofSeq decompiledClass.Methods)
             (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
-        |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        |> List.tryPick (fun (m : IDecompiledMethod) -> if methodComparator m.MetadataMethod methodInfo then Some(m) else None)
         |> function
         | Some m when m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName -> ObjectConstuctor m
         | Some m when isConstructor methodInfo ->
             if m.Initializer = null then MethodWithImplicitInitializer m else MethodWithExplicitInitializer m
+        | Some m when m.MetadataMethod.IsAbstract -> AbstractMethod m
         | Some m -> MethodWithoutInitializer m
         | _ when isConstructor methodInfo -> DefaultConstuctor
         | _ -> DecompilationError
+
+    let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
+        decomplieSuitableMethod (=) assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod)
 
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location))

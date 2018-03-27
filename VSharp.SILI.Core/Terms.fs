@@ -361,7 +361,7 @@ module internal Terms =
         | HeapRef(addrs, _, _, Reference _) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
         | _ -> None
 
-    let (|ReferenceType|_|) = function
+    let (|TypeOfReference|_|) = function
         | StackRef(_, addrs, None)
         | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
         | HeapRef(_, _, _, Reference t) -> Some t
