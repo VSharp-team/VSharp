@@ -206,8 +206,7 @@ module internal Interpreter =
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         let obtainTarget state k = reduceExpressionToRef state true ast.Target k
-        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] (fun (result, state) ->
-        k (result, state))
+        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
@@ -636,6 +635,7 @@ module internal Interpreter =
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
+        | :? IAbstractBinaryOperationExpression
         | :? ITryCastExpression
         | :? IAbstractTypeCastExpression -> reduceExpression state ast k
         | :? IPropertyAccessExpression as expression-> reducePropertyAccessExpression state expression k
@@ -824,7 +824,9 @@ module internal Interpreter =
         | :? IPropertyAccessExpression as property ->
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
-            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] k))
+            let target state k = k (targetTerm, state)
+            let right state k = k (rightTerm, state)
+            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] (fun (_, state) -> k (rightTerm, state))))
         | :? IArrayElementAccessExpression as arrayAccess ->
             reduceExpressionToRef state true arrayAccess.Array (fun (array, state) ->
             Cps.Seq.mapFoldk reduceExpression state arrayAccess.Indexes (fun (indices, state) ->

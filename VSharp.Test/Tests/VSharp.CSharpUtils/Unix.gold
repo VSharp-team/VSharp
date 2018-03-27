@@ -2825,7 +2825,7 @@ HEAP:
 ---------- h0 = ----------
 1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 5)
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 3)
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
 		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
 3 ==> STRUCT System.Collections.Generic.List`1[T][
@@ -2834,11 +2834,6 @@ HEAP:
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 0]
 4 ==> [| ... 0 ... |]
-5 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
-	| System.Collections.Generic.List`1._size ~> 0
-	| System.Collections.Generic.List`1._syncRoot ~> null
-	| System.Collections.Generic.List`1._version ~> 0]
 ---------- s1 = ----------
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
@@ -2846,6 +2841,36 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+METHOD: VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.get_StructProperty()
+RESULT: (HeapRef 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct)
+RESULT: <VOID>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef value)]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.TestProperty1(System.Int32)
+RESULT: anyVarName
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef 3)]
+3 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct.X ~> anyVarName]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[]
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.IsMaxEven(System.Int32, System.Int32, System.Int32)
 RESULT: !(2 * x < 2 * y) & !(2 * y < z) | !(2 * x < z) & 2 * y < z | !(2 * y < z) & (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) | (!(2 * y < z) & 2 * x < 2 * y | 2 * x < z & 2 * y < z) & 0 == z % 2
 HEAP:
