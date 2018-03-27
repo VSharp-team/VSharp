@@ -206,8 +206,7 @@ module internal Interpreter =
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         let obtainTarget state k = reduceExpressionToRef state true ast.Target k
-        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] (fun (result, state) ->
-        k (result, state))
+        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
