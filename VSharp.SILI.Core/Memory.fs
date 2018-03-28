@@ -41,7 +41,7 @@ module internal Memory =
         | Error _ -> term
         | StackRef(var, path, None) -> StackRef term.metadata var (List.append path [location])
         | StaticRef(var, path, None) -> StaticRef term.metadata var (List.append path [location])
-        | HeapRef((addr, path), t, _, None) -> HeapRef term.metadata (addr, List.append path [location]) arrayTarget t
+        | HeapRef((addr, path), t, _, Reference _) -> HeapRef term.metadata (addr, List.append path [location]) arrayTarget t (snd location)
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (referenceSubLocation location arrayTarget) |> List.zip gs |> Union term.metadata
         | _ -> internalfailf "expected reference, but got %O" term
 
@@ -149,7 +149,7 @@ module internal Memory =
     let private makeSymbolicHeapReference metadata time (source : lazyInstantiation) name typ construct =
         let source' = { source with extractor = TopLevelLocationExtractor() }
         let constant = Constant metadata name source' pointerType
-        construct metadata ((constant, typ), []) ArrayContents {v=time}
+        construct metadata ((constant, typ), []) ArrayContents {v=time} typ
 
     let private makeSymbolicOveralArrayLength metadata (source : lazyInstantiation) arrayName =
         Constant metadata (sprintf "|%s|" arrayName) {source with extractor = ArrayLengthExtractor()} Arrays.lengthTermType
@@ -198,7 +198,7 @@ module internal Memory =
         Array metadata dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ
 
     let private makeSymbolicInstance metadata time (source : lazyInstantiation) name = function
-        | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path _ time -> HeapPtr mtd path time typ
+        | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path _ time typ -> HeapPtr mtd path time typ
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.isPrimitive t || Types.isFunction t -> Constant metadata name source t
         | StructType _ // TODO: initialize all fields of struct symbolicly (via mkStruct). Warning: `source` should be updated!
@@ -377,8 +377,9 @@ module internal Memory =
         accessedValue, newState
 
     let private commonHierarchicalHeapAccess read restricted update metadata groundHeap heap keyMapper valueMapper lazyInstantiator ((addr, t) as location) path time arrayMode =
-        let firstLocation = HeapRef metadata (location, []) arrayMode time
-        let lazyInstantiator = lazyInstantiator |?? selectLazyInstantiator metadata groundHeap time.v arrayMode (HeapRef metadata (location, path) arrayMode time) (if path.IsEmpty then t else path |> List.last |> snd)
+        let firstLocation = HeapRef metadata (location, []) arrayMode time t
+        let typ' = if List.isEmpty path then t else path |> List.last |> snd
+        let lazyInstantiator = lazyInstantiator |?? selectLazyInstantiator metadata groundHeap time.v arrayMode (HeapRef metadata (location, path) arrayMode time typ') typ'
         let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = t; time = time.v; path = path; isTopLevel = true; arrayTarget = arrayMode}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update heap Timestamp.zero keyMapper valueMapper lazyInstantiator ptr
 
@@ -457,7 +458,7 @@ module internal Memory =
         | Error _ -> (term, state)
         | StackRef(location, path, None) ->
             commonHierarchicalStackAccess read updateDefined metadata state location path
-        | HeapRef(((addr, t) as location, path), time, arrayMode, None) ->
+        | HeapRef(((addr, t) as location, path), time, arrayMode, Reference _) ->
             Common.statedConditionalExecution state
                 (fun state k -> k (Arithmetics.simplifyEqual metadata addr (Concrete metadata [0] pointerType) id, state))
                 (fun state k -> k (actionNull metadata state t))
@@ -624,9 +625,9 @@ module internal Memory =
     let rec private referenceFieldOf state field parentRef reference =
         match reference with
         | ErrorT _ -> reference, state
-        | { term = HeapRef((addr, path), t, ArrayContents, None) } ->
+        | { term = HeapRef((addr, path), t, ArrayContents, Reference _) } ->
             assert(List.isEmpty path)
-            HeapRef reference.metadata (addr, [field]) ArrayContents t, state
+            HeapRef reference.metadata (addr, [field]) ArrayContents t (snd field) , state
         | Null ->
             let term, state = State.createInstance reference.metadata typeof<System.NullReferenceException> [] state
             Error reference.metadata term, state
@@ -719,7 +720,8 @@ module internal Memory =
     let allocateInHeap metadata s term : term * state =
         let address = freshHeapLocation metadata
         let time = tick()
-        let pointer = HeapRef metadata ((address, Terms.typeOf term), []) ArrayContents {v=time}
+        let typ = typeOf term
+        let pointer = HeapRef metadata ((address, typ), []) ArrayContents {v=time} typ
         (pointer, { s with heap = allocateInGeneralizedHeap address term time s.heap } )
 
     let allocateInStaticMemory metadata (s : state) typeName term =
