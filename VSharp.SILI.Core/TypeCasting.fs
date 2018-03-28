@@ -53,10 +53,9 @@ module internal TypeCasting =
         | _ -> Common.is mtd (typeOf term) targetType, state
 
     let cast mtd state argument targetType isChecked primitiveCast fail k =
-        let isCasted state term = canCast mtd state targetType term
         let hierarchyCast targetType state term k =
             Common.statedConditionalExecution state
-                (fun state k -> k (isCasted state term))
+                (fun state k -> k (canCast mtd state targetType term))
                 (fun state k -> k (doCast mtd term targetType isChecked |> Return mtd, state))
                 (fun state k -> k (fail state term targetType))
                 ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore

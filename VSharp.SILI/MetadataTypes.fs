@@ -24,7 +24,7 @@ module internal MetadataTypes =
                 Seq.map (fun (m, p, _) -> (m, p)) |>
                 Seq.filter (fun (m, (p : ParameterInfo[])) ->
                     Seq.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
-                        l.ParameterType.FullName |? l.ParameterType.Name = r.Type.FullName) p parameters) |>
+                        l.ParameterType.UnderlyingSystemType.ToString() = r.Type.FullName) p parameters) |>
                 Seq.map fst |>
                 Array.ofSeq
             assert(meth.Length = 1)

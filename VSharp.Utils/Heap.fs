@@ -71,25 +71,19 @@ module public Heap =
             (k, resolve vals)
         keys |> Seq.map mergeOneKey |> ofSeq
 
-    let public unify state (h1 : heap<'a, 'b>) (h2 : heap<'a, 'b>) unifier =
-        let unifyIfShould state key value =
-            if contains key h1 then
-                let oldValue = h1.[key]
-                let newValue = value
-                if oldValue = newValue then state
-                else
-                    unifier state key (Some oldValue) (Some newValue)
-            else
-                unifier state key None (Some value)
-        fold unifyIfShould state h2
-        // TODO: handle values in h1 that are not contained in h2
+    let public unify acc (h1 : heap<'a, 'b>) (h2 : heap<'a, 'b>) unifier instantiate1 instantiate2 =
+        let keysSet = HashSet(locations h1)
+        keysSet.UnionWith(locations h2)
+        let unifyIfShould acc key =
+            match contains key h1, contains key h2 with
+            | true, true  -> unifier acc key h1.[key] h2.[key]
+            | true, false -> instantiate1 acc key h1.[key]
+            | false, true -> instantiate2 acc key h2.[key]
+            | _ -> __unreachable__()
+        Seq.fold unifyIfShould acc keysSet
 
     let public merge2 (h1 : heap<'a, 'b>) (h2 : heap<'a, 'b>) resolve =
-        unify h1 h1 h2 (fun s k v1 v2 ->
-            match v1, v2 with
-            | Some v1, Some v2 -> add k (resolve v1 v2) s
-            | None, Some v2 -> add k v2 s
-            | _ -> __notImplemented__())
+        unify h1 h1 h2 (fun s k v1 v2 -> add k (resolve v1 v2) s) (fun s k v1 -> add k v1 s) (fun s k v2 -> add k v2 s)
 
     let public toString format separator keyMapper valueMapper sorter (h : heap<'a, 'b>) =
         let elements =

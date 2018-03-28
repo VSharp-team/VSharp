@@ -288,4 +288,25 @@ namespace VSharp.CSharpUtils.Tests
             st.StructProperty.Set(42);
         }
     }
+
+    public class ClassesSimplePropertyAccessModify
+    {
+        public class SimpleStruct
+        {
+            public int X;
+
+            public void Set(int x)
+            {
+                X = x;
+            }
+        }
+
+        public SimpleStruct StructProperty
+        { get; set; }
+
+        public int TestProperty1(int anyVarName)
+        {
+            return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
+        }
+    }
 }
