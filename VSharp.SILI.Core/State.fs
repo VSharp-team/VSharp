@@ -9,7 +9,7 @@ type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time
 
 type stack = mappedStack<stackKey, memoryCell<term, termType>>
 type pathCondition = term list
-type entry = { key : stackKey; mtd : termMetadata; typ : termType option }
+type entry = { key : stackKey; mtd : termMetadata; typ : termType }
 type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
 type frames = { f : stackFrame stack; sh : stackHash }
 type generalizedHeap =
@@ -80,24 +80,22 @@ module internal State =
 
     let isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
 
-    let newStackFrame time metadata (s : state) funcId frame : state =
+    let private newStackRegion time metadata (s : state) frame frameMetadata sh : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ |?? typeOf term } map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
-        let frameMetadata = Some(funcId, s.pc)
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
+        { s with stack = newStack; frames = {f = f'; sh = sh} }
+
+    let newStackFrame time metadata (s : state) funcId frame : state =
+        let frameMetadata = Some(funcId, s.pc)
         let sh' = frameMetadata.GetHashCode()::s.frames.sh
-        { s with stack = newStack; frames = {f = f'; sh = sh'} }
+        newStackRegion time metadata s frame frameMetadata sh'
 
     let newScope time metadata (s : state) frame : state =
-        let pushOne (map : stack) (key, value, typ) =
-            match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ |?? typeOf term } map
-            | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        let locations, newStack = frame |> List.mapFold pushOne s.stack
-        { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
+        newStackRegion time metadata s frame None s.frames.sh
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popStack (s : state) : state =
@@ -129,8 +127,7 @@ module internal State =
     let typeOfStackLocation (s : state) key =
         let forMatch = List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; mtd = _; typ = t } -> if l = key then Some t else None)) s.frames.f
         match forMatch with
-        | Some (Some t) -> t
-        | Some None -> internalfailf "unknown type of stack location %O!" key
+        | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let metadataOfStackLocation (s : state) key =

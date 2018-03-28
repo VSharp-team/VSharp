@@ -113,7 +113,7 @@ module internal Interpreter =
         | DecompilerServices.DecompilationResult.DecompilationError ->
             failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
 
-    and reduceFunctionSignature funcId state (ast : IFunctionSignature) this paramValues k =
+    and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =
         let k = Enter ast state k
         let values, areParametersSpecified =
             match paramValues with
@@ -128,18 +128,21 @@ module internal Interpreter =
                     if param.MetadataParameter.HasDefaultValue
                     then
                         let typ = MetadataTypes.variableFromMetadataType param.Type
-                        (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), Some typ)
+                        (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType |> Some)
-            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, None)
+                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType)
+            | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, TypeOf value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =
             match this with
             | Some thisValue ->
                 let thisKey = ("this", getThisTokenBy ast)
-                (thisKey, Specified thisValue, None)::parameters
+                (thisKey, Specified thisValue, TypeOf thisValue)::parameters
             | None -> parameters
-        k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
+        match funcId with
+        | :? IDelegateIdentifier when List.exists (fun sframe -> Option.exists (fst >> (=) funcId) sframe.func) state.frames.f ->
+            k (parametersAndThis, Memory.NewScope state [])
+        | _ -> k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
 
     and reduceFunction state this parameters funcId (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature funcId state signature this parameters (fun (_, state) ->
@@ -203,8 +206,7 @@ module internal Interpreter =
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
         let obtainTarget state k = reduceExpressionToRef state true ast.Target k
-        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] (fun (result, state) ->
-        k (result, state))
+        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
@@ -357,26 +359,26 @@ module internal Interpreter =
         let returnDelegateTerm state k = k (Return delegateTerm, state)
         npeOrInvokeExpression ast state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
-    and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) =
+    and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) lambdaContext =
         fun caller state args k ->
             let k = Enter caller state k
             let invoke state k = reduceBlockStatement state ast.Body k
-            reduceFunction state None args {metadataDelegate = ast} ast.Signature invoke k
+            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}} ast.Signature invoke k
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let k = Enter ast state k
-        Functions.MakeLambda2 state ast.Signature null (makeLambdaBlockInterpreter ast) |> k
+        Functions.MakeLambda2 state ast.Signature null (makeLambdaBlockInterpreter ast state.frames) |> k
 
-    and makeLambdaInterpreter (ast : ILambdaExpression) =
+    and makeLambdaInterpreter (ast : ILambdaExpression) lambdaContext =
         let invokeBody state k =
             reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.ThrowOrReturn term, state))
         fun caller state args k ->
             let k = Enter caller state k
-            reduceFunction state None args {metadataDelegate = ast} ast.Signature invokeBody k
+            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}} ast.Signature invokeBody k
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         let k = Enter ast state k
-        Functions.MakeLambda2 state ast.Signature null (makeLambdaInterpreter ast) |> k
+        Functions.MakeLambda2 state ast.Signature null (makeLambdaInterpreter ast state.frames) |> k
 
     and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
         __notImplemented__()
@@ -566,7 +568,7 @@ module internal Interpreter =
                 let targetType = MetadataTypes.fromMetadataType ast.VariableReference.Variable.Type
                 let typeMatches, state = Types.CanCast state targetType exn
                 let stackKey = ast.VariableReference.Variable.Name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)
-                let state = Memory.NewScope state [(stackKey, Specified exn, None)]
+                let state = Memory.NewScope state [(stackKey, Specified exn, TypeOf exn)]
                 typeMatches, state
         if ast.Filter = null then k (typeMatches, state)
         else
@@ -633,8 +635,10 @@ module internal Interpreter =
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
+        | :? IAbstractBinaryOperationExpression
         | :? ITryCastExpression
         | :? IAbstractTypeCastExpression -> reduceExpression state ast k
+        | :? IPropertyAccessExpression as expression-> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
 
     and referenceToField caller state followHeapRefs target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
@@ -820,7 +824,9 @@ module internal Interpreter =
         | :? IPropertyAccessExpression as property ->
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
-            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] k))
+            let target state k = k (targetTerm, state)
+            let right state k = k (rightTerm, state)
+            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] (fun (_, state) -> k (rightTerm, state))))
         | :? IArrayElementAccessExpression as arrayAccess ->
             reduceExpressionToRef state true arrayAccess.Array (fun (array, state) ->
             Cps.Seq.mapFoldk reduceExpression state arrayAccess.Indexes (fun (indices, state) ->
@@ -1057,7 +1063,7 @@ module internal Interpreter =
             then Memory.AllocateInHeap state freshValue
             else
                 let tempVar = "constructed instance"
-                let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, None)]
+                let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, TypeOf freshValue)]
                 (Memory.ReferenceLocalVariable state (tempVar, tempVar) false, state)
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let finish r =
@@ -1316,8 +1322,9 @@ type internal SymbolicInterpreter() =
                 Interpreter.decompileAndReduceMethod null state this Unspecified mm.DeclaringType.AssemblyQualifiedName mm mm.Assembly.Location k
             | :? DelegateIdentifier as d ->
                 let ast = d.metadataDelegate
+                let lambdaContext = d.closureContext.v
                 match ast with
-                | :? ILambdaBlockExpression as lbe -> Interpreter.makeLambdaBlockInterpreter lbe ast state Unspecified k
-                | :? ILambdaExpression as le -> Interpreter.makeLambdaInterpreter le ast state Unspecified k
+                | :? ILambdaBlockExpression as lbe -> Interpreter.makeLambdaBlockInterpreter lbe lambdaContext ast state Unspecified k
+                | :? ILambdaExpression as le -> Interpreter.makeLambdaInterpreter le lambdaContext ast state Unspecified k
                 | _ -> __notImplemented__()
             | _ -> __notImplemented__()

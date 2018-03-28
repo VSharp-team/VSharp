@@ -7,6 +7,14 @@ type public IInterpreter =
     abstract member Reset : unit -> unit
     abstract member InitEntryPoint : state -> string -> (state -> 'a) -> 'a
     abstract member Invoke : IFunctionIdentifier -> state -> term option -> (statementResult * state -> 'a) -> 'a
+type IMethodIdentifier =
+    inherit IFunctionIdentifier
+    abstract IsStatic : bool
+    abstract DeclaringTypeAQN : string
+    abstract Token : string
+type IDelegateIdentifier =
+    inherit IFunctionIdentifier
+    abstract ContextFrames : frames
 
 module internal Explorer =
 
@@ -53,8 +61,12 @@ module internal Explorer =
                     if Terms.isHeapRef instance then (Some instance, state)
                     else
                         let key = ("external data", m.Token)
-                        let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, Some declaringType)]
+                        let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, declaringType)]
                         (Some <| Memory.referenceLocalVariable metadata state key true, state)
+            | :? IDelegateIdentifier as dlgt ->
+                let state = { State.empty with frames = dlgt.ContextFrames }
+                // TODO: Create dummy frame
+                (None, state)
             | _ -> __notImplemented__()
         invoke id state this (fun r ->
             currentlyExploredFunctions.Remove id |> ignore

@@ -8,7 +8,7 @@ type hierarchy(h: System.Type list) =
     member x.Name = x.Inheritor.ToString()
     member x.IsGround =
         (not x.Inheritor.IsGenericType && not x.Inheritor.IsGenericParameter) || (x.Inheritor.IsConstructedGenericType)
-    member x.Is (r : hierarchy) = Seq.contains r.Inheritor h
+    member x.Is (r : hierarchy) = r.Inheritor.IsAssignableFrom x.Inheritor
     member x.Equals (r : hierarchy) = x.Inheritor = r.Inheritor
     member x.Equals (r : System.Type) = x.Inheritor = r
     override x.ToString() = x.Name

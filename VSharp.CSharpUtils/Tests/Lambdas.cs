@@ -50,5 +50,26 @@ namespace VSharp.CSharpUtils.Tests
             assign(n);
             return a + b + c == n + n;
         }
+
+/*        public static int ForToLambdaDelegateSmokeTest(int n)
+        {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+            {
+                s += i * i;
+            }
+            return s;
+        }
+
+        public static int ForToLambdaDelegateNestedTest(int n)
+        {
+            int num = 0;
+            for (int index1 = 0; index1 < n; ++index1)
+            {
+                for (int index2 = 0; index2 < index1; ++index2)
+                    num += index1 * index2;
+            }
+            return num;
+        }*/
     }
 }
