@@ -223,7 +223,7 @@ and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
 
-and symbolicHeap = heap<term, term>
+and symbolicHeap = heap<term, term, termType>
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource

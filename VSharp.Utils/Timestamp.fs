@@ -8,6 +8,8 @@ module Timestamp =
     let infinity : timestamp = System.UInt32.MaxValue
     let inc (t : timestamp) : timestamp = t + 1u
 
+    let isZero = (=) zero
+
     let compose (t1 : timestamp) (t2 : timestamp) : timestamp =
         // TODO
         t1

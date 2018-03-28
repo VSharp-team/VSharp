@@ -60,19 +60,19 @@ namespace VSharp.Test
         private const string TestsDirectoryName = "Tests";
         private const string IdealTestFileExtension = ".gold";
 
-//        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
-//        {
-//            if (File.Exists(path))
-//            {
-//                File.Delete(path);
-//            }
-//
-//            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
-//            {
-//                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
-//                File.AppendAllText(path, text);
-//            }
-//        }
+        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
+            {
+                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
+                File.AppendAllText(path, text);
+            }
+        }
 
         private string MethodInfoToString(MethodInfo methodInfo)
         {

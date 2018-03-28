@@ -6,9 +6,10 @@ open Types
 module internal Strings =
 
     let makeString (length : int) str timestamp =
+        let lengthTermType = Numeric typeof<int>
         let fields : symbolicHeap =
-            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length (Numeric typedefof<int>); created = timestamp; modified = timestamp };
-            makeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str String; created = timestamp; modified = timestamp }])
+            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length lengthTermType; created = timestamp; modified = timestamp; typ = lengthTermType };
+            makeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str String; created = timestamp; modified = timestamp; typ = String }])
         Struct Metadata.empty fields String
 
     let simplifyEquality mtd x y =
