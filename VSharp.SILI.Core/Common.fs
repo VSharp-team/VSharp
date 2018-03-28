@@ -55,7 +55,7 @@ module internal Common =
 
 // ------------------------------- Type casting -------------------------------
 
-    // TODO: support composition for this constant source
+    // TODO: support composition for this constant source (see also TODOs in Merging.fs and Memory.fs)
     [<StructuralEquality;NoComparison>]
     type private SymbolicSubtypeSource =
         {left : termType; right : termType}

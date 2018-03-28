@@ -16,16 +16,16 @@ module internal Arrays =
 
     let makeArray mtd length contents instantiator elemTyp =
         let zero = makeZeroAddress mtd
-        let lowerBound = Heap.add zero { value = zero; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
+        let lowerBound = Heap.add zero { value = zero; created = Timestamp.zero; modified = Timestamp.zero; typ = elemTyp } Heap.empty
         let typ = ArrayType(elemTyp, ConcreteDimension 1)
-        let lengths = Heap.add zero { value = length; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
+        let lengths = Heap.add zero { value = length; created = Timestamp.zero; modified = Timestamp.zero; typ = lengthTermType } Heap.empty
         Array mtd (makeNumber 1 mtd) length lowerBound instantiator contents lengths typ
 
     let makeLinearConcreteArray mtd keyMaker valMaker length elemTyp =
         let contents =
             valMaker
             |> Seq.init length
-            |> Seq.foldi (fun h i v -> Heap.add (keyMaker i mtd) { value = v; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty
+            |> Seq.foldi (fun h i v -> Heap.add (keyMaker i mtd) { value = v; created = Timestamp.zero; modified = Timestamp.zero; typ = elemTyp } h) Heap.empty
         let length = makeNumber length mtd
         let constant = Constant mtd defaultArrayName (DefaultArray()) (ArrayType(lengthTermType, ConcreteDimension 1))
         let instantiator = [makeTrue mtd, DefaultInstantiator(constant, elemTyp)]
@@ -45,9 +45,7 @@ module internal Arrays =
     let simplifyHeapPointwiseEquality mtd h1 h2 eq instantiate1 instantiate2 =
         // TODO: make comparison finish when acc is false
         Heap.unify (makeTrue mtd) h1 h2
-            (fun acc _ v1 v2 -> acc &&& eq mtd v1.value v2.value)
-            instantiate1
-            instantiate2
+            (fun acc _ v1 v2 -> acc &&& eq mtd (v1 ||?? lazy(instantiate1())).value (v2 ||?? lazy(instantiate2())).value)
 
     let simplifyArraysEquality mtd x y eq instantiate1 instantiate2 =
         let simplifyGInstantiatorEquality mtd gInstor1 gInstor2 =
@@ -66,7 +64,7 @@ module internal Arrays =
                 (makeFalse mtd)
                 gInstor1
         match x.term, y.term with
-        | Array(dim1, len1, lb1, instor1, content1, l1, t1), Array(dim2, len2, lb2, instor2, content2, l2, t2) ->
+        | Array(dim1, len1, lb1, instor1, content1, l1, _), Array(dim2, len2, lb2, instor2, content2, l2, _) ->
             Propositional.lazyConjunction mtd <|
                 seq[
                     fun() -> Arithmetics.simplifyEqual mtd dim1 dim2 id;
@@ -85,7 +83,7 @@ module internal Arrays =
             (fun _ _ -> __notImplemented__())
 
     let zeroLowerBound metadata dimension =
-        let bound = { value = Concrete metadata 0 lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
+        let bound = { value = Concrete metadata 0 lengthTermType; created = Timestamp.zero; modified = Timestamp.zero; typ = lengthTermType }
         Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makeNumber i metadata))
 
     let length = Merging.map (function
@@ -117,7 +115,7 @@ module internal Arrays =
             let lowerBounds = zeroLowerBound mtd dim
             let length = List.reduce (mul mtd) lengthList
             let constant = Constant mtd defaultArrayName (DefaultArray()) typ
-            let lengths = Seq.foldi (fun h i l -> Heap.add (makeNumber i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty lengthList
+            let lengths = Seq.foldi (fun h i l -> Heap.add (makeNumber i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = elemTyp } h) Heap.empty lengthList
             Array mtd (makeNumber dim mtd) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
@@ -136,14 +134,14 @@ module internal Arrays =
                 | d::_ ->
                     List.concat children, (List.length children)::d
                 | [] -> [], List.init depth (always 0)
-            | _ -> [{ value = term; created = time; modified = time }], []
+            | _ -> [{ value = term; created = time; modified = time; typ = elemTyp }], []
         let linearContent, dimensions = flatten rank initializer
         let len = List.length linearContent
         assert(len = List.reduce (*) dimensions)
         let intToTerm i = Concrete mtd i lengthTermType
         let dimensionList = dimensions |> List.map intToTerm
         let length = makeNumber len mtd
-        let lengths = Seq.foldi (fun h i l -> Heap.add (makeNumber i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty dimensionList
+        let lengths = Seq.foldi (fun h i l -> Heap.add (makeNumber i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = lengthTermType } h) Heap.empty dimensionList
         let indices =
             List.foldBack (fun i s ->
                 let indicesInDim = Seq.init i intToTerm

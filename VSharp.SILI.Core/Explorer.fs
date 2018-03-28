@@ -35,7 +35,7 @@ module internal Explorer =
     let private formInitialStatics metadata typ typeName =
         let staticMemoryKey = makeStringKey typeName
         let staticMemoryEntry = Struct metadata Heap.empty typ
-        Heap.empty.Add(staticMemoryKey, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
+        Heap.empty.Add(staticMemoryKey, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero; typ = typ })
 
     let private invoke id state this k =
         interpreter.Invoke id state this k

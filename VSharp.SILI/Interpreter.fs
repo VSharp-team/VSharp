@@ -442,15 +442,15 @@ module internal Interpreter =
         Cps.Seq.mapFoldk reduceExpression state ast.Arguments (fun (args, state) ->
         let curDelegate = Transformations.inlinedCallTarget ast |?? ast.Delegate
         reduceExpression state curDelegate (fun (deleg, state) ->
-        let rec invoke state deleg k =
-            let k = Enter ast state k
+        let k = Enter ast state k
+        let rec invoke state deleg = GuardedApplyStatement state deleg (fun state deleg k ->
             match deleg.term with
                 | HeapRef _ ->
                     let term, state = Memory.Dereference state deleg
                     invoke state term k
                 | Lambda(lambda) -> lambda ast state (Specified args) k
-                | _ -> __notImplemented__()
-        GuardedApplyStatement state deleg invoke k))
+                | _ -> __notImplemented__())
+        invoke state deleg k))
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType (fun subst ->

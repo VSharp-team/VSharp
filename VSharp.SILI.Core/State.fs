@@ -7,7 +7,7 @@ open VSharp.Utils
 
 type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time : timestamp }
 
-type stack = mappedStack<stackKey, term memoryCell>
+type stack = mappedStack<stackKey, memoryCell<term, termType>>
 type pathCondition = term list
 type entry = { key : stackKey; mtd : termMetadata; typ : termType }
 type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
@@ -103,7 +103,7 @@ module internal State =
     let private newStackRegion time metadata (s : state) frame frameMetadata sh : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ |?? typeOf term } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let frameMetadata = Some(funcId, s.pc)
@@ -176,7 +176,7 @@ module internal State =
         | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
         | t -> toString t
 
-    let private staticKeyToString = term >> function
+    let staticKeyToString = term >> function
         | Concrete(typeName, Types.StringType) ->
             if typeName = null then ()
             let typ = System.Type.GetType(typeName :?> string)
@@ -236,23 +236,25 @@ module internal State =
         abstract GoDeeperToArray : arrayReferenceTarget -> (term * arrayInstantiator) list -> timestamp -> term -> termType -> ILazyInstantiator
     type ILazyInstantiatorFactory =
         abstract TopLevelStackInstantiator : state -> stackKey -> ILazyInstantiator
-        abstract TopLevelHeapInstantiator : arrayReferenceTarget -> termMetadata -> generalizedHeap option -> timestamp transparent -> term -> termType -> ILazyInstantiator
+        abstract TopLevelHeapInstantiator : termMetadata -> generalizedHeap option -> timestamp transparent -> term -> termType -> ILazyInstantiator
         abstract TopLevelStaticsInstantiator : termMetadata -> generalizedHeap option -> string -> termType -> ILazyInstantiator
         abstract EndPointInstantiator : arrayReferenceTarget -> termMetadata -> generalizedHeap option -> term -> termType -> ILazyInstantiator
-        abstract CustomInstantiator : (unit -> term) -> termMetadata -> timestamp -> termType -> ILazyInstantiator
+        abstract CustomInstantiator : (unit -> term) -> termMetadata -> ILazyInstantiator
     type private NullLazyInstantiatorFactory() =
         interface ILazyInstantiatorFactory with
             override x.TopLevelStackInstantiator _ _ = internalfail "lazy instantiation factory is not ready"
-            override x.TopLevelHeapInstantiator _ _ _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.TopLevelHeapInstantiator _ _ _ _ _ = internalfail "lazy instantiation factory is not ready"
             override x.TopLevelStaticsInstantiator _ _ _ _ = internalfail "lazy instantiation factory is not ready"
             override x.EndPointInstantiator _ _ _ _ _ = internalfail "lazy instantiation factory is not ready"
-            override x.CustomInstantiator _ _ _ _ = internalfail "lazy instantiation factory is not ready"
+            override x.CustomInstantiator _ _ = internalfail "lazy instantiation factory is not ready"
     let mutable private lazyInstantiatorFactory : ILazyInstantiatorFactory = NullLazyInstantiatorFactory() :> ILazyInstantiatorFactory
 
     let configure act = activator <- act
     let configureFactory liFactory = lazyInstantiatorFactory <- liFactory
     let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
-    let liFactory () = lazyInstantiatorFactory
+    let topLevelStackInstantiator state key = lazyInstantiatorFactory.TopLevelStackInstantiator state key
+    let topLevelHeapInstantiator metadata heap time key typ = lazyInstantiatorFactory.TopLevelHeapInstantiator metadata heap time key typ
+    let topLevelStaticsInstantiator metadata heap key typ = lazyInstantiatorFactory.TopLevelStaticsInstantiator metadata heap key typ
 
 // ------------------------------- Pretty-printing -------------------------------
 

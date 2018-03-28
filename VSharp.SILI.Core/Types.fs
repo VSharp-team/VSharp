@@ -346,7 +346,7 @@ module internal Types =
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
             else
                 let fieldName = sprintf "%s.%s" ((safeGenericTypeDefinition field.DeclaringType).FullName) field.Name
-                Some (fieldName, fromDotNetType field.FieldType)
+                Some (fieldName, fromDotNetType field.FieldType |> wrapReferenceType)
         let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
         if isStatic || t.BaseType = null then ourFields
         else Array.append (fieldsOf t.BaseType false) ourFields

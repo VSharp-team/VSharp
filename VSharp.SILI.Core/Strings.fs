@@ -13,8 +13,8 @@ module internal Strings =
             let valMaker i = makeNumber arraySource.[i] metadata
             let keyMaker i mtd = makeIntegerArray metadata (fun _ -> makeNumber i mtd) 1
             let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) (Numeric typedefof<char>)
-            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = stringTermLength; created = time; modified = time };
-                              makeStringKey "System.String.m_FirstChar", { value = array; created = time; modified = time } ])
+            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = stringTermLength; created = time; modified = time; typ = lengthTermType };
+                              makeStringKey "System.String.m_FirstChar", { value = array; created = time; modified = time; typ = String } ])
         Struct metadata fields String
 
     let simplifyEquality mtd x y =
