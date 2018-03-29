@@ -26,7 +26,8 @@ module API =
     let Explore id k = Explorer.explore id k
 
     let Call funcId state body k = Explorer.call m.Value funcId state body k
-    let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
+    let ComposeStatements rs statements isContinueConsumer reduceStatement k =
+        ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
 
     let BranchStatements state condition thenBranch elseBranch k =
          Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
