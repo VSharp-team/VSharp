@@ -614,15 +614,13 @@ module internal Terms =
         let folder state term = mapper state term |> optCons state
         fold folder [] terms
 
+    let unwrapReferenceType = function
+        | Reference t -> t
+        | t -> t
+
     let persisentLocalAndConstraintTypes term defaultLocalType =
-        let unwrapReferenceType = function
-            | Reference t -> t
-            | t -> t
-        let rec specifyType = function
-            | TypeVariable(Implicit(_, t)) -> specifyType t
-            | typ -> typ
         let p, l =
             match term.term, term.term with
             | ReferenceTo lt, TypeOfReference rt -> lt |> unwrapReferenceType, rt |> unwrapReferenceType
             | _ -> typeOf term, defaultLocalType
-        p, l, specifyType p
+        p, l, Types.specifyType p

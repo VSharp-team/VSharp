@@ -26,9 +26,9 @@ module API =
     let Explore id k = Explorer.explore id k
 
     let Call funcId state body k = Explorer.call m.Value funcId state body k
+    let ComposeStatements rs statements isContinueConsumer reduceStatement k =
+        ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
     let HigherOrderApply funcId state parameters returnType k = Explorer.higherOrderApply m.Value funcId state parameters returnType k
-    let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
-
     let BranchStatements state condition thenBranch elseBranch k =
          Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
     let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
@@ -84,8 +84,6 @@ module API =
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
-        let (|TypeOfReference|_|) t = Terms.(|TypeOfReference|_|) t
-        let (|ReferenceTo|_|) t = Terms.(|ReferenceTo|_|) t
 
         let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
 

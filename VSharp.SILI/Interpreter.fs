@@ -13,12 +13,6 @@ type ImplementsAttribute(name : string) =
     member x.Name = name
 
 module internal Interpreter =
-    open JetBrains.Metadata.Reader.Impl
-    open JetBrains.Util.Reflection
-    open VSharp.Core.API
-    open VSharp.Core.API
-    open VSharp.Core.API
-    open VSharp.Core.API
 
 // ------------------------------- Utilities -------------------------------
 
@@ -472,17 +466,11 @@ module internal Interpreter =
 // ------------------------------- Linear control flow-------------------------------
 
     and reduceSequentially state statements k =
-        Cps.Seq.foldlk
-            (InvokeAfter false)
-            (NoResult(), Memory.NewScope state [])
-            statements
-            (fun (res, state) -> k (res, Memory.PopStack state))
+        ComposeStatements (NoResult(), Memory.NewScope state []) statements (always false) (fun state stmt -> stmt state) (fun (res, state) -> k (res, Memory.PopStack state))
 
     and reduceBlockStatement state (ast : IBlockStatement) k =
-        let compose rs statement k =
-            InvokeAfter (Transformations.isContinueConsumer statement) rs (fun state -> reduceStatement state statement) k
         let k = Enter ast state k
-        Cps.Seq.foldlk compose (NoResult(), Memory.NewScope state []) ast.Statements (fun (res, state) -> k (res, Memory.PopStack state))
+        ComposeStatements (NoResult(), Memory.NewScope state []) ast.Statements Transformations.isContinueConsumer reduceStatement (fun (res, state) -> k (res, Memory.PopStack state))
 
     and reduceCommentStatement state (ast : ICommentStatement) k =
         k (NoComputation, state)
@@ -1130,24 +1118,21 @@ module internal Interpreter =
                 let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, TypeOf freshValue)]
                 (Memory.ReferenceLocalVariable state (tempVar, tempVar) false, state)
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
-        let finish r =
-            InvokeAfter false r
-                (fun state k ->
-                    if isReferenceType || returnRef
-                    then k (Return reference, state)
-                    else
-                        let term, state = Memory.Dereference state reference
-                        k (Return term, Memory.PopStack state))
-                (fun (result, state) -> k (ControlFlow.ResultToTerm result, state))
         let invokeInitializers result state (result', state') =
             let r = ControlFlow.ComposeSequentially result result' state state'
-            InvokeAfter false r (fun state k ->
+            let reduceInitializers state k =
                 if objectInitializerList <> null then
                     reduceMemberInitializerList reference state objectInitializerList k
                 elif collectionInitializerList <> null then
                     reduceCollectionInitializerList constructedType reference state collectionInitializerList k
                 else k (NoComputation, state)
-            ) finish
+            let finish state k =
+                if isReferenceType || returnRef
+                then k (Return reference, state)
+                else
+                    let term, state = Memory.Dereference state reference
+                    k (Return term, Memory.PopStack state)
+            ComposeStatements r (seq[reduceInitializers; finish]) (always false) (fun state stmt -> stmt state) (fun (result, state) -> k (ControlFlow.ResultToTerm result, state))
         if constructorSpecification = null
             then invokeInitializers result state (NoResult(), state)
             else
