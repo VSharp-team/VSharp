@@ -168,12 +168,12 @@ module internal ControlFlow =
             then defaultCompose newRS k
             else composeWithNewFrame newRS k
         match pathCondition with //TODO: use statedConditionalExecution
-               | Terms.True -> statement state (fun newRS -> compose newRS k)
-               | Terms.False -> k (result, state)
-               | _ ->
-                   statement
-                       (State.withPathCondition state pathCondition)
-                       (fun (newRes, newState) -> compose (newRes, State.popPathCondition newState) k)
+        | Terms.True -> statement state (fun newRS -> compose newRS k)
+        | Terms.False -> k (result, state)
+        | _ ->
+            statement
+                (State.withPathCondition state pathCondition)
+                (fun (newRes, newState) -> compose (newRes, newState) (fun (res, state) -> k (res, State.popPathCondition state)))
 
 
     let composeStatements statements isContinueConsumer statementMapper newScope (result, state) k =

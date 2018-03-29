@@ -28,7 +28,7 @@ module API =
     let Call funcId state body k = Explorer.call m.Value funcId state body k
     let ComposeStatements rs statements isContinueConsumer reduceStatement k =
         ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
-
+    let HigherOrderApply funcId state parameters returnType k = Explorer.higherOrderApply m.Value funcId state parameters returnType k
     let BranchStatements state condition thenBranch elseBranch k =
          Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
     let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
@@ -85,6 +85,8 @@ module API =
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
 
+        let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
+
     module RuntimeExceptions =
         let NullReferenceException state thrower =
             let term, state = Memory.npe m.Value state
@@ -115,6 +117,7 @@ module API =
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
+        let IsSubtype leftType rightType = Common.is m.Value leftType rightType
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k

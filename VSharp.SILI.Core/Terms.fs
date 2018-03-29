@@ -159,7 +159,7 @@ type termNode =
             | HeapRef(((z, _), []), _,_, _) when z.term = Concrete([0], Types.pointerType) -> "null"
             | HeapRef(_, _, _, Pointer mbtyp) -> printRef term indent <| Some mbtyp
             | HeapRef(_, _, _, Reference _) -> printRef term indent None
-            | StackRef(_, _, mbtyp) 
+            | StackRef(_, _, mbtyp)
             | StaticRef(_, _, mbtyp) -> printRef term indent mbtyp
             | _ -> __unreachable__()
 
@@ -361,7 +361,7 @@ module internal Terms =
         | HeapRef(addrs, _, _, Reference _) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
         | _ -> None
 
-    let (|ReferenceType|_|) = function
+    let (|TypeOfReference|_|) = function
         | StackRef(_, addrs, None)
         | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
         | HeapRef(_, _, _, Reference t) -> Some t
@@ -613,3 +613,14 @@ module internal Terms =
     let filterMapConstants mapper terms =
         let folder state term = mapper state term |> optCons state
         fold folder [] terms
+
+    let unwrapReferenceType = function
+        | Reference t -> t
+        | t -> t
+
+    let persisentLocalAndConstraintTypes term defaultLocalType =
+        let p, l =
+            match term.term, term.term with
+            | ReferenceTo lt, TypeOfReference rt -> lt |> unwrapReferenceType, rt |> unwrapReferenceType
+            | _ -> typeOf term, defaultLocalType
+        p, l, Types.specifyType p

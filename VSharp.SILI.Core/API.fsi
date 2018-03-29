@@ -15,8 +15,7 @@ module API =
     val Explore : IFunctionIdentifier -> (statementResult * state -> 'a) -> 'a
 
     val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b
-
+    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b    val HigherOrderApply : IFunctionIdentifier -> state -> term list -> termType -> (statementResult * state -> 'a) -> 'a
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
     val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
@@ -54,6 +53,8 @@ module API =
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
 
+        val PersisentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
         val InvalidCastException : state -> (term -> 'a) -> 'a * state
@@ -74,6 +75,7 @@ module API =
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
+        val IsSubtype : termType -> termType -> term
         val CanCast : state -> termType -> term -> term * state
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b

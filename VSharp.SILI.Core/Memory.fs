@@ -713,9 +713,22 @@ module internal Memory =
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
 
-    let private allocateInGeneralizedHeap address term time = function
-        | Defined(r, h) -> h.Add(address, {value = term; created = time; modified = time }) |> Defined r
-        | _ -> __notImplemented__()
+    let private allocateInDefinedHeap (h : symbolicHeap) address term time =
+        h.Add(address, {value = term; created = time; modified = time })
+
+    let rec private allocateInGeneralizedHeap address term time = function
+        | Defined(r, h) -> allocateInDefinedHeap h address term time |> Defined r
+        | Composition _
+        | RecursiveApplication _
+        | HigherOrderApplication _ as h ->
+            let mutatedHeap = allocateInDefinedHeap Heap.empty address term time
+            Mutation(h, mutatedHeap)
+        | Mutation(gh, h) -> Mutation(gh, allocateInDefinedHeap h address term time)
+        | Merged gvh ->
+            Merging.commonGuardedMapk (fun h k -> k <| allocateInGeneralizedHeap address term time h) gvh
+                (fun gvh ->
+                    let g, h = List.unzip gvh
+                    Merging.mergeGeneralizedHeaps g h) id
 
     let allocateInHeap metadata s term : term * state =
         let address = freshHeapLocation metadata
