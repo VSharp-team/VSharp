@@ -170,6 +170,7 @@ namespace VSharp.Test
 //                , "Typecast"
 //                , "Generic"
 //                , "Strings"
+//                , "VirtualMethods"
                 , "Foo"
                 , "GenericInitialize"
                 , "Bag"

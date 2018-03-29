@@ -57,6 +57,8 @@ module API =
         val (|TypeOfReference|_|) : termNode -> termType option
         val (|ReferenceTo|_|) : termNode -> termType option
 
+        val PersisentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
         val InvalidCastException : state -> (term -> 'a) -> 'a * state

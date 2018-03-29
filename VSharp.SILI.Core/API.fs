@@ -87,6 +87,8 @@ module API =
         let (|TypeOfReference|_|) t = Terms.(|TypeOfReference|_|) t
         let (|ReferenceTo|_|) t = Terms.(|ReferenceTo|_|) t
 
+        let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
+
     module RuntimeExceptions =
         let NullReferenceException state thrower =
             let term, state = Memory.npe m.Value state

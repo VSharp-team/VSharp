@@ -3222,6 +3222,23 @@ VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2 ==> STRUCT VSharp.CSharpUtils.
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.staticFieldA2 ~> 2]
 VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleRegistrator.entries ~> (HeapRef 1)]
+METHOD: VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_StructProperty()
+RESULT: STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
+RESULT: <VOID>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_Property()
 RESULT: UNION[
 	| !(0 == 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField) ~> 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField.System.Collections.Generic.List`1._size
@@ -3300,23 +3317,6 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
-VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-METHOD: VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_StructProperty()
-RESULT: STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
----------- s1 = ----------
-VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
-RESULT: <VOID>
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]]
----------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.TestProperty1()
 RESULT: <VOID>
@@ -4865,6 +4865,169 @@ System.IntPtr ==> STRUCT System.IntPtr[
 System.Object ==> STRUCT System.Object[]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB.F()
+RESULT: 8
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC.F()
+RESULT: 7
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: UNION[
+	| !(0 == p) ~> (HeapRef p)
+	| 0 == p ~> <ERROR: (HeapRef 2)>]
+HEAP:
+{ heap = merge[
+	((VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}) | 0 == p, h0),
+	(!(0 == p) & !(VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}), app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[])))], statics = s1 } where
+---------- h0 = ----------
+2 ==> STRUCT System.InvalidCastException[
+	| System.Exception._HResult ~> UNION[
+		| 0 == p ~> -2147467262]
+	| System.Exception._className ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._data ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._dynamicMethods ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._exceptionMethod ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._exceptionMethodString ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._helpURL ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._innerException ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| 0 == p ~> null]]
+	| System.Exception._message ~> UNION[
+		| 0 == p ~> Specified cast is not valid.]
+	| System.Exception._remoteStackIndex ~> UNION[
+		| 0 == p ~> 0]
+	| System.Exception._remoteStackTraceString ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._safeSerializationManager ~> UNION[
+		| 0 == p ~> (HeapRef 4)]
+	| System.Exception._source ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._stackTrace ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._stackTraceString ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._watsonBuckets ~> UNION[
+		| 0 == p ~> null]
+	| System.Exception._xcode ~> UNION[
+		| 0 == p ~> -532462766]
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| 0 == p ~> 0]]]
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
+		| 0 == p ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
+		| 0 == p ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
+		| 0 == p ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
+		| 0 == p ~> null]]
+5 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !hasKey#10 & 0 == p ~> CLR_SafeSerializationManager_RealType]
+	| System.String.m_StringLength ~> UNION[
+		| !hasKey#10 & 0 == p ~> 37]]
+p ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> UNION[
+		| !(0 == p) & (VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}) ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y]
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> UNION[
+		| !(0 == p) & (VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}) ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]]
+---------- s1 = ----------
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.InvalidCastException ==> STRUCT System.InvalidCastException[]
+System.Object ==> STRUCT System.Object[]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+System.SystemException ==> STRUCT System.SystemException[]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeInterfaceMove(VSharp.CSharpUtils.Tests.Typecast.IMovable, VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: UNION[
+	| !(0 == p) ~> MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[])
+	| 0 == p ~> null]
+HEAP:
+{ heap = merge[
+	(!(0 == p) & !(VSharp.CSharpUtils.Tests.Typecast.IMovable <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.IMovable}), { heap = <empty>, statics = s0 } ⚪ app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]))),
+	(!(0 == p) & (VSharp.CSharpUtils.Tests.Typecast.IMovable <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.IMovable}), { heap = <empty>, statics = s0 } ⚪ app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]))),
+	(0 == p, <empty>)], statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Typecast.IMovable ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.IMovable[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeConcreteMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece.Rate ~> 0
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.Y]
+---------- s1 = ----------
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.VirtualCall(VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual)
+RESULT: UNION[
+	| !(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) ~> F((HeapRef a))
+	| !(0 == a) & (TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) ~> 7
+	| 0 == a ~> 0]
+HEAP:
+{ heap = merge[
+	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) & !(VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
+	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) & (VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
+	((TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) | 0 == a, h0)], statics = s1 } where
+---------- h0 = ----------
+a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.VirtualCal2(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC, System.Int32)
+RESULT: UNION[
+	| !(0 == a) & !(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10 ~> F((HeapRef a))
+	| !(0 == a) & !(n <= 10) ~> 7
+	| !(0 == a) & (VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10 ~> 71
+	| 0 == a ~> 0]
+HEAP:
+{ heap = merge[
+	(!(n <= 10) | (VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) | 0 == a, h0),
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10, { heap = h0, statics = s1 } ⚪ app(F((HeapRef a))))], statics = s1 } where
+---------- h0 = ----------
+a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
+VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
 RESULT: sqrt((double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
 HEAP:
@@ -5302,6 +5465,17 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Piece.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.Y]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Pawn.GetNewField()
 RESULT: 1.VSharp.CSharpUtils.Tests.Typecast.Pawn._newField
 HEAP:
@@ -5319,6 +5493,39 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.Typecast.Pawn._newField ~> field]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Pawn.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.BlackPawn.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.BlackPawn[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Typecast.BlackPawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.BlackPawn[]
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Knight.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
+	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
+VSharp.CSharpUtils.Tests.Typecast.Knight ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
