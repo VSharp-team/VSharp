@@ -9,7 +9,7 @@ namespace VSharp.Test
         public void SmokeTest()
         {
             IZ3Solver solver = new Z3Solver();
-            solver.Encode(Terms.Nop);
+            solver.Encode(Core.API.Terms.Nop);
         }
     }
 }

@@ -44,6 +44,10 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj">
+      <Project>{270acd61-be60-4d72-85ad-d9385fd84c8e}</Project>
+      <Name>VSharp.SILI.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
       <Project>{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}</Project>
       <Name>VSharp.SILI</Name>

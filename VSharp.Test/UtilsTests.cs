@@ -8,6 +8,7 @@ namespace VSharp.Test
         [Test]
         public void IdGeneratorTest1()
         {
+            IdGenerator.reset();
             string v1 = IdGenerator.newId();
             string v2 = IdGenerator.newId();
             string f1 = IdGenerator.startingWith("Foo");
@@ -40,6 +41,14 @@ namespace VSharp.Test
             Assert.AreEqual(v1, "v#!1");
             Assert.AreEqual(f1, "Foo1");
             Assert.AreEqual(f2, "Foo2");
+
+            IdGenerator.restore();
+            string v6 = IdGenerator.startingWith("");
+            string f4 = IdGenerator.startingWith("Foo");
+            string f5 = IdGenerator.startingWith("Foo");
+            Assert.AreEqual(v6, "v#!6");
+            Assert.AreEqual(f4, "Foo4");
+            Assert.AreEqual(f5, "Foo5");
         }
     }
 }

@@ -263,7 +263,7 @@
             return a | !(b & !c) | !(!a | b | !c);
         }
 
-        // (((a & (!b)) | (c & a)) | (a & ((!b) | (!c)))) : it's equal to a, but this result is ok
+        // (!b & a) | (!b & a & c) | ((!b | !c) & a) | (a & c) : it's equal to a, but this result is ok
         public static bool AndOr17(bool a, bool b, bool c, bool d)
         {
             return a & !b | a & b & c | a & !b & c | a & !(b & c);
@@ -305,7 +305,7 @@
             return (a | b) & (!a | b) & (!a | !b);
         }
 
-        // ((((!c) | a) & ((!a) | b)) & ((!c) | (!a) | (!b)))
+        // !c & (!a | b)
         public static bool AndOr24(bool a, bool b, bool c, bool d)
         {
             return (a | b | !c) & (a | !b | !c) & (!a | b | c) & (!a | b | !c) & (!a | !b | !c);
@@ -316,6 +316,12 @@
         {
             bool e = true;
             return a | (a & b & c & d & e);
+        }
+
+        // (a & b) | (b & !c)
+        public static bool AndOr26(bool a, bool b, bool c)
+        {
+            return (a & b) | (!a & b & !c);
         }
 
         public static bool Xor1(bool a, bool b, bool c, bool d)

@@ -36,14 +36,18 @@ namespace VSharp.Test
             Console.WriteLine("Stack Trace:");
 
             StackTrace trace = new StackTrace( true );
-            foreach (StackFrame frame in trace.GetFrames())
+            StackFrame[] stackFrames = trace.GetFrames();
+            if (stackFrames != null)
             {
-                MethodBase frameClass = frame.GetMethod();
-                Console.WriteLine("  {2}.{3} {0}:{1}",
-                    frame.GetFileName(),
-                    frame.GetFileLineNumber(),
-                    frameClass.DeclaringType,
-                    frameClass.Name);
+                foreach (StackFrame frame in stackFrames)
+                {
+                    MethodBase frameClass = frame.GetMethod();
+                    Console.WriteLine("  {2}.{3} {0}:{1}",
+                        frame.GetFileName(),
+                        frame.GetFileLineNumber(),
+                        frameClass.DeclaringType,
+                        frameClass.Name);
+                }
             }
         }
     }
@@ -56,19 +60,19 @@ namespace VSharp.Test
         private const string TestsDirectoryName = "Tests";
         private const string IdealTestFileExtension = ".gold";
 
-        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
-            {
-                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
-                File.AppendAllText(path, text);
-            }
-        }
+//        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
+//        {
+//            if (File.Exists(path))
+//            {
+//                File.Delete(path);
+//            }
+//
+//            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
+//            {
+//                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
+//                File.AppendAllText(path, text);
+//            }
+//        }
 
         private string MethodInfoToString(MethodInfo methodInfo)
         {
@@ -78,7 +82,7 @@ namespace VSharp.Test
 
         private void PrepareSvm()
         {
-            Propositional.ConfigureSimplifier(new Z3Simplifier());
+            // Something like Propositional.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
 
         private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
@@ -112,7 +116,7 @@ namespace VSharp.Test
             return resultsDictionary;
         }
 
-        private IEnumerable<IDictionary<string, string>> ReadAllIdealValues(string testDir, StringBuilder failReason)
+        private IList<IDictionary<string, string>> ReadAllIdealValues(string testDir, StringBuilder failReason)
         {
             string os = Environment.OSVersion.Platform.ToString();
             string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
@@ -170,6 +174,8 @@ namespace VSharp.Test
 //                , "Lists"
 //                , "Typecast"
 //                , "Generic"
+//                , "Strings"
+//                , "VirtualMethods"
                 , "Foo"
                 , "GenericInitialize"
                 , "Bag"
@@ -180,6 +186,7 @@ namespace VSharp.Test
                 , "Employee"
                 , "Helper"
                 , "Array"
+//                , "Unsafe"
             };
 
             if (!Environment.OSVersion.ToString().Contains("Windows"))
@@ -205,13 +212,16 @@ namespace VSharp.Test
                     AppDomain currentDomain = AppDomain.CurrentDomain;
                     currentDomain.AssemblyResolve += LoadFromTestFolder;
 
-                    IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
+                    IDictionary<MethodInfo, string> got = Interpreter.SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
 
-                    IEnumerable<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
-                    if (expected.Count() == 0)
+//                    string os = Environment.OSVersion.Platform.ToString();
+//                    string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
+//                    OverwriteIdealValues(goldFile, got);
+
+                    IList<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
+                    if (expected.Count == 0)
                     {
                         Assert.Fail($"Could not find or parse ideal values for {lib}");
-                        break;
                     }
 
                     foreach (KeyValuePair<MethodInfo, string> keyValuePair in got)

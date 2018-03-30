@@ -73,7 +73,7 @@ namespace VSharp.CSharpUtils.Tests
         public static bool TestSwitch(char c)
         {
             int result;
-            switch(c)
+            switch (c)
             {
                 case 'A':
                     result = 1;
@@ -96,6 +96,60 @@ namespace VSharp.CSharpUtils.Tests
                     break;
             }
             return result < 5;
+        }
+
+        public class NewBool
+        {
+            public bool BoolValue;
+
+            public bool ThrowException()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public static int ExceptionInCondition1(NewBool nb)
+        {
+            int n = 0;
+            if (nb.BoolValue)
+            {
+                n = 67;
+                return 42;
+            }
+            else
+            {
+                n = 56;
+                return 56;
+            }
+        }
+
+        public static int ExceptionInCondition2(NewBool nb)
+        {
+            return nb.BoolValue ? 42 : 56;
+        }
+
+        public static int ExceptionInCondition3(NewBool nb)
+        {
+            if (nb.ThrowException())
+            {
+                return 42;
+            }
+            else
+            {
+                return 56;
+            }
+        }
+
+        public static int DeclareAfterReturn(bool flag, bool f, int x)
+        {
+            if (f)
+            {
+                if (flag)
+                    return 42;
+                int y = x + x;
+                return x + x + y;
+            }
+            return x;
         }
     }
 }

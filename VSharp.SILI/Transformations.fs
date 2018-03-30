@@ -1,5 +1,6 @@
-﻿namespace VSharp
+﻿namespace VSharp.Interpreter
 
+open VSharp
 open JetBrains.Decompiler.Ast
 open global.System
 open System.Reflection
@@ -12,12 +13,11 @@ module Transformations =
             | null -> null
             | :? ILocalVariableDeclarationScopeOwner as owner -> owner.DeclarationScope
             | _ -> findDeclarationScope node.Parent
-        in
-        let scope = findDeclarationScope sibling in
+        let scope = findDeclarationScope sibling
         // Hack: here we use reflection because all local variable instantiation code is internal
-        let localVariableClass = Assembly.GetAssembly(typedefof<ILocalVariable>).GetType("JetBrains.Decompiler.Ast.Impl.LocalVariable") in
-        let instance = Activator.CreateInstance(localVariableClass) in
-        let (|||) = Microsoft.FSharp.Core.Operators.(|||) in
+        let localVariableClass = Assembly.GetAssembly(typedefof<ILocalVariable>).GetType("JetBrains.Decompiler.Ast.Impl.LocalVariable")
+        let instance = Activator.CreateInstance(localVariableClass)
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         localVariableClass.InvokeMember("DeclarationScope", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|scope|]) |> ignore
         localVariableClass.InvokeMember("Kind", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|LocalVariableKind.Regular|]) |> ignore
         localVariableClass.InvokeMember("Name", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|name|]) |> ignore
@@ -26,9 +26,9 @@ module Transformations =
 
     let private createMethodParameter name typ index =
         // Hack: here we use reflection because method parameter instantiation code is internal
-        let methodParameterClass = Assembly.GetAssembly(typedefof<IMethodParameter>).GetType("JetBrains.Decompiler.Ast.Impl.MethodParameter") in
-        let instance = Activator.CreateInstance(methodParameterClass) in
-        let (|||) = Microsoft.FSharp.Core.Operators.(|||) in
+        let methodParameterClass = Assembly.GetAssembly(typedefof<IMethodParameter>).GetType("JetBrains.Decompiler.Ast.Impl.MethodParameter")
+        let instance = Activator.CreateInstance(methodParameterClass)
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         methodParameterClass.InvokeMember("Index", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|index|]) |> ignore
         methodParameterClass.InvokeMember("Kind", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|MethodParameterKind.Regular|]) |> ignore
         methodParameterClass.InvokeMember("Name", BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.SetProperty, Type.DefaultBinder, instance, [|name|]) |> ignore
@@ -41,10 +41,10 @@ module Transformations =
             | OperationType.PrefixIncrement -> OperationType.AssignmentAdd
             | OperationType.PrefixDecrement -> OperationType.AssignmentSubtract
             | _ -> __notImplemented__()
-        let leftArgument = unaryOperation.Argument in
+        let leftArgument = unaryOperation.Argument
         unaryOperation.ReplaceChild(leftArgument, null)
-        let rightArgument = AstFactory.CreateLiteral(Constant.FromValueAndType(1, Types.GetMetadataTypeOfNode unaryOperation), null) in
-        let assignment = AstFactory.CreateBinaryOperation(op, leftArgument, rightArgument, null, unaryOperation.OverflowCheck) in
+        let rightArgument = AstFactory.CreateLiteral(Constant.FromValueAndType(1, MetadataTypes.getMetadataTypeOfNode unaryOperation), null)
+        let assignment = AstFactory.CreateBinaryOperation(op, leftArgument, rightArgument, null, unaryOperation.OverflowCheck)
         DecompilerServices.copyTypeTo unaryOperation assignment
         unaryOperation.ReplaceWith(assignment)
         assignment
@@ -71,65 +71,64 @@ module Transformations =
             | :? ILocalVariableDeclarationStatement as decl -> [decl]
             | :? IEmptyStatement -> []
             | _ -> __notImplemented__()
-        in
         let typeOfIndexer (indexer : ILocalVariableDeclarationStatement) =
-            indexer.VariableReference.Variable.Type |> Types.Constructor.MetadataToDotNetType in
+            indexer.VariableReference.Variable.Type |> MetadataTypes.metadataToDotNetType
         let variableOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.VariableReference.TypedClone<IExpression>()
         let initializerOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.Initializer.TypedClone<IExpression>()
-        let indexerTypes = List.map typeOfIndexer indexers in
-        let indexerVariables = List.map variableOfIndexer indexers in
-        let indexerInitializers = List.map initializerOfIndexer indexers in
+        let indexerTypes = List.map typeOfIndexer indexers
+        let indexerVariables = List.map variableOfIndexer indexers
+        let indexerInitializers = List.map initializerOfIndexer indexers
 
-        let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(Array.ofList indexerTypes) in
-        let lambdaType = DecompilerServices.resolveType lambdaDotNetType in
-        let condition = forStatement.Condition in
-        let iterator = forStatement.Iterator in
-        let internalBody = forStatement.Body in
+        let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(Array.ofList indexerTypes)
+        let lambdaType = DecompilerServices.resolveType lambdaDotNetType
+        let condition = forStatement.Condition
+        let iterator = forStatement.Iterator
+        let internalBody = forStatement.Body
         forStatement.ReplaceChild(condition, null)
         forStatement.ReplaceChild(iterator, null)
         forStatement.ReplaceChild(internalBody, null)
 
-        let recursiveCall = AstFactory.CreateDelegateCall(null, null, Array.ofList indexerVariables, null) in
-        let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, null) in
+        let recursiveCall = AstFactory.CreateDelegateCall(null, null, Array.ofList indexerVariables, null)
+        let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, null)
 
         let internalBodyContent =
             if internalBody :? IBlockStatement
             then (internalBody :?> IBlockStatement).Statements :> seq<_>
             else [internalBody] :> seq<_>
-        let externalBody = AstFactory.CreateBlockStatement(Seq.append internalBodyContent [iterator; recursiveCallStatement]) in
-        let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null) in
-        let body = AstFactory.CreateBlockStatement([ifStatement]) in
+        let externalBody = AstFactory.CreateBlockStatement(Seq.append internalBodyContent [iterator; recursiveCallStatement])
+        let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null)
+        let body = AstFactory.CreateBlockStatement([ifStatement])
         // Continue consumers should only belong to block statements
         DecompilerServices.setPropertyOfNode recursiveCall "ContinueConsumer" true
 
-        let signature = AstFactory.CreateFunctionSignature() in
-        let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null) in
-        let lambdaBlockStatement = AstFactory.CreateExpressionStatement(lambdaBlock, null) in
+        let signature = AstFactory.CreateFunctionSignature()
+        let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null)
+        let lambdaBlockStatement = AstFactory.CreateExpressionStatement(lambdaBlock, null)
         let mapIndexerNameToMethodParameter = new System.Collections.Generic.Dictionary<string, IMethodParameter>()
         let addParameterToSignature index (variable : ILocalVariableDeclarationStatement) =
-            let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index in
+            let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index
             signature.Parameters.Add(parameter)
             mapIndexerNameToMethodParameter.Add(variable.VariableReference.Variable.Name, parameter)
         List.iteri addParameterToSignature indexers
         DecompilerServices.setTypeOfNode lambdaBlockStatement lambdaType
 
         let indexerMethodParameters = signature.Parameters
-        let indexerVariableNames = List.map (fun (index: ILocalVariableDeclarationStatement) -> index.VariableReference.Variable.Name) indexers in
+        let indexerVariableNames = List.map (fun (index: ILocalVariableDeclarationStatement) -> index.VariableReference.Variable.Name) indexers
         body.VisitPreorder(fun (node : INode) ->
             match node with
             | :? ILocalVariableReferenceExpression as localVar ->
                 if List.contains localVar.Variable.Name indexerVariableNames
                 then
-                    let methodParameter = mapIndexerNameToMethodParameter.[localVar.Variable.Name] in
-                    let parameterReference = AstFactory.CreateParameterReference(methodParameter, localVar.InstructionReference) in
+                    let methodParameter = mapIndexerNameToMethodParameter.[localVar.Variable.Name]
+                    let parameterReference = AstFactory.CreateParameterReference(methodParameter, localVar.InstructionReference)
                     localVar.ReplaceWith(parameterReference)
             | _ -> ()
         )
 
-        let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null) in
-        let callStatement = AstFactory.CreateExpressionStatement(call, null) in
+        let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null)
+        let callStatement = AstFactory.CreateExpressionStatement(call, null)
 
         DecompilerServices.setPropertyOfNode recursiveCall "InlinedCallTarget" lambdaBlock
         DecompilerServices.setPropertyOfNode signature "InlinedCall" true
@@ -138,9 +137,9 @@ module Transformations =
         match forStatement.Parent with
         | null -> ()
         | :? IBlockStatement as parentBlock ->
-            let newParent = parentBlock.TypedClone<IBlockStatement>() in
-            let forStatementIndex = Seq.findIndex ((=) (forStatement :> IStatement)) parentBlock.Statements in
-            let newForStatement = Seq.item forStatementIndex newParent.Statements in
+            let newParent = parentBlock.TypedClone<IBlockStatement>()
+            let forStatementIndex = Seq.findIndex ((=) (forStatement :> IStatement)) parentBlock.Statements
+            let newForStatement = Seq.item forStatementIndex newParent.Statements
             let appendStatement statement = newParent.Statements.AddBefore(newForStatement, statement)
             appendStatement callStatement
             newParent.Statements.Remove(newForStatement) |> ignore
@@ -165,7 +164,7 @@ module Transformations =
 
     let extractExceptionFilter (ast : IBlockStatement) =
         if ast.Statements.Count <> 1 then __notImplemented__()
-        let filterStatement = ast.Statements.First in
+        let filterStatement = ast.Statements.First
         match filterStatement with
         | :? IIfStatement as cond
             when (cond.Then :? ISuccessfulFilteringStatement) && (cond.Else :? IRethrowStatement) -> cond.Condition

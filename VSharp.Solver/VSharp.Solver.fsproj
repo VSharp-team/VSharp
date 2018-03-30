@@ -63,6 +63,10 @@
     <Compile Include="Solver.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj">
+      <Project>{270acd61-be60-4d72-85ad-d9385fd84c8e}</Project>
+      <Name>VSharp.SILI.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
       <Project>{6a6742b3-e86e-4fa5-afe1-361f38dce4c3}</Project>
       <Name>VSharp.SILI</Name>

@@ -1,11 +1,13 @@
 namespace VSharp
 
+open System.Collections.Generic
+
 module public Seq =
-    let filterMap mapper xs =
-        seq { for x in xs do
-                match mapper x with
-                | Some y -> yield y
-                | None -> () }
+    let foldi f st xs =
+        let i = ref (-1)
+        Seq.fold (fun s t ->
+            i := !i + 1
+            f s !i t) st xs
 
     let public (|Cons|Empty|) s =
         if Seq.isEmpty s then Empty
@@ -31,28 +33,39 @@ module public List =
 
     let public append3 xs ys zs = List.append xs (List.append ys zs)
 
-    let rec public filterMap mapper = function
-        | [] -> []
-        | x::xs ->
-            match mapper x with
-            | Some y -> y::(filterMap mapper xs)
-            | None -> (filterMap mapper xs)
-
     let rec public filterMap2 mapper xs ys =
         match xs, ys with
         | [], [] -> []
         | x::xs, y::ys ->
-            match mapper x y with
-            | Some z -> z::(filterMap2 mapper xs ys)
-            | None -> (filterMap2 mapper xs ys)
+            let z = mapper x y
+            optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
+
+    let public unique = function
+        | [] -> internalfail "unexpected non-empty list"
+        | x::xs ->
+            assert(List.forall ((=)x) xs)
+            x
+
+    let public minus xs ys =
+        let l1 = List.length xs
+        let l2 = List.length ys
+        let result, tail = List.splitAt (l2 - l1) xs
+        assert(tail = ys)
+        result
+
+    let rec public changeLast f xs =
+        let cons x = function
+            | [] -> [f x]
+            | xs -> x :: xs
+        List.foldBack cons xs []
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 
     let foldMap mapping state table =
         let mapFolder (map, state) key value =
-            let newValue, newState = mapping key state value in
+            let newValue, newState = mapping key state value
             (Map.add key newValue map, newState)
         Map.fold mapFolder (Map.empty, state) table
 
@@ -65,14 +78,14 @@ module public Map =
             Map.empty map
 
 module public Dict =
-    let public getValueOrUpdate (dict : System.Collections.Generic.IDictionary<'a, 'b>) key fallback =
+    let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
         else
-            let newVal = fallback() in
+            let newVal = fallback()
             dict.Add(key, newVal)
             newVal
 
-    let public tryGetValue (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+    let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
 
@@ -80,10 +93,20 @@ module public Dict =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue()
 
-module public Stack =
-    type 'a stack = 'a list
+    let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
+        let result = new Dictionary<'a, 'b>()
+        Seq.iter result.Add s
+        result :> IDictionary<'a, 'b>
 
-    let peak = function
+    let public equals (dict1 : IDictionary<'a,'b>) (dict2 : IDictionary<'a, 'b>) =
+        dict1.Keys.Count = dict2.Keys.Count &&
+        dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
+
+type 'a stack = 'a list
+
+module public Stack =
+
+    let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
         | hd::tl -> hd
 
@@ -115,10 +138,10 @@ module public Stack =
 
     let tryFindBottom = List.tryFindBack
 
-type 'a NonEmptyList = 'a * 'a list
+type 'a nonEmptyList = 'a * 'a list
 
 module public NonEmptyList =
-    let ofList : 'a list -> 'a NonEmptyList = function
+    let ofList : 'a list -> 'a nonEmptyList = function
         | x::xs -> (x, xs)
         | _ -> internalfail "constructing non-empty list from empty list"
 

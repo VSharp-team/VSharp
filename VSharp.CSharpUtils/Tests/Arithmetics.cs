@@ -146,7 +146,7 @@ namespace VSharp.CSharpUtils.Tests
             return (a * 512) << 23;
         }
 
-        // Expecting (a >> 20) / 1024 TODO: check
+        // Expecting (a >> 20) / 1024
         public static int ShiftDevision1(byte a)
         {
             return (a >> 20) / 1024;

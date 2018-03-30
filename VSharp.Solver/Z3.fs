@@ -3,18 +3,19 @@ namespace VSharp
 open JetBrains.Decompiler.Ast
 open Microsoft.Z3
 open System.Collections.Generic
+open VSharp.Core
 
 module internal Z3 =
 
     let private ctx = new Context()
     let private solver = ctx.MkSolver()
-    let private sorts = new Dictionary<VSharp.TermType, Microsoft.Z3.Sort>()
+    let private sorts = new Dictionary<termType, Microsoft.Z3.Sort>()
 
 // ------------------------------- Cache -------------------------------
 
-    type EncodingCache = { e2t : IDictionary<Expr, Term>; t2e : IDictionary<Term, Expr> }
+    type EncodingCache = { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
 
-    let private freshCache () = {e2t = new Dictionary<Expr, Term>(); t2e = new Dictionary<Term, Expr>()}
+    let private freshCache () = {e2t = new Dictionary<Expr, term>(); t2e = new Dictionary<term, Expr>()}
 
 // ------------------------------- Encoding -------------------------------
 
@@ -25,16 +26,17 @@ module internal Z3 =
             | Numeric _ as t when Types.IsInteger t -> ctx.MkIntSort() :> Sort
             | Numeric _ as t when Types.IsReal t -> ctx.MkRealSort() :> Sort
             | Numeric t -> ctx.MkEnumSort(t.FullName, t.GetEnumNames()) :> Sort
-            | String
             | ArrayType _
             | Func _
             | Void
             | Bottom
-            | VSharp.Null
+            | Null
             | StructType _
             | ClassType _
-            | SubType _
-            | PointerType _ -> __notImplemented__())
+            | InterfaceType _
+            | TypeVariable _
+            | Reference _
+            | Pointer _ -> __notImplemented__())
 
     let encodeConcrete (obj : obj) typ =
         match typ with
@@ -49,7 +51,7 @@ module internal Z3 =
 
     let encodeConstant (cache : EncodingCache) (name : string) typ term =
         Dict.tryGetValue2 cache.t2e term (fun () ->
-            let result = ctx.MkConst(name, type2Sort typ) in
+            let result = ctx.MkConst(name, type2Sort typ)
             cache.e2t.[result] <- term
             cache.t2e.[term] <- result
             result)
@@ -59,7 +61,7 @@ module internal Z3 =
             match op with
             | Operator(operator, _) ->
                 if stopper operator args then
-                    let name = IdGenerator.startingWith "%tmp" in
+                    let name = IdGenerator.startingWith "%tmp"
                     encodeConstant cache name typ term
                 else
                     match operator with
@@ -84,72 +86,72 @@ module internal Z3 =
             | Application id ->
                 let decl =
                     match id with
-                    | MetadataMethodIdentifier mm -> __notImplemented__()
-                    | DelegateIdentifier _ -> __notImplemented__()
-                    | StandardFunctionIdentifier sf -> ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, type2Sort typ)
-                in ctx.MkApp(decl, encodeTerms cache stopper args)
+                    | :? IMethodIdentifier -> __notImplemented__()
+                    | :? IDelegateIdentifier -> __notImplemented__()
+                    | :? StandardFunctionIdentifier as sf -> ctx.MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
+                    | _ -> __notImplemented__()
+                ctx.MkApp(decl, encodeTerms cache stopper args)
             | Cast _ ->
                 __notImplemented__())
 
     and makeUnary<'a, 'b when 'a :> Expr and 'b :> Expr>
             (cache : EncodingCache)
-            (stopper : OperationType -> Term list -> bool)
+            (stopper : OperationType -> term list -> bool)
             (constructor : 'a -> 'b)
-            (args : Term list) : 'b =
+            (args : term list) : 'b =
         match args with
         | [x] -> constructor (encodeTermExt<'a> cache stopper x)
         | _ -> internalfail "unary operation should have exactly one argument"
 
     and makeBinary<'a, 'b, 'c when 'a :> Expr and 'b :> Expr and 'c :> Expr>
             (cache : EncodingCache)
-            (stopper : OperationType -> Term list -> bool)
+            (stopper : OperationType -> term list -> bool)
             (constructor : 'a * 'b -> 'c)
-            (args : Term list) : 'c =
+            (args : term list) : 'c =
         match args with
         | [x; y] -> constructor(encodeTermExt<'a> cache stopper x, encodeTermExt<'b> cache stopper y)
         | _ -> internalfail "binary operation should have exactly two arguments"
 
-    and encodeTerms<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> Term list -> bool) (ts : Term seq) : 'a array =
+    and encodeTerms<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (ts : term seq) : 'a array =
         ts |> Seq.map (encodeTermExt<'a> cache stopper) |> FSharp.Collections.Array.ofSeq
 
-    and encodeTermExt<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> Term list -> bool) (t : Term) : 'a =
+    and encodeTermExt<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (t : term) : 'a =
         match t.term with
         | Concrete(obj, typ) -> encodeConcrete obj typ :?> 'a
-        | Constant(name, source, typ) -> encodeConstant cache name typ t :?> 'a
+        | Constant(name, source, typ) -> encodeConstant cache name.v typ t :?> 'a
         | Expression(op, args, typ) -> encodeExpression cache stopper t op args typ :?> 'a
         | _ -> __notImplemented__()
 
     let encodeTerm t =
-        let cache = freshCache() in
+        let cache = freshCache()
         (encodeTermExt cache (fun _ _ -> false) t :> AST, cache)
 
 
 // ------------------------------- Decoding -------------------------------
 
-    let rec decodeExpr cache op t mtd (expr : Expr) =
-        Expression (Operator(op, false)) (expr.Args |> Seq.map (decode cache) |> List.ofSeq) t mtd
+    let rec decodeExpr cache op t (expr : Expr) =
+        Expression (Operator(op, false)) (expr.Args |> Seq.map (decode cache) |> List.ofSeq) t
 
-    and decodeBoolExpr cache op mtd (expr : BoolExpr) =
-        decodeExpr cache op Bool mtd expr
+    and decodeBoolExpr cache op (expr : BoolExpr) =
+        decodeExpr cache op Bool expr
 
     and decode (cache : EncodingCache) (expr : Expr) =
         if cache.e2t.ContainsKey(expr) then cache.e2t.[expr]
         else
             match expr with
-            | :? IntNum as i -> Terms.Concrete i.Int (Numeric typeof<int>) Metadata.empty
-            | :? RatNum as r -> Terms.Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric typeof<int>) Metadata.empty
+            | :? IntNum as i -> Concrete i.Int (Numeric typeof<int>)
+            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric typeof<int>)
             | :? BoolExpr as b ->
-                let mtd = Metadata.empty in
-                if b.IsTrue then MakeTrue mtd
-                elif b.IsFalse then MakeFalse mtd
-                elif b.IsNot then decodeBoolExpr cache OperationType.LogicalNeg mtd b
-                elif b.IsAnd then decodeBoolExpr cache OperationType.LogicalAnd mtd b
-                elif b.IsOr then decodeBoolExpr cache OperationType.LogicalOr mtd b
-                elif b.IsEq then decodeBoolExpr cache OperationType.Equal mtd b
-                elif b.IsGT then decodeBoolExpr cache OperationType.Greater mtd b
-                elif b.IsGE then decodeBoolExpr cache OperationType.GreaterOrEqual mtd b
-                elif b.IsLT then decodeBoolExpr cache OperationType.Less mtd b
-                elif b.IsLE then decodeBoolExpr cache OperationType.LessOrEqual mtd b
+                if b.IsTrue then True
+                elif b.IsFalse then False
+                elif b.IsNot then decodeBoolExpr cache OperationType.LogicalNeg b
+                elif b.IsAnd then decodeBoolExpr cache OperationType.LogicalAnd b
+                elif b.IsOr then decodeBoolExpr cache OperationType.LogicalOr b
+                elif b.IsEq then decodeBoolExpr cache OperationType.Equal b
+                elif b.IsGT then decodeBoolExpr cache OperationType.Greater b
+                elif b.IsGE then decodeBoolExpr cache OperationType.GreaterOrEqual b
+                elif b.IsLT then decodeBoolExpr cache OperationType.Less b
+                elif b.IsLE then decodeBoolExpr cache OperationType.LessOrEqual b
                 else __notImplemented__()
             | _ ->
                 __notImplemented__()
@@ -158,7 +160,7 @@ module internal Z3 =
 // ------------------------------- Solving, etc. -------------------------------
 
     let solve expr =
-        let result = solver.Check(expr) in
+        let result = solver.Check(expr)
         match result with
         | Status.SATISFIABLE -> SmtSat solver.Model
         | Status.UNSATISFIABLE -> SmtUnsat
@@ -166,18 +168,17 @@ module internal Z3 =
         | _ -> __unreachable__()
 
     let simplifyPropositional t =
-        let cache = freshCache() in
+        let cache = freshCache()
         let stopper op args =
             match op with
             | OperationType.LogicalNeg
             | OperationType.LogicalAnd
             | OperationType.LogicalOr
-            | OperationType.Equal when Seq.forall IsBool args ->
+            | OperationType.Equal when List.forall (TypeOf >> Types.IsBool) args ->
                 false
             | _ -> true
-        in
-        let encoded = encodeTermExt cache stopper t in
-        let simple = encoded.Simplify() in
+        let encoded = encodeTermExt cache stopper t
+        let simple = encoded.Simplify()
         let result = decode cache simple
         printfn "SIMPLIFICATION of %O   GAVE   %O" t result
         printfn "ON SMT level encodings are %O    AND     %O" encoded simple

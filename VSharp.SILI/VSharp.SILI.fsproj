@@ -53,37 +53,33 @@
   <ItemGroup>
     <Content Include="packages.config" />
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Options.fs" />
     <Compile Include="DecompilerServices.fs" />
-    <Compile Include="Operations.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="Terms.fs" />
-    <Compile Include="State.fs" />
-    <Compile Include="Propositional.fs" />
-    <Compile Include="Merging.fs" />
-    <Compile Include="Common.fs" />
-    <Compile Include="Arithmetics.fs" />
-    <Compile Include="Strings.fs" />
-    <Compile Include="Pointers.fs" />
-    <Compile Include="Operators.fs" />
-    <Compile Include="Array.fs" />
-    <Compile Include="Memory.fs" />
+    <Compile Include="MetadataTypes.fs" />
     <Compile Include="Transformations.fs" />
-    <Compile Include="ControlFlow.fs" />
     <Compile Include="Functions.fs" />
-    <Compile Include="CallGraph.fs" />
     <Compile Include="Interpreter.fs" />
-    <Compile Include="Extern\SDK.fs" />
+    <Compile Include="Extern\System\String.fsi" />
+    <Compile Include="Extern\System\String.fs" />
     <Compile Include="Extern\System\SystemArray.fsi" />
     <Compile Include="Extern\System\SystemArray.fs" />
     <Compile Include="Extern\System\Math.fsi" />
     <Compile Include="Extern\System\Math.fs" />
     <Compile Include="Extern\System\Environment.fsi" />
     <Compile Include="Extern\System\Environment.fs" />
+    <Compile Include="Extern\System\Thread.fsi" />
+    <Compile Include="Extern\System\Thread.fs" />
     <Compile Include="SVM.fs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
+      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
+      <Name>VSharp.CSharpUtils</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj">
+      <Project>{270acd61-be60-4d72-85ad-d9385fd84c8e}</Project>
+      <Name>VSharp.SILI.Core</Name>
+    </ProjectReference>
     <Reference Include="FSharp.Core">
       <HintPath>..\packages\FSharp.Core.4.2.2\lib\net45\FSharp.Core.dll</HintPath>
     </Reference>
@@ -102,11 +98,6 @@
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
-      <Name>VSharp.CSharpUtils</Name>
-      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
       <Name>VSharp.Utils</Name>
       <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
@@ -115,9 +106,6 @@
     <Reference Include="JetBrains.Annotations">
       <HintPath>..\packages\JetBrains.Annotations.10.1.4\lib\net20\JetBrains.Annotations.dll</HintPath>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.
