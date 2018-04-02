@@ -47,4 +47,39 @@
         }
 
     }
+
+    public static class GCD
+    {
+        private static int GcdRec(int n, int m)
+        {
+            if (n > m)
+                return GcdRec(m, n);
+            if (n == 0)
+                return m;
+            return GcdRec(n, m - n);
+        }
+
+        public static int Gcd1()
+        {
+            return GcdRec(15, 4);
+        }
+
+        public static int Gcd15()
+        {
+            return GcdRec(30, 75);
+        }
+    }
+
+    public static class McCarthy91
+    {
+        private static int McCarthy(int n)
+        {
+            return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
+        }
+
+        public static bool CheckMc91(int x)
+        {
+            return x <= 101 && McCarthy(x) != 91;
+        }
+    }
 }

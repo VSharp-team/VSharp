@@ -14,14 +14,16 @@ type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
 type IFunctionIdentifier =
-    interface end
+    abstract ReturnType : termType
 type StandardFunctionIdentifier(id : StandardFunction) =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Numeric typeof<double>
     member x.Function = id
     override x.ToString() = id.ToString()
 
 type EmptyIdentifier() =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Core.Void
 
 type arrayReferenceTarget =
     | ArrayContents

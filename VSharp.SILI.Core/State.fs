@@ -29,6 +29,22 @@ type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : compositionContext -> state -> term
 
+[<AbstractClass>]
+type TermExtractor() =
+    abstract Extract : term -> term
+    override x.Equals other = x.GetType() = other.GetType()
+    override x.GetHashCode() = x.GetType().GetHashCode()
+type private IdTermExtractor() =
+    inherit TermExtractor()
+    override x.Extract t = t
+[<StructuralEquality;NoComparison>]
+type extractingSymbolicConstantSource =
+    {source : IStatedSymbolicConstantSource; extractor : TermExtractor}
+    static member wrap source = {source = source; extractor = IdTermExtractor()}
+    interface IStatedSymbolicConstantSource with
+        override x.SubTerms = x.source.SubTerms
+        override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
+
 module internal State =
     module SymbolicHeap = Heap
 
