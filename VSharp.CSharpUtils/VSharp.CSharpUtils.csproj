@@ -57,7 +57,7 @@
     <Compile Include="Tests\Lists.cs" />
     <Compile Include="Tests\Typecast.cs" />
     <Compile Include="Tests\Unsafe.cs" />
-    <Compile Include="Tests\VirtualMethod.cs" />
+    <Compile Include="Tests\Method.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

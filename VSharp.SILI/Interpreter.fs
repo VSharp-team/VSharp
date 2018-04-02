@@ -112,7 +112,7 @@ module internal Interpreter =
                 reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
             | DecompilerServices.DecompilationResult.VirtualMethod decompiledMethod ->
                 (assert Option.isSome this)
-                reduceVirtualMethod assemblyPath caller state (Option.get this) parameters decompiledMethod k
+                decompileAndReduceVirtualMethod assemblyPath caller state (Option.get this) parameters decompiledMethod k
             | DecompilerServices.DecompilationResult.DecompilationError ->
                 failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
@@ -127,7 +127,7 @@ module internal Interpreter =
         let returnType = MetadataTypes.fromMetadataType funcId.metadataMethod.Signature.ReturnType
         HigherOrderApply funcId state parameters returnType k
 
-    and reduceVirtualMethod assemblyPath caller state this parameters decompiledMethodPattern k =
+    and decompileAndReduceVirtualMethod assemblyPath caller state this parameters decompiledMethodPattern k =
         let metadataMethodPattern = decompiledMethodPattern.MetadataMethod
         let qualifiedTypeNamePattern = metadataMethodPattern.DeclaringType.AssemblyQualifiedName
         let decompliledClass = DecompilerServices.decompileClass assemblyPath qualifiedTypeNamePattern

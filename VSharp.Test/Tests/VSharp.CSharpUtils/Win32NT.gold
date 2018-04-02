@@ -4874,23 +4874,23 @@ System.IntPtr ==> STRUCT System.IntPtr[
 System.Object ==> STRUCT System.Object[]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB.F()
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualB.F()
 RESULT: 8
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB[]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualB[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualB[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC.F()
+VSharp.CSharpUtils.Tests.Methods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualB[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualC.F()
 RESULT: 7
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
+1 ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
-METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
+VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
 	| !(0 == p) ~> (HeapRef p)
 	| 0 == p ~> <ERROR: (HeapRef 2)>]
@@ -4976,10 +4976,10 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
-METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeInterfaceMove(VSharp.CSharpUtils.Tests.Typecast.IMovable, VSharp.CSharpUtils.Tests.Typecast.Coord)
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeInterfaceMove(VSharp.CSharpUtils.Tests.Typecast.IMovable, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
 	| !(0 == p) ~> MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[])
 	| 0 == p ~> null]
@@ -4989,9 +4989,9 @@ HEAP:
 	(!(0 == p) & (VSharp.CSharpUtils.Tests.Typecast.IMovable <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.IMovable}), { heap = <empty>, statics = s0 } ⚪ app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]))),
 	(0 == p, <empty>)], statics = s0 } where
 ---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
 VSharp.CSharpUtils.Tests.Typecast.IMovable ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.IMovable[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
-METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.MakeConcreteMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
+METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeConcreteMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: (HeapRef 1)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -5002,41 +5002,41 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.Y]
 ---------- s1 = ----------
 System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.VirtualCall(VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual)
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualMethod.VirtualCall(VSharp.CSharpUtils.Tests.Methods.IVirtual)
 RESULT: UNION[
-	| !(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) ~> F((HeapRef a))
-	| !(0 == a) & (TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) ~> 7
+	| !(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> F((HeapRef a))
+	| !(0 == a) & (TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> 7
 	| 0 == a ~> 0]
 HEAP:
 { heap = merge[
-	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) & !(VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
-	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) & (VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
-	((TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual} <: VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC) | 0 == a, h0)], statics = s1 } where
+	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
+	(!(0 == a) & !(TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual}), { heap = h0, statics = s1 } ⚪ app(F((HeapRef a)))),
+	((TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) | 0 == a, h0)], statics = s1 } where
 ---------- h0 = ----------
-a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual}[]
+a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Methods.IVirtual}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod.VirtualCal2(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC, System.Int32)
+VSharp.CSharpUtils.Tests.Methods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.Methods.IVirtual[]
+VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
+VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualMethod.VirtualCal2(VSharp.CSharpUtils.Tests.Methods.VirtualC, System.Int32)
 RESULT: UNION[
-	| !(0 == a) & !(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10 ~> F((HeapRef a))
+	| !(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.VirtualC}) & n <= 10 ~> F((HeapRef a))
 	| !(0 == a) & !(n <= 10) ~> 7
-	| !(0 == a) & (VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10 ~> 71
+	| !(0 == a) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.VirtualC}) & n <= 10 ~> 71
 	| 0 == a ~> 0]
 HEAP:
 { heap = merge[
-	(!(n <= 10) | (VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) | 0 == a, h0),
-	(!(0 == a) & !(VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}) & n <= 10, { heap = h0, statics = s1 } ⚪ app(F((HeapRef a))))], statics = s1 } where
+	(!(n <= 10) | (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.VirtualC}) | 0 == a, h0),
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable1{VSharp.CSharpUtils.Tests.Methods.VirtualC}) & n <= 10, { heap = h0, statics = s1 } ⚪ app(F((HeapRef a))))], statics = s1 } where
 ---------- h0 = ----------
-a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC}[]
+a ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Methods.VirtualC}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.IVirtual[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualC[]
-VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.VirtualMethods.VirtualMethod[]
+VSharp.CSharpUtils.Tests.Methods.IVirtual ==> STRUCT VSharp.CSharpUtils.Tests.Methods.IVirtual[]
+VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
+VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
 RESULT: sqrt((double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
 HEAP:
