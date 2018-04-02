@@ -12,6 +12,24 @@ type ImplementsAttribute(name : string) =
     inherit System.Attribute()
     member x.Name = name
 
+[<StructuralEquality;NoComparison>]
+type MetadataMethodIdentifier =
+    { metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod }
+    interface Core.IMethodIdentifier with
+        member x.IsStatic = x.metadataMethod.IsStatic
+        member x.DeclaringTypeAQN = x.metadataMethod.DeclaringType.AssemblyQualifiedName
+        member x.Token = x.metadataMethod.Token.ToString()
+        override x.ReturnType = MetadataTypes.fromMetadataType x.metadataMethod.Signature.ReturnType
+    override x.ToString() = x.metadataMethod.Name
+
+[<StructuralEquality;NoComparison>]
+type DelegateIdentifier =
+    { metadataDelegate : JetBrains.Decompiler.Ast.INode; closureContext : Core.frames transparent }
+    interface Core.IDelegateIdentifier with
+        member x.ContextFrames = x.closureContext.v
+        override x.ReturnType = Core.Void // TODO
+    override x.ToString() = "<delegate>"
+
 module internal Interpreter =
 
 // ------------------------------- Utilities -------------------------------

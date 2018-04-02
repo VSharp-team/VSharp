@@ -112,7 +112,9 @@ module API =
         let SizeOf t = Types.sizeOf t
 
         let TLength = Arrays.lengthTermType
+        let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
+        let IsReal t = Types.isReal t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t

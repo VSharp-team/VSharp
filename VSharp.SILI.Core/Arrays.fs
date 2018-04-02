@@ -153,3 +153,10 @@ module internal Arrays =
         let contents = Seq.zip indices linearContent |> Heap.ofSeq
         let constant = Constant mtd defaultArrayName (DefaultArray()) typ
         Array mtd (makeNumber rank mtd) length (zeroLowerBound mtd rank) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
+
+    type LengthExtractor() =
+        inherit TermExtractor()
+        override x.Extract t = length t
+    type RankExtractor() =
+        inherit TermExtractor()
+        override x.Extract t = rank t

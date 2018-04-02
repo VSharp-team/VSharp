@@ -65,3 +65,7 @@ module internal Pointers =
         | HeapRef(((a, _), []), _, _, _) -> a
         | Union gvs -> Merging.guardedMap topLevelLocation gvs
         | _ -> __notImplemented__()
+
+    type HeapAddressExtractor() =
+        inherit TermExtractor()
+        override x.Extract t = topLevelLocation t

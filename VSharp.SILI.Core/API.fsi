@@ -70,7 +70,9 @@ module API =
         val SizeOf : termType -> int
 
         val TLength : termType
+        val IsBool : termType -> bool
         val IsInteger : termType -> bool
+        val IsReal : termType -> bool
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
