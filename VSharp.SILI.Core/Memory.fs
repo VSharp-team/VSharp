@@ -383,7 +383,7 @@ module internal Memory =
         let ptr = {location = addr; fullyQualifiedLocation = StaticRef metadata location []; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update statics Timestamp.zero keyMapper valueMapper lazyInstantiator ptr
 
-    let private mutateStack metadata state location path time value =
+    let mutateStack metadata state location path time value =
         commonHierarchicalStackAccess false (fun _ _ -> (value, time)) metadata state location path
 
     let private mutateHeap restricted metadata h location path time arrayTarget value =
