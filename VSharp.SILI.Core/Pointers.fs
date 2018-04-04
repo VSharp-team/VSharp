@@ -69,3 +69,9 @@ module internal Pointers =
     type HeapAddressExtractor() =
         inherit TermExtractor()
         override x.Extract t = topLevelLocation t
+
+    let nameSymbolicThisOnStack = "symbolic this on stack"
+
+    let (|SymbolicThisOnStack|_|) = function
+       | StackRef((name, token), _, _) when nameSymbolicThisOnStack = name -> Some(SymbolicThisOnStack token)
+       | _ -> None

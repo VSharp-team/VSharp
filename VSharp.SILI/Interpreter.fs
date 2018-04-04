@@ -31,6 +31,8 @@ type DelegateIdentifier =
     override x.ToString() = "<delegate>"
 
 module internal Interpreter =
+    open VSharp.Core.API
+    open VSharp.Core.API
 
 // ------------------------------- Utilities -------------------------------
 
@@ -136,7 +138,7 @@ module internal Interpreter =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
         reduceMethod caller state parameters assemblyPath this qualifiedTypeName metadataMethod decompiledMethod k
 
-    and reduceAbstractMethodApplication caller funcId state parameters this k =
+    and reduceAbstractMethodApplication caller funcId state this parameters k =
         let k = Enter caller state k
         let parameters =
             match parameters with
@@ -167,7 +169,7 @@ module internal Interpreter =
             let decompiledMethod = DecompilerServices.decompileMethod assemblyPath typeInfo.AssemblyQualifiedName virtualMethod
             match decompiledMethod with
             | _ when virtualMethod.IsAbstract ->
-                reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state parameters this k
+                reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k
             | DecompilerServices.DecompilationResult.MethodWithoutInitializer m
             | DecompilerServices.DecompilationResult.VirtualMethod m ->
                 printfn "DECOMPILED %s:\n%s" typeInfo.AssemblyQualifiedName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(m))
@@ -182,11 +184,11 @@ module internal Interpreter =
                     BranchStatements state
                         (fun state k -> k (API.Types.IsSubtype constraintType persistentType &&& API.Types.IsSubtype constraintType localType, state))
                         (fun state k -> decompileAndReduceMethodFromTermType state this parameters constraintType metadataMethodPattern k)
-                        (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern} state parameters this k) k) k
+                        (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern} state this parameters k) k) k
 
         GuardedApplyStatement state this
             (fun state term k ->
-                let persistentType, localType, constraintType = Terms.PersisentLocalAndConstraintTypes this patternTermType
+                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes this patternTermType
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters metadataMethodPattern k) k
 
     and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =

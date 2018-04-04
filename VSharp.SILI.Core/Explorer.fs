@@ -19,8 +19,10 @@ type IDelegateIdentifier =
     abstract ContextFrames : frames
 
 module internal Explorer =
+    open System
 
     let private currentlyExploredFunctions = new HashSet<IFunctionIdentifier>()
+    let private currentlyCalledFunctions = new HashSet<IFunctionIdentifier>()
 
     type private NullInterpreter() =
         interface IInterpreter with
@@ -51,29 +53,28 @@ module internal Explorer =
         interpreter.Reset()
         let metadata = Metadata.empty
         currentlyExploredFunctions.Add id |> ignore
-        let this, state =
+        let this, state, isMethodOfStruct =
             match id with
             | :? IMethodIdentifier as m ->
                 let declaringQualifiedName = m.DeclaringTypeAQN
                 let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.fromDotNetType
                 let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType declaringQualifiedName) }
-                if m.IsStatic then (None, initialState)
+                if m.IsStatic then (None, initialState, false)
                 else
-                    let instance, state = Memory.allocateSymbolicInstance metadata initialState declaringType
-                    if Terms.isHeapRef instance then (Some instance, state)
-                    else
-                        let key = ("external data", m.Token)
-                        let state = Memory.newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, declaringType)]
-                        (Some <| Memory.referenceLocalVariable metadata state key true, state)
+                    Memory.makeSymbolicThis metadata initialState m.Token declaringType
+                    |> (fun (f, s, flag) -> Some f, s, flag)
             | :? IDelegateIdentifier as dlgt ->
                 let state = { State.empty with frames = dlgt.ContextFrames }
                 // TODO: Create dummy frame
-                (None, state)
+                (None, state, false)
             | _ -> __notImplemented__()
-        invoke id state this (fun r ->
+        let state = if Option.isSome this then State.withPathCondition state (!!( Pointers.isNull metadata (Option.get this))) else state
+        invoke id state this (fun (res, state) ->
+            let state = if Option.isSome this then State.popPathCondition state else state
+            let state = if isMethodOfStruct then State.popStack state else state
             currentlyExploredFunctions.Remove id |> ignore
-            Database.report id r
-            k r)
+            Database.report id (res, state)
+            k (res, state))
 
     let private detectUnboundRecursion id s =
         let isRecursiveFrame (frame : stackFrame) =
@@ -85,11 +86,11 @@ module internal Explorer =
         | None -> false
         | Some { func = Some(_, p'); entries = _; time =  _ } when s.pc = p' ->
             match Options.RecursionUnrollingMode() with
-            | AlwaysDisableUnrolling -> true
+            | NeverUnroll -> true
             | _ -> false
         | _ ->
             match Options.RecursionUnrollingMode() with
-            | AlwaysEnableUnrolling -> false
+            | AlwaysUnroll -> false
             | _ -> true
 
     type private ReturnResult =
@@ -113,16 +114,27 @@ module internal Explorer =
             let state = Memory.composeStates ctx state exploredState
             k (result, state)
 
-    let callOrApplyEffect mtd areWeStuck body id state k =
+    let callOrApplyEffect mtd areWeStuck body id state setup teardown k =
         if areWeStuck then
             reproduceEffect mtd id state k
         else
-            body state k
+            setup id
+            body state (fun (result, state) ->
+            teardown id
+            k (result, state))
 
     let call mtd funcId state body k =
-        let shouldStopUnrolling = detectUnboundRecursion funcId state
-        callOrApplyEffect mtd shouldStopUnrolling body funcId state (fun (result, state) ->
-        k (result, State.popStack state))
+        let managedCallOrApply k =
+            match Options.RecursionUnrollingMode () with
+            | RecursionUnrollingModeType.SmartUnrolling ->
+                callOrApplyEffect mtd (detectUnboundRecursion funcId state) body funcId state ignore ignore k
+            | RecursionUnrollingModeType.NeverUnroll ->
+                let shouldStopUnrolling = currentlyCalledFunctions.Contains funcId || not <| currentlyExploredFunctions.Contains funcId
+                let setup id = currentlyCalledFunctions.Add id |> ignore
+                let teardown id = currentlyCalledFunctions.Remove id |> ignore
+                callOrApplyEffect mtd shouldStopUnrolling body funcId state setup teardown k
+            | RecursionUnrollingModeType.AlwaysUnroll -> callOrApplyEffect mtd false body funcId state ignore ignore k
+        managedCallOrApply (fun (result, state) -> k (result, State.popStack state))
 
     let higherOrderApply mtd funcId (state : state) parameters returnType k =
         let addr = [Memory.freshAddress()]

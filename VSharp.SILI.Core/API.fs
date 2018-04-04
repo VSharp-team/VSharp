@@ -85,7 +85,7 @@ module API =
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
 
-        let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
+        let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =

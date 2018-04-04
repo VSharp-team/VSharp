@@ -53,7 +53,7 @@ module API =
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
 
-        val PersisentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+        val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
