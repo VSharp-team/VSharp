@@ -10,8 +10,7 @@ type IPropositionalSimplifier =
 module internal Propositional =
 
     let mutable private simplifier : IPropositionalSimplifier option = None
-
-    let public ConfigureSimplifier s = simplifier <- Some s
+    let configureSimplifier s = simplifier <- Some s
 
 // ------------------------------- Utilities -------------------------------
 

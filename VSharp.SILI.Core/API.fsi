@@ -7,6 +7,7 @@ module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
     val Configure : IActivator -> IInterpreter -> unit
+    val ConfigureSolver : ISolver -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit

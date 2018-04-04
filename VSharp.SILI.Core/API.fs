@@ -9,9 +9,11 @@ module API =
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
 
-    let Configure (activator : IActivator) (interpreter : IInterpreter) =
+    let Configure activator interpreter =
         State.configure activator
         Explorer.configure interpreter
+    let ConfigureSolver solver =
+        Common.configureSolver solver
     let Reset() =
         Memory.reset()
         IdGenerator.reset()

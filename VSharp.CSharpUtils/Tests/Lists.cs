@@ -1,12 +1,11 @@
 ﻿using System.Collections.Generic;
-using VSharp.CSharpUtils.Tests.Typecast;
 
 namespace VSharp.CSharpUtils.Tests
 {
 //    public class ListNode
 //    {
-//        public int Key { get; set; }
-//        public ListNode Next { get; set; }
+//        public int Key;
+//        public ListNode Next;
 //    }
 
     public class Lists
@@ -19,11 +18,21 @@ namespace VSharp.CSharpUtils.Tests
 //            IncN(l.Next, n - 1);
 //        }
 //
+//        public int DerefIncN(ListNode l, ListNode p)
+//        {
+//            if (l == null || p == null)
+//            {
+//                return 100500;
+//            }
+//            IncN(l, 10);
+//            return p.Key;
+//        }
+//
 //        public ListNode IncConcreteList(int n)
 //        {
-//            var l3 = new ListNode { Key = 1, Next = null };
-//            var l2 = new ListNode { Key = 1, Next = l3 };
-//            var l1 = new ListNode { Key = 1, Next = l2 };
+//            var l3 = new ListNode { Key = 30, Next = null };
+//            var l2 = new ListNode { Key = 20, Next = l3 };
+//            var l1 = new ListNode { Key = 10, Next = l2 };
 //            IncN(l1, n);
 //            return l1;
 //        }
