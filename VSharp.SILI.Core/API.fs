@@ -86,6 +86,8 @@ module API =
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
+        let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
+        let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
 
         let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
 

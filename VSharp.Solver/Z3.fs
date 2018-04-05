@@ -9,11 +9,20 @@ module internal Z3 =
 
     let private ctx = new Context(Dictionary<string, string>(dict[ ("model", "true")])) // TODO: ctx should be disposed!
     let private solver = ctx.MkSolver()
+    let private fp = ctx.MkFixedpoint()
     let private sorts = new Dictionary<termType, Microsoft.Z3.Sort>()
 
 // ------------------------------- Cache -------------------------------
 
-    type EncodingCache = { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
+    type EncodingCache =
+        { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
+        member x.Get term encoder =
+            Dict.tryGetValue2 x.t2e term (fun () ->
+                let result = encoder()
+                x.e2t.[result] <- term
+                x.t2e.[term] <- result
+                result)
+
 
     let private freshCache () = {e2t = new Dictionary<Expr, term>(); t2e = new Dictionary<term, Expr>()}
 
@@ -50,7 +59,7 @@ module internal Z3 =
             let sort = type2Sort typ :?> EnumSort in
             let name = obj.ToString() in
             FSharp.Collections.Array.find (toString >> ((=) name)) sort.Consts
-        | Numeric _ as t ->
+        | Numeric _ ->
             match obj with
             | :? concreteHeapAddress as addr ->
                 match addr with
@@ -59,20 +68,27 @@ module internal Z3 =
             | _ -> ctx.MkNumeral(obj.ToString(), type2Sort typ)
         | _ -> __notImplemented__()
 
-    let encodeConstant (cache : EncodingCache) (name : string) typ term =
-        Dict.tryGetValue2 cache.t2e term (fun () ->
-            let result = ctx.MkConst(validateId name, type2Sort typ)
-            cache.e2t.[result] <- term
-            cache.t2e.[term] <- result
-            result)
+    let encodeConstantSimple (cache : EncodingCache) name typ term =
+        cache.Get term (fun () -> ctx.MkConst(validateId name, type2Sort typ))
 
-    let rec encodeExpression cache stopper term op args typ =
-        Dict.tryGetValue2 cache.t2e term (fun () ->
+    let encodeConstant (cache : EncodingCache) name (source : ISymbolicConstantSource) typ term =
+        match source with
+        | LazyInstantiation(location, heap, _) ->
+            match heap with
+            | None -> encodeConstantSimple cache name typ term
+            | Some heap ->
+                __notImplemented__()
+        | RecursionOutcome(id, state, location, _) ->
+            __notImplemented__()
+        | _ -> encodeConstantSimple cache name typ term
+
+    let rec encodeExpression (cache : EncodingCache) stopper term op args typ =
+        cache.Get term (fun () ->
             match op with
             | Operator(operator, _) ->
                 if stopper operator args then
                     let name = IdGenerator.startingWith "%tmp"
-                    encodeConstant cache name typ term
+                    encodeConstantSimple cache name typ term
                 else
                     match operator with
                     | OperationType.LogicalNeg -> makeUnary cache stopper ctx.MkNot args :> Expr
@@ -128,7 +144,7 @@ module internal Z3 =
     and encodeTermExt<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (t : term) : 'a =
         match t.term with
         | Concrete(obj, typ) -> encodeConcrete obj typ :?> 'a
-        | Constant(name, source, typ) -> encodeConstant cache name.v typ t :?> 'a
+        | Constant(name, source, typ) -> encodeConstant cache name.v source typ t :?> 'a
         | Expression(op, args, typ) -> encodeExpression cache stopper t op args typ :?> 'a
         | _ -> __notImplemented__()
 

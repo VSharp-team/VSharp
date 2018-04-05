@@ -92,9 +92,17 @@ module internal Explorer =
             | AlwaysEnableUnrolling -> false
             | _ -> true
 
-    type private RecursionOutcomeSource =
+    type private recursionOutcomeSource =
         {id : IFunctionIdentifier; state : state; name : string; typ : termType; location : term option}
         interface IStatedSymbolicConstantSource
+
+    let (|RecursionOutcome|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? extractingSymbolicConstantSource as esrc ->
+            match esrc.source with
+            | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, esrc.extractor :? IdTermExtractor)
+            | _ -> None
+        | _ -> None
 
     let private mutateStackClosure mtd (funcId : IFunctionIdentifier) time state =
         match funcId with
@@ -145,7 +153,7 @@ module internal Explorer =
         let hopHeap = HigherOrderApplication(expr, addr, time)
         k (expr |> ControlFlow.throwOrReturn, {state with heap = Memory.composeHeapsOf ctx state hopHeap})
 
-    type RecursionOutcomeSource with
+    type recursionOutcomeSource with
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Compose ctx state =

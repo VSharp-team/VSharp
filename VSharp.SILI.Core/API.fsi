@@ -53,6 +53,8 @@ module API =
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
 
         val PersisentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
