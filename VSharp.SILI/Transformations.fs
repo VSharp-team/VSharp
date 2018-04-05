@@ -2,8 +2,10 @@
 
 open VSharp
 open JetBrains.Decompiler.Ast
+open JetBrains.Metadata.Reader.API
 open global.System
 open System.Reflection
+open System.Collections.Generic
 
 module Transformations =
 
@@ -232,6 +234,85 @@ module Transformations =
             | _ -> Seq.singleton callStatement
 
         abstractLoopStatementToRecursion loopStatement lambdaDotNetType [||] [||] externalBody body fullBodyBlock (fun _ _ -> ())
+
+    let private usingStatementWithAssignmentToBlock (usingStatement : IUsingStatement) =
+        (*
+        Here we transform
+            using (ResourceType resource = expression) body
+        into
+            {
+                ResourceType resource = expression;
+                try {
+                    body;
+                }
+                finally {
+                    ((IDisposable)resource).Dispose();
+                }
+            }
+
+        See: https://github.com/dotnet/csharplang/blame/82c1088104ead6f49db157c77d5acb0c9e3e3bc0/spec/statements.md#L1277
+        *)
+        let instructionReference = usingStatement.InstructionReference
+        let varReference = usingStatement.VariableReference
+        let initializerExpression = usingStatement.Expression
+        let body = usingStatement.Body
+        usingStatement.ReplaceChild(varReference, null)
+        usingStatement.ReplaceChild(initializerExpression, null)
+        usingStatement.ReplaceChild(body, null)
+
+        // Assignment
+        let varAssignmentStatement = AstFactory.CreateLocalVariableDeclaration(varReference, instructionReference, initializerExpression)
+
+        // Try/Finally
+        let metadataTypeInfoIDisposable = (DecompilerServices.resolveType(typedefof<IDisposable>) :?> IMetadataClassType).Type
+        let metadataClassTypeIDisposable = MetadataTypeFactory.CreateClassType(metadataTypeInfoIDisposable)
+        let castVarReferenceToDisposable = AstFactory.CreateTypeCast(varReference, metadataClassTypeIDisposable, OverflowCheckType.DontCare, instructionReference)
+
+        let disposeMethodInstantiation =
+            metadataTypeInfoIDisposable.GetMethods()
+            |> Array.find (fun m -> m.Name = "Dispose" && m.Parameters.Length = 0)
+            |> MethodSpecification
+            |> MethodInstantiation
+
+        let finallyBlock =
+            let callDisposeExpression = AstFactory.CreateMethodCall(castVarReferenceToDisposable, disposeMethodInstantiation, true, [||], instructionReference, MemberAccessKind.Regular)
+            let disposeStatement = AstFactory.CreateExpressionStatement(callDisposeExpression, instructionReference)
+            AstFactory.CreateBlockStatement([disposeStatement])
+        let bodyBlock =
+            match body with
+            | :? IBlockStatement as bodyBlock -> bodyBlock
+            | _ -> AstFactory.CreateBlockStatement([body])
+        let tryBlock = AstFactory.CreateTry(bodyBlock, [||], finallyBlock, null, instructionReference)
+
+        let fullBody : IStatement seq = seq [varAssignmentStatement; tryBlock]
+        let block = AstFactory.CreateBlockStatement(fullBody)
+
+        replaceChildrenOfParentNode usingStatement fullBody
+        block
+
+    let private createLocalVariableReference prefix typ instructionReference sibling =
+        let freshName = IdGenerator.startingWith prefix
+        let freshVar = createLocalVariable freshName typ sibling
+        let freshVarRef = AstFactory.CreateLocalVariableReference(freshVar, instructionReference)
+        freshVarRef
+
+    let usingStatementToBlock (usingStatement : IUsingStatement) =
+        (*
+        Here we transform
+            using (expression) body
+        into
+            using (var __tmp__ = expression) body
+
+        See: https://github.com/dotnet/csharplang/blame/82c1088104ead6f49db157c77d5acb0c9e3e3bc0/spec/statements.md#L1325
+        *)
+        if usingStatement.VariableReference = null
+        then
+            let tmpVarTyp = DecompilerServices.getTypeOfNode usingStatement.Expression
+            let tmpVarRef =
+                createLocalVariableReference "__tmpUsingVar__" tmpVarTyp usingStatement.InstructionReference usingStatement
+            usingStatement.ReplaceChild(usingStatement.VariableReference, tmpVarRef)
+
+        usingStatementWithAssignmentToBlock usingStatement
 
     let isInlinedCall (statement : IExpressionStatement) =
         statement.Expression :? IDelegateCallExpression && DecompilerServices.getPropertyOfNode statement "InlinedCall" false :?> bool

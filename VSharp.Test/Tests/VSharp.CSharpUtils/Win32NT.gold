@@ -196,6 +196,37 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[]
+METHOD: System.Int32 VSharp.CSharpUtils.TryCatch.UsingTest()
+RESULT: 67
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.TryCatch+MyDispose[
+	| VSharp.CSharpUtils.TryCatch+MyDispose.X_field ~> (HeapRef 2)]
+2 ==> [|
+	0: 10;
+	 ... 1 ... |]
+---------- s1 = ----------
+System.IDisposable ==> STRUCT System.IDisposable[]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.TryCatch+MyDispose ==> STRUCT VSharp.CSharpUtils.TryCatch+MyDispose[]
+VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[]
+METHOD: System.Int32 VSharp.CSharpUtils.TryCatch.UsingTestWithInheritance()
+RESULT: 67
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.CSharpUtils.TryCatch+AnotherDisposable[
+	| VSharp.CSharpUtils.TryCatch+MyDispose.X_field ~> (HeapRef 2)]
+2 ==> [|
+	0: 10;
+	 ... 1 ... |]
+---------- s1 = ----------
+System.IDisposable ==> STRUCT System.IDisposable[]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.TryCatch+AnotherDisposable ==> STRUCT VSharp.CSharpUtils.TryCatch+AnotherDisposable[]
+VSharp.CSharpUtils.TryCatch+MyDispose ==> STRUCT VSharp.CSharpUtils.TryCatch+MyDispose[]
+VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ArithmeticsMethod1(System.Int32, System.Int32)
 RESULT: UNION[
 	| !(0 == m) ~> 7 + n

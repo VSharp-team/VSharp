@@ -67,6 +67,65 @@ namespace VSharp.CSharpUtils
             }
         }
 
+        public class MyDispose : IDisposable
+        {
+            public int[] X_field;
+
+            public MyDispose(int[] x)
+            {
+                X_field = x;
+            }
+
+            public virtual void Dispose()
+            {
+                X_field[0] = 10;
+            }
+        }
+
+        public class AnotherDisposable : MyDispose
+        {
+            public AnotherDisposable(int[] x) : base(x)
+            {}
+        }
+
+        public class YetAnotherDisposable : MyDispose
+        {
+            public YetAnotherDisposable(int[] x) : base(x)
+            {}
+
+            public virtual void Dispose()
+            {
+                X_field[0] = 66;
+            }
+        }
+
+        public static int UsingTest()
+        {
+            var myDispose = new MyDispose(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+        public static int UsingTestWithInheritance()
+        {
+            var myDispose = new AnotherDisposable(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+/*        public static int AnotherUsingTestWithInheritance()
+        {
+            var myDispose = new YetAnotherDisposable(new []{ 67 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 77
+        }*/
+
 //        public sealed class NotPositive : Exception
 //        {
 //        }
