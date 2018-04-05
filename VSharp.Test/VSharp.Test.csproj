@@ -39,7 +39,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SiliTests.cs" />
-    <Compile Include="SolverTests.cs" />
     <Compile Include="UtilsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -60,6 +59,16 @@
       <Project>{6F686B61-8105-42F2-950E-BD6AEC0887CA}</Project>
       <Name>VSharp.Utils</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Condition="'$(OS)' == 'Windows_NT' " Include="..\lib\libz3_$(Platform).dll">
+      <Link>libz3.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Condition="'$(OS)' != 'Windows_NT' " Include="..\lib\libz3_$(Platform).so">
+      <Link>libz3.so</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

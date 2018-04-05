@@ -1,4 +1,6 @@
-﻿namespace VSharp.CSharpUtils.Tests
+﻿using System;
+
+namespace VSharp.CSharpUtils.Tests
 {
     public static class Fibonacci
     {
@@ -72,14 +74,17 @@
 
     public static class McCarthy91
     {
-        private static int McCarthy(int n)
+        public static int McCarthy(int n)
         {
             return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
         }
 
-        public static bool CheckMc91(int x)
+        public static void CheckMc91(int x)
         {
-            return x <= 101 && McCarthy(x) != 91;
+            if (x <= 96 && McCarthy(x + 5) != 91)
+            {
+                throw new Exception();
+            }
         }
     }
 }

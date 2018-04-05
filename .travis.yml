@@ -1,8 +1,27 @@
 language: csharp
 solution: VSharp.sln
+env:
+  - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
 install:
+  # - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  # - sudo apt-get update -qq
+  # - sudo apt-get install g++-4.9 -y
+  # - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 90
+  # - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.9 90
+  # - sudo apt-get install libgomp1 -y
+  - uname -a
+  # - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  # - sudo apt-get update -qq
+  # - sudo apt-get install g++-5 -y
+  # - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 90
+  # - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 90
+  # - sudo apt-get install libgomp1 -y
+  - g++ --version
   - nuget restore VSharp.sln
   - nuget install NUnit.Runners -Version 2.6.4 -OutputDirectory testrunner
 script:
   - xbuild /p:Configuration=Release VSharp.sln
+  - ls -l ./VSharp.Solver/bin/Release
+  - ls -l ./VSharp.Test/bin/Release
+  - ldd ./VSharp.Solver/bin/Release/libz3.so
   - mono ./testrunner/NUnit.Runners.2.6.4/tools/nunit-console.exe ./VSharp.Test/bin/Release/VSharp.Test.dll

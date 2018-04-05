@@ -9,6 +9,7 @@ open VSharp.Core.Types.Constructor
 open System.Collections.Immutable
 
 module internal Memory =
+    open Terms
 
 // ------------------------------- Primitives -------------------------------
 
@@ -43,6 +44,16 @@ module internal Memory =
         | StaticRef(var, path, None) -> StaticRef term.metadata var (List.append path [location])
         | HeapRef((addr, path), t, _, Reference _) -> HeapRef term.metadata (addr, List.append path [location]) arrayTarget t (snd location)
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (referenceSubLocation location arrayTarget) |> List.zip gs |> Union term.metadata
+        | _ -> internalfailf "expected reference, but got %O" term
+
+    let rec private diveIntoReference path arrayTarget typ term =
+        match term.term with
+        | Error _ -> term
+        | StackRef(var, path', _) -> { term = termNode.StackRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | StaticRef(var, path', None) -> { term = termNode.StaticRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | HeapRef((addr, path'), t, _, Reference _) ->
+            if List.isEmpty path then term else HeapRef term.metadata (addr, List.append path' path) arrayTarget t (List.last path |> snd)
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (diveIntoReference path arrayTarget typ) |> List.zip gs |> Union term.metadata
         | _ -> internalfailf "expected reference, but got %O" term
 
     let referenceArrayLowerBound arrayRef (indices : term) =
@@ -485,6 +496,10 @@ module internal Memory =
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
+        | Pointers.SymbolicThisOnStack(token, path, typ) ->
+            let id = ("this", token)
+            let reference = referenceLocalVariable term.metadata state id false |> deref term.metadata state |> fst
+            diveIntoReference path ArrayContents typ reference
         | _ -> term
 
     and fillHoles ctx state term =
@@ -587,19 +602,19 @@ module internal Memory =
 
 // ------------------------------- High-level read/write -------------------------------
 
-    let deref metadata state location =
+    and deref metadata state location =
         hierarchicalAccess true npeTerm makePair metadata state location
 
-    let derefWith actionNull metadata state location = hierarchicalAccess true actionNull makePair metadata state location
+    and derefWith actionNull metadata state location = hierarchicalAccess true actionNull makePair metadata state location
 
-    let mutate metadata state reference value =
+    and mutate metadata state reference value =
         assert(value <> Nop)
         let time = tick()
         hierarchicalAccess false npeTerm (fun _ _ -> (value, time)) metadata state reference
 
 // ------------------------------- Referencing -------------------------------
 
-    let rec private referenceTerm state name followHeapRefs term =
+    and private referenceTerm state name followHeapRefs term =
         match term.term with
         | Error _
         | PointerTo _ -> StackRef term.metadata name []
@@ -609,7 +624,7 @@ module internal Memory =
         | Union gvs -> Merging.guardedMap (referenceTerm state name followHeapRefs) gvs
         | _ -> StackRef term.metadata name []
 
-    let referenceLocalVariable metadata state location followHeapRefs =
+    and referenceLocalVariable metadata state location followHeapRefs =
         let reference = StackRef metadata location []
         let term, state = deref metadata state reference
         referenceTerm state location followHeapRefs term
@@ -734,13 +749,17 @@ module internal Memory =
         let address = makeConcreteString typeName metadata
         { s with statics = allocateInGeneralizedHeap address term time s.statics }
 
-    let allocateSymbolicInstance metadata state = function
-        | termType.ClassType(tp, arg, interfaces) ->
-            let contents = makeSymbolicInstance metadata Timestamp.zero (extractingSymbolicConstantSource.wrap {location = Nop; heap = None}) "" (StructType(tp, arg, interfaces))
-            allocateInHeap metadata state contents
-        | StructType _ as t ->
-            makeSymbolicInstance metadata Timestamp.zero (extractingSymbolicConstantSource.wrap {location = Nop; heap = None}) "" t, state
-        | _ -> __notImplemented__()
+    let makeSymbolicThis metadata state token typ =
+        let thisKey = ("this", token)
+        let thisStackRef = StackRef metadata thisKey []
+        let source = extractingSymbolicConstantSource.wrap {location = thisStackRef; heap = None}
+        let instance = makeSymbolicInstance metadata Timestamp.zero source "this" (wrapReferenceType typ)
+        if isReferenceType typ
+            then instance, state, false
+            else
+                let key = (Pointers.symbolicThisStackKey, token)
+                let state = newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, typ)]
+                referenceLocalVariable metadata state key true, state, true
 
 // ------------------------------- Static Memory Initialization -------------------------------
 

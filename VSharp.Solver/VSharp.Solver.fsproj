@@ -76,6 +76,16 @@
       <Name>VSharp.Utils</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Condition="'$(OS)' == 'Windows_NT' " Include="..\lib\libz3_$(Platform).dll">
+      <Link>libz3.dll</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Condition="'$(OS)' != 'Windows_NT' " Include="..\lib\libz3_$(Platform).so">
+      <Link>libz3.so</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>

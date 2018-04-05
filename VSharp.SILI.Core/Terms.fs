@@ -620,9 +620,9 @@ module internal Terms =
         | Reference t -> t
         | t -> t
 
-    let persisentLocalAndConstraintTypes term defaultLocalType =
+    let persistentLocalAndConstraintTypes term defaultLocalType =
         let p, l =
             match term.term, term.term with
-            | ReferenceTo lt, TypeOfReference rt -> lt |> unwrapReferenceType, rt |> unwrapReferenceType
+            | ReferenceTo lt, TypeOfReference rt -> lt, rt
             | _ -> typeOf term, defaultLocalType
-        p, l, Types.specifyType p
+        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType
