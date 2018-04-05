@@ -479,7 +479,8 @@ module internal Interpreter =
         reduceExpressionStatement state lambdaBlock k
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
-        __notImplemented__()
+        let statements = Transformations.loopStatementToRecursion ast
+        reduceSequentially state (Seq.map (fun stmt state k -> reduceStatement state stmt k) statements) k
 
     and reduceYieldReturnStatement state (ast : IYieldReturnStatement) k =
         __notImplemented__()
