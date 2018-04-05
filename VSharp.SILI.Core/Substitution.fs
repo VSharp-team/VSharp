@@ -12,7 +12,7 @@ module Substitution =
             |> Merging.merge
         | StackRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else StackView term.metadata key path' v)
+            (if path' = path then term else StackView term.metadata key path' v) |> subst)
             |> Merging.merge
         | StaticRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->

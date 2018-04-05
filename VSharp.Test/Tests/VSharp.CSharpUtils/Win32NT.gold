@@ -1,48 +1,15 @@
 METHOD: System.Int32 VSharp.CSharpUtils.TryCatch.SafeFunc(System.Int32)
 RESULT: 1
 HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.TryCatch[]
----------- s1 = ----------
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
 VSharp.CSharpUtils.TryCatch ==> STRUCT VSharp.CSharpUtils.TryCatch[]
 METHOD: System.Boolean VSharp.CSharpUtils.TryCatch.MakeOdd(System.Int32)
 RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.TryCatch[]
-10 ==> STRUCT System.Exception[
-	| System.Exception._HResult ~> -2146233088
-	| System.Exception._className ~> null
-	| System.Exception._data ~> null
-	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
-	| System.Exception._helpURL ~> null
-	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> (HeapRef 11)
-	| System.Exception._remoteStackIndex ~> 0
-	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 12)
-	| System.Exception._source ~> null
-	| System.Exception._stackTrace ~> null
-	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
-11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Not odd!
-	| System.String.m_StringLength ~> 8]
-12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-2 ==> STRUCT System.ArgumentException[
+1 ==> STRUCT System.ArgumentException[
 	| System.ArgumentException.m_paramName ~> null
 	| System.Exception._HResult ~> -2147024809
 	| System.Exception._className ~> null
@@ -54,10 +21,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> (HeapRef 3)
+	| System.Exception._message ~> (HeapRef 2)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -65,19 +32,27 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Argument should not be zero!
-	| System.String.m_StringLength ~> 28]
-4 ==> STRUCT System.Object[]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+10 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Not odd!
+	| System.String.m_StringLength ~> 8]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.String[
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Argument should not be zero!
+	| System.String.m_StringLength ~> 28]
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-7 ==> STRUCT System.InvalidOperationException[
+6 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -88,10 +63,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> (HeapRef 8)
+	| System.Exception._message ~> (HeapRef 7)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 9)
+	| System.Exception._safeSerializationManager ~> (HeapRef 8)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -99,26 +74,48 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT System.String[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Hmm.. negative numbers are also not allowed!
 	| System.String.m_StringLength ~> 44]
-9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+9 ==> STRUCT System.Exception[
+	| System.Exception._HResult ~> -2146233088
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> (HeapRef 10)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
 ---------- s1 = ----------
 System.ArgumentException ==> STRUCT System.ArgumentException[]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 4)]
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.InvalidOperationException ==> STRUCT System.InvalidOperationException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -141,10 +138,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -155,13 +152,16 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -182,14 +182,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -214,10 +214,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -225,19 +225,27 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_DivideByZero
-	| System.String.m_StringLength ~> 16]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Arg_DivideByZero
+	| System.String.m_StringLength ~> 16]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.DivideByZeroException[
+7 ==> STRUCT System.DivideByZeroException[
 	| System.Exception._HResult ~> -2147352558
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -248,10 +256,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 8)
+	| System.Exception._safeSerializationManager ~> (HeapRef 10)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -259,14 +267,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
@@ -287,13 +293,13 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -330,10 +336,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -344,13 +350,16 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -373,13 +382,13 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -420,10 +429,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -434,13 +443,16 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_OverflowException
 	| System.String.m_StringLength ~> 21]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -462,14 +474,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.OverflowException ==> STRUCT System.OverflowException[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -492,10 +504,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -506,13 +518,16 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_OverflowException
 	| System.String.m_StringLength ~> 21]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -534,14 +549,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.OverflowException ==> STRUCT System.OverflowException[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -570,10 +585,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -584,13 +599,16 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_DivideByZero
 	| System.String.m_StringLength ~> 16]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -616,13 +634,13 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -2824,10 +2842,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 4)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -2838,13 +2856,16 @@ HEAP:
 3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-4 ==> STRUCT System.Object[]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+5 ==> STRUCT System.Object[]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.String[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2865,14 +2886,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 4)]
+	| System.Exception.s_EDILock ~> (HeapRef 5)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 7)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -2901,10 +2922,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 4)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -2915,13 +2936,16 @@ HEAP:
 3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-4 ==> STRUCT System.Object[]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+5 ==> STRUCT System.Object[]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.String[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
@@ -2942,14 +2966,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 4)]
+	| System.Exception.s_EDILock ~> (HeapRef 5)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 7)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -3227,7 +3251,7 @@ RESULT: STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
@@ -3235,21 +3259,19 @@ RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
+this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.get_Property()
 RESULT: UNION[
-	| !(0 == 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField) ~> 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField.System.Collections.Generic.List`1._size
-	| 0 == 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> <ERROR: (HeapRef 3)>]
+	| !(0 == this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField) ~> this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField.System.Collections.Generic.List`1._size
+	| 0 == this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> <ERROR: (HeapRef 2)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
-2 ==> [| ... 0 ... |]
-3 ==> STRUCT System.NullReferenceException[
+1 ==> [| ... 0 ... |]
+2 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -3260,7 +3282,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 4)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 6)
@@ -3271,9 +3293,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-4 ==> STRUCT System.String[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -3283,10 +3308,12 @@ HEAP:
 7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
+this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
+this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
 ---------- s1 = ----------
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.MaxEnvVariableValueLength ~> 32767
 	| System.Environment.MaxMachineNameLength ~> 256
@@ -3323,30 +3350,29 @@ RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
-	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 3)
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 2)
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
 		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
-3 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
+2 ==> STRUCT System.Collections.Generic.List`1[T][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 0
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 0]
-4 ==> [| ... 0 ... |]
+3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 4)]
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 METHOD: VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.get_StructProperty()
-RESULT: (HeapRef 1.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField)
+RESULT: (HeapRef this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
+this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct)
@@ -3354,7 +3380,7 @@ RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
+this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef value)]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
@@ -3363,10 +3389,9 @@ RESULT: anyVarName
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
-2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
-	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef 3)]
-3 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[
+1 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[
+	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef 2)]
+2 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct.X ~> anyVarName]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[]
@@ -3492,10 +3517,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -3503,19 +3528,31 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
+10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
+		| !(0 == nb) ~> null]]
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.NullReferenceException[
+7 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
 		| !(0 == nb) ~> -2147467261]
 	| System.Exception._className ~> UNION[
@@ -3536,13 +3573,13 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> null]]
 	| System.Exception._message ~> UNION[
-		| !(0 == nb) ~> Getting resource strings currently not supported!]
+		| !(0 == nb) ~> (HeapRef 9)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| !(0 == nb) ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
 		| !(0 == nb) ~> null]
 	| System.Exception._safeSerializationManager ~> UNION[
-		| !(0 == nb) ~> (HeapRef 8)]
+		| !(0 == nb) ~> (HeapRef 10)]
 	| System.Exception._source ~> UNION[
 		| !(0 == nb) ~> null]
 	| System.Exception._stackTrace ~> UNION[
@@ -3556,20 +3593,16 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 26]]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
-		| !(0 == nb) ~> null]]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == nb) ~> Getting resource strings currently not supported!]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == nb) ~> 49]]
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -3589,14 +3622,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -3623,10 +3656,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -3634,19 +3667,31 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
+10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
+		| !(0 == nb) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
+		| !(0 == nb) ~> null]]
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.NullReferenceException[
+7 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
 		| !(0 == nb) ~> -2147467261]
 	| System.Exception._className ~> UNION[
@@ -3667,13 +3712,13 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> null]]
 	| System.Exception._message ~> UNION[
-		| !(0 == nb) ~> Getting resource strings currently not supported!]
+		| !(0 == nb) ~> (HeapRef 9)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| !(0 == nb) ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
 		| !(0 == nb) ~> null]
 	| System.Exception._safeSerializationManager ~> UNION[
-		| !(0 == nb) ~> (HeapRef 8)]
+		| !(0 == nb) ~> (HeapRef 10)]
 	| System.Exception._source ~> UNION[
 		| !(0 == nb) ~> null]
 	| System.Exception._stackTrace ~> UNION[
@@ -3687,20 +3732,16 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == nb) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 26]]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
-		| !(0 == nb) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
-		| !(0 == nb) ~> null]]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == nb) ~> Getting resource strings currently not supported!]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == nb) ~> 49]]
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -3720,14 +3761,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -3737,7 +3778,7 @@ VSharp.CSharpUtils.Tests.Conditional+NewBool ==> STRUCT VSharp.CSharpUtils.Tests
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.ExceptionInCondition3(VSharp.CSharpUtils.Tests.Conditional+NewBool)
 RESULT: <ERROR: UNION[
-	| !(0 == nb) ~> (HeapRef 6)
+	| !(0 == nb) ~> (HeapRef 7)
 	| 0 == nb ~> (HeapRef 1)]>
 HEAP:
 { heap = h0, statics = s1 } where
@@ -3753,10 +3794,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -3764,22 +3805,31 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.String[
+10 ==> STRUCT System.Object[]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+12 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.NotImplementedException[
+7 ==> STRUCT System.NotImplementedException[
 	| System.Exception._HResult ~> -2147467263
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -3790,10 +3840,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 9)
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -3801,15 +3851,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NotImplementedException
 	| System.String.m_StringLength ~> 27]
-8 ==> STRUCT System.Object[]
-9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.MaxEnvVariableValueLength ~> 32767
@@ -3829,8 +3876,8 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == nb) ~> (HeapRef 8)
-		| 0 == nb ~> (HeapRef 3)]]
+		| !(0 == nb) ~> (HeapRef 10)
+		| 0 == nb ~> (HeapRef 4)]]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
@@ -3839,8 +3886,8 @@ System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == nb) ~> (HeapRef 10)
-		| 0 == nb ~> (HeapRef 5)]]
+		| !(0 == nb) ~> (HeapRef 12)
+		| 0 == nb ~> (HeapRef 6)]]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -3947,21 +3994,20 @@ RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
-	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
+1 ==> STRUCT System.Collections.Generic.List`1[T][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 4]
-3 ==> [| ... 0 ... |]
-4 ==> [|
+2 ==> [| ... 0 ... |]
+3 ==> [|
 	0: 1;
 	1: 2;
 	2: 3;
 	3: 4;
 	 ... 4 ... |]
-5 ==> [| ... 4 x 1 ... |]
-6 ==> [|
+4 ==> [| ... 4 x 1 ... |]
+5 ==> [|
 	0: 5;
 	1: 6;
 	2: 7;
@@ -3973,18 +4019,17 @@ System.Array ==> STRUCT System.Array[
 	| System.Array.MaxByteArrayLength ~> 2147483591]
 System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.Mutate(System.Int32)
 RESULT: UNION[
-	| !(i < 0) & i < 5 ~> (HeapRef 2)
-	| !(i < 5) | i < 0 ~> <ERROR: (HeapRef 3)>]
+	| !(i < 0) & i < 5 ~> (HeapRef 1)
+	| !(i < 5) | i < 0 ~> <ERROR: (HeapRef 2)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> [|
+1 ==> [|
 	0: UNION[
 		| !(0 == i) | !(i < 5) | i < 0 ~> 1
 		| !(i < 0) & 0 == i & i < 5 ~> 10];
@@ -4004,7 +4049,7 @@ HEAP:
 		| !(0 == i) & !(1 == i) & !(2 == i) & !(3 == i) & !(4 == i) & !(i < 0) & i < 5 ~> 10
 		| !(i < 0) & (0 == i | 1 == i | 2 == i | 3 == i | 4 == i) & i < 5 ~> 0];
 	 ... 5 ... |]
-3 ==> STRUCT System.IndexOutOfRangeException[
+2 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -4015,7 +4060,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 4)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 6)
@@ -4026,9 +4071,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-4 ==> STRUCT System.String[
+3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4075,8 +4123,7 @@ RESULT: 0
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> [|
+1 ==> [|
 	0, 0: 1;
 	0, 1: 1;
 	1, 0: 2;
@@ -4094,20 +4141,11 @@ VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
 RESULT: <ERROR: UNION[
 	| !(0 == array) ~> (HeapRef 7)
-	| 0 == array ~> (HeapRef 2)]>
+	| 0 == array ~> (HeapRef 1)]>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
-	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT System.NullReferenceException[
+1 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -4118,7 +4156,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 5)
@@ -4129,9 +4167,21 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT System.String[
+10 ==> STRUCT System.Object[]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+12 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4152,10 +4202,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 10)
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4166,7 +4216,9 @@ HEAP:
 8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-9 ==> STRUCT System.Object[]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
@@ -4190,7 +4242,7 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == array) ~> (HeapRef 9)
+		| !(0 == array) ~> (HeapRef 10)
 		| 0 == array ~> (HeapRef 4)]]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.IntPtr ==> STRUCT System.IntPtr[
@@ -4200,7 +4252,7 @@ System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == array) ~> (HeapRef 11)
+		| !(0 == array) ~> (HeapRef 12)
 		| 0 == array ~> (HeapRef 6)]]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4211,23 +4263,14 @@ VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Lists.LowerBoundSymbolicTest(System.Int32[,], System.Int32)
 RESULT: UNION[
 	| !(0 == array) & !(dimension < 0) & dimension < 2 ~> 0
-	| !(dimension < 0) & 0 == array & dimension < 2 ~> <ERROR: (HeapRef 2)>
+	| !(dimension < 0) & 0 == array & dimension < 2 ~> <ERROR: (HeapRef 1)>
 	| !(dimension < 2) | dimension < 0 ~> <ERROR: UNION[
 		| !(0 == array) ~> (HeapRef 7)
-		| 0 == array ~> (HeapRef 2)]>]
+		| 0 == array ~> (HeapRef 1)]>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
-	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT System.NullReferenceException[
+1 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -4238,7 +4281,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 5)
@@ -4249,9 +4292,21 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT System.String[
+10 ==> STRUCT System.Object[]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+12 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_NullReferenceException
 	| System.String.m_StringLength ~> 26]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4272,10 +4327,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 10)
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4286,7 +4341,9 @@ HEAP:
 8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-9 ==> STRUCT System.Object[]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
@@ -4310,7 +4367,7 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == array) ~> (HeapRef 9)
+		| !(0 == array) ~> (HeapRef 10)
 		| 0 == array ~> (HeapRef 4)]]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.IntPtr ==> STRUCT System.IntPtr[
@@ -4320,7 +4377,7 @@ System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == array) ~> (HeapRef 11)
+		| !(0 == array) ~> (HeapRef 12)
 		| 0 == array ~> (HeapRef 6)]]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
@@ -4333,8 +4390,7 @@ RESULT: 3
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> [|
+1 ==> [|
 	0, 0: 1;
 	0, 1: 1;
 	1, 0: 2;
@@ -4354,8 +4410,7 @@ RESULT: 2
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-2 ==> [|
+1 ==> [|
 	0, 0: 1;
 	0, 1: 1;
 	1, 0: 2;
@@ -4385,9 +4440,9 @@ VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.RetOneDArray2(System.Int32)
 RESULT: UNION[
 	| !(1 < n) & !(4 < n) & 5 == n & 8 == n | !(4 < n) & !(7 < n) & 5 == n & 8 == n | !(4 < n) & (!(1 < n) & !(8 == n) | !(7 < n) & !(8 == n) | 1 < n & 7 < n) & 5 == n ~> <ERROR: (HeapRef 2)>
-	| !(1 < n) & (!(1 < n) & !(5 == n) | !(4 < n) & !(5 == n) | 1 < n & 4 < n) & 8 == n ~> <ERROR: (HeapRef 10)>
-	| !(1 < n) & (!(1 < n) & !(8 == n) | !(7 < n) & !(8 == n) | 1 < n & 7 < n) & 4 < n & 5 == n | !(1 < n) & 4 < n & 5 == n & 8 == n ~> <ERROR: (HeapRef 7)>
-	| !(7 < n) & (!(1 < n) & !(5 == n) | !(4 < n) & !(5 == n) | 1 < n & 4 < n) & 1 < n & 8 == n ~> <ERROR: (HeapRef 13)>
+	| !(1 < n) & (!(1 < n) & !(5 == n) | !(4 < n) & !(5 == n) | 1 < n & 4 < n) & 8 == n ~> <ERROR: (HeapRef 12)>
+	| !(1 < n) & (!(1 < n) & !(8 == n) | !(7 < n) & !(8 == n) | 1 < n & 7 < n) & 4 < n & 5 == n | !(1 < n) & 4 < n & 5 == n & 8 == n ~> <ERROR: (HeapRef 8)>
+	| !(7 < n) & (!(1 < n) & !(5 == n) | !(4 < n) & !(5 == n) | 1 < n & 4 < n) & 1 < n & 8 == n ~> <ERROR: (HeapRef 16)>
 	| (!(1 < n) & !(5 == n) | !(4 < n) & !(5 == n) | 1 < n & 4 < n) & (!(1 < n) & !(8 == n) | !(7 < n) & !(8 == n) | 1 < n & 7 < n) ~> (HeapRef 1)]
 HEAP:
 { heap = h0, statics = s1 } where
@@ -4402,37 +4457,15 @@ HEAP:
 		| (!(5 == n) | 4 < n) & 1 < n & 7 < n & 8 == n ~> 66];
 	 ... UNION[
 	| !(1 < n) & 5 == n | !(4 < n) & 5 == n | (!(5 == n) | 1 < n) & (!(5 == n) | 4 < n) ~> n] ... |]
-10 ==> STRUCT System.IndexOutOfRangeException[
-	| System.Exception._HResult ~> -2146233080
-	| System.Exception._className ~> null
-	| System.Exception._data ~> null
-	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
-	| System.Exception._helpURL ~> null
-	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
-	| System.Exception._remoteStackIndex ~> 0
-	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 12)
-	| System.Exception._source ~> null
-	| System.Exception._stackTrace ~> null
-	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
-11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
-	| System.String.m_StringLength ~> 28]
-12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+10 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-13 ==> STRUCT System.IndexOutOfRangeException[
+12 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -4443,7 +4476,7 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 14)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
 	| System.Exception._safeSerializationManager ~> (HeapRef 15)
@@ -4454,10 +4487,46 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-14 ==> STRUCT System.String[
+13 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
+14 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 15 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+16 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> (HeapRef 18)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 19)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+17 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_StringLength ~> 28]
+18 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+19 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
@@ -4473,10 +4542,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 4)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._safeSerializationManager ~> (HeapRef 6)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4487,6 +4556,123 @@ HEAP:
 3 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+5 ==> STRUCT System.Object[]
+6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+7 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+8 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> (HeapRef 10)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_StringLength ~> 28]
+---------- s1 = ----------
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> 32767
+	| System.Environment.MaxMachineNameLength ~> 256
+	| System.Environment.MaxSystemEnvVariableLength ~> 1024
+	| System.Environment.MaxUserEnvVariableLength ~> 255
+	| System.Environment.isUserNonInteractive ~> False
+	| System.Environment.m_os ~> null
+	| System.Environment.m_resHelper ~> null
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> False
+	| System.Environment.s_CheckedWinRT ~> False
+	| System.Environment.s_InternalSyncObject ~> null
+	| System.Environment.s_IsWindows8OrAbove ~> False
+	| System.Environment.s_WinRTSupported ~> False]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> -532462766
+	| System.Exception.s_EDILock ~> (HeapRef 5)]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> null]]
+System.Object ==> STRUCT System.Object[]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 7)]
+System.SystemException ==> STRUCT System.SystemException[]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
+METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
+RESULT: UNION[
+	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
+		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 7)
+		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
+	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 7)>
+	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> (HeapRef 3)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+10 ==> STRUCT System.Object[]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+12 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_StringLength ~> 37]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_StringLength ~> 28]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4507,10 +4693,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 9)
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4521,122 +4707,9 @@ HEAP:
 8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
----------- s1 = ----------
-System.Environment ==> STRUCT System.Environment[
-	| System.Environment.MaxEnvVariableValueLength ~> 32767
-	| System.Environment.MaxMachineNameLength ~> 256
-	| System.Environment.MaxSystemEnvVariableLength ~> 1024
-	| System.Environment.MaxUserEnvVariableLength ~> 255
-	| System.Environment.isUserNonInteractive ~> False
-	| System.Environment.m_os ~> null
-	| System.Environment.m_resHelper ~> null
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> False
-	| System.Environment.s_CheckedWinRT ~> False
-	| System.Environment.s_InternalSyncObject ~> null
-	| System.Environment.s_IsWindows8OrAbove ~> False
-	| System.Environment.s_WinRTSupported ~> False]
-System.Exception ==> STRUCT System.Exception[
-	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 4)]
-System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> null]]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
-System.SystemException ==> STRUCT System.SystemException[]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]]
-System.ValueType ==> STRUCT System.ValueType[]
-VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
-METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
-RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
-	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT System.IndexOutOfRangeException[
-	| System.Exception._HResult ~> -2146233080
-	| System.Exception._className ~> null
-	| System.Exception._data ~> null
-	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
-	| System.Exception._helpURL ~> null
-	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
-	| System.Exception._remoteStackIndex ~> 0
-	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
-	| System.Exception._source ~> null
-	| System.Exception._stackTrace ~> null
-	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
-	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
-	| System.String.m_StringLength ~> 28]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
-	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.IndexOutOfRangeException[
-	| System.Exception._HResult ~> -2146233080
-	| System.Exception._className ~> null
-	| System.Exception._data ~> null
-	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
-	| System.Exception._helpURL ~> null
-	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
-	| System.Exception._remoteStackIndex ~> 0
-	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 9)
-	| System.Exception._source ~> null
-	| System.Exception._stackTrace ~> null
-	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
-	| System.String.m_StringLength ~> 28]
-8 ==> STRUCT System.Object[]
-9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1: UNION[
 		| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
@@ -4662,8 +4735,8 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 3)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 8)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 4)
+		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 10)]]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
@@ -4671,8 +4744,8 @@ System.IntPtr ==> STRUCT System.IntPtr[
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 5)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 10)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
+		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 12)]]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -4682,8 +4755,8 @@ VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray2(System.Array)
 RESULT: UNION[
 	| !(0 == arr) & !(1 < arr.0_Length) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) ~> <ERROR: (HeapRef 1)>
-	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) ~> <ERROR: (HeapRef 9)>
-	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 6)>
+	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) ~> <ERROR: (HeapRef 11)>
+	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 7)>
 	| (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
 HEAP:
 { heap = h0, statics = s1 } where
@@ -4699,10 +4772,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 3)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4710,10 +4783,40 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.String[
+10 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+11 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> null]
+	| System.Exception._message ~> (HeapRef 13)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 14)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+12 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+13 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+14 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
@@ -4721,16 +4824,19 @@ HEAP:
 2 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.IndexOutOfRangeException[
+7 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -4741,10 +4847,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
+	| System.Exception._message ~> (HeapRef 9)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 8)
+	| System.Exception._safeSerializationManager ~> (HeapRef 10)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -4752,36 +4858,12 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
 	| System.String.m_StringLength ~> 28]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-9 ==> STRUCT System.IndexOutOfRangeException[
-	| System.Exception._HResult ~> -2146233080
-	| System.Exception._className ~> null
-	| System.Exception._data ~> null
-	| System.Exception._dynamicMethods ~> null
-	| System.Exception._exceptionMethod ~> null
-	| System.Exception._exceptionMethodString ~> null
-	| System.Exception._helpURL ~> null
-	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Getting resource strings currently not supported!
-	| System.Exception._remoteStackIndex ~> 0
-	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 11)
-	| System.Exception._source ~> null
-	| System.Exception._stackTrace ~> null
-	| System.Exception._stackTraceString ~> null
-	| System.Exception._watsonBuckets ~> null
-	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> 0]]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1, 1: UNION[
 		| !(0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
@@ -4808,14 +4890,14 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -4877,18 +4959,14 @@ VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualB.F()
 RESULT: 8
 HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualB[]
----------- s1 = ----------
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualB[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualC.F()
 RESULT: 7
 HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
----------- s1 = ----------
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
@@ -5267,45 +5345,30 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Typecast.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Typecast[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.Coord VSharp.CSharpUtils.Tests.Typecast.Piece.GetCoord()
 RESULT: STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[
-	| VSharp.CSharpUtils.Tests.Typecast.Coord.X ~> 1.VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord
-	| VSharp.CSharpUtils.Tests.Typecast.Coord.Y ~> 1.VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord]
+	| VSharp.CSharpUtils.Tests.Typecast.Coord.X ~> this.VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord
+	| VSharp.CSharpUtils.Tests.Typecast.Coord.Y ~> this.VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Piece.GetRate()
-RESULT: 1.VSharp.CSharpUtils.Tests.Typecast.Piece.Rate
+RESULT: this.VSharp.CSharpUtils.Tests.Typecast.Piece.Rate
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Piece.RetRate(System.Object)
 RESULT: UNION[
 	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> obj.VSharp.CSharpUtils.Tests.Typecast.Piece.Rate
-	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> <ERROR: (HeapRef 2)>]
+	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
-10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
-	| System.String.m_StringLength ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
-11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-2 ==> STRUCT System.InvalidCastException[
+1 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -5319,7 +5382,7 @@ HEAP:
 	| System.Exception._message ~> Specified cast is not valid.
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._safeSerializationManager ~> (HeapRef 3)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -5327,16 +5390,35 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+10 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
+11 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
+12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
+2 ==> STRUCT System.Object[]
+3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+4 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.NullReferenceException[
+5 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -2147467261]
 	| System.Exception._className ~> UNION[
@@ -5357,7 +5439,7 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
 	| System.Exception._message ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 7)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
@@ -5377,11 +5459,16 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
-7 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
+7 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
@@ -5412,13 +5499,13 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
 	| System.Exception._message ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 11)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Exception._safeSerializationManager ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 11)]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 12)]
 	| System.Exception._source ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Exception._stackTrace ~> UNION[
@@ -5459,7 +5546,7 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 2)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
@@ -5467,7 +5554,7 @@ System.InvalidCastException ==> STRUCT System.InvalidCastException[]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 4)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -5475,22 +5562,22 @@ System.UIntPtr ==> STRUCT System.UIntPtr[
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Piece.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
-RESULT: (HeapRef 1)
+RESULT: (HeapRef this)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.Y]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Piece[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Pawn.GetNewField()
-RESULT: 1.VSharp.CSharpUtils.Tests.Typecast.Pawn._newField
+RESULT: this.VSharp.CSharpUtils.Tests.Typecast.Pawn._newField
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
 METHOD: System.Void VSharp.CSharpUtils.Tests.Typecast.Pawn.SetNewField(System.Int32)
@@ -5498,38 +5585,38 @@ RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[
 	| VSharp.CSharpUtils.Tests.Typecast.Pawn._newField ~> field]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Pawn.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
-RESULT: (HeapRef 1)
+RESULT: (HeapRef this)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.BlackPawn.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
-RESULT: (HeapRef 1)
+RESULT: (HeapRef this)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.BlackPawn[
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.BlackPawn[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.BlackPawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.BlackPawn[]
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Typecast.Knight.MakeMove(VSharp.CSharpUtils.Tests.Typecast.Coord)
-RESULT: (HeapRef 1)
+RESULT: (HeapRef this)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[
+this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._xCoord ~> VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y
 	| VSharp.CSharpUtils.Tests.Typecast.Piece._yCoord ~> -VSharp.CSharpUtils.Tests.Typecast.Coord.Y + VSharp.CSharpUtils.Tests.Typecast.Coord.X]
 ---------- s1 = ----------

@@ -70,8 +70,8 @@ module internal Pointers =
         inherit TermExtractor()
         override x.Extract t = topLevelLocation t
 
-    let nameSymbolicThisOnStack = "symbolic this on stack"
+    let symbolicThisStackKey = "symbolic this on stack"
 
     let (|SymbolicThisOnStack|_|) = function
-       | StackRef((name, token), _, _) when nameSymbolicThisOnStack = name -> Some(SymbolicThisOnStack token)
+       | StackRef((name, token), path, typ) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path, typ))
        | _ -> None

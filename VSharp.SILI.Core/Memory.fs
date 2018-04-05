@@ -46,6 +46,16 @@ module internal Memory =
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (referenceSubLocation location arrayTarget) |> List.zip gs |> Union term.metadata
         | _ -> internalfailf "expected reference, but got %O" term
 
+    let rec private diveIntoReference path arrayTarget typ term =
+        match term.term with
+        | Error _ -> term
+        | StackRef(var, path', _) -> { term = termNode.StackRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | StaticRef(var, path', None) -> { term = termNode.StaticRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | HeapRef((addr, path'), t, _, Reference _) ->
+            if List.isEmpty path then term else HeapRef term.metadata (addr, List.append path' path) arrayTarget t (List.last path |> snd)
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (diveIntoReference path arrayTarget typ) |> List.zip gs |> Union term.metadata
+        | _ -> internalfailf "expected reference, but got %O" term
+
     let referenceArrayLowerBound arrayRef (indices : term) =
         referenceSubLocation (indices, Arrays.lengthTermType) ArrayLowerBounds arrayRef
 
@@ -486,9 +496,10 @@ module internal Memory =
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
-        | Pointers.SymbolicThisOnStack token ->
-            let id = (Pointers.nameSymbolicThisOnStack, token)
-            referenceLocalVariable term.metadata state id false |> deref term.metadata state |> fst
+        | Pointers.SymbolicThisOnStack(token, path, typ) ->
+            let id = ("this", token)
+            let reference = referenceLocalVariable term.metadata state id false |> deref term.metadata state |> fst
+            diveIntoReference path ArrayContents typ reference
         | _ -> term
 
     and fillHoles ctx state term =
@@ -746,7 +757,7 @@ module internal Memory =
         if isReferenceType typ
             then instance, state, false
             else
-                let key = (Pointers.nameSymbolicThisOnStack, token)
+                let key = (Pointers.symbolicThisStackKey, token)
                 let state = newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, typ)]
                 referenceLocalVariable metadata state key true, state, true
 

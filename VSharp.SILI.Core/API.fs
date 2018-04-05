@@ -77,7 +77,6 @@ module API =
         let MakeNullRef typ = makeNullRef typ m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ
         let MakeNumber n = makeNumber n m.Value
-        let MakeString length str = Strings.makeString length str (Memory.tick())
         let MakeLambda body signature = Lambdas.make m.Value body signature
         let MakeDefaultArray dimensions typ = Arrays.makeDefault m.Value dimensions typ
         let MakeInitializedArray rank typ initializer = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer
@@ -178,6 +177,7 @@ module API =
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
         let AllocateDefaultStatic state qualifiedTypeName = Memory.mkDefaultStruct m.Value true qualifiedTypeName |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
         let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value false qualifiedTypeName
+        let AllocateString length str state = Strings.makeString length str (Memory.tick()) |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
         let Dump state = State.dumpMemory state

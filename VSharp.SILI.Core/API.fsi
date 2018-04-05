@@ -45,7 +45,6 @@ module API =
         val MakeNullRef : termType -> term
         val MakeDefault : termType -> term
         val MakeNumber : 'a -> term
-        val MakeString : int -> 'a -> term
         val MakeLambda : 'a symbolicLambda -> termType -> term
         val MakeDefaultArray : term list -> termType -> term
         val MakeInitializedArray : int -> termType -> term -> term
@@ -139,6 +138,7 @@ module API =
         val AllocateInHeap : state -> term -> term * state
         val AllocateDefaultStatic : state -> string -> state
         val MakeDefaultStruct : string -> term
+        val AllocateString : int -> 'a -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term
         val Dump : state -> string

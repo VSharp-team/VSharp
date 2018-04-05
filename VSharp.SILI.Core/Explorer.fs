@@ -6,7 +6,7 @@ open VSharp
 open System.Collections.Generic
 
 type public IInterpreter =
-    abstract member Reset : unit -> unit
+    abstract member Reset : ('a -> 'b) -> ('a -> 'b)
     abstract member InitEntryPoint : state -> string -> (state -> 'a) -> 'a
     abstract member Invoke : IFunctionIdentifier -> state -> term option -> (statementResult * state -> 'a) -> 'a
 type IMethodIdentifier =
@@ -26,7 +26,7 @@ module internal Explorer =
 
     type private NullInterpreter() =
         interface IInterpreter with
-            member this.Reset() = internalfail "interpreter is not ready"
+            member this.Reset _ = internalfail "interpreter is not ready"
             member this.InitEntryPoint _ _ _ = internalfail "interpreter is not ready"
             member this.Invoke _ _ _ _ = internalfail "interpreter is not ready"
     let mutable private interpreter : IInterpreter = new NullInterpreter() :> IInterpreter
@@ -50,7 +50,7 @@ module internal Explorer =
         | _ -> internalfail "unexpected entry point: expected regular method, but got %O" id
 
     let explore (id : IFunctionIdentifier) k =
-        interpreter.Reset()
+        let k = interpreter.Reset k
         let metadata = Metadata.empty
         currentlyExploredFunctions.Add id |> ignore
         let this, state, isMethodOfStruct =
@@ -109,10 +109,14 @@ module internal Explorer =
             k (recursiveResult, recursiveState)
         else
             let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
-            let exploredResult, exploredState = Database.query funcId ||?? lazy(explore funcId id)
+            let getExplored k =
+                match Database.query funcId with
+                | Some r -> k r
+                | None -> explore funcId k
+            getExplored (fun (exploredResult, exploredState) ->
             let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn
             let state = Memory.composeStates ctx state exploredState
-            k (result, state)
+            k (result, state))
 
     let callOrApplyEffect mtd areWeStuck body id state setup teardown k =
         if areWeStuck then

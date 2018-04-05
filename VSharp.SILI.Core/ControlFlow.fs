@@ -181,7 +181,7 @@ module internal ControlFlow =
             match statements with
             | Seq.Empty -> k rs
             | Seq.Cons(statement, tail) ->
-                let cmpseTailIfNeed newRS modSt ifLastk k = if Seq.isEmpty tail then ifLastk newRS else composeStatementsH tail isContinueConsumer statementMapper newScope (mapsnd modSt newRS) k
+                let cmpseTailIfNeed (newRS : statementResult * state) modSt ifLastk k = if Seq.isEmpty tail then ifLastk newRS else composeStatementsH tail isContinueConsumer statementMapper newScope (mapsnd modSt newRS) k
                 invokeAfter (isContinueConsumer statement) rs (fun state -> statementMapper state statement)
                     (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) id k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS tailState))
                     (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) newScope k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS (State.popStack tailState)))
