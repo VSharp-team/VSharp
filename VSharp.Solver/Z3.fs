@@ -26,7 +26,7 @@ module internal Z3 =
 
     let private freshCache () = {e2t = new Dictionary<Expr, term>(); t2e = new Dictionary<term, Expr>()}
 
-// ------------------------------- Encoding -------------------------------
+// ------------------------------- Encoding: primitives -------------------------------
 
     let validateId id =
         assert(not <| System.String.IsNullOrWhiteSpace id)
@@ -71,18 +71,17 @@ module internal Z3 =
     let encodeConstantSimple (cache : EncodingCache) name typ term =
         cache.Get term (fun () -> ctx.MkConst(validateId name, type2Sort typ))
 
-    let encodeConstant (cache : EncodingCache) name (source : ISymbolicConstantSource) typ term =
+    let rec encodeConstant (cache : EncodingCache) name (source : ISymbolicConstantSource) typ term =
         match source with
         | LazyInstantiation(location, heap, _) ->
             match heap with
             | None -> encodeConstantSimple cache name typ term
-            | Some heap ->
-                __notImplemented__()
+            | Some heap -> encodeHeapRead cache location heap
         | RecursionOutcome(id, state, location, _) ->
-            __notImplemented__()
+            encodeRecursionOutcome cache id state location
         | _ -> encodeConstantSimple cache name typ term
 
-    let rec encodeExpression (cache : EncodingCache) stopper term op args typ =
+    and encodeExpression (cache : EncodingCache) stopper term op args typ =
         cache.Get term (fun () ->
             match op with
             | Operator(operator, _) ->
@@ -147,6 +146,17 @@ module internal Z3 =
         | Constant(name, source, typ) -> encodeConstant cache name.v source typ t :?> 'a
         | Expression(op, args, typ) -> encodeExpression cache stopper t op args typ :?> 'a
         | _ -> __notImplemented__()
+
+// ------------------------------- Encoding: Horn clauses -------------------------------
+
+    and encodeHeapRead (cache : EncodingCache) location heap =
+        __notImplemented__()
+
+    and encodeRecursionOutcome (cache : EncodingCache) id state location =
+        match location with
+        | Some location -> __notImplemented__()
+        | None ->
+            __notImplemented__()
 
     let encodeTerm t =
         printfn "SOLVER: trying to encode %O" t
