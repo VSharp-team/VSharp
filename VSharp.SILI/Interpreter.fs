@@ -153,26 +153,26 @@ module internal Interpreter =
         let decompliledClass = DecompilerServices.decompileClass assemblyPath qualifiedTypeNamePattern
         let qualifiedTypeNameFrom =
             Types.ToDotNetType >> safeGenericTypeDefinition >> (fun t -> t.AssemblyQualifiedName)
-        let virtualMethodComapator (lt : IMetadataMethod) (rt : IMetadataMethod) =
-            if lt.DeclaringType.IsInterface && lt.IsAbstract
-                then rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
-                else lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual
+        let virtualMethodComparator (lt : IMetadataMethod) (rt : IMetadataMethod) =
+            lt.DeclaringType.IsInterface && lt.IsAbstract
+            && rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
+            || lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual
         let typeInfoFromTermType = Types.ToDotNetType >> safeGenericTypeDefinition >> DecompilerServices.resolveTypeInfo
         let patternTermType = metadataMethodPattern.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType
         let decompileAndReduceMethodFromTermType state this parameters termType metadataMethodPattern k =
             let typeInfo = typeInfoFromTermType termType
             let rec findVirtualMethod (typeInfo : IMetadataTypeInfo) =
                 typeInfo.GetMethods()
-                |> Array.tryPick (fun method -> if virtualMethodComapator metadataMethodPattern method then Some method else None)
+                |> Array.tryPick (fun method -> if virtualMethodComparator metadataMethodPattern method then Some method else None)
                 |?? (if not (typeInfo.Base = null) then findVirtualMethod typeInfo.Base.Type else metadataMethodPattern)
             let virtualMethod = findVirtualMethod typeInfo
-            let decompiledMethod = DecompilerServices.decompileMethod assemblyPath typeInfo.AssemblyQualifiedName virtualMethod
+            let decompiledMethod = DecompilerServices.decompileMethod assemblyPath virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod
             match decompiledMethod with
             | _ when virtualMethod.IsAbstract ->
                 reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k
             | DecompilerServices.DecompilationResult.MethodWithoutInitializer m
             | DecompilerServices.DecompilationResult.VirtualMethod m ->
-                printfn "DECOMPILED %s:\n%s" typeInfo.AssemblyQualifiedName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(m))
+                printfn "DECOMPILED %s:\n%s" virtualMethod.DeclaringType.AssemblyQualifiedName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(m))
                 reduceDecompiledMethod caller state (Some this) parameters m (fun state k' -> k' (NoComputation, state)) k
             | _ -> __unreachable__()
 
