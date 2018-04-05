@@ -151,5 +151,27 @@ namespace VSharp.CSharpUtils.Tests
             }
             return x;
         }
+
+        public static int PreconditionLoop(int n)
+        {
+            var num = 0;
+            while (num < n)
+            {
+                num += 1;
+            }
+
+            return num; // n > 0 ? n : 0
+        }
+
+        public static int PostconditionLoop(int n)
+        {
+            var num = n;
+            do
+            {
+                num -= 1;
+            } while (num > 0);
+
+            return num; // n > 1 ? 0 : n - 1
+        }
     }
 }
