@@ -37,13 +37,9 @@ type TermExtractor() =
 type private IdTermExtractor() =
     inherit TermExtractor()
     override x.Extract t = t
-[<StructuralEquality;NoComparison>]
-type extractingSymbolicConstantSource =
-    {source : IStatedSymbolicConstantSource; extractor : TermExtractor}
-    static member wrap source = {source = source; extractor = IdTermExtractor()}
-    interface IStatedSymbolicConstantSource with
-        override x.SubTerms = x.source.SubTerms
-        override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
+type IExtractingSymbolicConstantSource =
+    inherit IStatedSymbolicConstantSource
+    abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
 
 module internal State =
     module SymbolicHeap = Heap

@@ -87,16 +87,14 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private lazyInstantiation =
-        {location : term; heap : generalizedHeap option}
-        interface IStatedSymbolicConstantSource with
+        {location : term; heap : generalizedHeap option; extractor : TermExtractor}
+        interface IExtractingSymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.location
+            override x.WithExtractor e = {x with extractor = e} :> IExtractingSymbolicConstantSource
 
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? extractingSymbolicConstantSource as esrc ->
-            match esrc.source with
-            | :? lazyInstantiation as li -> Some(li.location, li.heap, esrc.extractor :? IdTermExtractor)
-            | _ -> None
+        | :? lazyInstantiation as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
     let private isStaticLocation = function
@@ -142,48 +140,48 @@ module internal Memory =
         let time = tick()
         mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt (fromDotNetType dnt)
 
-    let private makeSymbolicHeapReference metadata time (source : extractingSymbolicConstantSource) name typ construct =
-        let source' = { source with extractor = Pointers.HeapAddressExtractor() }
+    let private makeSymbolicHeapReference metadata time (source : IExtractingSymbolicConstantSource) name typ construct =
+        let source' = source.WithExtractor(Pointers.HeapAddressExtractor())
         let constant = Constant metadata name source' pointerType
         construct metadata ((constant, typ), []) ArrayContents {v=time} typ
 
-    let private makeSymbolicOveralArrayLength metadata (source : extractingSymbolicConstantSource) arrayName =
-        Constant metadata (sprintf "|%s|" arrayName) {source with extractor = Arrays.LengthExtractor()} Arrays.lengthTermType
+    let private makeSymbolicOveralArrayLength metadata (source : IExtractingSymbolicConstantSource) arrayName =
+        Constant metadata (sprintf "|%s|" arrayName) (source.WithExtractor(Arrays.LengthExtractor())) Arrays.lengthTermType
 
-    let private makeSymbolicArrayRank metadata (source : extractingSymbolicConstantSource) arrayName =
-        Constant metadata ("RankOf_%s" + arrayName) {source with extractor = Arrays.RankExtractor()} Arrays.lengthTermType
+    let private makeSymbolicArrayRank metadata (source : IExtractingSymbolicConstantSource) arrayName =
+        Constant metadata ("RankOf_%s" + arrayName) (source.WithExtractor(Arrays.RankExtractor())) Arrays.lengthTermType
 
     let private makeSymbolicArrayLowerBound metadata time name location heap =
         match Options.ExplorationMode() with
         | TrustConventions -> defaultOf time metadata Arrays.lengthTermType
         | CompleteExploration ->
-            Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
+            Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
 
     let private makeSymbolicArrayLength metadata time name location heap =
-        Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
+        Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
 
-    let private makeSymbolicArrayLowerBounds metadata (source : extractingSymbolicConstantSource) arrayName dimension =
-        match source.source with
+    let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
+        match source with
         | :? lazyInstantiation as liSource ->
             match Options.ExplorationMode() with
             | TrustConventions -> Arrays.zeroLowerBound metadata dimension
             | CompleteExploration ->
                 let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
-                let mkLowerBound i = Constant metadata (idOfBound i) {source with source = {liSource with location = referenceArrayLowerBound liSource.location (makeNumber i metadata)}} Arrays.lengthTermType
+                let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber i metadata)} Arrays.lengthTermType
                 Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
         | _ -> __notImplemented__()
 
-    let private makeSymbolicArrayLengths metadata (source : extractingSymbolicConstantSource) arrayName dimension =
-        match source.source with
+    let private makeSymbolicArrayLengths metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
+        match source with
         | :? lazyInstantiation as liSource ->
             let idOfLength i = sprintf "%s.%i_Length" arrayName i
-            let mkLength i = Constant metadata (idOfLength i) {source with source = {liSource with location = referenceArrayLength liSource.location (makeNumber i metadata)}} Arrays.lengthTermType
+            let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber i metadata)} Arrays.lengthTermType
             let lengths = Seq.init dimension mkLength
             let length = Seq.reduce (mul metadata) lengths
             Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
         | _ -> __notImplemented__()
 
-    let private makeSymbolicArray metadata (source : extractingSymbolicConstantSource) dimension elemTyp typ arrayName =
+    let private makeSymbolicArray metadata (source : IExtractingSymbolicConstantSource) dimension elemTyp typ arrayName =
         let arrayConstant = Constant metadata arrayName source typ
         let instantiator = [True, LazyInstantiator(arrayConstant, elemTyp)]
         let lowerBound, arrayLengths, arrayLength, dim =
@@ -199,7 +197,7 @@ module internal Memory =
                 Heap.empty, Heap.empty, length, makeSymbolicArrayRank metadata source arrayName
         Array metadata dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ
 
-    let makeSymbolicInstance metadata time (source : extractingSymbolicConstantSource) name = function
+    let makeSymbolicInstance metadata time (source : IExtractingSymbolicConstantSource) name = function
         | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path _ time typ -> HeapPtr mtd path time typ
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.isPrimitive t || Types.isFunction t -> Constant metadata name source t
@@ -213,7 +211,7 @@ module internal Memory =
 
     let private genericLazyInstantiator =
         let instantiator metadata heap time fullyQualifiedLocation typ () =
-            makeSymbolicInstance metadata time (extractingSymbolicConstantSource.wrap {location = fullyQualifiedLocation; heap = heap}) (nameOfLocation fullyQualifiedLocation) typ
+            makeSymbolicInstance metadata time {location = fullyQualifiedLocation; heap = heap; extractor = IdTermExtractor()} (nameOfLocation fullyQualifiedLocation) typ
         State.genericLazyInstantiator <- instantiator
         instantiator
 
@@ -221,7 +219,7 @@ module internal Memory =
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata (typ |?? concreteType)
         | LazyInstantiator(array, concreteType) -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith
-            makeSymbolicInstance metadata time (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) id (Types.Variable.fromTermType concreteType)
+            makeSymbolicInstance metadata time {location = location; heap = heap; extractor = IdTermExtractor()} id (Types.Variable.fromTermType concreteType)
 
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time location (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType
@@ -752,7 +750,7 @@ module internal Memory =
     let makeSymbolicThis metadata state token typ =
         let thisKey = ("this", token)
         let thisStackRef = StackRef metadata thisKey []
-        let source = extractingSymbolicConstantSource.wrap {location = thisStackRef; heap = None}
+        let source = {location = thisStackRef; heap = None; extractor = IdTermExtractor()}
         let instance = makeSymbolicInstance metadata Timestamp.zero source "this" (wrapReferenceType typ)
         if isReferenceType typ
             then instance, state, false
@@ -803,7 +801,7 @@ module internal Memory =
 // ------------------------------- Compositions of constants -------------------------------
 
     type lazyInstantiation with
-        interface IStatedSymbolicConstantSource with
+        interface IExtractingSymbolicConstantSource with
             override x.Compose ctx state =
                 let state' =
                     match x.heap with
@@ -815,7 +813,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                deref ctx.mtd state' loc |> fst
+                deref ctx.mtd state' loc |> fst |> x.extractor.Extract
 
     type staticsInitializedSource with
         interface IStatedSymbolicConstantSource with
