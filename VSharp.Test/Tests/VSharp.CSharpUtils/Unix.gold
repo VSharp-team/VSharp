@@ -3244,6 +3244,32 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.PreconditionLoop(System.Int32)
+RESULT: UNION[
+	| !(0 < n) ~> 0
+	| !(1 < n) & 0 < n ~> 1
+	| 0 < n & 1 < n ~> μ[<delegate>, num]]
+HEAP:
+{ heap = merge[
+	(!(0 < n) | !(1 < n), <empty>),
+	(0 < n & 1 < n, { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))], statics = merge[
+	(!(0 < n) | !(1 < n), s0),
+	(0 < n & 1 < n, { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))] } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.PostconditionLoop(System.Int32)
+RESULT: UNION[
+	| !(-1 + n <= 0) & !(-2 + n <= 0) ~> μ[<delegate>, num]
+	| !(-1 + n <= 0) & -2 + n <= 0 ~> -2 + n
+	| -1 + n <= 0 ~> -1 + n]
+HEAP:
+{ heap = merge[
+	(-1 + n <= 0 | -2 + n <= 0, <empty>),
+	(!(-1 + n <= 0) & !(-2 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))], statics = merge[
+	(-1 + n <= 0 | -2 + n <= 0, s0),
+	(!(-1 + n <= 0) & !(-2 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))] } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Fibonacci.Fib2()
 RESULT: 2
 HEAP:

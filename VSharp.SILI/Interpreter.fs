@@ -217,10 +217,11 @@ module internal Interpreter =
                 let thisKey = ("this", getThisTokenBy ast)
                 (thisKey, Specified thisValue, TypeOf thisValue)::parameters
             | None -> parameters
-        match funcId with
-        | :? IDelegateIdentifier when List.exists (fun sframe -> Option.exists (fst >> (=) funcId) sframe.func) state.frames.f ->
-            k (parametersAndThis, Memory.NewScope state [])
-        | _ -> k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
+        let parametersAndThis, funcId =
+            match funcId with
+            | :? IDelegateIdentifier when List.exists (fun sframe -> Option.exists (fst >> (=) funcId) sframe.func) state.frames.f -> [], (EmptyIdentifier() :> IFunctionIdentifier)
+            | _ -> parametersAndThis, funcId
+        k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
 
     and reduceFunction state this parameters funcId (signature : IFunctionSignature) invoke k =
         reduceFunctionSignature funcId state signature this parameters (fun (_, state) ->
@@ -478,7 +479,8 @@ module internal Interpreter =
         reduceExpressionStatement state lambdaBlock k
 
     and reduceLoopStatement state (ast : ILoopStatement) k =
-        __notImplemented__()
+        let statements = Transformations.loopStatementToRecursion ast
+        reduceSequentially state (Seq.map (fun stmt state k -> reduceStatement state stmt k) statements) k
 
     and reduceYieldReturnStatement state (ast : IYieldReturnStatement) k =
         __notImplemented__()

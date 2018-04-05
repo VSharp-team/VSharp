@@ -110,7 +110,7 @@ module internal Explorer =
         | :? IDelegateIdentifier as di ->
             let mutateLocation st (frame : entry) =
                 let location = StackRef mtd frame.key []
-                let name = fst frame.key
+                let name = sprintf "μ[%O, %s]" funcId (fst frame.key)
                 let typ = frame.typ
                 let source = {id = funcId; state = state; name = name; typ = typ; location = Some location} |> extractingSymbolicConstantSource.wrap
                 let value = Memory.makeSymbolicInstance mtd time source name typ
@@ -123,7 +123,7 @@ module internal Explorer =
         let time = Memory.tick()
         if currentlyExploredFunctions.Contains funcId then
             let typ = funcId.ReturnType
-            let name = IdGenerator.startingWith (toString funcId + "_result_")
+            let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
             let source = {id = funcId; state = state; name = name; typ = typ; location = None} |> extractingSymbolicConstantSource.wrap
             let recursiveResult = Memory.makeSymbolicInstance mtd time source name typ |> ControlFlow.throwOrReturn
             let recursiveState = { mutateStackClosure mtd funcId time state with heap = RecursiveApplication(funcId, addr, time); statics = RecursiveApplication(funcId, addr, time) }
