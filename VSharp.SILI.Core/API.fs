@@ -9,9 +9,11 @@ module API =
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
 
-    let Configure (activator : IActivator) (interpreter : IInterpreter) =
+    let Configure activator interpreter =
         State.configure activator
         Explorer.configure interpreter
+    let ConfigureSolver solver =
+        Common.configureSolver solver
     let Reset() =
         Memory.reset()
         IdGenerator.reset()
@@ -77,15 +79,16 @@ module API =
         let MakeNullRef typ = makeNullRef typ m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ
         let MakeNumber n = makeNumber n m.Value
-        let MakeString length str = Strings.makeString length str (Memory.tick())
         let MakeLambda body signature = Lambdas.make m.Value body signature
         let MakeDefaultArray dimensions typ = Arrays.makeDefault m.Value dimensions typ
         let MakeInitializedArray rank typ initializer = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
+        let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
+        let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
 
-        let PersisentLocalAndConstraintTypes = Terms.persisentLocalAndConstraintTypes
+        let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =
@@ -112,7 +115,9 @@ module API =
         let SizeOf t = Types.sizeOf t
 
         let TLength = Arrays.lengthTermType
+        let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
+        let IsReal t = Types.isReal t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
@@ -176,6 +181,7 @@ module API =
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
         let AllocateDefaultStatic state qualifiedTypeName = Memory.mkDefaultStruct m.Value true qualifiedTypeName |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
         let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value false qualifiedTypeName
+        let AllocateString length str state = Strings.makeString length str (Memory.tick()) |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
         let Dump state = State.dumpMemory state

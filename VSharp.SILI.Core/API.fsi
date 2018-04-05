@@ -7,6 +7,7 @@ module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
     val Configure : IActivator -> IInterpreter -> unit
+    val ConfigureSolver : ISolver -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
@@ -45,15 +46,16 @@ module API =
         val MakeNullRef : termType -> term
         val MakeDefault : termType -> term
         val MakeNumber : 'a -> term
-        val MakeString : int -> 'a -> term
         val MakeLambda : 'a symbolicLambda -> termType -> term
         val MakeDefaultArray : term list -> termType -> term
         val MakeInitializedArray : int -> termType -> term -> term
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
 
-        val PersisentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+        val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
@@ -70,7 +72,9 @@ module API =
         val SizeOf : termType -> int
 
         val TLength : termType
+        val IsBool : termType -> bool
         val IsInteger : termType -> bool
+        val IsReal : termType -> bool
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
@@ -137,6 +141,7 @@ module API =
         val AllocateInHeap : state -> term -> term * state
         val AllocateDefaultStatic : state -> string -> state
         val MakeDefaultStruct : string -> term
+        val AllocateString : int -> 'a -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term
         val Dump : state -> string

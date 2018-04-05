@@ -14,14 +14,16 @@ type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
 type IFunctionIdentifier =
-    interface end
+    abstract ReturnType : termType
 type StandardFunctionIdentifier(id : StandardFunction) =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Numeric typeof<double>
     member x.Function = id
     override x.ToString() = id.ToString()
 
 type EmptyIdentifier() =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Core.Void
 
 type arrayReferenceTarget =
     | ArrayContents
@@ -618,9 +620,9 @@ module internal Terms =
         | Reference t -> t
         | t -> t
 
-    let persisentLocalAndConstraintTypes term defaultLocalType =
+    let persistentLocalAndConstraintTypes term defaultLocalType =
         let p, l =
             match term.term, term.term with
-            | ReferenceTo lt, TypeOfReference rt -> lt |> unwrapReferenceType, rt |> unwrapReferenceType
+            | ReferenceTo lt, TypeOfReference rt -> lt, rt
             | _ -> typeOf term, defaultLocalType
-        p, l, Types.specifyType p
+        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType

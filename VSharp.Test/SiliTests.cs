@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
+using VSharp.Interpreter;
 
 namespace VSharp.Test
 {
@@ -78,6 +79,12 @@ namespace VSharp.Test
         {
             string parameters = string.Join(", ", methodInfo.GetParameters().Select(p => p.ParameterType.ToString()));
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
+        }
+
+        private void PrepareSvm()
+        {
+            // Something like Propositional.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
+            SVM.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
         }
 
         private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
@@ -161,6 +168,7 @@ namespace VSharp.Test
 //                , "Conditional"
 //                , "Fibonacci"
 //                , "GCD"
+                , "McCarthy91"
 //                , "Lambdas"
 //                , "ClassesSimple"
 //                , "StaticClass"
@@ -170,7 +178,7 @@ namespace VSharp.Test
 //                , "Typecast"
 //                , "Generic"
 //                , "Strings"
-//                , "VirtualMethods"
+//                , "Methods"
                 , "Foo"
                 , "GenericInitialize"
                 , "Bag"
@@ -192,6 +200,7 @@ namespace VSharp.Test
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
+            PrepareSvm();
             foreach (string testDir in tests)
             {
                 string[] libEntries = Directory.GetFiles(testDir);

@@ -65,3 +65,13 @@ module internal Pointers =
         | HeapRef(((a, _), []), _, _, _) -> a
         | Union gvs -> Merging.guardedMap topLevelLocation gvs
         | _ -> __notImplemented__()
+
+    type HeapAddressExtractor() =
+        inherit TermExtractor()
+        override x.Extract t = topLevelLocation t
+
+    let symbolicThisStackKey = "symbolic this on stack"
+
+    let (|SymbolicThisOnStack|_|) = function
+       | StackRef((name, token), path, typ) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path, typ))
+       | _ -> None
