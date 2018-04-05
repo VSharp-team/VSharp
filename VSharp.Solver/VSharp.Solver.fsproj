@@ -42,7 +42,7 @@
     <Reference Include="JetBrains.Platform.Metadata, Version=105.0.0.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325">
       <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Metadata.dll</HintPath>
     </Reference>
-    <Reference Include="Microsoft.Z3, Version=4.4.1.0, Culture=neutral, PublicKeyToken=null">
+    <Reference Include="Microsoft.Z3, Version=4.6.0.0, Culture=neutral, PublicKeyToken=9c8d792caae602a2">
       <HintPath>..\lib\Microsoft.Z3.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />

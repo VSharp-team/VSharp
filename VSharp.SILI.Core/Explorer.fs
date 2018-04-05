@@ -93,9 +93,30 @@ module internal Explorer =
             | AlwaysUnroll -> false
             | _ -> true
 
-    type private ReturnResult =
-        {id : IFunctionIdentifier; state : state; name : string; typ : termType}
+    type private recursionOutcomeSource =
+        {id : IFunctionIdentifier; state : state; name : string; typ : termType; location : term option}
         interface IStatedSymbolicConstantSource
+
+    let (|RecursionOutcome|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? extractingSymbolicConstantSource as esrc ->
+            match esrc.source with
+            | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, esrc.extractor :? IdTermExtractor)
+            | _ -> None
+        | _ -> None
+
+    let private mutateStackClosure mtd (funcId : IFunctionIdentifier) time state =
+        match funcId with
+        | :? IDelegateIdentifier as di ->
+            let mutateLocation st (frame : entry) =
+                let location = StackRef mtd frame.key []
+                let name = fst frame.key
+                let typ = frame.typ
+                let source = {id = funcId; state = state; name = name; typ = typ; location = Some location} |> extractingSymbolicConstantSource.wrap
+                let value = Memory.makeSymbolicInstance mtd time source name typ
+                Memory.mutateStack mtd st frame.key [] time value |> snd
+            di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
+        | _ -> state
 
     let reproduceEffect mtd funcId state k =
         let addr = [Memory.freshAddress()]
@@ -103,9 +124,9 @@ module internal Explorer =
         if currentlyExploredFunctions.Contains funcId then
             let typ = funcId.ReturnType
             let name = IdGenerator.startingWith (toString funcId + "_result_")
-            let source = extractingSymbolicConstantSource.wrap { id = funcId; state = state; name = name; typ = typ }
+            let source = {id = funcId; state = state; name = name; typ = typ; location = None} |> extractingSymbolicConstantSource.wrap
             let recursiveResult = Memory.makeSymbolicInstance mtd time source name typ |> ControlFlow.throwOrReturn
-            let recursiveState = { state with heap = RecursiveApplication(funcId, addr, time); statics = RecursiveApplication(funcId, addr, time) }
+            let recursiveState = { mutateStackClosure mtd funcId time state with heap = RecursiveApplication(funcId, addr, time); statics = RecursiveApplication(funcId, addr, time) }
             k (recursiveResult, recursiveState)
         else
             let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
@@ -148,7 +169,7 @@ module internal Explorer =
         let hopHeap = HigherOrderApplication(expr, addr, time)
         k (expr |> ControlFlow.throwOrReturn, {state with heap = Memory.composeHeapsOf ctx state hopHeap})
 
-    type ReturnResult with
+    type recursionOutcomeSource with
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Compose ctx state =

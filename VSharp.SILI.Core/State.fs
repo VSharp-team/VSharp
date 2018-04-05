@@ -83,7 +83,7 @@ module internal State =
         | StackRef((name, _), [], _) -> name
         | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
         | HeapRef(path, _, _, _) ->
-            let printElement (l, t) =
+            let printElement (l, _) =
                 if isArray l then sprintf "[%s]" (l.term.IndicesToString())
                 else toString l
             path |> NonEmptyList.toList |> Seq.map printElement |> join "."

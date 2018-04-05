@@ -42,6 +42,9 @@ module public SVM =
         let term, state = kvp.Value
         sprintf "%O\nHEAP:\n%s" term (state |> Memory.Dump |> replaceLambdaLines)
 
+    let public ConfigureSolver (solver : ISolver) =
+        Core.API.ConfigureSolver solver
+
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList
         let dictionary = new Dictionary<MethodInfo, term * state>()

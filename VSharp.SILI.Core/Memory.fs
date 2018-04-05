@@ -91,7 +91,7 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.location
 
-    let private (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
+    let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? extractingSymbolicConstantSource as esrc ->
             match esrc.source with
@@ -394,7 +394,7 @@ module internal Memory =
         let ptr = {location = addr; fullyQualifiedLocation = StaticRef metadata location []; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update statics Timestamp.zero keyMapper valueMapper lazyInstantiator ptr
 
-    let private mutateStack metadata state location path time value =
+    let mutateStack metadata state location path time value =
         commonHierarchicalStackAccess false (fun _ _ -> (value, time)) metadata state location path
 
     let private mutateHeap restricted metadata h location path time arrayTarget value =
@@ -492,7 +492,7 @@ module internal Memory =
         | Constant(name, source, typ) ->
             match source with
             | :? IStatedSymbolicConstantSource as source -> source.Compose ctx state
-            | :? INonComposableSymbolicConstantSource as source -> term
+            | :? INonComposableSymbolicConstantSource -> term
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t

@@ -7,17 +7,30 @@ open VSharp.Core
 
 module internal Z3 =
 
-    let private ctx = new Context()
+    let private ctx = new Context(Dictionary<string, string>(dict[ ("model", "true")])) // TODO: ctx should be disposed!
     let private solver = ctx.MkSolver()
+    let private fp = ctx.MkFixedpoint()
     let private sorts = new Dictionary<termType, Microsoft.Z3.Sort>()
 
 // ------------------------------- Cache -------------------------------
 
-    type EncodingCache = { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
+    type EncodingCache =
+        { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
+        member x.Get term encoder =
+            Dict.tryGetValue2 x.t2e term (fun () ->
+                let result = encoder()
+                x.e2t.[result] <- term
+                x.t2e.[term] <- result
+                result)
+
 
     let private freshCache () = {e2t = new Dictionary<Expr, term>(); t2e = new Dictionary<term, Expr>()}
 
 // ------------------------------- Encoding -------------------------------
+
+    let validateId id =
+        assert(not <| System.String.IsNullOrWhiteSpace id)
+        if System.Char.IsDigit id.[0] then "_" + id else id
 
     let type2Sort typ =
         Dict.getValueOrUpdate sorts typ (fun () ->
@@ -41,28 +54,41 @@ module internal Z3 =
     let encodeConcrete (obj : obj) typ =
         match typ with
         | Bool -> ctx.MkBool(obj :?> bool) :> Expr
-        | Numeric t when t = typeof<char> -> ctx.MkNumeral(obj :?> int |> toString, type2Sort typ)
+        | Numeric t when t = typeof<char> -> ctx.MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, type2Sort typ)
         | Numeric t when t.IsEnum ->
             let sort = type2Sort typ :?> EnumSort in
             let name = obj.ToString() in
             FSharp.Collections.Array.find (toString >> ((=) name)) sort.Consts
-        | Numeric _ as t when Types.IsInteger t -> ctx.MkNumeral(obj.ToString(), type2Sort typ)
+        | Numeric _ ->
+            match obj with
+            | :? concreteHeapAddress as addr ->
+                match addr with
+                | [addr] -> ctx.MkNumeral(addr.ToString(), type2Sort typ)
+                | _ -> __notImplemented__()
+            | _ -> ctx.MkNumeral(obj.ToString(), type2Sort typ)
         | _ -> __notImplemented__()
 
-    let encodeConstant (cache : EncodingCache) (name : string) typ term =
-        Dict.tryGetValue2 cache.t2e term (fun () ->
-            let result = ctx.MkConst(name, type2Sort typ)
-            cache.e2t.[result] <- term
-            cache.t2e.[term] <- result
-            result)
+    let encodeConstantSimple (cache : EncodingCache) name typ term =
+        cache.Get term (fun () -> ctx.MkConst(validateId name, type2Sort typ))
 
-    let rec encodeExpression cache stopper term op args typ =
-        Dict.tryGetValue2 cache.t2e term (fun () ->
+    let encodeConstant (cache : EncodingCache) name (source : ISymbolicConstantSource) typ term =
+        match source with
+        | LazyInstantiation(location, heap, _) ->
+            match heap with
+            | None -> encodeConstantSimple cache name typ term
+            | Some heap ->
+                __notImplemented__()
+        | RecursionOutcome(id, state, location, _) ->
+            __notImplemented__()
+        | _ -> encodeConstantSimple cache name typ term
+
+    let rec encodeExpression (cache : EncodingCache) stopper term op args typ =
+        cache.Get term (fun () ->
             match op with
             | Operator(operator, _) ->
                 if stopper operator args then
                     let name = IdGenerator.startingWith "%tmp"
-                    encodeConstant cache name typ term
+                    encodeConstantSimple cache name typ term
                 else
                     match operator with
                     | OperationType.LogicalNeg -> makeUnary cache stopper ctx.MkNot args :> Expr
@@ -118,11 +144,12 @@ module internal Z3 =
     and encodeTermExt<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (t : term) : 'a =
         match t.term with
         | Concrete(obj, typ) -> encodeConcrete obj typ :?> 'a
-        | Constant(name, source, typ) -> encodeConstant cache name.v typ t :?> 'a
+        | Constant(name, source, typ) -> encodeConstant cache name.v source typ t :?> 'a
         | Expression(op, args, typ) -> encodeExpression cache stopper t op args typ :?> 'a
         | _ -> __notImplemented__()
 
     let encodeTerm t =
+        printfn "SOLVER: trying to encode %O" t
         let cache = freshCache()
         (encodeTermExt cache (fun _ _ -> false) t :> AST, cache)
 
@@ -159,13 +186,19 @@ module internal Z3 =
 
 // ------------------------------- Solving, etc. -------------------------------
 
-    let solve expr =
-        let result = solver.Check(expr)
-        match result with
-        | Status.SATISFIABLE -> SmtSat solver.Model
-        | Status.UNSATISFIABLE -> SmtUnsat
-        | Status.UNKNOWN -> SmtUnknown solver.ReasonUnknown
-        | _ -> __unreachable__()
+    let solve (exprs : AST list) =
+        printfn "SOLVER: solving %O" exprs
+        try
+            exprs |> List.iter (fun expr -> solver.Assert(expr :?> BoolExpr))
+            let result = solver.Check()
+            printfn "SOLVER: got %O" result
+            match result with
+            | Status.SATISFIABLE -> SmtSat solver.Model
+            | Status.UNSATISFIABLE -> SmtUnsat
+            | Status.UNKNOWN -> printfn "SOLVER: reason: %O" solver.ReasonUnknown; SmtUnknown solver.ReasonUnknown
+            | _ -> __unreachable__()
+        finally
+            solver.Reset()
 
     let simplifyPropositional t =
         let cache = freshCache()
@@ -180,6 +213,6 @@ module internal Z3 =
         let encoded = encodeTermExt cache stopper t
         let simple = encoded.Simplify()
         let result = decode cache simple
-        printfn "SIMPLIFICATION of %O   GAVE   %O" t result
-        printfn "ON SMT level encodings are %O    AND     %O" encoded simple
+        printfn "SOLVER: simplification of %O   gave   %O" t result
+        printfn "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
         result

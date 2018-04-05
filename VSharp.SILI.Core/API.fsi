@@ -7,6 +7,7 @@ module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
     val Configure : IActivator -> IInterpreter -> unit
+    val ConfigureSolver : ISolver -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
@@ -51,6 +52,8 @@ module API =
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
 
         val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
