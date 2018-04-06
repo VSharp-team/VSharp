@@ -54,6 +54,8 @@ module API =
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
         val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
         val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
+        val (|Conjunction|_|) : term -> term list option
+        val (|Disjunction|_|) : term -> term list option
 
         val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
@@ -149,3 +151,7 @@ module API =
         val ArrayLength : term -> term
         val ArrayLengthByDimension : state -> term -> term -> term * state
         val ArrayLowerBoundByDimension : state -> term -> term -> term * state
+
+    module Database =
+        val Query : IFunctionIdentifier -> term * state
+        val DependenciesOfRecursionResult : IFunctionIdentifier -> term seq

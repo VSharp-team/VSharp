@@ -7,15 +7,18 @@ open VSharp.Core
 
 module internal Z3 =
 
-    let private ctx = new Context(Dictionary<string, string>(dict[ ("model", "true")])) // TODO: ctx should be disposed!
-    let private solver = ctx.MkSolver()
-    let private fp = ctx.MkFixedpoint()
-    let private sorts = new Dictionary<termType, Microsoft.Z3.Sort>()
-
 // ------------------------------- Cache -------------------------------
 
-    type EncodingCache =
-        { e2t : IDictionary<Expr, term>; t2e : IDictionary<term, Expr> }
+    type encodingCache = {
+        sorts : IDictionary<termType, Sort>
+        e2t : IDictionary<Expr, term>
+        t2e : IDictionary<term, Expr>
+        relations : IDictionary<IFunctionIdentifier, FuncDecl>
+        rulesForResult : IDictionary<IFunctionIdentifier, BoolExpr seq>
+        dependenciesOfResult : IDictionary<IFunctionIdentifier, (term * ISymbolicConstantSource) list>
+        exprConstraints : IDictionary<Expr, HashSet<BoolExpr>>
+        mutable boundVarId : uint32
+    } with
         member x.Get term encoder =
             Dict.tryGetValue2 x.t2e term (fun () ->
                 let result = encoder()
@@ -23,8 +26,45 @@ module internal Z3 =
                 x.t2e.[term] <- result
                 result)
 
+    let private freshCache (ctx : Context) =
+        printfn "Making fresh cache..."
+        {
+            sorts = new Dictionary<termType, Sort>()
+            e2t = new Dictionary<Expr, term>()
+            t2e = new Dictionary<term, Expr>()
+            relations = new Dictionary<IFunctionIdentifier, FuncDecl>()
+            rulesForResult = new Dictionary<IFunctionIdentifier, BoolExpr seq>()
+            dependenciesOfResult = new Dictionary<IFunctionIdentifier, (term * ISymbolicConstantSource) list>()
+            exprConstraints = new Dictionary<Expr, HashSet<BoolExpr>>()
+            boundVarId = 0u
+        }
 
-    let private freshCache () = {e2t = new Dictionary<Expr, term>(); t2e = new Dictionary<term, Expr>()}
+    type private EncodingContext() as this =
+        inherit Context()
+        let cache = freshCache this
+        let fp = this.MkFixedpoint()
+        member x.Cache = cache
+        member x.FP = fp
+
+    let private ctx = new EncodingContext()
+
+    let freshBoundVar sort =
+        ctx.Cache.boundVarId <- ctx.Cache.boundVarId + 1u
+        ctx.MkBound(ctx.Cache.boundVarId, sort)
+
+    let rec private constraintsOfExprs<'a when 'a :> Expr> (exprs : 'a seq) =
+        let constraints = exprs |> Seq.choose (constraintsOfExpr >> Option.ofObj)
+        if Seq.isEmpty constraints then null
+        else
+            let result = new HashSet<BoolExpr>()
+            Seq.iter result.UnionWith constraints
+            result
+
+    and private constraintsOfExpr (expr : Expr) =
+        Dict.getValueOrUpdate ctx.Cache.exprConstraints expr (fun () ->
+            match expr with
+            | _ when expr.NumArgs = 0u || expr.IsVar -> null
+            | _ -> constraintsOfExprs expr.Args)
 
 // ------------------------------- Encoding: primitives -------------------------------
 
@@ -33,7 +73,7 @@ module internal Z3 =
         if System.Char.IsDigit id.[0] then "_" + id else id
 
     let type2Sort typ =
-        Dict.getValueOrUpdate sorts typ (fun () ->
+        Dict.getValueOrUpdate ctx.Cache.sorts typ (fun () ->
             match typ with
             | Bool -> ctx.MkBoolSort() :> Sort
             | Numeric _ as t when Types.IsInteger t -> ctx.MkIntSort() :> Sort
@@ -50,6 +90,13 @@ module internal Z3 =
             | TypeVariable _
             | Reference _
             | Pointer _ -> __notImplemented__())
+
+    let freshRelation funcId (domain : Sort array) =
+        Dict.getValueOrUpdate ctx.Cache.relations funcId (fun () ->
+            let range = type2Sort Bool
+            let freshRelationalSymbol = ctx.MkFuncDecl(funcId.ToString(), domain, range)
+            ctx.FP.RegisterRelation freshRelationalSymbol
+            freshRelationalSymbol)
 
     let encodeConcrete (obj : obj) typ =
         match typ with
@@ -68,43 +115,45 @@ module internal Z3 =
             | _ -> ctx.MkNumeral(obj.ToString(), type2Sort typ)
         | _ -> __notImplemented__()
 
-    let encodeConstantSimple (cache : EncodingCache) name typ term =
-        cache.Get term (fun () -> ctx.MkConst(validateId name, type2Sort typ))
+    let encodeConstantSimple name typ term =
+        ignore name
+        ctx.Cache.Get term (fun () -> freshBoundVar(type2Sort typ))
+//        cache.Get term (fun () -> ctx.MkConst(validateId name, type2Sort typ))
 
-    let rec encodeConstant (cache : EncodingCache) name (source : ISymbolicConstantSource) typ term =
+    let rec encodeConstant name (source : ISymbolicConstantSource) typ term =
         match source with
         | LazyInstantiation(location, heap, _) ->
             match heap with
-            | None -> encodeConstantSimple cache name typ term
-            | Some heap -> encodeHeapRead cache location heap
+            | None -> encodeConstantSimple name typ term
+            | Some heap -> encodeHeapRead location heap
         | RecursionOutcome(id, state, location, _) ->
-            encodeRecursionOutcome cache id state location
-        | _ -> encodeConstantSimple cache name typ term
+            encodeRecursionOutcome id typ state location
+        | _ -> encodeConstantSimple name typ term
 
-    and encodeExpression (cache : EncodingCache) stopper term op args typ =
-        cache.Get term (fun () ->
+    and encodeExpression stopper term op args typ =
+        ctx.Cache.Get term (fun () ->
             match op with
             | Operator(operator, _) ->
                 if stopper operator args then
                     let name = IdGenerator.startingWith "%tmp"
-                    encodeConstantSimple cache name typ term
+                    encodeConstantSimple name typ term
                 else
                     match operator with
-                    | OperationType.LogicalNeg -> makeUnary cache stopper ctx.MkNot args :> Expr
-                    | OperationType.LogicalAnd -> ctx.MkAnd(encodeTerms cache stopper args) :> Expr
-                    | OperationType.LogicalOr -> ctx.MkOr(encodeTerms cache stopper args) :> Expr
-                    | OperationType.Equal -> makeBinary cache stopper ctx.MkEq args :> Expr
-                    | OperationType.Greater -> makeBinary cache stopper ctx.MkGt args :> Expr
-                    | OperationType.GreaterOrEqual -> makeBinary cache stopper ctx.MkGe args :> Expr
-                    | OperationType.Less -> makeBinary cache stopper ctx.MkLt args :> Expr
-                    | OperationType.LessOrEqual -> makeBinary cache stopper ctx.MkLe args :> Expr
-                    | OperationType.Add -> ctx.MkAdd(encodeTerms cache stopper args) :> Expr
-                    | OperationType.Multiply -> ctx.MkMul(encodeTerms cache stopper args) :> Expr
-                    | OperationType.Subtract -> ctx.MkSub(encodeTerms cache stopper args) :> Expr
-                    | OperationType.Divide -> makeBinary cache stopper ctx.MkDiv args :> Expr
-                    | OperationType.Remainder -> makeBinary cache stopper ctx.MkRem args :> Expr
-                    | OperationType.UnaryMinus -> makeUnary cache stopper ctx.MkUnaryMinus args :> Expr
-                    | OperationType.Not -> makeUnary cache stopper ctx.MkNot args :> Expr
+                    | OperationType.LogicalNeg -> makeUnary stopper ctx.MkNot args :> Expr
+                    | OperationType.LogicalAnd -> ctx.MkAnd(encodeTerms stopper args) :> Expr
+                    | OperationType.LogicalOr -> ctx.MkOr(encodeTerms stopper args) :> Expr
+                    | OperationType.Equal -> makeBinary stopper ctx.MkEq args :> Expr
+                    | OperationType.Greater -> makeBinary stopper ctx.MkGt args :> Expr
+                    | OperationType.GreaterOrEqual -> makeBinary stopper ctx.MkGe args :> Expr
+                    | OperationType.Less -> makeBinary stopper ctx.MkLt args :> Expr
+                    | OperationType.LessOrEqual -> makeBinary stopper ctx.MkLe args :> Expr
+                    | OperationType.Add -> ctx.MkAdd(encodeTerms stopper args) :> Expr
+                    | OperationType.Multiply -> ctx.MkMul(encodeTerms stopper args) :> Expr
+                    | OperationType.Subtract -> ctx.MkSub(encodeTerms stopper args) :> Expr
+                    | OperationType.Divide -> makeBinary stopper ctx.MkDiv args :> Expr
+                    | OperationType.Remainder -> makeBinary stopper ctx.MkRem args :> Expr
+                    | OperationType.UnaryMinus -> makeUnary stopper ctx.MkUnaryMinus args :> Expr
+                    | OperationType.Not -> makeUnary stopper ctx.MkNot args :> Expr
                     | OperationType.ShiftLeft
                     | OperationType.ShiftRight -> __notImplemented__()
                     | _ -> __notImplemented__()
@@ -115,65 +164,135 @@ module internal Z3 =
                     | :? IDelegateIdentifier -> __notImplemented__()
                     | :? StandardFunctionIdentifier as sf -> ctx.MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
                     | _ -> __notImplemented__()
-                ctx.MkApp(decl, encodeTerms cache stopper args)
+                ctx.MkApp(decl, encodeTerms stopper args)
             | Cast _ ->
                 __notImplemented__())
 
     and makeUnary<'a, 'b when 'a :> Expr and 'b :> Expr>
-            (cache : EncodingCache)
             (stopper : OperationType -> term list -> bool)
             (constructor : 'a -> 'b)
             (args : term list) : 'b =
         match args with
-        | [x] -> constructor (encodeTermExt<'a> cache stopper x)
+        | [x] -> constructor (encodeTermExt<'a> stopper x)
         | _ -> internalfail "unary operation should have exactly one argument"
 
     and makeBinary<'a, 'b, 'c when 'a :> Expr and 'b :> Expr and 'c :> Expr>
-            (cache : EncodingCache)
             (stopper : OperationType -> term list -> bool)
             (constructor : 'a * 'b -> 'c)
             (args : term list) : 'c =
         match args with
-        | [x; y] -> constructor(encodeTermExt<'a> cache stopper x, encodeTermExt<'b> cache stopper y)
+        | [x; y] -> constructor(encodeTermExt<'a> stopper x, encodeTermExt<'b> stopper y)
         | _ -> internalfail "binary operation should have exactly two arguments"
 
-    and encodeTerms<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (ts : term seq) : 'a array =
-        ts |> Seq.map (encodeTermExt<'a> cache stopper) |> FSharp.Collections.Array.ofSeq
+    and encodeTerms<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (ts : term seq) : 'a array =
+        ts |> Seq.map (encodeTermExt<'a> stopper) |> FSharp.Collections.Array.ofSeq
 
-    and encodeTermExt<'a when 'a :> Expr> (cache : EncodingCache) (stopper : OperationType -> term list -> bool) (t : term) : 'a =
+    and encodeTermExt<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (t : term) : 'a =
         match t.term with
         | Concrete(obj, typ) -> encodeConcrete obj typ :?> 'a
-        | Constant(name, source, typ) -> encodeConstant cache name.v source typ t :?> 'a
-        | Expression(op, args, typ) -> encodeExpression cache stopper t op args typ :?> 'a
+        | Constant(name, source, typ) -> encodeConstant name.v source typ t :?> 'a
+        | Expression(op, args, typ) -> encodeExpression stopper t op args typ :?> 'a
         | _ -> __notImplemented__()
 
 // ------------------------------- Encoding: Horn clauses -------------------------------
 
-    and encodeHeapRead (cache : EncodingCache) location heap =
-        __notImplemented__()
+    and encodeIntoDnf = function
+        | Disjunction ts ->
+            let dnfs = List.map encodeIntoDnf ts
+            List.concat dnfs
+        | Conjunction ts ->
+            let dnfs = List.map encodeIntoDnf ts
+            let shuffle xss yss =
+                List.map (fun xs -> List.map (List.append xs) yss) xss |> List.concat
+            List.reduce shuffle dnfs
+        | t -> [[encodeTermExt<BoolExpr> (fun _ _ -> false) t]]
 
-    and encodeRecursionOutcome (cache : EncodingCache) id state location =
+    and encodeFunction funcId =
+        if ctx.Cache.rulesForResult.ContainsKey funcId then ctx.Cache.relations.[funcId]
+        else
+            ctx.Cache.rulesForResult.Add(funcId, seq[])  // Mark that we are currently working on it, as we can recursively get here again
+            let recres, recstate = Database.Query funcId
+            let resType = recres |> TypeOf |> type2Sort
+            let deps = Database.DependenciesOfRecursionResult funcId
+            let chooseDependence = function
+                | {term = Constant(name, source, typ)} as term ->
+                    match source with
+                    | RecursionOutcome _ -> None
+                    | _ -> Some(term, source)
+                | _ -> None
+            let readDeps = Seq.choose chooseDependence deps |> List.ofSeq
+            let readDepsTypes = List.map (fst >> TypeOf >> type2Sort) readDeps
+            ctx.Cache.dependenciesOfResult.Add(funcId, readDeps)
+            let rel = freshRelation funcId (List.append readDepsTypes [resType] |> List.toArray)
+            let resultVar = freshBoundVar resType
+            let depsVars = List.map2 (fun (term, _) typ -> ctx.Cache.Get term (fun () -> freshBoundVar typ)) readDeps readDepsTypes
+            let head = ctx.MkApp(rel, List.append depsVars [resultVar] |> List.toArray) :?> BoolExpr
+            let mkBody (guard, branchResult) =
+                let branchResultExpr = encodeTermExt<Expr> (fun _ _ -> false) branchResult
+                let constraintsOfResult = constraintsOfExpr branchResultExpr
+                let returnExpr = ctx.MkEq(resultVar, branchResultExpr)
+                let dnf = encodeIntoDnf guard
+                let appendConstraints (clause : BoolExpr list) =
+                    let bodyConstraints = constraintsOfExprs clause
+                    if bodyConstraints <> null && constraintsOfResult <> null then
+                        bodyConstraints.UnionWith constraintsOfResult
+                    let constraints = if bodyConstraints <> null then bodyConstraints else constraintsOfResult
+                    let clauseAndConstraints = if constraints = null then clause else List.append clause (List.ofSeq constraints)
+                    ctx.MkAnd(returnExpr::clauseAndConstraints |> List.toArray)
+                List.map appendConstraints dnf
+            let bodies =
+                match recres.term with
+                | Union gvs ->
+                    List.map mkBody gvs |> List.concat
+                | _ -> mkBody (True, recres)
+            let clauses = List.map (fun body -> ctx.MkImplies(body, head)) bodies
+            ctx.Cache.rulesForResult.[funcId] <- clauses
+            clauses |> List.iter ctx.FP.AddRule
+            printfn "SOLVER: reported clauses: {"
+            clauses |> List.iter (printfn "%O;")
+            printfn "}"
+            rel
+
+    and encodeRecursionOutcome id typ state location =
         match location with
         | Some location -> __notImplemented__()
         | None ->
-            __notImplemented__()
+            let rel = encodeFunction id
+            let resvar = typ |> type2Sort |> freshBoundVar
+            let deps = ctx.Cache.dependenciesOfResult.[id]
+            // TODO: this should be somehow memorized during the interpretation!
+            let compose state (term, source : ISymbolicConstantSource) =
+                match source with
+                | :? INonComposableSymbolicConstantSource -> term
+                | :? IStatedSymbolicConstantSource as source -> source.Compose compositionContext.Empty state
+                | _ -> __notImplemented__()
+            let depsTerms = List.map (compose state) deps
+            let depsExprs = List.map (encodeTermExt<Expr> (fun _ _ -> false)) depsTerms
+            let app = ctx.MkApp(rel, List.append depsExprs [resvar] |> List.toArray)
+            let appConstraints = constraintsOfExprs depsExprs
+            let constraintsOfResult = new HashSet<BoolExpr>(seq[app :?> BoolExpr])
+            if appConstraints <> null then constraintsOfResult.UnionWith appConstraints
+            ctx.Cache.exprConstraints.Add(resvar, constraintsOfResult)
+            resvar
+
+    and encodeHeapRead location heap =
+        __notImplemented__()
 
     let encodeTerm t =
         printfn "SOLVER: trying to encode %O" t
-        let cache = freshCache()
-        (encodeTermExt cache (fun _ _ -> false) t :> AST, cache)
+        encodeTermExt (fun _ _ -> false) t :> AST
 
 
 // ------------------------------- Decoding -------------------------------
 
-    let rec decodeExpr cache op t (expr : Expr) =
-        Expression (Operator(op, false)) (expr.Args |> Seq.map (decode cache) |> List.ofSeq) t
+    let rec decodeExpr op t (expr : Expr) =
+        Expression (Operator(op, false)) (expr.Args |> Seq.map decode |> List.ofSeq) t
 
-    and decodeBoolExpr cache op (expr : BoolExpr) =
-        decodeExpr cache op Bool expr
+    and decodeBoolExpr op (expr : BoolExpr) =
+        decodeExpr op Bool expr
 
-    and decode (cache : EncodingCache) (expr : Expr) =
-        if cache.e2t.ContainsKey(expr) then cache.e2t.[expr]
+    and decode (expr : Expr) =
+        if ctx.Cache.e2t.ContainsKey(expr) then ctx.Cache.e2t.[expr]
         else
             match expr with
             | :? IntNum as i -> Concrete i.Int (Numeric typeof<int>)
@@ -181,14 +300,14 @@ module internal Z3 =
             | :? BoolExpr as b ->
                 if b.IsTrue then True
                 elif b.IsFalse then False
-                elif b.IsNot then decodeBoolExpr cache OperationType.LogicalNeg b
-                elif b.IsAnd then decodeBoolExpr cache OperationType.LogicalAnd b
-                elif b.IsOr then decodeBoolExpr cache OperationType.LogicalOr b
-                elif b.IsEq then decodeBoolExpr cache OperationType.Equal b
-                elif b.IsGT then decodeBoolExpr cache OperationType.Greater b
-                elif b.IsGE then decodeBoolExpr cache OperationType.GreaterOrEqual b
-                elif b.IsLT then decodeBoolExpr cache OperationType.Less b
-                elif b.IsLE then decodeBoolExpr cache OperationType.LessOrEqual b
+                elif b.IsNot then decodeBoolExpr OperationType.LogicalNeg b
+                elif b.IsAnd then decodeBoolExpr OperationType.LogicalAnd b
+                elif b.IsOr then decodeBoolExpr OperationType.LogicalOr b
+                elif b.IsEq then decodeBoolExpr OperationType.Equal b
+                elif b.IsGT then decodeBoolExpr OperationType.Greater b
+                elif b.IsGE then decodeBoolExpr OperationType.GreaterOrEqual b
+                elif b.IsLT then decodeBoolExpr OperationType.Less b
+                elif b.IsLE then decodeBoolExpr OperationType.LessOrEqual b
                 else __notImplemented__()
             | _ ->
                 __notImplemented__()
@@ -196,22 +315,43 @@ module internal Z3 =
 
 // ------------------------------- Solving, etc. -------------------------------
 
-    let solve (exprs : AST list) =
+    let solveFP (terms : term list) =
+        let exprs = List.map (encodeTermExt<BoolExpr> (fun _ _ -> false)) terms
         printfn "SOLVER: solving %O" exprs
-        try
-            exprs |> List.iter (fun expr -> solver.Assert(expr :?> BoolExpr))
-            let result = solver.Check()
-            printfn "SOLVER: got %O" result
-            match result with
-            | Status.SATISFIABLE -> SmtSat solver.Model
-            | Status.UNSATISFIABLE -> SmtUnsat
-            | Status.UNKNOWN -> printfn "SOLVER: reason: %O" solver.ReasonUnknown; SmtUnknown solver.ReasonUnknown
-            | _ -> __unreachable__()
-        finally
-            solver.Reset()
+        let constraints = constraintsOfExprs exprs
+        let constraints = if constraints = null then [] else List.ofSeq constraints
+        let failRel =
+            let decl = ctx.MkFuncDecl(IdGenerator.startingWith "fail", [||], ctx.MkBoolSort())
+            ctx.FP.RegisterRelation decl
+            ctx.MkApp(decl, [||]) :?> BoolExpr
+        let queryClause = ctx.MkImplies(List.append exprs constraints |> Array.ofList |> ctx.MkAnd, failRel)
+        ctx.FP.AddRule queryClause
+
+        printfn "SOLVER: adding query clause %O" queryClause
+        let result = ctx.FP.Query(failRel)
+        printfn "SOLVER: got %O" result
+        match result with
+        | Status.SATISFIABLE -> SmtSat null
+        | Status.UNSATISFIABLE -> SmtUnsat
+        | Status.UNKNOWN -> printfn "SOLVER: reason: %O" <| ctx.FP.GetReasonUnknown(); SmtUnknown (ctx.FP.GetReasonUnknown())
+        | _ -> __unreachable__()
+
+    let solveSMT (exprs : AST list) =
+        __notImplemented__() // All the code below works except constants are currently encoded into bound vars in the spirit of fixedpoint engine.
+//        printfn "SOLVER: solving %O" exprs
+//        try
+//            exprs |> List.iter (fun expr -> solver.Assert(expr :?> BoolExpr))
+//            let result = solver.Check()
+//            printfn "SOLVER: got %O" result
+//            match result with
+//            | Status.SATISFIABLE -> SmtSat solver.Model
+//            | Status.UNSATISFIABLE -> SmtUnsat
+//            | Status.UNKNOWN -> printfn "SOLVER: reason: %O" solver.ReasonUnknown; SmtUnknown solver.ReasonUnknown
+//            | _ -> __unreachable__()
+//        finally
+//            solver.Reset()
 
     let simplifyPropositional t =
-        let cache = freshCache()
         let stopper op args =
             match op with
             | OperationType.LogicalNeg
@@ -220,9 +360,9 @@ module internal Z3 =
             | OperationType.Equal when List.forall (TypeOf >> Types.IsBool) args ->
                 false
             | _ -> true
-        let encoded = encodeTermExt cache stopper t
+        let encoded = encodeTermExt stopper t
         let simple = encoded.Simplify()
-        let result = decode cache simple
+        let result = decode simple
         printfn "SOLVER: simplification of %O   gave   %O" t result
         printfn "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
         result

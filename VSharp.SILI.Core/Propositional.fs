@@ -41,8 +41,8 @@ module internal Propositional =
         if s1.Count <> 1 then None
         else
             match Seq.head s1 with
-            | NegationT(y, _) as x when s2.RemoveWhere(System.Predicate<term>((=)y)) > 0 -> Some(x, intersection, List.ofSeq s2)
-            | x when s2.RemoveWhere(System.Predicate<term>(function | NegationT(y, _) when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
+            | NegationT y as x when s2.RemoveWhere(System.Predicate<term>((=)y)) > 0 -> Some(x, intersection, List.ofSeq s2)
+            | x when s2.RemoveWhere(System.Predicate<term>(function | NegationT y when x = y -> true | _ -> false)) > 0 -> Some(x, intersection, List.ofSeq s2)
             | _ -> None
 
     let private isPermutationOf list1 list2 =
@@ -120,8 +120,8 @@ module internal Propositional =
         | _ when y = stopValue -> matched stopValue
         | _ when x = stopValue-> matched stopValue
         | _ when x = y -> matched x
-        | Negation(x, _), _ when x = y -> matched stopValue
-        | _, Negation(y, _) when x = y -> matched stopValue
+        | Negation x, _ when x = y -> matched stopValue
+        | _, Negation y when x = y -> matched stopValue
         | Expression _, Expression _ ->
             simplifyExpression mtd op co stopValue ignoreValue x y matched (fun () ->
             simplifyExpression mtd op co stopValue ignoreValue y x matched unmatched)
@@ -155,7 +155,7 @@ module internal Propositional =
         // Co(... y ...) op y = y
         | _ when List.contains y list -> matched y
         // Co(... y ...) op !y = Co(... ...) op !y
-        | _, Negation(y',_) when List.contains y' list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [y'] list) co op)
+        | _, Negation y' when List.contains y' list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [y'] list) co op)
         // Co(... !y ...) op y = Co(... ...) op y
         | _ when List.contains (negate y Metadata.empty) list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [negate y Metadata.empty] list) co op)
         // Co(!a ys) op Co(a ys) = ys
@@ -203,9 +203,9 @@ module internal Propositional =
             match x.term with
             | Error _ -> k x
             | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
-            | Negation(x, _) -> k x
-            | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
-            | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
+            | Negation x -> k x
+            | Conjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
+            | Disjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
             | Terms.GuardedValues(gs, vs) ->
                 Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
                 List.zip gs nvs |> Union mtd |> k)

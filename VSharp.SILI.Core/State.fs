@@ -5,7 +5,9 @@ open System.Text
 open System.Collections.Generic
 open VSharp.Utils
 
-type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time : timestamp }
+type compositionContext =
+    { mtd : termMetadata; addr : concreteHeapAddress; time : timestamp }
+    static member Empty = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
 
 type stack = mappedStack<stackKey, term memoryCell>
 type pathCondition = term list
@@ -64,7 +66,7 @@ module internal State =
         pc = List.empty
     }
 
-    let emptyCompositionContext : compositionContext = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
+    let emptyCompositionContext : compositionContext = compositionContext.Empty
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         List.append a1 a2
     let decomposeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
