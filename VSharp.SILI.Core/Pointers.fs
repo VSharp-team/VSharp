@@ -60,11 +60,9 @@ module internal Pointers =
         | OperationType.NotEqual -> true
         | _ -> false
 
-    let rec topLevelLocation t =
-        match t.term with
-        | HeapRef(((a, _), []), _, _, _) -> a
-        | Union gvs -> Merging.guardedMap topLevelLocation gvs
-        | _ -> __notImplemented__()
+    let rec topLevelLocation = Merging.map (function
+        | {term = HeapRef(((a, _), []), _, _, _)} -> a
+        | _ -> __notImplemented__())
 
     type HeapAddressExtractor() =
         inherit TermExtractor()
