@@ -122,9 +122,9 @@ module internal Interpreter =
     and decompileAndReduceMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
         if metadataMethod.IsVirtual && (not metadataMethod.IsFinal) && Option.isSome this
             then decompileAndReduceVirtualMethod assemblyPath caller state (Option.get this) parameters metadataMethod k
-            else decompileAndReduceMethod' caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k
+            else decompileAndReduceFinalMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k
 
-    and decompileAndReduceMethod' caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
+    and decompileAndReduceFinalMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
         let reduceMethod caller state parameters assemblyPath this qualifiedTypeName (metadataMethod : IMetadataMethod) decompiledMethod k =
             match decompiledMethod with
             | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
@@ -157,36 +157,35 @@ module internal Interpreter =
             let typeInfo = typeInfoFromTermType termType
             let typeHierarchy =
                 let rec typeHierarchy' acc (t : IMetadataClassType) k =
-                    if t = null then k acc else typeHierarchy' acc t.Type.Base (fun acc -> k <| t.Type :: acc)
-                typeHierarchy' [] typeInfo.Base (fun acc -> typeInfo :: acc)
-            let isImplementsInterface (typeInfo : IMetadataTypeInfo) =
-                metadataTypeInfoPattern.IsInterface && Seq.contains metadataTypeInfoPattern (Array.map (fun (info : IMetadataClassType) -> info.Type) typeInfo.Interfaces)
+                    if t = null then k acc else typeHierarchy' acc t.Type.Base (k << cons t.Type)
+                typeHierarchy' [] typeInfo.Base (cons typeInfo)
+            let implementsInterface (typeInfo : IMetadataTypeInfo) =
+                metadataTypeInfoPattern.IsInterface && Array.exists (fun (info : IMetadataClassType) -> metadataTypeInfoPattern.Equals info.Type) typeInfo.Interfaces
             let isUnsuitableType (typeInfo : IMetadataTypeInfo) =
-                not (isImplementsInterface typeInfo) && not <| typeInfo.Equals metadataTypeInfoPattern
-            let suitedTypes = typeHierarchy |> Seq.rev |> Seq.skipWhile isUnsuitableType
+                not (implementsInterface typeInfo) && not <| typeInfo.Equals metadataTypeInfoPattern
+            let suitableTypes = typeHierarchy |> Seq.rev |> Seq.skipWhile isUnsuitableType
             let baseComparator (lt : IMetadataMethod) (rt : IMetadataMethod) =
                 lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual && lt.IsPrivate = rt.IsPrivate
             let isExplicitImplemented (lt : IMetadataMethod) (rt : IMetadataMethod) =
                 rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
-            let interfaceMethodComparator lt rt = (baseComparator lt rt) || (isExplicitImplemented lt rt)
+            let interfaceMethodComparator lt rt = baseComparator lt rt || isExplicitImplemented lt rt
             let equals (lt : IMetadataMethod) (rt : IMetadataMethod) = lt.Equals rt
-            let virtualMethodComparator lt rt = (baseComparator lt rt) && (not rt.IsNewSlot) || (equals lt rt)
+            let virtualMethodComparator lt rt = baseComparator lt rt && not rt.IsNewSlot || equals lt rt
             let methodComparator typeInfo =
-                if isImplementsInterface typeInfo then interfaceMethodComparator else virtualMethodComparator
+                if implementsInterface typeInfo then interfaceMethodComparator else virtualMethodComparator
 
             let findVirtualMethod acc (typeInfo : IMetadataTypeInfo) =
                 let methodComparator = methodComparator typeInfo
                 let methods = typeInfo.GetMethods()
-                let foundMethod = methods |> Array.tryFind (fun method -> methodComparator metadataMethodPattern method)
+                let foundMethod = methods |> Array.tryFind (methodComparator metadataMethodPattern)
                 match acc with
-                | Some _ when Option.isNone foundMethod-> acc
+                | Some _ when Option.isNone foundMethod -> acc
                 | _ -> foundMethod
-            let res = Seq.fold findVirtualMethod None suitedTypes
-            assert(Option.isSome res)
+            let res = Seq.fold findVirtualMethod None suitableTypes
             let virtualMethod = res |?? metadataMethodPattern
             if virtualMethod.IsAbstract
                 then reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k
-                else decompileAndReduceMethod' caller state (Some this) parameters virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod assemblyPath k
+                else decompileAndReduceFinalMethod caller state (Some this) parameters virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod assemblyPath k
 
         let rec findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters metadataMethodPattern k =
             BranchStatements state
