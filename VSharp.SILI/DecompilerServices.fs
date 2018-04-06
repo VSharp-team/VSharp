@@ -108,7 +108,6 @@ module internal DecompilerServices =
             decompiler.Decompile(metadataTypeInfo, JetBrains.Application.Progress.NullProgressIndicator.Instance))
 
     type DecompilationResult =
-        | VirtualMethod of IDecompiledMethod
         | MethodWithExplicitInitializer of IDecompiledMethod
         | MethodWithImplicitInitializer of IDecompiledMethod
         | MethodWithoutInitializer of IDecompiledMethod
@@ -129,7 +128,6 @@ module internal DecompilerServices =
         | Some m when m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName -> ObjectConstuctor m
         | Some m when isConstructor methodInfo ->
             if m.Initializer = null then MethodWithImplicitInitializer m else MethodWithExplicitInitializer m
-        | Some m when methodInfo.IsVirtual && not methodInfo.IsFinal -> VirtualMethod m
         | Some m -> MethodWithoutInitializer m
         | _ when isConstructor methodInfo -> DefaultConstuctor
         | _ -> DecompilationError

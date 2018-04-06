@@ -120,6 +120,11 @@ module internal Interpreter =
 // ------------------------------- Member calls -------------------------------
 
     and decompileAndReduceMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
+        if metadataMethod.IsVirtual && (not metadataMethod.IsFinal) && Option.isSome this
+            then decompileAndReduceVirtualMethod assemblyPath caller state (Option.get this) parameters metadataMethod k
+            else decompileAndReduceMethod' caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k
+
+    and decompileAndReduceMethod' caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
         let reduceMethod caller state parameters assemblyPath this qualifiedTypeName (metadataMethod : IMetadataMethod) decompiledMethod k =
             match decompiledMethod with
             | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
@@ -130,9 +135,6 @@ module internal Interpreter =
             | DecompilerServices.DecompilationResult.ObjectConstuctor _
             | DecompilerServices.DecompilationResult.DefaultConstuctor ->
                 reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
-            | DecompilerServices.DecompilationResult.VirtualMethod decompiledMethod ->
-                (assert Option.isSome this)
-                decompileAndReduceVirtualMethod assemblyPath caller state (Option.get this) parameters decompiledMethod k
             | DecompilerServices.DecompilationResult.DecompilationError ->
                 failwith (sprintf "WARNING: Could not decompile %s.%s" qualifiedTypeName metadataMethod.Name)
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
@@ -147,34 +149,44 @@ module internal Interpreter =
         let returnType = MetadataTypes.fromMetadataType funcId.metadataMethod.Signature.ReturnType
         HigherOrderApply funcId state parameters returnType k
 
-    and decompileAndReduceVirtualMethod assemblyPath caller state this parameters decompiledMethodPattern k =
-        let metadataMethodPattern = decompiledMethodPattern.MetadataMethod
-        let qualifiedTypeNamePattern = metadataMethodPattern.DeclaringType.AssemblyQualifiedName
-        let decompliledClass = DecompilerServices.decompileClass assemblyPath qualifiedTypeNamePattern
-        let qualifiedTypeNameFrom =
-            Types.ToDotNetType >> safeGenericTypeDefinition >> (fun t -> t.AssemblyQualifiedName)
-        let virtualMethodComparator (lt : IMetadataMethod) (rt : IMetadataMethod) =
-            lt.DeclaringType.IsInterface && lt.IsAbstract
-            && rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
-            || lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual
+    and decompileAndReduceVirtualMethod assemblyPath caller state this parameters metadataMethodPattern k =
         let typeInfoFromTermType = Types.ToDotNetType >> safeGenericTypeDefinition >> DecompilerServices.resolveTypeInfo
-        let patternTermType = metadataMethodPattern.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType
+        let metadataTypeInfoPattern = metadataMethodPattern.DeclaringType
+        let termTypePattern = metadataTypeInfoPattern.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType
         let decompileAndReduceMethodFromTermType state this parameters termType metadataMethodPattern k =
             let typeInfo = typeInfoFromTermType termType
-            let rec findVirtualMethod (typeInfo : IMetadataTypeInfo) =
-                typeInfo.GetMethods()
-                |> Array.tryPick (fun method -> if virtualMethodComparator metadataMethodPattern method then Some method else None)
-                |?? (if not (typeInfo.Base = null) then findVirtualMethod typeInfo.Base.Type else metadataMethodPattern)
-            let virtualMethod = findVirtualMethod typeInfo
-            let decompiledMethod = DecompilerServices.decompileMethod assemblyPath virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod
-            match decompiledMethod with
-            | _ when virtualMethod.IsAbstract ->
-                reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k
-            | DecompilerServices.DecompilationResult.MethodWithoutInitializer m
-            | DecompilerServices.DecompilationResult.VirtualMethod m ->
-                printfn "DECOMPILED %s:\n%s" virtualMethod.DeclaringType.AssemblyQualifiedName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(m))
-                reduceDecompiledMethod caller state (Some this) parameters m (fun state k' -> k' (NoComputation, state)) k
-            | _ -> __unreachable__()
+            let typeHierarchy =
+                let rec typeHierarchy' acc (t : IMetadataClassType) k =
+                    if t = null then k acc else typeHierarchy' acc t.Type.Base (fun acc -> k <| t.Type :: acc)
+                typeHierarchy' [] typeInfo.Base (fun acc -> typeInfo :: acc)
+            let isImplementsInterface (typeInfo : IMetadataTypeInfo) =
+                metadataTypeInfoPattern.IsInterface && Seq.contains metadataTypeInfoPattern (Array.map (fun (info : IMetadataClassType) -> info.Type) typeInfo.Interfaces)
+            let isUnsuitableType (typeInfo : IMetadataTypeInfo) =
+                not (isImplementsInterface typeInfo) && not <| typeInfo.Equals metadataTypeInfoPattern
+            let suitedTypes = typeHierarchy |> Seq.rev |> Seq.skipWhile isUnsuitableType
+            let baseComparator (lt : IMetadataMethod) (rt : IMetadataMethod) =
+                lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual && lt.IsPrivate = rt.IsPrivate
+            let isExplicitImplemented (lt : IMetadataMethod) (rt : IMetadataMethod) =
+                rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
+            let interfaceMethodComparator lt rt = (baseComparator lt rt) || (isExplicitImplemented lt rt)
+            let equals (lt : IMetadataMethod) (rt : IMetadataMethod) = lt.Equals rt
+            let virtualMethodComparator lt rt = (baseComparator lt rt) && (not rt.IsNewSlot) || (equals lt rt)
+            let methodComparator typeInfo =
+                if isImplementsInterface typeInfo then interfaceMethodComparator else virtualMethodComparator
+
+            let findVirtualMethod acc (typeInfo : IMetadataTypeInfo) =
+                let methodComparator = methodComparator typeInfo
+                let methods = typeInfo.GetMethods()
+                let foundMethod = methods |> Array.tryFind (fun method -> methodComparator metadataMethodPattern method)
+                match acc with
+                | Some _ when Option.isNone foundMethod-> acc
+                | _ -> foundMethod
+            let res = Seq.fold findVirtualMethod None suitedTypes
+            assert(Option.isSome res)
+            let virtualMethod = res |?? metadataMethodPattern
+            if virtualMethod.IsAbstract
+                then reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k
+                else decompileAndReduceMethod' caller state (Some this) parameters virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod assemblyPath k
 
         let rec findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters metadataMethodPattern k =
             BranchStatements state
@@ -188,7 +200,7 @@ module internal Interpreter =
 
         GuardedApplyStatement state this
             (fun state term k ->
-                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes this patternTermType
+                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes this termTypePattern
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters metadataMethodPattern k) k
 
     and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =

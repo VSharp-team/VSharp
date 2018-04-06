@@ -88,14 +88,36 @@ namespace VSharp.CSharpUtils
             {}
         }
 
-        public class YetAnotherDisposable : MyDispose
+        public class AnotherDisposable1 : MyDispose
         {
-            public YetAnotherDisposable(int[] x) : base(x)
+            public AnotherDisposable1(int[] x) : base(x)
             {}
 
-            public virtual void Dispose()
+            public override void Dispose()
             {
-                X_field[0] = 66;
+                X_field[0] = 20;
+            }
+        }
+
+        public class YetAnotherDisposable1 : MyDispose
+        {
+            public YetAnotherDisposable1(int[] x) : base(x)
+            {}
+
+            public new virtual void Dispose()
+            {
+                X_field[0] = 30;
+            }
+        }
+
+        public class YetAnotherDisposable2 : MyDispose, IDisposable
+        {
+            public YetAnotherDisposable2(int[] x) : base(x)
+            {}
+
+            public new virtual void Dispose()
+            {
+                X_field[0] = 30;
             }
         }
 
@@ -117,14 +139,32 @@ namespace VSharp.CSharpUtils
             return num + myDispose.X_field[0]; // 67
         }
 
-/*        public static int AnotherUsingTestWithInheritance()
+        public static int UsingTestWithInheritance1()
         {
-            var myDispose = new YetAnotherDisposable(new []{ 67 });
+            var myDispose = new AnotherDisposable1(new []{ 57 });
             int num;
             using (myDispose)
                 num = myDispose.X_field[0];
             return num + myDispose.X_field[0]; // 77
-        }*/
+        }
+
+        public static int AnotherUsingTestWithInheritance1()
+        {
+            var myDispose = new YetAnotherDisposable1(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+        public static int AnotherUsingTestWithInheritance2()
+        {
+            var myDispose = new YetAnotherDisposable2(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 87
+        }
 
 //        public sealed class NotPositive : Exception
 //        {
