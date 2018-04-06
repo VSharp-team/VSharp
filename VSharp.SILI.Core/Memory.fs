@@ -489,7 +489,7 @@ module internal Memory =
 
     and private fillHole (ctx : compositionContext) state term =
         match term.term with
-        | Constant(name, source, typ) ->
+        | Constant(_, source, _) ->
             match source with
             | :? IStatedSymbolicConstantSource as source -> source.Compose ctx state
             | :? INonComposableSymbolicConstantSource -> term
@@ -548,10 +548,16 @@ module internal Memory =
             let gs, hs' = List.unzip ghs'
             let gs' = List.map (fillHoles ctx s) gs
             hs' |> List.map (composeGeneralizedHeaps writer ctx getter setter s) |> Merging.mergeGeneralizedHeaps gs'
-        | Defined _, Composition(s', ctx', h'') ->
+        | Defined _, Composition(s', ctx', h')
+        | Mutation _, Composition(s', ctx', h')
+        | Composition _, Composition(s', ctx', h') ->
             let s = composeStates ctx s s'
-            composeGeneralizedHeaps writer ctx' getter setter s h''
-        | Defined _, Mutation(h', h'') ->
+            composeGeneralizedHeaps writer ctx' getter setter s h'
+        | Defined _, Mutation(h', h'')
+        | RecursiveApplication _, Mutation(h', h'') //TODO: mb deleted
+        | HigherOrderApplication _, Mutation(h', h'')
+        | Composition _, Mutation(h', h'')
+        | Mutation _, Mutation(h', h'') ->
             let res = composeGeneralizedHeaps writer ctx getter setter s h'
             let res' = fillHolesInHeap ctx s h''
             Mutation(res, res')
@@ -560,7 +566,7 @@ module internal Memory =
         | Composition _, HigherOrderApplication _
         | Composition _, RecursiveApplication _
         | RecursiveApplication _, RecursiveApplication _
-        | Mutation _, Mutation _ ->
+        | HigherOrderApplication _, HigherOrderApplication _ ->
             Composition(s, ctx, h')
         | Composition(s', ctx', h') as h, Defined(r'', h'') ->
             assert(not r'')
@@ -572,18 +578,20 @@ module internal Memory =
             | _ ->
                 let h'' = fillHolesInHeap ctx s h''
                 Mutation(h, h'')
+        | (HigherOrderApplication _ as h), Defined(r, h') //TODO: mb deleted
+        | (RecursiveApplication _ as h), Defined(r, h') ->
+            assert(not r)
+            let h' = fillHolesInHeap ctx s h'
+            Mutation(h, h')
         | Mutation(h, h'), Defined(r, h'') ->
-            Mutation(h, composeDefinedHeaps (writer ctx) r s h' h'')
-        | HigherOrderApplication _, Defined _ -> __notImplemented__()
-        | HigherOrderApplication _, HigherOrderApplication _ -> __notImplemented__()
-        | HigherOrderApplication _, RecursiveApplication _ -> __notImplemented__()
-        | HigherOrderApplication _, Composition _ -> __notImplemented__()
-        | RecursiveApplication _, Defined _ -> __notImplemented__()
-        | RecursiveApplication _, HigherOrderApplication _ -> __notImplemented__()
+            assert(not r)
+            Mutation(h, composeDefinedHeaps (writer ctx) false s h' h'')
         | RecursiveApplication _, Composition _ -> __notImplemented__()
-        | Composition _, Composition _ -> __notImplemented__()
-        | _, Mutation _
-        | Mutation _, _ -> __notImplemented__()
+        | HigherOrderApplication _, Composition _ -> __notImplemented__()
+        | RecursiveApplication _, HigherOrderApplication _ -> __notImplemented__()
+        | HigherOrderApplication _, RecursiveApplication _ -> __notImplemented__()
+        | Mutation _, RecursiveApplication _ -> __notImplemented__()
+        | Mutation _, HigherOrderApplication _ -> __notImplemented__()
 
     and composeStacksOf ctx state state' =
         (foldStackLocations (fillAndMutateStack ctx state) state state'.stack).stack
