@@ -5028,13 +5028,18 @@ VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Me
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
 	| !(0 == p) ~> (HeapRef p)
-	| 0 == p ~> <ERROR: (HeapRef 2)>]
+	| 0 == p ~> <ERROR: (HeapRef 3)>]
 HEAP:
 { heap = merge[
 	((VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}) | 0 == p, h0),
 	(!(0 == p) & !(VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}), app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[])))], statics = s1 } where
 ---------- h0 = ----------
-2 ==> STRUCT System.InvalidCastException[
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| 0 == p ~> Specified cast is not valid.]
+	| System.String.m_StringLength ~> UNION[
+		| 0 == p ~> 28]]
+3 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> UNION[
 		| 0 == p ~> -2147467262]
 	| System.Exception._className ~> UNION[
@@ -5055,13 +5060,13 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| 0 == p ~> null]]
 	| System.Exception._message ~> UNION[
-		| 0 == p ~> Specified cast is not valid.]
+		| 0 == p ~> (HeapRef 2)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| 0 == p ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
 		| 0 == p ~> null]
 	| System.Exception._safeSerializationManager ~> UNION[
-		| 0 == p ~> (HeapRef 4)]
+		| 0 == p ~> (HeapRef 5)]
 	| System.Exception._source ~> UNION[
 		| 0 == p ~> null]
 	| System.Exception._stackTrace ~> UNION[
@@ -5075,8 +5080,8 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| 0 == p ~> 0]]]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
 		| 0 == p ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
@@ -5085,7 +5090,7 @@ HEAP:
 		| 0 == p ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| 0 == p ~> null]]
-5 ==> STRUCT System.String[
+6 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !hasKey#10 & 0 == p ~> CLR_SafeSerializationManager_RealType]
 	| System.String.m_StringLength ~> UNION[
@@ -5098,14 +5103,14 @@ p ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}[
 ---------- s1 = ----------
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 3)]
+	| System.Exception.s_EDILock ~> (HeapRef 4)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.InvalidCastException ==> STRUCT System.InvalidCastException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -5271,11 +5276,14 @@ VSharp.CSharpUtils.Tests.Typecast.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.T
 METHOD: VSharp.CSharpUtils.Tests.Typecast.Pawn VSharp.CSharpUtils.Tests.Typecast.Typecast.TypeCast(System.Object)
 RESULT: UNION[
 	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) ~> (HeapRef obj)
-	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | 0 == obj ~> <ERROR: (HeapRef 1)>]
+	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | 0 == obj ~> <ERROR: (HeapRef 2)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.InvalidCastException[
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_StringLength ~> 28]
+2 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -5286,10 +5294,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Specified cast is not valid.
+	| System.Exception._message ~> (HeapRef 1)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 3)
+	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -5297,27 +5305,27 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT System.Object[]
-3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT System.String[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 obj ==> STRUCT TypeVariable1{System.Object}[]
 ---------- s1 = ----------
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.InvalidCastException ==> STRUCT System.InvalidCastException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 4)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -5351,7 +5359,10 @@ RESULT: UNION[
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.InvalidCastException[
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_StringLength ~> 28]
+2 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -5362,10 +5373,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Specified cast is not valid.
+	| System.Exception._message ~> (HeapRef 1)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 3)
+	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -5373,27 +5384,27 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-2 ==> STRUCT System.Object[]
-3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT System.String[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
 piece ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece}[]
 ---------- s1 = ----------
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.InvalidCastException ==> STRUCT System.InvalidCastException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 4)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -5421,11 +5432,74 @@ VSharp.CSharpUtils.Tests.Typecast.Piece ==> STRUCT VSharp.CSharpUtils.Tests.Type
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Piece.RetRate(System.Object)
 RESULT: UNION[
 	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> obj.VSharp.CSharpUtils.Tests.Typecast.Piece.Rate
-	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> <ERROR: (HeapRef 1)>]
+	| !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> <ERROR: (HeapRef 2)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.InvalidCastException[
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_StringLength ~> 28]
+10 ==> STRUCT System.NullReferenceException[
+	| System.Exception._HResult ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -2147467261]
+	| System.Exception._className ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._data ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._dynamicMethods ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._exceptionMethod ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._exceptionMethodString ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._helpURL ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._innerException ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
+	| System.Exception._message ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 12)]
+	| System.Exception._remoteStackIndex ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]
+	| System.Exception._remoteStackTraceString ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._safeSerializationManager ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 13)]
+	| System.Exception._source ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._stackTrace ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._stackTraceString ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._watsonBuckets ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Exception._xcode ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -532462766]
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
+11 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
+12 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+	| System.String.m_StringLength ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
+13 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
+2 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -5436,10 +5510,10 @@ HEAP:
 	| System.Exception._innerException ~> null
 	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
 		| System.UIntPtr.m_value ~> null]
-	| System.Exception._message ~> Specified cast is not valid.
+	| System.Exception._message ~> (HeapRef 1)
 	| System.Exception._remoteStackIndex ~> 0
 	| System.Exception._remoteStackTraceString ~> null
-	| System.Exception._safeSerializationManager ~> (HeapRef 3)
+	| System.Exception._safeSerializationManager ~> (HeapRef 4)
 	| System.Exception._source ~> null
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
@@ -5447,35 +5521,16 @@ HEAP:
 	| System.Exception._xcode ~> -532462766
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
-	| System.String.m_StringLength ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
-11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
-	| System.String.m_StringLength ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
-12 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-2 ==> STRUCT System.Object[]
-3 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-4 ==> STRUCT System.String[
+5 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
 	| System.String.m_StringLength ~> 37]
-5 ==> STRUCT System.NullReferenceException[
+6 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -2147467261]
 	| System.Exception._className ~> UNION[
@@ -5496,13 +5551,13 @@ HEAP:
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
 	| System.Exception._message ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 7)]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 8)]
 	| System.Exception._remoteStackIndex ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]
 	| System.Exception._remoteStackTraceString ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Exception._safeSerializationManager ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 8)]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 9)]
 	| System.Exception._source ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Exception._stackTrace ~> UNION[
@@ -5516,17 +5571,17 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
-6 ==> STRUCT System.String[
+7 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
-7 ==> STRUCT System.String[
+8 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> UNION[
@@ -5535,47 +5590,6 @@ HEAP:
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-9 ==> STRUCT System.NullReferenceException[
-	| System.Exception._HResult ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -2147467261]
-	| System.Exception._className ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._data ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._dynamicMethods ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._exceptionMethod ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._exceptionMethodString ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._helpURL ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._innerException ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
-		| System.UIntPtr.m_value ~> UNION[
-			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]]
-	| System.Exception._message ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 11)]
-	| System.Exception._remoteStackIndex ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]
-	| System.Exception._remoteStackTraceString ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._safeSerializationManager ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> (HeapRef 12)]
-	| System.Exception._source ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._stackTrace ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._stackTraceString ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._watsonBuckets ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
-	| System.Exception._xcode ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> -532462766]
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
-		| System.IntPtr.m_value ~> UNION[
-			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
 obj ==> STRUCT TypeVariable1{System.Object}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -5603,7 +5617,7 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.s_WinRTSupported ~> False]
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
-	| System.Exception.s_EDILock ~> (HeapRef 2)]
+	| System.Exception.s_EDILock ~> (HeapRef 3)]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
@@ -5611,7 +5625,7 @@ System.InvalidCastException ==> STRUCT System.InvalidCastException[]
 System.NullReferenceException ==> STRUCT System.NullReferenceException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
-	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 4)]
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
