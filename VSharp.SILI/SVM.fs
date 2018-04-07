@@ -18,7 +18,7 @@ module public SVM =
             printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
         | Some metadataMethod ->
             dictionary.Add(m, null)
-            invoke ({ metadataMethod = metadataMethod }) (fun (result, state) ->
+            invoke ({ metadataMethod = metadataMethod; state = {v = Memory.EmptyState}}) (fun (result, state) ->
             System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.ResultToTerm result)
             dictionary.[m] <- (ControlFlow.ResultToTerm result, state))
 

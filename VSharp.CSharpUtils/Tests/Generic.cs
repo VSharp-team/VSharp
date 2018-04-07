@@ -113,6 +113,15 @@ namespace VSharp.CSharpUtils.Tests.Generic
         }
     }
 
+//    public static class GenericMethod
+//    {
+//        public static int TestFoo(int n)
+//        {
+//            var f = new Foo<int>();
+//            f.SetField(n);
+//            return f.GetFields();
+//        }
+//    }
     public static class TetsUnion
     {
 //        public static Coord RetCoord(Object obj, Coord coord, int field)

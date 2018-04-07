@@ -53,36 +53,36 @@ module internal MetadataTypes =
         let dnt = metadataToDotNetType t
         not dnt.IsValueType
 
-    let rec fromMetadataType (t : IMetadataType) =
+    let rec fromMetadataType state (t : IMetadataType) =
         match t with
-        | null -> ClassType(hierarchy typedefof<obj>, [], [])
+        | null -> ClassType(hierarchy typedefof<obj>, [])
         | _ when t.AssemblyQualifiedName = "__Null" -> Null
         | _ when t.FullName = "System.Void" -> Core.Void
         | :? IMetadataGenericArgumentReferenceType as g ->
             let arg = metadataToDotNetType g
-            Types.FromDotNetType arg
+            Types.FromDotNetType state arg
         | :? IMetadataArrayType as a ->
-            let elementType = fromMetadataType a.ElementType |> Types.WrapReferenceType
+            let elementType = fromMetadataType state a.ElementType |> Types.WrapReferenceType
             ArrayType(elementType, if a.IsVector then Vector else a.Rank |> int |> ConcreteDimension)
         | :? IMetadataClassType as ct ->
             let dotnetType = metadataToDotNetType ct
-            Types.FromDotNetType dotnetType
+            Types.FromDotNetType state dotnetType
         | :? IMetadataPointerType as pt ->
             let dotnetType = metadataToDotNetType pt
-            Types.FromDotNetType dotnetType
-        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> Types.FromDotNetType
+            Types.FromDotNetType state dotnetType
+        | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> Types.FromDotNetType state
 
-    let fromDecompiledSignature (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
+    let fromDecompiledSignature state (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
         let returnType = variableFromMetadataType returnMetadataType
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
-            param.Type |> fromMetadataType
+            fromMetadataType state param.Type
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq
         Func(args, returnType)
 
-    let fromMetadataMethodSignature (m : IMetadataMethod) =
+    let fromMetadataMethodSignature state (m : IMetadataMethod) =
         let returnType = variableFromMetadataType m.ReturnValue.Type
         let paramToType (param : IMetadataParameter) =
-            param.Type |> fromMetadataType
+            fromMetadataType state param.Type
         let args = Seq.map paramToType m.Parameters |> List.ofSeq
         Func(args, returnType)
 
