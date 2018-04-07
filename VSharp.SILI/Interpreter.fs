@@ -156,32 +156,40 @@ module internal Interpreter =
         let decompileAndReduceMethodFromTermType state this parameters termType metadataMethodPattern k =
             let typeInfo = typeInfoFromTermType termType
             let typeHierarchy =
-                let rec typeHierarchy' acc (t : IMetadataClassType) k =
-                    if t = null then k acc else typeHierarchy' acc t.Type.Base (k << cons t.Type)
-                typeHierarchy' [] typeInfo.Base (cons typeInfo)
+                let typeHierarchy' (t : IMetadataClassType) =
+                    if t = null then None, null else Some t.Type, t.Type.Base
+                Cps.Seq.unfoldk typeHierarchy' typeInfo.Base (fst >> cons typeInfo)
             let implementsInterface (typeInfo : IMetadataTypeInfo) =
                 metadataTypeInfoPattern.IsInterface && Array.exists (fun (info : IMetadataClassType) -> metadataTypeInfoPattern.Equals info.Type) typeInfo.Interfaces
             let isUnsuitableType (typeInfo : IMetadataTypeInfo) =
                 not (implementsInterface typeInfo) && not <| typeInfo.Equals metadataTypeInfoPattern
             let suitableTypes = typeHierarchy |> Seq.rev |> Seq.skipWhile isUnsuitableType
             let baseComparator (lt : IMetadataMethod) (rt : IMetadataMethod) =
-                lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual && lt.IsPrivate = rt.IsPrivate
+                lt = rt || lt.Name = rt.Name && lt.Signature.CanBeCalledBy rt.Signature && lt.IsVirtual && rt.IsVirtual && lt.IsPrivate = rt.IsPrivate
             let isExplicitImplemented (lt : IMetadataMethod) (rt : IMetadataMethod) =
                 rt.ImplementedMethods |> Seq.map (fun (spec : MethodSpecification) -> spec.Method) |> Seq.contains lt
             let interfaceMethodComparator lt rt = baseComparator lt rt || isExplicitImplemented lt rt
-            let equals (lt : IMetadataMethod) (rt : IMetadataMethod) = lt.Equals rt
-            let virtualMethodComparator lt rt = baseComparator lt rt && not rt.IsNewSlot || equals lt rt
-            let methodComparator typeInfo =
-                if implementsInterface typeInfo then interfaceMethodComparator else virtualMethodComparator
-
-            let findVirtualMethod acc (typeInfo : IMetadataTypeInfo) =
-                let methodComparator = methodComparator typeInfo
+            let virtualMethodComparator lt rt = baseComparator lt rt
+            let interfaceMethodResolve lt rt k = k <| Some rt
+            let virtualMethodResolve (lt : IMetadataMethod) (rt : IMetadataMethod) k =
+                if rt.IsNewSlot then Some lt else k (Some rt)
+            let smartChoice resolve k l r =
+                match l, r with
+                | Some lt, Some rt -> resolve lt rt k
+                | Some _, _ -> k l
+                | _ -> k r
+            let methodManager typeInfo k =
+                if implementsInterface typeInfo then interfaceMethodComparator, smartChoice interfaceMethodResolve k else virtualMethodComparator, smartChoice virtualMethodResolve k
+            let findVirtualMethod acc (typeInfo : IMetadataTypeInfo) k =
                 let methods = typeInfo.GetMethods()
-                let foundMethod = methods |> Array.tryFind (methodComparator metadataMethodPattern)
-                match acc with
-                | Some _ when Option.isNone foundMethod -> acc
-                | _ -> foundMethod
-            let res = Seq.fold findVirtualMethod None suitableTypes
+                let methodComparator, choice = methodManager typeInfo k
+                let foundMethods = methods |> Seq.filter (methodComparator metadataMethodPattern)
+                let foundMethod =
+                    match Seq.tryFind (isExplicitImplemented metadataMethodPattern) foundMethods with
+                    | Some _ as f -> f
+                    | None -> Seq.tryHead foundMethods
+                choice acc foundMethod
+            let res = Cps.Seq.foldlk findVirtualMethod None suitableTypes id
             let virtualMethod = res |?? metadataMethodPattern
             if virtualMethod.IsAbstract
                 then reduceAbstractMethodApplication caller {metadataMethod = virtualMethod} state this parameters k

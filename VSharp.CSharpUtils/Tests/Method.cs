@@ -9,15 +9,31 @@ namespace VSharp.CSharpUtils.Tests.Methods
 
     public class VirtualB
     {
-        public int F()
+        public virtual int F()
         {
             return 8;
         }
     }
 
+    public class VirtualD : VirtualB
+    {
+        private new int F()
+        {
+            return 44;
+        }
+    }
+
+    public class VirtualE : VirtualD
+    {
+        public override int F()
+        {
+            return 9;
+        }
+    }
+
     public class VirtualC : VirtualB, IVirtual
     {
-        public new int F()
+        public new virtual int F()
         {
             return 7;
         }
@@ -25,6 +41,14 @@ namespace VSharp.CSharpUtils.Tests.Methods
         int IVirtual.F()
         {
             return 71;
+        }
+    }
+
+    public class VirtualG : VirtualC
+    {
+        public override int F()
+        {
+            return 66;
         }
     }
 
@@ -58,7 +82,7 @@ namespace VSharp.CSharpUtils.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        public static int VirtualCal2(VirtualC a, int n)
+        public static int VirtualCall1(VirtualC a, int n)
         {
             if (a == null) return 0;
             if (n > 10)
@@ -67,6 +91,28 @@ namespace VSharp.CSharpUtils.Tests.Methods
             }
 
             return ((IVirtual) a).F();
+        }
+
+//        public static int VirtualCall2(VirtualB a) //TODO: Ticket
+//        {
+//            if (a == null) return 0;
+//            if (a is VirtualE)
+//            {
+//                return ((VirtualE) a).F();
+//            }
+//
+//            return a.F();
+//        }
+
+        public static int VirtualCall3(VirtualG a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualB) a).F();
+            }
+
+            return a.F();
         }
     }
 }
