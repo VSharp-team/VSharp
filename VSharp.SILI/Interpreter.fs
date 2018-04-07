@@ -263,10 +263,7 @@ module internal Interpreter =
             elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                 match parameters with
                 | Specified parameters ->
-                    let parameters' =
-                        match this with
-                        | Some term -> term::parameters
-                        | None -> parameters
+                    let parameters' = optCons parameters this
                     let extrn = concreteExternalImplementations.[fullMethodName]
                     reduceFunction state None (Specified parameters') {metadataMethod = extrn.MetadataMethod} extrn.Signature (invoke extrn) k
                 | _ -> internalfail "internal call with unspecified parameters!"

@@ -758,11 +758,12 @@ module internal Memory =
         { s with statics = allocateInGeneralizedHeap address term time s.statics }
 
     let makeSymbolicThis metadata state token typ =
-        let thisKey = ("this", token)
+        let isRef = isReferenceType typ
+        let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
         let thisStackRef = StackRef metadata thisKey []
         let source = extractingSymbolicConstantSource.wrap {location = thisStackRef; heap = None}
         let instance = makeSymbolicInstance metadata Timestamp.zero source "this" (wrapReferenceType typ)
-        if isReferenceType typ
+        if isRef
             then instance, state, false
             else
                 let key = (Pointers.symbolicThisStackKey, token)
