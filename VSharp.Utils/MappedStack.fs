@@ -12,10 +12,7 @@ module public MappedStack =
 
     let private makeExtendedKey = makePair
 
-    let private peakIdx peaks key =
-        match Map.tryFind key peaks with
-        | Some counter -> counter
-        | None -> defaultPeak
+    let private peakIdx peaks key = Map.tryFind key peaks |?? defaultPeak
 
     let empty = (Map.empty, Map.empty)
 
@@ -87,7 +84,7 @@ module public MappedStack =
         let keys = new System.Collections.Generic.HashSet<_>()
         List.iter (fst >> Map.toSeq >> Seq.map (fun (k, cell) -> (k, cell.created)) >> keys.UnionWith) stacks
         let mergeOneKey (k, time) =
-            let vals = List.map2 (fun g (s, _) -> (g, if Map.containsKey k s then s.[k] else k |> fst |> lazyInstantiate time)) guards stacks
+            let vals = List.map2 (fun g (s, _) -> (g, Map.tryFind k s |?? lazyInstantiate time (fst k))) guards stacks
             (k, resolve vals)
         (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
 
@@ -100,7 +97,7 @@ module public MappedStack =
         let relevantEntries = new System.Collections.Generic.HashSet<_>(newEntries)
         relevantEntries.UnionWith(modifiedEntries)
         let mergeOneKey result (k, time) =
-            let val1 = if Map.containsKey k contents1 then contents1.[k] else k |> fst |> lazyInstantiate time
-            let val2 = if Map.containsKey k contents2 then contents2.[k] else k |> fst |> lazyInstantiate time
+            let val1 = Map.tryFind k contents1 |?? lazyInstantiate time (fst k)
+            let val2 = Map.tryFind k contents2 |?? lazyInstantiate time (fst k)
             Map.add k (resolve val1 val2) result
         (relevantEntries |> Seq.fold mergeOneKey contents1, peaks1)
