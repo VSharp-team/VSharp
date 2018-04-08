@@ -92,22 +92,6 @@ module API =
 
         let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
 
-    module RuntimeExceptions =
-        let NullReferenceException state thrower =
-            let term, state = Memory.npe m.Value state
-            thrower term, state
-        let InvalidCastException state thrower =
-            let message = makeConcreteString "Specified cast is not valid." m.Value
-            let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
-            thrower term, state
-        let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
-            let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
-            thrower term, state
-        let IndexOutOfRangeException state thrower =
-            let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
-            thrower term, state
-
     module Types =
         let FromDotNetType t = Types.Constructor.fromDotNetType t
         let ToDotNetType t = Types.toDotNetType t
@@ -197,3 +181,20 @@ module API =
             let res, state = Database.query funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
             ControlFlow.resultToTerm res, state
         let DependenciesOfRecursionResult funcId = Database.queryDependenciesOfResult funcId
+
+    module RuntimeExceptions =
+        let NullReferenceException state thrower =
+            let term, state = Memory.npe m.Value state
+            thrower term, state
+        let InvalidCastException state thrower =
+            let messageString = "Specified cast is not valid."
+            let message, state = Memory.AllocateString messageString.Length messageString state
+            let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
+            thrower term, state
+        let TypeInitializerException qualifiedTypeName innerException state thrower =
+            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
+            let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
+            thrower term, state
+        let IndexOutOfRangeException state thrower =
+            let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
+            thrower term, state

@@ -219,6 +219,11 @@ namespace VSharp.CSharpUtils.Tests
             x.MyValue = newMyValue;
             return x.MyValue;
         }
+
+        public static int ValueTypeMethod(int x, int y)
+        {
+            return x.CompareTo(y);
+        }
     }
 
     public static class ClassesSimpleException
