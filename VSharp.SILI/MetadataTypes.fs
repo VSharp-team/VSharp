@@ -8,7 +8,7 @@ open JetBrains.Metadata.Reader.API
 
 module internal MetadataTypes =
 
-    let private genericParameterFromMetadata (arg : IMetadataGenericArgument) =
+    let genericParameterFromMetadata (arg : IMetadataGenericArgument) =
         match arg with
         | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[int arg.Index]
         | _ when arg.MethodOwner <> null ->

@@ -213,8 +213,8 @@ module internal State =
         | Bottom
         | termType.Null
         | Bool
-        | Numeric _
-        | TypeVariable(Implicit _) -> typ
+        | Numeric _ -> typ
+        | TypeVariable(Implicit(name, t)) -> TypeVariable(Implicit(name, substituteTypeVariables t))
         | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
         | StructType(t, args) -> substitute Types.StructType t args
         | ClassType(t, args) -> substitute Types.ClassType t args

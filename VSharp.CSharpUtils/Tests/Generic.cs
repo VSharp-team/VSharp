@@ -93,7 +93,7 @@ namespace VSharp.CSharpUtils.Tests.Generic
         }
     }
 
-    public class Foo<T>
+    public class Foo<T, U>
     {
         private T _filed;
 
@@ -113,15 +113,15 @@ namespace VSharp.CSharpUtils.Tests.Generic
         }
     }
 
-//    public static class GenericMethod
-//    {
-//        public static int TestFoo(int n)
-//        {
-//            var f = new Foo<int>();
-//            f.SetField(n);
-//            return f.GetFields();
-//        }
-//    }
+    public static class GenericMethod
+    {
+        public static int TestFoo(Foo<int, Piece> f)
+        {
+            if (f == null) return 0;
+            return f.GetFields();
+        }
+    }
+
     public static class TetsUnion
     {
 //        public static Coord RetCoord(Object obj, Coord coord, int field)

@@ -37,12 +37,17 @@ type termType =
         | Void -> "void"
         | Bottom -> "exception"
         | Null -> "<nullType>"
-        | Bool -> "bool"
-        | Numeric t -> t.Name.ToLower()
+        | Bool -> typedefof<bool>.FullName
+        | Numeric t -> t.FullName
         | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
-        | StructType(t, _)
-        | ClassType(t, _)
-        | InterfaceType(t, _)
+        | StructType(t, g)
+        | ClassType(t, g)
+        | InterfaceType(t, g) ->
+            if t.Inheritor.IsGenericType
+                then
+                    let args = String.Join(",", (Seq.map ((fun (TermTypeRef t) -> toString !t)) g))
+                    sprintf "%s[%s]" (t.Inheritor.GetGenericTypeDefinition().FullName) args
+                else toString t
         | TypeVariable(Explicit t) -> toString t
         | TypeVariable(Implicit (name, t)) -> sprintf "%s{%O}" name t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
