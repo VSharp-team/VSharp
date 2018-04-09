@@ -46,12 +46,6 @@ namespace VSharp.CSharpUtils.Tests.Generic
         {
             return t;
         }
-
-//        public static Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>> GenericParameter1(T t, U u, P p, K k, N n, Z z)
-//        {
-//            var a = new Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>>();
-//            return a;
-//        }
     }
 
     public static class GenericTest<T, U, P, K, N, Z>

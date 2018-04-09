@@ -692,7 +692,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
-System.Byte ==> STRUCT byte[
+System.Byte ==> STRUCT System.Byte[
 	| System.Byte.MaxValue ~> 255
 	| System.Byte.MinValue ~> 0]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
@@ -763,13 +763,13 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
-RESULT: (int32)a << 19
+RESULT: (System.Int32)a << 19
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
-RESULT: (int32)a << 16
+RESULT: (System.Int32)a << 16
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -781,7 +781,7 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision1(System.Byte)
-RESULT: ((int32)a >> 20) / 1024
+RESULT: ((System.Int32)a >> 20) / 1024
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -821,7 +821,7 @@ RESULT: -2147483648
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-System.Int32 ==> STRUCT int32[
+System.Int32 ==> STRUCT System.Int32[
 	| System.Int32.MaxValue ~> 2147483647
 	| System.Int32.MinValue ~> -2147483648]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
@@ -844,7 +844,7 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.DoubleShiftRight(System.Int32)
-RESULT: (int64)(a >> 15 >> 18)
+RESULT: (System.Int64)(a >> 15 >> 18)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -3102,7 +3102,7 @@ HEAP:
 19 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i) I
 	| System.String.m_StringLength ~> 33]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
+2 ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 16
@@ -3196,7 +3196,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
@@ -3214,7 +3214,7 @@ RESULT: 15
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.Collections.Generic.List`1[T][
+1 ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> UNION[
 		| !hasKey#6 & !hasKey#7 ~> 12
@@ -3312,7 +3312,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
@@ -3390,7 +3390,7 @@ HEAP:
 this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
@@ -3433,14 +3433,14 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 2)
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
 		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
+2 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 0
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 0]
 3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
@@ -4069,7 +4069,7 @@ RESULT: 18
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression int32 -> TypeVariable1{<nullType>}>
+1 ==> <Lambda Expression System.Int32 -> TypeVariable1{<nullType>}>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
@@ -4077,8 +4077,8 @@ RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression int32 -> TypeVariable1{<nullType>}>
-2 ==> <Lambda Expression int32 -> TypeVariable2{<nullType>}>
+1 ==> <Lambda Expression System.Int32 -> TypeVariable1{<nullType>}>
+2 ==> <Lambda Expression System.Int32 -> TypeVariable2{<nullType>}>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.String VSharp.CSharpUtils.Tests.Strings.EmptyString(System.Int32, System.Int32)
@@ -4099,7 +4099,7 @@ RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.Collections.Generic.List`1[T][
+1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null
@@ -4122,7 +4122,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
@@ -4324,7 +4324,7 @@ HEAP:
 9 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
 	| System.String.m_StringLength ~> 49]
-array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
+array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
@@ -4449,7 +4449,7 @@ HEAP:
 9 ==> STRUCT System.String[
 	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
 	| System.String.m_StringLength ~> 49]
-array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
+array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
@@ -4732,12 +4732,12 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 7)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 7)>
-	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
+	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: System.Int32[,]) ~> <ERROR: UNION[
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 7)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 1)]>
+	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: System.Int32[]) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 7)>
+	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4817,9 +4817,9 @@ HEAP:
 	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1: UNION[
-		| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
+		| !(0 == arr) & !(ArrayTypeVariable1 <: System.Int32[]) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
 	1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> 5];
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -4840,8 +4840,8 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 4)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 10)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 4)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 10)]]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.IntPtr ==> STRUCT System.IntPtr[
 	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
@@ -4849,8 +4849,8 @@ System.IntPtr ==> STRUCT System.IntPtr[
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 12)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 6)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 12)]]
 System.SystemException ==> STRUCT System.SystemException[]
 System.UIntPtr ==> STRUCT System.UIntPtr[
 	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
@@ -4859,10 +4859,10 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray2(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) ~> <ERROR: (HeapRef 1)>
-	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) ~> <ERROR: (HeapRef 11)>
-	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 7)>
-	| (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
+	| !(0 == arr) & !(1 < arr.0_Length) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,])) & (ArrayTypeVariable1 <: System.Int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[]) ~> <ERROR: (HeapRef 1)>
+	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) ~> <ERROR: (HeapRef 11)>
+	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,])) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 7)>
+	| (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4971,11 +4971,11 @@ HEAP:
 	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1, 1: UNION[
-		| !(0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
+		| !(0 == arr) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
 	1, 1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
 	1: UNION[
-		| (!(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,,])) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> 5];
+		| (!(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,,])) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -5051,7 +5051,7 @@ System.Object ==> STRUCT System.Object[]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Void* VSharp.CSharpUtils.Tests.Unsafe.CompilerHackLikePtrReturn(System.Void*)
-RESULT: (HeapPtr ptr as void)
+RESULT: (HeapPtr ptr as System.Void)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -5073,18 +5073,18 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualE ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualE[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualG.F()
-RESULT: 66
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.CSharpUtils.Tests.Methods.VirtualG ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualG[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualC.F()
 RESULT: 7
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualG.F()
+RESULT: 66
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Methods.VirtualG ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualG[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
 	| !(0 == p) ~> (HeapRef p)
@@ -5269,7 +5269,7 @@ VSharp.CSharpUtils.Tests.Methods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.Me
 VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
 VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
 METHOD: System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
-RESULT: sqrt((double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
+RESULT: sqrt((System.Double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -5425,8 +5425,8 @@ System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Typecast.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Typecast[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Typecast.Unboxing(System.Object)
 RESULT: UNION[
-	| !(0 == obj) & (TypeVariable1{System.Object} <: int32) ~> 13
-	| !(TypeVariable1{System.Object} <: int32) | 0 == obj ~> 23]
+	| !(0 == obj) & (TypeVariable1{System.Object} <: System.Int32) ~> 13
+	| !(TypeVariable1{System.Object} <: System.Int32) | 0 == obj ~> 23]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -5784,6 +5784,56 @@ this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Knight ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[]
+METHOD: System.Collections.Generic.LinkedList`1[System.Int32] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetDictionary()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1._syncRoot ~> null
+	| System.Collections.Generic.LinkedList`1.count ~> 0
+	| System.Collections.Generic.LinkedList`1.head ~> null
+	| System.Collections.Generic.LinkedList`1.siInfo ~> null
+	| System.Collections.Generic.LinkedList`1.version ~> 0]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Version
+	| System.String.m_StringLength ~> 7]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Count
+	| System.String.m_StringLength ~> 5]
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Data
+	| System.String.m_StringLength ~> 4]
+---------- s1 = ----------
+System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 3)
+	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 4)
+	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+METHOD: System.Collections.Generic.List`1[System.Double] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 2)
+	| System.Collections.Generic.List`1._size ~> 0
+	| System.Collections.Generic.List`1._syncRoot ~> null
+	| System.Collections.Generic.List`1._version ~> 0]
+2 ==> [| ... 0 ... |]
+---------- s1 = ----------
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1._defaultCapacity ~> 4
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetT(T)
+RESULT: (HeapRef t)
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
@@ -5820,6 +5870,61 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+METHOD: T VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].GetFields()
+RESULT: (HeapRef this.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+METHOD: System.Void VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].SetField(T)
+RESULT: <VOID>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][
+	| VSharp.CSharpUtils.Tests.Generic.Foo`2._filed ~> (HeapRef f)]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece])
+RESULT: UNION[
+	| !(0 == f) ~> f.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed
+	| 0 == f ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+f ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece]}[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece][]
+VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(System.Collections.Generic.LinkedList`1[System.Int32])
+RESULT: UNION[
+	| !(0 == l) & !(0 == l.System.Collections.Generic.LinkedList`1.head) ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item
+	| !(0 == l) & 0 == l.System.Collections.Generic.LinkedList`1.head ~> 1
+	| 0 == l ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Version
+	| System.String.m_StringLength ~> 7]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Count
+	| System.String.m_StringLength ~> 5]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Data
+	| System.String.m_StringLength ~> 4]
+l ==> STRUCT TypeVariable1{System.Collections.Generic.LinkedList`1[System.Int32]}[]
+l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][
+	| System.Collections.Generic.LinkedListNode`1.item ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item]
+---------- s1 = ----------
+System.Collections.Generic.LinkedListNode`1 ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
+System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 2)
+	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 3)
+	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.TetsUnion.RetWorked(System.Object, System.Int32)
 RESULT: UNION[
 	| !(0 == obj) & !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) & (!(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) | !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | (!(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | 0 == obj)) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) ~> 6 + a

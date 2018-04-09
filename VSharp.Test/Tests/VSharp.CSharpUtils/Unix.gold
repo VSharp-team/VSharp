@@ -478,7 +478,7 @@ System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 5)]
 System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow3(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.CheckOverflow3(System.System.Double)
 RESULT: Infinity + x1
 HEAP:
 { heap = <empty>, statics = s0 } where
@@ -519,7 +519,7 @@ HEAP:
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
-System.Byte ==> STRUCT byte[
+System.Byte ==> STRUCT System.Byte[
 	| System.Byte.MaxValue ~> 255
 	| System.Byte.MinValue ~> 0]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
@@ -548,7 +548,7 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ZeroShift(System.Int32)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.ZeroShift(System.Int32)
 RESULT: 0
 HEAP:
 { heap = <empty>, statics = s0 } where
@@ -573,13 +573,13 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
-RESULT: (int32)a << 19
+RESULT: (System.Int32)a << 19
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
-RESULT: (int32)a << 16
+RESULT: (System.Int32)a << 16
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -591,7 +591,7 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Arithmetics.ShiftDevision1(System.Byte)
-RESULT: ((int32)a >> 20) / 1024
+RESULT: ((System.Int32)a >> 20) / 1024
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -631,7 +631,7 @@ RESULT: -2147483648
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-System.Int32 ==> STRUCT int32[
+System.Int32 ==> STRUCT System.Int32[
 	| System.Int32.MaxValue ~> 2147483647
 	| System.Int32.MinValue ~> -2147483648]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
@@ -653,13 +653,13 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.DoubleShiftRight(System.Int32)
-RESULT: (int64)(a >> 15 >> 18)
+METHOD: System.Int64 VSharp.CSharpUtils.Tests.Arithmetics.System.DoubleShiftRight(System.Int32)
+RESULT: (System.Int64)(a >> 15 >> 18)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod1(System.System.Double)
 RESULT: log(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -686,11 +686,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod2(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod2(System.System.Double, System.System.Double)
 RESULT: log(x + y)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -717,11 +717,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod3()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod3()
 RESULT: 0
 HEAP:
 { heap = h0, statics = s1 } where
@@ -748,11 +748,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod4(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod4(System.System.Double)
 RESULT: log(1 + log(x))
 HEAP:
 { heap = h0, statics = s1 } where
@@ -779,11 +779,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod5()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod5()
 RESULT: -Infinity
 HEAP:
 { heap = h0, statics = s1 } where
@@ -810,11 +810,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod6()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod6()
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -841,11 +841,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod7(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.LogMethod7(System.System.Double)
 RESULT: UNION[
 	| !(x < 0) ~> log(x)
 	| x < 0 ~> log(-x)]
@@ -874,11 +874,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod1(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod1(System.System.Double)
 RESULT: sqrt(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -905,11 +905,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod2()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod2()
 RESULT: 2
 HEAP:
 { heap = h0, statics = s1 } where
@@ -936,11 +936,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod3(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod3(System.System.Double)
 RESULT: UNION[
 	| !(x < 0) ~> sqrt(x)
 	| x < 0 ~> sqrt(-x)]
@@ -969,11 +969,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod4()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SqrtMethod4()
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1000,11 +1000,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod1()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod1()
 RESULT: 1
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1031,11 +1031,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod2(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.ExpMethod2(System.System.Double)
 RESULT: exp(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1062,11 +1062,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod1(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod1(System.System.Double)
 RESULT: 1
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1093,11 +1093,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod2(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod2(System.System.Double)
 RESULT: 1
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1124,11 +1124,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod3()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod3()
 RESULT: 25
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1155,11 +1155,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod4(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod4(System.System.Double, System.System.Double)
 RESULT: pow(x, y)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1186,11 +1186,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod5(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod5(System.System.Double)
 RESULT: UNION[
 	| !(x < 0) ~> pow(x, 2)
 	| x < 0 ~> pow(-x, 2)]
@@ -1219,11 +1219,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod6(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod6(System.System.Double)
 RESULT: UNION[
 	| !(x < 0) ~> pow(x, x)
 	| !(x < 8) & x < 0 ~> pow(-x, -x)
@@ -1253,11 +1253,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod7(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod7(System.System.Double, System.System.Double)
 RESULT: x + y
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1284,11 +1284,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod8(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod8(System.System.Double)
 RESULT: pow(2, x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1315,11 +1315,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod9(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod9(System.System.Double)
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1346,11 +1346,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod10(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod10(System.System.Double, System.System.Double)
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1377,11 +1377,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod11(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod11(System.System.Double)
 RESULT: UNION[
 	| !(x < 0) ~> 0
 	| 0 == x ~> 1
@@ -1411,11 +1411,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod12()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod12()
 RESULT: 1
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1442,11 +1442,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod13()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod13()
 RESULT: 0
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1473,11 +1473,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod14(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod14(System.System.Double)
 RESULT: Infinity
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1504,11 +1504,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod15(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod15(System.System.Double, System.System.Double)
 RESULT: UNION[
 	| !(0 == x + y) & !(x + y < 0) ~> Infinity
 	| 0 == x + y ~> 1
@@ -1538,11 +1538,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod16(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod16(System.System.Double)
 RESULT: UNION[
 	| !(-1 == x) & !(1 == x) & (!(-1 < x) | !(x < 1)) ~> 0
 	| -1 < x & x < 1 ~> Infinity
@@ -1573,11 +1573,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod17()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.PowMethod17()
 RESULT: -Infinity
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1604,11 +1604,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AcosMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.AcosMethod()
 RESULT: 0
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1635,11 +1635,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AsinMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.AsinMethod(System.System.Double)
 RESULT: arcsin(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1666,11 +1666,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AtanMethod(System.Double, System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.AtanMethod(System.System.Double, System.System.Double)
 RESULT: arctan(-y + x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1697,11 +1697,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CeilingMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.CeilingMethod(System.System.Double)
 RESULT: ceil(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1728,11 +1728,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CosMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.CosMethod()
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1759,11 +1759,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.CoshMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.CoshMethod()
 RESULT: Infinity
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1790,11 +1790,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.FloorMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.FloorMethod(System.System.Double)
 RESULT: floor(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1821,11 +1821,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinMethod()
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1852,11 +1852,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanMethod()
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1883,11 +1883,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinhMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.SinhMethod(System.System.Double)
 RESULT: UNION[
 	| !(x <= 0) ~> sinh(x)
 	| x <= 0 ~> sinh(-x)]
@@ -1916,11 +1916,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanhMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.TanhMethod(System.System.Double)
 RESULT: tanh(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1947,11 +1947,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.RoundMethod()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.RoundMethod()
 RESULT: 7
 HEAP:
 { heap = h0, statics = s1 } where
@@ -1978,11 +1978,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.AbsMethod(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.AbsMethod(System.System.Double)
 RESULT: abs(x)
 HEAP:
 { heap = h0, statics = s1 } where
@@ -2009,9 +2009,9 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Single VSharp.CSharpUtils.Tests.Arithmetics.AbsSingleMethod()
 RESULT: 5.9
@@ -2042,7 +2042,7 @@ HEAP:
 	11: System.Int64;
 	12: System.UInt64;
 	13: System.Single;
-	14: System.Double;
+	14: System.System.Double;
 	15: System.Decimal;
 	16: System.DateTime;
 	17: System.Object;
@@ -2137,12 +2137,12 @@ System.DBNull ==> STRUCT System.DBNull[
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method1(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method1(System.System.Double)
 RESULT: NaN
 HEAP:
 { heap = h0, statics = s1 } where
@@ -2169,11 +2169,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method2(System.Double)
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method2(System.System.Double)
 RESULT: UNION[
 	| !(Infinity == x) ~> arctan(Infinity, x)
 	| Infinity == x ~> NaN]
@@ -2202,11 +2202,11 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method3()
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Arithmetics.Atan2Method3()
 RESULT: 0
 HEAP:
 { heap = h0, statics = s1 } where
@@ -2233,9 +2233,9 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Arithmetics ==> STRUCT VSharp.CSharpUtils.Tests.Arithmetics[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Logics.Negation1()
 RESULT: False
@@ -2712,10 +2712,10 @@ HEAP:
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple+MyStruct[]
 VSharp.CSharpUtils.Tests.ClassesSimple ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimple[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test1()
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test1()
 RESULT: UNION[
 	| !hasKey#1 ~> <ERROR: (HeapRef 2)>
-	| hasKey#1 ~> <VOID>]
+	| hasKey#1 ~> <System.Void>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -2766,10 +2766,10 @@ VSharp.CSharpUtils.Tests.ClassesSimpleException ==> STRUCT VSharp.CSharpUtils.Te
 VSharp.CSharpUtils.Tests.ClassesSimpleException0 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleException0[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleException0.field0 ~> 0]
 VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleExceptionInitializer[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test2()
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.ClassesSimpleException.Test2()
 RESULT: UNION[
 	| !hasKey#1 ~> <ERROR: (HeapRef 2)>
-	| hasKey#1 ~> <VOID>]
+	| hasKey#1 ~> <System.Void>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -2829,8 +2829,8 @@ HEAP:
 this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
-RESULT: <VOID>
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct)
+RESULT: <System.Void>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -2877,7 +2877,7 @@ HEAP:
 this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
@@ -2894,8 +2894,8 @@ System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> (HeapRef 6)]
 System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.TestProperty1()
-RESULT: <VOID>
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.TestProperty1()
+RESULT: <System.Void>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -2903,14 +2903,14 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 2)
 	| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[
 		| VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
-2 ==> STRUCT System.Collections.Generic.List`1[T][
+2 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 0
 	| System.Collections.Generic.List`1._syncRoot ~> null
 	| System.Collections.Generic.List`1._version ~> 0]
 3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
@@ -2924,8 +2924,8 @@ HEAP:
 this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct)
-RESULT: <VOID>
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify.set_StructProperty(VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccessModify+SimpleStruct)
+RESULT: <System.Void>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -2972,9 +2972,9 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Conditional.Always18()
 RESULT: 18
@@ -2991,7 +2991,7 @@ VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditi
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
 	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(R == c) & !(T == c) | (R == c | T == c) & <VOID> < 5 | A == c | B == c | C == c | D == c) & (!(R == c) & !(T == c) | A == c & R == c | A == c & T == c | B == c & R == c | B == c & T == c | C == c & R == c | C == c & T == c | D == c)]
+	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(R == c) & !(T == c) | (R == c | T == c) & <System.Void> < 5 | A == c | B == c | C == c | D == c) & (!(R == c) & !(T == c) | A == c & R == c | A == c & T == c | B == c & R == c | B == c & T == c | C == c & R == c | C == c & T == c | D == c)]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -3409,16 +3409,16 @@ RESULT: 18
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression int32 -> TypeVariable1{<nullType>}>
+1 ==> <Lambda Expression System.Int32 -> TypeVariable1{<nullType>}>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
-METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
+METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.System.DoubleValue(System.Int32, System.Boolean)
 RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression int32 -> TypeVariable1{<nullType>}>
-2 ==> <Lambda Expression int32 -> TypeVariable2{<nullType>}>
+1 ==> <Lambda Expression System.Int32 -> TypeVariable1{<nullType>}>
+2 ==> <Lambda Expression System.Int32 -> TypeVariable2{<nullType>}>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.String VSharp.CSharpUtils.Tests.Strings.EmptyString(System.Int32, System.Int32)
@@ -3439,7 +3439,7 @@ RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.Collections.Generic.List`1[T][
+1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
 	| System.Collections.Generic.List`1._size ~> 4
 	| System.Collections.Generic.List`1._syncRoot ~> null
@@ -3460,7 +3460,7 @@ HEAP:
 	 ... 4 ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[T][
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
@@ -3616,7 +3616,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
+array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
@@ -3704,7 +3704,7 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-array ==> int32: [| ... int32[,].0_Length x int32[,].1_Length ... |]
+array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
@@ -3911,12 +3911,12 @@ System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: int32[,]) ~> <ERROR: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 6)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
-	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
+	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable1 <: System.Int32[,]) ~> <ERROR: UNION[
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 6)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 1)]>
+	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable1 <: System.Int32[]) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
+	| !(1 < arr.0_Length) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -3978,9 +3978,9 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1: UNION[
-		| !(0 == arr) & !(ArrayTypeVariable1 <: int32[]) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
+		| !(0 == arr) & !(ArrayTypeVariable1 <: System.Int32[]) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
 	1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length ~> 5];
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -3991,22 +3991,22 @@ System.Environment ==> STRUCT System.Environment[
 System.Exception ==> STRUCT System.Exception[
 	| System.Exception._COMPlusExceptionCode ~> -532462766
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 3)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 8)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 3)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 8)]]
 System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
 System.Object ==> STRUCT System.Object[]
 System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[]) ~> (HeapRef 5)
-		| !(ArrayTypeVariable1 <: int32[]) | 0 == arr ~> (HeapRef 10)]]
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) ~> (HeapRef 5)
+		| !(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr ~> (HeapRef 10)]]
 System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Array VSharp.CSharpUtils.Tests.Lists.RetSystemArray2(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) ~> <ERROR: (HeapRef 1)>
-	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) ~> <ERROR: (HeapRef 9)>
-	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,])) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 6)>
-	| (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
+	| !(0 == arr) & !(1 < arr.0_Length) & (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,])) & (ArrayTypeVariable1 <: System.Int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[]) | !(0 == arr) & !(1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[]) ~> <ERROR: (HeapRef 1)>
+	| !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[]) | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) ~> <ERROR: (HeapRef 9)>
+	| (!(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[,]) | !(0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,])) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) ~> <ERROR: (HeapRef 6)>
+	| (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(1 < arr.2_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> (HeapRef arr)]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4088,11 +4088,11 @@ HEAP:
 	| System.Exception.native_trace_ips ~> null]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1, 1: UNION[
-		| !(0 == arr) & (!(ArrayTypeVariable1 <: int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
+		| !(0 == arr) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,,]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length ~> 42];
 	1, 1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable1 <: int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
+		| !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7];
 	1: UNION[
-		| (!(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: int32[,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: int32[,,]) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: int32[]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: int32[,,])) & (!(ArrayTypeVariable1 <: int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: int32[]) | 0 == arr | 1 < arr.0_Length) ~> 5];
+		| (!(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable1 <: System.Int32[,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | (!(0 == arr) & !(ArrayTypeVariable1 <: System.Int32[,,]) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | !(0 == arr) & (!(0 == arr) & (!(1 < arr.1_Length) | !(1 < arr.2_Length)) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length | !(0 == arr) & (ArrayTypeVariable1 <: System.Int32[]) & 1 < arr.0_Length & 1 < arr.1_Length & 1 < arr.2_Length) & (ArrayTypeVariable1 <: System.Int32[,,])) & (!(ArrayTypeVariable1 <: System.Int32[,]) | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length)) & (!(ArrayTypeVariable1 <: System.Int32[]) | 0 == arr | 1 < arr.0_Length) ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -4133,7 +4133,7 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.DoubleIndirection()
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.System.DoubleIndirection()
 RESULT: 428999
 HEAP:
 { heap = <empty>, statics = s0 } where
@@ -4149,8 +4149,8 @@ System.IntPtr ==> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> null]]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
-METHOD: System.Void* VSharp.CSharpUtils.Tests.Unsafe.CompilerHackLikePtrReturn(System.Void*)
-RESULT: (HeapPtr ptr as void)
+METHOD: System.System.Void* VSharp.CSharpUtils.Tests.Unsafe.CompilerHackLikePtrReturn(System.System.Void*)
+RESULT: (HeapPtr ptr as System.Void)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
@@ -4171,18 +4171,18 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualE ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualE[]
-METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualG.F()
-RESULT: 66
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.CSharpUtils.Tests.Methods.VirtualG ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualG[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualC.F()
 RESULT: 7
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualG.F()
+RESULT: 66
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Methods.VirtualG ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualG[]
 METHOD: VSharp.CSharpUtils.Tests.Typecast.IMovable VSharp.CSharpUtils.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.CSharpUtils.Tests.Typecast.Pawn, VSharp.CSharpUtils.Tests.Typecast.Coord)
 RESULT: UNION[
 	| !(0 == p) ~> (HeapRef p)
@@ -4349,8 +4349,8 @@ VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tes
 VSharp.CSharpUtils.Tests.Methods.VirtualB ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualB[]
 VSharp.CSharpUtils.Tests.Methods.VirtualC ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualC[]
 VSharp.CSharpUtils.Tests.Methods.VirtualMethod ==> STRUCT VSharp.CSharpUtils.Tests.Methods.VirtualMethod[]
-METHOD: System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
-RESULT: sqrt((double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
+METHOD: System.System.Double VSharp.CSharpUtils.Tests.Typecast.Coord.Norm()
+RESULT: sqrt((System.Double)(VSharp.CSharpUtils.Tests.Typecast.Coord.X * VSharp.CSharpUtils.Tests.Typecast.Coord.X + VSharp.CSharpUtils.Tests.Typecast.Coord.Y * VSharp.CSharpUtils.Tests.Typecast.Coord.Y))
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4376,9 +4376,9 @@ HEAP:
 System.Math ==> STRUCT System.Math[
 	| System.Math.E ~> 2.71828182845905
 	| System.Math.PI ~> 3.14159265358979
-	| System.Math.doubleRoundLimit ~> 1E+16
+	| System.Math.System.DoubleRoundLimit ~> 1E+16
 	| System.Math.maxRoundingDigits ~> 15
-	| System.Math.roundPower10Double ~> (HeapRef 1)]
+	| System.Math.roundPower10System.Double ~> (HeapRef 1)]
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Typecast.DownCastObject(System.Object)
 RESULT: UNION[
@@ -4493,8 +4493,8 @@ System.SystemException ==> STRUCT System.SystemException[]
 VSharp.CSharpUtils.Tests.Typecast.Typecast ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Typecast[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Typecast.Typecast.Unboxing(System.Object)
 RESULT: UNION[
-	| !(0 == obj) & (TypeVariable1{System.Object} <: int32) ~> 13
-	| !(TypeVariable1{System.Object} <: int32) | 0 == obj ~> 23]
+	| !(0 == obj) & (TypeVariable1{System.Object} <: System.Int32) ~> 13
+	| !(TypeVariable1{System.Object} <: System.Int32) | 0 == obj ~> 23]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4741,8 +4741,8 @@ HEAP:
 this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Pawn ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Pawn[]
-METHOD: System.Void VSharp.CSharpUtils.Tests.Typecast.Pawn.SetNewField(System.Int32)
-RESULT: <VOID>
+METHOD: System.System.Void VSharp.CSharpUtils.Tests.Typecast.Pawn.SetNewField(System.Int32)
+RESULT: <System.Void>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -4783,6 +4783,56 @@ this ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Typecast.Coord ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[]
 VSharp.CSharpUtils.Tests.Typecast.Knight ==> STRUCT VSharp.CSharpUtils.Tests.Typecast.Knight[]
+METHOD: System.Collections.Generic.LinkedList`1[System.Int32] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetDictionary()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1._syncRoot ~> null
+	| System.Collections.Generic.LinkedList`1.count ~> 0
+	| System.Collections.Generic.LinkedList`1.head ~> null
+	| System.Collections.Generic.LinkedList`1.siInfo ~> null
+	| System.Collections.Generic.LinkedList`1.version ~> 0]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Version
+	| System.String.m_StringLength ~> 7]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Count
+	| System.String.m_StringLength ~> 5]
+4 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Data
+	| System.String.m_StringLength ~> 4]
+---------- s1 = ----------
+System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 3)
+	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 4)
+	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+METHOD: System.Collections.Generic.List`1[System.Double] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 2)
+	| System.Collections.Generic.List`1._size ~> 0
+	| System.Collections.Generic.List`1._syncRoot ~> null
+	| System.Collections.Generic.List`1._version ~> 0]
+2 ==> [| ... 0 ... |]
+---------- s1 = ----------
+System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1._defaultCapacity ~> 4
+	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+System.Object ==> STRUCT System.Object[]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetT(T)
+RESULT: (HeapRef t)
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
@@ -4819,6 +4869,61 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+METHOD: T VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].GetFields()
+RESULT: (HeapRef this.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+METHOD: System.Void VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].SetField(T)
+RESULT: <VOID>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][
+	| VSharp.CSharpUtils.Tests.Generic.Foo`2._filed ~> (HeapRef f)]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece])
+RESULT: UNION[
+	| !(0 == f) ~> f.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed
+	| 0 == f ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+f ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece]}[]
+---------- s1 = ----------
+VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece][]
+VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(System.Collections.Generic.LinkedList`1[System.Int32])
+RESULT: UNION[
+	| !(0 == l) & !(0 == l.System.Collections.Generic.LinkedList`1.head) ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item
+	| !(0 == l) & 0 == l.System.Collections.Generic.LinkedList`1.head ~> 1
+	| 0 == l ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Version
+	| System.String.m_StringLength ~> 7]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Count
+	| System.String.m_StringLength ~> 5]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> Data
+	| System.String.m_StringLength ~> 4]
+l ==> STRUCT TypeVariable1{System.Collections.Generic.LinkedList`1[System.Int32]}[]
+l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][
+	| System.Collections.Generic.LinkedListNode`1.item ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item]
+---------- s1 = ----------
+System.Collections.Generic.LinkedListNode`1 ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
+System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 2)
+	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 3)
+	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 1)]
+VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.TetsUnion.RetWorked(System.Object, System.Int32)
 RESULT: UNION[
 	| !(0 == obj) & !(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) & (!(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) | !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | (!(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) | 0 == obj)) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Pawn) ~> 6 + a

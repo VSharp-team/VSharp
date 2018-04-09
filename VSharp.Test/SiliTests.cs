@@ -179,8 +179,6 @@ namespace VSharp.Test
 //                , "Generic"
 //                , "Strings"
 //                , "Methods"
-//                , "Foo"
-//                , "GenericInitialize"
                 , "Bag"
                 , "Tree"
                 , "Celsius"
