@@ -52,6 +52,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="logger.fs" />
     <Compile Include="Timestamp.fs" />
     <Compile Include="MemoryCell.fs" />
     <Compile Include="Prelude.fs" />
