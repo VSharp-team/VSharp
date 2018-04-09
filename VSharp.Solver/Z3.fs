@@ -4,6 +4,7 @@ open JetBrains.Decompiler.Ast
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp.Core
+open Logger
 
 module internal Z3 =
 
@@ -149,7 +150,7 @@ module internal Z3 =
         | _ -> __notImplemented__()
 
     let encodeTerm t =
-        printfn "SOLVER: trying to encode %O" t
+        printLog Trace "SOLVER: trying to encode %O" t
         let cache = freshCache()
         (encodeTermExt cache (fun _ _ -> false) t :> AST, cache)
 
@@ -187,15 +188,15 @@ module internal Z3 =
 // ------------------------------- Solving, etc. -------------------------------
 
     let solve (exprs : AST list) =
-        printfn "SOLVER: solving %O" exprs
+        printLog Trace "SOLVER: solving %O" exprs
         try
             exprs |> List.iter (fun expr -> solver.Assert(expr :?> BoolExpr))
             let result = solver.Check()
-            printfn "SOLVER: got %O" result
+            printLog Trace "SOLVER: got %O" result
             match result with
             | Status.SATISFIABLE -> SmtSat solver.Model
             | Status.UNSATISFIABLE -> SmtUnsat
-            | Status.UNKNOWN -> printfn "SOLVER: reason: %O" solver.ReasonUnknown; SmtUnknown solver.ReasonUnknown
+            | Status.UNKNOWN -> printLog Trace "SOLVER: reason: %O" solver.ReasonUnknown; SmtUnknown solver.ReasonUnknown
             | _ -> __unreachable__()
         finally
             solver.Reset()
@@ -213,6 +214,6 @@ module internal Z3 =
         let encoded = encodeTermExt cache stopper t
         let simple = encoded.Simplify()
         let result = decode cache simple
-        printfn "SOLVER: simplification of %O   gave   %O" t result
-        printfn "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
+        printLog Trace "SOLVER: simplification of %O   gave   %O" t result
+        printLog Trace "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
         result

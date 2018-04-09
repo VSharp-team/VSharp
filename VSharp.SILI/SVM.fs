@@ -4,6 +4,7 @@ open VSharp
 open VSharp.Core
 open System.Collections.Generic
 open System.Reflection
+open Logger
 
 module public SVM =
 
@@ -15,11 +16,11 @@ module public SVM =
         let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
         match metadataMethodOption with
         | None ->
-            printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
+            printLog Warning "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
         | Some metadataMethod ->
             dictionary.Add(m, null)
             invoke ({ metadataMethod = metadataMethod }) (fun (result, state) ->
-            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.ResultToTerm result)
+//            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.ResultToTerm result)
             dictionary.[m] <- (ControlFlow.ResultToTerm result, state))
 
     let private interpretEntryPoint (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
