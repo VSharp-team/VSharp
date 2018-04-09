@@ -8,6 +8,6 @@ open VSharp.Core
 
 module Thread =
 
-    let internal GetFastDomainInternal (state : state) (args : term list) = Return <| Struct Heap.empty (Types.FromDotNetType typedefof<AppDomain>), state
+    let internal GetFastDomainInternal (state : state) (args : term list) = Return <| Struct Heap.empty (Types.FromDotNetType state typedefof<AppDomain>), state
 
     let internal GetDomainInternal = GetFastDomainInternal

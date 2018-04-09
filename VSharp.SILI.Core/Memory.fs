@@ -129,7 +129,7 @@ module internal Memory =
                 (fun k -> k <| Terms.makeNullRef typ metadata)
                 Merging.merge Merging.merge2Terms id
         | Func _ -> Terms.makeNullRef (fromDotNetType typedefof<System.Delegate>) metadata
-        | StructType(dotNetType, _, _) ->
+        | StructType(dotNetType, _) ->
             mkStruct metadata time false (fun m _ t -> defaultOf time m t) dotNetType typ
         | Pointer typ -> Terms.makeNullPtr typ metadata
         | _ -> __notImplemented__()
@@ -137,10 +137,10 @@ module internal Memory =
     let mkDefault metadata typ =
         defaultOf (tick()) metadata typ
 
-    let mkDefaultStruct metadata isStatic qualifiedTypeName =
-        let dnt = System.Type.GetType qualifiedTypeName
+    let mkDefaultStruct metadata isStatic termType =
+        let dnt = toDotNetType termType
         let time = tick()
-        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt (fromDotNetType dnt)
+        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt termType
 
     let private makeSymbolicHeapReference metadata time (source : extractingSymbolicConstantSource) name typ construct =
         let source' = { source with extractor = Pointers.HeapAddressExtractor() }
@@ -606,7 +606,8 @@ module internal Memory =
         let stack = composeStacksOf ctx state state'
         let heap = composeHeapsOf ctx state state'.heap
         let statics = composeStaticsOf ctx state state'.statics
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc }
+        assert(state'.typeVariables |> snd |> Stack.isEmpty)
+        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc; typeVariables = state.typeVariables }
 
 // ------------------------------- High-level read/write -------------------------------
 
