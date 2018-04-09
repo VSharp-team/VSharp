@@ -63,7 +63,7 @@ module Substitution =
             let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs]
             let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
             let result = Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
-            (guard, result)::errs |> Merging.merge
+            (!!guard, result)::errs |> Merging.merge
         | _ -> subst term
 
     and substituteHeap subst heap =

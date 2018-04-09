@@ -47,8 +47,6 @@ type extractingSymbolicConstantSource =
         override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
 
 module internal State =
-    open VSharp.Utils
-    open VSharp.Utils
 
     module SymbolicHeap = Heap
 
