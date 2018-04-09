@@ -143,8 +143,8 @@ module API =
 
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateInHeap : state -> term -> term * state
-        val AllocateDefaultStatic : state -> string -> state
-        val MakeDefaultStruct : string -> term
+        val AllocateDefaultStatic : state -> termType -> string -> state
+        val MakeDefaultStruct : termType -> term
         val AllocateString : int -> 'a -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term

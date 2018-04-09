@@ -167,8 +167,8 @@ module API =
 
         let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
-        let AllocateDefaultStatic state qualifiedTypeName = Memory.mkDefaultStruct m.Value true qualifiedTypeName |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
-        let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value false qualifiedTypeName
+        let AllocateDefaultStatic state termType qualifiedTypeName = Memory.mkDefaultStruct m.Value true termType |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
+        let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value false termType
         let AllocateString length str state = Strings.makeString length str (Memory.tick()) |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state

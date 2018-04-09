@@ -137,10 +137,10 @@ module internal Memory =
     let mkDefault metadata typ =
         defaultOf (tick()) metadata typ
 
-    let mkDefaultStruct metadata isStatic qualifiedTypeName =
-        let dnt = System.Type.GetType qualifiedTypeName
+    let mkDefaultStruct metadata isStatic termType =
+        let dnt = toDotNetType termType
         let time = tick()
-        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt (fromDotNetType dnt)
+        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt termType
 
     let private makeSymbolicHeapReference metadata time (source : extractingSymbolicConstantSource) name typ construct =
         let source' = { source with extractor = Pointers.HeapAddressExtractor() }

@@ -185,7 +185,10 @@ module internal State =
         | t -> toString t
 
     let private staticKeyToString = term >> function
-        | Concrete(typeName, Types.StringType) -> System.Type.GetType(typeName :?> string).FullName
+        | Concrete(typeName, Types.StringType) ->
+            if typeName = null then ()
+            let typ = System.Type.GetType(typeName :?> string)
+            if typ = null then (typeName :?> string) else typ.FullName
         | t -> toString t
 
     let mkMetadata (location : locationBinding) state =
@@ -205,9 +208,8 @@ module internal State =
         { state with typeVariables = (newMappedStack, newStack) }
 
     let rec substituteTypeVariables (state : state) typ =
-        printf "substituteTypeVariables\n"
         let substituteTypeVariables = substituteTypeVariables state
-        let substitute constructor t args = constructor t (List.map (fun (TermTypeRef t) -> TermTypeRef <| ref (substituteTypeVariables !t)) args)
+        let substitute constructor t args = constructor t (List.map substituteTypeVariables args)
         match typ with
         | Void
         | Bottom

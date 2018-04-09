@@ -32,9 +32,9 @@ namespace VSharp.CSharpUtils.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        public static Dictionary<int, T> RetDictionary()
+        public static LinkedList<int> RetDictionary()
         {
-            return new Dictionary<int, T>();
+            return new LinkedList<int>();;
         }
         
         public static List<double> RetList()
@@ -47,11 +47,11 @@ namespace VSharp.CSharpUtils.Tests.Generic
             return t;
         }
 
-        public static Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>> GenericParameter1(T t, U u, P p, K k, N n, Z z)
-        {
-            var a = new Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>>();
-            return a;
-        }
+//        public static Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>> GenericParameter1(T t, U u, P p, K k, N n, Z z)
+//        {
+//            var a = new Dictionary<T, Dictionary<U, Dictionary<List<K>, Dictionary<Queue<N>, Dictionary<Z, double>>>>>();
+//            return a;
+//        }
     }
 
     public static class GenericTest<T, U, P, K, N, Z>
@@ -119,6 +119,13 @@ namespace VSharp.CSharpUtils.Tests.Generic
         {
             if (f == null) return 0;
             return f.GetFields();
+        }
+
+        public static int TestFoo(LinkedList<int> l)
+        {
+            if (l == null) return 0;
+            if (l.First == null) return 1;
+            return l.First.Value += 1;
         }
     }
 

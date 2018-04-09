@@ -23,9 +23,9 @@ type termType =
     | Null
     | Bool
     | Numeric of System.Type
-    | StructType of hierarchy * termTypeRef list        // Value type with generic argument
-    | ClassType of hierarchy * termTypeRef list         // Reference type with generic argument
-    | InterfaceType of hierarchy * termTypeRef list     // Interface type with generic argument
+    | StructType of hierarchy * termType list        // Value type with generic argument
+    | ClassType of hierarchy * termType list         // Reference type with generic argument
+    | InterfaceType of hierarchy * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
     | Func of termType list * termType
@@ -34,7 +34,7 @@ type termType =
 
     override x.ToString() =
         match x with
-        | Void -> "void"
+        | Void -> "System.Void"
         | Bottom -> "exception"
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
@@ -45,7 +45,7 @@ type termType =
         | InterfaceType(t, g) ->
             if t.Inheritor.IsGenericType
                 then
-                    let args = String.Join(",", (Seq.map ((fun (TermTypeRef t) -> toString !t)) g))
+                    let args = String.Join(",", (Seq.map toString g))
                     sprintf "%s[%s]" (t.Inheritor.GetGenericTypeDefinition().FullName) args
                 else toString t
         | TypeVariable(Explicit t) -> toString t
@@ -56,16 +56,6 @@ type termType =
         | ArrayType(_, SymbolicDimension name) -> name
         | Reference t -> sprintf "<Reference to %O>" t
         | Pointer t -> sprintf "<Pointer to %O>" t
-
-and [<CustomEquality;NoComparison>]
-    termTypeRef =
-        | TermTypeRef of termType ref
-        override x.GetHashCode() =
-            Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(x)
-        override x.Equals(o : obj) =
-            match o with
-            | :? termTypeRef as other -> x.GetHashCode() = other.GetHashCode()
-            | _ -> false
 
 and [<StructuralEquality;CustomComparison>]
     typeId =
@@ -179,7 +169,6 @@ module internal Types =
         | t -> t
 
     let rec toDotNetType t =
-        printf "toDotNetType\n"
         match t with
         | Null -> null
         | Bool -> typedefof<bool>
@@ -188,7 +177,7 @@ module internal Types =
         | InterfaceType(t, args)
         | ClassType(t, args) ->
             if t.IsGenericType
-                then t.GetGenericTypeDefinition().MakeGenericType(Seq.map (fun (TermTypeRef t) -> toDotNetType !t) args |> Seq.toArray)
+                then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
         | TypeVariable(Explicit t) -> t.Inheritor
         | TypeVariable(Implicit(_, t)) -> toDotNetType t
@@ -221,18 +210,6 @@ module internal Types =
         let private InterfaceType (t : Type) g = InterfaceType (hierarchy t) g
         let private Explicit (t : Type) = Explicit(hierarchy t)
 
-        module private TypesCache =
-
-            let private types = new Dictionary<System.Type, termType ref>()
-
-            let contains t = types.ContainsKey t
-            let prepare t = types.Add (t, ref Null)
-            let find t = types.[t]
-
-            let embody t value =
-                types.[t] := value
-                types.[t]
-
         let getVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
                 left &&& right = right
@@ -244,8 +221,7 @@ module internal Types =
 
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
-                Seq.map (TermTypeRef << fromDotNetTypeRef) (dotNetType.GetGenericArguments()) |>
-                List.ofSeq
+                Seq.map fromDotNetType (dotNetType.GetGenericArguments()) |> List.ofSeq
             else []
 
         and private makeInterfaceType (interfaceType : Type) =
@@ -293,17 +269,7 @@ module internal Types =
         and private fromDotNetGenericParameter (genericParameter : Type) : termType =
             TypeVariable(Explicit genericParameter)
 
-        and private fromDotNetTypeRef dotNetType =
-            let key = dotNetType
-            let res =
-                if TypesCache.contains key then TypesCache.find key
-                else
-                    TypesCache.prepare key
-                    let termType = fromCommonDotNetType dotNetType
-                    TypesCache.embody key termType
-            res
-
-        let fromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else !(fromDotNetTypeRef dotNetType)
+        and fromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else fromCommonDotNetType dotNetType
 
         let (|StructureType|_|) = function
             | termType.StructType(t, genArg) -> Some(StructureType(t, genArg))
