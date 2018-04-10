@@ -430,7 +430,7 @@ module internal Memory =
                     | Constant(_, LazyInstantiation(loc, Some heap, _), _) when loc = location && heap = h ->
                         accessH.Force()
                     | _ -> term
-                Substitution.substitute simplifyInstantiated result, m
+                Substitution.substitute simplifyInstantiated id result, m
             else
                 result, Mutation(h, h'')
         | Composition(_, _, Defined _) ->
@@ -501,7 +501,7 @@ module internal Memory =
         | _ -> term
 
     and fillHoles ctx state term =
-        Substitution.substitute (fillHole ctx state) term
+        Substitution.substitute (fillHole ctx state) (State.substituteTypeVariables state) term
 
     and fillHolesInHeap ctx state heap =
         Heap.map (fun k cell -> (fillHoles ctx state k, {cell with value = fillHoles ctx state cell.value})) heap
