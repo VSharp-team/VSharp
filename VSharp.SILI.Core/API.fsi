@@ -126,6 +126,8 @@ module API =
         val (%%%) : term -> term -> term
 
     module public Memory =
+        val EmptyState : state
+
         val PopStack : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
@@ -155,3 +157,4 @@ module API =
     module Database =
         val Query : IFunctionIdentifier -> term * state
         val DependenciesOfRecursionResult : IFunctionIdentifier -> term seq
+        val DependenciesOfState : IFunctionIdentifier -> term seq

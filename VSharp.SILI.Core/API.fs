@@ -150,6 +150,8 @@ module API =
         let (%%%) x y = Arithmetics.simplifyRemainder m.Value false State.empty (x |> TypeOf |> Types.ToDotNetType) x y fst
 
     module public Memory =
+        let EmptyState = State.empty
+
         let PopStack state = State.popStack state
         let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state m.Value funcId parametersAndThis
         let NewScope state frame = Memory.newScope m.Value state frame
@@ -181,6 +183,7 @@ module API =
             let res, state = Database.query funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
             ControlFlow.resultToTerm res, state
         let DependenciesOfRecursionResult funcId = Database.queryDependenciesOfResult funcId
+        let DependenciesOfState funcId = Database.queryDependenciesOfState funcId
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =

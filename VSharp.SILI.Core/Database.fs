@@ -8,14 +8,18 @@ module internal Database =
     let private exploredExceptions = new Dictionary<IFunctionIdentifier, term>()
     let private exploredStates = new Dictionary<IFunctionIdentifier, state>()
     let private dependenciesOfResults = new Dictionary<IFunctionIdentifier, term seq>()
-//    let private dependenciesOfStates = new Dictionary<IFunctionIdentifier, term seq>()
+    let private dependenciesOfStates = new Dictionary<IFunctionIdentifier, term seq>()
 
     let report id (result, state) =
+        printfn "REPORTED %O (%O)" id (ControlFlow.resultToTerm result)
+        printfn "%s" (State.dumpMemory state)
         exploredResults.Add(id, result) |> ignore
         exploredStates.Add(id, state) |> ignore
         let thrown, _ = ControlFlow.pickOutExceptions result
-        let readDepsOfResult = result |> ControlFlow.resultToTerm |> discoverConstants
-        dependenciesOfResults.Add(id, readDepsOfResult)
+        let depsOfResult = result |> ControlFlow.resultToTerm |> discoverConstants
+//        let depsOfState = State.fold (fun (acc : HashSet<term>) term -> acc.UnionWith(discoverConstants term); acc) (new HashSet<term>()) state
+        dependenciesOfResults.Add(id, depsOfResult)
+//        dependenciesOfStates.Add(id, depsOfState)
         match thrown with
         | Some(g, e) ->
             exploredExceptionGuards.Add(id, g)
@@ -29,6 +33,10 @@ module internal Database =
     let queryDependenciesOfResult id =
         assert(dependenciesOfResults.ContainsKey id)
         dependenciesOfResults.[id]
+
+    let queryDependenciesOfState id =
+        assert(dependenciesOfStates.ContainsKey id)
+        dependenciesOfStates.[id]
 
     let queryState id =
         if exploredStates.ContainsKey id then Some exploredStates.[id] else None

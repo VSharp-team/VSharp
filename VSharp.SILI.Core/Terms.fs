@@ -267,6 +267,10 @@ module internal Terms =
 
     let makeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 
+    let isZeroAddress (addr : obj) =
+        match addr with
+        | :? concreteHeapAddress as l -> l = [0]
+        | _ -> false
 
     let (|StackPtr|_|) = function
         | StackRef(key, path, Some typ) -> Some(StackPtr(key, path, typ))

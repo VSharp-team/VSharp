@@ -79,9 +79,17 @@ namespace VSharp.CSharpUtils.Tests
             return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
         }
 
-        public static void CheckMc91(int x)
+        public static void CheckMc91Safe(int x)
         {
             if (x <= 96 && McCarthy(x + 5) != 91)
+            {
+                throw new Exception();
+            }
+        }
+
+        public static void CheckMc91Unsafe(int x)
+        {
+            if (x <= 97 && McCarthy(x + 5) != 91)
             {
                 throw new Exception();
             }
