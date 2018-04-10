@@ -22,7 +22,8 @@ type generalizedHeap =
     | Mutation of generalizedHeap * symbolicHeap
     | Merged of (term * generalizedHeap) list
 and staticMemory = generalizedHeap
-and state = { stack : stack; heap : generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition }
+and typeVariables = mappedStack<typeId, termType> * typeId list stack
+and state = { stack : stack; heap : generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition; typeVariables : typeVariables }
 
 type IActivator =
     abstract member CreateInstance : locationBinding -> System.Type -> term list -> state -> (term * state)
@@ -44,6 +45,7 @@ type IExtractingSymbolicConstantSource =
     abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
 
 module internal State =
+
     module SymbolicHeap = Heap
 
 // ------------------------------- Primitives -------------------------------
@@ -55,7 +57,8 @@ module internal State =
         heap = Defined false SymbolicHeap.empty;
         statics = Defined false SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
-        pc = List.empty
+        pc = List.empty;
+        typeVariables = (MappedStack.empty, Stack.empty)
     }
 
     let emptyRestricted : state = {
@@ -63,7 +66,8 @@ module internal State =
         heap = Defined true SymbolicHeap.empty;
         statics = Defined true SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
-        pc = List.empty
+        pc = List.empty;
+        typeVariables = (MappedStack.empty, Stack.empty)
     }
 
     let emptyCompositionContext : compositionContext = compositionContext.Empty
@@ -197,11 +201,51 @@ module internal State =
         | t -> toString t
 
     let private staticKeyToString = term >> function
-        | Concrete(typeName, Types.StringType) -> System.Type.GetType(typeName :?> string).FullName
+        | Concrete(typeName, Types.StringType) ->
+            if typeName = null then ()
+            let typ = System.Type.GetType(typeName :?> string)
+            if typ = null then (typeName :?> string) else typ.FullName
         | t -> toString t
 
     let mkMetadata (location : locationBinding) state =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
+
+    let pushTypeVariablesSubstitution state subst =
+        let oldMappedStack, oldStack = state.typeVariables
+        let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
+        let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push k v acc) oldMappedStack
+        { state with typeVariables = (newMappedStack, newStack) }
+
+    let popTypeVariablesSubstitution state =
+        let oldMappedStack, oldStack = state.typeVariables
+        let toPop = Stack.peek oldStack
+        let newStack = Stack.pop oldStack
+        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
+        { state with typeVariables = (newMappedStack, newStack) }
+
+    let rec substituteTypeVariables (state : state) typ =
+        let substituteTypeVariables = substituteTypeVariables state
+        let substitute constructor t args = constructor t (List.map substituteTypeVariables args)
+        match typ with
+        | Void
+        | Bottom
+        | termType.Null
+        | Bool
+        | Numeric _ -> typ
+        | TypeVariable(Implicit(name, t)) -> TypeVariable(Implicit(name, substituteTypeVariables t))
+        | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
+        | StructType(t, args) -> substitute Types.StructType t args
+        | ClassType(t, args) -> substitute Types.ClassType t args
+        | InterfaceType(t, args) -> substitute Types.InterfaceType t args
+        | TypeVariable(Explicit _ as key) ->
+            let ms = state.typeVariables |> fst
+            if MappedStack.containsKey key ms then MappedStack.find key ms else typ
+        | ArrayType(t, Vector) -> ArrayType(substituteTypeVariables t, Vector)
+        | ArrayType(t, ConcreteDimension 1) -> ArrayType(substituteTypeVariables t, ConcreteDimension 1)
+        | ArrayType(t, ConcreteDimension rank) -> ArrayType(substituteTypeVariables t, ConcreteDimension rank)
+        | ArrayType(t, SymbolicDimension name) -> ArrayType(substituteTypeVariables t, SymbolicDimension name)
+        | Reference t -> Reference (substituteTypeVariables t)
+        | Pointer t -> Pointer(substituteTypeVariables t)
 
 // ------------------------------- Memory layer -------------------------------
 

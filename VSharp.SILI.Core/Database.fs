@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open System.Collections.Generic
+open VSharp.Logger
 
 module internal Database =
     let private exploredResults = new Dictionary<IFunctionIdentifier, statementResult>()
@@ -11,8 +12,7 @@ module internal Database =
     let private dependenciesOfStates = new Dictionary<IFunctionIdentifier, term seq>()
 
     let report id (result, state) =
-        printfn "REPORTED %O (%O)" id (ControlFlow.resultToTerm result)
-        printfn "%s" (State.dumpMemory state)
+        printLog Info "For %O got %O\n%O!" id (ControlFlow.resultToTerm result) (State.dumpMemory state)
         exploredResults.Add(id, result) |> ignore
         exploredStates.Add(id, state) |> ignore
         let thrown, _ = ControlFlow.pickOutExceptions result

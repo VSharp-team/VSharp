@@ -45,7 +45,7 @@ module public MappedStack =
             else Map.add key (idx - 1ul) peaks
         contents', peaks'
 
-    let find ((name, token) as key) (contents, peaks) =
+    let find key (contents, peaks) =
         let idx = peakIdx peaks key
         assert (idx > defaultPeak)
         let key' = makeExtendedKey key idx

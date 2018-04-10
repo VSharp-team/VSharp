@@ -93,7 +93,7 @@ module API =
         let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
 
     module Types =
-        let FromDotNetType t = Types.Constructor.fromDotNetType t
+        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t
         let WrapReferenceType t = Types.wrapReferenceType t
         let NewTypeVariable t = Types.Variable.fromDotNetType t
@@ -153,8 +153,10 @@ module API =
         let EmptyState = State.empty
 
         let PopStack state = State.popStack state
+        let PopTypeVariables state = State.popTypeVariablesSubstitution state
         let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state m.Value funcId parametersAndThis
         let NewScope state frame = Memory.newScope m.Value state frame
+        let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
         let ReferenceField state followHeapRefs name typ parentRef = Memory.referenceField m.Value state followHeapRefs name typ parentRef
         let ReferenceLocalVariable state location followHeapRefs = Memory.referenceLocalVariable m.Value state location followHeapRefs
@@ -167,8 +169,8 @@ module API =
 
         let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
-        let AllocateDefaultStatic state qualifiedTypeName = Memory.mkDefaultStruct m.Value true qualifiedTypeName |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
-        let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value false qualifiedTypeName
+        let AllocateDefaultStatic state termType qualifiedTypeName = Memory.mkDefaultStruct m.Value true termType |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
+        let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value false termType
         let AllocateString length str state = Strings.makeString length str (Memory.tick()) |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state

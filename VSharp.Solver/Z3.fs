@@ -4,6 +4,7 @@ open JetBrains.Decompiler.Ast
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp.Core
+open Logger
 
 module internal Z3 =
 
@@ -36,7 +37,6 @@ module internal Z3 =
                 result)
 
     let private freshCache (ctx : Context) =
-        printfn "Making fresh cache..."
         {
             sorts = new Dictionary<termType, Sort>()
             e2t = new Dictionary<Expr, term>()
@@ -402,7 +402,7 @@ module internal Z3 =
         resvar
 
     let encodeTerm t =
-        printfn "SOLVER: trying to encode %O" t
+        printLog Trace "SOLVER: trying to encode %O" t
         encodeTermExt (fun _ _ -> false) t :> AST
 
 
@@ -442,9 +442,9 @@ module internal Z3 =
         let context = new EncodingContext()
         ctxs.Push(context)
         try
-            printfn "SOLVER: got terms %O" terms
+            printLog Trace "SOLVER: got terms %O" terms
             let exprs = List.map (encodeTermExt<BoolExpr> (fun _ _ -> false)) terms
-            printfn "SOLVER: solving %O" exprs
+            printLog Trace "SOLVER: solving %O" exprs
             let constraints = constraintsOfExprs exprs
             let constraints = if constraints = null then [] else List.ofSeq constraints
             let failRel =
@@ -454,13 +454,13 @@ module internal Z3 =
             let queryClause = (ctx()).MkImplies(List.append exprs constraints |> Array.ofList |> (ctx()).MkAnd, failRel)
             (ctx()).FP.AddRule queryClause
 
-            printfn "SOLVER: adding query clause %O" queryClause
+            printLog Trace "SOLVER: adding query clause %O" queryClause
             let result = (ctx()).FP.Query(failRel)
-            printfn "SOLVER: got %O" result
+            printLog Trace "SOLVER: got %O" result
             match result with
             | Status.SATISFIABLE -> SmtSat null
             | Status.UNSATISFIABLE -> SmtUnsat
-            | Status.UNKNOWN -> printfn "SOLVER: reason: %O" <| (ctx()).FP.GetReasonUnknown(); SmtUnknown ((ctx()).FP.GetReasonUnknown())
+            | Status.UNKNOWN -> printLog Trace "SOLVER: reason: %O" <| (ctx()).FP.GetReasonUnknown(); SmtUnknown ((ctx()).FP.GetReasonUnknown())
             | _ -> __unreachable__()
         finally
             ctxs.Pop() |> ignore
@@ -493,6 +493,6 @@ module internal Z3 =
         let encoded = encodeTermExt stopper t
         let simple = encoded.Simplify()
         let result = decode simple
-        printfn "SOLVER: simplification of %O   gave   %O" t result
-        printfn "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
+        printLog Trace "SOLVER: simplification of %O   gave   %O" t result
+        printLog Trace "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
         result

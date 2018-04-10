@@ -224,12 +224,14 @@ module internal Merging =
         let first : state = List.head states
         let frames = first.frames
         let path = first.pc
+        let tv = first.typeVariables
         assert(states |> List.forall (fun s -> s.frames = frames))
         assert(states |> List.forall (fun s -> s.pc = path))
+        assert(states |> List.forall (fun s -> s.typeVariables = tv))
         let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells (State.stackLazyInstantiator first)
         let mergedHeap = mergeGeneralizedHeaps conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps conditions (List.map State.staticsOf states)
-        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path }
+        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
 
     let genericSimplify gvs =
         let rec loop gvs out =

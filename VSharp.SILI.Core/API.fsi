@@ -66,7 +66,7 @@ module API =
         val IndexOutOfRangeException : state -> (term -> 'a) -> 'a * state
 
     module Types =
-        val FromDotNetType : System.Type -> termType
+        val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
         val WrapReferenceType : termType -> termType
         val NewTypeVariable : System.Type -> termType
@@ -129,8 +129,10 @@ module API =
         val EmptyState : state
 
         val PopStack : state -> state
+        val PopTypeVariables : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
+        val NewTypeVariables : state -> (typeId * termType) list -> state
 
         val ReferenceField : state -> bool -> string -> termType -> term -> term * state
         val ReferenceLocalVariable : state -> stackKey -> bool -> term
@@ -143,8 +145,8 @@ module API =
 
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateInHeap : state -> term -> term * state
-        val AllocateDefaultStatic : state -> string -> state
-        val MakeDefaultStruct : string -> term
+        val AllocateDefaultStatic : state -> termType -> string -> state
+        val MakeDefaultStruct : termType -> term
         val AllocateString : int -> 'a -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term
