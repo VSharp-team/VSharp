@@ -12,7 +12,7 @@ module internal Pointers =
             if addr1 = addr2 then makeTrue mtd
             elif isConcrete addr1 && isConcrete addr2 then makeFalse mtd
             else makeBinary OperationType.Equal addr1 addr2 false Bool mtd
-        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2 |> fst
+        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2
         | _ -> __notImplemented__()
 
     let comparePath mtd path1 path2 =
@@ -28,8 +28,8 @@ module internal Pointers =
                 let k = withSnd s >> k
                 match x.term, y.term with
                 | _ when x = y -> makeTrue mtd |> k
-                | HeapRef(xpath, _, None), HeapRef(ypath, _, None) ->
-                    comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
+                | HeapRef(xpath, _, xtgt, Reference _), HeapRef(ypath, _, ytgt, Reference _) ->
+                    makeBool (xtgt = ytgt) mtd &&& comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
                 | StackRef(key1, path1, None), StackRef(key2, path2, None) ->
                     makeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
                 | StaticRef(key1, path1, None), StaticRef(key2, path2, None) ->
@@ -60,8 +60,16 @@ module internal Pointers =
         | OperationType.NotEqual -> true
         | _ -> false
 
-    let rec topLevelLocation t =
-        match t.term with
-        | HeapRef(((a, _), []), _, _) -> a
-        | Union gvs -> Merging.guardedMap topLevelLocation gvs
-        | _ -> __notImplemented__()
+    let rec topLevelLocation = Merging.map (function
+        | {term = HeapRef(((a, _), []), _, _, _)} -> a
+        | _ -> __notImplemented__())
+
+    type HeapAddressExtractor() =
+        inherit TermExtractor()
+        override x.Extract t = topLevelLocation t
+
+    let symbolicThisStackKey = "symbolic this on stack"
+
+    let (|SymbolicThisOnStack|_|) = function
+       | StackRef((name, token), path, typ) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path, typ))
+       | _ -> None

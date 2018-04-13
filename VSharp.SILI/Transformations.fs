@@ -2,8 +2,10 @@
 
 open VSharp
 open JetBrains.Decompiler.Ast
+open JetBrains.Metadata.Reader.API
 open global.System
 open System.Reflection
+open System.Collections.Generic
 
 module Transformations =
 
@@ -49,6 +51,64 @@ module Transformations =
         unaryOperation.ReplaceWith(assignment)
         assignment
 
+    let private replaceChildrenOfParentNode (child : IStatement) newChildren =
+        match child.Parent with
+        | null -> ()
+        | :? IBlockStatement as parentBlock ->
+            let newParent = parentBlock.TypedClone<IBlockStatement>()
+            let childStatementIndex = Seq.findIndex ((=) child) parentBlock.Statements
+            let newChildStatement = Seq.item childStatementIndex newParent.Statements
+            let appendStatement statement = newParent.Statements.AddBefore(newChildStatement, statement)
+            Seq.iter appendStatement newChildren
+            newParent.Statements.Remove(newChildStatement) |> ignore
+            parentBlock.ReplaceWith(newParent)
+        | parent -> parent.ReplaceChild(child, AstFactory.CreateBlockStatement(newChildren))
+
+    let private abstractLoopStatementToRecursion (abstractLoopStatement : IAbstractLoopStatement) lambdaDotNetType callArgumentsNames callArguments externalBody body fullBodyBlock traverseBody =
+        (*
+        Here we transform loops into anaphoric lambda recursive calls
+
+        Note that isn't a valid c# code: anonymous functions can't be recursively called
+        without giving it a name. The interpreter must consider "CurrentLambdaExpression"
+        property of delegate calls to invoke this!
+        *)
+
+        let internalBody = abstractLoopStatement.Body
+        abstractLoopStatement.ReplaceChild(internalBody, null)
+        let instructionReference = abstractLoopStatement.InstructionReference
+
+        let recursiveCall = AstFactory.CreateDelegateCall(null, null, callArgumentsNames, instructionReference)
+        // Continue consumers should only belong to block statements
+        DecompilerServices.setPropertyOfNode recursiveCall "ContinueConsumer" true
+        let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, instructionReference)
+
+        let internalBodyContent =
+            match internalBody with
+            | :? IBlockStatement as internalBody -> internalBody.Statements :> seq<_>
+            | _ -> Seq.singleton internalBody
+        let externalBody = AstFactory.CreateBlockStatement(externalBody internalBodyContent (recursiveCallStatement :> IStatement))
+        let body = body externalBody
+
+        let signature = AstFactory.CreateFunctionSignature()
+        let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, instructionReference)
+        let lambdaType = DecompilerServices.resolveType lambdaDotNetType
+        DecompilerServices.setTypeOfNode lambdaBlock lambdaType
+
+        let call = AstFactory.CreateDelegateCall(lambdaBlock, null, callArguments, instructionReference)
+        let callStatement = AstFactory.CreateExpressionStatement(call, instructionReference)
+
+        DecompilerServices.setPropertyOfNode recursiveCall "InlinedCallTarget" lambdaBlock
+        DecompilerServices.setPropertyOfNode signature "InlinedCall" true
+        DecompilerServices.setPropertyOfNode recursiveCallStatement "InlinedCall" true
+        DecompilerServices.setPropertyOfNode callStatement "InlinedCall" true
+
+        let fullBodyBlock = fullBodyBlock internalBodyContent (callStatement :> IStatement)
+
+        traverseBody body signature
+
+        replaceChildrenOfParentNode abstractLoopStatement fullBodyBlock
+        fullBodyBlock
+
     let forStatementToRecursion (forStatement : IForStatement) =
         (*
         Here we transform
@@ -66,10 +126,11 @@ module Transformations =
         without giving it a name. The interpreter must consider "CurrentLambdaExpression"
         property of delegate calls to invoke this!
         *)
+
         let indexers =
             match forStatement.Initializer with
-            | :? ILocalVariableDeclarationStatement as decl -> [decl]
-            | :? IEmptyStatement -> []
+            | :? ILocalVariableDeclarationStatement as decl -> [|decl|]
+            | :? IEmptyStatement -> [||]
             | _ -> __notImplemented__()
         let typeOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.VariableReference.Variable.Type |> MetadataTypes.metadataToDotNetType
@@ -77,75 +138,181 @@ module Transformations =
             indexer.VariableReference.TypedClone<IExpression>()
         let initializerOfIndexer (indexer : ILocalVariableDeclarationStatement) =
             indexer.Initializer.TypedClone<IExpression>()
-        let indexerTypes = List.map typeOfIndexer indexers
-        let indexerVariables = List.map variableOfIndexer indexers
-        let indexerInitializers = List.map initializerOfIndexer indexers
+        let indexerTypes = Array.map typeOfIndexer indexers
+        let indexerVariables = Array.map variableOfIndexer indexers
+        let indexerInitializers = Array.map initializerOfIndexer indexers
 
-        let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(Array.ofList indexerTypes)
-        let lambdaType = DecompilerServices.resolveType lambdaDotNetType
+        let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(indexerTypes)
         let condition = forStatement.Condition
         let iterator = forStatement.Iterator
-        let internalBody = forStatement.Body
         forStatement.ReplaceChild(condition, null)
         forStatement.ReplaceChild(iterator, null)
-        forStatement.ReplaceChild(internalBody, null)
 
-        let recursiveCall = AstFactory.CreateDelegateCall(null, null, Array.ofList indexerVariables, null)
-        let recursiveCallStatement = AstFactory.CreateExpressionStatement(recursiveCall, null)
+        let externalBody internalBodyContent recursiveCallStatement =
+            Seq.append internalBodyContent [iterator; recursiveCallStatement]
 
-        let internalBodyContent =
-            if internalBody :? IBlockStatement
-            then (internalBody :?> IBlockStatement).Statements :> seq<_>
-            else [internalBody] :> seq<_>
-        let externalBody = AstFactory.CreateBlockStatement(Seq.append internalBodyContent [iterator; recursiveCallStatement])
-        let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null)
-        let body = AstFactory.CreateBlockStatement([ifStatement])
-        // Continue consumers should only belong to block statements
-        DecompilerServices.setPropertyOfNode recursiveCall "ContinueConsumer" true
+        let body externalBody =
+            let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null)
+            AstFactory.CreateBlockStatement([ifStatement])
 
-        let signature = AstFactory.CreateFunctionSignature()
-        let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, null)
-        let lambdaBlockStatement = AstFactory.CreateExpressionStatement(lambdaBlock, null)
-        let mapIndexerNameToMethodParameter = new System.Collections.Generic.Dictionary<string, IMethodParameter>()
-        let addParameterToSignature index (variable : ILocalVariableDeclarationStatement) =
-            let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index
-            signature.Parameters.Add(parameter)
-            mapIndexerNameToMethodParameter.Add(variable.VariableReference.Variable.Name, parameter)
-        List.iteri addParameterToSignature indexers
-        DecompilerServices.setTypeOfNode lambdaBlockStatement lambdaType
+        let replaceParameters (body : IBlockStatement) (signature : IFunctionSignature) =
+            let mapIndexerNameToMethodParameter = new System.Collections.Generic.Dictionary<string, IMethodParameter>()
+            let addParameterToSignature index (variable : ILocalVariableDeclarationStatement) =
+                let parameter = createMethodParameter variable.VariableReference.Variable.Name variable.VariableReference.Variable.Type index
+                signature.Parameters.Add(parameter)
+                mapIndexerNameToMethodParameter.Add(variable.VariableReference.Variable.Name, parameter)
+            Array.iteri addParameterToSignature indexers
 
-        let indexerMethodParameters = signature.Parameters
-        let indexerVariableNames = List.map (fun (index: ILocalVariableDeclarationStatement) -> index.VariableReference.Variable.Name) indexers
-        body.VisitPreorder(fun (node : INode) ->
-            match node with
-            | :? ILocalVariableReferenceExpression as localVar ->
-                if List.contains localVar.Variable.Name indexerVariableNames
-                then
-                    let methodParameter = mapIndexerNameToMethodParameter.[localVar.Variable.Name]
-                    let parameterReference = AstFactory.CreateParameterReference(methodParameter, localVar.InstructionReference)
-                    localVar.ReplaceWith(parameterReference)
-            | _ -> ()
-        )
+            let indexerVariableNames = Array.map (fun (index: ILocalVariableDeclarationStatement) -> index.VariableReference.Variable.Name) indexers
+            body.VisitPreorder(fun (node : INode) ->
+                match node with
+                | :? ILocalVariableReferenceExpression as localVar ->
+                    if Array.contains localVar.Variable.Name indexerVariableNames
+                    then
+                        let methodParameter = mapIndexerNameToMethodParameter.[localVar.Variable.Name]
+                        let parameterReference = AstFactory.CreateParameterReference(methodParameter, localVar.InstructionReference)
+                        localVar.ReplaceWith(parameterReference)
+                | _ -> ()
+            )
 
-        let call = AstFactory.CreateDelegateCall(lambdaBlock, null, Array.ofList indexerInitializers, null)
-        let callStatement = AstFactory.CreateExpressionStatement(call, null)
+        let fullBodyBlock _ callStatement = Seq.singleton callStatement
 
-        DecompilerServices.setPropertyOfNode recursiveCall "InlinedCallTarget" lambdaBlock
-        DecompilerServices.setPropertyOfNode signature "InlinedCall" true
-        DecompilerServices.setPropertyOfNode recursiveCallStatement "InlinedCall" true
-        DecompilerServices.setPropertyOfNode callStatement "InlinedCall" true
-        match forStatement.Parent with
-        | null -> ()
-        | :? IBlockStatement as parentBlock ->
-            let newParent = parentBlock.TypedClone<IBlockStatement>()
-            let forStatementIndex = Seq.findIndex ((=) (forStatement :> IStatement)) parentBlock.Statements
-            let newForStatement = Seq.item forStatementIndex newParent.Statements
-            let appendStatement statement = newParent.Statements.AddBefore(newForStatement, statement)
-            appendStatement callStatement
-            newParent.Statements.Remove(newForStatement) |> ignore
-            parentBlock.ReplaceWith(newParent)
-        | parent -> parent.ReplaceChild(forStatement, callStatement)
-        callStatement
+        abstractLoopStatementToRecursion forStatement lambdaDotNetType indexerVariables indexerInitializers externalBody body fullBodyBlock replaceParameters
+        |> Seq.exactlyOne :?> IExpressionStatement
+
+    let loopStatementToRecursion (loopStatement : ILoopStatement) =
+        (*
+        Here we transform
+            while (condition) body
+        into
+            var => {                      <--- lambda, assignment
+                  if (condition) {        <--- ifStatement
+                      body                <--- internalBody
+                      currentLambda(var)  <--- recursiveCallStatement (hacked call)
+                  }                       <--- externalBody (endof)
+             }();
+
+            while (true) body
+        into
+            var => {                      <--- lambda, assignment
+                  body                    <--- internalBody
+                  currentLambda(var)      <--- recursiveCallStatement (hacked call)
+             }();
+
+            do { body } while (condition)
+        into
+            {
+                body
+                var => {                      <--- lambda, assignment
+                      if (condition) {        <--- ifStatement
+                          body                <--- internalBody
+                          currentLambda(var)  <--- recursiveCallStatement (hacked call)
+                      }                       <--- externalBody (endof)
+                 }();
+             }
+
+        Note that isn't a valid c# code: anonymous functions can't be recursively called
+        without giving it a name. The interpreter must consider "CurrentLambdaExpression"
+        property of delegate calls to invoke this!
+        *)
+        let lambdaDotNetType = typedefof<System.Action>
+        let condition = loopStatement.Condition
+        let loopType = loopStatement.LoopType
+        loopStatement.ReplaceChild(condition, null)
+
+        let externalBody internalBodyContent recursiveCallStatement = Seq.append internalBodyContent [recursiveCallStatement]
+        let body externalBody =
+            match loopType with
+            | LoopType.Unconditional -> externalBody
+            | _ ->
+                let ifStatement = AstFactory.CreateIf(condition, externalBody, null, null)
+                AstFactory.CreateBlockStatement([ifStatement])
+
+        let fullBodyBlock internalBodyContent callStatement =
+            match loopType with
+            | LoopType.Postconditional -> Seq.append internalBodyContent [callStatement]
+            | _ -> Seq.singleton callStatement
+
+        abstractLoopStatementToRecursion loopStatement lambdaDotNetType [||] [||] externalBody body fullBodyBlock (fun _ _ -> ())
+
+    let private usingStatementWithAssignmentToBlock (usingStatement : IUsingStatement) =
+        (*
+        Here we transform
+            using (ResourceType resource = expression) body
+        into
+            {
+                ResourceType resource = expression;
+                try {
+                    body;
+                }
+                finally {
+                    ((IDisposable)resource).Dispose();
+                }
+            }
+
+        See: https://github.com/dotnet/csharplang/blame/82c1088104ead6f49db157c77d5acb0c9e3e3bc0/spec/statements.md#L1277
+        *)
+        let instructionReference = usingStatement.InstructionReference
+        let varReference = usingStatement.VariableReference
+        let initializerExpression = usingStatement.Expression
+        let body = usingStatement.Body
+        usingStatement.ReplaceChild(varReference, null)
+        usingStatement.ReplaceChild(initializerExpression, null)
+        usingStatement.ReplaceChild(body, null)
+
+        // Assignment
+        let varAssignmentStatement = AstFactory.CreateLocalVariableDeclaration(varReference, instructionReference, initializerExpression)
+
+        // Try/Finally
+        let metadataTypeInfoIDisposable = (DecompilerServices.resolveType(typedefof<IDisposable>) :?> IMetadataClassType).Type
+        let metadataClassTypeIDisposable = MetadataTypeFactory.CreateClassType(metadataTypeInfoIDisposable)
+        let castVarReferenceToDisposable = AstFactory.CreateTypeCast(varReference, metadataClassTypeIDisposable, OverflowCheckType.DontCare, instructionReference)
+
+        let disposeMethodInstantiation =
+            metadataTypeInfoIDisposable.GetMethods()
+            |> Array.find (fun m -> m.Name = "Dispose" && m.Parameters.Length = 0)
+            |> MethodSpecification
+            |> MethodInstantiation
+
+        let finallyBlock =
+            let callDisposeExpression = AstFactory.CreateMethodCall(castVarReferenceToDisposable, disposeMethodInstantiation, true, [||], instructionReference, MemberAccessKind.Regular)
+            let disposeStatement = AstFactory.CreateExpressionStatement(callDisposeExpression, instructionReference)
+            AstFactory.CreateBlockStatement([disposeStatement])
+        let bodyBlock =
+            match body with
+            | :? IBlockStatement as bodyBlock -> bodyBlock
+            | _ -> AstFactory.CreateBlockStatement([body])
+        let tryBlock = AstFactory.CreateTry(bodyBlock, [||], finallyBlock, null, instructionReference)
+
+        let fullBody : IStatement seq = seq [varAssignmentStatement; tryBlock]
+        let block = AstFactory.CreateBlockStatement(fullBody)
+
+        replaceChildrenOfParentNode usingStatement fullBody
+        block
+
+    let private createLocalVariableReference prefix typ instructionReference sibling =
+        let freshName = IdGenerator.startingWith prefix
+        let freshVar = createLocalVariable freshName typ sibling
+        let freshVarRef = AstFactory.CreateLocalVariableReference(freshVar, instructionReference)
+        freshVarRef
+
+    let usingStatementToBlock (usingStatement : IUsingStatement) =
+        (*
+        Here we transform
+            using (expression) body
+        into
+            using (var __tmp__ = expression) body
+
+        See: https://github.com/dotnet/csharplang/blame/82c1088104ead6f49db157c77d5acb0c9e3e3bc0/spec/statements.md#L1325
+        *)
+        if usingStatement.VariableReference = null
+        then
+            let tmpVarTyp = DecompilerServices.getTypeOfNode usingStatement.Expression
+            let tmpVarRef =
+                createLocalVariableReference "__tmpUsingVar__" tmpVarTyp usingStatement.InstructionReference usingStatement
+            usingStatement.ReplaceChild(usingStatement.VariableReference, tmpVarRef)
+
+        usingStatementWithAssignmentToBlock usingStatement
 
     let isInlinedCall (statement : IExpressionStatement) =
         statement.Expression :? IDelegateCallExpression && DecompilerServices.getPropertyOfNode statement "InlinedCall" false :?> bool

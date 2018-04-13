@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace VSharp.CSharpUtils.Tests
 {
@@ -218,6 +219,11 @@ namespace VSharp.CSharpUtils.Tests
             x.MyValue = newMyValue;
             return x.MyValue;
         }
+
+        public static int ValueTypeMethod(int x, int y)
+        {
+            return x.CompareTo(y);
+        }
     }
 
     public static class ClassesSimpleException
@@ -246,6 +252,66 @@ namespace VSharp.CSharpUtils.Tests
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
             return a.GetNum2();
+        }
+    }
+
+    public class ClassesSimplePropertyAccess
+    {
+        private SimpleStruct _structProperty;
+
+        public struct SimpleStruct
+        {
+            public int X;
+
+            public void Set(int x)
+            {
+                X = x;
+            }
+        }
+
+        public SimpleStruct StructProperty
+        {
+            get { return _structProperty;}
+            set { _structProperty = value; }
+        }
+
+        private List<Boolean> SecretProperty { get; set; }
+
+        public int Property
+        {
+            get { return this.SecretProperty.Count; }
+        }
+
+        public ClassesSimplePropertyAccess()
+        {
+            SecretProperty = new List<bool>();
+        }
+
+        public void TestProperty1()
+        {
+            var st = new ClassesSimplePropertyAccess();
+            st.StructProperty.Set(42);
+        }
+    }
+
+    public class ClassesSimplePropertyAccessModify
+    {
+        public class SimpleStruct
+        {
+            public int X;
+
+            public void Set(int x)
+            {
+                X = x;
+            }
+        }
+
+        public SimpleStruct StructProperty
+        { get; set; }
+
+        public int TestProperty1(int anyVarName)
+        {
+            return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
         }
     }
 }

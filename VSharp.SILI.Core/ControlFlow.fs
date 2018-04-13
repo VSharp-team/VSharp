@@ -111,14 +111,14 @@ module internal ControlFlow =
             match oldRes.result with
             | NoResult -> newRes
             | _ -> oldRes
-        match oldRes.result, newRes.result with
-        | NoResult, _ ->
+        match oldRes.result with
+        | NoResult ->
             newRes, newState
-        | Break, _
-        | Continue, _
-        | Throw _, _
-        | Return _, _ -> oldRes, oldState
-        | Guarded gvs, _ ->
+        | Break
+        | Continue
+        | Throw _
+        | Return _ -> oldRes, oldState
+        | Guarded gvs ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs
             let result =
                 match newRes.result with
@@ -131,18 +131,6 @@ module internal ControlFlow =
                     List.zip gs (List.map (composeFlat newRes) vs)
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
-
-    let invokeAfter consumeContinue (result, state) statement k =
-        let pathCondition = currentCalculationPathCondition consumeContinue result
-        match pathCondition with
-        | Terms.True -> statement state (fun (newRes, newState) -> k (composeSequentially result newRes state newState))
-        | Terms.False -> k (result, state)
-        | _ ->
-            statement
-                (State.withPathCondition state pathCondition)
-                (fun (newRes, newState) ->
-                    let newState = State.popPathCondition newState
-                    k (composeSequentially result newRes state newState))
 
     let rec resultToTerm result =
         match result.result with
@@ -172,6 +160,33 @@ module internal ControlFlow =
 
     let mergeResults grs =
         Merging.guardedMap resultToTerm grs |> throwOrReturn
+
+    let private invokeAfter consumeContinue (result, state) statement defaultCompose composeWithNewFrame k =
+        let pathCondition = currentCalculationPathCondition consumeContinue result
+        let compose newRS k =
+            if pathCondition = currentCalculationPathCondition consumeContinue (fst newRS)
+            then defaultCompose newRS k
+            else composeWithNewFrame newRS k
+        match pathCondition with //TODO: use statedConditionalExecution
+        | Terms.True -> statement state (fun newRS -> compose newRS k)
+        | Terms.False -> k (result, state)
+        | _ ->
+            statement
+                (State.withPathCondition state pathCondition)
+                (fun (newRes, newState) -> compose (newRes, newState) (fun (res, state) -> k (res, State.popPathCondition state)))
+
+
+    let composeStatements statements isContinueConsumer statementMapper newScope (result, state) k =
+        let rec composeStatementsH statements isContinueConsumer statementMapper newScope rs localk =
+            match statements with
+            | Seq.Empty -> k rs
+            | Seq.Cons(statement, tail) ->
+                let cmpseTailIfNeed (newRS : statementResult * state) modSt ifLastk k = if Seq.isEmpty tail then ifLastk newRS else composeStatementsH tail isContinueConsumer statementMapper newScope (mapsnd modSt newRS) k
+                invokeAfter (isContinueConsumer statement) rs (fun state -> statementMapper state statement)
+                    (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) id k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS tailState))
+                    (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) newScope k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS (State.popStack tailState)))
+                    localk
+        composeStatementsH statements isContinueConsumer statementMapper newScope (result, state) (fun (newRes, newState) -> k <| composeSequentially result newRes state newState)
 
     let unguardResults gvs =
         let unguard gres =

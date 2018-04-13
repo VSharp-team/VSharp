@@ -1,7 +1,7 @@
 ﻿namespace VSharp.Core
 
 type ExplorationMode = TrustConventions | CompleteExploration
-type RecursionUnrollingModeType = SmartUnrolling | AlwaysDisableUnrolling | AlwaysEnableUnrolling
+type RecursionUnrollingModeType = SmartUnrolling | NeverUnroll | AlwaysUnroll
 
 module internal Options =
 

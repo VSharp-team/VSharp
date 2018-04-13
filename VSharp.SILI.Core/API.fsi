@@ -7,6 +7,7 @@ module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
     val Configure : IActivator -> IInterpreter -> unit
+    val ConfigureSolver : ISolver -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
@@ -15,8 +16,7 @@ module API =
     val Explore : IFunctionIdentifier -> (statementResult * state -> 'a) -> 'a
 
     val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val InvokeAfter : bool -> (statementResult * state) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-
+    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b    val HigherOrderApply : IFunctionIdentifier -> state -> term list -> termType -> (statementResult * state -> 'a) -> 'a
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
     val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
@@ -46,13 +46,16 @@ module API =
         val MakeNullRef : termType -> term
         val MakeDefault : termType -> term
         val MakeNumber : 'a -> term
-        val MakeString : int -> 'a -> term
         val MakeLambda : 'a symbolicLambda -> termType -> term
         val MakeDefaultArray : term list -> termType -> term
         val MakeInitializedArray : int -> termType -> term -> term
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
+
+        val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
@@ -61,7 +64,7 @@ module API =
         val IndexOutOfRangeException : state -> (term -> 'a) -> 'a * state
 
     module Types =
-        val FromDotNetType : System.Type -> termType
+        val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
         val WrapReferenceType : termType -> termType
         val NewTypeVariable : System.Type -> termType
@@ -69,11 +72,14 @@ module API =
         val SizeOf : termType -> int
 
         val TLength : termType
+        val IsBool : termType -> bool
         val IsInteger : termType -> bool
+        val IsReal : termType -> bool
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
+        val IsSubtype : termType -> termType -> term
         val CanCast : state -> termType -> term -> term * state
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
@@ -118,9 +124,13 @@ module API =
         val (%%%) : term -> term -> term
 
     module public Memory =
+        val EmptyState : state
+
         val PopStack : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType option) list -> state
-        val NewScope : state -> (stackKey * term symbolicValue * termType option) list -> state
+        val PopTypeVariables : state -> state
+        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
+        val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
+        val NewTypeVariables : state -> (typeId * termType) list -> state
 
         val ReferenceField : state -> bool -> string -> termType -> term -> term * state
         val ReferenceLocalVariable : state -> stackKey -> bool -> term
@@ -133,8 +143,9 @@ module API =
 
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateInHeap : state -> term -> term * state
-        val AllocateDefaultStatic : state -> string -> state
-        val MakeDefaultStruct : string -> term
+        val AllocateDefaultStatic : state -> termType -> string -> state
+        val MakeDefaultStruct : termType -> term
+        val AllocateString : int -> 'a -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term
         val Dump : state -> string

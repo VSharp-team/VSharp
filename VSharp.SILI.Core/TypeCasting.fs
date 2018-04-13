@@ -27,11 +27,6 @@ module internal TypeCasting =
         let changeLast = // For References
             List.changeLast (fun (addr, _) -> (addr, targetType))
 
-        let isUpCast l r =
-            match l, r with
-            | ComplexType(t1, _, _), ComplexType(t2, _, _) -> t1.Is t2
-            | _ -> false
-
         let castPointer term typ = // For Pointers
             match targetType with
             | Pointer typ' when Types.sizeOf typ = Types.sizeOf typ' || typ = termType.Void || typ' = termType.Void ->
@@ -40,8 +35,7 @@ module internal TypeCasting =
 
         match term.term with
         | PointerTo typ -> castPointer term typ
-        | ReferenceTo typ when isUpCast typ targetType -> term
-        | HeapRef (addrs, t, _) -> HeapRef mtd (addrs |> NonEmptyList.toList |> changeLast |> NonEmptyList.ofList) t
+        | HeapRef (addrs, t, at, Reference _) -> HeapRef term.metadata addrs at t targetType
         | StackRef (key, path, _) -> StackRef mtd key (changeLast path)
         | StaticRef (key, path, _) -> StaticRef mtd key (changeLast path)
         | _ -> __unreachable__()
@@ -59,10 +53,9 @@ module internal TypeCasting =
         | _ -> Common.is mtd (typeOf term) targetType, state
 
     let cast mtd state argument targetType isChecked primitiveCast fail k =
-        let isCasted state term = canCast mtd state targetType term
         let hierarchyCast targetType state term k =
             Common.statedConditionalExecution state
-                (fun state k -> k (isCasted state term))
+                (fun state k -> k (canCast mtd state targetType term))
                 (fun state k -> k (doCast mtd term targetType isChecked |> Return mtd, state))
                 (fun state k -> k (fail state term targetType))
                 ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore

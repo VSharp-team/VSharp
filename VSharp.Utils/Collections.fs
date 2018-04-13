@@ -89,6 +89,10 @@ module public Dict =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
 
+    let public tryGetValue2 (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+        if dict.ContainsKey(key) then dict.[key]
+        else defaultValue()
+
     let public ofSeq<'a, 'b when 'a : equality> (s : seq<'a * 'b>) : IDictionary<'a, 'b> =
         let result = new Dictionary<'a, 'b>()
         Seq.iter result.Add s

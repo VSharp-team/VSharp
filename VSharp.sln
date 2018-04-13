@@ -17,6 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.SILI.Core", "VSharp.SILI.Core\VSharp.SILI.Core.fsproj", "{270ACD61-BE60-4D72-85AD-D9385FD84C8E}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.Solver", "VSharp.Solver\VSharp.Solver.fsproj", "{DB460DAE-4CAB-4AC6-9DDA-99CBA541839E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +45,10 @@ Global
 		{270ACD61-BE60-4D72-85AD-D9385FD84C8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{270ACD61-BE60-4D72-85AD-D9385FD84C8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{270ACD61-BE60-4D72-85AD-D9385FD84C8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB460DAE-4CAB-4AC6-9DDA-99CBA541839E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB460DAE-4CAB-4AC6-9DDA-99CBA541839E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB460DAE-4CAB-4AC6-9DDA-99CBA541839E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB460DAE-4CAB-4AC6-9DDA-99CBA541839E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,7 +96,7 @@ Global
 		$5.DirectoryNamespaceAssociation = None
 		$5.ResourceNamePolicy = FileFormatDefault
 		$0.StandardHeader = $6
-		$6.Text = 
+		$6.Text =
 		$6.IncludeInNewFiles = True
 	EndGlobalSection
 EndGlobal

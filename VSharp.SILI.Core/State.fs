@@ -9,8 +9,8 @@ type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time
 
 type stack = mappedStack<stackKey, term memoryCell>
 type pathCondition = term list
-type entry = { key : stackKey; mtd : termMetadata; typ : termType option }
-type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list ; time : timestamp }
+type entry = { key : stackKey; mtd : termMetadata; typ : termType }
+type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
 type frames = { f : stackFrame stack; sh : stackHash }
 type generalizedHeap =
     | Defined of bool * symbolicHeap  // bool = restricted
@@ -20,12 +20,34 @@ type generalizedHeap =
     | Mutation of generalizedHeap * symbolicHeap
     | Merged of (term * generalizedHeap) list
 and staticMemory = generalizedHeap
-and state = { stack : stack; heap : generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition }
+and typeVariables = mappedStack<typeId, termType> * typeId list stack
+and state = { stack : stack; heap : generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition; typeVariables : typeVariables }
 
 type IActivator =
     abstract member CreateInstance : locationBinding -> System.Type -> term list -> state -> (term * state)
 
+type IStatedSymbolicConstantSource =
+    inherit ISymbolicConstantSource
+    abstract Compose : compositionContext -> state -> term
+
+[<AbstractClass>]
+type TermExtractor() =
+    abstract Extract : term -> term
+    override x.Equals other = x.GetType() = other.GetType()
+    override x.GetHashCode() = x.GetType().GetHashCode()
+type private IdTermExtractor() =
+    inherit TermExtractor()
+    override x.Extract t = t
+[<StructuralEquality;NoComparison>]
+type extractingSymbolicConstantSource =
+    {source : IStatedSymbolicConstantSource; extractor : TermExtractor}
+    static member wrap source = {source = source; extractor = IdTermExtractor()}
+    interface IStatedSymbolicConstantSource with
+        override x.SubTerms = x.source.SubTerms
+        override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
+
 module internal State =
+
     module SymbolicHeap = Heap
 
 // ------------------------------- Primitives -------------------------------
@@ -37,7 +59,8 @@ module internal State =
         heap = Defined false SymbolicHeap.empty;
         statics = Defined false SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
-        pc = List.empty
+        pc = List.empty;
+        typeVariables = (MappedStack.empty, Stack.empty)
     }
 
     let emptyRestricted : state = {
@@ -45,7 +68,8 @@ module internal State =
         heap = Defined true SymbolicHeap.empty;
         statics = Defined true SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
-        pc = List.empty
+        pc = List.empty;
+        typeVariables = (MappedStack.empty, Stack.empty)
     }
 
     let emptyCompositionContext : compositionContext = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
@@ -59,12 +83,16 @@ module internal State =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
 
     let nameOfLocation = term >> function
-        | HeapRef(((_, t), []), _, _) -> toString t
+        | HeapRef(((_, t), []), _, _, _) -> toString t
         | StackRef((name, _), [], _) -> name
         | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
-        | HeapRef((_, path), _, _)
+        | HeapRef(path, _, _, _) ->
+            let printElement (l, _) =
+                if isArray l then sprintf "[%s]" (l.term.IndicesToString())
+                else toString l
+            path |> NonEmptyList.toList |> Seq.map printElement |> join "."
         | StackRef(_, path, _)
-        | StaticRef(_, path, _) -> path |> Seq.map (fst >> toString) |> join "."
+        | StaticRef(_, path, _) -> path |> List.map (fun (l, _) -> l.term.IndicesToString()) |> join "."
         | l ->  internalfailf "requested name of an unexpected location %O" l
 
     let readStackLocation (s : state) key = MappedStack.find key s.stack
@@ -72,24 +100,22 @@ module internal State =
 
     let isAllocatedOnStack (s : state) key = MappedStack.containsKey key s.stack
 
-    let newStackFrame time metadata (s : state) funcId frame : state =
+    let private newStackRegion time metadata (s : state) frame frameMetadata sh : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        let frameMetadata = Some(funcId, s.pc)
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
+        { s with stack = newStack; frames = {f = f'; sh = sh} }
+
+    let newStackFrame time metadata (s : state) funcId frame : state =
+        let frameMetadata = Some(funcId, s.pc)
         let sh' = frameMetadata.GetHashCode()::s.frames.sh
-        { s with stack = newStack; frames = {f = f'; sh = sh'} }
+        newStackRegion time metadata s frame frameMetadata sh'
 
     let newScope time metadata (s : state) frame : state =
-        let pushOne (map : stack) (key, value, typ) =
-            match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time } map
-            | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
-        let locations, newStack = frame |> List.mapFold pushOne s.stack
-        { s with stack = newStack; frames = { s.frames with f = Stack.push s.frames.f { func = None; entries = locations; time = time } } }
+        newStackRegion time metadata s frame None s.frames.sh
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popStack (s : state) : state =
@@ -121,8 +147,7 @@ module internal State =
     let private typeOfStackLocation (s : state) key =
         let forMatch = List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; mtd = _; typ = t } -> if l = key then Some t else None)) s.frames.f
         match forMatch with
-        | Some (Some t) -> t
-        | Some None -> internalfailf "unknown type of stack location %O!" key
+        | Some t -> t
         | None -> internalfailf "stack does not contain key %O!" key
 
     let private metadataOfStackLocation (s : state) key =
@@ -158,11 +183,51 @@ module internal State =
         | t -> toString t
 
     let private staticKeyToString = term >> function
-        | Concrete(typeName, Types.StringType) -> System.Type.GetType(typeName :?> string).FullName
+        | Concrete(typeName, Types.StringType) ->
+            if typeName = null then ()
+            let typ = System.Type.GetType(typeName :?> string)
+            if typ = null then (typeName :?> string) else typ.FullName
         | t -> toString t
 
     let mkMetadata (location : locationBinding) state =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
+
+    let pushTypeVariablesSubstitution state subst =
+        let oldMappedStack, oldStack = state.typeVariables
+        let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
+        let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push k v acc) oldMappedStack
+        { state with typeVariables = (newMappedStack, newStack) }
+
+    let popTypeVariablesSubstitution state =
+        let oldMappedStack, oldStack = state.typeVariables
+        let toPop = Stack.peek oldStack
+        let newStack = Stack.pop oldStack
+        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
+        { state with typeVariables = (newMappedStack, newStack) }
+
+    let rec substituteTypeVariables (state : state) typ =
+        let substituteTypeVariables = substituteTypeVariables state
+        let substitute constructor t args = constructor t (List.map substituteTypeVariables args)
+        match typ with
+        | Void
+        | Bottom
+        | termType.Null
+        | Bool
+        | Numeric _ -> typ
+        | TypeVariable(Implicit(name, t)) -> TypeVariable(Implicit(name, substituteTypeVariables t))
+        | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
+        | StructType(t, args) -> substitute Types.StructType t args
+        | ClassType(t, args) -> substitute Types.ClassType t args
+        | InterfaceType(t, args) -> substitute Types.InterfaceType t args
+        | TypeVariable(Explicit _ as key) ->
+            let ms = state.typeVariables |> fst
+            if MappedStack.containsKey key ms then MappedStack.find key ms else typ
+        | ArrayType(t, Vector) -> ArrayType(substituteTypeVariables t, Vector)
+        | ArrayType(t, ConcreteDimension 1) -> ArrayType(substituteTypeVariables t, ConcreteDimension 1)
+        | ArrayType(t, ConcreteDimension rank) -> ArrayType(substituteTypeVariables t, ConcreteDimension rank)
+        | ArrayType(t, SymbolicDimension name) -> ArrayType(substituteTypeVariables t, SymbolicDimension name)
+        | Reference t -> Reference (substituteTypeVariables t)
+        | Pointer t -> Pointer(substituteTypeVariables t)
 
 // ------------------------------- Memory layer -------------------------------
 

@@ -67,6 +67,105 @@ namespace VSharp.CSharpUtils
             }
         }
 
+        public class MyDispose : IDisposable
+        {
+            public int[] X_field;
+
+            public MyDispose(int[] x)
+            {
+                X_field = x;
+            }
+
+            public virtual void Dispose()
+            {
+                X_field[0] = 10;
+            }
+        }
+
+        public class AnotherDisposable : MyDispose
+        {
+            public AnotherDisposable(int[] x) : base(x)
+            {}
+        }
+
+        public class AnotherDisposable1 : MyDispose
+        {
+            public AnotherDisposable1(int[] x) : base(x)
+            {}
+
+            public override void Dispose()
+            {
+                X_field[0] = 20;
+            }
+        }
+
+        public class YetAnotherDisposable1 : MyDispose
+        {
+            public YetAnotherDisposable1(int[] x) : base(x)
+            {}
+
+            public new virtual void Dispose()
+            {
+                X_field[0] = 30;
+            }
+        }
+
+        public class YetAnotherDisposable2 : MyDispose, IDisposable
+        {
+            public YetAnotherDisposable2(int[] x) : base(x)
+            {}
+
+            public new virtual void Dispose()
+            {
+                X_field[0] = 30;
+            }
+        }
+
+        public static int UsingTest()
+        {
+            var myDispose = new MyDispose(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+        public static int UsingTestWithInheritance()
+        {
+            var myDispose = new AnotherDisposable(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+        public static int UsingTestWithInheritance1()
+        {
+            var myDispose = new AnotherDisposable1(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 77
+        }
+
+        public static int AnotherUsingTestWithInheritance1()
+        {
+            var myDispose = new YetAnotherDisposable1(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 67
+        }
+
+        public static int AnotherUsingTestWithInheritance2()
+        {
+            var myDispose = new YetAnotherDisposable2(new []{ 57 });
+            int num;
+            using (myDispose)
+                num = myDispose.X_field[0];
+            return num + myDispose.X_field[0]; // 87
+        }
+
 //        public sealed class NotPositive : Exception
 //        {
 //        }

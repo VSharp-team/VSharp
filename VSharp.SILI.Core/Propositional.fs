@@ -3,8 +3,14 @@ namespace VSharp.Core
 open VSharp
 open VSharp.CSharpUtils
 
+type IPropositionalSimplifier =
+    abstract member Simplify : term -> term
+
 [<AutoOpen>]
 module internal Propositional =
+
+    let mutable private simplifier : IPropositionalSimplifier option = None
+    let configureSimplifier s = simplifier <- Some s
 
 // ------------------------------- Utilities -------------------------------
 
@@ -80,29 +86,32 @@ module internal Propositional =
         combine xs ys []
 
     let rec private simplifyConnective mtd operation opposite stopValue ignoreValue x y k =
-        let defaultCase () = makeBin mtd operation x y |> k
-        match x.term, y.term with
-        | Error _, _ -> k x
-        | _, Error _ -> k y
-        | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
-        | _, Nop -> internalfailf "Invalid right operand of %O!" operation
-        | Union gvs1, Union gvs2 ->
-            Cps.List.mapk
-                (fun (g1, v1) k ->
-                    Cps.List.mapk
-                        (fun (g2, v2) k ->
-                            simplifyAnd mtd g1 g2 (fun g ->
-                            simplifyConnective mtd operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
-                        gvs2 k)
-                gvs1
-                (fun gvss -> List.concat gvss |> Union mtd |> k)
-        | GuardedValues(gs, vs), _ ->
-            Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue y) vs (fun xys ->
-            List.zip gs xys |> Union mtd |> k)
-        | _, GuardedValues(gs, vs) ->
-            Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue x) vs (fun xys ->
-            List.zip gs xys |> Union mtd |> k)
-        | _ -> simplifyExt mtd operation opposite stopValue ignoreValue x y k defaultCase
+        let defaultCase () = makeBin mtd operation x y |> k in
+        match simplifier with
+        | Some simplifier -> simplifier.Simplify(makeBin mtd operation x y) |> k
+        | None ->
+            match x.term, y.term with
+            | Error _, _ -> k x
+            | _, Error _ -> k y
+            | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
+            | _, Nop -> internalfailf "Invalid right operand of %O!" operation
+            | Union gvs1, Union gvs2 ->
+                Cps.List.mapk
+                    (fun (g1, v1) k ->
+                        Cps.List.mapk
+                            (fun (g2, v2) k ->
+                                simplifyAnd mtd g1 g2 (fun g ->
+                                simplifyConnective mtd operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
+                            gvs2 k)
+                    gvs1
+                    (fun gvss -> List.concat gvss |> Union mtd |> k)
+            | GuardedValues(gs, vs), _ ->
+                Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue y) vs (fun xys ->
+                List.zip gs xys |> Union mtd |> k)
+            | _, GuardedValues(gs, vs) ->
+                Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue x) vs (fun xys ->
+                List.zip gs xys |> Union mtd |> k)
+            | _ -> simplifyExt mtd operation opposite stopValue ignoreValue x y k defaultCase
 
     and private simplifyExt mtd op co stopValue ignoreValue x y matched unmatched =
         match x.term, y.term with
@@ -187,17 +196,20 @@ module internal Propositional =
     and simplifyOr mtd x y k =
         simplifyConnective mtd OperationType.LogicalOr OperationType.LogicalAnd True False x y k
 
-    and simplifyNegation mtd x k =
-        match x.term with
-        | Error _ -> k x
-        | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
-        | Negation(x, _) -> k x
-        | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
-        | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
-        | Terms.GuardedValues(gs, vs) ->
-            Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
-            List.zip gs nvs |> Union mtd |> k)
-        | _ -> makeUnary OperationType.LogicalNeg x false Bool mtd |> k
+    and internal simplifyNegation mtd x k =
+        match simplifier with
+        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNeg x false Bool mtd) |> k
+        | None ->
+            match x.term with
+            | Error _ -> k x
+            | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
+            | Negation(x, _) -> k x
+            | ConjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
+            | DisjunctionList(xs, _) -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
+            | Terms.GuardedValues(gs, vs) ->
+                Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
+                List.zip gs nvs |> Union mtd |> k)
+            | _ -> makeUnary OperationType.LogicalNeg x false Bool mtd |> k
 
     and private simplifyExtWithType mtd op co stopValue ignoreValue _ x y matched unmatched =
         simplifyExt mtd op co stopValue ignoreValue x y matched unmatched
@@ -223,6 +235,16 @@ module internal Propositional =
         simplifyNegation mtd x (fun notX ->
         simplifyOr mtd notX y id)
 
+    let lazyAnd mtd x y k =
+        match x with
+        | False -> x
+        | _ -> simplifyAnd mtd x (y()) k
+
+    let lazyOr mtd x y k =
+        match x with
+        | False -> x
+        | _ -> simplifyOr mtd x (y()) k
+
     let conjunction mtd = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
@@ -234,6 +256,12 @@ module internal Propositional =
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
         | _ -> makeFalse mtd
+
+    let lazyConjunction mtd xs =
+        Cps.Seq.foldlk (lazyAnd mtd) (makeTrue mtd) xs id
+
+    let lazyDisjunction mtd xs k =
+        Cps.Seq.foldlk (lazyOr mtd) (makeFalse mtd) xs k
 
     let simplifyBinaryConnective mtd op x y k =
         match op with
