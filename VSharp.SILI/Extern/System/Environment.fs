@@ -9,6 +9,5 @@ open VSharp.Core
 module Environment =
 
     let internal GetResourceFromDefault (state : state) (args : term list) =
-        let result = "Getting resource strings currently not supported!"
-        let reference, state = Memory.AllocateString result.Length result state
+        let reference, state = Memory.AllocateString "Getting resource strings currently not supported!" state
         Return reference, state

@@ -1,15 +1,21 @@
 ﻿namespace VSharp.Core
 
 open VSharp
+open Arrays
 open Types
 
 module internal Strings =
 
-    let makeString (length : int) str timestamp =
-        let fields : symbolicHeap =
-            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = Concrete Metadata.empty length (Numeric typedefof<int>); created = timestamp; modified = timestamp };
-            makeStringKey "System.String.m_FirstChar", { value = Concrete Metadata.empty str String; created = timestamp; modified = timestamp }])
-        Struct Metadata.empty fields String
+    let makeString metadata time (str : string) =
+        let fields =
+            let stringTermLength = Concrete metadata str.Length lengthTermType
+            let arraySource = (str + "\000").ToCharArray()
+            let valMaker i = makeNumber arraySource.[i] metadata
+            let keyMaker i mtd = makeIntegerArray metadata (fun _ -> makeNumber i mtd) 1
+            let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) (Numeric typedefof<char>)
+            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = stringTermLength; created = time; modified = time };
+                              makeStringKey "System.String.m_FirstChar", { value = array; created = time; modified = time } ])
+        Struct metadata fields String
 
     let simplifyEquality mtd x y =
         match x.term, y.term with
