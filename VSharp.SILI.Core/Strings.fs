@@ -20,6 +20,13 @@ module internal Strings =
     let simplifyEquality mtd x y =
         match x.term, y.term with
         | Concrete(x, StringType), Concrete(y, StringType) -> makeBool ((x :?> string) = (y :?> string)) mtd
+        | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
+            let str1Len = fieldsOfX.[makeStringKey "System.String.m_StringLength"].value
+            let str2Len = fieldsOfY.[makeStringKey "System.String.m_StringLength"].value
+            let str1Arr = fieldsOfX.[makeStringKey "System.String.m_FirstChar"].value
+            let str2Arr = fieldsOfY.[makeStringKey "System.String.m_FirstChar"].value
+            simplifyEqual mtd str1Len str2Len (fun lengthEq ->
+            simplifyAnd mtd lengthEq (Arrays.equalsArrayIndices mtd str1Arr str2Arr) id)
         | _ -> __notImplemented__()
 
     let simplifyConcatenation mtd x y =
