@@ -87,6 +87,10 @@ module internal Types =
         | InterfaceType(t, g) -> Some(InterfaceType(t.Inheritor, g))
         | _ -> None
 
+    let (|Char|_|) = function
+        | Numeric t when t = typeof<char> -> Some()
+        | _ -> None
+
     let StructType t g = StructType(t, g)
     let ClassType t g = ClassType(t, g)
     let InterfaceType t g = InterfaceType(t, g)
