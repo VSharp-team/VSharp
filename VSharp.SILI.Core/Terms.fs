@@ -109,6 +109,8 @@ type termNode =
             | Constant(name, _, _) -> name.v
             | Concrete(_, t) when Types.isFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
+            | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
+            | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
