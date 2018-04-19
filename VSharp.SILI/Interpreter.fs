@@ -113,7 +113,7 @@ module internal Interpreter =
         Reset()
         let k = Enter null state k
         let stringTypeName = typeof<string>.AssemblyQualifiedName
-        let emptyString, state = Memory.AllocateString 0 String.Empty state
+        let emptyString, state = Memory.AllocateString String.Empty state
         initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
         let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String stringTypeName
         Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
@@ -818,8 +818,7 @@ module internal Interpreter =
         let obj = ast.Value.Value
         match mType with
         | Types.StringType ->
-            let stringLength = String.length (obj.ToString())
-            Memory.AllocateString stringLength obj state |> k
+            Memory.AllocateString (obj :?> string) state |> k
         | Core.Null -> k (Terms.MakeNullRef Null, state)
         | _ -> k (Concrete obj mType, state)
 
