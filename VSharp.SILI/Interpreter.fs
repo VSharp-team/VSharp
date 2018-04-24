@@ -1048,10 +1048,14 @@ module internal Interpreter =
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         let k = Enter ast state k
-        let targetType = MetadataTypes.fromMetadataType state ast.TargetType
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        reduceExpression state ast.Argument (fun (term, state) ->
-        Types.Cast state term targetType isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state Throw) k)
+        let targetDotNetType = MetadataTypes.metadataToDotNetType ast.TargetType
+
+        reduceExpression state ast.Argument
+            (if Types.IsNativeInt targetDotNetType then k else
+             fun (term, state) ->
+                let targetType = Types.FromDotNetType state targetDotNetType
+                let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
+                Types.Cast state term targetType isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state Throw) k)
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
         let targetType = MetadataTypes.fromMetadataType state ast.Type

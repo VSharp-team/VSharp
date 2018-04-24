@@ -5,7 +5,7 @@ open VSharp.Core.Types.Constructor
 
 module internal TypeCasting =
 
-    let primitiveCast mtd isChecked hierarchyCast targetType state term k =
+    let rec primitiveCast mtd isChecked hierarchyCast targetType state term k =
         // TODO: get rid of hierarchy cast parameter!
         match term.term with
         | Error _ -> k (term, state)
@@ -21,6 +21,9 @@ module internal TypeCasting =
         | StaticRef _
         | HeapRef _
         | Struct _ -> hierarchyCast targetType state term k
+        | IndentedPtr(term, shift) ->
+            primitiveCast mtd isChecked hierarchyCast targetType state term (fun (term, state) ->
+            k (IndentedPtr term shift mtd, state))
         | _ -> __notImplemented__()
 
     let private doCast mtd term targetType isChecked =
