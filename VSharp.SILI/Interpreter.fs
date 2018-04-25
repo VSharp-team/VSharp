@@ -539,18 +539,18 @@ module internal Interpreter =
             reduceExpression state ast.Expression (fun (term, newState) ->
                 k (ControlFlow.ThrowOrIgnore term, newState))
 
-    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
-        let name = ast.VariableReference.Variable.Name
-        let k = Enter ast state k
+    and reduceLocalVariableDeclaration state (caller : locationBinding) (variableReference : ILocalVariableReferenceExpression) (initializer : IExpression) k =
+        let name = variableReference.Variable.Name
+        let k = Enter caller state k
         let initialize k =
-            let t = MetadataTypes.fromMetadataType state ast.VariableReference.Variable.Type
+            let t = MetadataTypes.fromMetadataType state variableReference.Variable.Type
             match t with
-            | StructType _ when ast.Initializer = null -> k (MakeDefault t, state)
-            | _ -> reduceExpression state ast.Initializer k
+            | StructType _ when initializer = null -> k (MakeDefault t, state)
+            | _ -> reduceExpression state initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.ThrowOrIgnore initializer
             let allocate state value statementResult k =
-                let state' = Memory.AllocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer
+                let state' = Memory.AllocateOnStack state (name, getTokenBy (Choice2Of2 variableReference.Variable)) initializer
                 k (statementResult, state')
             failOrInvoke
                 statementResult
@@ -559,6 +559,9 @@ module internal Interpreter =
                 (fun _ _ _ state k -> allocate state Nop statementResult k)
                 (fun _ _ normal state k -> allocate state (Guarded normal) statementResult k)
                 k)
+
+    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
+        reduceLocalVariableDeclaration state ast ast.VariableReference ast.Initializer k
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         if ast.Result = null then k (Return Nop, state)
