@@ -867,7 +867,7 @@ module internal Interpreter =
         let reduceRightArg state k = reduceExpression state ast.RightArgument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k)
 
-    and reduceAssignment caller state (left : IExpression) (right : IExpression) k =
+    and reduceAssignment (caller : locationBinding) state (left : IExpression) (right : IExpression) k =
         let targetReducer =
             match left with
             | :? IParameterReferenceExpression
