@@ -1354,7 +1354,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
-        __notImplemented__()
+        reduceLocalVariableDeclaration state ast ast.VariableReference ast.Initializer (fun (_, state) ->
+        reduceStatement state ast.Body k)
 
     and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) k =
         __notImplemented__()
