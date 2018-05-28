@@ -104,7 +104,7 @@ module internal Propositional =
                                 simplifyConnective mtd operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
                             gvs2 k)
                     gvs1
-                    (fun gvss -> List.concat gvss |> Union mtd |> k)
+                    (List.concat >> Union mtd >> k)
             | GuardedValues(gs, vs), _ ->
                 Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue y) vs (fun xys ->
                 List.zip gs xys |> Union mtd |> k)
@@ -126,7 +126,7 @@ module internal Propositional =
             simplifyExpression mtd op co stopValue ignoreValue x y matched (fun () ->
             simplifyExpression mtd op co stopValue ignoreValue y x matched unmatched)
         | Expression _, _ -> simplifyOpToExpr mtd x y op co stopValue ignoreValue matched unmatched
-        | _, Expression _  -> simplifyOpToExpr mtd y x op co stopValue ignoreValue matched unmatched
+        | _, Expression _ -> simplifyOpToExpr mtd y x op co stopValue ignoreValue matched unmatched
         | _ -> unmatched ()
 
     and private simplifyExpression mtd op co stopValue ignoreValue x y matched unmatched =
@@ -204,11 +204,10 @@ module internal Propositional =
             | Error _ -> k x
             | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
             | Negation x -> k x
-            | Conjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr  l false Bool x.metadata |> k)
+            | Conjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr l false Bool x.metadata |> k)
             | Disjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l false Bool x.metadata |> k)
             | Terms.GuardedValues(gs, vs) ->
-                Cps.List.mapk (simplifyNegation mtd) vs (fun nvs ->
-                List.zip gs nvs |> Union mtd |> k)
+                Cps.List.mapk (simplifyNegation mtd) vs (List.zip gs >> Union mtd >> k)
             | _ -> makeUnary OperationType.LogicalNeg x false Bool mtd |> k
 
     and private simplifyExtWithType mtd op co stopValue ignoreValue _ x y matched unmatched =

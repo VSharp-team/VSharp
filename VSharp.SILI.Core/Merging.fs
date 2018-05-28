@@ -52,7 +52,7 @@ module internal Merging =
         | Some v1, Some v2 -> resolve v1 v2
         | Some v, _ -> resolve v (read h2 v)
         | _, Some v -> resolve (read h1 v) v
-        | _, _ -> __unreachable__()
+        | _ -> __unreachable__()
 
     and private structMerge = function
         | [] -> []
@@ -165,7 +165,7 @@ module internal Merging =
         | [(g, v)] when Terms.isBool v -> g &&& v
         | gvs' -> Union Metadata.empty gvs'
 
-    and mergeCells (gcs : list<term * term memoryCell>) : term memoryCell=
+    and mergeCells (gcs : list<term * term memoryCell>) : term memoryCell =
         let foldCell (acc1, acc2, acc3) (g, cell) = ((g, cell.value)::acc1, min acc2 cell.created, max acc3 cell.modified)
         let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue)
         { value = merge gvs; created = c; modified = m }

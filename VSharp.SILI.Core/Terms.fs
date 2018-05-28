@@ -292,7 +292,7 @@ module internal Terms =
     let makePathKey fql constr key = {key = key; FQL = constr key |> addToOptionFQL fql |> reverseFQL}
     let getFQLOfKey = function
         | {FQL = Some fql} -> fql
-        | {FQL = None} as k -> internalfail "requested fql from unexpected key %O" k
+        | {FQL = None} as k -> internalfailf "requested fql from unexpected key %O" k
 
     let makeFQLRef metadata (tl, path) = Ref metadata tl path
 
@@ -608,7 +608,7 @@ module internal Terms =
             | None -> state
             | Some indent -> doFold folder visited state indent
         | GuardedValues(gs, vs) ->
-            foldSeq folder  visited gs state |> foldSeq folder visited vs
+            foldSeq folder visited gs state |> foldSeq folder visited vs
         | Error e ->
             doFold folder visited state e
         | _ -> state

@@ -188,6 +188,6 @@ module internal ControlFlow =
     let unguardResults gvs =
         let unguard gres =
             match gres with
-            | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)
+            | g, {result = Guarded gvs} -> gvs |> List.map (fun (g', v) -> g &&& g', v)
             | _ -> [gres]
         List.collect unguard gvs

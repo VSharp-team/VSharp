@@ -103,11 +103,11 @@ module internal Arrays =
 
     let length = Merging.map (function
         | {term = Array(_, l, _, _, _, _, _)} -> l
-        | t -> internalfail "extracting length of non-array object %O" t)
+        | t -> internalfailf "extracting length of non-array object %O" t)
 
     let rank = Merging.map (function
         | {term = Array(d, _, _, _, _, _, _)} -> d
-        | t -> internalfail "extracting rank of non-array object %O" t)
+        | t -> internalfailf "extracting rank of non-array object %O" t)
 
     let rec private guardsProduct mtd = function
         | [] -> [(makeTrue mtd, [])]

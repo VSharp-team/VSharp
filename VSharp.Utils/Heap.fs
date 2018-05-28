@@ -52,7 +52,7 @@ module public Heap =
     let public empty<'a, 'b, 'fql when 'a : equality and 'b : equality> : heap<'a, 'b, 'fql> = heap<'a, 'b, 'fql>.Empty()
     let public isEmpty h = PersistentHashMap.length h.heap = 0
 
-    let public ofSeq  = heap<'a, 'b, 'fql>.ofSeq
+    let public ofSeq = heap<'a, 'b, 'fql>.ofSeq
     let public toSeq (h : heap<'a, 'b, 'fql>) = h :> seq<heapKey<'a, 'fql> * 'b memoryCell>
 
     let public contains (key : 'a) (h : heap<'a, 'b, 'fql>) = h.ContainsKey key

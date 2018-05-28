@@ -66,7 +66,7 @@ module internal Common =
 
     let rec is metadata leftType rightType =
         let makeSubtypeBoolConst leftTermType rightTermType =
-            let subtypeName = sprintf  "(%O <: %O)" leftTermType rightTermType
+            let subtypeName = sprintf "(%O <: %O)" leftTermType rightTermType
             let source = {left = leftTermType; right = rightTermType}
             Constant metadata subtypeName source Bool
 
