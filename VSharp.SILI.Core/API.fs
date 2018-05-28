@@ -220,7 +220,8 @@ module API =
             let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
             thrower term, state
         let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
+            let typeName, state = Memory.AllocateString qualifiedTypeName state
+            let args = [typeName; innerException]
             let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
             thrower term, state
         let IndexOutOfRangeException state thrower =
