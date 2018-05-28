@@ -1,4 +1,4 @@
-﻿namespace VSharp.Interpreter
+namespace VSharp.Interpreter
 
 open VSharp
 open VSharp.Core
@@ -44,17 +44,15 @@ module internal Interpreter =
     let restoreBefore k x = Restore(); k x
 
     let reduceTypeVariablesSubsitution state (ownerType : IMetadataClassType) k =
-        if ownerType = null then state, k
+        if ownerType = null || Seq.isEmpty ownerType.Type.GenericParameters then state, k
         else
             let subst =
                 let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
                 let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
                 Seq.zip leftArg rightArg |> Seq.toList
-            if subst = [] then state, k
-            else
-                let state = Memory.NewTypeVariables state subst
-                let k = mapsnd Memory.PopTypeVariables >> k
-                state, k
+            let state = Memory.NewTypeVariables state subst
+            let k = mapsnd Memory.PopTypeVariables >> k
+            state, k
 
 // ------------------------------- Environment interaction -------------------------------
 

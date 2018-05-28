@@ -15,7 +15,9 @@ module internal TypeCasting =
             else k (CastConcrete value (Types.toDotNetType targetType) term.metadata, state)
         | Constant(_, _, t)
         | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
-        | Ref(NullAddress, _)
+        | Ref(NullAddress, path) ->
+            assert(List.isEmpty path)
+            k (Terms.makeNullRef mtd, state)
         | Ref(TopLevelHeap _, _)
         | Ptr(TopLevelHeap _, _, _, _) ->
             Common.statedConditionalExecution state

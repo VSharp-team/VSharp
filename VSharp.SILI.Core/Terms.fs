@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 open VSharp
 open global.System
@@ -483,9 +483,6 @@ module internal Terms =
     let makeNumber n metadata =
         Concrete metadata n (Numeric(n.GetType()))
 
-    let makeConcreteString (s : string) metadata =
-        Concrete metadata s Types.String
-
     let makeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)
         Expression metadata (Operator(operation, isChecked)) [x; y] t
@@ -503,9 +500,6 @@ module internal Terms =
     let makeCast srcTyp dstTyp expr isChecked metadata =
         if srcTyp = dstTyp then expr
         else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
-
-    let makeStringKey typeName =
-        makeConcreteString typeName Metadata.empty
 
     let negate term metadata =
         assert(isBool term)

@@ -22,9 +22,8 @@ module internal Strings =
                               makeKey strArray arrayFQL, { value = array; created = time; modified = time } ])
         Struct metadata fields String
 
-    let simplifyEquality mtd x y =
+    let simplifyStructEq mtd x y =
         match x.term, y.term with
-        | Concrete(x, StringType), Concrete(y, StringType) -> makeBool ((x :?> string) = (y :?> string)) mtd
         | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
             let str1Len = fieldsOfX.[strLength].value
             let str2Len = fieldsOfY.[strLength].value
@@ -32,20 +31,17 @@ module internal Strings =
             let str2Arr = fieldsOfY.[strArray].value
             simplifyEqual mtd str1Len str2Len (fun lengthEq ->
             simplifyAnd mtd lengthEq (Arrays.equals mtd str1Arr str2Arr) id)
-        | _ -> __notImplemented__()
+        | _ -> internalfailf "expected string struct and string struct, but got %O and %O" x y
 
     let simplifyConcatenation mtd x y =
-        match x.term, y.term with
-        | Concrete(xval, _), Concrete(yval, _) ->
-            let mtd' = Metadata.combine3 mtd x.metadata y.metadata
-            makeConcreteString (VSharp.CSharpUtils.Calculator.Add(xval, yval, typedefof<string>) :?> string) mtd'
-        | _ -> Terms.makeBinary OperationType.Add x y false String mtd
+        // TODO: implement concatenation
+        Terms.makeBinary OperationType.Add x y false String mtd
 
     let simplifyOperation mtd op x y =
         match op with
         | OperationType.Add -> simplifyConcatenation mtd x y
-        | OperationType.Equal -> simplifyEquality mtd x y
-        | OperationType.NotEqual -> !! (simplifyEquality mtd x y)
+        | OperationType.Equal -> simplifyStructEq mtd x y
+        | OperationType.NotEqual -> !! (simplifyStructEq mtd x y)
         | _ -> __notImplemented__()
 
     let isStringOperation op t1 t2 =
