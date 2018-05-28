@@ -96,8 +96,7 @@ module internal Pointers =
     let private isZero mtd x =
         Arithmetics.simplifyEqual mtd x (makeZero mtd) id
 
-    let isZeroAddress mtd x =
-        Arithmetics.simplifyEqual mtd x (makeZeroAddress mtd) id
+    let isZeroAddress mtd x = fastNumericCompare mtd x (makeZeroAddress mtd)
 
     let private compareTopLevel mtd = function
         | NullAddress, NullAddress -> makeTrue mtd

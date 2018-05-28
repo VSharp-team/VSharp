@@ -452,7 +452,7 @@ module internal Memory =
         commonHierarchicalStackAccess false (fun _ _ -> value, time) metadata state location path |> snd
 
     and private mutateHeap restricted metadata h loc typ path time value =
-        commonHierarchicalHeapAccess false restricted (fun _ _ -> value, time) metadata None h [] None loc typ path {v=time} |> snd
+        commonHierarchicalHeapAccess false restricted (fun _ _ -> value, time) metadata None h [] None loc typ path {v = time} |> snd
 
     and private mutateStatics restricted metadata statics location _ path time value =
         commonHierarchicalStaticsAccess false restricted (fun _ _ -> value, time) metadata None statics [] None location path |> snd
@@ -473,10 +473,11 @@ module internal Memory =
             let result, heap = accessDefined contextList lazyInstantiator None r h
             result, Defined r heap
         | Merged ghs ->
-            let gs, hs = List.unzip ghs
-            let rs, hs' = hs |> List.map (accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined) |> List.unzip
-            let grs = List.zip gs rs
-            merge grs, mergeGeneralizedHeaps readHeap gs hs'
+            let foldFunc (g, h) (gvs, gs, hs) =
+                let v, h' = accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined h
+                ((g, v)::gvs, g::gs, h'::hs)
+            let gvs, gs, hs = List.foldBack foldFunc ghs ([], [], [])
+            merge gvs, mergeGeneralizedHeaps readHeap gs hs
         | Mutation(h, h') as m ->
             let result, h'' = accessDefined contextList lazyInstantiator (Some h) false h'
             if read then
@@ -849,7 +850,7 @@ module internal Memory =
                 let state = newStackFrame state metadata (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
                 referenceLocalVariable metadata state thisKey true, state, true
 
-// ------------------------------- Static Memory Initialization -------------------------------
+// --------------------------------------- Is Location Initialized Check ---------------------------------------
 
     [<StructuralEquality;NoComparison>]
     type internal keyInitializedSource<'a when 'a : equality> =

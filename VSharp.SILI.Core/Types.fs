@@ -177,7 +177,7 @@ module internal Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType-> true
+        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType -> true
         | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
         | _ -> false
 
@@ -262,7 +262,7 @@ module internal Types =
                 ArrayType(
                     fromCommonDotNetType (a.GetElementType()) |> wrapReferenceType,
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
-            | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments s)
+            | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke")
                 let returnType = methodInfo.ReturnType |> fromCommonDotNetType
