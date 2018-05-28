@@ -31,7 +31,7 @@ module internal Arrays =
             |> Seq.init length
             |> Seq.foldi (fun h i v -> Heap.add (pathKeyMaker i) { value = v; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty
         let length = makeNumber length mtd
-        let constant = Constant mtd defaultArrayName (DefaultArray()) <| ArrayType(lengthTermType, Vector)
+        let constant = Constant mtd defaultArrayName (DefaultArray()) <| ArrayType(elemTyp, Vector)
         let instantiator = [makeTrue mtd, DefaultInstantiator(constant, elemTyp)]
         makeArray mtd length contents instantiator elemTyp fql
 
