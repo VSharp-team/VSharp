@@ -449,7 +449,7 @@ module internal Memory =
         commonHierarchicalStackAccess false (fun _ _ -> value, time) metadata state location path |> snd
 
     and private mutateHeap restricted metadata h loc typ path time value =
-        commonHierarchicalHeapAccess false restricted (fun _  _ -> value, time) metadata None h [] None loc typ path {v=time} |> snd
+        commonHierarchicalHeapAccess false restricted (fun _ _ -> value, time) metadata None h [] None loc typ path {v=time} |> snd
 
     and private mutateStatics restricted metadata statics location _ path time value =
         commonHierarchicalStaticsAccess false restricted (fun _ _ -> value, time) metadata None statics [] None location path |> snd
@@ -502,12 +502,11 @@ module internal Memory =
         | HigherOrderApplication _ as h -> unlucky h contextList
         | _ -> __unreachable__()
 
-    and private unluckyDefault read accessDefined h contextList =
-        let r, e = accessDefined contextList None (Some h) false Heap.empty
-        r, if read then h else Mutation(h, e)
-
     and private accessGeneralizedHeapWithIDs exploredIds (read : bool) readHeap getter location accessDefined =
-        accessGeneralizedHeapRec<'a> exploredIds (unluckyDefault read accessDefined) [] None read readHeap getter location accessDefined
+        let unlucky h contextList =
+            let r, e = accessDefined contextList None (Some h) false Heap.empty
+            r, if read then h else Mutation(h, e)
+        accessGeneralizedHeapRec<'a> exploredIds unlucky [] None read readHeap getter location accessDefined
 
     and private accessGeneralizedHeap read = accessGeneralizedHeapWithIDs ImmutableHashSet.Empty read
 
@@ -702,7 +701,7 @@ module internal Memory =
             assert(List.isEmpty path)
             HeapRef reference.metadata addr bT sT [field], state
         | Null ->
-            let term, state = State.createInstance reference.metadata typeof<System.NullReferenceException> [] state
+            let term, state = npe reference.metadata state
             Error reference.metadata term, state
         | Struct _ -> referenceSubLocations [field] parentRef, state
         | Union gvs -> guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
@@ -839,7 +838,6 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = seq []
 
-    let mutable counter = 0
     let private mkKeyGuard mtd fillHolesInKey getter heap (key : 'a) =
         Constant mtd (IdGenerator.startingWith "hasKey#") ({ heap = heap; key = key; getter = {v=getter}; fillHolesInKey = {v=fillHolesInKey} } : 'a keyInitializedSource) Bool
 

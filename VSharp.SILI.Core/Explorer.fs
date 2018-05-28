@@ -46,7 +46,7 @@ module internal Explorer =
             assert(m.IsStatic)
             interpreter.InitEntryPoint initialState m.DeclaringTypeAQN (fun state ->
             interpreter.Invoke id state None (fun (result, state) -> k { result = ControlFlow.resultToTerm result; state = state }))
-        | _ -> internalfail "unexpected entry point: expected regular method, but got %O" id
+        | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     let explore (id : IFunctionIdentifier) k =
         match Database.querySummary id with
