@@ -13,7 +13,7 @@ module internal Operators =
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
 
-    let simplifyBinaryOperation mtd op isChecked state (_: System.Type)(*TODO: use it somehow!*) left right k =
+    let simplifyBinaryOperation mtd op isChecked state (t: System.Type) left right k =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right
         match op with

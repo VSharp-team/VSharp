@@ -103,10 +103,9 @@ module internal State =
     let private newStackRegion time metadata (s : state) frame frameMetadata sh : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
-            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ |?? typeOf term } map
+            | Specified term -> { key = key; mtd = metadata; typ = typ }, MappedStack.push key { value = term; created = time; modified = time; typ = typ } map
             | Unspecified -> { key = key; mtd = metadata; typ = typ }, MappedStack.reserve key map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
-        let frameMetadata = Some(funcId, s.pc)
         let f' = Stack.push s.frames.f { func = frameMetadata; entries = locations; time = time }
         { s with stack = newStack; frames = {f = f'; sh = sh} }
 
@@ -196,7 +195,7 @@ module internal State =
         let oldMappedStack, oldStack = state.typeVariables
         let toPop = Stack.peek oldStack
         let newStack = Stack.pop oldStack
-        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop //TODO: #merge
+        let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
         { state with typeVariables = (newMappedStack, newStack) }
 
     let rec substituteTypeVariables (state : state) typ =

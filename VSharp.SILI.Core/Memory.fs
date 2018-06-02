@@ -158,7 +158,7 @@ module internal Memory =
         | CompleteExploration ->
             Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
 
-    let private makeSymbolicArrayLength metadata time name location heap =
+    let private makeSymbolicArrayLength metadata name location heap =
         Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
 
     let private makeSymbolicArrayLowerBounds metadata (source : extractingSymbolicConstantSource) arrayName dimension =
@@ -210,8 +210,8 @@ module internal Memory =
         | _ -> __notImplemented__()
 
 
-    let private genericLazyInstantiator metadata heap time fullyQualifiedLocation typ () = //TODO: #merge mb time = 0
-        makeSymbolicInstance metadata time (extractingSymbolicConstantSource.wrap {location = fullyQualifiedLocation; heap = heap}) (nameOfLocation fullyQualifiedLocation) typ
+    let private genericLazyInstantiator metadata heap fullyQualifiedLocation typ () =
+        makeSymbolicInstance metadata Timestamp.zero (extractingSymbolicConstantSource.wrap {location = fullyQualifiedLocation; heap = heap}) (nameOfLocation fullyQualifiedLocation) typ
 
     let private arrayElementLazyInstantiator metadata instantiator typ arrayCreationTime heap location idx = function
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf arrayCreationTime metadata (typ |?? concreteType)
@@ -278,7 +278,7 @@ module internal Memory =
                     genericLazyInstantiator metadata None fql t ()
                 IncrementalLazyInstantiator(doJob, metadata, None, fql) :> ILazyInstantiator
             override x.TopLevelHeapInstantiator metadata heap time location typ =
-                let firstLocation = HeapRef metadata ((location, typ), []) ArrayContents time
+                let firstLocation = HeapRef metadata ((location, typ), []) ArrayContents time typ
                 let doJob = genericLazyInstantiator metadata heap firstLocation typ
                 IncrementalLazyInstantiator(doJob, metadata, heap, firstLocation) :> ILazyInstantiator
             override x.TopLevelStaticsInstantiator metadata heap location typ =
@@ -403,7 +403,7 @@ module internal Memory =
                 let shouldLazyInstantiate = read && not ptr.isTopLevel
                 let lazyValue =
                     if ptr.isTopLevel then
-                        genericLazyInstantiator metadata groundHeap Timestamp.zero (HeapRef metadata ((ptr.location, ptr.typ), []) ArrayContents {v=ptr.time}) ptr.typ () //TODO: #merge timestamp
+                        genericLazyInstantiator metadata groundHeap (HeapRef metadata ((ptr.location, ptr.typ), []) ArrayContents {v=ptr.time} ptr.typ) ptr.typ ()
                     else lazyInstantiator.Instantiate()
                 let baseCell = { value = lazyValue; created = Timestamp.zero; modified = Timestamp.zero; typ = ptr.typ }
                 let gavs = if shouldLazyInstantiate then restGavs else (baseGuard, ptr.location, baseCell)::restGavs
@@ -421,13 +421,13 @@ module internal Memory =
         accessedValue, newState
 
     let private commonHierarchicalHeapAccess read restricted update metadata groundHeap heap keyMapper valueMapper forcedLazyInstantiator ((addr, t) as location) path ptrTime arrayMode =
-        let firstLocation = HeapRef metadata (location, []) arrayMode time t
+        let firstLocation = HeapRef metadata (location, []) arrayMode ptrTime t
         let lazyInstantiator =
             match forcedLazyInstantiator with
             | Some li -> instantiationFactory.CustomInstantiator li metadata
-            | None when read -> instantiationFactory.EndPointInstantiator arrayMode metadata groundHeap (HeapRef metadata (location, path) arrayMode ptrTime) (if List.isEmpty path then t else path |> List.last |> snd)
+            | None when read -> instantiationFactory.EndPointInstantiator arrayMode metadata groundHeap (HeapRef metadata (location, path) arrayMode ptrTime t) (if List.isEmpty path then t else path |> List.last |> snd)
             | None -> instantiationFactory.TopLevelHeapInstantiator metadata groundHeap ptrTime addr t
-        let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = t; time = ptrTime.v; path = path; isTopLevel = true; arrayTarget = arrayMode}
+        let ptr = {location = addr; typ = t; time = ptrTime.v; path = path; isTopLevel = true; arrayTarget = arrayMode}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update heap keyMapper valueMapper lazyInstantiator ptr
 
     let private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics keyMapper valueMapper forcedLazyInstantiator location path =
@@ -439,7 +439,7 @@ module internal Memory =
             | Some li -> instantiationFactory.CustomInstantiator li metadata
             | None when read -> instantiationFactory.EndPointInstantiator ArrayContents metadata groundHeap (StaticRef metadata location path) (if List.isEmpty path then t else path |> List.last |> snd)
             | None -> instantiationFactory.TopLevelStaticsInstantiator metadata groundHeap location t
-        let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
+        let ptr = {location = addr; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update statics keyMapper valueMapper lazyInstantiator ptr
 
     let mutateStack metadata state location path time value =

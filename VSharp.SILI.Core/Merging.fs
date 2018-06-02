@@ -270,8 +270,7 @@ module internal Merging =
         | _, True -> state2
         | _, False -> state1
         | _ ->
-            // TODO: problem for Misha!
-            //assert(state1.pc = state2.pc)
+            assert(state1.pc = state2.pc)
             assert(state1.frames = state2.frames)
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack (resolve2Cells (merge2CellsPrivate condition1 condition2) (fun k _ -> State.topLevelStackInstantiator state1 k))
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap (resolveCells (State.topLevelHeapInstantiator Metadata.empty None {v=Timestamp.zero}))
@@ -290,7 +289,7 @@ module internal Merging =
             let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) (resolveCells (fun k _ -> State.topLevelStackInstantiator first k) (mergeCells conditions))
             let mergedHeap = mergeGeneralizedHeapsPrivate conditions (List.map State.heapOf states) (resolveCells (State.topLevelHeapInstantiator Metadata.empty None {v=Timestamp.zero}))
             let mergedStatics = mergeGeneralizedHeapsPrivate conditions (List.map State.staticsOf states) (resolveCells (State.staticKeyToString >> State.topLevelStaticsInstantiator Metadata.empty None))
-            { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path }
+            { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
 
     let genericSimplify gvs =
         let rec loop gvs out =
