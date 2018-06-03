@@ -3,8 +3,22 @@
 open VSharp
 open VSharp.Core.Types.Constructor
 
+type SolverResult = Sat | Unsat | Unknown
+type ISolver =
+    abstract Solve : term -> SolverResult
+    abstract SolvePathCondition : term -> term list -> SolverResult
+
 module internal Common =
-    open System
+    let mutable private solver : ISolver option = None
+    let configureSolver s = solver <- Some s
+    let private solve term =
+        match solver with
+        | Some s -> s.Solve term
+        | None -> Unknown
+    let private solvePC term pc =
+        match solver with
+        | Some s -> s.SolvePathCondition term pc
+        | None -> Unknown
 
 // ------------------------------- Simplification -------------------------------
 
@@ -106,7 +120,13 @@ module internal Common =
         | Terms.False -> elseBranch k
         | Terms.ErrorT _ -> k condition
         | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
-        | _ -> execution condition k)
+        | _ ->
+            match solve condition with
+            | Unsat -> elseBranch k
+            | _ ->
+                match solve (!!condition) with
+                | Unsat -> thenBranch k
+                | _ -> execution condition k)
 
     let statedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
@@ -127,4 +147,10 @@ module internal Common =
         | _, False, _ -> thenBranch conditionState k
         | _, _, (Terms.ErrorT _ as e) -> k (errorHandler e, conditionState)
         | _, _, UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
-        | _ -> execution conditionState condition k)
+        | _ ->
+            match solvePC condition (State.pathConditionOf conditionState) with
+            | Unsat -> elseBranch conditionState k
+            | _ ->
+                match solve (!!condition) with
+                | Unsat -> thenBranch conditionState k
+                | _ -> execution conditionState condition k)

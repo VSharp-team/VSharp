@@ -5,22 +5,6 @@ open JetBrains.Metadata.Reader.API
 open JetBrains.Decompiler.Ast
 open System.Collections.Generic
 
-[<StructuralEquality;NoComparison>]
-type MetadataMethodIdentifier =
-    { metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod }
-    interface Core.IMethodIdentifier with
-        member x.IsStatic = x.metadataMethod.IsStatic
-        member x.DeclaringTypeAQN = x.metadataMethod.DeclaringType.AssemblyQualifiedName
-        member x.Token = x.metadataMethod.Token.ToString()
-    override x.ToString() = x.metadataMethod.Name
-
-[<StructuralEquality;NoComparison>]
-type DelegateIdentifier =
-    { metadataDelegate : JetBrains.Decompiler.Ast.INode; closureContext : Core.frames transparent }
-    interface Core.IDelegateIdentifier with
-        member x.ContextFrames = x.closureContext.v
-    override x.ToString() = "<delegate>"
-
 module internal DecompilerServices =
     let private assemblyLoader = new JetBrains.Metadata.Reader.API.MetadataLoader(JetBrains.Metadata.Access.MetadataProviderFactory.DefaultProvider)
     let private assemblies = new Dictionary<string, JetBrains.Metadata.Reader.API.IMetadataAssembly>()
@@ -134,13 +118,12 @@ module internal DecompilerServices =
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
 
-    let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
-        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
+    let public decomplieSuitableMethod methodComparator (decompiledClass : IDecompiledClass) (methodInfo : IMetadataMethod) =
         // TODO: this list can be memorized for one time, implement it after indexer expressions
         List.append
             (List.ofSeq decompiledClass.Methods)
             (List.collect (fun (prop : IDecompiledProperty) -> List.filter ((<>) null) [embodyGetter prop; embodySetter prop]) (List.ofSeq decompiledClass.Properties))
-        |> List.tryPick (fun (m : IDecompiledMethod) -> if m.MetadataMethod = methodInfo then Some(m) else None)
+        |> List.tryPick (fun (m : IDecompiledMethod) -> if methodComparator methodInfo m.MetadataMethod then Some(m) else None)
         |> function
         | Some m when m.MetadataMethod.DeclaringType.AssemblyQualifiedName = typeof<obj>.AssemblyQualifiedName -> ObjectConstuctor m
         | Some m when isConstructor methodInfo ->
@@ -149,10 +132,19 @@ module internal DecompilerServices =
         | _ when isConstructor methodInfo -> DefaultConstuctor
         | _ -> DecompilationError
 
+    let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
+        let decompiledClass = decompileClass assemblyPath qualifiedTypeName
+        decomplieSuitableMethod (fun l r -> l.Equals r) decompiledClass (methodInfo : IMetadataMethod)
+
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location))
         if assembly = null then null
         else assembly.GetTypeFromQualifiedName(typ.AssemblyQualifiedName, false)
+
+    let public resolveTypeInfo (typ : System.Type) =
+        let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location))
+        if assembly = null then null
+        else assembly.GetTypeInfoFromQualifiedName(typ.AssemblyQualifiedName, false)
 
     let public locationOfType qualifiedTypeName =
         let typ = System.Type.GetType(qualifiedTypeName)

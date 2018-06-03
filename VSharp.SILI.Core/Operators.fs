@@ -13,7 +13,7 @@ module internal Operators =
         | Union gvs -> Merging.guardedMap refToInt gvs
         | _ -> term
 
-    let simplifyBinaryOperation mtd op isChecked state (_: System.Type)(*TODO: use it somehow!*) left right k =
+    let simplifyBinaryOperation mtd op isChecked state (t: System.Type) left right k =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right
         match op with
@@ -26,7 +26,7 @@ module internal Operators =
         | op when Strings.isStringOperation op t1 t2 ->
             Strings.simplifyOperation mtd op left right |> (withSnd state >> k)
         | op when Pointers.isPointerOperation op t1 t2 ->
-            Pointers.simplifyBinaryOperation mtd op state left right k
+            Pointers.simplifyBinaryOperation mtd op state left right t k
         | _ -> __notImplemented__()
 
     let ksimplifyEquality mtd x y k =

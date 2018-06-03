@@ -1,4 +1,5 @@
 ﻿using System;
+using VSharp.CSharpUtils.Tests.Typecast;
 
 namespace VSharp.CSharpUtils.Tests.Typecast
 {
@@ -38,6 +39,12 @@ namespace VSharp.CSharpUtils.Tests.Typecast
     {
         public int X;
         public int Y;
+
+        public Coord(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
 
         public double Norm()
         {
@@ -116,10 +123,15 @@ namespace VSharp.CSharpUtils.Tests.Typecast
         }
     }
 
-    public class Piece
+    public interface IMovable
     {
-        private int _xCoord;
-        private int _yCoord;
+        IMovable MakeMove(Coord c);
+    }
+
+    public class Piece : IMovable
+    {
+        protected int _xCoord;
+        protected int _yCoord;
         protected int Rate = 0;
 
         public Piece()
@@ -158,6 +170,13 @@ namespace VSharp.CSharpUtils.Tests.Typecast
             var a = (Piece)obj;
             return a.Rate;
         }
+
+        public virtual IMovable MakeMove(Coord c)
+        {
+            _xCoord = c.X;
+            _yCoord = c.Y;
+            return this;
+        }
     }
 
     public class Pawn : Piece
@@ -187,6 +206,13 @@ namespace VSharp.CSharpUtils.Tests.Typecast
         {
             _newField = field;
         }
+
+        public override IMovable MakeMove(Coord c)
+        {
+            _xCoord = c.X + c.Y;
+            _yCoord = c.X - c.Y;
+            return this;
+        }
     }
 
     public class BlackPawn : Pawn
@@ -197,6 +223,13 @@ namespace VSharp.CSharpUtils.Tests.Typecast
 
         public BlackPawn(Coord coord, int newField) : base(coord, newField)
         {
+        }
+
+        public new IMovable MakeMove(Coord c)
+        {
+            _xCoord = c.X + c.Y;
+            _yCoord = c.X - c.Y;
+            return this;
         }
     }
 
@@ -212,6 +245,12 @@ namespace VSharp.CSharpUtils.Tests.Typecast
 
     public class Knight : Piece
     {
+        public new IMovable MakeMove(Coord c)
+        {
+            _xCoord = c.X + c.Y;
+            _yCoord = c.X - c.Y;
+            return this;
+        }
     }
 
     interface IPromotion

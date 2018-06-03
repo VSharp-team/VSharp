@@ -12,7 +12,7 @@ module Substitution =
             |> Merging.merge
         | StackRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->
-            if path' = path then term else StackView term.metadata key path' v)
+            (if path' = path then term else StackView term.metadata key path' v) |> subst)
             |> Merging.merge
         | StaticRef(key, path, v) ->
             path |> substitutePath subst (fun path' ->
@@ -28,8 +28,9 @@ module Substitution =
             else
                 match op with
                 | Operator(op, isChecked) -> Operators.simplifyOperation term.metadata op isChecked t args' id
-                | Application _
-                | Cast _ -> __notImplemented__())
+                //TODO: this is temporary hack, support normal substitution cast expression
+                | Cast _ -> Expression term.metadata op args' t
+                | Application _ -> __notImplemented__())
             |> Merging.merge
         | Union gvs ->
             let gvs' = gvs |> List.map (fun (g, v) ->
@@ -62,7 +63,7 @@ module Substitution =
             let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs]
             let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
             let result = Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
-            (guard, result)::errs |> Merging.merge
+            (!!guard, result)::errs |> Merging.merge
         | _ -> subst term
 
     and substituteHeap subst heap =

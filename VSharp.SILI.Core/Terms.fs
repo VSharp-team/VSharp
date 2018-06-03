@@ -14,14 +14,16 @@ type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
 type IFunctionIdentifier =
-    interface end
+    abstract ReturnType : termType
 type StandardFunctionIdentifier(id : StandardFunction) =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Numeric typeof<double>
     member x.Function = id
     override x.ToString() = id.ToString()
 
 type EmptyIdentifier() =
-    interface IFunctionIdentifier
+    interface IFunctionIdentifier with
+        override x.ReturnType = Core.Void
 
 type arrayReferenceTarget =
     | ArrayContents
@@ -57,6 +59,7 @@ type termNode =
     | StackRef of stackKey * (term * termType) list * termType option                                       // If last field is (Some T) then this is pointer T*
     | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Some T) then this is pointer T*
     | StaticRef of string * (term * termType) list * termType option                                        // If last field is (Some T) then this is pointer T*
+    | IndentedPtr of term * term                                                                            // Pointer * indent
     | Union of (term * term) list
 
     member x.IndicesToString() =
@@ -107,6 +110,8 @@ type termNode =
             | Constant(name, _, _) -> name.v
             | Concrete(_, t) when Types.isFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
+            | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
+            | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
@@ -159,6 +164,7 @@ type termNode =
             | HeapRef(((z, _), []), _,_, _) when z.term = Concrete([0], Types.pointerType) -> "null"
             | HeapRef(_, _, _, Pointer mbtyp) -> printRef term indent <| Some mbtyp
             | HeapRef(_, _, _, Reference _) -> printRef term indent None
+            | IndentedPtr(term, shift) -> sprintf "(IndentedPtr %O[%O])" (toStringWithIndent indent term) shift
             | StackRef(_, _, mbtyp)
             | StaticRef(_, _, mbtyp) -> printRef term indent mbtyp
             | _ -> __unreachable__()
@@ -259,6 +265,7 @@ module internal Terms =
     let StaticView metadata key path view = { term = StaticRef(key, path, view); metadata = metadata }
     let StaticPtr metadata key path typ = { term = StaticRef(key, path, Some typ); metadata = metadata }
     let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
+    let IndentedPtr term shift metadata = { term = IndentedPtr(term, shift); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
 
     let zeroAddress = termNode.Concrete([0], Types.pointerType)
@@ -342,6 +349,7 @@ module internal Terms =
         match term.term with
         | HeapRef _
         | StaticRef _
+        | IndentedPtr _
         | StackRef _ -> true
         | Union gvs -> List.forall (snd >> isRef) gvs
         | _ -> false
@@ -361,7 +369,7 @@ module internal Terms =
         | HeapRef(addrs, _, _, Reference _) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
         | _ -> None
 
-    let (|ReferenceType|_|) = function
+    let (|TypeOfReference|_|) = function
         | StackRef(_, addrs, None)
         | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
         | HeapRef(_, _, _, Reference t) -> Some t
@@ -385,6 +393,7 @@ module internal Terms =
         | ReferenceTo t -> Reference t
         | StackRef(_, [], _) -> Reference Core.Void // TODO: this is temporary hack, support normal typing
         | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> fromDotNetType |> Reference
+        | IndentedPtr(t, _) -> typeOf t
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)
@@ -613,3 +622,14 @@ module internal Terms =
     let filterMapConstants mapper terms =
         let folder state term = mapper state term |> optCons state
         fold folder [] terms
+
+    let unwrapReferenceType = function
+        | Reference t -> t
+        | t -> t
+
+    let persistentLocalAndConstraintTypes term defaultLocalType =
+        let p, l =
+            match term.term, term.term with
+            | ReferenceTo lt, TypeOfReference rt -> lt, rt
+            | _ -> typeOf term, defaultLocalType
+        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType

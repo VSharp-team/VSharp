@@ -82,7 +82,7 @@ module internal Merging =
         | ((g, x) :: _) as gvs ->
             let t = typeOf x
             // TODO: uncomment it when composition for symbolic subtyping implemented! (see also TODOs in Memory.fs and Common.fs)
-            //assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
+//            assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
             let gs, vs = List.unzip gvs
             let extractFields = term >> function
                 | Struct(fs, _) -> fs
@@ -270,8 +270,7 @@ module internal Merging =
         | _, True -> state2
         | _, False -> state1
         | _ ->
-            // TODO: problem for Misha!
-            //assert(state1.pc = state2.pc)
+            assert(state1.pc = state2.pc)
             assert(state1.frames = state2.frames)
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack (resolve2Cells (merge2CellsPrivate condition1 condition2) (fun k _ -> State.topLevelStackInstantiator state1 k))
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap (resolveCells (State.topLevelHeapInstantiator Metadata.empty None {v=Timestamp.zero}))
@@ -283,12 +282,14 @@ module internal Merging =
         | first::states' as states ->
             let frames = first.frames
             let path = first.pc
+            let tv = first.typeVariables
             assert(states' |> List.forall (fun s -> s.frames = frames))
             assert(states' |> List.forall (fun s -> s.pc = path))
-            let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) (resolveCells (fun k _ -> State.topLevelStackInstantiator first k) (mergeCells conditions))
+            assert(states |> List.forall (fun s -> s.typeVariables = tv))
+            let mergedStack = Utils.MappedStack.merge (List.map State.stackOf states) (resolveCells (fun k _ -> State.topLevelStackInstantiator first k) (mergeCells conditions))
             let mergedHeap = mergeGeneralizedHeapsPrivate conditions (List.map State.heapOf states) (resolveCells (State.topLevelHeapInstantiator Metadata.empty None {v=Timestamp.zero}))
             let mergedStatics = mergeGeneralizedHeapsPrivate conditions (List.map State.staticsOf states) (resolveCells (State.staticKeyToString >> State.topLevelStaticsInstantiator Metadata.empty None))
-            { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path }
+            { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
 
     let genericSimplify gvs =
         let rec loop gvs out =
@@ -326,6 +327,12 @@ module internal Merging =
         k (gvs', state'))
     let guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
     let guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id
+
+    let guardedErroredApply mapper term state =
+        match term.term with
+        | Error _ -> term, state
+        | Union gvs -> guardedErroredMap mapper id gvs state
+        | _ -> mapper state term
 
     let unguard = function
         | {term = Union gvs} -> gvs

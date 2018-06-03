@@ -4,6 +4,7 @@ open VSharp
 open VSharp.Core
 open System.Collections.Generic
 open System.Reflection
+open Logger
 
 module public SVM =
 
@@ -15,11 +16,11 @@ module public SVM =
         let metadataMethodOption = DecompilerServices.methodInfoToMetadataMethod assemblyPath qualifiedTypeName m
         match metadataMethodOption with
         | None ->
-            printfn "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
+            printLog Warning "WARNING: metadata method for %s.%s not found!" qualifiedTypeName m.Name
         | Some metadataMethod ->
             dictionary.Add(m, null)
-            invoke ({ metadataMethod = metadataMethod }) (fun (result, state) ->
-            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.ResultToTerm result)
+            invoke ({ metadataMethod = metadataMethod; state = {v = Memory.EmptyState}}) (fun (result, state) ->
+//            System.Console.WriteLine("For {0}.{1} got {2}!", m.DeclaringType.Name, m.Name, ControlFlow.ResultToTerm result)
             dictionary.[m] <- (ControlFlow.ResultToTerm result, state))
 
     let private interpretEntryPoint (dictionary : System.Collections.IDictionary) assemblyPath (m : MethodInfo) =
@@ -41,6 +42,9 @@ module public SVM =
     let private resultToString (kvp : KeyValuePair<_, _>) =
         let term, state = kvp.Value
         sprintf "%O\nHEAP:\n%s" term (state |> Memory.Dump |> replaceLambdaLines)
+
+    let public ConfigureSolver (solver : ISolver) =
+        Core.API.ConfigureSolver solver
 
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList

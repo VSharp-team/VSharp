@@ -52,5 +52,28 @@ namespace VSharp.CSharpUtils.Tests
             var x = (IntPtr) ptr;
             return x.ToPointer();
         }
+
+        public static int SimplePointerDifference(int x, double y)
+        {
+            int* p = &x;
+            double* q = &y;
+            long d = (double*) p - q;
+
+            return * (int*) (q + d);
+        }
+
+        public static int PointerTriangle(int x, int y, int z)
+        {
+            int* px = &x;
+            int* py = &y;
+            int* pz = &z;
+
+            long d1 = px - py;
+            long d2 = py - pz;
+
+            int* r = pz + d1 + d2;
+
+            return *r; // x
+        }
     }
 }

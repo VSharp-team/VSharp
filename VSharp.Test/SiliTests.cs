@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
+using VSharp.Interpreter;
 
 namespace VSharp.Test
 {
@@ -60,24 +61,30 @@ namespace VSharp.Test
         private const string TestsDirectoryName = "Tests";
         private const string IdealTestFileExtension = ".gold";
 
-        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-
-            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
-            {
-                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
-                File.AppendAllText(path, text);
-            }
-        }
+//        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
+//        {
+//            if (File.Exists(path))
+//            {
+//                File.Delete(path);
+//            }
+//
+//            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
+//            {
+//                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
+//                File.AppendAllText(path, text);
+//            }
+//        }
 
         private string MethodInfoToString(MethodInfo methodInfo)
         {
             string parameters = string.Join(", ", methodInfo.GetParameters().Select(p => p.ParameterType.ToString()));
             return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
+        }
+
+        private void PrepareSvm()
+        {
+            // Something like Propositional.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
+            SVM.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
         }
 
         private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
@@ -161,8 +168,10 @@ namespace VSharp.Test
 //                , "Conditional"
 //                , "Fibonacci"
 //                , "GCD"
+                , "McCarthy91"
 //                , "Lambdas"
 //                , "ClassesSimple"
+                , "ClassesSimpleHierarchy"
 //                , "StaticClass"
 //                , "StaticMembers"
 //                , "TryCatch"
@@ -170,8 +179,7 @@ namespace VSharp.Test
 //                , "Typecast"
 //                , "Generic"
 //                , "Strings"
-                , "Foo"
-                , "GenericInitialize"
+//                , "Methods"
                 , "Bag"
                 , "Tree"
                 , "Celsius"
@@ -183,14 +191,10 @@ namespace VSharp.Test
 //                , "Unsafe"
             };
 
-            if (!Environment.OSVersion.ToString().Contains("Windows"))
-            {
-                ignoredTypes.Add("ClassesSimpleHierarchy");
-            }
-
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
             string[] tests = Directory.GetDirectories(pathToTests);
+            PrepareSvm();
             foreach (string testDir in tests)
             {
                 string[] libEntries = Directory.GetFiles(testDir);

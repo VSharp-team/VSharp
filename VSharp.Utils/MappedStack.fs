@@ -12,10 +12,7 @@ module public MappedStack =
 
     let private makeExtendedKey = makePair
 
-    let private peakIdx peaks key =
-        match Map.tryFind key peaks with
-        | Some counter -> counter
-        | None -> defaultTop
+    let private peakIdx peaks key = Map.tryFind key peaks |?? defaultTop
 
     let empty = (Map.empty, Map.empty)
 
@@ -48,7 +45,7 @@ module public MappedStack =
             else Map.add key (idx - 1ul) peaks
         contents', peaks'
 
-    let find ((name, token) as key) (contents, peaks) =
+    let find key (contents, peaks) =
         let idx = peakIdx peaks key
         assert (idx > defaultTop)
         let key' = makeExtendedKey key idx
@@ -80,7 +77,7 @@ module public MappedStack =
                     let v = valueMapper v2
                     Some(keyMapper k v, v))
 
-    let public merge guards stacks resolve =
+    let public merge stacks resolve =
         assert(not <| List.isEmpty stacks)
         let peaks = List.head stacks |> snd
         assert(List.forall (snd >> ((=) peaks)) (List.tail stacks))
@@ -92,7 +89,7 @@ module public MappedStack =
         (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
 
     let merge2 (contents1, peaks1) (contents2, peaks2) resolve =
-        assert(peaks1 = peaks2)
+//        assert(peaks1 = peaks2)
         let newEntries = contents2 |> Map.toSeq |> Seq.choose (fun (k, _) -> if Map.containsKey k contents1 then None else Some k)
         let modifiedEntries =
             contents1 |> Map.toSeq |> Seq.choose (fun (k, cell) ->

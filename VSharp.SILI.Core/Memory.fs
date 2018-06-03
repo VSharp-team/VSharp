@@ -9,6 +9,7 @@ open VSharp.Core.Types.Constructor
 open System.Collections.Immutable
 
 module internal Memory =
+    open Terms
 
 // ------------------------------- Primitives -------------------------------
 
@@ -45,6 +46,16 @@ module internal Memory =
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (referenceSubLocation location arrayTarget) |> List.zip gs |> Union term.metadata
         | _ -> internalfailf "expected reference, but got %O" term
 
+    let rec private diveIntoReference path arrayTarget typ term =
+        match term.term with
+        | Error _ -> term
+        | StackRef(var, path', _) -> { term = termNode.StackRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | StaticRef(var, path', None) -> { term = termNode.StaticRef(var, (List.append path' path), typ); metadata = term.metadata }
+        | HeapRef((addr, path'), t, _, Reference _) ->
+            if List.isEmpty path then term else HeapRef term.metadata (addr, List.append path' path) arrayTarget t (List.last path |> snd)
+        | Terms.GuardedValues(gs, vs) -> vs |> List.map (diveIntoReference path arrayTarget typ) |> List.zip gs |> Union term.metadata
+        | _ -> internalfailf "expected reference, but got %O" term
+
     let referenceArrayLowerBound arrayRef (indices : term) =
         referenceSubLocation (indices, Arrays.lengthTermType) ArrayLowerBounds arrayRef
 
@@ -74,33 +85,18 @@ module internal Memory =
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
-    [<AbstractClass>]
-    type private TermExtractor() =
-        abstract Extract : term -> term
-        override x.Equals other = x.GetType() = other.GetType()
-        override x.GetHashCode() = x.GetType().GetHashCode()
-    type private IdTermExtractor() =
-        inherit TermExtractor()
-        override x.Extract t = t
-    type private TopLevelLocationExtractor() =
-        inherit TermExtractor()
-        override x.Extract t = Pointers.topLevelLocation t
-    type private ArrayLengthExtractor() =
-        inherit TermExtractor()
-        override x.Extract t = Arrays.length t
-    type private ArrayRankExtractor() =
-        inherit TermExtractor()
-        override x.Extract t = Arrays.rank t
-
     [<StructuralEquality;NoComparison>]
     type private lazyInstantiation =
-        {location : term; heap : generalizedHeap option; extractor : TermExtractor}
+        {location : term; heap : generalizedHeap option}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.location
 
-    let private (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
+    let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? lazyInstantiation as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
+        | :? extractingSymbolicConstantSource as esrc ->
+            match esrc.source with
+            | :? lazyInstantiation as li -> Some(li.location, li.heap, esrc.extractor :? IdTermExtractor)
+            | _ -> None
         | _ -> None
 
     let private isStaticLocation = function
@@ -133,7 +129,7 @@ module internal Memory =
                 (fun k -> k <| Terms.makeNullRef typ metadata)
                 Merging.merge Merging.merge2Terms id
         | Func _ -> Terms.makeNullRef (fromDotNetType typedefof<System.Delegate>) metadata
-        | StructType(dotNetType, _, _) ->
+        | StructType(dotNetType, _) ->
             mkStruct metadata time false (fun m _ t -> defaultOf time m t) dotNetType typ
         | Pointer typ -> Terms.makeNullPtr typ metadata
         | _ -> __notImplemented__()
@@ -141,46 +137,52 @@ module internal Memory =
     let mkDefault metadata typ =
         defaultOf (tick()) metadata typ
 
-    let mkDefaultStruct metadata time isStatic qualifiedTypeName =
-        let dnt = System.Type.GetType qualifiedTypeName
-        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt (fromDotNetType dnt)
+    let mkDefaultStruct metadata time isStatic termType =
+        let dnt = toDotNetType termType
+        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt termType
 
-    let private makeSymbolicHeapReference metadata time (source : lazyInstantiation) name typ construct =
-        let source' = { source with extractor = TopLevelLocationExtractor() }
+    let private makeSymbolicHeapReference metadata time (source : extractingSymbolicConstantSource) name typ construct =
+        let source' = { source with extractor = Pointers.HeapAddressExtractor() }
         let constant = Constant metadata name source' pointerType
         construct metadata ((constant, typ), []) ArrayContents {v=time} typ
 
-    let private makeSymbolicOveralArrayLength metadata (source : lazyInstantiation) arrayName =
-        Constant metadata (sprintf "|%s|" arrayName) {source with extractor = ArrayLengthExtractor()} Arrays.lengthTermType
+    let private makeSymbolicOveralArrayLength metadata (source : extractingSymbolicConstantSource) arrayName =
+        Constant metadata (sprintf "|%s|" arrayName) {source with extractor = Arrays.LengthExtractor()} Arrays.lengthTermType
 
-    let private makeSymbolicArrayRank metadata (source : lazyInstantiation) arrayName =
-        Constant metadata ("RankOf_%s" + arrayName) {source with extractor = ArrayRankExtractor()} Arrays.lengthTermType
+    let private makeSymbolicArrayRank metadata (source : extractingSymbolicConstantSource) arrayName =
+        Constant metadata ("RankOf_%s" + arrayName) {source with extractor = Arrays.RankExtractor()} Arrays.lengthTermType
 
     let private makeSymbolicArrayLowerBound metadata name location heap =
         match Options.ExplorationMode() with
         | TrustConventions -> defaultOf Timestamp.zero metadata Arrays.lengthTermType
         | CompleteExploration ->
-            Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
+            Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
 
     let private makeSymbolicArrayLength metadata name location heap =
-        Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
+        Constant metadata name (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) Arrays.lengthTermType
 
-    let private makeSymbolicArrayLowerBounds metadata (source : lazyInstantiation) arrayName dimension =
-        match Options.ExplorationMode() with
-        | TrustConventions -> Arrays.zeroLowerBound metadata dimension
-        | CompleteExploration ->
-            let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
-            let mkLowerBound i = Constant metadata (idOfBound i) {source with location = referenceArrayLowerBound source.location (makeNumber i metadata)} Arrays.lengthTermType
-            Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = Arrays.lengthTermType } h) Heap.empty (Seq.init dimension mkLowerBound)
+    let private makeSymbolicArrayLowerBounds metadata (source : extractingSymbolicConstantSource) arrayName dimension =
+        match source.source with
+        | :? lazyInstantiation as liSource ->
+            match Options.ExplorationMode() with
+            | TrustConventions -> Arrays.zeroLowerBound metadata dimension
+            | CompleteExploration ->
+                let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
+                let mkLowerBound i = Constant metadata (idOfBound i) {source with source = {liSource with location = referenceArrayLowerBound liSource.location (makeNumber i metadata)}} Arrays.lengthTermType
+                Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = Arrays.lengthTermType } h) Heap.empty (Seq.init dimension mkLowerBound)
+        | _ -> __notImplemented__()
 
-    let private makeSymbolicArrayLengths metadata (source : lazyInstantiation) arrayName dimension =
-        let idOfLength i = sprintf "%s.%i_Length" arrayName i
-        let mkLength i = Constant metadata (idOfLength i) {source with location = referenceArrayLength source.location (makeNumber i metadata)} Arrays.lengthTermType
-        let lengths = Seq.init dimension mkLength
-        let length = Seq.reduce (mul metadata) lengths
-        Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = Arrays.lengthTermType } h) Heap.empty lengths, length
+    let private makeSymbolicArrayLengths metadata (source : extractingSymbolicConstantSource) arrayName dimension =
+        match source.source with
+        | :? lazyInstantiation as liSource ->
+            let idOfLength i = sprintf "%s.%i_Length" arrayName i
+            let mkLength i = Constant metadata (idOfLength i) {source with source = {liSource with location = referenceArrayLength liSource.location (makeNumber i metadata)}} Arrays.lengthTermType
+            let lengths = Seq.init dimension mkLength
+            let length = Seq.reduce (mul metadata) lengths
+            Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero; typ = Arrays.lengthTermType } h) Heap.empty lengths, length
+        | _ -> __notImplemented__()
 
-    let private makeSymbolicArray metadata (source : lazyInstantiation) dimension elemTyp typ arrayName =
+    let private makeSymbolicArray metadata (source : extractingSymbolicConstantSource) dimension elemTyp typ arrayName =
         let arrayConstant = Constant metadata arrayName source typ
         let instantiator = [True, LazyInstantiator(arrayConstant, elemTyp)]
         let lowerBound, arrayLengths, arrayLength, dim =
@@ -196,7 +198,7 @@ module internal Memory =
                 Heap.empty, Heap.empty, length, makeSymbolicArrayRank metadata source arrayName
         Array metadata dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ
 
-    let private makeSymbolicInstance metadata time (source : lazyInstantiation) name = function
+    let makeSymbolicInstance metadata time (source : extractingSymbolicConstantSource) name = function
         | Pointer typ -> makeSymbolicHeapReference metadata time source name typ <| fun mtd path _ time typ -> HeapPtr mtd path time typ
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.isPrimitive t || Types.isFunction t -> Constant metadata name source t
@@ -204,18 +206,19 @@ module internal Memory =
         | TypeVariable _
         | ClassType _ as t -> Struct metadata Heap.empty t
         | ArrayType(e, d) as t -> makeSymbolicArray metadata source d e t name
+        | Void -> Nop
         | _ -> __notImplemented__()
 
 
     let private genericLazyInstantiator metadata heap fullyQualifiedLocation typ () =
-        makeSymbolicInstance metadata Timestamp.zero {location = fullyQualifiedLocation; heap = heap; extractor = IdTermExtractor()} (nameOfLocation fullyQualifiedLocation) typ
+        makeSymbolicInstance metadata Timestamp.zero (extractingSymbolicConstantSource.wrap {location = fullyQualifiedLocation; heap = heap}) (nameOfLocation fullyQualifiedLocation) typ
 
     let private arrayElementLazyInstantiator metadata instantiator typ arrayCreationTime heap location idx = function
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf arrayCreationTime metadata (typ |?? concreteType)
         | LazyInstantiator(array, concreteType) -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith
             // TODO: bind fresh type variable to its source! (see also TODOs in Merging.fs and Common.fs)
-            makeSymbolicInstance metadata Timestamp.zero {location = location; heap = heap; extractor = IdTermExtractor()} id (Types.Variable.fromTermType concreteType)
+            makeSymbolicInstance metadata arrayCreationTime (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) id (Types.Variable.fromTermType concreteType)
 
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ arrayCreationTime heap location (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () -> defaultOf arrayCreationTime metadata Arrays.lengthTermType
@@ -440,7 +443,7 @@ module internal Memory =
         let ptr = {location = addr; typ = t; time = Timestamp.infinity; path = path; isTopLevel = true; arrayTarget = ArrayContents}
         accessHeap read restricted metadata groundHeap (makeTrue metadata) update statics keyMapper valueMapper lazyInstantiator ptr
 
-    let private mutateStack metadata state location path time value =
+    let mutateStack metadata state location path time value =
         commonHierarchicalStackAccess false (fun _ _ -> (value, time)) metadata state location path
 
     let private mutateHeap restricted metadata h location path time arrayTarget value =
@@ -542,6 +545,10 @@ module internal Memory =
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
+        | Pointers.SymbolicThisOnStack(token, path, typ) ->
+            let id = ("this", token)
+            let reference = referenceLocalVariable term.metadata state id false |> deref term.metadata state |> fst
+            diveIntoReference path ArrayContents typ reference
         | _ -> term
 
     and fillHoles ctx state term =
@@ -590,10 +597,16 @@ module internal Memory =
             let gs, hs' = List.unzip ghs'
             let gs' = List.map (fillHoles ctx s) gs
             hs' |> List.map (composeGeneralizedHeaps writer ctx getter setter s) |> Merging.mergeGeneralizedHeaps gs'
-        | Defined _, Composition(s', ctx', h'') ->
+        | Defined _, Composition(s', ctx', h')
+        | Mutation _, Composition(s', ctx', h')
+        | Composition _, Composition(s', ctx', h') ->
             let s = composeStates ctx s s'
-            composeGeneralizedHeaps writer ctx' getter setter s h''
-        | Defined _, Mutation(h', h'') ->
+            composeGeneralizedHeaps writer ctx' getter setter s h'
+        | Defined _, Mutation(h', h'')
+        | RecursiveApplication _, Mutation(h', h'') //TODO: mb deleted
+        | HigherOrderApplication _, Mutation(h', h'')
+        | Composition _, Mutation(h', h'')
+        | Mutation _, Mutation(h', h'') ->
             let res = composeGeneralizedHeaps writer ctx getter setter s h'
             let res' = fillHolesInHeap ctx s h''
             Mutation(res, res')
@@ -602,7 +615,7 @@ module internal Memory =
         | Composition _, HigherOrderApplication _
         | Composition _, RecursiveApplication _
         | RecursiveApplication _, RecursiveApplication _
-        | Mutation _, Mutation _ ->
+        | HigherOrderApplication _, HigherOrderApplication _ ->
             Composition(s, ctx, h')
         | Composition(s', ctx', h') as h, Defined(r'', h'') ->
             assert(not r'')
@@ -614,18 +627,20 @@ module internal Memory =
             | _ ->
                 let h'' = fillHolesInHeap ctx s h''
                 Mutation(h, h'')
+        | (HigherOrderApplication _ as h), Defined(r, h') //TODO: mb deleted
+        | (RecursiveApplication _ as h), Defined(r, h') ->
+            assert(not r)
+            let h' = fillHolesInHeap ctx s h'
+            Mutation(h, h')
         | Mutation(h, h'), Defined(r, h'') ->
-            Mutation(h, composeDefinedHeaps (writer ctx) r s h' h'')
-        | HigherOrderApplication _, Defined _ -> __notImplemented__()
-        | HigherOrderApplication _, HigherOrderApplication _ -> __notImplemented__()
-        | HigherOrderApplication _, RecursiveApplication _ -> __notImplemented__()
-        | HigherOrderApplication _, Composition _ -> __notImplemented__()
-        | RecursiveApplication _, Defined _ -> __notImplemented__()
-        | RecursiveApplication _, HigherOrderApplication _ -> __notImplemented__()
+            assert(not r)
+            Mutation(h, composeDefinedHeaps (writer ctx) false s h' h'')
         | RecursiveApplication _, Composition _ -> __notImplemented__()
-        | Composition _, Composition _ -> __notImplemented__()
-        | _, Mutation _
-        | Mutation _, _ -> __notImplemented__()
+        | HigherOrderApplication _, Composition _ -> __notImplemented__()
+        | RecursiveApplication _, HigherOrderApplication _ -> __notImplemented__()
+        | HigherOrderApplication _, RecursiveApplication _ -> __notImplemented__()
+        | Mutation _, RecursiveApplication _ -> __notImplemented__()
+        | Mutation _, HigherOrderApplication _ -> __notImplemented__()
 
     and composeStacksOf ctx state state' =
         (foldStackLocations (fillAndMutateStack ctx state) state state'.stack).stack
@@ -640,23 +655,24 @@ module internal Memory =
         let stack = composeStacksOf ctx state state'
         let heap = composeHeapsOf ctx state state'.heap
         let statics = composeStaticsOf ctx state state'.statics
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc }
+        assert(state'.typeVariables |> snd |> Stack.isEmpty)
+        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc; typeVariables = state.typeVariables }
 
 // ------------------------------- High-level read/write -------------------------------
 
-    let deref metadata state location =
+    and deref metadata state location =
         hierarchicalAccess true npeTerm makePair metadata state location
 
-    let derefWith actionNull metadata state location = hierarchicalAccess true actionNull makePair metadata state location
+    and derefWith actionNull metadata state location = hierarchicalAccess true actionNull makePair metadata state location
 
-    let mutate metadata state reference value =
+    and mutate metadata state reference value =
         assert(value <> Nop)
         let time = tick()
         hierarchicalAccess false npeTerm (fun _ _ -> (value, time)) metadata state reference
 
 // ------------------------------- Referencing -------------------------------
 
-    let rec private referenceTerm state name followHeapRefs term =
+    and private referenceTerm state name followHeapRefs term =
         match term.term with
         | Error _
         | PointerTo _ -> StackRef term.metadata name []
@@ -666,7 +682,7 @@ module internal Memory =
         | Union gvs -> Merging.guardedMap (referenceTerm state name followHeapRefs) gvs
         | _ -> StackRef term.metadata name []
 
-    let referenceLocalVariable metadata state location followHeapRefs =
+    and referenceLocalVariable metadata state location followHeapRefs =
         let reference = StackRef metadata location []
         let term, state = deref metadata state reference
         referenceTerm state location followHeapRefs term
@@ -690,6 +706,7 @@ module internal Memory =
         | Error _
         | StackRef _
         | StaticRef _
+        | IndentedPtr _
         | HeapRef _ -> term, state
         | Union gvs when List.forall (fun (_, t) -> isError t || isRef t) gvs ->
             Merging.guardedStateMap (followOrReturnReference metadata) gvs state
@@ -762,9 +779,22 @@ module internal Memory =
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
 
-    let private allocateInGeneralizedHeap address term time = function
-        | Defined(r, h) -> h.Add(address, {value = term; created = time; modified = time; typ = typeOf term }) |> Defined r
-        | _ -> __notImplemented__()
+    let private allocateInDefinedHeap (h : symbolicHeap) address term time =
+        h.Add(address, {value = term; created = time; modified = time; typ = typeOf term })
+
+    let rec private allocateInGeneralizedHeap address term time = function
+        | Defined(r, h) -> allocateInDefinedHeap h address term time |> Defined r
+        | Composition _
+        | RecursiveApplication _
+        | HigherOrderApplication _ as h ->
+            let mutatedHeap = allocateInDefinedHeap Heap.empty address term time
+            Mutation(h, mutatedHeap)
+        | Mutation(gh, h) -> Mutation(gh, allocateInDefinedHeap h address term time)
+        | Merged gvh ->
+            Merging.commonGuardedMapk (fun h k -> k <| allocateInGeneralizedHeap address term time h) gvh
+                (fun gvh ->
+                    let g, h = List.unzip gvh
+                    Merging.mergeGeneralizedHeaps g h) id
 
     let allocateInHeap metadata s term : term * state =
         let address = freshHeapLocation metadata
@@ -777,13 +807,18 @@ module internal Memory =
         let address = makeConcreteString typeName metadata
         { s with statics = allocateInGeneralizedHeap address term Timestamp.zero s.statics }
 
-    let allocateSymbolicInstance metadata state = function
-        | termType.ClassType(tp, arg, interfaces) ->
-            let contents = makeSymbolicInstance metadata Timestamp.zero {location = Nop; heap = None; extractor = IdTermExtractor()} "" (StructType(tp, arg, interfaces))
-            allocateInHeap metadata state contents
-        | StructType _ as t ->
-            makeSymbolicInstance metadata Timestamp.zero {location = Nop; heap = None; extractor = IdTermExtractor()} "" t, state
-        | _ -> __notImplemented__()
+    let makeSymbolicThis metadata state token typ =
+        let isRef = isReferenceType typ
+        let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
+        let thisStackRef = StackRef metadata thisKey []
+        let source = extractingSymbolicConstantSource.wrap {location = thisStackRef; heap = None}
+        let instance = makeSymbolicInstance metadata Timestamp.zero source "this" (wrapReferenceType typ)
+        if isRef
+            then instance, state, false
+            else
+                let key = (Pointers.symbolicThisStackKey, token)
+                let state = newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, typ)]
+                referenceLocalVariable metadata state key true, state, true
 
 // ------------------------------- Static Memory Initialization -------------------------------
 
@@ -793,6 +828,7 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.key
 
+    let mutable counter = 0
     let private mkStaticKeyGuard mtd heap key =
         Constant mtd (IdGenerator.startingWith "hasKey#") ({heap = heap; key = key} : staticsInitializedSource) Bool
 
@@ -838,8 +874,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                let result, _ = deref ctx.mtd state' loc
-                x.extractor.Extract result
+                deref ctx.mtd state' loc |> fst
 
     type staticsInitializedSource with
         interface IStatedSymbolicConstantSource with

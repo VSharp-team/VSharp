@@ -9,9 +9,11 @@ module API =
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
 
-    let Configure (activator : IActivator) (interpreter : IInterpreter) =
+    let Configure activator interpreter =
         State.configure activator
         Explorer.configure interpreter
+    let ConfigureSolver solver =
+        Common.configureSolver solver
     let Reset() =
         Memory.reset()
         IdGenerator.reset()
@@ -26,8 +28,9 @@ module API =
     let Explore id k = Explorer.explore id k
 
     let Call funcId state body k = Explorer.call m.Value funcId state body k
-    let InvokeAfter consumeContinue (result, state) statement k = ControlFlow.invokeAfter consumeContinue (result, state) statement k
-
+    let ComposeStatements rs statements isContinueConsumer reduceStatement k =
+        ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
+    let HigherOrderApply funcId state parameters returnType k = Explorer.higherOrderApply m.Value funcId state parameters returnType k
     let BranchStatements state condition thenBranch elseBranch k =
          Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
     let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
@@ -76,32 +79,19 @@ module API =
         let MakeNullRef typ = makeNullRef typ m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ
         let MakeNumber n = makeNumber n m.Value
-        let MakeString length str = Strings.makeString length str (Memory.tick())
         let MakeLambda body signature = Lambdas.make m.Value body signature
         let MakeDefaultArray dimensions typ = Arrays.makeDefault m.Value dimensions typ
         let MakeInitializedArray rank typ initializer = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
+        let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
+        let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
 
-    module RuntimeExceptions =
-        let NullReferenceException state thrower =
-            let term, state = Memory.npe m.Value state
-            thrower term, state
-        let InvalidCastException state thrower =
-            let message = makeConcreteString "Specified cast is not valid." m.Value
-            let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
-            thrower term, state
-        let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
-            let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
-            thrower term, state
-        let IndexOutOfRangeException state thrower =
-            let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
-            thrower term, state
+        let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
 
     module Types =
-        let FromDotNetType t = Types.Constructor.fromDotNetType t
+        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t
         let WrapReferenceType t = Types.wrapReferenceType t
         let NewTypeVariable t = Types.Variable.fromDotNetType t
@@ -109,11 +99,15 @@ module API =
         let SizeOf t = Types.sizeOf t
 
         let TLength = Arrays.lengthTermType
+        let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
+        let IsReal t = Types.isReal t
+        let IsNativeInt t = Pointers.isNativeInt t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
+        let IsSubtype leftType rightType = Common.is m.Value leftType rightType
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k
@@ -155,9 +149,13 @@ module API =
         let (%%%) x y = Arithmetics.simplifyRemainder m.Value false State.empty (x |> TypeOf |> Types.ToDotNetType) x y fst
 
     module public Memory =
+        let EmptyState = State.empty
+
         let PopStack state = State.popStack state
+        let PopTypeVariables state = State.popTypeVariablesSubstitution state
         let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state m.Value funcId parametersAndThis
         let NewScope state frame = Memory.newScope m.Value state frame
+        let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
         let ReferenceField state followHeapRefs name typ parentRef = Memory.referenceField m.Value state followHeapRefs name typ parentRef
         let ReferenceLocalVariable state location followHeapRefs = Memory.referenceLocalVariable m.Value state location followHeapRefs
@@ -170,8 +168,9 @@ module API =
 
         let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
-        let AllocateDefaultStatic state qualifiedTypeName = Memory.mkDefaultStruct m.Value Timestamp.zero true qualifiedTypeName |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
-        let MakeDefaultStruct qualifiedTypeName = Memory.mkDefaultStruct m.Value (Memory.tick()) false qualifiedTypeName
+        let AllocateDefaultStatic state termType qualifiedTypeName = Memory.mkDefaultStruct m.Value Timestamp.zero true termType |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
+        let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value Timestamp.zero false termType
+        let AllocateString str state = Strings.makeString m.Value (Memory.tick()) str |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
         let Dump state = State.dumpMemory state
@@ -179,3 +178,19 @@ module API =
         let ArrayLength arrayTerm = Arrays.length arrayTerm
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
+
+    module RuntimeExceptions =
+        let NullReferenceException state thrower =
+            let term, state = Memory.npe m.Value state
+            thrower term, state
+        let InvalidCastException state thrower =
+            let message, state = Memory.AllocateString "Specified cast is not valid." state
+            let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
+            thrower term, state
+        let TypeInitializerException qualifiedTypeName innerException state thrower =
+            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
+            let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
+            thrower term, state
+        let IndexOutOfRangeException state thrower =
+            let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
+            thrower term, state
