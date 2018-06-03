@@ -225,7 +225,7 @@ module internal Merging =
         | _ -> mergeCells [g; h] instantiator [ucell; vcell]
 
     let private resolve2Cells merge2Cells (mkInstantiator : 'a -> termType -> State.ILazyInstantiator) key cell1 cell2 =
-        let baseType = (cell1 ||?? lazy(cell2 ||?? lazy(internalfail "resolving non-existing cells!"))).value |> typeOf // TODO: type should be a field of MemoryCell!
+        let baseType = (cell1 ||?? lazy(cell2 ||?? lazy(internalfail "resolving non-existing cells!"))).typ
         let inst = mkInstantiator key baseType
         let wrapped = WrapperInstantiator([cell1; cell2], inst) :> CellLazyInstantiator
         merge2Cells wrapped (cell1 ||?? lazy(wrapped.InstantiateCell())) (cell2 ||?? lazy(wrapped.InstantiateCell()))
