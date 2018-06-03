@@ -32,7 +32,7 @@ module internal TypeCasting =
 
         let castPointer term typ = // For Pointers
             match targetType with
-            | Pointer typ' when Types.sizeOf typ = Types.sizeOf typ' || typ = termType.Void || typ' = termType.Void ->
+            | Pointer typ' ->
                 castReferenceToPointer mtd typ' term
             | _ -> makeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
 
