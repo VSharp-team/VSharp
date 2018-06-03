@@ -4,8 +4,8 @@ open VSharp
 open VSharp.Core.Common
 
 module internal Pointers =
-    let private underlyingPointerTypeSizeof mtd = term >> function // for `T* ptr` returns `sizeof(T)`
-        | PointerTo typ -> makeNumber (Types.sizeOf typ) mtd
+    let private underlyingPointerTypeSizeof mtd = typeOf >> function // for `T* ptr` returns `sizeof(T)`
+        | Pointer typ -> makeNumber (Types.sizeOf typ) mtd
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
