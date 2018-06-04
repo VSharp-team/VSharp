@@ -33,7 +33,17 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Not odd!
+	| System.String.m_FirstChar ~> [|
+		0: 'N';
+		1: 'o';
+		2: 't';
+		3: ' ';
+		4: 'o';
+		5: 'd';
+		6: 'd';
+		7: '!';
+		8: '\000';
+		 ... 9 ... |]
 	| System.String.m_StringLength ~> 8]
 11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -41,7 +51,37 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Argument should not be zero!
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'h';
+		11: 'o';
+		12: 'u';
+		13: 'l';
+		14: 'd';
+		15: ' ';
+		16: 'n';
+		17: 'o';
+		18: 't';
+		19: ' ';
+		1: 'r';
+		20: 'b';
+		21: 'e';
+		22: ' ';
+		23: 'z';
+		24: 'e';
+		25: 'r';
+		26: 'o';
+		27: '!';
+		28: '\000';
+		2: 'g';
+		3: 'u';
+		4: 'm';
+		5: 'e';
+		6: 'n';
+		7: 't';
+		8: ' ';
+		9: 's';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.Object[]
 4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -50,7 +90,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.InvalidOperationException[
 	| System.Exception._HResult ~> -2146233079
@@ -75,7 +154,53 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Hmm.. negative numbers are also not allowed!
+	| System.String.m_FirstChar ~> [|
+		0: 'H';
+		10: 't';
+		11: 'i';
+		12: 'v';
+		13: 'e';
+		14: ' ';
+		15: 'n';
+		16: 'u';
+		17: 'm';
+		18: 'b';
+		19: 'e';
+		1: 'm';
+		20: 'r';
+		21: 's';
+		22: ' ';
+		23: 'a';
+		24: 'r';
+		25: 'e';
+		26: ' ';
+		27: 'a';
+		28: 'l';
+		29: 's';
+		2: 'm';
+		30: 'o';
+		31: ' ';
+		32: 'n';
+		33: 'o';
+		34: 't';
+		35: ' ';
+		36: 'a';
+		37: 'l';
+		38: 'l';
+		39: 'o';
+		3: '.';
+		40: 'w';
+		41: 'e';
+		42: 'd';
+		43: '!';
+		44: '\000';
+		4: '.';
+		5: ' ';
+		6: 'n';
+		7: 'e';
+		8: 'g';
+		9: 'a';
+		 ... 45 ... |]
 	| System.String.m_StringLength ~> 44]
 8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -150,10 +275,89 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -162,7 +366,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -310,10 +553,79 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_DivideByZero
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'B';
+		11: 'y';
+		12: 'Z';
+		13: 'e';
+		14: 'r';
+		15: 'o';
+		16: '\000';
+		1: 'r';
+		2: 'g';
+		3: '_';
+		4: 'D';
+		5: 'i';
+		6: 'v';
+		7: 'i';
+		8: 'd';
+		9: 'e';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -322,7 +634,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.DivideByZeroException[
 	| System.Exception._HResult ~> -2147352558
@@ -347,10 +698,79 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_DivideByZero
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'B';
+		11: 'y';
+		12: 'Z';
+		13: 'e';
+		14: 'r';
+		15: 'o';
+		16: '\000';
+		1: 'r';
+		2: 'g';
+		3: '_';
+		4: 'D';
+		5: 'i';
+		6: 'v';
+		7: 'i';
+		8: 'd';
+		9: 'e';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
@@ -427,10 +847,79 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_DivideByZero
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'B';
+		11: 'y';
+		12: 'Z';
+		13: 'e';
+		14: 'r';
+		15: 'o';
+		16: '\000';
+		1: 'r';
+		2: 'g';
+		3: '_';
+		4: 'D';
+		5: 'i';
+		6: 'v';
+		7: 'i';
+		8: 'd';
+		9: 'e';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -439,7 +928,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
@@ -520,10 +1048,84 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_OverflowException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'o';
+		11: 'w';
+		12: 'E';
+		13: 'x';
+		14: 'c';
+		15: 'e';
+		16: 'p';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'r';
+		20: 'n';
+		21: '\000';
+		2: 'g';
+		3: '_';
+		4: 'O';
+		5: 'v';
+		6: 'e';
+		7: 'r';
+		8: 'f';
+		9: 'l';
+		 ... 22 ... |]
 	| System.String.m_StringLength ~> 21]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -532,7 +1134,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
@@ -595,10 +1236,84 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_OverflowException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'o';
+		11: 'w';
+		12: 'E';
+		13: 'x';
+		14: 'c';
+		15: 'e';
+		16: 'p';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'r';
+		20: 'n';
+		21: '\000';
+		2: 'g';
+		3: '_';
+		4: 'O';
+		5: 'v';
+		6: 'e';
+		7: 'r';
+		8: 'f';
+		9: 'l';
+		 ... 22 ... |]
 	| System.String.m_StringLength ~> 21]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -607,7 +1322,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
@@ -676,10 +1430,79 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_DivideByZero
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'B';
+		11: 'y';
+		12: 'Z';
+		13: 'e';
+		14: 'r';
+		15: 'o';
+		16: '\000';
+		1: 'r';
+		2: 'g';
+		3: '_';
+		4: 'D';
+		5: 'i';
+		6: 'v';
+		7: 'i';
+		8: 'd';
+		9: 'e';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -688,7 +1511,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
@@ -2248,71 +3110,71 @@ HEAP:
 	9: System.Int32;
 	 ... 19 ... |]
 3 ==> [|
-	0: A;
-	10: K;
-	11: L;
-	12: M;
-	13: N;
-	14: O;
-	15: P;
-	16: Q;
-	17: R;
-	18: S;
-	19: T;
-	1: B;
-	20: U;
-	21: V;
-	22: W;
-	23: X;
-	24: Y;
-	25: Z;
-	26: a;
-	27: b;
-	28: c;
-	29: d;
-	2: C;
-	30: e;
-	31: f;
-	32: g;
-	33: h;
-	34: i;
-	35: j;
-	36: k;
-	37: l;
-	38: m;
-	39: n;
-	3: D;
-	40: o;
-	41: p;
-	42: q;
-	43: r;
-	44: s;
-	45: t;
-	46: u;
-	47: v;
-	48: w;
-	49: x;
-	4: E;
-	50: y;
-	51: z;
-	52: 0;
-	53: 1;
-	54: 2;
-	55: 3;
-	56: 4;
-	57: 5;
-	58: 6;
-	59: 7;
-	5: F;
-	60: 8;
-	61: 9;
-	62: +;
-	63: /;
-	64: =;
-	6: G;
-	7: H;
-	8: I;
-	9: J;
+	0: 'A';
+	10: 'K';
+	11: 'L';
+	12: 'M';
+	13: 'N';
+	14: 'O';
+	15: 'P';
+	16: 'Q';
+	17: 'R';
+	18: 'S';
+	19: 'T';
+	1: 'B';
+	20: 'U';
+	21: 'V';
+	22: 'W';
+	23: 'X';
+	24: 'Y';
+	25: 'Z';
+	26: 'a';
+	27: 'b';
+	28: 'c';
+	29: 'd';
+	2: 'C';
+	30: 'e';
+	31: 'f';
+	32: 'g';
+	33: 'h';
+	34: 'i';
+	35: 'j';
+	36: 'k';
+	37: 'l';
+	38: 'm';
+	39: 'n';
+	3: 'D';
+	40: 'o';
+	41: 'p';
+	42: 'q';
+	43: 'r';
+	44: 's';
+	45: 't';
+	46: 'u';
+	47: 'v';
+	48: 'w';
+	49: 'x';
+	4: 'E';
+	50: 'y';
+	51: 'z';
+	52: '0';
+	53: '1';
+	54: '2';
+	55: '3';
+	56: '4';
+	57: '5';
+	58: '6';
+	59: '7';
+	5: 'F';
+	60: '8';
+	61: '9';
+	62: '+';
+	63: '/';
+	64: '=';
+	6: 'G';
+	7: 'H';
+	8: 'I';
+	9: 'J';
 	 ... 65 ... |]
 4 ==> STRUCT System.DBNull[]
 ---------- s1 = ----------
@@ -2945,10 +3807,89 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -2957,7 +3898,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -3025,10 +4005,89 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3037,7 +4096,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -3085,34 +4183,279 @@ HEAP:
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA1.num1 ~> 122
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.num2 ~> 123]
 10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA1 I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '1';
+		13: ' ';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA1 II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '1';
+		13: ' ';
+		14: 'I';
+		15: 'I';
+		16: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num1 I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: ' ';
+		11: 'I';
+		12: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: '1';
+		 ... 13 ... |]
 	| System.String.m_StringLength ~> 12]
 13 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA1(int i) : base I
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 's';
+		11: 'S';
+		12: 'i';
+		13: 'm';
+		14: 'p';
+		15: 'l';
+		16: 'e';
+		17: 'H';
+		18: 'i';
+		19: 'e';
+		1: 'R';
+		20: 'r';
+		21: 'a';
+		22: 'r';
+		23: 'c';
+		24: 'h';
+		25: 'y';
+		26: 'A';
+		27: '1';
+		28: '(';
+		29: 'i';
+		2: 'G';
+		30: 'n';
+		31: 't';
+		32: ' ';
+		33: 'i';
+		34: ')';
+		35: ' ';
+		36: ':';
+		37: ' ';
+		38: 'b';
+		39: 'a';
+		3: ' ';
+		40: 's';
+		41: 'e';
+		42: ' ';
+		43: 'I';
+		44: '\000';
+		4: 'C';
+		5: 'l';
+		6: 'a';
+		7: 's';
+		8: 's';
+		9: 'e';
+		 ... 45 ... |]
 	| System.String.m_StringLength ~> 44]
 14 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: ' ';
+		13: 'I';
+		14: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 15 ... |]
 	| System.String.m_StringLength ~> 14]
 15 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: ' ';
+		13: 'I';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 16 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: 'I';
+		11: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: ' ';
+		 ... 12 ... |]
 	| System.String.m_StringLength ~> 11]
 17 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA(int i) I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '(';
+		24: 'i';
+		25: 'n';
+		26: 't';
+		27: ' ';
+		28: 'i';
+		29: ')';
+		2: 'a';
+		30: ' ';
+		31: 'I';
+		32: '\000';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 33 ... |]
 	| System.String.m_StringLength ~> 32]
 18 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA1(int i) I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '1';
+		24: '(';
+		25: 'i';
+		26: 'n';
+		27: 't';
+		28: ' ';
+		29: 'i';
+		2: 'a';
+		30: ')';
+		31: ' ';
+		32: 'I';
+		33: '\000';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 34 ... |]
 	| System.String.m_StringLength ~> 33]
 19 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i) I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '2';
+		24: '(';
+		25: 'i';
+		26: 'n';
+		27: 't';
+		28: ' ';
+		29: 'i';
+		2: 'a';
+		30: ')';
+		31: ' ';
+		32: 'I';
+		33: '\000';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 34 ... |]
 	| System.String.m_StringLength ~> 33]
 2 ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._items ~> (HeapRef 4)
@@ -3126,7 +4469,49 @@ HEAP:
 		| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 14
 		| hasKey#6 & hasKey#7 ~> 12]]
 20 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2(int i, int j) I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '2';
+		24: '(';
+		25: 'i';
+		26: 'n';
+		27: 't';
+		28: ' ';
+		29: 'i';
+		2: 'a';
+		30: ',';
+		31: ' ';
+		32: 'i';
+		33: 'n';
+		34: 't';
+		35: ' ';
+		36: 'j';
+		37: ')';
+		38: ' ';
+		39: 'I';
+		3: 's';
+		40: '\000';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 41 ... |]
 	| System.String.m_StringLength ~> 40]
 3 ==> [| ... 0 ... |]
 4 ==> [|
@@ -3190,19 +4575,167 @@ HEAP:
 		| !hasKey#7 & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) ~> (HeapRef 14)];
 	 ... 20 ... |]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA2 I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '2';
+		13: ' ';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA2 II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '2';
+		13: ' ';
+		14: 'I';
+		15: 'I';
+		16: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA2(int i, int j) : this I
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 's';
+		11: 'S';
+		12: 'i';
+		13: 'm';
+		14: 'p';
+		15: 'l';
+		16: 'e';
+		17: 'H';
+		18: 'i';
+		19: 'e';
+		1: 'R';
+		20: 'r';
+		21: 'a';
+		22: 'r';
+		23: 'c';
+		24: 'h';
+		25: 'y';
+		26: 'A';
+		27: '2';
+		28: '(';
+		29: 'i';
+		2: 'G';
+		30: 'n';
+		31: 't';
+		32: ' ';
+		33: 'i';
+		34: ',';
+		35: ' ';
+		36: 'i';
+		37: 'n';
+		38: 't';
+		39: ' ';
+		3: ' ';
+		40: 'j';
+		41: ')';
+		42: ' ';
+		43: ':';
+		44: ' ';
+		45: 't';
+		46: 'h';
+		47: 'i';
+		48: 's';
+		49: ' ';
+		4: 'C';
+		50: 'I';
+		51: '\000';
+		5: 'l';
+		6: 'a';
+		7: 's';
+		8: 's';
+		9: 'e';
+		 ... 52 ... |]
 	| System.String.m_StringLength ~> 51]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num2 I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: ' ';
+		11: 'I';
+		12: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: '2';
+		 ... 13 ... |]
 	| System.String.m_StringLength ~> 12]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ARG ClassesSimpleHierarchyA2(int i) : base I
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 's';
+		11: 'S';
+		12: 'i';
+		13: 'm';
+		14: 'p';
+		15: 'l';
+		16: 'e';
+		17: 'H';
+		18: 'i';
+		19: 'e';
+		1: 'R';
+		20: 'r';
+		21: 'a';
+		22: 'r';
+		23: 'c';
+		24: 'h';
+		25: 'y';
+		26: 'A';
+		27: '2';
+		28: '(';
+		29: 'i';
+		2: 'G';
+		30: 'n';
+		31: 't';
+		32: ' ';
+		33: 'i';
+		34: ')';
+		35: ' ';
+		36: ':';
+		37: ' ';
+		38: 'b';
+		39: 'a';
+		3: ' ';
+		40: 's';
+		41: 'e';
+		42: ' ';
+		43: 'I';
+		44: '\000';
+		4: 'C';
+		5: 'l';
+		6: 'a';
+		7: 's';
+		8: 's';
+		9: 'e';
+		 ... 45 ... |]
 	| System.String.m_StringLength ~> 44]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
@@ -3238,25 +4771,168 @@ HEAP:
 		| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 10
 		| hasKey#6 & hasKey#7 ~> 8]]
 10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num1 I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: ' ';
+		11: 'I';
+		12: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: '1';
+		 ... 13 ... |]
 	| System.String.m_StringLength ~> 12]
 11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: ' ';
+		13: 'I';
+		14: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 15 ... |]
 	| System.String.m_StringLength ~> 14]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: ' ';
+		13: 'I';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 13 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: 'I';
+		11: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: ' ';
+		 ... 12 ... |]
 	| System.String.m_StringLength ~> 11]
 14 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: ' ';
+		24: 'I';
+		25: '\000';
+		2: 'a';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 26 ... |]
 	| System.String.m_StringLength ~> 25]
 15 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA1 I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '1';
+		24: ' ';
+		25: 'I';
+		26: '\000';
+		2: 'a';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 16 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> ClassesSimpleHierarchyA2 I
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'p';
+		11: 'l';
+		12: 'e';
+		13: 'H';
+		14: 'i';
+		15: 'e';
+		16: 'r';
+		17: 'a';
+		18: 'r';
+		19: 'c';
+		1: 'l';
+		20: 'h';
+		21: 'y';
+		22: 'A';
+		23: '2';
+		24: ' ';
+		25: 'I';
+		26: '\000';
+		2: 'a';
+		3: 's';
+		4: 's';
+		5: 'e';
+		6: 's';
+		7: 'S';
+		8: 'i';
+		9: 'm';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 2 ==> [| ... 0 ... |]
 3 ==> [|
@@ -3302,23 +4978,107 @@ HEAP:
 		| !hasKey#7 & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) ~> (HeapRef 12)];
 	 ... 20 ... |]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA2 I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '2';
+		13: ' ';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA2 II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '2';
+		13: ' ';
+		14: 'I';
+		15: 'I';
+		16: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 6 ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2[
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA.num ~> 10
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA1.num1 ~> 2
 	| VSharp.CSharpUtils.Tests.ClassesSimpleHierarchyA2.num2 ~> 3]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> field num2 I
+	| System.String.m_FirstChar ~> [|
+		0: 'f';
+		10: ' ';
+		11: 'I';
+		12: '\000';
+		1: 'i';
+		2: 'e';
+		3: 'l';
+		4: 'd';
+		5: ' ';
+		6: 'n';
+		7: 'u';
+		8: 'm';
+		9: '2';
+		 ... 13 ... |]
 	| System.String.m_StringLength ~> 12]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA1 I
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '1';
+		13: ' ';
+		14: 'I';
+		15: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 16 ... |]
 	| System.String.m_StringLength ~> 15]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> staticFieldA1 II
+	| System.String.m_FirstChar ~> [|
+		0: 's';
+		10: 'd';
+		11: 'A';
+		12: '1';
+		13: ' ';
+		14: 'I';
+		15: 'I';
+		16: '\000';
+		1: 't';
+		2: 'a';
+		3: 't';
+		4: 'i';
+		5: 'c';
+		6: 'F';
+		7: 'i';
+		8: 'e';
+		9: 'l';
+		 ... 17 ... |]
 	| System.String.m_StringLength ~> 16]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[
@@ -3385,10 +5145,89 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3397,7 +5236,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 this ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
 this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT System.Collections.Generic.List`1[System.Boolean][]
@@ -3532,8 +5410,8 @@ HEAP:
 VSharp.CSharpUtils.Tests.Conditional ==> STRUCT VSharp.CSharpUtils.Tests.Conditional[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Conditional.TestSwitch(System.Char)
 RESULT: UNION[
-	| !(A == c) & !(B == c) & !(C == c) & !(D == c) & !(R == c) & T == c ~> <ERROR: (HeapRef 1)>
-	| !(T == c) | A == c | B == c | C == c | D == c | R == c ~> (!(R == c) & !(T == c) | (R == c | T == c) & <VOID> < 5 | A == c | B == c | C == c | D == c) & (!(R == c) & !(T == c) | A == c & R == c | A == c & T == c | B == c & R == c | B == c & T == c | C == c & R == c | C == c & T == c | D == c)]
+	| !('A' == c) & !('B' == c) & !('C' == c) & !('D' == c) & !('R' == c) & 'T' == c ~> <ERROR: (HeapRef 1)>
+	| !('T' == c) | 'A' == c | 'B' == c | 'C' == c | 'D' == c | 'R' == c ~> (!('R' == c) & !('T' == c) | 'A' == c & 'R' == c | 'A' == c & 'T' == c | 'B' == c & 'R' == c | 'B' == c & 'T' == c | 'C' == c & 'R' == c | 'C' == c & 'T' == c | 'D' == c) & (!('R' == c) & !('T' == c) | 'A' == c | 'B' == c | 'C' == c | 'D' == c | ('R' == c | 'T' == c) & <VOID> < 5)]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
@@ -3561,7 +5439,27 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Hey! Gimme number!
+	| System.String.m_FirstChar ~> [|
+		0: 'H';
+		10: ' ';
+		11: 'n';
+		12: 'u';
+		13: 'm';
+		14: 'b';
+		15: 'e';
+		16: 'r';
+		17: '!';
+		18: '\000';
+		1: 'e';
+		2: 'y';
+		3: '!';
+		4: ' ';
+		5: 'G';
+		6: 'i';
+		7: 'm';
+		8: 'm';
+		9: 'e';
+		 ... 19 ... |]
 	| System.String.m_StringLength ~> 18]
 3 ==> STRUCT System.Object[]
 4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3570,7 +5468,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.ArgumentException ==> STRUCT System.ArgumentException[]
@@ -3629,10 +5566,89 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == nb) ~> null]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3641,7 +5657,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
@@ -3685,13 +5740,169 @@ HEAP:
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == nb) ~> Arg_NullReferenceException]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == nb) ~> 'A'];
+		10: UNION[
+			| !(0 == nb) ~> 'f'];
+		11: UNION[
+			| !(0 == nb) ~> 'e'];
+		12: UNION[
+			| !(0 == nb) ~> 'r'];
+		13: UNION[
+			| !(0 == nb) ~> 'e'];
+		14: UNION[
+			| !(0 == nb) ~> 'n'];
+		15: UNION[
+			| !(0 == nb) ~> 'c'];
+		16: UNION[
+			| !(0 == nb) ~> 'e'];
+		17: UNION[
+			| !(0 == nb) ~> 'E'];
+		18: UNION[
+			| !(0 == nb) ~> 'x'];
+		19: UNION[
+			| !(0 == nb) ~> 'c'];
+		1: UNION[
+			| !(0 == nb) ~> 'r'];
+		20: UNION[
+			| !(0 == nb) ~> 'e'];
+		21: UNION[
+			| !(0 == nb) ~> 'p'];
+		22: UNION[
+			| !(0 == nb) ~> 't'];
+		23: UNION[
+			| !(0 == nb) ~> 'i'];
+		24: UNION[
+			| !(0 == nb) ~> 'o'];
+		25: UNION[
+			| !(0 == nb) ~> 'n'];
+		26: UNION[
+			| !(0 == nb) ~> '\000'];
+		2: UNION[
+			| !(0 == nb) ~> 'g'];
+		3: UNION[
+			| !(0 == nb) ~> '_'];
+		4: UNION[
+			| !(0 == nb) ~> 'N'];
+		5: UNION[
+			| !(0 == nb) ~> 'u'];
+		6: UNION[
+			| !(0 == nb) ~> 'l'];
+		7: UNION[
+			| !(0 == nb) ~> 'l'];
+		8: UNION[
+			| !(0 == nb) ~> 'R'];
+		9: UNION[
+			| !(0 == nb) ~> 'e'];
+		 ... UNION[
+	| !(0 == nb) ~> 27] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 26]]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == nb) ~> Getting resource strings currently not supported!]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == nb) ~> 'G'];
+		10: UNION[
+			| !(0 == nb) ~> 's'];
+		11: UNION[
+			| !(0 == nb) ~> 'o'];
+		12: UNION[
+			| !(0 == nb) ~> 'u'];
+		13: UNION[
+			| !(0 == nb) ~> 'r'];
+		14: UNION[
+			| !(0 == nb) ~> 'c'];
+		15: UNION[
+			| !(0 == nb) ~> 'e'];
+		16: UNION[
+			| !(0 == nb) ~> ' '];
+		17: UNION[
+			| !(0 == nb) ~> 's'];
+		18: UNION[
+			| !(0 == nb) ~> 't'];
+		19: UNION[
+			| !(0 == nb) ~> 'r'];
+		1: UNION[
+			| !(0 == nb) ~> 'e'];
+		20: UNION[
+			| !(0 == nb) ~> 'i'];
+		21: UNION[
+			| !(0 == nb) ~> 'n'];
+		22: UNION[
+			| !(0 == nb) ~> 'g'];
+		23: UNION[
+			| !(0 == nb) ~> 's'];
+		24: UNION[
+			| !(0 == nb) ~> ' '];
+		25: UNION[
+			| !(0 == nb) ~> 'c'];
+		26: UNION[
+			| !(0 == nb) ~> 'u'];
+		27: UNION[
+			| !(0 == nb) ~> 'r'];
+		28: UNION[
+			| !(0 == nb) ~> 'r'];
+		29: UNION[
+			| !(0 == nb) ~> 'e'];
+		2: UNION[
+			| !(0 == nb) ~> 't'];
+		30: UNION[
+			| !(0 == nb) ~> 'n'];
+		31: UNION[
+			| !(0 == nb) ~> 't'];
+		32: UNION[
+			| !(0 == nb) ~> 'l'];
+		33: UNION[
+			| !(0 == nb) ~> 'y'];
+		34: UNION[
+			| !(0 == nb) ~> ' '];
+		35: UNION[
+			| !(0 == nb) ~> 'n'];
+		36: UNION[
+			| !(0 == nb) ~> 'o'];
+		37: UNION[
+			| !(0 == nb) ~> 't'];
+		38: UNION[
+			| !(0 == nb) ~> ' '];
+		39: UNION[
+			| !(0 == nb) ~> 's'];
+		3: UNION[
+			| !(0 == nb) ~> 't'];
+		40: UNION[
+			| !(0 == nb) ~> 'u'];
+		41: UNION[
+			| !(0 == nb) ~> 'p'];
+		42: UNION[
+			| !(0 == nb) ~> 'p'];
+		43: UNION[
+			| !(0 == nb) ~> 'o'];
+		44: UNION[
+			| !(0 == nb) ~> 'r'];
+		45: UNION[
+			| !(0 == nb) ~> 't'];
+		46: UNION[
+			| !(0 == nb) ~> 'e'];
+		47: UNION[
+			| !(0 == nb) ~> 'd'];
+		48: UNION[
+			| !(0 == nb) ~> '!'];
+		49: UNION[
+			| !(0 == nb) ~> '\000'];
+		4: UNION[
+			| !(0 == nb) ~> 'i'];
+		5: UNION[
+			| !(0 == nb) ~> 'n'];
+		6: UNION[
+			| !(0 == nb) ~> 'g'];
+		7: UNION[
+			| !(0 == nb) ~> ' '];
+		8: UNION[
+			| !(0 == nb) ~> 'r'];
+		9: UNION[
+			| !(0 == nb) ~> 'e'];
+		 ... UNION[
+	| !(0 == nb) ~> 50] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 49]]
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
@@ -3768,10 +5979,89 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| !(0 == nb) ~> null]]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3780,7 +6070,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
@@ -3824,13 +6153,169 @@ HEAP:
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == nb) ~> 0]]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == nb) ~> Arg_NullReferenceException]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == nb) ~> 'A'];
+		10: UNION[
+			| !(0 == nb) ~> 'f'];
+		11: UNION[
+			| !(0 == nb) ~> 'e'];
+		12: UNION[
+			| !(0 == nb) ~> 'r'];
+		13: UNION[
+			| !(0 == nb) ~> 'e'];
+		14: UNION[
+			| !(0 == nb) ~> 'n'];
+		15: UNION[
+			| !(0 == nb) ~> 'c'];
+		16: UNION[
+			| !(0 == nb) ~> 'e'];
+		17: UNION[
+			| !(0 == nb) ~> 'E'];
+		18: UNION[
+			| !(0 == nb) ~> 'x'];
+		19: UNION[
+			| !(0 == nb) ~> 'c'];
+		1: UNION[
+			| !(0 == nb) ~> 'r'];
+		20: UNION[
+			| !(0 == nb) ~> 'e'];
+		21: UNION[
+			| !(0 == nb) ~> 'p'];
+		22: UNION[
+			| !(0 == nb) ~> 't'];
+		23: UNION[
+			| !(0 == nb) ~> 'i'];
+		24: UNION[
+			| !(0 == nb) ~> 'o'];
+		25: UNION[
+			| !(0 == nb) ~> 'n'];
+		26: UNION[
+			| !(0 == nb) ~> '\000'];
+		2: UNION[
+			| !(0 == nb) ~> 'g'];
+		3: UNION[
+			| !(0 == nb) ~> '_'];
+		4: UNION[
+			| !(0 == nb) ~> 'N'];
+		5: UNION[
+			| !(0 == nb) ~> 'u'];
+		6: UNION[
+			| !(0 == nb) ~> 'l'];
+		7: UNION[
+			| !(0 == nb) ~> 'l'];
+		8: UNION[
+			| !(0 == nb) ~> 'R'];
+		9: UNION[
+			| !(0 == nb) ~> 'e'];
+		 ... UNION[
+	| !(0 == nb) ~> 27] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 26]]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == nb) ~> Getting resource strings currently not supported!]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == nb) ~> 'G'];
+		10: UNION[
+			| !(0 == nb) ~> 's'];
+		11: UNION[
+			| !(0 == nb) ~> 'o'];
+		12: UNION[
+			| !(0 == nb) ~> 'u'];
+		13: UNION[
+			| !(0 == nb) ~> 'r'];
+		14: UNION[
+			| !(0 == nb) ~> 'c'];
+		15: UNION[
+			| !(0 == nb) ~> 'e'];
+		16: UNION[
+			| !(0 == nb) ~> ' '];
+		17: UNION[
+			| !(0 == nb) ~> 's'];
+		18: UNION[
+			| !(0 == nb) ~> 't'];
+		19: UNION[
+			| !(0 == nb) ~> 'r'];
+		1: UNION[
+			| !(0 == nb) ~> 'e'];
+		20: UNION[
+			| !(0 == nb) ~> 'i'];
+		21: UNION[
+			| !(0 == nb) ~> 'n'];
+		22: UNION[
+			| !(0 == nb) ~> 'g'];
+		23: UNION[
+			| !(0 == nb) ~> 's'];
+		24: UNION[
+			| !(0 == nb) ~> ' '];
+		25: UNION[
+			| !(0 == nb) ~> 'c'];
+		26: UNION[
+			| !(0 == nb) ~> 'u'];
+		27: UNION[
+			| !(0 == nb) ~> 'r'];
+		28: UNION[
+			| !(0 == nb) ~> 'r'];
+		29: UNION[
+			| !(0 == nb) ~> 'e'];
+		2: UNION[
+			| !(0 == nb) ~> 't'];
+		30: UNION[
+			| !(0 == nb) ~> 'n'];
+		31: UNION[
+			| !(0 == nb) ~> 't'];
+		32: UNION[
+			| !(0 == nb) ~> 'l'];
+		33: UNION[
+			| !(0 == nb) ~> 'y'];
+		34: UNION[
+			| !(0 == nb) ~> ' '];
+		35: UNION[
+			| !(0 == nb) ~> 'n'];
+		36: UNION[
+			| !(0 == nb) ~> 'o'];
+		37: UNION[
+			| !(0 == nb) ~> 't'];
+		38: UNION[
+			| !(0 == nb) ~> ' '];
+		39: UNION[
+			| !(0 == nb) ~> 's'];
+		3: UNION[
+			| !(0 == nb) ~> 't'];
+		40: UNION[
+			| !(0 == nb) ~> 'u'];
+		41: UNION[
+			| !(0 == nb) ~> 'p'];
+		42: UNION[
+			| !(0 == nb) ~> 'p'];
+		43: UNION[
+			| !(0 == nb) ~> 'o'];
+		44: UNION[
+			| !(0 == nb) ~> 'r'];
+		45: UNION[
+			| !(0 == nb) ~> 't'];
+		46: UNION[
+			| !(0 == nb) ~> 'e'];
+		47: UNION[
+			| !(0 == nb) ~> 'd'];
+		48: UNION[
+			| !(0 == nb) ~> '!'];
+		49: UNION[
+			| !(0 == nb) ~> '\000'];
+		4: UNION[
+			| !(0 == nb) ~> 'i'];
+		5: UNION[
+			| !(0 == nb) ~> 'n'];
+		6: UNION[
+			| !(0 == nb) ~> 'g'];
+		7: UNION[
+			| !(0 == nb) ~> ' '];
+		8: UNION[
+			| !(0 == nb) ~> 'r'];
+		9: UNION[
+			| !(0 == nb) ~> 'e'];
+		 ... UNION[
+	| !(0 == nb) ~> 50] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == nb) ~> 49]]
 nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
@@ -3903,13 +6388,131 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -3918,7 +6521,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.NotImplementedException[
 	| System.Exception._HResult ~> -2147467263
@@ -3943,10 +6585,90 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NotImplementedException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'l';
+		11: 'e';
+		12: 'm';
+		13: 'e';
+		14: 'n';
+		15: 't';
+		16: 'e';
+		17: 'd';
+		18: 'E';
+		19: 'x';
+		1: 'r';
+		20: 'c';
+		21: 'e';
+		22: 'p';
+		23: 't';
+		24: 'i';
+		25: 'o';
+		26: 'n';
+		27: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'o';
+		6: 't';
+		7: 'I';
+		8: 'm';
+		9: 'p';
+		 ... 28 ... |]
 	| System.String.m_StringLength ~> 27]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -4189,10 +6911,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4201,7 +7004,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -4291,13 +7133,131 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4306,7 +7266,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
@@ -4331,10 +7330,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
@@ -4416,13 +7496,131 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_NullReferenceException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
 	| System.String.m_StringLength ~> 26]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4431,7 +7629,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
@@ -4456,10 +7693,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Length ... |]
 ---------- s1 = ----------
@@ -4575,7 +7893,58 @@ HEAP:
 	 ... UNION[
 	| !(1 < n) & 5 == n | !(4 < n) & 5 == n | (!(5 == n) | 1 < n) & (!(5 == n) | 4 < n) ~> n] ... |]
 10 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4605,10 +7974,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 13 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 14 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 15 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4638,10 +8088,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 17 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 18 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 19 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4671,10 +8202,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 5 ==> STRUCT System.Object[]
 6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4683,7 +8295,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 8 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
@@ -4708,7 +8359,37 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
@@ -4782,13 +8463,133 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4797,7 +8598,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
@@ -4822,10 +8662,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1: UNION[
@@ -4928,10 +8849,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 13 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 14 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
@@ -4939,10 +8941,91 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 4 ==> STRUCT System.Object[]
 5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -4951,7 +9034,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 7 ==> STRUCT System.IndexOutOfRangeException[
 	| System.Exception._HResult ~> -2146233080
@@ -4976,10 +9098,91 @@ HEAP:
 	| System.Exception._xptrs ~> STRUCT System.IntPtr[
 		| System.IntPtr.m_value ~> 0]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Arg_IndexOutOfRangeException
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 9 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Getting resource strings currently not supported!
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
 arr ==> TypeVariable1{System.Object}: [|
 	1, 1, 1: UNION[
@@ -5073,6 +9276,18 @@ System.IntPtr ==> STRUCT System.IntPtr[
 System.Object ==> STRUCT System.Object[]
 System.ValueType ==> STRUCT System.ValueType[]
 VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.SimplePointerDifference(System.Int32, System.Double)
+RESULT: x
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
+METHOD: System.Int32 VSharp.CSharpUtils.Tests.Unsafe.PointerTriangle(System.Int32, System.Int32, System.Int32)
+RESULT: x
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.CSharpUtils.Tests.Unsafe ==> STRUCT VSharp.CSharpUtils.Tests.Unsafe[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualB.F()
 RESULT: 8
 HEAP:
@@ -5107,8 +9322,67 @@ HEAP:
 	(!(0 == p) & !(VSharp.CSharpUtils.Tests.Typecast.Pawn <: TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}), app(MakeMove((HeapRef p), STRUCT VSharp.CSharpUtils.Tests.Typecast.Coord[])))], statics = s1 } where
 ---------- h0 = ----------
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| 0 == p ~> Specified cast is not valid.]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| 0 == p ~> 'S'];
+		10: UNION[
+			| 0 == p ~> 'c'];
+		11: UNION[
+			| 0 == p ~> 'a'];
+		12: UNION[
+			| 0 == p ~> 's'];
+		13: UNION[
+			| 0 == p ~> 't'];
+		14: UNION[
+			| 0 == p ~> ' '];
+		15: UNION[
+			| 0 == p ~> 'i'];
+		16: UNION[
+			| 0 == p ~> 's'];
+		17: UNION[
+			| 0 == p ~> ' '];
+		18: UNION[
+			| 0 == p ~> 'n'];
+		19: UNION[
+			| 0 == p ~> 'o'];
+		1: UNION[
+			| 0 == p ~> 'p'];
+		20: UNION[
+			| 0 == p ~> 't'];
+		21: UNION[
+			| 0 == p ~> ' '];
+		22: UNION[
+			| 0 == p ~> 'v'];
+		23: UNION[
+			| 0 == p ~> 'a'];
+		24: UNION[
+			| 0 == p ~> 'l'];
+		25: UNION[
+			| 0 == p ~> 'i'];
+		26: UNION[
+			| 0 == p ~> 'd'];
+		27: UNION[
+			| 0 == p ~> '.'];
+		28: UNION[
+			| 0 == p ~> '\000'];
+		2: UNION[
+			| 0 == p ~> 'e'];
+		3: UNION[
+			| 0 == p ~> 'c'];
+		4: UNION[
+			| 0 == p ~> 'i'];
+		5: UNION[
+			| 0 == p ~> 'f'];
+		6: UNION[
+			| 0 == p ~> 'i'];
+		7: UNION[
+			| 0 == p ~> 'e'];
+		8: UNION[
+			| 0 == p ~> 'd'];
+		9: UNION[
+			| 0 == p ~> ' '];
+		 ... UNION[
+	| 0 == p ~> 29] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| 0 == p ~> 28]]
 3 ==> STRUCT System.InvalidCastException[
@@ -5163,8 +9437,85 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> UNION[
 		| 0 == p ~> null]]
 6 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !hasKey#10 & 0 == p ~> CLR_SafeSerializationManager_RealType]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !hasKey#10 & 0 == p ~> 'C'];
+		10: UNION[
+			| !hasKey#10 & 0 == p ~> 'r'];
+		11: UNION[
+			| !hasKey#10 & 0 == p ~> 'i'];
+		12: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		13: UNION[
+			| !hasKey#10 & 0 == p ~> 'l'];
+		14: UNION[
+			| !hasKey#10 & 0 == p ~> 'i'];
+		15: UNION[
+			| !hasKey#10 & 0 == p ~> 'z'];
+		16: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		17: UNION[
+			| !hasKey#10 & 0 == p ~> 't'];
+		18: UNION[
+			| !hasKey#10 & 0 == p ~> 'i'];
+		19: UNION[
+			| !hasKey#10 & 0 == p ~> 'o'];
+		1: UNION[
+			| !hasKey#10 & 0 == p ~> 'L'];
+		20: UNION[
+			| !hasKey#10 & 0 == p ~> 'n'];
+		21: UNION[
+			| !hasKey#10 & 0 == p ~> 'M'];
+		22: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		23: UNION[
+			| !hasKey#10 & 0 == p ~> 'n'];
+		24: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		25: UNION[
+			| !hasKey#10 & 0 == p ~> 'g'];
+		26: UNION[
+			| !hasKey#10 & 0 == p ~> 'e'];
+		27: UNION[
+			| !hasKey#10 & 0 == p ~> 'r'];
+		28: UNION[
+			| !hasKey#10 & 0 == p ~> '_'];
+		29: UNION[
+			| !hasKey#10 & 0 == p ~> 'R'];
+		2: UNION[
+			| !hasKey#10 & 0 == p ~> 'R'];
+		30: UNION[
+			| !hasKey#10 & 0 == p ~> 'e'];
+		31: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		32: UNION[
+			| !hasKey#10 & 0 == p ~> 'l'];
+		33: UNION[
+			| !hasKey#10 & 0 == p ~> 'T'];
+		34: UNION[
+			| !hasKey#10 & 0 == p ~> 'y'];
+		35: UNION[
+			| !hasKey#10 & 0 == p ~> 'p'];
+		36: UNION[
+			| !hasKey#10 & 0 == p ~> 'e'];
+		37: UNION[
+			| !hasKey#10 & 0 == p ~> '\000'];
+		3: UNION[
+			| !hasKey#10 & 0 == p ~> '_'];
+		4: UNION[
+			| !hasKey#10 & 0 == p ~> 'S'];
+		5: UNION[
+			| !hasKey#10 & 0 == p ~> 'a'];
+		6: UNION[
+			| !hasKey#10 & 0 == p ~> 'f'];
+		7: UNION[
+			| !hasKey#10 & 0 == p ~> 'e'];
+		8: UNION[
+			| !hasKey#10 & 0 == p ~> 'S'];
+		9: UNION[
+			| !hasKey#10 & 0 == p ~> 'e'];
+		 ... UNION[
+	| !hasKey#10 & 0 == p ~> 38] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !hasKey#10 & 0 == p ~> 37]]
 p ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Pawn}[
@@ -5384,7 +9735,37 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_FirstChar ~> [|
+		0: 'S';
+		10: 'c';
+		11: 'a';
+		12: 's';
+		13: 't';
+		14: ' ';
+		15: 'i';
+		16: 's';
+		17: ' ';
+		18: 'n';
+		19: 'o';
+		1: 'p';
+		20: 't';
+		21: ' ';
+		22: 'v';
+		23: 'a';
+		24: 'l';
+		25: 'i';
+		26: 'd';
+		27: '.';
+		28: '\000';
+		2: 'e';
+		3: 'c';
+		4: 'i';
+		5: 'f';
+		6: 'i';
+		7: 'e';
+		8: 'd';
+		9: ' ';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 2 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
@@ -5415,7 +9796,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 obj ==> STRUCT TypeVariable1{System.Object}[]
 ---------- s1 = ----------
@@ -5463,7 +9883,37 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_FirstChar ~> [|
+		0: 'S';
+		10: 'c';
+		11: 'a';
+		12: 's';
+		13: 't';
+		14: ' ';
+		15: 'i';
+		16: 's';
+		17: ' ';
+		18: 'n';
+		19: 'o';
+		1: 'p';
+		20: 't';
+		21: ' ';
+		22: 'v';
+		23: 'a';
+		24: 'l';
+		25: 'i';
+		26: 'd';
+		27: '.';
+		28: '\000';
+		2: 'e';
+		3: 'c';
+		4: 'i';
+		5: 'f';
+		6: 'i';
+		7: 'e';
+		8: 'd';
+		9: ' ';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 2 ==> STRUCT System.InvalidCastException[
 	| System.Exception._HResult ~> -2147467262
@@ -5494,7 +9944,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 piece ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Typecast.Piece}[]
 ---------- s1 = ----------
@@ -5540,7 +10029,37 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Specified cast is not valid.
+	| System.String.m_FirstChar ~> [|
+		0: 'S';
+		10: 'c';
+		11: 'a';
+		12: 's';
+		13: 't';
+		14: ' ';
+		15: 'i';
+		16: 's';
+		17: ' ';
+		18: 'n';
+		19: 'o';
+		1: 'p';
+		20: 't';
+		21: ' ';
+		22: 'v';
+		23: 'a';
+		24: 'l';
+		25: 'i';
+		26: 'd';
+		27: '.';
+		28: '\000';
+		2: 'e';
+		3: 'c';
+		4: 'i';
+		5: 'f';
+		6: 'i';
+		7: 'e';
+		8: 'd';
+		9: ' ';
+		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
 10 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
@@ -5584,13 +10103,169 @@ HEAP:
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
 11 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'A'];
+		10: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'f'];
+		11: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		12: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		13: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		14: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		15: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		16: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		17: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'E'];
+		18: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'x'];
+		19: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		1: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		20: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		21: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		22: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		23: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		24: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		25: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		26: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '\000'];
+		2: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		3: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '_'];
+		4: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'N'];
+		5: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		6: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		7: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		8: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'R'];
+		9: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		 ... UNION[
+	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 27] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
 12 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'G'];
+		10: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		11: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		12: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		13: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		14: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		15: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		16: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		17: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		18: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		19: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		1: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		20: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		21: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		22: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		23: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		24: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		25: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		26: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		27: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		28: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		29: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		2: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		30: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		31: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		32: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		33: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'y'];
+		34: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		35: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		36: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		37: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		38: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		39: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		3: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		40: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		41: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		42: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		43: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		44: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		45: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		46: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		47: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'd'];
+		48: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '!'];
+		49: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '\000'];
+		4: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		5: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		6: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		7: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		8: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		9: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		 ... UNION[
+	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 50] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
 13 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -5631,7 +10306,46 @@ HEAP:
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 5 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> CLR_SafeSerializationManager_RealType
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 6 ==> STRUCT System.NullReferenceException[
 	| System.Exception._HResult ~> UNION[
@@ -5675,13 +10389,169 @@ HEAP:
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 0]]]
 7 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Arg_NullReferenceException]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'A'];
+		10: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'f'];
+		11: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		12: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		13: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		14: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		15: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		16: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		17: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'E'];
+		18: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'x'];
+		19: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		1: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		20: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		21: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		22: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		23: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		24: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		25: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		26: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '\000'];
+		2: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		3: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '_'];
+		4: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'N'];
+		5: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		6: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		7: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		8: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'R'];
+		9: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		 ... UNION[
+	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 27] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 26]]
 8 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Getting resource strings currently not supported!]
+	| System.String.m_FirstChar ~> [|
+		0: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'G'];
+		10: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		11: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		12: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		13: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		14: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		15: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		16: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		17: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		18: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		19: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		1: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		20: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		21: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		22: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		23: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		24: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		25: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'c'];
+		26: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		27: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		28: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		29: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		2: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		30: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		31: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		32: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'l'];
+		33: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'y'];
+		34: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		35: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		36: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		37: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		38: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		39: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 's'];
+		3: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		40: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'u'];
+		41: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		42: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'p'];
+		43: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'o'];
+		44: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		45: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 't'];
+		46: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		47: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'd'];
+		48: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '!'];
+		49: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> '\000'];
+		4: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'i'];
+		5: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'n'];
+		6: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'g'];
+		7: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> ' '];
+		8: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'r'];
+		9: UNION[
+			| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 'e'];
+		 ... UNION[
+	| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 50] ... |]
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 49]]
 9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
@@ -5808,13 +10678,35 @@ HEAP:
 	| System.Collections.Generic.LinkedList`1.siInfo ~> null
 	| System.Collections.Generic.LinkedList`1.version ~> 0]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Version
+	| System.String.m_FirstChar ~> [|
+		0: 'V';
+		1: 'e';
+		2: 'r';
+		3: 's';
+		4: 'i';
+		5: 'o';
+		6: 'n';
+		7: '\000';
+		 ... 8 ... |]
 	| System.String.m_StringLength ~> 7]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Count
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		1: 'o';
+		2: 'u';
+		3: 'n';
+		4: 't';
+		5: '\000';
+		 ... 6 ... |]
 	| System.String.m_StringLength ~> 5]
 4 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Data
+	| System.String.m_FirstChar ~> [|
+		0: 'D';
+		1: 'a';
+		2: 't';
+		3: 'a';
+		4: '\000';
+		 ... 5 ... |]
 	| System.String.m_StringLength ~> 4]
 ---------- s1 = ----------
 System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
@@ -5919,13 +10811,35 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Version
+	| System.String.m_FirstChar ~> [|
+		0: 'V';
+		1: 'e';
+		2: 'r';
+		3: 's';
+		4: 'i';
+		5: 'o';
+		6: 'n';
+		7: '\000';
+		 ... 8 ... |]
 	| System.String.m_StringLength ~> 7]
 2 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Count
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		1: 'o';
+		2: 'u';
+		3: 'n';
+		4: 't';
+		5: '\000';
+		 ... 6 ... |]
 	| System.String.m_StringLength ~> 5]
 3 ==> STRUCT System.String[
-	| System.String.m_FirstChar ~> Data
+	| System.String.m_FirstChar ~> [|
+		0: 'D';
+		1: 'a';
+		2: 't';
+		3: 'a';
+		4: '\000';
+		 ... 5 ... |]
 	| System.String.m_StringLength ~> 4]
 l ==> STRUCT TypeVariable1{System.Collections.Generic.LinkedList`1[System.Int32]}[]
 l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][

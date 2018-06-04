@@ -269,6 +269,12 @@ module internal Merging =
     let guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
     let guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id
 
+    let guardedErroredApply mapper term state =
+        match term.term with
+        | Error _ -> term, state
+        | Union gvs -> guardedErroredMap mapper id gvs state
+        | _ -> mapper state term
+
     let unguard = function
         | {term = Union gvs} -> gvs
         | t -> [(True, t)]

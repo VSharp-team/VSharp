@@ -59,6 +59,7 @@ type termNode =
     | StackRef of stackKey * (term * termType) list * termType option                                       // If last field is (Some T) then this is pointer T*
     | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Some T) then this is pointer T*
     | StaticRef of string * (term * termType) list * termType option                                        // If last field is (Some T) then this is pointer T*
+    | IndentedPtr of term * term                                                                            // Pointer * indent
     | Union of (term * term) list
 
     member x.IndicesToString() =
@@ -109,6 +110,8 @@ type termNode =
             | Constant(name, _, _) -> name.v
             | Concrete(_, t) when Types.isFunction t -> sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
+            | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
+            | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
@@ -161,6 +164,7 @@ type termNode =
             | HeapRef(((z, _), []), _,_, _) when z.term = Concrete([0], Types.pointerType) -> "null"
             | HeapRef(_, _, _, Pointer mbtyp) -> printRef term indent <| Some mbtyp
             | HeapRef(_, _, _, Reference _) -> printRef term indent None
+            | IndentedPtr(term, shift) -> sprintf "(IndentedPtr %O[%O])" (toStringWithIndent indent term) shift
             | StackRef(_, _, mbtyp)
             | StaticRef(_, _, mbtyp) -> printRef term indent mbtyp
             | _ -> __unreachable__()
@@ -261,6 +265,7 @@ module internal Terms =
     let StaticView metadata key path view = { term = StaticRef(key, path, view); metadata = metadata }
     let StaticPtr metadata key path typ = { term = StaticRef(key, path, Some typ); metadata = metadata }
     let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
+    let IndentedPtr term shift metadata = { term = IndentedPtr(term, shift); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
 
     let zeroAddress = termNode.Concrete([0], Types.pointerType)
@@ -348,6 +353,7 @@ module internal Terms =
         match term.term with
         | HeapRef _
         | StaticRef _
+        | IndentedPtr _
         | StackRef _ -> true
         | Union gvs -> List.forall (snd >> isRef) gvs
         | _ -> false
@@ -391,6 +397,7 @@ module internal Terms =
         | ReferenceTo t -> Reference t
         | StackRef(_, [], _) -> Reference Core.Void // TODO: this is temporary hack, support normal typing
         | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> fromDotNetType |> Reference
+        | IndentedPtr(t, _) -> typeOf t
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t -> not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)

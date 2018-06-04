@@ -63,8 +63,8 @@
     <Compile Include="Merging.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Arithmetics.fs" />
-    <Compile Include="Strings.fs" />
     <Compile Include="Arrays.fs" />
+    <Compile Include="Strings.fs" />
     <Compile Include="Pointers.fs" />
     <Compile Include="Operators.fs" />
     <Compile Include="Substitution.fs" />

@@ -5,7 +5,7 @@ open VSharp.Core.Types.Constructor
 
 module internal TypeCasting =
 
-    let primitiveCast mtd isChecked hierarchyCast targetType state term k =
+    let rec primitiveCast mtd isChecked hierarchyCast targetType state term k =
         // TODO: get rid of hierarchy cast parameter!
         match term.term with
         | Error _ -> k (term, state)
@@ -21,6 +21,9 @@ module internal TypeCasting =
         | StaticRef _
         | HeapRef _
         | Struct _ -> hierarchyCast targetType state term k
+        | IndentedPtr(term, shift) ->
+            primitiveCast mtd isChecked hierarchyCast targetType state term (fun (term, state) ->
+            k (IndentedPtr term shift mtd, state))
         | _ -> __notImplemented__()
 
     let private doCast mtd term targetType isChecked =
@@ -29,8 +32,7 @@ module internal TypeCasting =
 
         let castPointer term typ = // For Pointers
             match targetType with
-            | Pointer typ' when Types.sizeOf typ = Types.sizeOf typ' || typ = termType.Void || typ' = termType.Void ->
-                castReferenceToPointer mtd typ' term
+            | Pointer typ' -> castReferenceToPointer mtd typ' term
             | _ -> makeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
 
         match term.term with

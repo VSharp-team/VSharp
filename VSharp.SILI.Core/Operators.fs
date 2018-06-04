@@ -26,7 +26,7 @@ module internal Operators =
         | op when Strings.isStringOperation op t1 t2 ->
             Strings.simplifyOperation mtd op left right |> (withSnd state >> k)
         | op when Pointers.isPointerOperation op t1 t2 ->
-            Pointers.simplifyBinaryOperation mtd op state left right k
+            Pointers.simplifyBinaryOperation mtd op state left right t k
         | _ -> __notImplemented__()
 
     let ksimplifyEquality mtd x y k =

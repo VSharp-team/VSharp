@@ -154,6 +154,16 @@ module internal Arrays =
         let constant = Constant mtd defaultArrayName (DefaultArray()) typ
         Array mtd (makeNumber rank mtd) length (zeroLowerBound mtd rank) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
 
+    let (|VectorT|_|) = term >> function
+        | Array(ConcreteT(one, _), length, lower, instor, contents, lengths, ArrayType (elemTyp, ConcreteDimension 1))
+            when one :?> int = 1 -> Some(VectorT (length, lower, instor, contents, lengths, elemTyp))
+        | _ -> None
+
+    let (|Index|_|) = function
+        | VectorT(ConcreteT(length, _), lower, [_, DefaultInstantiator _], contents, _, _)
+            when length :?> int = 1 && lower = zeroLowerBound Metadata.empty 1 -> Some(contents.[makeZeroAddress Metadata.empty])
+        | _ -> None
+
     type LengthExtractor() =
         inherit TermExtractor()
         override x.Extract t = length t

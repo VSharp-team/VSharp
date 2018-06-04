@@ -105,6 +105,7 @@ module API =
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
+        let IsNativeInt t = Pointers.isNativeInt t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
@@ -172,7 +173,7 @@ module API =
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
         let AllocateDefaultStatic state termType qualifiedTypeName = Memory.mkDefaultStruct m.Value true termType |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
         let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value false termType
-        let AllocateString length str state = Strings.makeString length str (Memory.tick()) |> Memory.allocateInHeap m.Value state
+        let AllocateString str state = Strings.makeString m.Value (Memory.tick()) str |> Memory.allocateInHeap m.Value state
 
         let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
         let Dump state = State.dumpMemory state
@@ -190,8 +191,7 @@ module API =
             let term, state = Memory.npe m.Value state
             thrower term, state
         let InvalidCastException state thrower =
-            let messageString = "Specified cast is not valid."
-            let message, state = Memory.AllocateString messageString.Length messageString state
+            let message, state = Memory.AllocateString "Specified cast is not valid." state
             let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
             thrower term, state
         let TypeInitializerException qualifiedTypeName innerException state thrower =

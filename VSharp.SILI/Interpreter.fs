@@ -113,7 +113,7 @@ module internal Interpreter =
         Reset()
         let k = Enter null state k
         let stringTypeName = typeof<string>.AssemblyQualifiedName
-        let emptyString, state = Memory.AllocateString 0 String.Empty state
+        let emptyString, state = Memory.AllocateString String.Empty state
         initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
         let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String stringTypeName
         Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
@@ -539,18 +539,18 @@ module internal Interpreter =
             reduceExpression state ast.Expression (fun (term, newState) ->
                 k (ControlFlow.ThrowOrIgnore term, newState))
 
-    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
-        let name = ast.VariableReference.Variable.Name
-        let k = Enter ast state k
+    and reduceLocalVariableDeclaration state (caller : locationBinding) (variableReference : ILocalVariableReferenceExpression) (initializer : IExpression) k =
+        let name = variableReference.Variable.Name
+        let k = Enter caller state k
         let initialize k =
-            let t = MetadataTypes.fromMetadataType state ast.VariableReference.Variable.Type
+            let t = MetadataTypes.fromMetadataType state variableReference.Variable.Type
             match t with
-            | StructType _ when ast.Initializer = null -> k (MakeDefault t, state)
-            | _ -> reduceExpression state ast.Initializer k
+            | StructType _ when initializer = null -> k (MakeDefault t, state)
+            | _ -> reduceExpression state initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.ThrowOrIgnore initializer
             let allocate state value statementResult k =
-                let state' = Memory.AllocateOnStack state (name, getTokenBy (Choice2Of2 ast.VariableReference.Variable)) initializer
+                let state' = Memory.AllocateOnStack state (name, getTokenBy (Choice2Of2 variableReference.Variable)) initializer
                 k (statementResult, state')
             failOrInvoke
                 statementResult
@@ -559,6 +559,9 @@ module internal Interpreter =
                 (fun _ _ _ state k -> allocate state Nop statementResult k)
                 (fun _ _ normal state k -> allocate state (Guarded normal) statementResult k)
                 k)
+
+    and reduceLocalVariableDeclarationStatement state (ast : ILocalVariableDeclarationStatement) k =
+        reduceLocalVariableDeclaration state ast ast.VariableReference ast.Initializer k
 
     and reduceReturnStatement state (ast : IReturnStatement) k =
         if ast.Result = null then k (Return Nop, state)
@@ -818,8 +821,7 @@ module internal Interpreter =
         let obj = ast.Value.Value
         match mType with
         | Types.StringType ->
-            let stringLength = String.length (obj.ToString())
-            Memory.AllocateString stringLength obj state |> k
+            Memory.AllocateString (obj :?> string) state |> k
         | Core.Null -> k (Terms.MakeNullRef Null, state)
         | _ -> k (Concrete obj mType, state)
 
@@ -865,7 +867,7 @@ module internal Interpreter =
         let reduceRightArg state k = reduceExpression state ast.RightArgument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k)
 
-    and reduceAssignment caller state (left : IExpression) (right : IExpression) k =
+    and reduceAssignment (caller : locationBinding) state (left : IExpression) (right : IExpression) k =
         let targetReducer =
             match left with
             | :? IParameterReferenceExpression
@@ -1049,10 +1051,14 @@ module internal Interpreter =
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         let k = Enter ast state k
-        let targetType = MetadataTypes.fromMetadataType state ast.TargetType
-        let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
-        reduceExpression state ast.Argument (fun (term, state) ->
-        Types.Cast state term targetType isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state Throw) k)
+        let targetDotNetType = MetadataTypes.metadataToDotNetType ast.TargetType
+
+        reduceExpression state ast.Argument
+            (if Types.IsNativeInt targetDotNetType then k else
+             fun (term, state) ->
+                let targetType = Types.FromDotNetType state targetDotNetType
+                let isChecked = ast.OverflowCheck = OverflowCheckType.Enabled
+                Types.Cast state term targetType isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state Throw) k)
 
     and reduceCheckCastExpression state (ast : ICheckCastExpression) k =
         let targetType = MetadataTypes.fromMetadataType state ast.Type
@@ -1348,7 +1354,8 @@ module internal Interpreter =
         __notImplemented__()
 
     and reduceFixedStatement state (ast : IFixedStatement) k =
-        __notImplemented__()
+        reduceLocalVariableDeclaration state ast ast.VariableReference ast.Initializer (fun (_, state) ->
+        reduceStatement state ast.Body k)
 
     and reduceTypeReferenceExpression state (ast : ITypeReferenceExpression) k =
         __notImplemented__()

@@ -63,7 +63,8 @@ module public MappedStack =
             contents peaks, peaks
 
     let fold f state (contents, peaks) =
-        Map.fold (fun s k v -> f s k (Map.find (makeExtendedKey k v) contents)) state peaks
+        Map.fold (fun s k v ->
+            Option.map (f s k) (Map.tryFind (makeExtendedKey k v) contents) |?? s) state peaks
 
     let compare keyMapper valueMapper (contents1, peaks1) (contents2, peaks2) =
         assert(peaks1 = peaks2)

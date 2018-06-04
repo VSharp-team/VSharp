@@ -78,6 +78,7 @@ module API =
         val IsBool : termType -> bool
         val IsInteger : termType -> bool
         val IsReal : termType -> bool
+        val IsNativeInt : System.Type -> bool
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
@@ -148,7 +149,7 @@ module API =
         val AllocateInHeap : state -> term -> term * state
         val AllocateDefaultStatic : state -> termType -> string -> state
         val MakeDefaultStruct : termType -> term
-        val AllocateString : int -> 'a -> state -> term * state
+        val AllocateString : string -> state -> term * state
 
         val IsTypeNameInitialized : string -> state -> term
         val Dump : state -> string
