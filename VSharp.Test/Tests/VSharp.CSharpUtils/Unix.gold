@@ -352,7 +352,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -606,7 +606,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -738,7 +738,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -890,7 +890,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1025,7 +1025,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1153,7 +1153,7 @@ System.Byte ==> STRUCT System.Byte[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3485,7 +3485,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3633,7 +3633,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3804,7 +3804,7 @@ System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[S
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4303,7 +4303,7 @@ nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4604,7 +4604,7 @@ nb ==> STRUCT TypeVariable1{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4861,7 +4861,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -5171,7 +5171,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -5446,7 +5446,7 @@ array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Leng
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -5711,7 +5711,7 @@ array ==> System.Int32: [| ... System.Int32[,].0_Length x System.Int32[,].1_Leng
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6114,7 +6114,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6368,7 +6368,7 @@ arr ==> TypeVariable1{System.Object}: [|
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6651,7 +6651,7 @@ arr ==> TypeVariable1{System.Object}: [|
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051000004
+	| System.Environment.mono_corlib_version ~> 1051200002
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -7833,7 +7833,7 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> Win32S]
 	| System.Environment.mono_corlib_version ~> UNION[
-		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1051000004]
+		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> 1051200002]
 	| System.Environment.nl ~> UNION[
 		| !(0 == obj) & (TypeVariable1{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) ~> null]
 	| System.Environment.os ~> UNION[
