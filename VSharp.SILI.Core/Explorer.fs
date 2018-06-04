@@ -64,7 +64,14 @@ module internal Explorer =
                     Memory.makeSymbolicThis metadata initialState m.Token declaringType
                     |> (fun (f, s, flag) -> Some f, s, flag)
             | :? IDelegateIdentifier as dlgt ->
-                let state = { State.empty with frames = dlgt.ContextFrames }
+                let state = dlgt.ContextFrames.f |> List.rev |> List.fold (fun state frame ->
+                    let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
+                    match frame.func with
+                    | Some(f, p) ->
+                        let state = {state with pc = p}
+                        Memory.newStackFrame state metadata f fr
+                    | None -> Memory.newScope metadata state fr) State.empty
+                let state = { state with pc = List.empty; frames = dlgt.ContextFrames}
                 // TODO: Create dummy frame
                 (None, state, false)
             | _ -> __notImplemented__()
