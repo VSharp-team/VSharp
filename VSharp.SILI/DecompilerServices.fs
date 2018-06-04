@@ -179,7 +179,7 @@ module internal DecompilerServices =
         let parentFields =
             if not withParent || isStatic || decompiledClass.TypeInfo.Base = null then []
             else getDefaultFieldValuesOf false withParent decompiledClass.TypeInfo.Base.Type.AssemblyQualifiedName
-        List.concat [regularFields; backingFields; parentFields]
+        List.append3 regularFields backingFields parentFields
 
     let public getStaticConstructorOf qualifiedTypeName =
         let assemblyPath = locationOfType qualifiedTypeName

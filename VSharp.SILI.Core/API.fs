@@ -91,6 +91,7 @@ module API =
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
         let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
+        let ConstantsOf terms = discoverConstants terms
 
     module Types =
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
@@ -181,11 +182,8 @@ module API =
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
 
     module Database =
-        let Query funcId =
-            let res, state = Database.query funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
-            ControlFlow.resultToTerm res, state
-        let DependenciesOfRecursionResult funcId = Database.queryDependenciesOfResult funcId
-        let DependenciesOfState funcId = Database.queryDependenciesOfState funcId
+        let QuerySummary funcId =
+            Database.querySummary funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =

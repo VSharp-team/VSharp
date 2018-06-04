@@ -37,9 +37,9 @@ module Substitution =
                 | Application _ -> __notImplemented__())
             |> Merging.merge
         | Union gvs ->
-            let gvs' = gvs |> List.map (fun (g, v) ->
+            let gvs' = gvs |> List.collect (fun (g, v) ->
                 let ges, ggs = substitute subst typeSubst g |> Merging.erroredUnguard
-                (ggs, substitute subst typeSubst v)::ges) |> List.concat
+                (ggs, substitute subst typeSubst v)::ges)
             if gvs' = gvs then term else Merging.merge gvs'
         | Struct(contents, typ) ->
             let typ = typeSubst typ

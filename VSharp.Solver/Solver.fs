@@ -4,7 +4,6 @@ open Microsoft.Z3
 open VSharp.Core
 
 type public ISolver<'TAst, 'TResult> =
-    abstract member Encode : term -> 'TAst
     abstract member Solve : term list -> 'TResult
 
 type public ISmtSolver<'TAst> =
@@ -15,8 +14,10 @@ type public IZ3Solver =
 
 type public Z3Solver() =
     interface IZ3Solver with
-        member x.Encode t = Z3.encodeTerm t
-        member x.Solve terms = Z3.solveFP terms
+        member x.Solve terms =
+            let hochcs = Encode.encodeQuery terms
+            let chcs = CHCs.toFirstOrder hochcs
+            Z3.solve chcs
 
 type public Z3Simplifier() =
     interface IPropositionalSimplifier with

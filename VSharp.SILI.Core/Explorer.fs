@@ -46,7 +46,7 @@ module internal Explorer =
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             interpreter.InitEntryPoint initialState m.DeclaringTypeAQN (fun state ->
-            interpreter.Invoke id state None k)
+            interpreter.Invoke id state None (fun (result, state) -> k { result = ControlFlow.resultToTerm result; state = state }))
         | _ -> internalfail "unexpected entry point: expected regular method, but got %O" id
 
     let explore (id : IFunctionIdentifier) k =
@@ -73,8 +73,7 @@ module internal Explorer =
             let state = if Option.isSome this then State.popPathCondition state else state
             let state = if isMethodOfStruct then State.popStack state else state
             currentlyExploredFunctions.Remove id |> ignore
-            Database.report id (res, state)
-            k (res, state))
+            Database.report id res state |> k)
 
     let private detectUnboundRecursion id s =
         let isRecursiveFrame (frame : stackFrame) =
@@ -130,12 +129,12 @@ module internal Explorer =
         else
             let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
             let getExplored k =
-                match Database.query funcId with
+                match Database.querySummary funcId with
                 | Some r -> k r
                 | None -> explore funcId k
-            getExplored (fun (exploredResult, exploredState) ->
-            let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn
-            let state = Memory.composeStates ctx state exploredState
+            getExplored (fun summary ->
+            let result = Memory.fillHoles ctx state summary.result |> ControlFlow.throwOrReturn
+            let state = Memory.composeStates ctx state summary.state
             k (result, state))
 
     let callOrApplyEffect mtd areWeStuck body id state setup teardown k =

@@ -12,8 +12,8 @@ module API =
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
 
-    val InterpretEntryPoint : IFunctionIdentifier -> (statementResult * state -> 'a) -> 'a
-    val Explore : IFunctionIdentifier -> (statementResult * state -> 'a) -> 'a
+    val InterpretEntryPoint : IFunctionIdentifier -> (functionSummary -> 'a) -> 'a
+    val Explore : IFunctionIdentifier -> (functionSummary -> 'a) -> 'a
 
     val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
     val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b    val HigherOrderApply : IFunctionIdentifier -> state -> term list -> termType -> (statementResult * state -> 'a) -> 'a
@@ -58,6 +58,7 @@ module API =
         val (|Disjunction|_|) : term -> term list option
 
         val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+        val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
@@ -157,6 +158,4 @@ module API =
         val ArrayLowerBoundByDimension : state -> term -> term -> term * state
 
     module Database =
-        val Query : IFunctionIdentifier -> term * state
-        val DependenciesOfRecursionResult : IFunctionIdentifier -> term seq
-        val DependenciesOfState : IFunctionIdentifier -> term seq
+        val QuerySummary : IFunctionIdentifier -> functionSummary

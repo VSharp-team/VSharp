@@ -603,18 +603,18 @@ module internal Terms =
         Seq.fold (doFold folder visited) state terms
 
     let fold folder state terms =
-        foldSeq folder (new HashSet<term>()) state terms
+        foldSeq folder (new HashSet<term>()) terms state
 
     let iter action term =
         doFold (fun () -> action) (new HashSet<term>()) () term
 
-    let discoverConstants term =
+    let discoverConstants terms =
         let result = new HashSet<term>()
         let addConstant = function
             | {term = Constant _} as constant -> result.Add constant |> ignore
             | _ -> ()
-        iter addConstant term
-        result
+        Seq.iter (iter addConstant) terms
+        result :> ISet<term>
 
     let unwrapReferenceType = function
         | Reference t -> t

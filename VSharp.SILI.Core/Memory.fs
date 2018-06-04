@@ -157,7 +157,7 @@ module internal Memory =
         | CompleteExploration ->
             Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
 
-    let private makeSymbolicArrayLength metadata time name location heap =
+    let private makeSymbolicArrayLength metadata name location heap =
         Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor()} Arrays.lengthTermType
 
     let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
@@ -227,7 +227,7 @@ module internal Memory =
             let name = sprintf "%O.%s_LowerBound" array (idx.term.IndicesToString())
             makeSymbolicArrayLowerBound metadata time name location heap
 
-    let private arrayLengthLazyInstantiator metadata instantiator _ heap time location (idx : term) = function
+    let private arrayLengthLazyInstantiator metadata instantiator _ heap _ location (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () ->
             // In case when array was allocated during the interpretation (and thus has default instantiator) lengths by
             // all dimensions are known (they can be symbolic, but still defined). If this code triggers then we have
@@ -236,14 +236,14 @@ module internal Memory =
             makeNumber 1 metadata
         | LazyInstantiator(array, _) -> instantiator |?? fun () ->
             let name = sprintf "%O.%s_Length" array (idx.term.IndicesToString())
-            makeSymbolicArrayLength metadata time name location heap
+            makeSymbolicArrayLength metadata name location heap
 
     let private staticMemoryLazyInstantiator metadata t () =
         Struct metadata Heap.empty (fromDotNetType t)
 
     let private selectLazyInstantiator metadata heap time arrayTarget fullyQualifiedLocation typ =
         match arrayTarget with
-        | ArrayLengths -> fun () -> makeSymbolicArrayLength metadata time (nameOfLocation fullyQualifiedLocation + "_Length") fullyQualifiedLocation heap
+        | ArrayLengths -> fun () -> makeSymbolicArrayLength metadata (nameOfLocation fullyQualifiedLocation + "_Length") fullyQualifiedLocation heap
         | ArrayLowerBounds -> fun () -> makeSymbolicArrayLowerBound metadata time (nameOfLocation fullyQualifiedLocation + "_LowerBound") fullyQualifiedLocation heap
         | _ -> genericLazyInstantiator metadata heap time fullyQualifiedLocation typ
 
@@ -404,9 +404,9 @@ module internal Memory =
     let rec private independent (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) (exploredLocations : ImmutableHashSet<term>) read funcId location : bool =
         exploredLocations.Contains(location) ||
         let exploredRecursiveIds = exploredRecursiveIds.Add funcId
-        match Database.queryState funcId with
-        | Some body ->
-            let t, _ = read exploredRecursiveIds body
+        match Database.querySummary funcId with
+        | Some summary ->
+            let t, _ = read exploredRecursiveIds summary.state
             match t.term with
             | Constant(_, LazyInstantiation(location', None, true), _) when location = location' -> true
             |_ -> false
@@ -582,6 +582,7 @@ module internal Memory =
             let h' = fillHolesInHeap ctx s h'
             Mutation(h, h')
         | Mutation(h, h'), Defined(r, h'') ->
+            // TODO: this is probably wrong!
             assert(not r)
             Mutation(h, composeDefinedHeaps (writer ctx) false s h' h'')
         | RecursiveApplication _, Composition _ -> __notImplemented__()
@@ -795,9 +796,9 @@ module internal Memory =
             staticGuardOfHeap exploredRecursiveIds mtd key s.statics ||| staticGuardOfHeap exploredRecursiveIds mtd (fillHoles ctx s key) h
         | RecursiveApplication(f, _, _) when exploredRecursiveIds.Contains f -> False
         | RecursiveApplication(f, _, _) ->
-            match Database.queryState f with
-            | Some body ->
-                staticGuardOfHeap (exploredRecursiveIds.Add f) mtd key body.statics
+            match Database.querySummary f with
+            | Some summary ->
+                staticGuardOfHeap (exploredRecursiveIds.Add f) mtd key summary.state.statics
             | None -> True
         | HigherOrderApplication _ as h ->
             mkStaticKeyGuard mtd h key

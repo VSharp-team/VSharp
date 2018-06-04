@@ -137,8 +137,7 @@ module internal Merging =
             gvs
             |> mergeSame
             |> List.groupBy (snd >> mergeTypeOf)
-            |> List.map (fun (t, gvs) -> typedMerge gvs t)
-            |> List.concat
+            |> List.collect (fun (t, gvs) -> typedMerge gvs t)
 
     and merge gvs =
         match compress (simplify (|UnionT|_|) gvs) with
@@ -281,10 +280,10 @@ module internal Merging =
     let productUnion f t1 t2 =
         match t1.term, t2.term with
         | Union gvs1, Union gvs2 ->
-            gvs1 |> List.map (fun (g1, v1) ->
+            gvs1 |> List.collect (fun (g1, v1) ->
             gvs2 |> List.map (fun (g2, v2) ->
             (g1 &&& g2, f v1 v2)))
-            |> List.concat |> merge
+            |> merge
         | Union gvs1, _ ->
             gvs1 |> List.map (fun (g1, v1) -> (g1, f v1 t2)) |> merge
         | _, Union gvs2 ->
@@ -295,12 +294,12 @@ module internal Merging =
         | [] -> [(gacc, ctor xsacc)]
         | x::xs ->
             mapper x
-            |> List.map (fun (g, v) ->
+            |> List.collect (fun (g, v) ->
                 let g' = gacc &&& g
                 if isError v then [(g', v)]
                 else
                     guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
-            |> List.concat |> genericSimplify
+            |> genericSimplify
 
 
     let guardedCartesianProduct mapper ctor terms =
