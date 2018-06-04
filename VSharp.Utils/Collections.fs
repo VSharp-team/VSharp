@@ -54,11 +54,23 @@ module public List =
         assert(tail = ys)
         result
 
-    let rec public changeLast f xs =
+    let public changeLast f xs =
         let cons x = function
             | [] -> [f x]
             | xs -> x :: xs
         List.foldBack cons xs []
+
+    let rec public cartesian = function
+        | [xs] -> Seq.map List.singleton xs
+        | xs::xss ->
+            seq {
+                for x in xs do
+                    for xs' in cartesian xss do
+                        yield x::xs'
+            }
+        | [] -> Seq.empty
+
+    let public cartesianMap mapper = cartesian >> Seq.map mapper
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)

@@ -87,8 +87,11 @@ module API =
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
         let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
         let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
+        let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
+        let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
         let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
+        let ConstantsOf terms = discoverConstants terms
 
     module Types =
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
@@ -178,6 +181,10 @@ module API =
         let ArrayLength arrayTerm = Arrays.length arrayTerm
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
+
+    module Database =
+        let QuerySummary funcId =
+            Database.querySummary funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
 
     module RuntimeExceptions =
         let NullReferenceException state thrower =
