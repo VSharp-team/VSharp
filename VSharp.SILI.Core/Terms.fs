@@ -57,7 +57,7 @@ type termNode =
     | Expression of operation * term list * termType
     | Struct of symbolicHeap * termType
     | StackRef of stackKey * (term * termType) list * termType option                                       // If last field is (Some T) then this is pointer T*
-    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Some T) then this is pointer T*
+    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Pointer T) then this is pointer T*
     | StaticRef of string * (term * termType) list * termType option                                        // If last field is (Some T) then this is pointer T*
     | IndentedPtr of term * term                                                                            // Pointer * indent
     | Union of (term * term) list
@@ -385,9 +385,9 @@ module internal Terms =
         match term.term with
         | Error _ -> termType.Bottom
         | Nop -> termType.Void
-        | Concrete(_, t) -> t
-        | Constant(_, _, t) -> t
-        | Expression(_, _, t) -> t
+        | Concrete(_, t)
+        | Constant(_, _, t)
+        | Expression(_, _, t)
         | Struct(_, t) -> t
         | PointerTo t -> Pointer t
         | ReferenceTo t -> Reference t
@@ -396,7 +396,8 @@ module internal Terms =
         | IndentedPtr(t, _) -> typeOf t
         | Array(_, _, _, _, _, _, t) -> t
         | Union gvs ->
-            let nonEmptyTypes = List.filter (fun t -> not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)
+            let nonEmptyTypes = List.filter (fun t ->
+                not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)
             match nonEmptyTypes with
             | [] -> termType.Bottom
             | t::ts ->
@@ -626,10 +627,3 @@ module internal Terms =
     let unwrapReferenceType = function
         | Reference t -> t
         | t -> t
-
-    let persistentLocalAndConstraintTypes term defaultLocalType =
-        let p, l =
-            match term.term, term.term with
-            | ReferenceTo lt, TypeOfReference rt -> lt, rt
-            | _ -> typeOf term, defaultLocalType
-        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType

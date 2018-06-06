@@ -90,6 +90,12 @@ module internal Memory =
         {location : term; heap : generalizedHeap option}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.singleton x.location
+        interface IStatedSymbolicTypeSource with
+            override x.TypeCompose ctx state = (x :> IStatedSymbolicConstantSource).Compose ctx state |> typeOf
+            override x.TypeEquals other =
+                match other with
+                | :? lazyInstantiation as li -> x.location = li.location
+                | _ -> false
 
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
@@ -204,9 +210,16 @@ module internal Memory =
         | Reference typ -> makeSymbolicHeapReference metadata time source name typ HeapRef
         | t when Types.isPrimitive t || Types.isFunction t -> Constant metadata name source t
         | StructType _ // TODO: initialize all fields of struct symbolicly (via mkStruct). Warning: `source` should be updated!
+        | InterfaceType _
         | TypeVariable _
-        | ClassType _ as t -> Struct metadata Heap.empty t
-        | ArrayType(e, d) as t -> makeSymbolicArray metadata source d e t name
+        | ClassType _ as t ->
+            let t = Types.Variable.fromTermType name (extractingSymbolicTypeSource.wrap source.source) t
+            Struct metadata Heap.empty t
+        | ArrayType(e, d) as t ->
+            let typeSource = extractingSymbolicTypeSource.wrap source.source
+            let t = Types.Variable.fromTermType name typeSource t
+            let e = typeSource.extractor.TypeExtract t
+            makeSymbolicArray metadata source d e t name
         | Void -> Nop
         | _ -> __notImplemented__()
 
@@ -220,8 +233,10 @@ module internal Memory =
     let private arrayElementLazyInstantiator metadata instantiator typ heap time location idx = function
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata (typ |?? concreteType)
         | LazyInstantiator(array, concreteType) -> instantiator |?? fun () ->
-            let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString()) |> IdGenerator.startingWith
-            makeSymbolicInstance metadata time (extractingSymbolicConstantSource.wrap {location = location; heap = heap}) id (Types.Variable.fromTermType concreteType)
+            let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString())
+            let escs = extractingSymbolicConstantSource.wrap {location = location; heap = heap}
+            let exts = extractingSymbolicTypeSource.wrap {location = location; heap = heap}
+            makeSymbolicInstance metadata time escs id (Types.Variable.fromTermType id exts concreteType)
 
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time location (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType

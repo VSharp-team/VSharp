@@ -55,7 +55,7 @@ module API =
         val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
         val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
 
-        val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+        val PersistentLocalAndConstraintTypes : (state -> term -> termType -> termType * termType * termType)
 
     module RuntimeExceptions =
         val NullReferenceException : state -> (term -> 'a) -> 'a * state
@@ -67,7 +67,6 @@ module API =
         val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
         val WrapReferenceType : termType -> termType
-        val NewTypeVariable : System.Type -> termType
 
         val SizeOf : termType -> int
 

@@ -207,7 +207,7 @@ module internal Interpreter =
                         (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern; state = {v = state}} state this parameters k) k) k
         GuardedApplyStatement state this
             (fun state term k ->
-                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes this termTypePattern
+                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes state this termTypePattern
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters k) k
 
     and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =
@@ -224,10 +224,10 @@ module internal Interpreter =
                 if areParametersSpecified then
                     if param.MetadataParameter.HasDefaultValue
                     then
-                        let typ = MetadataTypes.variableFromMetadataType param.Type
+                        let typ = MetadataTypes.fromMetadataType state param.Type
                         (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType)
+                else (stackKey, Unspecified, MetadataTypes.fromMetadataType state param.Type |> Types.WrapReferenceType)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, TypeOf value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =

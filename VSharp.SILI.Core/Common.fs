@@ -75,14 +75,14 @@ module internal Common =
         | Pointer _, Pointer _ -> makeTrue metadata
         | Func _, Func _ -> makeTrue metadata
         | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
-            if name = "System.Array" then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            if name.v = "System.Array" then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
             makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then is metadata t1 t2 else makeFalse metadata
-        | TypeVariable(Implicit (_, t)) as t1, t2 ->
+        | TypeVariable(Implicit (_, _, t)) as t1, t2 ->
             is metadata t t2 ||| makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
-        | t1, (TypeVariable(Implicit (_, t)) as t2) ->
+        | t1, (TypeVariable(Implicit (_, _, t)) as t2) ->
             is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.Is rt then makeTrue metadata
@@ -101,9 +101,9 @@ module internal Common =
         let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) ({termType = termType} : IsValueTypeConstantSource) Bool
         match termType with
         | ConcreteType t when t.Inheritor.IsValueType -> makeTrue metadata
-        | TypeVariable(Implicit(name, t)) ->
+        | TypeVariable(Implicit(name, _, t)) ->
             if (Types.toDotNetType t).IsValueType
-                then makeBoolConst name
+                then makeBoolConst name.v
                 else makeFalse metadata
         | _ -> makeFalse metadata
 

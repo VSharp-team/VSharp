@@ -30,6 +30,22 @@ type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : compositionContext -> state -> term
 
+type IStatedSymbolicTypeSource =
+    inherit ISymbolicTypeSource
+    abstract TypeCompose : compositionContext -> state -> termType
+    abstract TypeEquals : ISymbolicTypeSource -> bool
+
+[<AbstractClass>]
+type TypeExtractor() =
+    abstract TypeExtract : termType -> termType
+    override x.Equals other = x.GetType() = other.GetType()
+    override x.GetHashCode() = x.GetType().GetHashCode()
+type private ArrayTypeExtractor() =
+    inherit TypeExtractor()
+    override x.TypeExtract t =
+        match t with
+        | ArrayType(e, _) -> e
+        | _ -> t
 [<AbstractClass>]
 type TermExtractor() =
     abstract Extract : term -> term
@@ -45,6 +61,25 @@ type extractingSymbolicConstantSource =
     interface IStatedSymbolicConstantSource with
         override x.SubTerms = x.source.SubTerms
         override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
+
+[<CustomEquality;NoComparison>]
+type extractingSymbolicTypeSource =
+    {source : IStatedSymbolicConstantSource; extractor : TypeExtractor;}
+    static member wrap source = {source = source; extractor = ArrayTypeExtractor()}
+    interface IStatedSymbolicTypeSource with
+        override x.TypeCompose ctx state = x.source.Compose ctx state |> typeOf
+        override x.TypeEquals other =
+            match other with
+            | :? extractingSymbolicTypeSource as other ->
+                match x.source, other.source with
+                | :? IStatedSymbolicTypeSource as self, (:? IStatedSymbolicTypeSource as o) ->
+                    self.TypeEquals o && x.extractor = other.extractor
+                | _ -> x.source = other.source
+            | _ -> false
+    override x.Equals(o : obj) =
+        match o with
+        | :? IStatedSymbolicTypeSource as other -> (x :> IStatedSymbolicTypeSource).TypeEquals other
+        | _ -> false
 
 module internal State =
 
@@ -83,7 +118,7 @@ module internal State =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
 
     let nameOfLocation = term >> function
-        | HeapRef(((_, t), []), _, _, _) -> toString t
+//        | HeapRef(((x, _), []), _, _, _) -> toString x
         | StackRef((name, _), [], _) -> name
         | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
         | HeapRef(path, _, _, _) ->
@@ -214,7 +249,7 @@ module internal State =
         | termType.Null
         | Bool
         | Numeric _ -> typ
-        | TypeVariable(Implicit(name, t)) -> TypeVariable(Implicit(name, substituteTypeVariables t))
+        | TypeVariable(Implicit(name, source, t)) -> TypeVariable(Implicit(name, source, substituteTypeVariables t))
         | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
         | StructType(t, args) -> substitute Types.StructType t args
         | ClassType(t, args) -> substitute Types.ClassType t args

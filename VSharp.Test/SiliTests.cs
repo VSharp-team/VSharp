@@ -61,19 +61,19 @@ namespace VSharp.Test
         private const string TestsDirectoryName = "Tests";
         private const string IdealTestFileExtension = ".gold";
 
-//        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
-//        {
-//            if (File.Exists(path))
-//            {
-//                File.Delete(path);
-//            }
-//
-//            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
-//            {
-//                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
-//                File.AppendAllText(path, text);
-//            }
-//        }
+        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
+            {
+                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
+                File.AppendAllText(path, text);
+            }
+        }
 
         private string MethodInfoToString(MethodInfo methodInfo)
         {
@@ -84,7 +84,7 @@ namespace VSharp.Test
         private void PrepareSvm()
         {
             // Something like Propositional.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
-            SVM.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
+//            SVM.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
         }
 
         private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
@@ -215,9 +215,9 @@ namespace VSharp.Test
 
                     IDictionary<MethodInfo, string> got = Interpreter.SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
 
-//                    string os = Environment.OSVersion.Platform.ToString();
-//                    string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
-//                    OverwriteIdealValues(goldFile, got);
+                    string os = Environment.OSVersion.Platform.ToString();
+                    string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
+                    OverwriteIdealValues(goldFile, got);
 
                     IList<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
                     if (expected.Count == 0)

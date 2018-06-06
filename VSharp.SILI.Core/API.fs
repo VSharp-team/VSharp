@@ -88,13 +88,12 @@ module API =
         let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
         let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
 
-        let PersistentLocalAndConstraintTypes = Terms.persistentLocalAndConstraintTypes
+        let PersistentLocalAndConstraintTypes = TypeCasting.persistentLocalAndConstraintTypes m.Value
 
     module Types =
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t
         let WrapReferenceType t = Types.wrapReferenceType t
-        let NewTypeVariable t = Types.Variable.fromDotNetType t
 
         let SizeOf t = Types.sizeOf t
 

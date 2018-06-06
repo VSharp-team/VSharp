@@ -33,7 +33,7 @@ module internal TypeCasting =
         let castPointer term typ = // For Pointers
             match targetType with
             | Pointer typ' -> castReferenceToPointer mtd typ' term
-            | _ -> makeCast (termType.Pointer typ) targetType term isChecked mtd // TODO: [columpio] [Reinterpretation]
+            | _ -> makeCast (termType.Pointer typ) targetType term isChecked mtd
 
         match term.term with
         | PointerTo typ -> castPointer term typ
@@ -68,3 +68,15 @@ module internal TypeCasting =
         let derefForCast = Memory.derefWith (fun m s _ -> makeNullRef Null m, s)
         let term, state = derefForCast mtd state reference
         k (castReferenceToPointer mtd (typeOf term) reference, state)
+
+    let persistentLocalAndConstraintTypes mtd state term defaultLocalType =
+        let derefForCast = Memory.derefWith (fun m s _ -> Concrete m null Null, s)
+        let p, l =
+            match term.term with
+            | HeapRef _
+            | StackRef _
+            | StaticRef _ ->
+                let contents, _ = derefForCast mtd state term
+                typeOf contents, typeOf term
+            | _ -> typeOf term, defaultLocalType
+        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType
