@@ -272,6 +272,10 @@ module internal Terms =
 
     let makeZeroAddress mtd = Concrete mtd [0] Types.pointerType
 
+    let isZeroAddress (addr : obj) =
+        match addr with
+        | :? concreteHeapAddress as l -> l = [0]
+        | _ -> false
 
     let (|StackPtr|_|) = function
         | StackRef(key, path, Some typ) -> Some(StackPtr(key, path, typ))
@@ -540,29 +544,21 @@ module internal Terms =
         | _ -> None
 
     let (|Negation|_|) = function
-        | Expression(Operator(OperationType.LogicalNeg, _), [x], t) -> Some(Negation(x, t))
+        | Expression(Operator(OperationType.LogicalNeg, _), [x], _) -> Some(Negation x)
         | _ -> None
 
     let (|NegationT|_|) = term >> (|Negation|_|)
 
-    let (|Conjunction|_|) = term >> function
-        | Expression(Operator(OperationType.LogicalAnd, _), [x;y], t) -> Some(Conjunction(x, y, t))
+    let (|Conjunction|_|) = function
+        | Expression(Operator(OperationType.LogicalAnd, _), xs, _) -> Some(Conjunction xs)
         | _ -> None
 
-    let (|ConjunctionList|_|) = function
-        | Expression(Operator(OperationType.LogicalAnd, _), xs, t) -> Some(ConjunctionList(xs, t))
-        | _ -> None
-
-    let (|Disjunction|_|) = term >> function
-        | Expression(Operator(OperationType.LogicalOr, _), [x;y], t) -> Some(Disjunction(x, y, t))
-        | _ -> None
-
-    let (|DisjunctionList|_|) = function
-        | Expression(Operator(OperationType.LogicalOr, _), xs, t) -> Some(DisjunctionList(xs, t))
+    let (|Disjunction|_|) = function
+        | Expression(Operator(OperationType.LogicalOr, _), xs, _) -> Some(Disjunction xs)
         | _ -> None
 
     let (|Xor|_|) = term >> function
-        | Expression(Operator(OperationType.LogicalXor, _), [x;y], t) -> Some(Xor(x, y, t))
+        | Expression(Operator(OperationType.LogicalXor, _), [x;y], _) -> Some(Xor(x, y))
         | _ -> None
 
     let (|ShiftLeft|_|) = term >> function
@@ -615,14 +611,18 @@ module internal Terms =
         Seq.fold (doFold folder visited) state terms
 
     let fold folder state terms =
-        foldSeq folder (new HashSet<term>()) state terms
+        foldSeq folder (new HashSet<term>()) terms state
 
     let iter action term =
         doFold (fun () -> action) (new HashSet<term>()) () term
 
-    let filterMapConstants mapper terms =
-        let folder state term = mapper state term |> optCons state
-        fold folder [] terms
+    let discoverConstants terms =
+        let result = new HashSet<term>()
+        let addConstant = function
+            | {term = Constant _} as constant -> result.Add constant |> ignore
+            | _ -> ()
+        Seq.iter (iter addConstant) terms
+        result :> ISet<term>
 
     let unwrapReferenceType = function
         | Reference t -> t

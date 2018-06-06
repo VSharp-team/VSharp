@@ -5,7 +5,9 @@ open System.Text
 open System.Collections.Generic
 open VSharp.Utils
 
-type compositionContext = { mtd : termMetadata; addr : concreteHeapAddress; time : timestamp }
+type compositionContext =
+    { mtd : termMetadata; addr : concreteHeapAddress; time : timestamp }
+    static member Empty = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
 
 type stack = mappedStack<stackKey, term memoryCell>
 type pathCondition = term list
@@ -33,7 +35,6 @@ type IStatedSymbolicConstantSource =
 type IStatedSymbolicTypeSource =
     inherit ISymbolicTypeSource
     abstract TypeCompose : compositionContext -> state -> termType
-    abstract TypeEquals : ISymbolicTypeSource -> bool
 
 [<AbstractClass>]
 type TypeExtractor() =
@@ -54,32 +55,13 @@ type TermExtractor() =
 type private IdTermExtractor() =
     inherit TermExtractor()
     override x.Extract t = t
-[<StructuralEquality;NoComparison>]
-type extractingSymbolicConstantSource =
-    {source : IStatedSymbolicConstantSource; extractor : TermExtractor}
-    static member wrap source = {source = source; extractor = IdTermExtractor()}
-    interface IStatedSymbolicConstantSource with
-        override x.SubTerms = x.source.SubTerms
-        override x.Compose ctx state = x.source.Compose ctx state |> x.extractor.Extract
-
-[<CustomEquality;NoComparison>]
-type extractingSymbolicTypeSource =
-    {source : IStatedSymbolicConstantSource; extractor : TypeExtractor;}
-    static member wrap source = {source = source; extractor = ArrayTypeExtractor()}
-    interface IStatedSymbolicTypeSource with
-        override x.TypeCompose ctx state = x.source.Compose ctx state |> typeOf
-        override x.TypeEquals other =
-            match other with
-            | :? extractingSymbolicTypeSource as other ->
-                match x.source, other.source with
-                | :? IStatedSymbolicTypeSource as self, (:? IStatedSymbolicTypeSource as o) ->
-                    self.TypeEquals o && x.extractor = other.extractor
-                | _ -> x.source = other.source
-            | _ -> false
-    override x.Equals(o : obj) =
-        match o with
-        | :? IStatedSymbolicTypeSource as other -> (x :> IStatedSymbolicTypeSource).TypeEquals other
-        | _ -> false
+type IExtractingSymbolicConstantSource =
+    inherit IStatedSymbolicConstantSource
+    abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
+type IExtractingSymbolicTypeSource =
+    inherit IStatedSymbolicTypeSource
+    abstract TypeExtract: termType -> termType
+    abstract WithTypeExtractor : TypeExtractor -> IExtractingSymbolicTypeSource
 
 module internal State =
 
@@ -107,9 +89,9 @@ module internal State =
         typeVariables = (MappedStack.empty, Stack.empty)
     }
 
-    let emptyCompositionContext : compositionContext = { mtd = Metadata.empty; addr = []; time = Timestamp.zero }
+    let emptyCompositionContext : compositionContext = compositionContext.Empty
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
-        List.append a1 a2
+        if isZeroAddress a2 then a2 else List.append a1 a2
     let decomposeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         List.minus a1 a2
     let composeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
@@ -170,6 +152,26 @@ module internal State =
         { s with stack = MappedStack.add key value s.stack }
 
     let stackFold = MappedStack.fold
+
+    let private heapFold folder acc h =
+        Heap.fold (fun acc k cell -> let acc = folder acc k in folder acc cell.value) acc h
+
+    let rec private generalizedHeapFold folder acc = function
+        | Defined(_, h) -> heapFold folder acc h
+        | Composition(h1, _, h2) ->
+            let acc = fold folder acc h1
+            generalizedHeapFold folder acc h2
+        | Mutation(h1, h2) ->
+            let acc = generalizedHeapFold folder acc h1
+            heapFold folder acc h2
+        | Merged ghs ->
+            List.fold (fun acc (g, h) -> let acc = folder acc g in generalizedHeapFold folder acc h) acc ghs
+        | _ -> acc
+
+    and fold folder acc state =
+        let acc = stackFold (fun acc _ v -> folder acc v.value) acc state.stack
+        let acc = generalizedHeapFold folder acc state.heap
+        generalizedHeapFold folder acc state.statics
 
     let inline private entriesOfFrame f = f.entries
     let inline private keyOfEntry en = en.key

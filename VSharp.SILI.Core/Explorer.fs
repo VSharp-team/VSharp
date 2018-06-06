@@ -46,7 +46,7 @@ module internal Explorer =
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             interpreter.InitEntryPoint initialState m.DeclaringTypeAQN (fun state ->
-            interpreter.Invoke id state None k)
+            interpreter.Invoke id state None (fun (result, state) -> k { result = ControlFlow.resultToTerm result; state = state }))
         | _ -> internalfail "unexpected entry point: expected regular method, but got %O" id
 
     let explore (id : IFunctionIdentifier) k =
@@ -80,8 +80,7 @@ module internal Explorer =
             let state = if Option.isSome this then State.popPathCondition state else state
             let state = if isMethodOfStruct then State.popStack state else state
             currentlyExploredFunctions.Remove id |> ignore
-            Database.report id (res, state)
-            k (res, state))
+            Database.report id res state |> k)
 
     let private detectUnboundRecursion id s =
         let isRecursiveFrame (frame : stackFrame) =
@@ -101,15 +100,20 @@ module internal Explorer =
             | _ -> true
 
     type private recursionOutcomeSource =
-        {id : IFunctionIdentifier; state : state; name : string; typ : termType; location : term option}
-        interface IStatedSymbolicConstantSource
+        {id : IFunctionIdentifier; state : state; name : string; typ : termType;
+            location : term option; extractor : TermExtractor; typeExtractor : TypeExtractor}
+        interface IExtractingSymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.WithExtractor e = {x with extractor = e} :> IExtractingSymbolicConstantSource
+        interface IExtractingSymbolicTypeSource with
+            override x.WithTypeExtractor e = {x with typeExtractor = e} :> IExtractingSymbolicTypeSource
+            override x.TypeExtract typ = x.typeExtractor.TypeExtract typ
+            override x.TypeCompose ctx state = (x :> IStatedSymbolicConstantSource).Compose ctx state |> typeOf
+            override x.TypeEquals other = (x :> ISymbolicTypeSource) = other
 
     let (|RecursionOutcome|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? extractingSymbolicConstantSource as esrc ->
-            match esrc.source with
-            | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, esrc.extractor :? IdTermExtractor)
-            | _ -> None
+        | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, ro.extractor :? IdTermExtractor)
         | _ -> None
 
     let private mutateStackClosure mtd (funcId : IFunctionIdentifier) time state =
@@ -119,8 +123,8 @@ module internal Explorer =
                 let location = StackRef mtd frame.key []
                 let name = sprintf "μ[%O, %s]" funcId (fst frame.key)
                 let typ = frame.typ
-                let source = {id = funcId; state = state; name = name; typ = typ; location = Some location} |> extractingSymbolicConstantSource.wrap
-                let value = Memory.makeSymbolicInstance mtd time source name typ
+                let source = {id = funcId; state = state; name = name; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()}
+                let value = Memory.makeSymbolicInstance mtd time source source name typ
                 Memory.mutateStack mtd st frame.key [] time value |> snd
             di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
         | _ -> state
@@ -131,19 +135,19 @@ module internal Explorer =
         if currentlyExploredFunctions.Contains funcId then
             let typ = funcId.ReturnType
             let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
-            let source = {id = funcId; state = state; name = name; typ = typ; location = None} |> extractingSymbolicConstantSource.wrap
-            let recursiveResult = Memory.makeSymbolicInstance mtd time source name typ |> ControlFlow.throwOrReturn
+            let source = {id = funcId; state = state; name = name; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()}
+            let recursiveResult = Memory.makeSymbolicInstance mtd time source source name typ |> ControlFlow.throwOrReturn
             let recursiveState = { mutateStackClosure mtd funcId time state with heap = RecursiveApplication(funcId, addr, time); statics = RecursiveApplication(funcId, addr, time) }
             k (recursiveResult, recursiveState)
         else
             let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
             let getExplored k =
-                match Database.query funcId with
+                match Database.querySummary funcId with
                 | Some r -> k r
                 | None -> explore funcId k
-            getExplored (fun (exploredResult, exploredState) ->
-            let result = Memory.fillHoles ctx state (ControlFlow.resultToTerm exploredResult) |> ControlFlow.throwOrReturn
-            let state = Memory.composeStates ctx state exploredState
+            getExplored (fun summary ->
+            let result = Memory.fillHoles ctx state summary.result |> ControlFlow.throwOrReturn
+            let state = Memory.composeStates ctx state summary.state
             k (result, state))
 
     let callOrApplyEffect mtd areWeStuck body id state setup teardown k =
@@ -177,8 +181,7 @@ module internal Explorer =
         k (expr |> ControlFlow.throwOrReturn, {state with heap = Memory.composeHeapsOf ctx state hopHeap})
 
     type recursionOutcomeSource with
-        interface IStatedSymbolicConstantSource with
-            override x.SubTerms = Seq.empty
+        interface IExtractingSymbolicConstantSource with
             override x.Compose ctx state =
                 let state' = Memory.composeStates ctx state x.state
                 let source' = {x with state = state'}

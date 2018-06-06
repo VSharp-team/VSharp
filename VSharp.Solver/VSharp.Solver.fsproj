@@ -59,6 +59,8 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Result.fs" />
+    <Compile Include="CHC.fs" />
+    <Compile Include="Encode.fs" />
     <Compile Include="Z3.fs" />
     <Compile Include="Solver.fs" />
   </ItemGroup>

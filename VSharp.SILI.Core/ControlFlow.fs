@@ -44,8 +44,7 @@ module internal ControlFlow =
         | Throw thenVal, Throw elseVal -> Throw metadata (Merging.merge2Terms condition1 condition2 thenVal elseVal)
         | Guarded gvs1, Guarded gvs2 ->
             gvs1
-                |> List.map (fun (g1, v1) -> mergeGuarded gvs2 condition1 condition2 ((&&&) g1) v1 fst snd)
-                |> List.concat
+                |> List.collect (fun (g1, v1) -> mergeGuarded gvs2 condition1 condition2 ((&&&) g1) v1 fst snd)
                 |> Guarded metadata
         | Guarded gvs1, _ -> mergeGuarded gvs1 condition1 condition2 id elseRes fst snd |> Merging.mergeSame |> Guarded metadata
         | _, Guarded gvs2 -> mergeGuarded gvs2 condition1 condition2 id thenRes snd fst |> Merging.mergeSame |> Guarded metadata
@@ -57,7 +56,7 @@ module internal ControlFlow =
             match merged.result with
             | Guarded gvs -> gvs |> List.map (fun (g2, v2) -> (guard (g &&& g2), v2))
             | _ -> List.singleton (guard(g), merged)
-        gvs |> List.map mergeOne |> List.concat |> List.filter (fst >> Terms.isFalse >> not)
+        gvs |> List.collect mergeOne |> List.filter (fst >> Terms.isFalse >> not)
 
     let rec private createImplicitPathCondition consumeContinue accTerm (term, statementResult) =
         match statementResult.result with
@@ -125,7 +124,7 @@ module internal ControlFlow =
                 | Guarded gvs' ->
                     let composeOne (g, v) =
                         List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs'
-                    gvs |> List.map composeOne |> List.concat |> List.filter (fst >> Terms.isFalse >> not) |> Merging.mergeSame
+                    gvs |> List.collect composeOne |> List.filter (fst >> Terms.isFalse >> not) |> Merging.mergeSame
                 | _ ->
                     let gs, vs = List.unzip gvs
                     List.zip gs (List.map (composeFlat newRes) vs)
@@ -193,4 +192,4 @@ module internal ControlFlow =
             match gres with
             | g, {result = Guarded gvs} -> gvs  |> List.map (fun (g', v) -> g &&& g', v)
             | _ -> [gres]
-        gvs |> List.map unguard |> List.concat
+        List.collect unguard gvs

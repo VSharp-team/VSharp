@@ -6,7 +6,7 @@ open System.Collections.Generic
 open System.Reflection
 
 type ISymbolicTypeSource =
-    interface end
+    abstract TypeEquals : ISymbolicTypeSource -> bool
 
 type variance =
     | Contravariant
@@ -60,10 +60,18 @@ type termType =
         | Reference t -> sprintf "<Reference to %O>" t
         | Pointer t -> sprintf "<Pointer to %O>" t
 
-and [<StructuralEquality;CustomComparison>]
+and [<CustomEquality;CustomComparison>]
     typeId =
         | Explicit of hierarchy
         | Implicit of (string transparent) * ISymbolicTypeSource * termType
+        override x.Equals(o : obj) =
+            match o with
+            | :? typeId as other ->
+                match x, other with
+                | Implicit(_, s1, t1), Implicit(_, s2, t2) -> s1.TypeEquals s2 && t1 = t2
+                | Explicit h1, Explicit h2 -> h1 = h2
+                | _ -> false
+            | _ -> false
         interface IComparable with
             override x.CompareTo(other) =
                 match other with

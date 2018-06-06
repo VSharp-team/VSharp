@@ -4,8 +4,7 @@ open Microsoft.Z3
 open VSharp.Core
 
 type public ISolver<'TAst, 'TResult> =
-    abstract member Encode : term -> 'TAst
-    abstract member Solve : 'TAst list -> 'TResult
+    abstract member Solve : term list -> 'TResult
 
 type public ISmtSolver<'TAst> =
     inherit ISolver<'TAst, SmtResult>
@@ -15,9 +14,10 @@ type public IZ3Solver =
 
 type public Z3Solver() =
     interface IZ3Solver with
-        member x.Encode t = Z3.encodeTerm t |> fst
-        member x.Solve encs =
-            Z3.solve encs
+        member x.Solve terms =
+            let hochcs = Encode.encodeQuery terms
+            let chcs = CHCs.toFirstOrder hochcs
+            Z3.solve chcs
 
 type public Z3Simplifier() =
     interface IPropositionalSimplifier with
@@ -26,16 +26,13 @@ type public Z3Simplifier() =
 type public SmtSolverWrapper<'TAst>(solver : ISmtSolver<'TAst>) =
     interface VSharp.Core.ISolver with
         override x.Solve term =
-            let enc = solver.Encode term
-            match solver.Solve [enc] with
+            match solver.Solve [term] with
             | SmtSat _ -> VSharp.Core.Sat
             | SmtUnsat -> VSharp.Core.Unsat
             | SmtUnknown _ -> VSharp.Core.Unknown
         override x.SolvePathCondition term pc =
             // TODO: solving should be incremental!
-            let enc = solver.Encode term
-            let pcenc = List.map solver.Encode pc
-            match solver.Solve (enc::pcenc) with
+            match solver.Solve (term::pc) with
             | SmtSat _ -> VSharp.Core.Sat
             | SmtUnsat -> VSharp.Core.Unsat
             | SmtUnknown _ -> VSharp.Core.Unknown
