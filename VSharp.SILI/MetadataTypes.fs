@@ -13,22 +13,10 @@ module internal MetadataTypes =
         | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[int arg.Index]
         | _ when arg.MethodOwner <> null ->
             let metadataMethod = arg.MethodOwner
-            let lengthGenericArguments = metadataMethod.GenericArguments.Length
-            let parameters = metadataMethod.Parameters
-            let declaringType = metadataMethod.DeclaringType
+            let metadataToken = metadataMethod.Token
             let meth =
-                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
-                Seq.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
-                Seq.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
-                Seq.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
-                Seq.map (fun (m, p, _) -> (m, p)) |>
-                Seq.filter (fun (m, (p : ParameterInfo[])) ->
-                    Seq.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
-                        l.ParameterType.UnderlyingSystemType.ToString() = r.Type.FullName) p parameters) |>
-                Seq.map fst |>
-                Array.ofSeq
-            assert(meth.Length = 1)
-            meth.[0].GetGenericArguments().[int arg.Index]
+                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).Module.ResolveMethod((int)metadataToken.Value)
+            meth.GetGenericArguments().[int arg.Index]
         | _ -> __notImplemented__()
 
     let rec metadataToDotNetType (arg : IMetadataType) =

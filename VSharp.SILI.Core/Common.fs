@@ -57,15 +57,17 @@ module internal Common =
 
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]
-    type private SymbolicSubtypeSource =
+    type private symbolicSubtypeSource =
         {left : termType; right : termType}
-        interface ISymbolicConstantSource with
+        interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     let rec is metadata leftType rightType =
-        let subtypeName lname rname = sprintf  "(%s <: %s)" lname rname
-        let makeBoolConst lname rname leftTermType rightTermType =
-            Constant metadata (subtypeName lname rname) ({left = leftTermType; right = rightTermType} : SymbolicSubtypeSource) Bool
+        let makeSubtypeBoolConst leftTermType rightTermType =
+            let subtypeName = sprintf  "(%O <: %O)" leftTermType rightTermType
+            let source = {left = leftTermType; right = rightTermType}
+            Constant metadata subtypeName source Bool
+
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue metadata
         | termType.Null, _
@@ -75,37 +77,51 @@ module internal Common =
         | Pointer _, Pointer _ -> makeTrue metadata
         | Func _, Func _ -> makeTrue metadata
         | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
-            if name.v = "System.Array" then makeTrue metadata else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            if name.v = "System.Array" then makeTrue metadata else makeSubtypeBoolConst t1 t2
         | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
-            makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            makeSubtypeBoolConst t1 t2
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then is metadata t1 t2 else makeFalse metadata
         | TypeVariable(Implicit (_, _, t)) as t1, t2 ->
-            is metadata t t2 ||| makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            is metadata t t2 ||| makeSubtypeBoolConst t1 t2
         | t1, (TypeVariable(Implicit (_, _, t)) as t2) ->
-            is metadata t1 t &&& makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            is metadata t1 t &&& makeSubtypeBoolConst t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.Is rt then makeTrue metadata
             elif lt.IsGround && rt.IsGround then makeFalse metadata
-            else makeBoolConst (t1.ToString()) (t2.ToString()) t1 t2
+            else makeSubtypeBoolConst t1 t2
         | _ -> makeFalse metadata
 
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]
-    type private IsValueTypeConstantSource =
+    type private isValueTypeConstantSource =
         {termType : termType}
-        interface ISymbolicConstantSource with
+        interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
     let internal isValueType metadata termType =
-        let makeBoolConst name = Constant metadata (sprintf "IsValueType(%s)" name) ({termType = termType} : IsValueTypeConstantSource) Bool
+        let makeIsValueTypeBoolConst termType =
+            Constant metadata (sprintf "IsValueType(%O)" termType) ({termType = termType}) Bool
         match termType with
         | ConcreteType t when t.Inheritor.IsValueType -> makeTrue metadata
-        | TypeVariable(Implicit(name, _, t)) ->
+        | TypeVariable(Implicit(_, _, t)) ->
             if (Types.toDotNetType t).IsValueType
-                then makeBoolConst name.v
+                then makeIsValueTypeBoolConst termType
                 else makeFalse metadata
         | _ -> makeFalse metadata
+
+    type symbolicSubtypeSource with
+        interface IStatedSymbolicConstantSource with
+            override x.Compose ctx state =
+                let left = State.substituteTypeVariables ctx state x.left
+                let right = State.substituteTypeVariables ctx state x.right
+                is ctx.mtd left right
+
+    type isValueTypeConstantSource with
+         interface IStatedSymbolicConstantSource with
+            override x.Compose ctx state =
+                let typ = State.substituteTypeVariables ctx state x.termType
+                isValueType ctx.mtd typ
 
 // ------------------------------- Branching -------------------------------
 

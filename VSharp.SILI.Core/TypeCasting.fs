@@ -6,20 +6,23 @@ open VSharp.Core.Types.Constructor
 module internal TypeCasting =
 
     let rec primitiveCast mtd isChecked hierarchyCast targetType state term k =
-        // TODO: get rid of hierarchy cast parameter!
         match term.term with
         | Error _ -> k (term, state)
         | Nop -> internalfailf "casting void to %O!" targetType
-        | _ when Terms.isNull term -> k (Terms.makeNullRef targetType mtd, state)
         | Concrete(value, _) ->
             if Terms.isFunction term && Types.isFunction targetType
             then k (Concrete term.metadata value targetType, state)
             else k (CastConcrete value (Types.toDotNetType targetType) term.metadata, state)
         | Constant(_, _, t)
         | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
+        | HeapRef _ ->
+            Common.statedConditionalExecution state
+                (fun state k -> k <| (Pointers.isNull mtd term, state))
+                (fun state k -> k (Terms.makeNullRef targetType mtd, state))
+                (fun state k -> hierarchyCast targetType state term k)
+                Merging.merge Merging.merge2Terms id k
         | StackRef _
         | StaticRef _
-        | HeapRef _
         | Struct _ -> hierarchyCast targetType state term k
         | IndentedPtr(term, shift) ->
             primitiveCast mtd isChecked hierarchyCast targetType state term (fun (term, state) ->

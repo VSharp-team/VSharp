@@ -93,11 +93,11 @@ module internal Memory =
             override x.WithExtractor e = {x with extractor = e} :> IExtractingSymbolicConstantSource
         interface IExtractingSymbolicTypeSource with
             override x.WithTypeExtractor e = {x with typeExtractor = e} :> IExtractingSymbolicTypeSource
-            override x.TypeExtract typ = x.typeExtractor.TypeExtract typ
-            override x.TypeCompose ctx state = (x :> IStatedSymbolicConstantSource).Compose ctx state |> typeOf
+            override x.TypeCompose ctx state =
+                (x :> IStatedSymbolicConstantSource).Compose ctx state |> typeOf |> x.typeExtractor.TypeExtract
             override x.TypeEquals other =
                 match other with
-                | :? lazyInstantiation as li -> x.location = li.location && x.typeExtractor = li.typeExtractor
+                | :? lazyInstantiation as li -> x.location = li.location
                 | _ -> false
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
@@ -162,10 +162,10 @@ module internal Memory =
         match Options.ExplorationMode() with
         | TrustConventions -> defaultOf time metadata Arrays.lengthTermType
         | CompleteExploration ->
-            Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()} Arrays.lengthTermType
+            Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
 
     let private makeSymbolicArrayLength metadata name location heap =
-        Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()} Arrays.lengthTermType
+        Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
 
     let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
         match source with
@@ -214,9 +214,9 @@ module internal Memory =
         | ClassType _ as t ->
             let t = Types.Variable.fromTermType name typeSource t
             Struct metadata Heap.empty t
-        | ArrayType(e, d) as t ->
+        | ArrayType(_, d) as t ->
             let t = Types.Variable.fromTermType name typeSource t
-            let e = typeSource.TypeExtract t
+            let e = ArrayTypeExtractor().TypeExtract t
             makeSymbolicArray metadata source d e t name
         | Void -> Nop
         | _ -> __notImplemented__()
@@ -224,7 +224,7 @@ module internal Memory =
 
     let private genericLazyInstantiator =
         let instantiator metadata heap time fullyQualifiedLocation typ () =
-            let source = {location = fullyQualifiedLocation; heap = heap; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()}
+            let source = {location = fullyQualifiedLocation; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
             makeSymbolicInstance metadata time source source (nameOfLocation fullyQualifiedLocation) typ
         State.genericLazyInstantiator <- instantiator
         instantiator
@@ -233,7 +233,7 @@ module internal Memory =
         | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata (typ |?? concreteType)
         | LazyInstantiator(array, concreteType) -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString())
-            let source = {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()}
+            let source = {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
             makeSymbolicInstance metadata time source source id concreteType
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time location (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType
@@ -515,7 +515,7 @@ module internal Memory =
         | _ -> term
 
     and fillHoles ctx state term =
-        Substitution.substitute (fillHole ctx state) (State.substituteTypeVariables state) term
+        Substitution.substitute (fillHole ctx state) (State.substituteTypeVariables ctx state) term
 
     and fillHolesInHeap ctx state heap =
         Heap.map (fun k cell -> (fillHoles ctx state k, {cell with value = fillHoles ctx state cell.value})) heap
@@ -776,7 +776,7 @@ module internal Memory =
         let isRef = isReferenceType typ
         let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
         let thisStackRef = StackRef metadata thisKey []
-        let source = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = ArrayTypeExtractor()}
+        let source = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
         let instance = makeSymbolicInstance metadata Timestamp.zero source source "this" (wrapReferenceType typ)
         if isRef
             then instance, state, false

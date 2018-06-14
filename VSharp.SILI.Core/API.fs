@@ -30,7 +30,7 @@ module API =
     let Call funcId state body k = Explorer.call m.Value funcId state body k
     let ComposeStatements rs statements isContinueConsumer reduceStatement k =
         ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
-    let HigherOrderApply funcId state parameters returnType k = Explorer.higherOrderApply m.Value funcId state parameters returnType k
+    let HigherOrderApply funcId state k = Explorer.higherOrderApplication m.Value funcId state k
     let BranchStatements state condition thenBranch elseBranch k =
          Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
     let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
@@ -94,7 +94,7 @@ module API =
         let ConstantsOf terms = discoverConstants terms
 
     module Types =
-        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables state
+        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
         let ToDotNetType t = Types.toDotNetType t
         let WrapReferenceType t = Types.wrapReferenceType t
 
