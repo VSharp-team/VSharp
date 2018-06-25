@@ -5,6 +5,9 @@ open global.System
 open System.Collections.Generic
 open System.Reflection
 
+type ISymbolicTypeSource =
+    abstract TypeEquals : ISymbolicTypeSource -> bool
+
 type variance =
     | Contravariant
     | Covariant
@@ -14,7 +17,7 @@ type variance =
 type arrayDimensionType =
     | Vector
     | ConcreteDimension of int
-    | SymbolicDimension of string
+    | SymbolicDimension of string transparent
 
 [<StructuralEquality;NoComparison>]
 type termType =
@@ -49,18 +52,26 @@ type termType =
                     sprintf "%s[%s]" (t.Inheritor.GetGenericTypeDefinition().FullName) args
                 else toString t
         | TypeVariable(Explicit t) -> toString t
-        | TypeVariable(Implicit (name, t)) -> sprintf "%s{%O}" name t
+        | TypeVariable(Implicit (name, _, t)) -> sprintf "%s{%O}" name.v t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
-        | ArrayType(_, SymbolicDimension name) -> name
+        | ArrayType(_, SymbolicDimension name) -> name.v
         | Reference t -> sprintf "<Reference to %O>" t
         | Pointer t -> sprintf "<Pointer to %O>" t
 
-and [<StructuralEquality;CustomComparison>]
+and [<CustomEquality;CustomComparison>]
     typeId =
         | Explicit of hierarchy
-        | Implicit of string * termType
+        | Implicit of (string transparent) * ISymbolicTypeSource * termType
+        override x.Equals(o : obj) =
+            match o with
+            | :? typeId as other ->
+                match x, other with
+                | Implicit(_, s1, t1), Implicit(_, s2, t2) -> s1.TypeEquals s2 && t1 = t2
+                | Explicit h1, Explicit h2 -> h1 = h2
+                | _ -> false
+            | _ -> false
         interface IComparable with
             override x.CompareTo(other) =
                 match other with
@@ -69,9 +80,8 @@ and [<StructuralEquality;CustomComparison>]
                     | Explicit h1, Explicit h2 -> compare h1.Inheritor.MetadataToken h2.Inheritor.MetadataToken
                     | Explicit _, Implicit _ -> -1
                     | Implicit _, Explicit _ -> 1
-                    | Implicit(s1, t1), Implicit(s2, t2) ->
-                        let r1 = compare s1 s2
-                        if r1 = 0 then compare (toString t1) (toString t2) else r1
+                    | Implicit(_, c1, _), Implicit(_, c2, _) ->
+                        compare (c1.GetHashCode()) (c2.GetHashCode())
                 | _ -> -1
 
 module internal Types =
@@ -163,7 +173,7 @@ module internal Types =
         | ArrayType _
         | Func _ -> true
         | TypeVariable(Explicit t) when not t.Inheritor.IsValueType-> true
-        | TypeVariable(Implicit(_, t)) -> isReferenceType t
+        | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
         | _ -> false
 
     let isValueType = not << isReferenceType
@@ -184,7 +194,7 @@ module internal Types =
                 then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
         | TypeVariable(Explicit t) -> t.Inheritor
-        | TypeVariable(Implicit(_, t)) -> toDotNetType t
+        | TypeVariable(Implicit(_, _, t)) -> toDotNetType t
         | ArrayType(_, SymbolicDimension _) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
@@ -239,7 +249,7 @@ module internal Types =
             | null -> Null
             | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension "System.Array")
+            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension {v="System.Array"})
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
@@ -303,25 +313,24 @@ module internal Types =
     open Constructor
 
     module public Variable =
-        let private typeVariabeName = "TypeVariable"
-        let create termType () = TypeVariable(Implicit(IdGenerator.startingWith typeVariabeName, termType))
+        let create name source termType = TypeVariable(Implicit({v=sprintf "TypeVariable{%s}" name}, source, termType))
 
-        let fromTermType termType =
+        let fromTermType name source termType =
             let updateDimension = function
-                | SymbolicDimension _ -> SymbolicDimension (IdGenerator.startingWith "ArrayTypeVariable")
+                | SymbolicDimension _ -> SymbolicDimension {v=sprintf "ArrayTypeVariable{%s}" name}
                 | d -> d
             let rec getNewType = function
                 | ArrayType(elemType, dim) ->
                     let newElemType = getNewType elemType
                     ArrayType(newElemType, updateDimension dim)
                 | ConcreteType t as termType when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
-                | Pointer _ -> termType
-                | termType -> create termType ()
+                | Pointer termType -> Pointer (create name source termType)
+                | termType -> create name source termType
             getNewType termType
 
-        let fromDotNetType dotnetType =
+        let fromDotNetType name source dotnetType =
             let termType = fromDotNetType dotnetType
-            fromTermType termType
+            fromTermType name source termType
 
     let public String = fromDotNetType typedefof<string>
 
@@ -352,5 +361,5 @@ module internal Types =
         else Array.append (fieldsOf t.BaseType false) ourFields
 
     let rec specifyType = function
-        | TypeVariable(Implicit(_, typ)) -> specifyType typ
+        | TypeVariable(Implicit(_, _, typ)) -> specifyType typ
         | typ -> typ

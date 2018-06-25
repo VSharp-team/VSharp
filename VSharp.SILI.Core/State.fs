@@ -32,6 +32,24 @@ type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : compositionContext -> state -> term
 
+type IStatedSymbolicTypeSource =
+    inherit ISymbolicTypeSource
+    abstract TypeCompose : compositionContext -> state -> termType
+
+[<AbstractClass>]
+type TypeExtractor() =
+    abstract TypeExtract : termType -> termType
+    override x.Equals other = x.GetType() = other.GetType()
+    override x.GetHashCode() = x.GetType().GetHashCode()
+type private IdTypeExtractor() =
+    inherit TypeExtractor()
+    override x.TypeExtract t = t
+type private ArrayTypeExtractor() =
+    inherit TypeExtractor()
+    override x.TypeExtract t =
+        match t with
+        | ArrayType(e, _) -> e
+        | _ -> t
 [<AbstractClass>]
 type TermExtractor() =
     abstract Extract : term -> term
@@ -43,6 +61,9 @@ type private IdTermExtractor() =
 type IExtractingSymbolicConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
+type IExtractingSymbolicTypeSource =
+    inherit IStatedSymbolicTypeSource
+    abstract WithTypeExtractor : TypeExtractor -> IExtractingSymbolicTypeSource
 
 module internal State =
 
@@ -81,7 +102,6 @@ module internal State =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
 
     let nameOfLocation = term >> function
-        | HeapRef(((_, t), []), _, _, _) -> toString t
         | StackRef((name, _), [], _) -> name
         | StaticRef(name, [], _) -> System.Type.GetType(name).FullName
         | HeapRef(path, _, _, _) ->
@@ -223,8 +243,8 @@ module internal State =
         let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
         { state with typeVariables = (newMappedStack, newStack) }
 
-    let rec substituteTypeVariables (state : state) typ =
-        let substituteTypeVariables = substituteTypeVariables state
+    let rec substituteTypeVariables ctx (state : state) typ =
+        let substituteTypeVariables = substituteTypeVariables ctx state
         let substitute constructor t args = constructor t (List.map substituteTypeVariables args)
         match typ with
         | Void
@@ -232,7 +252,10 @@ module internal State =
         | termType.Null
         | Bool
         | Numeric _ -> typ
-        | TypeVariable(Implicit(name, t)) -> TypeVariable(Implicit(name, substituteTypeVariables t))
+        | TypeVariable(Implicit(name, source, t)) ->
+            match source with
+            | :? IExtractingSymbolicTypeSource as ext -> ext.WithTypeExtractor(ArrayTypeExtractor()).TypeCompose ctx state
+            | _ -> TypeVariable(Implicit(name, source, substituteTypeVariables t))
         | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
         | StructType(t, args) -> substitute Types.StructType t args
         | ClassType(t, args) -> substitute Types.ClassType t args
@@ -240,10 +263,11 @@ module internal State =
         | TypeVariable(Explicit _ as key) ->
             let ms = state.typeVariables |> fst
             if MappedStack.containsKey key ms then MappedStack.find key ms else typ
-        | ArrayType(t, Vector) -> ArrayType(substituteTypeVariables t, Vector)
-        | ArrayType(t, ConcreteDimension 1) -> ArrayType(substituteTypeVariables t, ConcreteDimension 1)
-        | ArrayType(t, ConcreteDimension rank) -> ArrayType(substituteTypeVariables t, ConcreteDimension rank)
-        | ArrayType(t, SymbolicDimension name) -> ArrayType(substituteTypeVariables t, SymbolicDimension name)
+        | ArrayType(TypeVariable(Implicit(_, source, _)) as typ, SymbolicDimension dim) ->
+            match source with
+            | :? IExtractingSymbolicTypeSource as ext -> ext.TypeCompose ctx state
+            | _ -> ArrayType(substituteTypeVariables typ, SymbolicDimension dim)
+        | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
         | Reference t -> Reference (substituteTypeVariables t)
         | Pointer t -> Pointer(substituteTypeVariables t)
 

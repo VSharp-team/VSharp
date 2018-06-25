@@ -16,7 +16,8 @@ module API =
     val Explore : IFunctionIdentifier -> (functionSummary -> 'a) -> 'a
 
     val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b    val HigherOrderApply : IFunctionIdentifier -> state -> term list -> termType -> (statementResult * state -> 'a) -> 'a
+    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b
+    val HigherOrderApply : IFunctionIdentifier -> state -> (statementResult * state -> 'a) -> 'a
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
     val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
@@ -57,7 +58,7 @@ module API =
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
 
-        val PersistentLocalAndConstraintTypes : (term -> termType -> termType * termType * termType)
+        val PersistentLocalAndConstraintTypes : (state -> term -> termType -> termType * termType * termType)
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
     module RuntimeExceptions =
@@ -70,7 +71,6 @@ module API =
         val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
         val WrapReferenceType : termType -> termType
-        val NewTypeVariable : System.Type -> termType
 
         val SizeOf : termType -> int
 

@@ -13,22 +13,10 @@ module internal MetadataTypes =
         | _ when arg.TypeOwner <> null -> Type.GetType(arg.TypeOwner.AssemblyQualifiedName, true).GetGenericArguments().[int arg.Index]
         | _ when arg.MethodOwner <> null ->
             let metadataMethod = arg.MethodOwner
-            let lengthGenericArguments = metadataMethod.GenericArguments.Length
-            let parameters = metadataMethod.Parameters
-            let declaringType = metadataMethod.DeclaringType
+            let metadataToken = metadataMethod.Token
             let meth =
-                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).GetMethods() |>
-                Seq.filter (fun (m : MethodInfo) -> m.Name = metadataMethod.Name) |>
-                Seq.map (fun (m : MethodInfo) -> m, m.GetParameters(), m.GetGenericArguments().Length) |>
-                Seq.filter (fun (m, (p : ParameterInfo[]), gLen) -> (gLen = lengthGenericArguments) && (p.Length = parameters.Length)) |>
-                Seq.map (fun (m, p, _) -> (m, p)) |>
-                Seq.filter (fun (m, (p : ParameterInfo[])) ->
-                    Seq.forall2 (fun (l : ParameterInfo) (r : IMetadataParameter) ->
-                        l.ParameterType.UnderlyingSystemType.ToString() = r.Type.FullName) p parameters) |>
-                Seq.map fst |>
-                Array.ofSeq
-            assert(meth.Length = 1)
-            meth.[0].GetGenericArguments().[int arg.Index]
+                Type.GetType(metadataMethod.DeclaringType.AssemblyQualifiedName, true).Module.ResolveMethod((int)metadataToken.Value)
+            meth.GetGenericArguments().[int arg.Index]
         | _ -> __notImplemented__()
 
     let rec metadataToDotNetType (arg : IMetadataType) =
@@ -46,8 +34,6 @@ module internal MetadataTypes =
             if not originType.IsGenericType || Array.isEmpty c.Arguments then originType
             else originType.MakeGenericType(c.Arguments |> Array.map metadataToDotNetType)
         | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
-
-    let variableFromMetadataType = metadataToDotNetType >> Types.NewTypeVariable
 
     let isReferenceType (t : IMetadataType) =
         let dnt = metadataToDotNetType t
@@ -73,14 +59,14 @@ module internal MetadataTypes =
         | _ -> Type.GetType(t.AssemblyQualifiedName, true) |> Types.FromDotNetType state
 
     let fromDecompiledSignature state (signature : JetBrains.Decompiler.Ast.IFunctionSignature) (returnMetadataType : IMetadataType) =
-        let returnType = variableFromMetadataType returnMetadataType
+        let returnType = fromMetadataType state returnMetadataType
         let paramToType (param : JetBrains.Decompiler.Ast.IMethodParameter) =
             fromMetadataType state param.Type
         let args = Seq.map paramToType signature.Parameters |> List.ofSeq
         Func(args, returnType)
 
     let fromMetadataMethodSignature state (m : IMetadataMethod) =
-        let returnType = variableFromMetadataType m.ReturnValue.Type
+        let returnType = fromMetadataType state m.ReturnValue.Type
         let paramToType (param : IMetadataParameter) =
             fromMetadataType state param.Type
         let args = Seq.map paramToType m.Parameters |> List.ofSeq

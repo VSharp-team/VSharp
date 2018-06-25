@@ -141,14 +141,9 @@ module internal Interpreter =
         let decompiledMethod = DecompilerServices.decompileMethod assemblyPath qualifiedTypeName metadataMethod
         reduceMethod caller state parameters assemblyPath this qualifiedTypeName metadataMethod decompiledMethod k
 
-    and reduceAbstractMethodApplication caller funcId state this parameters k =
+    and reduceAbstractMethodApplication caller funcId state k =
         let k = Enter caller state k
-        let parameters =
-            match parameters with
-            | Specified p -> this :: p
-            | Unspecified -> [this]
-        let returnType = MetadataTypes.fromMetadataType state funcId.metadataMethod.Signature.ReturnType
-        HigherOrderApply funcId state parameters returnType k
+        HigherOrderApply funcId state k
 
     and decompileAndReduceMethodFromTermType caller assemblyPath state this parameters termType (metadataTypeInfoPattern : IMetadataTypeInfo) metadataMethodPattern k =
         let typeInfoFromTermType = Types.ToDotNetType >> safeGenericTypeDefinition >> DecompilerServices.resolveTypeInfo
@@ -188,7 +183,7 @@ module internal Interpreter =
         let res = Cps.Seq.foldlk findVirtualMethod None suitableTypes id
         let virtualMethod = res |?? metadataMethodPattern
         if virtualMethod.IsAbstract
-            then reduceAbstractMethodApplication caller {metadataMethod = virtualMethod; state = {v = state}} state this parameters k
+            then reduceAbstractMethodApplication caller {metadataMethod = virtualMethod; state = {v = state}} state k
             else decompileAndReduceFinalMethod caller state (Some this) parameters virtualMethod.DeclaringType.AssemblyQualifiedName virtualMethod assemblyPath k
 
     and decompileAndReduceVirtualMethod assemblyPath caller state this parameters metadataMethodPattern k =
@@ -204,10 +199,10 @@ module internal Interpreter =
                     BranchStatements state
                         (fun state k -> k (API.Types.IsSubtype constraintType persistentType &&& API.Types.IsSubtype constraintType localType, state))
                         (fun state k -> decompileAndReduceMethod state this constraintType k)
-                        (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern; state = {v = state}} state this parameters k) k) k
+                        (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern; state = {v = state}} state k) k) k
         GuardedApplyStatement state this
             (fun state term k ->
-                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes this termTypePattern
+                let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes state this termTypePattern
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters k) k
 
     and reduceFunctionSignature (funcId : IFunctionIdentifier) state (ast : IFunctionSignature) this paramValues k =
@@ -224,10 +219,10 @@ module internal Interpreter =
                 if areParametersSpecified then
                     if param.MetadataParameter.HasDefaultValue
                     then
-                        let typ = MetadataTypes.variableFromMetadataType param.Type
+                        let typ = MetadataTypes.fromMetadataType state param.Type
                         (stackKey, Specified(Concrete (param.MetadataParameter.GetDefaultValue()) typ), typ)
                     else internalfail "parameters list is shorter than expected!"
-                else (stackKey, Unspecified, MetadataTypes.variableFromMetadataType param.Type |> Types.WrapReferenceType)
+                else (stackKey, Unspecified, MetadataTypes.fromMetadataType state param.Type |> Types.WrapReferenceType)
             | Some param, Some value -> ((param.Name, getTokenBy (Choice1Of2 param)), Specified value, TypeOf value)
         let parameters = List.map2Different valueOrFreshConst ast.Parameters values
         let parametersAndThis =
