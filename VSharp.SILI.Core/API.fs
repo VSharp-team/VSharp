@@ -76,7 +76,7 @@ module API =
         let True = True
         let False = False
 
-        let MakeNullRef typ = makeNullRef typ m.Value
+        let MakeNullRef () = makeNullRef m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ
         let MakeNumber n = makeNumber n m.Value
         let MakeLambda body signature = Lambdas.make m.Value body signature
@@ -161,7 +161,7 @@ module API =
 
         let ReferenceField state followHeapRefs name typ parentRef = Memory.referenceField m.Value state followHeapRefs name typ parentRef
         let ReferenceLocalVariable state location followHeapRefs = Memory.referenceLocalVariable m.Value state location followHeapRefs
-        let ReferenceStaticField state followHeapRefs fieldName fieldType typeName = Memory.referenceStaticField m.Value state followHeapRefs fieldName fieldType typeName
+        let ReferenceStaticField state followHeapRefs fieldName fieldType targetType = Memory.referenceStaticField m.Value state followHeapRefs fieldName fieldType targetType
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
@@ -170,11 +170,11 @@ module API =
 
         let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
         let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
-        let AllocateDefaultStatic state termType qualifiedTypeName = Memory.mkDefaultStruct m.Value true termType |> Memory.allocateInStaticMemory m.Value state qualifiedTypeName
+        let AllocateDefaultStatic state targetType = Memory.mkDefaultStruct m.Value true targetType |> Memory.allocateInStaticMemory state targetType
         let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value false termType
         let AllocateString str state = Strings.makeString m.Value (Memory.tick()) str |> Memory.allocateInHeap m.Value state
 
-        let IsTypeNameInitialized qualifiedTypeName state = Memory.typeNameInitialized m.Value qualifiedTypeName state
+        let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state
 
         let ArrayLength arrayTerm = Arrays.length arrayTerm

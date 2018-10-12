@@ -352,7 +352,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -606,7 +606,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -738,7 +738,7 @@ System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -890,7 +890,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1025,7 +1025,7 @@ HEAP:
 System.ArithmeticException ==> STRUCT System.ArithmeticException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -1153,7 +1153,7 @@ System.Byte ==> STRUCT System.Byte[
 System.DivideByZeroException ==> STRUCT System.DivideByZeroException[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3485,7 +3485,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3633,7 +3633,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3799,12 +3799,12 @@ HEAP:
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess}[]
 this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT TypeVariable{this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField}{System.Collections.Generic.List`1[System.Boolean]}[]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
+System.Collections.Generic.List`1[System.Boolean] ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+	| System.Collections.Generic.List`1.DefaultCapacity ~> 4
+	| System.Collections.Generic.List`1.s_emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -3832,9 +3832,9 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 0]
 3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
+System.Collections.Generic.List`1[System.Boolean] ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+	| System.Collections.Generic.List`1.DefaultCapacity ~> 4
+	| System.Collections.Generic.List`1.s_emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
 VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess[]
@@ -4303,7 +4303,7 @@ nb ==> STRUCT TypeVariable{nb}{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4604,7 +4604,7 @@ nb ==> STRUCT TypeVariable{nb}{VSharp.CSharpUtils.Tests.Conditional+NewBool}[]
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4861,7 +4861,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -4993,11 +4993,10 @@ HEAP:
 ---------- s0 = ----------
 System.String ==> STRUCT System.String[
 	| System.String.Empty ~> null
-	| System.String.TrimBoth ~> 2
-	| System.String.TrimHead ~> 0
-	| System.String.TrimTail ~> 1
-	| System.String.alignConst ~> 3
-	| System.String.charPtrAlignConst ~> 1]
+	| System.String.PROBABILISTICMAP_BLOCK_INDEX_MASK ~> 7
+	| System.String.PROBABILISTICMAP_BLOCK_INDEX_SHIFT ~> 3
+	| System.String.PROBABILISTICMAP_SIZE ~> 8
+	| System.String.StackallocIntBufferSizeLimit ~> 128]
 VSharp.CSharpUtils.Tests.Strings ==> STRUCT VSharp.CSharpUtils.Tests.Strings[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lists.Construct()
 RESULT: True
@@ -5025,9 +5024,9 @@ HEAP:
 	 ... 4 ... |]
 ---------- s1 = ----------
 System.Array ==> STRUCT System.Array[]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+System.Collections.Generic.List`1[System.Int32] ==> STRUCT System.Collections.Generic.List`1[System.Int32][
+	| System.Collections.Generic.List`1.DefaultCapacity ~> 4
+	| System.Collections.Generic.List`1.s_emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
 VSharp.CSharpUtils.Tests.Lists ==> STRUCT VSharp.CSharpUtils.Tests.Lists[]
 METHOD: System.Int32[] VSharp.CSharpUtils.Tests.Lists.Mutate(System.Int32)
@@ -5171,7 +5170,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -5446,7 +5445,7 @@ array ==> System.Int32: [| ... array.0_Length x array.1_Length ... |]
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -5711,7 +5710,7 @@ array ==> System.Int32: [| ... array.0_Length x array.1_Length ... |]
 System.Array ==> STRUCT System.Array[]
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6114,7 +6113,7 @@ HEAP:
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6368,7 +6367,7 @@ arr ==> TypeVariable{arr}{System.Object}: [|
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6651,7 +6650,7 @@ arr ==> TypeVariable{arr}{System.Object}: [|
 ---------- s1 = ----------
 System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> Win32S
-	| System.Environment.mono_corlib_version ~> 1051200002
+	| System.Environment.mono_corlib_version ~> 1051600011
 	| System.Environment.nl ~> null
 	| System.Environment.os ~> null]
 System.Exception ==> STRUCT System.Exception[
@@ -6825,19 +6824,19 @@ METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualMethod.VirtualCall(
 RESULT: UNION[
 	| !(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> λ[F]_3
 	| !(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> λ[F]_2
-	| !(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> λ[F]_1
-	| !(0 == a) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> 7
+	| !(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> λ[F]_1
+	| !(0 == a) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> 7
 	| 0 == a ~> 0]
 HEAP:
 { heap = merge[
-	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_3)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_2)),
-	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, h0)], statics = merge[
-	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
+	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, h0)], statics = merge[
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_3)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_2)),
-	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, s1)] } where
+	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, s1)] } where
 ---------- h0 = ----------
 a ==> STRUCT TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}[]
 ---------- s1 = ----------
@@ -7872,7 +7871,7 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.<Platform>k__BackingField ~> UNION[
 		| (TypeVariable{obj}{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> Win32S]
 	| System.Environment.mono_corlib_version ~> UNION[
-		| (TypeVariable{obj}{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> 1051200002]
+		| (TypeVariable{obj}{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> 1051600011]
 	| System.Environment.nl ~> UNION[
 		| (TypeVariable{obj}{System.Object} <: VSharp.CSharpUtils.Tests.Typecast.Piece) | 0 == obj ~> null]
 	| System.Environment.os ~> UNION[
@@ -8007,12 +8006,12 @@ HEAP:
 		 ... 5 ... |]
 	| System.String.m_StringLength ~> 4]
 ---------- s1 = ----------
-System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+System.Collections.Generic.LinkedList`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
 	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 3)
 	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 4)
 	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: System.Collections.Generic.List`1[System.Double] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
 RESULT: (HeapRef 1)
 HEAP:
@@ -8025,53 +8024,53 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 0]
 2 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
-	| System.Collections.Generic.List`1._defaultCapacity ~> 4
-	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
+System.Collections.Generic.List`1[System.Double] ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1.DefaultCapacity ~> 4
+	| System.Collections.Generic.List`1.s_emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: U VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(U)
 RESULT: (HeapRef u)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: P VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetP(P)
 RESULT: STRUCT TypeVariable{p}{P}[]
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: K VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetK(K)
 RESULT: (HeapRef k)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: N VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(N)
 RESULT: (HeapRef n)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: Z VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(Z)
 RESULT: (HeapRef z)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].GetFields()
 RESULT: (HeapRef this.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed)
 HEAP:
@@ -8079,7 +8078,7 @@ HEAP:
 ---------- h0 = ----------
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U]}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
 METHOD: System.Void VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].SetField(T)
 RESULT: <VOID>
 HEAP:
@@ -8088,17 +8087,17 @@ HEAP:
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U]}[
 	| VSharp.CSharpUtils.Tests.Generic.Foo`2._filed ~> (HeapRef f)]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece])
 RESULT: UNION[
-	| !(0 == f) ~> (HeapRef f.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed)
+	| !(0 == f) ~> f.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed
 	| 0 == f ~> 0]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 f ==> STRUCT TypeVariable{f}{VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece]}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[VSharp.CSharpUtils.Tests.Typecast.Piece,VSharp.CSharpUtils.Tests.Typecast.Piece][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece][]
 VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(System.Collections.Generic.LinkedList`1[System.Int32])
 RESULT: UNION[
@@ -8143,8 +8142,8 @@ l ==> STRUCT TypeVariable{l}{System.Collections.Generic.LinkedList`1[System.Int3
 l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][
 	| System.Collections.Generic.LinkedListNode`1.item ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item]
 ---------- s1 = ----------
-System.Collections.Generic.LinkedListNode`1 ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
-System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+System.Collections.Generic.LinkedListNode`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
+System.Collections.Generic.LinkedList`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
 	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 2)
 	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 3)
 	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 1)]

@@ -29,7 +29,7 @@ module internal Encode =
     let private isInputConstant = function
     | { term = Constant(_, source, _) } ->
         match source with
-        | LazyInstantiation({term = StackRef _}, None, _) -> true
+        | LazyInstantiation({term = Ref(TopLevelStack _, _)}, None, _) -> true
         | _ -> false
     | _ -> false
 

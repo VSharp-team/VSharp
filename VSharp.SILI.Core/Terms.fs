@@ -25,11 +25,6 @@ type EmptyIdentifier() =
     interface IFunctionIdentifier with
         override x.ReturnType = Core.Void
 
-type arrayReferenceTarget =
-    | ArrayContents
-    | ArrayLowerBounds
-    | ArrayLengths
-
 [<StructuralEquality;NoComparison>]
 type operation =
     | Operator of OperationType * bool
@@ -55,11 +50,9 @@ type termNode =
                * symbolicHeap                             // Lengths by dimensions
                * termType                                 // Type
     | Expression of operation * term list * termType
-    | Struct of symbolicHeap * termType
-    | StackRef of stackKey * (term * termType) list * termType option                                       // If last field is (Some T) then this is pointer T*
-    | HeapRef of (term * termType) nonEmptyList * timestamp transparent * arrayReferenceTarget * termType   // If last field is (Pointer T) then this is pointer T*
-    | StaticRef of string * (term * termType) list * termType option                                        // If last field is (Some T) then this is pointer T*
-    | IndentedPtr of term * term                                                                            // Pointer * indent
+    | Struct of heap<string, term> * termType
+    | Ref of topLevelAddress * pathSegment list
+    | Ptr of topLevelAddress * pathSegment list * termType * term option // contents * type sight * indent
     | Union of (term * term) list
 
     member x.IndicesToString() =
@@ -161,30 +154,38 @@ type termNode =
                     sprintf "| %s ~> %s" guardString termString
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
-            | HeapRef(((z, _), []), _,_, _) when z.term = Concrete([0], Types.pointerType) -> "null"
-            | HeapRef(_, _, _, Pointer mbtyp) -> printRef term indent <| Some mbtyp
-            | HeapRef(_, _, _, Reference _) -> printRef term indent None
-            | IndentedPtr(term, shift) -> sprintf "(IndentedPtr %O[%O])" (toStringWithIndent indent term) shift
-            | StackRef(_, _, mbtyp)
-            | StaticRef(_, _, mbtyp) -> printRef term indent mbtyp
+            | Ref(topLevel, path) -> printRef topLevel path indent None
+            | Ptr(topLevel, path, typ, shift) ->
+                let basePtr = printRef topLevel path indent (Some typ)
+                match shift with
+                | Some shift -> sprintf "(IndentedPtr %O[%O])" basePtr shift
+                | None -> basePtr
             | _ -> __unreachable__()
 
-        and printRef term indent mbtyp =
-                let templateRef name contents =
-                    match mbtyp with
-                    | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
-                    | None -> sprintf "(%sRef %s)" name contents
-                let printref name key path = templateRef name <| sprintf "(%O, %O)" key (List.map fst path)
-                match term with
-                | StackRef(key, path, _) -> printref "Stack" key path
-                | StaticRef(key, path, _) -> printref "Static" key path
-                | HeapRef(((z, _), path), _, _, _) ->
-                    let ks =
-                        match z.term with
-                        | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
-                        | t -> toString t
-                    path |> List.map (fst >> toStringWithIndent indent) |> cons ks |> join "." |> templateRef "Heap"
-                | _ -> __unreachable__()
+        and pathToString indent path =
+            path 
+            |> List.map (function
+                | StructField(field, _) -> field
+                | ArrayIndex(idx, _) -> sprintf "[%s]" (toStringWithIndent indent idx)
+                | ArrayLowerBound idx -> sprintf "LowerBoundDimension_%O" idx
+                | ArrayLength idx -> sprintf "LengthDimension_%O" idx)
+
+        and printRef topLevel path indent mbtyp =
+            let templateRef name contents =
+                match mbtyp with
+                | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
+                | None -> sprintf "(%sRef %s)" name contents
+            let printref name key path = templateRef name <| sprintf "(%O, %s)" key (pathToString indent path |> join ".")
+            match topLevel with
+            | NullAddress -> "null"
+            | TopLevelStack key -> printref "Stack" key path
+            | TopLevelStatics typ -> printref "Static" typ path
+            | TopLevelHeap(addr, _, _) ->
+                let addrStr =
+                    match addr.term with
+                    | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+                    | t -> toString t
+                path |> pathToString indent |> cons addrStr |> join "." |> templateRef "Heap"
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
@@ -203,6 +204,18 @@ type termNode =
             | _ -> "\n" + parentIndent + stringResult + separator
 
         toStr -1 false "\t" x
+
+and topLevelAddress =
+    | NullAddress
+    | TopLevelStack of stackKey
+    | TopLevelHeap of term * termType * termType // Address * Base type * Sight type
+    | TopLevelStatics of termType
+
+and pathSegment =
+    | StructField of string * termType
+    | ArrayIndex of term * termType
+    | ArrayLowerBound of term
+    | ArrayLength of term
 
 and
     [<StructuralEquality;NoComparison>]
@@ -256,53 +269,25 @@ module internal Terms =
     let Array metadata dimension length lower constant contents lengths typ = { term = Array(dimension, length, lower, constant, contents, lengths, typ); metadata = metadata }
     let Expression metadata op args typ = { term = Expression(op, args, typ); metadata = metadata }
     let Struct metadata fields typ = { term = Struct(fields, typ); metadata = metadata }
-    let StackView metadata key path view = { term = StackRef(key, path, view); metadata = metadata }
-    let StackPtr metadata key path typ = { term = StackRef(key, path, Some typ); metadata = metadata }
-    let StackRef metadata key path = { term = StackRef(key, path, None); metadata = metadata }
-    let HeapView metadata path time arrayTarget view = { term = HeapRef(path, time, arrayTarget, view); metadata = metadata }
-    let HeapPtr metadata path time typ = { term = HeapRef(path, time, ArrayContents, Pointer typ); metadata = metadata }
-    let HeapRef metadata path arrayTarget time typ = { term = HeapRef(path, time, arrayTarget, Reference (Types.specifyType typ)); metadata = metadata }
-    let StaticView metadata key path view = { term = StaticRef(key, path, view); metadata = metadata }
-    let StaticPtr metadata key path typ = { term = StaticRef(key, path, Some typ); metadata = metadata }
-    let StaticRef metadata key path = { term = StaticRef(key, path, None); metadata = metadata }
-    let IndentedPtr term shift metadata = { term = IndentedPtr(term, shift); metadata = metadata }
+    let StackRef metadata key path = { term = Ref(TopLevelStack key, path); metadata = metadata }
+    let HeapRef metadata addr baseType sightType path = { term = Ref(TopLevelHeap(addr, baseType, sightType), path); metadata = metadata }
+    let StaticRef metadata typ path = { term = Ref(TopLevelStatics typ, path); metadata = metadata }
+    let StackPtr metadata key path typ = { term = Ptr(TopLevelStack key, path, typ, None); metadata = metadata }
+    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(TopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata } //TODO: is sightType equal ptrtype?
+    let AnyPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, shift); metadata = metadata }
+    let IndentedPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, Some shift); metadata = metadata }
+    let Ref metadata topLevel path = { term = Ref(topLevel, path); metadata = metadata }
+    let Ptr metadata topLevel path typ = { term = Ptr(topLevel, path, typ, None); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
 
-    let zeroAddress = termNode.Concrete([0], Types.pointerType)
-
-    let makeZeroAddress mtd = Concrete mtd [0] Types.pointerType
-
-    let isZeroAddress (addr : obj) =
-        match addr with
-        | :? concreteHeapAddress as l -> l = [0]
-        | _ -> false
-
-    let (|StackPtr|_|) = function
-        | StackRef(key, path, Some typ) -> Some(StackPtr(key, path, typ))
-        | _ -> None
-
-    let (|StaticPtr|_|) = function
-        | StaticRef(key, path, Some typ) -> Some(StaticPtr(key, path, typ))
-        | _ -> None
-
-    let (|HeapPtr|_|) = function
-        | HeapRef(path, time, arrayTarget, Pointer typ) ->
-            assert(arrayTarget = ArrayContents)
-            Some(HeapPtr(path, time, typ))
-        | _ -> None
-
     let castReferenceToPointer mtd targetType = term >> function
-        | StackRef(key, path, _) -> StackPtr mtd key path targetType
-        | StaticRef(key, path, _) -> StaticPtr mtd key path targetType
-        | HeapRef(path, time, arrayTarget, _) ->
-            assert(arrayTarget = ArrayContents)
-            HeapPtr mtd path time targetType
+        | Ref(topLevel, path)
+        | Ptr(topLevel, path, _, None) -> Ptr mtd topLevel path targetType
+        | Ptr(topLevel, path, _, Some indent) -> IndentedPtr mtd topLevel path targetType indent
         | t -> internalfailf "Expected reference or pointer, got %O" t
 
     let getReferenceFromPointer mtd = term >> function
-        | StackPtr(key, path, _) -> StackRef mtd key path
-        | StaticPtr(key, path, _) -> StaticRef mtd key path
-        | HeapPtr(path, time, Pointer typ) -> HeapRef mtd path ArrayContents time typ
+        | Ptr(topLevel, path, _, _) -> Ref mtd topLevel path
         | t -> internalfailf "Expected pointer, got %O" t
 
     let isVoid = term >> function
@@ -337,25 +322,27 @@ module internal Terms =
         | Concrete(b, t) when Types.isBool t && not (b :?> bool) -> true
         | _ -> false
 
-    let isNull = term >> function
-        | HeapRef(((z, _), _), _, _, _) when z.term = zeroAddress -> true
+    let isConcreteNull = term >> function
+        | Ref(NullAddress, _) -> true
         | _ -> false
 
-    let isStackRef = term >> function
-        | StackRef _ -> true
-        | _ -> false
-
-    let isHeapRef = term >> function
-        | HeapRef _ -> true
-        | _ -> false
-
-    let rec isRef term =
+    let rec isRefOrPtr term =
         match term.term with
-        | HeapRef _
-        | StaticRef _
-        | IndentedPtr _
-        | StackRef _ -> true
-        | Union gvs -> List.forall (snd >> isRef) gvs
+        | Ref _
+        | Ptr _ -> true
+        | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
+        | _ -> false
+
+    let isArrayIndex = function
+        | ArrayIndex _ -> true
+        | _ -> false
+
+    let isArrayLengthSeg = function
+        | ArrayLength _ -> true
+        | _ -> false
+
+    let isArrayLowerBoundSeg = function
+        | ArrayLowerBound _ -> true
         | _ -> false
 
     let operationOf = term >> function
@@ -366,24 +353,17 @@ module internal Terms =
         | Expression(_, args, _) -> args
         | term -> internalfailf "expression expected, %O recieved" term
 
-    // Doesn't match stack and static references with empty path!
-    let (|ReferenceTo|_|) = function
-        | StackRef(_, addrs, None)
-        | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
-        | HeapRef(addrs, _, _, Reference _) -> addrs |> NonEmptyList.toList |> List.last |> snd |> Some
-        | _ -> None
+    let private typeOfTopLevel = function
+        | NullAddress -> Null
+        | TopLevelHeap(_, _, sightTyp) -> sightTyp
+        | TopLevelStatics typ -> typ
+        | TopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
 
-    let (|TypeOfReference|_|) = function
-        | StackRef(_, addrs, None)
-        | StaticRef(_, addrs, None) -> List.tryLast addrs |> Option.map snd
-        | HeapRef(_, _, _, Reference t) -> Some t
-        | _ -> None
-
-    let (|PointerTo|_|) = function
-        | HeapPtr(_, _, t)
-        | StaticPtr(_, _, t)
-        | StackPtr(_, _, t) -> Some t
-        | _ -> None
+    let typeOfPathSegment = function
+        | StructField(_, t)
+        | ArrayIndex(_, t) -> t
+        | ArrayLowerBound _
+        | ArrayLength _ -> Types.indexType
 
     let rec typeOf term =
         match term.term with
@@ -392,13 +372,11 @@ module internal Terms =
         | Concrete(_, t)
         | Constant(_, _, t)
         | Expression(_, _, t)
-        | Struct(_, t) -> t
-        | PointerTo t -> Pointer t
-        | ReferenceTo t -> Reference t
-        | StackRef(_, [], _) -> Reference Core.Void // TODO: this is temporary hack, support normal typing
-        | StaticRef(qtn, [], _) -> Type.GetType(qtn) |> fromDotNetType |> Reference
-        | IndentedPtr(t, _) -> typeOf t
+        | Struct(_, t)
         | Array(_, _, _, _, _, _, t) -> t
+        | Ref(tl, []) -> typeOfTopLevel tl |> Reference
+        | Ref(_, path) -> List.last path |> typeOfPathSegment
+        | Ptr(_, _, typ, _) -> Pointer typ
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t ->
                 not (Types.isBottom t || Types.isVoid t)) (List.map (snd >> typeOf) gvs)
@@ -412,7 +390,6 @@ module internal Terms =
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
-        | _ -> __unreachable__()
 
 
     let sizeOf = typeOf >> Types.sizeOf
@@ -459,11 +436,20 @@ module internal Terms =
     let makeBool predicate metadata =
         if predicate then makeTrue metadata else makeFalse metadata
 
-    let makeNullRef typ metadata =
-        HeapRef metadata (((makeZeroAddress metadata), typ), []) ArrayContents {v = Timestamp.zero} typ
+    let makeNullRef metadata =
+        Ref metadata NullAddress []
 
-    let makeNullPtr typ metadata =
-        HeapPtr metadata (((makeZeroAddress metadata), typ), []) {v = Timestamp.zero} typ
+    let makeNullPtr metadata typ =
+        Ptr metadata NullAddress [] typ
+
+    let makeZero metadata =
+        Concrete metadata [0] (Numeric typedefof<int>)
+
+    let makeZeroIndex metadata =
+        Concrete metadata [0] Types.indexType
+
+    let makeZeroAddress metadata =
+        Concrete metadata [0] Types.pointerType
 
     let makeNumber n metadata =
         Concrete metadata n (Numeric(n.GetType()))
@@ -499,7 +485,10 @@ module internal Terms =
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
-    let (|Null|_|) term = if isNull term then Some Null else None
+
+    let (|Null|_|) = function
+        | Ref(NullAddress, []) -> Some(Null)
+        | _ -> None
 
     let (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
@@ -592,11 +581,15 @@ module internal Terms =
             foldSeq folder visited args state
         | Struct(fields, _) ->
             foldSeq folder visited (Heap.values fields) state
-        | HeapRef(path, _, _, _) ->
-            foldSeq folder visited (NonEmptyList.toList path |> Seq.map fst) state
-        | StackRef(_, path, _)
-        | StaticRef(_, path, _) ->
-            foldSeq folder visited (path |> Seq.map fst) state
+        | Ref(topLevel, path) ->
+            let state = foldTopLevel folder visited state topLevel
+            foldPath folder visited state path
+        | Ptr(topLevel, path, _, indent) ->
+            let state = foldTopLevel folder visited state topLevel
+            let state = foldPath folder visited state path
+            match indent with
+            | None -> state
+            | Some indent -> doFold folder visited state indent
         | GuardedValues(gs, vs) ->
             foldSeq folder  visited gs state |> foldSeq folder visited vs
         | Error e ->
@@ -606,6 +599,21 @@ module internal Terms =
     and doFold folder (visited : HashSet<term>) state term =
         let state = foldChildren folder visited state term
         folder state term
+
+    and foldTopLevel folder visited state = function
+        | TopLevelHeap(addr, _, _) -> doFold folder visited state addr
+        | NullAddress
+        | TopLevelStack _
+        | TopLevelStatics _ -> state
+
+    and foldPathSegment folder visited state = function
+        | StructField _ -> state
+        | ArrayIndex(idx, _)
+        | ArrayLowerBound idx
+        | ArrayLength idx -> doFold folder visited state idx
+
+    and private foldPath folder visited =
+        Seq.fold (foldPathSegment folder visited)
 
     and private foldSeq folder visited terms state =
         Seq.fold (doFold folder visited) state terms

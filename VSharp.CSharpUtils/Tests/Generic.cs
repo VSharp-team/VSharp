@@ -93,7 +93,6 @@ namespace VSharp.CSharpUtils.Tests.Generic
 
         public Foo()
         {
-            
         }
 
         public T GetFields()

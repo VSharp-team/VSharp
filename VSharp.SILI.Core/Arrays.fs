@@ -15,7 +15,7 @@ module internal Arrays =
     let lengthTermType = Numeric lengthType
 
     let makeArray mtd length contents instantiator elemTyp =
-        let zero = makeZeroAddress mtd
+        let zero = makeZeroIndex mtd
         let lowerBound = Heap.add zero { value = zero; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
         let typ = ArrayType(elemTyp, ConcreteDimension 1)
         let lengths = Heap.add zero { value = length; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
@@ -66,23 +66,29 @@ module internal Arrays =
                 (makeFalse mtd)
                 gInstor1
         match x.term, y.term with
-        | Array(dim1, len1, lb1, instor1, content1, l1, t1), Array(dim2, len2, lb2, instor2, content2, l2, t2) ->
+        | Array(dim1, len1, lb1, instor1, content1, l1, _), Array(dim2, len2, lb2, instor2, content2, l2, _) ->
             Propositional.lazyConjunction mtd <|
                 seq[
                     fun() -> Arithmetics.simplifyEqual mtd dim1 dim2 id;
                     fun() -> Arithmetics.simplifyEqual mtd len1 len2 id;
-                    fun() -> simplifyHeapPointwiseEquality mtd lb1 lb2 eq (instantiate1 ArrayLowerBounds) (instantiate2 ArrayLowerBounds);
+                    fun() -> simplifyHeapPointwiseEquality mtd lb1 lb2 eq instantiate1 instantiate2;
                     fun() -> simplifyGInstantiatorEquality mtd instor1 instor2;
-                    fun() -> simplifyHeapPointwiseEquality mtd content1 content2 eq (instantiate1 ArrayContents) (instantiate2 ArrayContents);
-                    fun() -> simplifyHeapPointwiseEquality mtd l1 l2 eq (instantiate1 ArrayLengths) (instantiate2 ArrayLengths)
+                    fun() -> simplifyHeapPointwiseEquality mtd content1 content2 eq instantiate1 instantiate2;
+                    fun() -> simplifyHeapPointwiseEquality mtd l1 l2 eq instantiate1 instantiate2
                 ]
         | term1, term2 -> internalfailf "expected array and array but %O and %O got!" term1 term2
 
-    let equalsArrayIndices mtd addr1 addr2 =
+    let equalsIndicesArrays mtd addr1 addr2 =
         simplifyArraysEquality mtd addr1 addr2
             (fun mtd x y -> Arithmetics.simplifyEqual mtd x y id)
-            (fun _ _ -> __notImplemented__())
-            (fun _ _ -> __notImplemented__())
+            (fun _ -> __notImplemented__())
+            (fun _ -> __notImplemented__())
+
+    let equalsArrayIndices mtd addr1 addr2 =
+        match typeOf addr1, typeOf addr2 with
+        | Numeric _, Numeric _ -> fastNumericCompare mtd addr1 addr2
+        | ArrayType _, ArrayType _ -> equalsIndicesArrays mtd addr1 addr2
+        | _ -> __notImplemented__()
 
     let zeroLowerBound metadata dimension =
         let bound = { value = Concrete metadata 0 lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
@@ -161,7 +167,7 @@ module internal Arrays =
 
     let (|Index|_|) = function
         | VectorT(ConcreteT(length, _), lower, [_, DefaultInstantiator _], contents, _, _)
-            when length :?> int = 1 && lower = zeroLowerBound Metadata.empty 1 -> Some(contents.[makeZeroAddress Metadata.empty])
+            when length :?> int = 1 && lower = zeroLowerBound Metadata.empty 1 -> Some(contents.[makeZeroIndex Metadata.empty])
         | _ -> None
 
     type LengthExtractor() =

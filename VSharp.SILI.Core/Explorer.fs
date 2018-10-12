@@ -32,10 +32,9 @@ module internal Explorer =
     let mutable private interpreter : IInterpreter = new NullInterpreter() :> IInterpreter
     let configure itprtr = interpreter <- itprtr
 
-    let private formInitialStatics metadata typ typeName =
-        let staticMemoryKey = makeStringKey typeName
+    let private formInitialStatics metadata typ =
         let staticMemoryEntry = Struct metadata Heap.empty typ
-        Heap.empty.Add(staticMemoryKey, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
+        Heap.empty.Add(typ, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
 
     let private invoke id state this k =
         interpreter.Invoke id state this k
@@ -61,7 +60,7 @@ module internal Explorer =
                 | :? IMethodIdentifier as m ->
                     let declaringQualifiedName = m.DeclaringTypeAQN
                     let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.fromDotNetType
-                    let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType declaringQualifiedName) }
+                    let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType) }
                     if m.IsStatic then (None, initialState, false)
                     else
                         Memory.makeSymbolicThis metadata initialState m.Token declaringType
@@ -130,19 +129,19 @@ module internal Explorer =
                 let name = sprintf "μ[%O, %s]" funcId (fst frame.key)
                 let typ = frame.typ
                 let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-                let value = Memory.makeSymbolicInstance mtd time source source name typ
-                Memory.mutateStack mtd st frame.key [] time value |> snd
+                let value = Memory.makeSymbolicInstance mtd source source name typ
+                Memory.mutateStack mtd st frame.key [] time value
             di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
         | _ -> state
 
-    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state  time k =
+    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state k =
         let typ = funcId.ReturnType
         let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Memory.makeSymbolicInstance mtd time source source name typ |> k
+        Memory.makeSymbolicInstance mtd source source name typ |> k
 
     let recursionApplication mtd (funcId : IFunctionIdentifier) state addr time k =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
-        functionApplicationResult mtd funcId name state time (fun res ->
+        functionApplicationResult mtd funcId name state (fun res ->
         let recursiveResult = ControlFlow.throwOrReturn res
         let recursiveState =
             { mutateStackClosure mtd funcId time state with
@@ -154,7 +153,7 @@ module internal Explorer =
         let addr = [Memory.freshAddress()]
         let time = Memory.tick()
         let name = IdGenerator.startingWith <| sprintf "λ[%O]_" funcId
-        functionApplicationResult mtd funcId name state time (fun res ->
+        functionApplicationResult mtd funcId name state (fun res ->
         let higherOrderResult = ControlFlow.throwOrReturn res
         let higherOrderState =
             { mutateStackClosure mtd funcId time state with
