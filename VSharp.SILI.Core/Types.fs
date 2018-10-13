@@ -64,6 +64,10 @@ and [<CustomEquality;CustomComparison>]
     typeId =
         | Explicit of hierarchy
         | Implicit of (string transparent) * ISymbolicTypeSource * termType
+        override x.GetHashCode() =
+            match x with
+            | Explicit h -> hash h
+            | Implicit(_, ts, t) -> (hash t) * 3571 ^^^ (hash ts)
         override x.Equals(o : obj) =
             match o with
             | :? typeId as other ->
@@ -77,7 +81,7 @@ and [<CustomEquality;CustomComparison>]
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Explicit h1, Explicit h2 -> compare h1.Inheritor.MetadataToken h2.Inheritor.MetadataToken
+                    | Explicit h1, Explicit h2 -> compare (hash h1.Inheritor) (hash h2.Inheritor) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
                     | Explicit _, Implicit _ -> -1
                     | Implicit _, Explicit _ -> 1
                     | Implicit(_, c1, _), Implicit(_, c2, _) ->
@@ -106,6 +110,7 @@ module internal Types =
     let InterfaceType t g = InterfaceType(t, g)
 
     let pointerType = Numeric typedefof<int>
+    let indexType = Numeric typedefof<int>
 
     let isNumeric = function
         | Numeric _ -> true

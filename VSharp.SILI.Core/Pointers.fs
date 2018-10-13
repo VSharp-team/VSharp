@@ -5,7 +5,7 @@ open VSharp.Core.Common
 
 module internal Pointers =
     let private underlyingPointerTypeSizeof mtd = term >> function // for `T* ptr` returns `sizeof(T)`
-        | PointerTo typ -> makeNumber (Types.sizeOf typ) mtd
+        | Ptr(_, _, typ, _) -> makeNumber (Types.sizeOf typ) mtd
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
@@ -70,59 +70,80 @@ module internal Pointers =
         | Constant(_, (SymbolicPointerDifferenceT _ as spd), tp) -> Some(spd :?> SymbolicPointerDifference, tp)
         | _ -> None
 
+    let private shift mtd ptr shift k =
+        match term ptr with
+        | Ptr(tla, psl, typ, None) -> k <| IndentedPtr mtd tla psl typ shift
+        | Ptr(tla, psl, typ, Some shift') -> k <| IndentedPtr mtd tla psl typ (Arithmetics.add mtd shift' shift)
+        | _ -> __unreachable__()
+
     let private addPtrToSymbolicPointerDifference (p: term) (spd: SymbolicPointerDifference) tp mtd k =
         let mkConst = makeSPDConst tp mtd
         match term p with
-        | HeapRef _
-        | StackRef _
-        | StaticRef _ ->
+        | Ptr _ ->
             let spd = spd +. SymbolicPointerDifference([p, 1], [])
-            let nil = makeNullRef (typeOf p) mtd
+            let nil = makeNullPtr mtd <| typeOf p
             match spd.Pos, spd.Neg with
             | [], [] -> k nil
             | [lastp, 1], [] -> k lastp
             | [lastp, 1], neg ->
                 let indent =  SymbolicPointerDifference([], neg)
-                k <| IndentedPtr lastp (mkConst indent) mtd
+                shift mtd lastp (mkConst indent) k
             | _ ->
                 let indent = spd +. SymbolicPointerDifference([], [nil, 1])
-                k <| IndentedPtr nil (mkConst indent) mtd
-        | _ -> internalfailf "expected reference but got %O" p
+                shift mtd nil (mkConst indent) k
+        | _ -> internalfailf "expected pointer but got: %O" p
 
-    let locationEqual mtd addr1 addr2 =
-        match typeOf addr1, typeOf addr2 with
-        | Types.StringType, Types.StringType -> Strings.simplifyEquality mtd addr1 addr2
-        | Numeric _, Numeric _ ->
-            if addr1 = addr2 then makeTrue mtd
-            elif isConcrete addr1 && isConcrete addr2 then makeFalse mtd
-            else makeBinary OperationType.Equal addr1 addr2 false Bool mtd
-        | ArrayType _, ArrayType _ -> Arrays.equalsArrayIndices mtd addr1 addr2
-        | _ -> __notImplemented__()
+    let private isZero mtd x =
+        Arithmetics.simplifyEqual mtd x (makeZero mtd) id
 
-    let comparePath mtd path1 path2 =
+    let isZeroAddress mtd x =
+        Arithmetics.simplifyEqual mtd x (makeZeroAddress mtd) id
+
+    let private compareTopLevel mtd = function
+        | NullAddress, NullAddress -> makeTrue mtd
+        | TopLevelHeap(addr, _, _), NullAddress
+        | NullAddress, TopLevelHeap(addr, _, _) -> isZeroAddress mtd addr
+        | TopLevelHeap(addr1, _, _), TopLevelHeap(addr2, _, _) -> fastNumericCompare mtd addr1 addr2
+        | TopLevelStatics typ1, TopLevelStatics typ2 -> typesEqual mtd typ1 typ2
+        | TopLevelStack key1, TopLevelStack key2 -> makeBool (key1 = key2) mtd
+        | _ -> makeFalse mtd
+
+    let private equalPathSegment mtd x y =
+        match x, y with
+        | StructField(field1, typ1), StructField(field2, typ2) -> makeBool (field1 = field2) mtd &&& typesEqual mtd typ1 typ2
+        | ArrayIndex(addr1, _), ArrayIndex(addr2, _) -> Arrays.equalsArrayIndices mtd addr1 addr2
+        | ArrayLowerBound x, ArrayLowerBound y
+        | ArrayLength x, ArrayLength y -> fastNumericCompare mtd x y
+        | _ -> makeFalse mtd
+
+    let private comparePath mtd path1 path2 =
         if List.length path1 <> List.length path2 then
             makeFalse mtd
         else
-            List.map2 (fun (x, _) (y, _) -> locationEqual mtd x y) path1 path2 |> conjunction mtd
+            List.map2 (equalPathSegment mtd) path1 path2 |> conjunction mtd
 
-    let rec simplifyReferenceEquality mtd x y k =
+    let rec simplifyReferenceEqualityk mtd x y k =
         simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
             (fun _ _ _ _ -> __unreachable__())
             (fun x y s k ->
                 let k = withSnd s >> k
                 match x.term, y.term with
                 | _ when x = y -> makeTrue mtd |> k
-                | HeapRef(xpath, _, xtgt, Reference _), HeapRef(ypath, _, ytgt, Reference _) ->
-                    makeBool (xtgt = ytgt) mtd &&& comparePath mtd (NonEmptyList.toList xpath) (NonEmptyList.toList ypath) |> k
-                | StackRef(key1, path1, None), StackRef(key2, path2, None) ->
-                    makeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
-                | StaticRef(key1, path1, None), StaticRef(key2, path2, None) ->
-                    makeBool (key1 = key2) mtd &&& comparePath mtd path1 path2 |> k
+                | Ref(topLevel1, path1), Ref(topLevel2, path2) -> compareTopLevel mtd (topLevel1, topLevel2) &&& comparePath mtd path1 path2 |> k
+                | Ptr(topLevel1, path1, _, shift1), Ptr(topLevel2, path2, _, shift2) ->
+                    let refeq = compareTopLevel mtd (topLevel1, topLevel2) &&& comparePath mtd path1 path2
+                    match shift1, shift2 with
+                    | None, None -> refeq |> k
+                    | Some shift, None
+                    | None, Some shift -> refeq &&& isZero mtd shift |> k
+                    | Some shift1, Some shift2 -> refeq &&& Arithmetics.simplifyEqual mtd shift1 shift2 id |> k
                 | _ -> makeFalse mtd |> k)
-            (fun x y state k -> simplifyReferenceEquality mtd x y (withSnd state >> k))
+            (fun x y state k -> simplifyReferenceEqualityk mtd x y (withSnd state >> k))
+
+    let simplifyReferenceEquality mtd x y = simplifyReferenceEqualityk mtd x y id
 
     let isNull mtd ptr =
-        simplifyReferenceEquality mtd ptr (makeNullRef Null mtd) id
+        simplifyReferenceEquality mtd ptr (makeNullRef mtd)
 
     let rec private simplifySPDUnaryMinus mtd y ischk tp s k =
         simplifySPDExpression mtd y s k (fun y s k ->
@@ -165,11 +186,7 @@ module internal Pointers =
         collectSPDs y [] SymbolicPointerDifference.empty (fun (summands, spd) ->
         Cps.List.reduce mkAdd summands (fun y ->
         addPtrToSymbolicPointerDifference x spd shiftTyp mtd (fun x ->
-        let x, y =
-            match term x with
-            | IndentedPtr(x, shift) -> x, mkAdd shift y
-            | _ -> x, y
-        k <| IndentedPtr x y mtd)))
+        shift mtd x y k)))
 
     let rec private simplifyPointerAdditionGeneric mtd isNativeInt x y state k = // y must be normalized by Arithmetics!
         let simplifyIndentedPointerAddition x y s k =
@@ -186,12 +203,13 @@ module internal Pointers =
                     match term y with
                     | Expression _
                     | Concrete _
-                    | Constant _ -> k1 <| IndentedPtr x y mtd
+                    | Constant _ -> shift mtd x y k1
                     | _ -> internalfailf "expected primitive value but got: %O" y
 
             match term x with
-            | IndentedPtr(p, shift) ->
-                simplifySPDExpression mtd (Arithmetics.add mtd shift <| multWithSizeOf y) s k (simplifyRawPointerAddition p)
+            | Ptr(tla, psl, typ, Some shift) ->
+                // TODO: [2columpio]: you construct Ptr and immediately deconstruct it in pattern matching!
+                simplifySPDExpression mtd (Arithmetics.add mtd shift <| multWithSizeOf y) s k (simplifyRawPointerAddition <| Ptr mtd tla psl typ)
             | _ -> simplifySPDExpression mtd (multWithSizeOf y) s k (simplifyRawPointerAddition x)
 
         simplifyGenericBinary "add shift to pointer" state x y k
@@ -217,9 +235,10 @@ module internal Pointers =
             simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff p q) offset) s k (fun diff s k -> k (divideBySizeof diff, s))
         let simplifyIndentedPointerSubtraction x y s k =
             match term x, term y with
-            | IndentedPtr(p, a), IndentedPtr(q, b) -> simplifyPointerDiffWithOffset p q (Arithmetics.sub mtd a b) s
-            | IndentedPtr(p, a), _ -> simplifyPointerDiffWithOffset p y a s
-            | _, IndentedPtr(q, b) -> simplifyPointerDiffWithOffset x q (Arithmetics.neg mtd b) s
+            // TODO: [columpio]: rewrite it in a more efficient way!
+            | Ptr(tl1, path1, t1, Some a), Ptr(tl2, path2, t2, Some b) -> simplifyPointerDiffWithOffset (Ptr mtd tl1 path1 t1) (Ptr mtd tl2 path2 t2) (Arithmetics.sub mtd a b) s
+            | Ptr(tl, path, t, Some a), _ -> simplifyPointerDiffWithOffset (Ptr mtd tl path t) y a s
+            | _, Ptr(tl, path, t, Some b) -> simplifyPointerDiffWithOffset x (Ptr mtd tl path t) (Arithmetics.neg mtd b) s
             | _ -> k (divideBySizeof <| makeDiff x y, s)
 
         simplifyGenericBinary "pointer1 - pointer2" state x y k
@@ -240,9 +259,9 @@ module internal Pointers =
             simplifyIndentedReferenceSubtraction metadata isNativeInt state x y k
         | OperationType.Add ->
             simplifyIndentedReferenceAddition metadata isNativeInt state x y k
-        | OperationType.Equal -> simplifyReferenceEquality metadata x y (withSnd state >> k)
+        | OperationType.Equal -> simplifyReferenceEqualityk metadata x y (withSnd state >> k)
         | OperationType.NotEqual ->
-            simplifyReferenceEquality metadata x y (fun e ->
+            simplifyReferenceEqualityk metadata x y (fun e ->
             Propositional.simplifyNegation metadata e (withSnd state >> k))
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
@@ -253,7 +272,7 @@ module internal Pointers =
         simplifyBinaryOperation mtd OperationType.Subtract State.empty x y (typeof<System.Void>.MakePointerType()) fst
 
     let isPointerOperation op t1 t2 =
-        let isNearlyPtr t = Types.isPointer t || Types.isReference t
+        let isNearlyPtr t = Types.isReference t || Types.isPointer t
 
         match op with
         | OperationType.Equal
@@ -263,8 +282,8 @@ module internal Pointers =
             (isNearlyPtr t1 && Types.isNumeric t2) || (isNearlyPtr t2 && Types.isNumeric t1)
         | _ -> false
 
-    let rec topLevelLocation = Merging.map (function
-        | {term = HeapRef(((a, _), []), _, _, _)} -> a
+    let topLevelLocation = Merging.map (function
+        | {term = Ref(TopLevelHeap (a, _, _), [])} -> a
         | _ -> __notImplemented__())
 
     type HeapAddressExtractor() =
@@ -274,5 +293,5 @@ module internal Pointers =
     let symbolicThisStackKey = "symbolic this on stack"
 
     let (|SymbolicThisOnStack|_|) = function
-       | StackRef((name, token), path, typ) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path, typ))
+       | Ref(TopLevelStack(name, token), path) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path))
        | _ -> None

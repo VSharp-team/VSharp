@@ -115,7 +115,7 @@ module internal Interpreter =
         let stringTypeName = typeof<string>.AssemblyQualifiedName
         let emptyString, state = Memory.AllocateString String.Empty state
         initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String stringTypeName
+        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String Types.String
         Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
 // ------------------------------- Member calls -------------------------------
@@ -440,7 +440,7 @@ module internal Interpreter =
         let rec invoke state deleg k =
             let k = Enter ast state k
             match deleg.term with
-                | HeapRef _ ->
+                | Ref(TopLevelHeap _, _) ->
                     let term, state = Memory.Dereference state deleg
                     invoke state term k
                 | Lambda(lambda) -> lambda ast state (Specified args) k
@@ -724,7 +724,7 @@ module internal Interpreter =
     and reduceExpressionToRef state followHeapRefs (ast : IExpression) k =
         let k = Enter ast state k
         match ast with
-        | null -> k (MakeNullRef Null, state)
+        | null -> k (MakeNullRef (), state)
         | :? ILocalVariableReferenceExpression as expression ->
             k (Memory.ReferenceLocalVariable state (expression.Variable.Name, getTokenBy (Choice2Of2 expression.Variable)) followHeapRefs, state)
         | :? IParameterReferenceExpression as expression ->
@@ -752,7 +752,8 @@ module internal Interpreter =
         let typ = MetadataTypes.fromMetadataType state field.Type
         let k = Enter caller state k
         if field.IsStatic then
-            k (Memory.ReferenceStaticField state followHeapRefs id typ field.DeclaringType.AssemblyQualifiedName)
+            let targetType = field.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType state
+            k (Memory.ReferenceStaticField state followHeapRefs id typ targetType)
         else
             k (Memory.ReferenceField state followHeapRefs id typ target)
 
@@ -804,7 +805,8 @@ module internal Interpreter =
         let fieldType = MetadataTypes.fromMetadataType state field.Type
         let k = Enter caller state k
         if field.IsStatic then
-            let reference, state = Memory.ReferenceStaticField state false fieldName fieldType field.DeclaringType.AssemblyQualifiedName
+            let targetType = field.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType state
+            let reference, state = Memory.ReferenceStaticField state false fieldName fieldType targetType
             k (Memory.Dereference state reference)
         else
             let reference, state = Memory.ReferenceField state false fieldName fieldType target
@@ -817,7 +819,7 @@ module internal Interpreter =
         match mType with
         | Types.StringType ->
             Memory.AllocateString (obj :?> string) state |> k
-        | Core.Null -> k (Terms.MakeNullRef Null, state)
+        | Core.Null -> k (Terms.MakeNullRef (), state)
         | _ -> k (Concrete obj mType, state)
 
     and reduceLocalVariableReferenceExpression state (ast : ILocalVariableReferenceExpression) k =
@@ -857,7 +859,7 @@ module internal Interpreter =
         let k = mapsnd Memory.PopTypeVariables >> k
         let state = Memory.NewTypeVariables state subst
         let k = Enter ast state k
-        let reduceTarget state k = k (Terms.MakeNullRef (Types.FromDotNetType state typedefof<obj>), state)
+        let reduceTarget state k = k (Terms.MakeNullRef (), state)
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k
         let reduceRightArg state k = reduceExpression state ast.RightArgument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k)
@@ -1034,7 +1036,7 @@ module internal Interpreter =
         reduceTypeVariablesSubsitution state ast.MethodSpecification.OwnerType (fun subst ->
         let k = mapsnd Memory.PopTypeVariables >> k
         let state = Memory.NewTypeVariables state subst
-        let reduceTarget state k = k (MakeNullRef (Types.FromDotNetType state typedefof<obj>), state)
+        let reduceTarget state k = k (MakeNullRef (), state)
         let reduceArg state k = reduceExpression state ast.Argument k
         reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k)
 
@@ -1042,7 +1044,7 @@ module internal Interpreter =
         let k = Enter ast state k
         let targetType = MetadataTypes.fromMetadataType state ast.Type
         reduceExpression state ast.Argument (fun (term, state) ->
-        Types.HierarchyCast state term targetType (fun state term typ -> typ |> MakeNullRef |> Return, state) k)
+        Types.HierarchyCast state term targetType (fun state _ _ -> Return <| MakeNullRef (), state) k)
 
     and reduceTypeCastExpression state (ast : ITypeCastExpression) k =
         let k = Enter ast state k
@@ -1092,17 +1094,17 @@ module internal Interpreter =
         let k = Enter caller state k
         let termType = qualifiedTypeName |> Type.GetType |> Types.FromDotNetType state
         BranchStatements state
-            (fun state k -> k (Memory.IsTypeNameInitialized qualifiedTypeName state, state))
+            (fun state k -> k (Memory.IsTypeNameInitialized termType state, state))
             (fun state k ->
                 k (NoComputation, state))
             (fun state k ->
-                let state = Memory.AllocateDefaultStatic state termType qualifiedTypeName
+                let state = Memory.AllocateDefaultStatic state termType
                 let fieldInitializerExpressions = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName
                 let initOneField (name, (typ, expression)) state k =
                     if expression = null then k (NoComputation, state)
                     else
                         let k = Enter expression state k
-                        let address, state = Memory.ReferenceStaticField state false name (MetadataTypes.fromMetadataType state typ) qualifiedTypeName
+                        let address, state = Memory.ReferenceStaticField state false name (MetadataTypes.fromMetadataType state typ) termType
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.ThrowOrIgnore value
                         let mutate value k =

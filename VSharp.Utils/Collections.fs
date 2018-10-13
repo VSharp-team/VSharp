@@ -149,12 +149,3 @@ module public Stack =
     let size = List.length
 
     let tryFindBottom = List.tryFindBack
-
-type 'a nonEmptyList = 'a * 'a list
-
-module public NonEmptyList =
-    let ofList : 'a list -> 'a nonEmptyList = function
-        | x::xs -> (x, xs)
-        | _ -> internalfail "constructing non-empty list from empty list"
-
-    let toList (x, xs) = x::xs

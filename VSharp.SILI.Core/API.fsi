@@ -38,13 +38,13 @@ module API =
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
-        val Struct : symbolicHeap -> termType -> term
+        val Struct : heap<string, term> -> termType -> term
         val Union : (term * term) list -> term
 
         val True : term
         val False : term
 
-        val MakeNullRef : termType -> term
+        val MakeNullRef : unit -> term
         val MakeDefault : termType -> term
         val MakeNumber : 'a -> term
         val MakeLambda : 'a symbolicLambda -> termType -> term
@@ -53,7 +53,7 @@ module API =
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
-        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * generalizedHeap option * bool) option
+        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * 'a generalizedHeap option * bool) option
         val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
@@ -138,7 +138,7 @@ module API =
 
         val ReferenceField : state -> bool -> string -> termType -> term -> term * state
         val ReferenceLocalVariable : state -> stackKey -> bool -> term
-        val ReferenceStaticField : state -> bool -> string -> termType -> string -> term * state
+        val ReferenceStaticField : state -> bool -> string -> termType -> termType -> term * state
         val ReferenceArrayIndex : state -> term -> term list -> term * state
 
         val Dereference : state -> term -> term * state
@@ -147,11 +147,11 @@ module API =
 
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateInHeap : state -> term -> term * state
-        val AllocateDefaultStatic : state -> termType -> string -> state
+        val AllocateDefaultStatic : state -> termType -> state
         val MakeDefaultStruct : termType -> term
         val AllocateString : string -> state -> term * state
 
-        val IsTypeNameInitialized : string -> state -> term
+        val IsTypeNameInitialized : termType -> state -> term
         val Dump : state -> string
 
         val ArrayLength : term -> term

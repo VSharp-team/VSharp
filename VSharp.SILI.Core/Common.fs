@@ -1,5 +1,7 @@
 ﻿namespace VSharp.Core
 
+#nowarn "69"
+
 open VSharp
 open VSharp.Core.Types.Constructor
 
@@ -91,6 +93,8 @@ module internal Common =
             elif lt.IsGround && rt.IsGround then makeFalse metadata
             else makeSubtypeBoolConst t1 t2
         | _ -> makeFalse metadata
+
+    let typesEqual mtd x y = is mtd x y &&& is mtd y x
 
     // TODO: support composition for this constant source
     [<StructuralEquality;NoComparison>]

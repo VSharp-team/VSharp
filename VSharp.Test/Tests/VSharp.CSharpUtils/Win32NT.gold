@@ -4528,35 +4528,26 @@ HEAP:
 	| !hasKey#6 & !hasKey#7 ~> 11
 	| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 9
 	| hasKey#6 & hasKey#7 ~> 7]: UNION[
-		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> null
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) ~> (HeapRef 18)
-		| (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) & ((!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#7) ~> (HeapRef 16)];
+		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) ~> null
+		| (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#7 ~> (HeapRef 16)];
 	UNION[
 	| !hasKey#6 & !hasKey#7 ~> 12
 	| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 10
 	| hasKey#6 & hasKey#7 ~> 8]: UNION[
-		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> null
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) ~> (HeapRef 19)
-		| (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) & ((!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#7) ~> (HeapRef 17)];
+		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) ~> null
+		| (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#7 ~> (HeapRef 17)];
 	UNION[
 	| !hasKey#6 & !hasKey#7 ~> 13
 	| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 11
-	| hasKey#6 & hasKey#7 ~> 9]: UNION[
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) & ((!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> null
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> (HeapRef 20)
-		| (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) & ((!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> (HeapRef 18)];
+	| hasKey#6 & hasKey#7 ~> 9]: (HeapRef 18);
 	UNION[
 	| !hasKey#6 & !hasKey#7 ~> 14
 	| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 12
-	| hasKey#6 & hasKey#7 ~> 10]: UNION[
-		| !hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) ~> (HeapRef 19)
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) ~> null];
+	| hasKey#6 & hasKey#7 ~> 10]: (HeapRef 19);
 	UNION[
 	| !hasKey#6 & !hasKey#7 ~> 15
 	| !hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6 ~> 13
-	| hasKey#6 & hasKey#7 ~> 11]: UNION[
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) ~> (HeapRef 20)
-		| (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#7 & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | hasKey#6 & hasKey#7) & (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | (!hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7) & (!hasKey#6 & !hasKey#7 | !hasKey#6 & !hasKey#7 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | !hasKey#6 & (hasKey#6 | hasKey#7) | (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) & hasKey#6 & hasKey#7 | (!hasKey#6 | !hasKey#7) & hasKey#6 | hasKey#6 & hasKey#7) & (!hasKey#6 & (!hasKey#6 & hasKey#7 | !hasKey#7 & hasKey#6) | (!hasKey#6 | !hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6) | hasKey#6 & hasKey#7 | hasKey#7) | (!hasKey#6 & !hasKey#7 | hasKey#6) & (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & (!hasKey#6 | !hasKey#7) & (!hasKey#6 | hasKey#6 & hasKey#7) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7) & (hasKey#6 | hasKey#7) | (!hasKey#6 | !hasKey#7 | (!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6)) & ((!hasKey#6 | hasKey#7) & (!hasKey#7 | hasKey#6) | hasKey#6 | hasKey#7)) ~> null];
+	| hasKey#6 & hasKey#7 ~> 11]: (HeapRef 20);
 	UNION[
 	| !hasKey#6 ~> 10
 	| hasKey#6 ~> 8]: UNION[
@@ -4741,7 +4732,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.String][
+System.Collections.Generic.List`1[System.String] ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
@@ -5084,7 +5075,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.String][
+System.Collections.Generic.List`1[System.String] ==> STRUCT System.Collections.Generic.List`1[System.String][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
@@ -5280,7 +5271,7 @@ HEAP:
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess}[]
 this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ==> STRUCT TypeVariable{this.VSharp.CSharpUtils.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField}{System.Collections.Generic.List`1[System.Boolean]}[]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+System.Collections.Generic.List`1[System.Boolean] ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 1)]
 System.Environment ==> STRUCT System.Environment[
@@ -5330,7 +5321,7 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 0]
 3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+System.Collections.Generic.List`1[System.Boolean] ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 3)]
 System.Object ==> STRUCT System.Object[]
@@ -6856,7 +6847,7 @@ HEAP:
 System.Array ==> STRUCT System.Array[
 	| System.Array.MaxArrayLength ~> 2146435071
 	| System.Array.MaxByteArrayLength ~> 2147483591]
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
+System.Collections.Generic.List`1[System.Int32] ==> STRUCT System.Collections.Generic.List`1[System.Int32][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
@@ -9388,19 +9379,19 @@ METHOD: System.Int32 VSharp.CSharpUtils.Tests.Methods.VirtualMethod.VirtualCall(
 RESULT: UNION[
 	| !(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> λ[F]_3
 	| !(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> λ[F]_2
-	| !(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> λ[F]_1
-	| !(0 == a) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> 7
+	| !(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) ~> λ[F]_1
+	| !(0 == a) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) ~> 7
 	| 0 == a ~> 0]
 HEAP:
 { heap = merge[
-	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_3)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_2)),
-	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, h0)], statics = merge[
-	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
+	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, h0)], statics = merge[
+	(!(0 == a) & !(VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC), app(λ[F]_1)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & !(VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_3)),
 	(!(0 == a) & !(TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}), app(λ[F]_2)),
-	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, s1)] } where
+	((TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual} <: VSharp.CSharpUtils.Tests.Methods.VirtualC) & (VSharp.CSharpUtils.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}) | 0 == a, s1)] } where
 ---------- h0 = ----------
 a ==> STRUCT TypeVariable{a}{VSharp.CSharpUtils.Tests.Methods.IVirtual}[]
 ---------- s1 = ----------
@@ -10858,12 +10849,12 @@ HEAP:
 		 ... 5 ... |]
 	| System.String.m_StringLength ~> 4]
 ---------- s1 = ----------
-System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+System.Collections.Generic.LinkedList`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
 	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 3)
 	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 4)
 	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: System.Collections.Generic.List`1[System.Double] VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
 RESULT: (HeapRef 1)
 HEAP:
@@ -10876,53 +10867,53 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 0]
 2 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+System.Collections.Generic.List`1[System.Double] ==> STRUCT System.Collections.Generic.List`1[System.Double][
 	| System.Collections.Generic.List`1._defaultCapacity ~> 4
 	| System.Collections.Generic.List`1._emptyArray ~> (HeapRef 2)]
 System.Object ==> STRUCT System.Object[]
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(T)
 RESULT: (HeapRef t)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: U VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(U)
 RESULT: (HeapRef u)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: P VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetP(P)
 RESULT: STRUCT TypeVariable{p}{P}[]
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: K VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetK(K)
 RESULT: (HeapRef k)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: N VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetT(N)
 RESULT: (HeapRef n)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: Z VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(Z)
 RESULT: (HeapRef z)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.CSharpUtils.Tests.Generic.GenericTest`6 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
+VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]
 METHOD: T VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].GetFields()
 RESULT: (HeapRef this.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed)
 HEAP:
@@ -10930,7 +10921,7 @@ HEAP:
 ---------- h0 = ----------
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U]}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
 METHOD: System.Void VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U].SetField(T)
 RESULT: <VOID>
 HEAP:
@@ -10939,7 +10930,7 @@ HEAP:
 this ==> STRUCT TypeVariable{this}{VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U]}[
 	| VSharp.CSharpUtils.Tests.Generic.Foo`2._filed ~> (HeapRef f)]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[T,U][]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece])
 RESULT: UNION[
 	| !(0 == f) ~> f.VSharp.CSharpUtils.Tests.Generic.Foo`2._filed
@@ -10949,7 +10940,7 @@ HEAP:
 ---------- h0 = ----------
 f ==> STRUCT TypeVariable{f}{VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece]}[]
 ---------- s1 = ----------
-VSharp.CSharpUtils.Tests.Generic.Foo`2 ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece][]
+VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece] ==> STRUCT VSharp.CSharpUtils.Tests.Generic.Foo`2[System.Int32,VSharp.CSharpUtils.Tests.Typecast.Piece][]
 VSharp.CSharpUtils.Tests.Generic.GenericMethod ==> STRUCT VSharp.CSharpUtils.Tests.Generic.GenericMethod[]
 METHOD: System.Int32 VSharp.CSharpUtils.Tests.Generic.GenericMethod.TestFoo(System.Collections.Generic.LinkedList`1[System.Int32])
 RESULT: UNION[
@@ -10994,8 +10985,8 @@ l ==> STRUCT TypeVariable{l}{System.Collections.Generic.LinkedList`1[System.Int3
 l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][
 	| System.Collections.Generic.LinkedListNode`1.item ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item]
 ---------- s1 = ----------
-System.Collections.Generic.LinkedListNode`1 ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
-System.Collections.Generic.LinkedList`1 ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+System.Collections.Generic.LinkedListNode`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
+System.Collections.Generic.LinkedList`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
 	| System.Collections.Generic.LinkedList`1.CountName ~> (HeapRef 2)
 	| System.Collections.Generic.LinkedList`1.ValuesName ~> (HeapRef 3)
 	| System.Collections.Generic.LinkedList`1.VersionName ~> (HeapRef 1)]

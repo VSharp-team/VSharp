@@ -6,6 +6,9 @@ open Types
 
 module internal Strings =
 
+    let strLength = "System.String.m_StringLength"
+    let strArray = "System.String.m_FirstChar"
+
     let makeString metadata time (str : string) =
         let fields =
             let stringTermLength = Concrete metadata str.Length lengthTermType
@@ -13,18 +16,18 @@ module internal Strings =
             let valMaker i = makeNumber arraySource.[i] metadata
             let keyMaker i mtd = makeIntegerArray metadata (fun _ -> makeNumber i mtd) 1
             let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) (Numeric typedefof<char>)
-            Heap.ofSeq (seq [ makeStringKey "System.String.m_StringLength", { value = stringTermLength; created = time; modified = time };
-                              makeStringKey "System.String.m_FirstChar", { value = array; created = time; modified = time } ])
+            Heap.ofSeq (seq [ strLength, { value = stringTermLength; created = time; modified = time };
+                              strArray, { value = array; created = time; modified = time } ])
         Struct metadata fields String
 
     let simplifyEquality mtd x y =
         match x.term, y.term with
         | Concrete(x, StringType), Concrete(y, StringType) -> makeBool ((x :?> string) = (y :?> string)) mtd
         | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
-            let str1Len = fieldsOfX.[makeStringKey "System.String.m_StringLength"].value
-            let str2Len = fieldsOfY.[makeStringKey "System.String.m_StringLength"].value
-            let str1Arr = fieldsOfX.[makeStringKey "System.String.m_FirstChar"].value
-            let str2Arr = fieldsOfY.[makeStringKey "System.String.m_FirstChar"].value
+            let str1Len = fieldsOfX.[strLength].value
+            let str2Len = fieldsOfY.[strLength].value
+            let str1Arr = fieldsOfX.[strArray].value
+            let str2Arr = fieldsOfY.[strArray].value
             simplifyEqual mtd str1Len str2Len (fun lengthEq ->
             simplifyAnd mtd lengthEq (Arrays.equalsArrayIndices mtd str1Arr str2Arr) id)
         | _ -> __notImplemented__()

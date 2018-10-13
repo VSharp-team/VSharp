@@ -5,14 +5,6 @@ open VSharp
 [<AutoOpen>]
 module internal Operators =
 
-    let rec refToInt term =
-        match term.term with
-        | Error _ -> term
-        | Concrete(null, _) -> Concrete term.metadata 0 Types.pointerType
-        | HeapRef(((addr, _), _), _, _, _) -> addr
-        | Union gvs -> Merging.guardedMap refToInt gvs
-        | _ -> term
-
     let simplifyBinaryOperation mtd op isChecked state (t: System.Type) left right k =
         let t1 = Terms.typeOf left
         let t2 = Terms.typeOf right

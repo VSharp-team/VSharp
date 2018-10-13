@@ -490,6 +490,11 @@ module internal Arithmetics =
 
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
+    and fastNumericCompare mtd n m =
+        if n = m then makeTrue mtd
+        elif isConcrete n && isConcrete m then makeFalse mtd
+        else makeBinary OperationType.Equal n m false Bool mtd
+
     and private simplifyConcreteComparison operator mtd _ state _ x y =
         let bx = box x
         let by = box y
