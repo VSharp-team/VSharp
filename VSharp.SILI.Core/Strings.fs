@@ -31,7 +31,7 @@ module internal Strings =
             let str1Arr = fieldsOfX.[strArray].value
             let str2Arr = fieldsOfY.[strArray].value
             simplifyEqual mtd str1Len str2Len (fun lengthEq ->
-            simplifyAnd mtd lengthEq (Arrays.equalsArrayIndices mtd str1Arr str2Arr) id)
+            simplifyAnd mtd lengthEq (Arrays.equals mtd str1Arr str2Arr) id)
         | _ -> __notImplemented__()
 
     let simplifyConcatenation mtd x y =

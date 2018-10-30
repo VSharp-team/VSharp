@@ -111,7 +111,7 @@ module internal Pointers =
     let private equalPathSegment mtd x y =
         match x, y with
         | StructField(field1, typ1), StructField(field2, typ2) -> makeBool (field1 = field2) mtd &&& typesEqual mtd typ1 typ2
-        | ArrayIndex(addr1, _), ArrayIndex(addr2, _) -> Arrays.equalsArrayIndices mtd addr1 addr2
+        | ArrayIndex(addr1, _), ArrayIndex(addr2, _) -> Arrays.equalsIndicesArrays mtd addr1 addr2
         | ArrayLowerBound x, ArrayLowerBound y
         | ArrayLength x, ArrayLength y -> fastNumericCompare mtd x y
         | _ -> makeFalse mtd
@@ -140,10 +140,8 @@ module internal Pointers =
                 | _ -> makeFalse mtd |> k)
             (fun x y state k -> simplifyReferenceEqualityk mtd x y (withSnd state >> k))
 
-    let simplifyReferenceEquality mtd x y = simplifyReferenceEqualityk mtd x y id
-
     let isNull mtd ptr =
-        simplifyReferenceEquality mtd ptr (makeNullRef mtd)
+        simplifyReferenceEqualityk mtd ptr (makeNullRef mtd) id
 
     let rec private simplifySPDUnaryMinus mtd y ischk tp s k =
         simplifySPDExpression mtd y s k (fun y s k ->

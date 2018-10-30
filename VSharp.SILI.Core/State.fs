@@ -112,7 +112,7 @@ module internal State =
     let nameOfLocation = function
         | TopLevelStack(name, _), [] -> name
         | TopLevelStatics typ, [] -> toString typ
-        | TopLevelHeap (key, _, _), path ->
+        | TopLevelHeap(key, _, _), path ->
             toString key :: List.map printPathSegment path |> join "."
         | _, path -> path |> List.map printPathSegment |> join "."
 
@@ -280,6 +280,15 @@ module internal State =
         let metadata = metadataOfStackLocation state key
         let fql = TopLevelStack key, []
         { value = genericLazyInstantiator metadata fql t (); created = time; modified = time }
+
+    let mutable readHeap : termMetadata -> bool -> heap<term, term, fql> -> term -> termType -> term memoryCell =
+        fun _ _ _ -> internalfail "read heap is not ready"
+
+    let mutable readStatics : termMetadata -> bool -> heap<termType, term, fql> -> termType -> termType -> term memoryCell =
+        fun _ _ _ -> internalfail "read heap is not ready"
+
+    let mutable readTerm : termMetadata -> bool -> term memoryCell -> fql -> termType -> term memoryCell =
+        fun _ _ _ -> internalfail "read heap is not ready"
 
 // ------------------------------- Pretty-printing -------------------------------
 

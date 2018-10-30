@@ -1,19 +1,19 @@
-namespace VSharp.Core
+﻿namespace VSharp.Core
 
 open VSharp
 
 module internal Merging =
 
     type private MergeType =
-        | StructMerge
-        | ArrayMerge
+        | StructMerge of termType
+        | ArrayMerge of termType
         | BoolMerge
         | DefaultMerge
 
     let private mergeTypeOf term =
         match term.term with
-        | Struct _ -> StructMerge
-        | Array _ -> ArrayMerge
+        | Struct (_, t) -> StructMerge t
+        | Array (_, _, _, _, _, _, t) -> ArrayMerge t
         | _ when isBool term -> BoolMerge
         | _ -> DefaultMerge
 
@@ -21,6 +21,10 @@ module internal Merging =
         match term.term with
         | GuardedValues(gs, _) -> disjunction term.metadata gs
         | _ -> makeTrue term.metadata
+
+    let private readHeap = State.readHeap Metadata.empty
+    let private readStatics = State.readStatics Metadata.empty
+    let private readTerm = State.readTerm Metadata.empty
 
     let rec private boolMerge = function
         | [] -> []
@@ -33,6 +37,22 @@ module internal Merging =
             let guard = List.fold (|||) g (List.map fst gvs)
             let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs
             [(guard, value)]
+
+    and keysResolver<'a, 'b, 'c when 'c : equality> r (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper getter (k : heapKey<'c, fql>) hgvs =
+        let key = keyMapper k
+        let value = (List.pick thd3 hgvs).value
+        let instIfShould = function
+            | _, g, Some v -> (g, v)
+            | i, g, _ -> (g, cellMap (read r (getter i) key << typeOf) value)
+        mergeCells <| List.map instIfShould hgvs
+
+    and keysResolver2<'a, 'b, 'c, 'd when 'c : equality> r h1 h2 (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper resolve (k : heapKey<'c, fql>) v1 v2 : 'd =
+        let read h v = cellMap (read r h (keyMapper k) << typeOf) v.value
+        match v1, v2 with
+        | Some v1, Some v2 -> resolve v1 v2
+        | Some v, _ -> resolve v (read h2 v)
+        | _, Some v -> resolve (read h1 v) v
+        | _, _ -> __unreachable__()
 
     and private structMerge = function
         | [] -> []
@@ -48,8 +68,9 @@ module internal Merging =
                 | Struct(fs, _) -> fs
                 | t -> internalfailf "Expected struct, got %O" t
             let fss = vs |> List.map extractFields
-            let merged = Heap.merge gs fss mergeCells
-            [(True, Struct (fst x).metadata merged t)]
+            let getter i = {value = List.item i vs; created = Timestamp.zero; modified = Timestamp.zero}
+            let merged = keysResolver<term memoryCell, fql, string> false readTerm getFQLOfKey getter |> Heap.merge gs fss
+            [(Propositional.disjunction Metadata.empty gs, Struct (fst x).metadata merged t)]
 
     and private arrayMerge = function
         | [] -> []
@@ -70,11 +91,13 @@ module internal Merging =
                 |> fun info -> Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
             let d = List.unique ds
             let l = List.unique lens
-            let mergedLower = Heap.merge gs lows mergeCells
-            let mergedContents = Heap.merge gs contents mergeCells
-            let mergedLengths = Heap.merge gs lengths mergeCells
+            let getter i = {value = List.item i vs; created = Timestamp.zero; modified = Timestamp.zero}
+            let resolveKeys = keysResolver<term memoryCell, fql, term> false readTerm getFQLOfKey getter
+            let mergedLower =  Heap.merge gs lows resolveKeys
+            let mergedContents = Heap.merge gs contents resolveKeys
+            let mergedLengths = Heap.merge gs lengths resolveKeys
             let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame
-            [(True, Array Metadata.empty d l mergedLower mergedInit mergedContents mergedLengths t)]
+            [(Propositional.disjunction Metadata.empty gs, Array Metadata.empty d l mergedLower mergedInit mergedContents mergedLengths t)]
 
     and private simplify (|Unguard|_|) gvs =
         let rec loop gvs out =
@@ -108,8 +131,8 @@ module internal Merging =
     and private typedMerge gvs t =
         match t with
         | BoolMerge -> boolMerge gvs
-        | StructMerge -> structMerge gvs
-        | ArrayMerge -> arrayMerge gvs
+        | StructMerge _ -> structMerge gvs
+        | ArrayMerge _ -> arrayMerge gvs
         | DefaultMerge -> gvs
 
     and propagateGuard g v =
@@ -127,17 +150,14 @@ module internal Merging =
 
     and private compress = function
         | [] -> []
-        | [(g, v)] as gvs ->
-            match g with
-            | True -> gvs
-            | _ -> [propagateGuard g v]
+        | [(_, v)] -> [True, v]
         | [(_, v1); (_, v2)] as gvs when mergeTypeOf v1 = mergeTypeOf v2 -> typedMerge (mergeSame gvs) (mergeTypeOf v1)
         | [_; _] as gvs -> gvs
         | gvs ->
             gvs
             |> mergeSame
             |> List.groupBy (snd >> mergeTypeOf)
-            |> List.collect (fun (t, gvs) -> typedMerge gvs t)
+            |> List.collect (fun (t, gvs) -> if List.length gvs >= 2 then typedMerge gvs t else gvs)
 
     and merge gvs =
         match compress (simplify (|UnionT|_|) gvs) with
@@ -145,12 +165,12 @@ module internal Merging =
         | [(g, v)] when Terms.isBool v -> g &&& v
         | gvs' -> Union Metadata.empty gvs'
 
-    and mergeCells gcs =
+    and mergeCells (gcs : list<term * term memoryCell>) : term memoryCell=
         let foldCell (acc1, acc2, acc3) (g, cell) = ((g, cell.value)::acc1, min acc2 cell.created, max acc3 cell.modified)
         let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue)
         { value = merge gvs; created = c; modified = m }
 
-    let merge2Terms g h u v =
+    and merge2Terms g h u v =
         let g = guardOf u &&& g
         let h = guardOf v &&& h
         match g, h with
@@ -163,7 +183,7 @@ module internal Merging =
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
-    let merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : term memoryCell) ({value = v;created = cv;modified = mv} as vcell : term memoryCell) =
+    and merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : term memoryCell) ({value = v;created = cv;modified = mv} as vcell : term memoryCell) =
         let g = guardOf u &&& g
         let h = guardOf v &&& h
         match g, h with
@@ -176,7 +196,7 @@ module internal Merging =
         | _, ErrorT _ -> { vcell with value = h }
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
-    let mergeGeneralizedHeaps guards heaps =
+    and mergeGeneralizedHeaps<'a when 'a : equality> read guards (heaps : list<'a generalizedHeap>) =
         // TODO: get rid of extra zips/unzips
         let (|MergedHeap|_|) = function | Merged gvs -> Some gvs | _ -> None
         let guards, heaps = List.zip guards heaps |> simplify (|MergedHeap|_|) |> List.unzip
@@ -184,26 +204,27 @@ module internal Merging =
         let defined, undefined =
             heaps
                 |> List.zip guards
-                |> List.mappedPartition (function | (g, Defined(r, s)) -> Some(g, r, s) | _ -> None)
+                |> List.mappedPartition (function (g, Defined(r, s)) -> Some(g, r, s) | _ -> None)
         if defined.IsEmpty then
             undefined |> mergeSame |> Merged
         else
             let definedGuards, restricted, definedHeaps = List.unzip3 defined
             let restricted = List.unique restricted
-            let definedHeap = Heap.merge definedGuards definedHeaps mergeCells |> State.Defined restricted
+            let getter i = List.item i definedHeaps
+            let definedHeap = Heap.merge definedGuards definedHeaps (keysResolver restricted read Heap.getKey getter) |> State.Defined restricted
             if undefined.IsEmpty then definedHeap
             else
                 let definedGuard = disjunction Metadata.empty definedGuards
                 (definedGuard, definedHeap)::undefined |> mergeSame |> Merged
 
-    let private merge2GeneralizedHeaps g1 g2 h1 h2 resolve =
+    and private merge2GeneralizedHeaps g1 g2 h1 h2 read resolve =
         match h1, h2 with
         | Defined(r1, h1), Defined(r2, h2) ->
             assert(r1 = r2)
-            Heap.merge2 h1 h2 resolve |> State.Defined r1
-        | _ -> mergeGeneralizedHeaps [g1; g2] [h1; h2]
+            Heap.merge2 h1 h2 (keysResolver2 r1 h1 h2 read Heap.getKey resolve) |> State.Defined r1
+        | _ -> mergeGeneralizedHeaps read [g1; g2] [h1; h2]
 
-    let merge2States condition1 condition2 (state1 : state) (state2 : state) =
+    and merge2States condition1 condition2 (state1 : state) (state2 : state) =
         match condition1, condition2 with
         | True, _ -> state1
         | False, _ -> state2
@@ -214,11 +235,11 @@ module internal Merging =
             assert(state1.frames = state2.frames)
             let resolve = merge2Cells condition1 condition2
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
-            let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap resolve
-            let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics resolve
+            let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap readHeap resolve
+            let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
             { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
 
-    let mergeStates conditions states : state =
+    and mergeStates conditions states : state =
         assert(List.length states > 0)
         let first : state = List.head states
         let frames = first.frames
@@ -228,11 +249,11 @@ module internal Merging =
         assert(states |> List.forall (fun s -> s.pc = path))
         assert(states |> List.forall (fun s -> s.typeVariables = tv))
         let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells (State.stackLazyInstantiator first)
-        let mergedHeap = mergeGeneralizedHeaps conditions (List.map State.heapOf states)
-        let mergedStatics = mergeGeneralizedHeaps conditions (List.map State.staticsOf states)
+        let mergedHeap = mergeGeneralizedHeaps readHeap conditions (List.map State.heapOf states)
+        let mergedStatics = mergeGeneralizedHeaps readStatics conditions (List.map State.staticsOf states)
         { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
 
-    let genericSimplify gvs =
+    and genericSimplify gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
@@ -241,11 +262,16 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs [] |> mergeSame
 
-    let commonGuardedMapk mapper gvs merge k =
+    and commonGuardedMapk mapper gvs merge k =
         let gs, vs = List.unzip gvs
         Cps.List.mapk mapper vs (List.zip gs >> merge >> k)
-    let guardedMapk mapper gvs k = commonGuardedMapk mapper gvs merge k
-    let guardedMap mapper gvs = guardedMapk (Cps.ret mapper) gvs id
+    and commonGuardedMap mapper gvs merge = commonGuardedMapk (Cps.ret <| mapper) gvs merge id
+    and guardedMapk mapper gvs k = commonGuardedMapk mapper gvs merge k
+    and guardedMap mapper gvs = guardedMapk (Cps.ret mapper) gvs id
+
+    and cellMap f = function
+        | UnionT gvs -> commonGuardedMapk (Cps.ret f) gvs mergeCells id
+        | t -> f t
 
     let commonGuardedStateMapk mapper gvs state merge k =
         let gs, vs = List.unzip gvs

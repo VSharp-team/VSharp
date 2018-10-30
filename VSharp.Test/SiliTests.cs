@@ -171,6 +171,7 @@ namespace VSharp.Test
                 , "McCarthy91"
 //                , "Lambdas"
 //                , "ClassesSimple"
+                , "ClassesSimpleHierarchy"
 //                , "StaticClass"
 //                , "StaticMembers"
 //                , "TryCatch"
@@ -189,11 +190,6 @@ namespace VSharp.Test
                 , "Array"
 //                , "Unsafe"
             };
-
-            if (!Environment.OSVersion.ToString().Contains("Windows"))
-            {
-                ignoredTypes.Add("ClassesSimpleHierarchy");
-            }
 
             var failReason = new StringBuilder();
             string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);

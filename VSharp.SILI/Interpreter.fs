@@ -790,25 +790,26 @@ module internal Interpreter =
         let k = mapsnd Memory.PopTypeVariables >> k
         let qualifiedTypeName = ast.FieldSpecification.Field.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (statementResult, state) ->
-            let readFieldLocal () =
+            let readFieldLocal state k =
                 reduceExpressionToRef state true ast.Target (fun (target, state) ->
-                readField ast state target ast.FieldSpecification.Field k)
+                readField ast state target ast.FieldSpecification.Field (fun (res, state) ->
+                k (ControlFlow.ThrowOrReturn res, state)))
             failOrInvoke
                 statementResult
                 state
-                (fun k -> readFieldLocal ())
+                (fun k -> readFieldLocal state k)
                 (fun _ _ _ state k -> k (statementResult, state))
-                (fun _ _ _ state k -> readFieldLocal ())
-                (fun (r, s) -> k ((ControlFlow.ResultToTerm r), s))))
+                (fun _ _ _ state k -> readFieldLocal state k)
+                (fun (r, s) -> k (ControlFlow.ResultToTerm r, s))))
 
-    and readField caller state target (field : JetBrains.Metadata.Reader.API.IMetadataField) k =
+    and readField caller state target (field : JetBrains.Metadata.Reader.API.IMetadataField) (k : term * state -> 'a) =
         let fieldName = DecompilerServices.idOfMetadataField field
         let fieldType = MetadataTypes.fromMetadataType state field.Type
         let k = Enter caller state k
         if field.IsStatic then
             let targetType = field.DeclaringType.AssemblyQualifiedName |> Type.GetType |> Types.FromDotNetType state
             let reference, state = Memory.ReferenceStaticField state false fieldName fieldType targetType
-            k (Memory.Dereference state reference)
+            Memory.Dereference state reference |> k
         else
             let reference, state = Memory.ReferenceField state false fieldName fieldType target
             Memory.Dereference state reference |> k
@@ -1106,18 +1107,18 @@ module internal Interpreter =
                         let address, state = Memory.ReferenceStaticField state false name (MetadataTypes.fromMetadataType state typ) termType
                         reduceExpression state expression (fun (value, state) ->
                         let statementResult = ControlFlow.ThrowOrIgnore value
-                        let mutate value k =
+                        let mutate value state k =
                             let term, state = Memory.Mutate state address value
                             k (ControlFlow.ThrowOrIgnore term, state)
                         failOrInvoke
                             statementResult
                             state
-                            (fun k -> mutate value k)
+                            (fun k -> mutate value state k)
                             (fun _ exn _ state k ->
                                 // TODO: uncomment it when ref and out will be Implemented
                                 (* RuntimeExceptions.TypeInitializerException qualifiedTypeName exn state Throw |> k*)
                                 k (Throw exn, state))
-                            (fun _ _ normal _ k -> mutate (ControlFlow.ResultToTerm (Guarded normal)) k)
+                            (fun _ _ normal state k -> mutate (ControlFlow.ResultToTerm (Guarded normal)) state k)
                             k)
                 let fieldInitializers = Seq.map initOneField fieldInitializerExpressions
                 reduceSequentially state fieldInitializers (fun (result, state) ->
@@ -1207,7 +1208,7 @@ module internal Interpreter =
                 let stackKey = "constructed instance", "constructed instance"
                 let freshValue = Memory.MakeDefaultStruct constructedTermType (TopLevelStack stackKey, [])
                 let state = Memory.NewScope state [(stackKey, Specified freshValue, constructedTermType)]
-                (Memory.ReferenceLocalVariable state stackKey false, state)
+                Memory.ReferenceLocalVariable state stackKey false, state
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let invokeInitializers result state (result', state') k =
             let r = ControlFlow.ComposeSequentially result result' state state'
