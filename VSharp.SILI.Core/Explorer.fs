@@ -34,7 +34,7 @@ module internal Explorer =
 
     let private formInitialStatics metadata typ =
         let staticMemoryEntry = Struct metadata Heap.empty typ
-        Heap.empty.Add(typ, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
+        Heap.empty.Add(makeTopLevelKey TopLevelStatics typ, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
 
     let private invoke id state this k =
         interpreter.Invoke id state this k
@@ -129,7 +129,8 @@ module internal Explorer =
                 let name = sprintf "μ[%O, %s]" funcId (fst frame.key)
                 let typ = frame.typ
                 let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-                let value = Memory.makeSymbolicInstance mtd source source name typ
+                let fql = makeTopLevelFQL TopLevelStack frame.key
+                let value = Memory.makeSymbolicInstance mtd source source name fql typ
                 Memory.mutateStack mtd st frame.key [] time value
             di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
         | _ -> state
@@ -137,7 +138,7 @@ module internal Explorer =
     let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state k =
         let typ = funcId.ReturnType
         let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Memory.makeSymbolicInstance mtd source source name typ |> k
+        Memory.makeSymbolicInstance mtd source source name None typ |> k
 
     let recursionApplication mtd (funcId : IFunctionIdentifier) state addr time k =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId

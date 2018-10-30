@@ -50,7 +50,7 @@ type termNode =
                * symbolicHeap                             // Lengths by dimensions
                * termType                                 // Type
     | Expression of operation * term list * termType
-    | Struct of heap<string, term> * termType
+    | Struct of heap<string, term, fql> * termType
     | Ref of topLevelAddress * pathSegment list
     | Ptr of topLevelAddress * pathSegment list * termType * term option // contents * type sight * indent
     | Union of (term * term) list
@@ -217,6 +217,8 @@ and pathSegment =
     | ArrayLowerBound of term
     | ArrayLength of term
 
+and fql = topLevelAddress * pathSegment list
+
 and
     [<StructuralEquality;NoComparison>]
     arrayInstantiator =
@@ -238,7 +240,7 @@ and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
 
-and symbolicHeap = heap<term, term>
+and symbolicHeap = heap<term, term, fql>
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
@@ -273,12 +275,26 @@ module internal Terms =
     let HeapRef metadata addr baseType sightType path = { term = Ref(TopLevelHeap(addr, baseType, sightType), path); metadata = metadata }
     let StaticRef metadata typ path = { term = Ref(TopLevelStatics typ, path); metadata = metadata }
     let StackPtr metadata key path typ = { term = Ptr(TopLevelStack key, path, typ, None); metadata = metadata }
-    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(TopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata } //TODO: is sightType equal ptrtype?
+    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(TopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata }
     let AnyPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, shift); metadata = metadata }
     let IndentedPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, Some shift); metadata = metadata }
     let Ref metadata topLevel path = { term = Ref(topLevel, path); metadata = metadata }
     let Ptr metadata topLevel path typ = { term = Ptr(topLevel, path, typ, None); metadata = metadata }
     let Union metadata gvs = { term = Union gvs; metadata = metadata }
+
+    let reverseFQL fql = Option.map (mapsnd List.rev) fql
+    let addToFQL key fql = mapsnd (cons key) fql
+    let addToOptionFQL fql key = Option.map (addToFQL key) fql
+    let makeTopLevelFQL constr key = Some (constr key, [])
+
+    let makeKey key fql = {key = key; FQL = reverseFQL fql}
+    let makeTopLevelKey constr key = {key = key; FQL = makeTopLevelFQL constr key}
+    let makePathKey fql constr key = {key = key; FQL = constr key |> addToOptionFQL fql |> reverseFQL}
+    let getFQLOfKey = function
+        | {FQL = Some fql} -> fql
+        | {FQL = None} as k -> internalfail "requested fql from unexpected key %O" k
+
+    let makeFQLRef metadata (tl, path) = Ref metadata tl path
 
     let castReferenceToPointer mtd targetType = term >> function
         | Ref(topLevel, path)

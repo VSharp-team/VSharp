@@ -337,6 +337,8 @@ module internal Types =
             let termType = fromDotNetType dotnetType
             fromTermType name source termType
 
+    let public Char = Numeric typedefof<char>
+
     let public String = fromDotNetType typedefof<string>
 
     let (|StringType|_|) = function

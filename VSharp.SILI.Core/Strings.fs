@@ -9,15 +9,17 @@ module internal Strings =
     let strLength = "System.String.m_StringLength"
     let strArray = "System.String.m_FirstChar"
 
-    let makeString metadata time (str : string) =
+    let makeString metadata time (str : string) fql =
         let fields =
             let stringTermLength = Concrete metadata str.Length lengthTermType
             let arraySource = (str + "\000").ToCharArray()
             let valMaker i = makeNumber arraySource.[i] metadata
-            let keyMaker i mtd = makeIntegerArray metadata (fun _ -> makeNumber i mtd) 1
-            let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) (Numeric typedefof<char>)
-            Heap.ofSeq (seq [ strLength, { value = stringTermLength; created = time; modified = time };
-                              strArray, { value = array; created = time; modified = time } ])
+            let keyMaker i mtd = makeIndexArray metadata (fun _ -> makeNumber i mtd) 1
+            let arrayFQL = addToOptionFQL fql <| StructField(strArray, ArrayType(Char, Vector))
+            let lengthFQL = addToOptionFQL fql <| StructField(strLength, Arrays.lengthTermType)
+            let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) Char arrayFQL
+            Heap.ofSeq (seq [ makeKey strLength lengthFQL, { value = stringTermLength; created = time; modified = time };
+                              makeKey strArray arrayFQL, { value = array; created = time; modified = time } ])
         Struct metadata fields String
 
     let simplifyEquality mtd x y =
