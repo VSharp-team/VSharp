@@ -54,17 +54,17 @@ module internal Memory =
 // ------------------------------- Traversal -------------------------------
 
     // TODO: path should NOT be accumulated, but taken from key metainfo
-    let inline private foldHeapLocationsRec folder acc loc typ path ctor heap =
-        Heap.fold (fun acc subloc cell -> folder acc loc typ (List.append path [ctor (subloc, cell.value)]) cell) acc heap
+    let inline private foldHeapLocationsRec folder acc loc typ heap =
+        Heap.foldFQL (fun acc subloc cell -> folder acc loc typ (snd <| getFQLOfKey subloc) cell) acc heap
 
     let rec private foldSubLocations folder acc loc typ path cell = // TODO: get rid of typ
         match cell.value.term with
         | Struct(contents, _) ->
-            foldHeapLocationsRec (foldSubLocations folder) acc loc typ path (mapsnd typeOf >> StructField) contents
+            foldHeapLocationsRec (foldSubLocations folder) acc loc typ contents
         | Array(_, _, lower, _, contents, lengths, _) ->
-            let acc = foldHeapLocationsRec (foldSubLocations folder) acc loc typ path (fst >> ArrayLowerBound) lower
-            let acc = foldHeapLocationsRec (foldSubLocations folder) acc loc typ path (fst >> ArrayLength) lengths
-            foldHeapLocationsRec (foldSubLocations folder) acc loc typ path (mapsnd typeOf >> ArrayIndex) contents
+            let acc = foldHeapLocationsRec (foldSubLocations folder) acc loc typ lower
+            let acc = foldHeapLocationsRec (foldSubLocations folder) acc loc typ lengths
+            foldHeapLocationsRec (foldSubLocations folder) acc loc typ contents
         | _ -> folder acc loc typ path cell
 
     let private foldHeapLocations folder acc heap =
@@ -94,16 +94,17 @@ module internal Memory =
         | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
-    let private mkStruct metadata time isStatic mkField dotNetType typ =
+    let private mkStruct metadata time isStatic mkField dotNetType typ fql =
+        let mkFieldKey typ name = StructField(name, typ)
         let fields = Types.fieldsOf dotNetType isStatic
         let contents =
             fields
             |> FSharp.Collections.Array.fold (fun acc (name, typ) ->
                 let value = mkField metadata name typ
-                Heap.add name { value = value; created = time; modified = time } acc) Heap.empty
+                Heap.add (makePathKey fql (mkFieldKey typ) name) { value = value; created = time; modified = time } acc) Heap.empty
         Struct metadata contents typ
 
-    let rec private defaultOf time metadata typ =
+    let rec private defaultOf time metadata typ fql =
         match typ with
         | Bool -> makeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete (System.Activator.CreateInstance t) t metadata
@@ -120,17 +121,17 @@ module internal Memory =
                 (fun k -> k <| makeNullRef metadata)
                 Merging.merge Merging.merge2Terms id
         | StructType(dotNetType, _) ->
-            mkStruct metadata time false (fun m _ t -> defaultOf time m t) dotNetType typ
+            mkStruct metadata time false (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dotNetType typ fql
         | Pointer typ -> makeNullPtr metadata typ
         | _ -> __notImplemented__()
 
-    let mkDefault metadata typ =
-        defaultOf (tick()) metadata typ
+    let mkDefault metadata typ fql =
+        defaultOf (tick()) metadata typ fql
 
-    let mkDefaultStruct metadata isStatic targetType =
+    let mkDefaultStruct metadata isStatic targetType fql =
         let dnt = toDotNetType targetType
         let time = tick()
-        mkStruct metadata time isStatic (fun m _ t -> defaultOf time m t) dnt targetType
+        mkStruct metadata time isStatic (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dnt targetType fql
 
     let private makeSymbolicHeapReference metadata (source : IExtractingSymbolicConstantSource) name typ construct =
         let source' = source.WithExtractor(Pointers.HeapAddressExtractor())
@@ -143,43 +144,43 @@ module internal Memory =
     let private makeSymbolicArrayRank metadata (source : IExtractingSymbolicConstantSource) arrayName =
         Constant metadata ("RankOf_%s" + arrayName) (source.WithExtractor(Arrays.RankExtractor())) Arrays.lengthTermType
 
-    let private makeSymbolicArrayLowerBound metadata time name location heap =
+    let private makeSymbolicArrayLowerBound metadata time name fql heap =
         match Options.ExplorationMode() with
-        | TrustConventions -> defaultOf time metadata Arrays.lengthTermType
+        | TrustConventions -> defaultOf time metadata Arrays.lengthTermType <| Some fql
         | CompleteExploration ->
-            Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
+            Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
 
-    let private makeSymbolicArrayLength metadata name location heap =
-        Constant metadata name {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
+    let private makeSymbolicArrayLength metadata name fql heap =
+        Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
 
-    let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
+    let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             match Options.ExplorationMode() with
-            | TrustConventions -> Arrays.zeroLowerBound metadata dimension
+            | TrustConventions -> Arrays.zeroLowerBound metadata dimension fql
             | CompleteExploration ->
                 let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
                 let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber i metadata)} Arrays.lengthTermType
-                Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
+                Seq.foldi (fun h i l -> Heap.add (makePathKey fql ArrayLowerBound <| makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
         | _ -> __notImplemented__()
 
-    let private makeSymbolicArrayLengths metadata (source : IExtractingSymbolicConstantSource) arrayName dimension =
+    let private makeSymbolicArrayLengths metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             let idOfLength i = sprintf "%s.%i_Length" arrayName i
             let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber i metadata)} Arrays.lengthTermType
             let lengths = Seq.init dimension mkLength
             let length = Seq.reduce (mul metadata) lengths
-            Seq.foldi (fun h i l -> Heap.add (makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
+            Seq.foldi (fun h i l -> Heap.add (makePathKey fql ArrayLength <| makeNumber i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
         | _ -> __notImplemented__()
 
-    let private makeSymbolicArray metadata (source : IExtractingSymbolicConstantSource) dimension elemTyp typ arrayName =
+    let private makeSymbolicArray metadata (source : IExtractingSymbolicConstantSource) dimension elemTyp typ arrayName fql =
         let arrayConstant = Constant metadata arrayName source typ
         let instantiator = [True, LazyInstantiator(arrayConstant, elemTyp)]
         let lowerBound, arrayLengths, arrayLength, dim =
             let makeConcrete d =
-                let lb = makeSymbolicArrayLowerBounds metadata source arrayName d
-                let al, length = makeSymbolicArrayLengths metadata source arrayName d
+                let lb = makeSymbolicArrayLowerBounds metadata source arrayName d fql
+                let al, length = makeSymbolicArrayLengths metadata source arrayName d fql
                 lb, al, length, makeNumber d metadata
             match dimension with
             | Vector -> makeConcrete 1
@@ -189,7 +190,7 @@ module internal Memory =
                 Heap.empty, Heap.empty, length, makeSymbolicArrayRank metadata source arrayName
         Array metadata dim arrayLength lowerBound instantiator Heap.empty arrayLengths typ
 
-    let makeSymbolicInstance metadata (source : IExtractingSymbolicConstantSource) (typeSource: IExtractingSymbolicTypeSource) name = function
+    let makeSymbolicInstance metadata (source : IExtractingSymbolicConstantSource) (typeSource: IExtractingSymbolicTypeSource) name fql = function
         | Pointer typ -> makeSymbolicHeapReference metadata source name typ (fun mtd tl bTyp sTyp path -> HeapPtr mtd tl bTyp sTyp path sTyp)
         | Reference typ -> makeSymbolicHeapReference metadata source name typ HeapRef
         | t when Types.isPrimitive t || Types.isFunction t -> Constant metadata name source t
@@ -202,30 +203,30 @@ module internal Memory =
         | ArrayType(_, d) as t ->
             let t = Types.Variable.fromTermType name typeSource t
             let e = ArrayTypeExtractor().TypeExtract t
-            makeSymbolicArray metadata source d e t name
+            makeSymbolicArray metadata source d e t name fql
         | Void -> Nop
         | _ -> __notImplemented__()
 
-    let private genericLazyInstantiator<'a when 'a : equality> metadata heap fullyQualifiedLocation typ () =
-        let source : 'a lazyInstantiation = {location = fullyQualifiedLocation; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        makeSymbolicInstance metadata source source (nameOfLocation fullyQualifiedLocation) typ
+    let private genericLazyInstantiator<'a when 'a : equality> metadata heap fql typ () =
+        let source : 'a lazyInstantiation = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+        makeSymbolicInstance metadata source source (nameOfLocation fql) (Some fql) typ
 
     let () =
         State.genericLazyInstantiator <- fun mtd -> genericLazyInstantiator mtd None
 
-    let private arrayElementLazyInstantiator metadata instantiator typ heap time location idx = function
-        | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata (typ |?? concreteType)
+    let private arrayElementLazyInstantiator metadata instantiator typ heap time fql idx = function
+        | DefaultInstantiator(_, concreteType) -> fun () -> defaultOf time metadata (typ |?? concreteType) <| Some fql
         | LazyInstantiator(array, concreteType) -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (toString array) (idx.term.IndicesToString())
-            let source = {location = location; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-            makeSymbolicInstance metadata source source id concreteType
-    let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time location (idx : term) = function
-        | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType
+            let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+            makeSymbolicInstance metadata source source id (Some fql) concreteType
+    let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time fql (idx : term) = function
+        | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType <| Some fql
         | LazyInstantiator(array, _) -> instantiator |?? fun () ->
             let name = sprintf "%O.%s_LowerBound" array (idx.term.IndicesToString())
-            makeSymbolicArrayLowerBound metadata time name location heap
+            makeSymbolicArrayLowerBound metadata time name fql heap
 
-    let private arrayLengthLazyInstantiator metadata instantiator _ heap _ location (idx : term) = function
+    let private arrayLengthLazyInstantiator metadata instantiator _ heap _ fql (idx : term) = function
         | DefaultInstantiator(_, _) -> fun () ->
             // In case when array was allocated during the interpretation (and thus has default instantiator) lengths by
             // all dimensions are known (they can be symbolic, but still defined). If this code triggers then we have
@@ -234,20 +235,20 @@ module internal Memory =
             makeNumber 1 metadata
         | LazyInstantiator(array, _) -> instantiator |?? fun () ->
             let name = sprintf "%O.%s_Length" array (idx.term.IndicesToString())
-            makeSymbolicArrayLength metadata name location heap
+            makeSymbolicArrayLength metadata name fql heap
 
     let private staticMemoryLazyInstantiator metadata t () =
         Struct metadata Heap.empty (fromDotNetType t)
 
-    let private selectLazyInstantiator<'a when 'a : equality> metadata (heap : 'a generalizedHeap option) time fullyQualifiedLocation typ =
-        match fullyQualifiedLocation.term with
-        | Ref(_, (_::_ as path)) when isArrayLengthSeg <| List.last path -> fun () -> makeSymbolicArrayLength metadata (nameOfLocation fullyQualifiedLocation + "_Length") fullyQualifiedLocation heap
-        | Ref(_, (_::_ as path)) when isArrayLowerBoundSeg <| List.last path -> fun () -> makeSymbolicArrayLowerBound metadata time (nameOfLocation fullyQualifiedLocation + "_LowerBound") fullyQualifiedLocation heap
-        | _ -> genericLazyInstantiator<'a> metadata heap fullyQualifiedLocation typ
+    let private selectLazyInstantiator<'a when 'a : equality> metadata (heap : 'a generalizedHeap option) time fql typ =
+        match fql with
+        | _, (_::_ as path) when isArrayLengthSeg <| List.last path -> fun () -> makeSymbolicArrayLength metadata (nameOfLocation fql + "_Length") fql heap
+        | _, (_::_ as path) when isArrayLowerBoundSeg <| List.last path -> fun () -> makeSymbolicArrayLowerBound metadata time (nameOfLocation fql + "_LowerBound") fql heap
+        | _ -> genericLazyInstantiator<'a> metadata heap fql typ
 
 // ------------------------------- Locations comparison -------------------------------
 
-    type private 'key pointerInfo = { location : 'key; fullyQualifiedLocation : term; typ : termType; time : timestamp; path : pathSegment list; isTopLevel : bool }
+    type private 'key pointerInfo = { location : 'key; fullyQualifiedLocation : fql; typ : termType; time : timestamp; path : pathSegment list; isTopLevel : bool }
 
     let private canPoint mtd keyCompare pointerAddr pointerType locationAddr locationValue =
         // TODO: what if locationType is Null?
@@ -261,8 +262,8 @@ module internal Memory =
         if isConcrete addrEqual then addrEqual else addrEqual &&& typeEqual
 
     let private findSuitableLocations<'key when 'key : equality> mtd h keyCompare contextList mapper (ptr : 'key pointerInfo) =
-        let filterMapKey (k : 'key, cell) =
-            let k, v = List.fold mapper (k, cell.value) contextList
+        let filterMapKey (k : heapKey<'key, fql>, cell) =
+            let k, v = List.fold mapper (k.key, cell.value) contextList
             let cell = {cell with value = v}
             let guard = canPoint mtd keyCompare ptr.location ptr.typ k v
             match guard with
@@ -282,20 +283,20 @@ module internal Memory =
             let lazyInstance = {value = instantiateLazy(); created = time; modified = time }
             (lazyInstance, writeStackLocation state location lazyInstance)
 
-    let private writeHeap time guard h addr newValue =
+    let private writeHeap time guard h addr newValue fql =
         assert(Heap.contains addr h)
         let oldCell = Heap.find addr h
         let cell = Merging.merge2Cells guard !!guard { oldCell with value = newValue; modified = time } oldCell
-        Heap.add addr cell h
+        Heap.add (makeKey addr <| Some fql) cell h
 
 // ------------------------------- Core -------------------------------
 
-    let rec private accessHeap<'a, 'key when 'a : equality and 'key : equality> read restricted metadata (groundHeap:'a generalizedHeap option) guard update (h : heap<'key, term>) time keyCompare contextList mapper lazyInstantiator ptr =
+    let rec private accessHeap<'a, 'key when 'a : equality and 'key : equality> read restricted metadata (groundHeap:'a generalizedHeap option) guard update (h : heap<'key, term, fql>) time keyCompare contextList mapper lazyInstantiator ptr =
         let accessRec gvas lazyValue h =
             let gvs, (h', newTime) = gvas |> ((h, Timestamp.zero) |> List.mapFold (fun (h, maxTime) (guard', addr, cell) ->
                 let guard'' = guard &&& guard'
                 let accessedValue, newBaseValue, newTime = accessTerm read metadata groundHeap guard update contextList lazyInstantiator cell.created cell.modified ptr.time ptr.fullyQualifiedLocation ptr.path cell.value
-                let h' = if read || cell.value = newBaseValue then h else writeHeap newTime guard'' h addr newBaseValue
+                let h' = if read || cell.value = newBaseValue then h else writeHeap newTime guard'' h addr newBaseValue ptr.fullyQualifiedLocation
                 ((guard, accessedValue), (h', max maxTime newTime))))
             (Merging.merge (optCons gvs lazyValue), h', newTime)
         if Heap.contains ptr.location h then
@@ -315,7 +316,7 @@ module internal Memory =
                 let baseCell = { value = lazyValue; created = time; modified = time}
                 let gavs = if shouldLazyInstantiate then restGavs else (baseGuard, ptr.location, baseCell)::restGavs
                 let lv = if shouldLazyInstantiate then Some(baseGuard, lazyValue) else None
-                let h = if shouldLazyInstantiate then h else h.Add(ptr.location, baseCell)
+                let h = if shouldLazyInstantiate then h else h.Add(makeKey ptr.location <| Some ptr.fullyQualifiedLocation, baseCell)
                 accessRec gavs lv h
             | Some(g, a, v) -> accessRec ((g, a, v)::restGavs) None h
 
@@ -328,7 +329,7 @@ module internal Memory =
             match term.term with
             | Error _ -> term, term, modified
             | Struct(fields, t) ->
-                let fql' = referenceSubLocations [location] ptrFql
+                let fql' = addToFQL location ptrFql
                 match location with
                 | StructField(name, typ) ->
                     let instantiator = if read then lazyInstantiator else genericLazyInstantiator<'a> term.metadata groundHeap fql' typ
@@ -338,7 +339,7 @@ module internal Memory =
                     result, Struct term.metadata newFields t, newTime
                 | _ -> __unreachable__()
             | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
-                let fql' = referenceSubLocations [location] ptrFql
+                let fql' = addToFQL location ptrFql
                 let newHeap heap instor keyCompare ptr = accessHeap<'a, term> read false metadata groundHeap guard update heap created keyCompare contextList termKeyMapper instor ptr
                 let makePtr key typ = {location = key; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path'; isTopLevel = false }
                 let makeInstantiator key instantiator =
@@ -366,10 +367,10 @@ module internal Memory =
                 internalfailf "expected complex type, but got %O" t
 
     and private commonHierarchicalStackAccess read update metadata state location path =
-        let firstLocation = stackLocationToReference state location
+        let firstLocation = TopLevelStack location, []
         let time = frameTime state location
         let cell, _ = stackDeref time (fun () -> (stackLazyInstantiator state time location).value) state location
-        let termLazyInstantiator = if read && not (List.isEmpty path) then genericLazyInstantiator metadata None (StackRef metadata location path) (path |> List.last |> typeOfPathSegment) else __unreachable__
+        let termLazyInstantiator = if read && not (List.isEmpty path) then genericLazyInstantiator metadata None (TopLevelStack location, path) (path |> List.last |> typeOfPathSegment) else __unreachable__
         let accessedValue, newBaseValue, newTime = accessTerm read metadata None (makeTrue metadata) update [] termLazyInstantiator cell.created cell.modified time firstLocation path cell.value
         let newState = if read || cell.value = newBaseValue then state else writeStackLocation state location { cell with value = newBaseValue; modified = newTime }
         accessedValue, newState
@@ -377,15 +378,15 @@ module internal Memory =
     and private termKeyMapper (k, v) (ctx, s) = fillHoles ctx s k, fillHoles ctx s v
 
     and private commonHierarchicalHeapAccess read restricted update metadata groundHeap heap contextList lazyInstantiator addr typ path time =
-        let firstLocation = HeapRef metadata addr typ typ []
+        let firstLocation = TopLevelHeap(addr, typ, typ), []
         let typ' = if List.isEmpty path then typ else path |> List.last |> typeOfPathSegment
-        let lazyInstantiator = lazyInstantiator |?? selectLazyInstantiator<term> metadata groundHeap time.v (HeapRef metadata addr typ typ' path) typ'
+        let lazyInstantiator = lazyInstantiator |?? selectLazyInstantiator<term> metadata groundHeap time.v (TopLevelHeap(addr, typ, typ'), path) typ'
         let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = typ; time = time.v; path = path; isTopLevel = true}
         accessHeap<term, term> read restricted metadata groundHeap (makeTrue metadata) update heap Timestamp.zero Pointers.simplifyReferenceEquality contextList termKeyMapper lazyInstantiator ptr
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
-        let lazyInstantiator = lazyInstantiator |?? genericLazyInstantiator<termType> metadata groundHeap (StaticRef metadata typ path) (if path.IsEmpty then typ else path |> List.last |> typeOfPathSegment)
-        let ptr = {location = typ; fullyQualifiedLocation = StaticRef metadata typ []; typ = typ; time = Timestamp.infinity; path = path; isTopLevel = true }
+        let lazyInstantiator = lazyInstantiator |?? genericLazyInstantiator<termType> metadata groundHeap (TopLevelStatics typ, path) (if path.IsEmpty then typ else path |> List.last |> typeOfPathSegment)
+        let ptr = {location = typ; fullyQualifiedLocation = TopLevelStatics typ, []; typ = typ; time = Timestamp.infinity; path = path; isTopLevel = true }
         let mapper (k, v) (ctx, s) = substituteTypeVariables ctx s k, fillHoles ctx s v
         accessHeap<termType, termType> read restricted metadata groundHeap (makeTrue metadata) update statics Timestamp.zero Common.typesEqual contextList mapper lazyInstantiator ptr
 
@@ -514,7 +515,7 @@ module internal Memory =
         let v = fillHoles ctx source cell.value
         mutateStack ctx.mtd target addr path time v
 
-    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (fillKey : compositionContext -> state -> 'a -> 'a) (ctx : compositionContext) restricted source (target : heap<'a, term>) addr typ path cell : heap<'a, term> =
+    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (fillKey : compositionContext -> state -> 'a -> 'a) (ctx : compositionContext) restricted source (target : heap<'a, term, fql>) addr typ path cell : heap<'a, term, fql> =
         let time = Timestamp.compose ctx.time cell.modified
         let addr = fillKey ctx source addr
         let path = List.map (fillHolesInPathSegment ctx source) path
@@ -686,7 +687,7 @@ module internal Memory =
                 Common.statedConditionalExecution state
                     (fun state k -> checkIndices metadata state arrayRef indices k)
                     (fun state k ->
-                        let location = Arrays.makeIntegerArray metadata (fun i -> indices.[i]) indices.Length
+                        let location = Arrays.makeIndexArray metadata (fun i -> indices.[i]) indices.Length
                         let result = referenceSubLocations [ArrayIndex(location, elementType)] arrayRef
                         k (result, state))
                     (fun state k ->
@@ -713,40 +714,41 @@ module internal Memory =
         let stackFrames = Stack.updateHead s.frames.f { func = frameMetadata; entries = newEntries :: oldFrame; time = frameTime }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
 
-    let private allocateInDefinedHeap (h : heap<'a, term>) address term time =
-        h.Add(address, {value = term; created = time; modified = time })
+    let private allocateInDefinedHeap (h : heap<'a, term, fql>) heapKey term time =
+        Heap.add heapKey { value = term; created = time; modified = time } h
 
-    let rec private allocateInGeneralizedHeap address term time = function
-        | Defined(r, h) -> allocateInDefinedHeap h address term time |> Defined r
+    let rec private allocateInGeneralizedHeap heapKey term time = function
+        | Defined(r, h) -> allocateInDefinedHeap h heapKey term time |> Defined r
         | Composition _
         | RecursiveApplication _
         | HigherOrderApplication _ as h ->
-            let mutatedHeap = allocateInDefinedHeap Heap.empty address term time
+            let mutatedHeap = allocateInDefinedHeap Heap.empty heapKey term time
             Mutation(h, mutatedHeap)
-        | Mutation(gh, h) -> Mutation(gh, allocateInDefinedHeap h address term time)
+        | Mutation(gh, h) -> Mutation(gh, allocateInDefinedHeap h heapKey term time)
         | Merged gvh ->
-            Merging.commonGuardedMapk (fun h k -> k <| allocateInGeneralizedHeap address term time h) gvh
+            Merging.commonGuardedMapk (fun h k -> k <| allocateInGeneralizedHeap heapKey term time h) gvh
                 (fun gvh ->
                     let g, h = List.unzip gvh
                     Merging.mergeGeneralizedHeaps g h) id
 
-    let allocateInHeap metadata s term : term * state =
-        let address = freshHeapLocation metadata
+    let allocateInHeap metadata s address term : term * state =
         let time = tick()
         let typ = typeOf term
         let ref = HeapRef metadata address typ typ []
-        (ref, { s with heap = allocateInGeneralizedHeap address term time s.heap } )
+        let heapKey = makeKey address <| makeTopLevelFQL TopLevelHeap (address, typ, typ)
+        (ref, { s with heap = allocateInGeneralizedHeap heapKey term time s.heap } )
 
     let allocateInStaticMemory (s : state) address term =
         let time = tick()
-        { s with statics = allocateInGeneralizedHeap address term time s.statics }
+        let heapKey = makeTopLevelKey TopLevelStatics address
+        { s with statics = allocateInGeneralizedHeap heapKey term time s.statics }
 
     let makeSymbolicThis metadata state token typ =
         let isRef = isReferenceType typ
         let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
         let thisStackRef = StackRef metadata thisKey []
         let source = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        let instance = makeSymbolicInstance metadata source source "this" (wrapReferenceType typ)
+        let instance = makeSymbolicInstance metadata source source "this" None (wrapReferenceType typ)
         if isRef
             then instance, state, false
             else
@@ -766,8 +768,8 @@ module internal Memory =
     let private mkKeyGuard mtd fillHolesInKey getter heap (key : 'a) =
         Constant mtd (IdGenerator.startingWith "hasKey#") ({ heap = heap; key = key; getter = {v=getter}; fillHolesInKey = {v=fillHolesInKey} } : 'a keyInitializedSource) Bool
 
-    let private guardOfDefinedHeap mtd fillHolesInKey getter key r (h : heap<'key, term>) =
-        if h.ContainsKey key then Merging.guardOf h.[key].value
+    let private guardOfDefinedHeap mtd fillHolesInKey getter key r (h : heap<'key, term, fql>) =
+        if Heap.contains key h then Merging.guardOf h.[key].value
         elif r then False
         else mkKeyGuard mtd fillHolesInKey getter (Defined r h) key
 

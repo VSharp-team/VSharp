@@ -77,11 +77,9 @@ module API =
         let False = False
 
         let MakeNullRef () = makeNullRef m.Value
-        let MakeDefault typ = Memory.mkDefault m.Value typ
+        let MakeDefault typ = Memory.mkDefault m.Value typ None
         let MakeNumber n = makeNumber n m.Value
         let MakeLambda body signature = Lambdas.make m.Value body signature
-        let MakeDefaultArray dimensions typ = Arrays.makeDefault m.Value dimensions typ
-        let MakeInitializedArray rank typ initializer = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer
 
         let TypeOf term = typeOf term
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
@@ -169,10 +167,38 @@ module API =
         let Mutate state reference value = Memory.mutate m.Value state reference value
 
         let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
-        let AllocateInHeap state term = Memory.allocateInHeap m.Value state term
-        let AllocateDefaultStatic state targetType = Memory.mkDefaultStruct m.Value true targetType |> Memory.allocateInStaticMemory state targetType
-        let MakeDefaultStruct termType = Memory.mkDefaultStruct m.Value false termType
-        let AllocateString str state = Strings.makeString m.Value (Memory.tick()) str |> Memory.allocateInHeap m.Value state
+
+        let AllocateInHeap state term =
+            let address = Memory.freshHeapLocation m.Value
+            Memory.allocateInHeap m.Value state address term
+
+        let AllocateDefaultStatic state targetType =
+            let fql = makeTopLevelFQL TopLevelStatics targetType
+            Memory.allocateInStaticMemory state targetType (Memory.mkDefaultStruct m.Value true targetType fql)
+
+        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value false termType
+
+        let AllocateDefaultStruct state typ =
+            let address = Memory.freshHeapLocation m.Value
+            let fql = TopLevelHeap(address, typ, typ), []
+            MakeDefaultStruct typ fql |> Memory.allocateInHeap m.Value state address
+
+        let AllocateDefaultArray state dimensions typ =
+            let address = Memory.freshHeapLocation m.Value
+            let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
+            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address
+
+        let AllocateInitializedArray state dimensions rank typ initializer =
+            let address = Memory.freshHeapLocation m.Value
+            let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
+            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address
+            let state = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer fql |> Mutate state ref |> snd
+            ref, state
+
+        let AllocateString str state =
+            let address = Memory.freshHeapLocation m.Value
+            let fql = makeTopLevelFQL TopLevelHeap (address, Types.String, Types.String)
+            Strings.makeString m.Value (Memory.tick()) str fql |> Memory.allocateInHeap m.Value state address
 
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state

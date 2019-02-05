@@ -38,7 +38,7 @@ module API =
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
-        val Struct : heap<string, term> -> termType -> term
+        val Struct : heap<string, term, fql> -> termType -> term
         val Union : (term * term) list -> term
 
         val True : term
@@ -48,8 +48,6 @@ module API =
         val MakeDefault : termType -> term
         val MakeNumber : 'a -> term
         val MakeLambda : 'a symbolicLambda -> termType -> term
-        val MakeDefaultArray : term list -> termType -> term
-        val MakeInitializedArray : int -> termType -> term -> term
 
         val TypeOf : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
@@ -148,7 +146,10 @@ module API =
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateInHeap : state -> term -> term * state
         val AllocateDefaultStatic : state -> termType -> state
-        val MakeDefaultStruct : termType -> term
+        val MakeDefaultStruct : termType -> fql -> term
+        val AllocateDefaultStruct : state -> termType -> term * state
+        val AllocateDefaultArray : state -> term list -> termType -> term * state
+        val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state
         val AllocateString : string -> state -> term * state
 
         val IsTypeNameInitialized : termType -> state -> term

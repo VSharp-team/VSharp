@@ -536,16 +536,17 @@ module internal Interpreter =
 
     and reduceLocalVariableDeclaration state (caller : locationBinding) (variableReference : ILocalVariableReferenceExpression) (initializer : IExpression) k =
         let name = variableReference.Variable.Name
+        let stackKey = name, getTokenBy <| Choice2Of2 variableReference.Variable
         let k = Enter caller state k
         let initialize k =
             let t = MetadataTypes.fromMetadataType state variableReference.Variable.Type
             match t with
-            | StructType _ when initializer = null -> k (MakeDefault t, state)
+            | StructType _ when initializer = null -> k (Memory.MakeDefaultStruct t (TopLevelStack stackKey, []), state)
             | _ -> reduceExpression state initializer k
         initialize (fun (initializer, state) ->
             let statementResult = ControlFlow.ThrowOrIgnore initializer
             let allocate state value statementResult k =
-                let state' = Memory.AllocateOnStack state (name, getTokenBy (Choice2Of2 variableReference.Variable)) initializer
+                let state' = Memory.AllocateOnStack state stackKey initializer
                 k (statementResult, state')
             failOrInvoke
                 statementResult
@@ -1084,11 +1085,9 @@ module internal Interpreter =
         let k = Enter ast state k
         Cps.Seq.mapFoldk reduceExpression state ast.Dimensions (fun (dimensions, state) ->
         reduceExpressionList state ast.Initializer (fun (initializer, state) ->
-        let result =
-            match initializer.term with
-            | Concrete(null, _) -> MakeDefaultArray dimensions typ
-            | _ -> MakeInitializedArray (int ast.ArrayType.Rank) typ initializer
-        Memory.AllocateInHeap state result |> k))
+        match initializer.term with
+        | Concrete(null, _) -> k <| Memory.AllocateDefaultArray state dimensions typ
+        | _ -> k <| Memory.AllocateInitializedArray state dimensions (int ast.ArrayType.Rank) typ initializer))
 
     and initializeStaticMembersIfNeed (caller : locationBinding) state qualifiedTypeName k =
         let k = Enter caller state k
@@ -1200,15 +1199,15 @@ module internal Interpreter =
         let k = Enter caller state k
         let constructedTermType = MetadataTypes.fromMetadataType state constructedType
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType
-        let freshValue = Memory.MakeDefaultStruct constructedTermType
         let isReferenceType = MetadataTypes.isReferenceType constructedType
         let reference, state =
             if isReferenceType
-            then Memory.AllocateInHeap state freshValue
+            then Memory.AllocateDefaultStruct state constructedTermType
             else
-                let tempVar = "constructed instance"
-                let state = Memory.NewScope state [((tempVar, tempVar), Specified freshValue, TypeOf freshValue)]
-                (Memory.ReferenceLocalVariable state (tempVar, tempVar) false, state)
+                let stackKey = "constructed instance", "constructed instance"
+                let freshValue = Memory.MakeDefaultStruct constructedTermType (TopLevelStack stackKey, [])
+                let state = Memory.NewScope state [(stackKey, Specified freshValue, constructedTermType)]
+                (Memory.ReferenceLocalVariable state stackKey false, state)
         initializeStaticMembersIfNeed caller state qualifiedTypeName (fun (result, state) ->
         let invokeInitializers result state (result', state') k =
             let r = ControlFlow.ComposeSequentially result result' state state'

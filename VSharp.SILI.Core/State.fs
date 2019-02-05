@@ -15,11 +15,11 @@ type entry = { key : stackKey; mtd : termMetadata; typ : termType }
 type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list; time : timestamp }
 type frames = { f : stackFrame stack; sh : stackHash }
 type 'key generalizedHeap when 'key : equality =
-    | Defined of bool * heap<'key, term>  // bool = restricted
+    | Defined of bool * heap<'key, term, fql>  // bool = restricted
     | HigherOrderApplication of term * concreteHeapAddress * timestamp
     | RecursiveApplication of IFunctionIdentifier * concreteHeapAddress * timestamp
     | Composition of state * compositionContext * 'key generalizedHeap
-    | Mutation of 'key generalizedHeap * heap<'key, term>
+    | Mutation of 'key generalizedHeap * heap<'key, term, fql>
     | Merged of (term * 'key generalizedHeap) list
 and staticMemory = termType generalizedHeap
 and typeVariables = mappedStack<typeId, termType> * typeId list stack
@@ -109,13 +109,12 @@ module internal State =
         | ArrayLowerBound i
         | ArrayLength i -> i.term.IndicesToString()
 
-    let nameOfLocation = term >> function
-        | Ref(TopLevelStack(name, _), []) -> name
-        | Ref(TopLevelStatics typ, []) -> toString typ
-        | Ref(TopLevelHeap (key, _, _), path) ->
+    let nameOfLocation = function
+        | TopLevelStack(name, _), [] -> name
+        | TopLevelStatics typ, [] -> toString typ
+        | TopLevelHeap (key, _, _), path ->
             toString key :: List.map printPathSegment path |> join "."
-        | Ref(_, path) -> path |> List.map printPathSegment |> join "."
-        | l ->  internalfailf "requested name of an unexpected location %O" l
+        | _, path -> path |> List.map printPathSegment |> join "."
 
     let readStackLocation (s : state) key = MappedStack.find key s.stack
     let readHeapLocation (s : symbolicHeap) key = s.heap.[key].value
@@ -213,9 +212,6 @@ module internal State =
     let withHeap (s : state) h' = { s with heap = h' }
     let withStatics (s : state) m' = { s with statics = m' }
 
-    let stackLocationToReference state location =
-        StackRef (metadataOfStackLocation state location) location []
-
     let private heapKeyToString = term >> function
         | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
         | t -> toString t
@@ -276,13 +272,13 @@ module internal State =
     let configure act = activator <- act
     let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
 
-    let mutable genericLazyInstantiator : termMetadata -> term -> termType -> unit -> term =
+    let mutable genericLazyInstantiator : termMetadata -> fql -> termType -> unit -> term =
         fun _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let stackLazyInstantiator state time key =
         let t = typeOfStackLocation state key
         let metadata = metadataOfStackLocation state key
-        let fql = StackRef metadata key []
+        let fql = TopLevelStack key, []
         { value = genericLazyInstantiator metadata fql t (); created = time; modified = time }
 
 // ------------------------------- Pretty-printing -------------------------------
