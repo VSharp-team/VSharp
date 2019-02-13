@@ -14,7 +14,7 @@ module internal Arrays =
     let lengthType = typedefof<int>
     let lengthTermType = Numeric lengthType
 
-    let private mkArrayIndex typ idx = ArrayIndex(idx, typ)
+    let mkArrayIndex typ idx = ArrayIndex(idx, typ)
 
     let makeArray mtd length contents instantiator elemTyp fql =
         let zero = makeZeroIndex mtd
