@@ -130,19 +130,19 @@ module internal Explorer =
                 let typ = frame.typ
                 let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
                 let fql = makeTopLevelFQL TopLevelStack frame.key
-                let value = Memory.makeSymbolicInstance mtd source source name fql typ
+                let value = Memory.makeSymbolicInstance mtd time source source name fql typ
                 Memory.mutateStack mtd st frame.key [] time value
             di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
         | _ -> state
 
-    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state k =
+    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state time k =
         let typ = funcId.ReturnType
         let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Memory.makeSymbolicInstance mtd source source name None typ |> k
+        Memory.makeSymbolicInstance mtd time source source name None typ |> k
 
     let recursionApplication mtd (funcId : IFunctionIdentifier) state addr time k =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
-        functionApplicationResult mtd funcId name state (fun res ->
+        functionApplicationResult mtd funcId name state time (fun res ->
         let recursiveResult = ControlFlow.throwOrReturn res
         let heapSymbol = RecursiveApplication(funcId, addr, time)
         let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
@@ -155,7 +155,7 @@ module internal Explorer =
         let addr = [Memory.freshAddress()]
         let time = Memory.tick()
         let name = IdGenerator.startingWith <| sprintf "λ[%O]_" funcId
-        functionApplicationResult mtd funcId name state (fun res ->
+        functionApplicationResult mtd funcId name state time (fun res ->
         let higherOrderResult = ControlFlow.throwOrReturn res
         let higherOrderState =
             { mutateStackClosure mtd funcId time state with
