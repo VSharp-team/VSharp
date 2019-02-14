@@ -93,8 +93,18 @@ module internal Memory =
                 | _ -> false
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
+        | :? lazyInstantiation<'a> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
+
+    let (|LazyInstantiationEpsilon|_|) (src : ISymbolicConstantSource) =
+        let getLocation (li : 'a lazyInstantiation) =
+            match li with
+            | { heap = None } -> Some(li.location)
+            | _ -> None
+        match src with
+        | :? lazyInstantiation<termType> as li -> getLocation li
+        | :? lazyInstantiation<term> as li -> getLocation li // TODO: generic shape pattern matching doesn't work in F#!
+        | _ -> None                                          // TODO: there should be more cases
 
     let private mkStruct metadata time isStatic mkField dotNetType typ fql =
         let mkFieldKey typ name = StructField(name, typ)
@@ -443,30 +453,30 @@ module internal Memory =
     and private mutateStatics restricted metadata statics location _ path time value =
         commonHierarchicalStaticsAccess false restricted (fun _ _ -> value, time) metadata None statics [] None location path |> snd
 
-    and private independent (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) (exploredLocations : ImmutableHashSet<term>) read funcId location : bool =
-        exploredLocations.Contains(location) ||
+    and private independent<'a when 'a : equality> (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) (read : ImmutableHashSet<IFunctionIdentifier> -> state -> term * 'a generalizedHeap) funcId location : bool =
+        exploredRecursiveIds.Contains funcId ||
         let exploredRecursiveIds = exploredRecursiveIds.Add funcId
         match Database.querySummary funcId with
         | Some summary ->
             let t, _ = read exploredRecursiveIds summary.state
             match t.term with
-            | Constant(_, LazyInstantiation(location', None, true), _) when location = location' -> true
+            | Constant(_, LazyInstantiationEpsilon(location'), _) when location = location' -> true
             |_ -> false
         | None -> false
 
-    and private accessGeneralizedHeapRec<'a when 'a : equality> (exploredIds : ImmutableHashSet<IFunctionIdentifier>) contextList lazyInstantiator read readHeap (getter : state -> 'a generalizedHeap) location accessDefined = function
+    and private accessGeneralizedHeapRec<'a when 'a : equality> (exploredIds : ImmutableHashSet<IFunctionIdentifier>) unlucky contextList lazyInstantiator read readHeap (getter : state -> 'a generalizedHeap) location accessDefined = function
         | Defined(r, h) ->
             let result, heap = accessDefined contextList lazyInstantiator None r h
             result, Defined r heap
         | Merged ghs ->
             let gs, hs = List.unzip ghs
-            let rs, hs' = hs |> List.map (accessGeneralizedHeapRec exploredIds contextList lazyInstantiator read readHeap getter location accessDefined) |> List.unzip
+            let rs, hs' = hs |> List.map (accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined) |> List.unzip
             let grs = List.zip gs rs
             merge grs, mergeGeneralizedHeaps readHeap gs hs'
         | Mutation(h, h') as m ->
             let result, h'' = accessDefined contextList lazyInstantiator (Some h) false h'
             if read then
-                let accessH = lazy(accessGeneralizedHeapRec exploredIds contextList lazyInstantiator read readHeap getter location accessDefined h |> fst)
+                let accessH = lazy(accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined h |> fst)
                 let simplifyInstantiated term =
                     match term.term with
                     | Constant(_, LazyInstantiation(loc, Some heap, _), _) when loc = location && heap = h ->
@@ -477,50 +487,59 @@ module internal Memory =
                 result, Mutation(h, h'')
         | Composition(_, _, Defined _) ->
             internalfail "composition with the defined heap should not be met, it must be simplified to a simple mutation!"
-        | Composition(s, ctx, h) when read ->
-            let lazyInstantiator' = lazy(accessGeneralizedHeapRec exploredIds contextList lazyInstantiator read readHeap getter location accessDefined (getter s) |> fst)
-            accessGeneralizedHeapRec exploredIds ((ctx, s) :: contextList) (Some lazyInstantiator'.Force) read readHeap getter location accessDefined h
+        | Composition(s, ctx, h) as heap when read ->
+            let unlucky _ = unlucky heap  // if simplification of 'h' fails then we should return 'heap' instead of 'h'
+            let lazyInstantiator' = lazy(accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined (getter s) |> fst)
+            accessGeneralizedHeapRec exploredIds unlucky ((ctx, s) :: contextList) (Some lazyInstantiator'.Force) read readHeap getter location accessDefined h
         | RecursiveApplication(f, _, _) as h
-                when not <| exploredIds.Contains(f) && read &&
-                     independent exploredIds ImmutableHashSet.Empty
-                                 (fun ids s -> accessGeneralizedHeapRec ids contextList lazyInstantiator read readHeap getter location accessDefined (getter s)) f location ->
+                when read && independent exploredIds
+                                 (fun ids s -> accessGeneralizedHeapWithIDs ids read readHeap getter location accessDefined (getter s)) f location ->
             let r, _ = accessDefined contextList lazyInstantiator None false Heap.empty
             r, h
+        | Composition _
         | RecursiveApplication _
-        | HigherOrderApplication _ as h ->
-            let r, e = accessDefined contextList lazyInstantiator (Some h) false Heap.empty
-            r, if read then h else Mutation(h, e)
+        | HigherOrderApplication _ as h -> unlucky h contextList
         | _ -> __unreachable__()
 
-    and private accessGeneralizedHeap<'a when 'a : equality> = accessGeneralizedHeapRec<'a> ImmutableHashSet.Empty [] None
+    and private unluckyDefault read accessDefined h contextList =
+        let r, e = accessDefined contextList None (Some h) false Heap.empty
+        r, if read then h else Mutation(h, e)
 
-    and private hierarchicalAccess read actionNull updateDefined metadata state term =
+    and private accessGeneralizedHeapWithIDs exploredIds (read : bool) readHeap getter location accessDefined =
+        accessGeneralizedHeapRec<'a> exploredIds (unluckyDefault read accessDefined) [] None read readHeap getter location accessDefined
+
+    and private accessGeneralizedHeap read = accessGeneralizedHeapWithIDs ImmutableHashSet.Empty read
+
+    and private hierarchicalAccess validate read actionNull updateDefined metadata state term =
         match term.term with
         | Error _ -> (term, state)
         | Ref(NullAddress, _) -> actionNull metadata state Null
         | Ref(TopLevelStack location, path) ->
             commonHierarchicalStackAccess read updateDefined metadata state location path
         | Ref(TopLevelHeap(addr, bT, _), path) ->
-            Common.statedConditionalExecution state
-                (fun state k -> k (Pointers.isZeroAddress metadata addr, state))
-                (fun state k -> k (actionNull metadata state bT))
-                (fun state k ->
-                    let accessDefined contextList lazyInstantiator groundHeap r h = //TODO: get rid of time
-                        let cell, heap = commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path {v = Timestamp.zero}
-                        cell.value, heap
-                    let result, h' = accessGeneralizedHeap<term> read (readHeap metadata) heapOf term accessDefined (heapOf state)
-                    k (result, withHeap state h'))
-                merge merge2Terms id id
+            let doRead state k =
+                let accessDefined contextList lazyInstantiator groundHeap r h = //TODO: get rid of time
+                    let cell, heap = commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path {v = Timestamp.zero}
+                    cell.value, heap
+                let result, h' = accessGeneralizedHeap read (readHeap metadata) heapOf term accessDefined (heapOf state)
+                k (result, withHeap state h')
+            if validate then
+                Common.statedConditionalExecution state
+                    (fun state k -> k (Pointers.isZeroAddress metadata addr, state))
+                    (fun state k -> k (actionNull metadata state bT))
+                    doRead
+                    merge merge2Terms id id
+            else doRead state id
         | Ref(TopLevelStatics location, path) ->
             let accessDefined contextList lazyInstantiator groundHeap r h =
                 let cell, statics = commonHierarchicalStaticsAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator location path
                 cell.value, statics
             let result, m' = accessGeneralizedHeap read (readStatics metadata) staticsOf term accessDefined (staticsOf state)
             result, withStatics state m'
-        | Union gvs -> guardedStateMap (hierarchicalAccess read actionNull updateDefined metadata) gvs state
+        | Union gvs -> guardedStateMap (hierarchicalAccess validate read actionNull updateDefined metadata) gvs state
         | Ptr(_, _, viewType, _) ->
             let ref = getReferenceFromPointer metadata term
-            let term, state = hierarchicalAccess read actionNull updateDefined metadata state ref
+            let term, state = hierarchicalAccess validate read actionNull updateDefined metadata state ref
             if typeOf term = viewType
             then term, state
             else __notImplemented__() // TODO: [columpio] [Reinterpretation]
@@ -649,14 +668,17 @@ module internal Memory =
 // ------------------------------- High-level read/write -------------------------------
 
     and deref metadata state location =
-        hierarchicalAccess true npeTerm makePair metadata state location
+        hierarchicalAccess true true npeTerm makePair metadata state location
 
-    and derefWith actionNull metadata state location = hierarchicalAccess true actionNull makePair metadata state location
+    and derefWith actionNull metadata state location = hierarchicalAccess true true actionNull makePair metadata state location
+
+    and derefWithoutValidation metadata state location =
+        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) makePair metadata state location
 
     and mutate metadata state reference value =
         assert(value <> Nop)
         let time = tick()
-        hierarchicalAccess false npeTerm (fun _ _ -> (value, time)) metadata state reference
+        hierarchicalAccess true false npeTerm (fun _ _ -> (value, time)) metadata state reference
 
 // ------------------------------- Referencing -------------------------------
 
@@ -864,7 +886,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                deref ctx.mtd state' loc |> fst |> x.extractor.Extract
+                derefWithoutValidation ctx.mtd state' loc |> fst |> x.extractor.Extract
 
     type keyInitializedSource<'a when 'a : equality> with
         interface IStatedSymbolicConstantSource with
