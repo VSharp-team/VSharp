@@ -14,3 +14,8 @@ module internal String =
         let string, state = Memory.StringCtorOfCharArray state this array
         let state = Memory.Mutate state this string |> snd
         ControlFlow.ThrowOrReturn this, state
+
+    let GetLength (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let length, state = Memory.StringLength state (List.head args)
+        ControlFlow.ThrowOrReturn length, state
