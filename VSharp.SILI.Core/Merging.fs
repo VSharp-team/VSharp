@@ -93,7 +93,7 @@ module internal Merging =
                 |> Seq.map extractArrayInfo
                 |> fun info -> Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
             let d = List.unique ds
-            let l = List.unique lens
+            let l = merge <| List.zip gs lens
             let getter i = {value = List.item i vs; created = Timestamp.zero; modified = Timestamp.zero}
             let resolveKeys = keysResolver<term memoryCell, fql, term> false readTerm getFQLOfKey getter
             let mergedLower =  Heap.merge gs lows resolveKeys
