@@ -192,6 +192,10 @@ module API =
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
 
+        let StringLength state strRef =
+            let strStruct, state = Dereference state strRef
+            Strings.length strStruct, state
+
         let StringCtorOfCharArray state this arrayRef =
             let fql = Some <| getFQLOfRef this
             BranchExpressionsOnNull state arrayRef

@@ -40,6 +40,10 @@ module internal Strings =
             makeStringOfFields metadata time length stringArray arrayFQL fql
         | t -> internalfailf "expected char array, but got %O" t)
 
+    let length = Merging.guardedErroredApply (term >> function
+        | Struct(fields, StringType) -> fields.[strLength].value
+        | t -> internalfailf "expected string struct, but got %O" t)
+
     let simplifyStructEq mtd x y =
         match x.term, y.term with
         | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
