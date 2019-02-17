@@ -300,6 +300,9 @@ module internal Terms =
     let getFQLOfKey = function
         | {FQL = Some fql} -> fql
         | {FQL = None} as k -> internalfailf "requested fql from unexpected key %O" k
+    let getFQLOfRef = term >> function
+        | Ref(tl, path) -> (tl, List.rev path)
+        | t -> internalfailf "Expected reference, got %O" t
 
     let makeFQLRef metadata (tl, path) = Ref metadata tl path
 

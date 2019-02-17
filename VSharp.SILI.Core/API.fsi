@@ -160,5 +160,7 @@ module API =
         val ArrayLengthByDimension : state -> term -> term -> term * state
         val ArrayLowerBoundByDimension : state -> term -> term -> term * state
 
+        val StringCtorOfCharArray : state -> term -> term -> term * state
+
     module Database =
         val QuerySummary : IFunctionIdentifier -> functionSummary

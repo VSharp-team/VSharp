@@ -192,6 +192,13 @@ module API =
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
 
+        let StringCtorOfCharArray state this arrayRef =
+            let fql = Some <| getFQLOfRef this
+            BranchExpressionsOnNull state arrayRef
+                (fun state k -> k (Strings.makeConcreteStringStruct m.Value (Memory.tick()) "" fql, state))
+                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value (Memory.tick()) fql) |> k)
+                id
+
     module Database =
         let QuerySummary funcId =
             Database.querySummary funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)

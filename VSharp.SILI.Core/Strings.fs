@@ -33,6 +33,13 @@ module internal Strings =
         let contentsWithZero = Heap.add indexLengthKey { value = makeNumber metadata '\000'; created = time; modified = time } contents
         makeArray metadata arrLength contentsWithZero instor elType arrayFQL
 
+    let ctorOfCharArray metadata time fql = Merging.guardedErroredApply (function
+        | VectorT(length, instor, contents, elType) when elType = Numeric typedefof<char> ->
+            let arrayFQL = makeArrayFQL fql
+            let stringArray = makeStringArray metadata time length instor contents Char arrayFQL
+            makeStringOfFields metadata time length stringArray arrayFQL fql
+        | t -> internalfailf "expected char array, but got %O" t)
+
     let simplifyStructEq mtd x y =
         match x.term, y.term with
         | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
