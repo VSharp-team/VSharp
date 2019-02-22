@@ -120,17 +120,6 @@ module internal Interpreter =
         | :? (statementResult * state) as r -> k' r
         | _ -> internalfail "internal call should return tuple StatementResult * State!"
 
-// ------------------------------- Preparation -------------------------------
-
-    and initialize state k =
-        Reset()
-        let k = Enter null state k
-        let stringTypeName = typeof<string>.AssemblyQualifiedName
-        let emptyString, state = Memory.AllocateString String.Empty state
-        initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String Types.String
-        Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
-
 // ------------------------------- Member calls -------------------------------
 
     and decompileAndReduceMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
@@ -1460,8 +1449,7 @@ type internal SymbolicInterpreter() =
             API.Reset()
             Interpreter.restoreBefore k
         member x.InitEntryPoint state epDeclaringType k =
-            Interpreter.initialize state (fun state ->
-            Interpreter.initializeStaticMembersIfNeed null state epDeclaringType (snd >> k))
+            Interpreter.initializeStaticMembersIfNeed null state epDeclaringType (snd >> k)
         member x.Invoke funcId state this k =
             API.SaveConfiguration()
             let k = Interpreter.restoreBefore k
