@@ -5869,14 +5869,20 @@ HEAP:
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.String VSharp.CSharpUtils.Tests.Strings.EmptyString(System.Int32, System.Int32)
 RESULT: UNION[
-	| !hasKey#1 ~> null
+	| !hasKey#1 ~> (HeapRef 1)
 	| hasKey#1 ~> (HeapRef System.String.Empty)]
 HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: '\000';
+		 ... 1 ... |]
+	| System.String.m_StringLength ~> 0]
+---------- s1 = ----------
 System.String ==> STRUCT System.String[
 	| System.String.Empty ~> UNION[
-		| !hasKey#1 ~> null
+		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.String.Empty)]
 	| System.String.PROBABILISTICMAP_BLOCK_INDEX_MASK ~> UNION[
 		| !hasKey#1 ~> 7

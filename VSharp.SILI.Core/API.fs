@@ -176,9 +176,10 @@ module API =
 
         let AllocateDefaultStatic state targetType =
             let fql = makeTopLevelFQL TopLevelStatics targetType
-            Memory.allocateInStaticMemory m.Value state targetType (Memory.mkDefaultStruct m.Value true targetType fql)
+            let staticStruct, state = Memory.mkDefaultStaticStruct m.Value state targetType fql
+            Memory.allocateInStaticMemory m.Value state targetType staticStruct
 
-        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value false termType
+        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value termType
 
         let AllocateDefaultStruct state typ =
             let address = Memory.freshHeapLocation m.Value
@@ -197,10 +198,7 @@ module API =
             let state = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer fql |> Mutate state ref |> snd
             ref, state
 
-        let AllocateString str state =
-            let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL TopLevelHeap (address, Types.String, Types.String)
-            Strings.makeString m.Value (Memory.tick()) str fql |> Memory.allocateInHeap m.Value state address
+        let AllocateString string state = Memory.allocateString m.Value state string
 
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state

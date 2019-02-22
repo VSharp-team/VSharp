@@ -140,10 +140,10 @@ module internal Memory =
     let mkDefault metadata typ fql =
         defaultOf (tick()) metadata typ fql
 
-    let mkDefaultStruct metadata isStatic targetType fql =
+    let mkDefaultStruct metadata targetType fql =
         let dnt = toDotNetType targetType
         let time = tick()
-        mkStruct metadata time isStatic (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dnt targetType fql
+        mkStruct metadata time false (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dnt targetType fql
 
     let private makeSymbolicHeapReference metadata (source : IExtractingSymbolicConstantSource) name typ construct =
         let source' = source.WithExtractor(Pointers.HeapAddressExtractor())
@@ -815,6 +815,23 @@ module internal Memory =
         let ref = HeapRef metadata address typ typ []
         let heapKey = makeKey address <| makeTopLevelFQL TopLevelHeap (address, typ, typ)
         (ref, { s with heap = allocateInGeneralizedHeap heapKey term time s.heap } )
+
+    let allocateString metadata state string =
+        let address = freshHeapLocation metadata
+        let fql = makeTopLevelFQL TopLevelHeap (address, String, String)
+        Strings.makeString metadata (tick()) string fql |> allocateInHeap metadata state address
+
+    let mkDefaultStaticStruct metadata state targetType fql =
+        let dnt = toDotNetType targetType
+        let time = tick()
+        let mkDefaultField metadata name typ = StructField(name, typ) |> addToOptionFQL fql |> defaultOf time metadata typ
+        if targetType = String then
+            let emptyString, state = allocateString metadata state System.String.Empty
+            let mkField metadata name typ =
+                if name = "System.String.Empty" then emptyString
+                else mkDefaultField metadata name typ
+            mkStruct metadata time true mkField dnt targetType fql, state
+        else mkStruct metadata time true mkDefaultField dnt targetType fql, state
 
     let allocateInStaticMemory _ (s : state) address term =
         let time = tick()
