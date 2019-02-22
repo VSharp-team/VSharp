@@ -14,3 +14,6 @@ module internal String =
 
     [<Implements("System.Int32 System.String.get_Length(this)")>]
     val GetLength : state -> term list -> statementResult * state
+
+    [<Implements("System.Int32 System.String.GetHashCode(this)")>]
+    val GetHashCode : state -> term list -> statementResult * state

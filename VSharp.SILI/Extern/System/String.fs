@@ -19,3 +19,8 @@ module internal String =
         assert(List.length args = 1)
         let length, state = Memory.StringLength state (List.head args)
         ControlFlow.ThrowOrReturn length, state
+
+    let GetHashCode (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let hash, state = Memory.StringHashCode state (List.head args)
+        ControlFlow.ThrowOrReturn hash, state

@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 open VSharp
 open Arrays
@@ -43,6 +43,47 @@ module internal Strings =
     let length = Merging.guardedErroredApply (term >> function
         | Struct(fields, StringType) -> fields.[strLength].value
         | t -> internalfailf "expected string struct, but got %O" t)
+
+    let private contentIsConcrete contents =
+        let contentSeq = Heap.toSeq contents
+        Cps.Seq.foldlk (fun acc (key, cell) k ->
+            match key.key, cell.value with
+            | Index(ConcreteT(x, _)), ConcreteT(y, _) -> k <| (unbox x, unbox y) :: acc
+            | _ -> None)
+            List.empty contentSeq Some
+
+    let private complementArray length xs =
+        let value = System.Activator.CreateInstance(typedefof<char>) |> unbox
+        let indices = List.except (List.map fst xs) [0 .. length - 1]
+        xs @ List.map (withSnd value) indices
+
+    let private contentArrayToString =
+        List.sortBy fst >> List.discardLast >> List.map snd >> List.toArray >> System.String
+
+    let (|ConcreteStringArray|_|) = function
+        | VectorT(ConcreteT(length, _), _, contents, Char) ->
+            let contentToString = complementArray (unbox length) >> contentArrayToString
+            contents |> contentIsConcrete |> Option.map contentToString
+        | _ -> None
+
+    let private makeHashOfAddress metadata = Merging.guardedErroredApply (function
+        // TODO: use specific symbolicConstantSource instead of address in case of symbolic string
+        | ConcreteT(:? list<int> as x, _) ->
+            let hash = List.last x
+            makeNumber metadata hash
+        | { term = Constant _ } as hash -> { hash with metadata = metadata }
+        | t -> internalfailf "expected address, but got %O" t)
+
+    let private transformString concreteCase symbolicCase = term >> function
+        | Struct(fields, StringType) ->
+            match fields.[strArray].value with
+            | ConcreteStringArray(string) -> concreteCase string
+            | { term = Array _ } -> symbolicCase ()
+            | t -> internalfailf "expected char array, but got %O" t
+        | t -> internalfailf "expected string struct, but got %O" t
+
+    let getHashCode metadata addr =
+        Merging.guardedErroredApply (transformString (hash >> makeNumber metadata) (fun () -> makeHashOfAddress metadata addr))
 
     let simplifyStructEq mtd x y =
         match x.term, y.term with

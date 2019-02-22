@@ -56,6 +56,9 @@ module internal Interpreter =
 
 // ------------------------------- Environment interaction -------------------------------
 
+    let overridenImplementations =
+        new HashSet<string>(["System.Int32 System.String.GetHashCode(this)"])
+
     let externalImplementations =
         let dict = new Dictionary<string, MethodInfo>()
         let (|||) = FSharp.Core.Operators.(|||)
@@ -255,10 +258,11 @@ module internal Interpreter =
             reduceBlockStatement state ast.Body (fun (result', state') ->
             ControlFlow.ComposeSequentially result result' state state' |> k))
         let k = Enter caller state k
-        if metadataMethod.IsInternalCall || metadataMethod.IsPInvokeImpl then
+        let decompiledName = DecompilerServices.metadataMethodToString metadataMethod
+        let fullMethodName = appIfNotNull (fun (info : PInvokeInfo) -> info.ImportName) metadataMethod.PInvokeInfo decompiledName
+        if metadataMethod.IsInternalCall || metadataMethod.IsPInvokeImpl || overridenImplementations.Contains(fullMethodName) then
             // TODO: internal calls should pass throught CallGraph.call too
             printLog Trace "CALLING EXTERN OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
-            let fullMethodName = appIfNotNull (fun (info : PInvokeInfo) -> info.ImportName) metadataMethod.PInvokeInfo <| DecompilerServices.metadataMethodToString metadataMethod
             if externalImplementations.ContainsKey(fullMethodName) then
                 let funcId = {metadataMethod = metadataMethod; state = {v = state}}
                 let invoke k (argsAndThis, state) = internalCall fullMethodName argsAndThis state k
