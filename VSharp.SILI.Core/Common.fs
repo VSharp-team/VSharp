@@ -70,6 +70,8 @@ module internal Common =
             let source = {left = leftTermType; right = rightTermType}
             Constant metadata subtypeName source Bool
 
+        let isGround t = (Types.toDotNetType t |> hierarchy).IsGround
+
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue metadata
         | termType.Null, _
@@ -90,7 +92,7 @@ module internal Common =
             is metadata t1 t &&& makeSubtypeBoolConst t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
             if lt.Is rt then makeTrue metadata
-            elif lt.IsGround && rt.IsGround then makeFalse metadata
+            elif isGround t1 && isGround t2 then makeFalse metadata
             else makeSubtypeBoolConst t1 t2
         | _ -> makeFalse metadata
 

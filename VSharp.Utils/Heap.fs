@@ -46,9 +46,8 @@ type public heap<'a, 'b, 'fql> when 'a : equality and 'b : equality =
         | _ -> false
 
 module public Heap =
-    open System.Runtime.Remoting.Contexts
 
-    let private getKey key = key.key
+    let public getKey key = key.key
 
     let public empty<'a, 'b, 'fql when 'a : equality and 'b : equality> : heap<'a, 'b, 'fql> = heap<'a, 'b, 'fql>.Empty()
     let public isEmpty h = PersistentHashMap.length h.heap = 0
@@ -90,27 +89,30 @@ module public Heap =
     let public partition predicate (h : heap<'a, 'b, 'fql>) =
         h |> toSeq |> Seq.map (fun (k, v) -> (k.key, v.value)) |> List.ofSeq |> List.partition predicate
 
-    let public merge<'a, 'b, 'c, 'fql when 'a : equality and 'b : equality> (guards : 'c list) (heaps : heap<'a, 'b, 'fql> list) resolve : heap<'a, 'b, 'fql> =
+    let public unify acc guards (heaps : heap<'a, 'b, 'fql> list) unifier =
         let keys = new System.Collections.Generic.HashSet<heapKey<'a, 'fql>>()
         List.iter (fqlLocations >> keys.UnionWith) heaps
-        let mergeOneKey k =
-            let vals = List.filterMap2 (fun g s -> if containsHeapKey k s then Some(g, s.[k]) else None) guards heaps
-            (k, resolve vals)
-        keys |> Seq.map mergeOneKey |> ofSeq
+        let unifyOneKey acc k =
+            let hgvs = List.mapi2 (fun i g h -> if containsHeapKey k h then (i, g, Some(h.[k])) else (i, g, None)) guards heaps
+            unifier acc k hgvs
+        Seq.fold unifyOneKey acc keys
 
-    let public unify acc (h1 : heap<'a, 'b, 'fql>) (h2 : heap<'a, 'b, 'fql>) unifier instantiate1 instantiate2 =
+    let public merge guards (heaps : heap<'a, 'b, 'fql> list) resolve =
+        unify heaps.Head guards heaps (fun acc k hgvs -> add k (resolve k hgvs) acc)
+
+    let public unify2 acc (h1 : heap<'a, 'b, 'fql>) (h2 : heap<'a, 'b, 'fql>) unifier =
         let keysSet = HashSet(fqlLocations h1)
         keysSet.UnionWith(fqlLocations h2)
         let unifyIfShould acc key =
             match containsHeapKey key h1, containsHeapKey key h2 with
-            | true, true  -> unifier acc key h1.[key] h2.[key]
-            | true, false -> instantiate1 acc key h1.[key]
-            | false, true -> instantiate2 acc key h2.[key]
+            | true, true  -> unifier acc key (Some h1.[key]) (Some h2.[key])
+            | true, false -> unifier acc key (Some h1.[key]) None
+            | false, true -> unifier acc key None (Some h2.[key])
             | _ -> __unreachable__()
         Seq.fold unifyIfShould acc keysSet
 
     let public merge2 (h1 : heap<'a, 'b, 'fql>) (h2 : heap<'a, 'b, 'fql>) resolve =
-        unify h1 h1 h2 (fun s k v1 v2 -> add k (resolve v1 v2) s) (fun s k v1 -> add k v1 s) (fun s k v2 -> add k v2 s)
+        unify2 h1 h1 h2 (fun s k v1 v2 -> add k (resolve k v1 v2) s)
 
     let public toString format separator keyMapper valueMapper sorter (h : heap<'a, 'b, 'fql>) =
         let elements =

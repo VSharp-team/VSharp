@@ -498,6 +498,7 @@ module internal Terms =
         assert(isBool term)
         makeUnary OperationType.LogicalNeg term false Bool metadata
 
+    let makePathNumericKey fql refTarget i mtd = makePathKey fql refTarget <| makeNumber i mtd
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None

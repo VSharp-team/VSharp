@@ -174,7 +174,7 @@ module API =
 
         let AllocateDefaultStatic state targetType =
             let fql = makeTopLevelFQL TopLevelStatics targetType
-            Memory.allocateInStaticMemory state targetType (Memory.mkDefaultStruct m.Value true targetType fql)
+            Memory.allocateInStaticMemory m.Value state targetType (Memory.mkDefaultStruct m.Value true targetType fql)
 
         let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value false termType
 

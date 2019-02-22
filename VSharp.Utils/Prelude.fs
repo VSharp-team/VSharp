@@ -12,6 +12,8 @@ module public Prelude =
 
     let public always x _ = x
 
+    let public eval x = x ()
+
     let inline public cons x xs = x :: xs
     let inline public optCons xs = function
         | Some x -> x::xs
