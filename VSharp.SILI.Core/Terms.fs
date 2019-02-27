@@ -386,7 +386,7 @@ module internal Terms =
         | StructField(_, t)
         | ArrayIndex(_, t) -> t
         | ArrayLowerBound _
-        | ArrayLength _ -> Types.indexType
+        | ArrayLength _ -> Types.lengthType
 
     let rec typeOf term =
         match term.term with
@@ -474,13 +474,13 @@ module internal Terms =
     let makeZero metadata =
         Concrete metadata [0] (Numeric typedefof<int>)
 
-    let makeZeroIndex metadata =
-        Concrete metadata [0] Types.indexType
+    let makeIndex metadata i =
+        Concrete metadata i Types.indexType
 
     let makeZeroAddress metadata =
         Concrete metadata [0] Types.pointerType
 
-    let makeNumber n metadata =
+    let makeNumber metadata n =
         Concrete metadata n (Numeric(n.GetType()))
 
     let makeBinary operation x y isChecked t metadata =
@@ -505,7 +505,7 @@ module internal Terms =
         assert(isBool term)
         makeUnary OperationType.LogicalNeg term false Bool metadata
 
-    let makePathNumericKey fql refTarget i mtd = makePathKey fql refTarget <| makeNumber i mtd
+    let makePathIndexKey mtd refTarget i fql = makePathKey fql refTarget <| makeIndex mtd i
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None

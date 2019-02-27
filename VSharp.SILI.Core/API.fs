@@ -78,7 +78,7 @@ module API =
 
         let MakeNullRef () = makeNullRef m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ None
-        let MakeNumber n = makeNumber n m.Value
+        let MakeNumber n = makeNumber m.Value n
         let MakeLambda body signature = Lambdas.make m.Value body signature
 
         let TypeOf term = typeOf term
@@ -98,7 +98,7 @@ module API =
 
         let SizeOf t = Types.sizeOf t
 
-        let TLength = Arrays.lengthTermType
+        let TLength = Types.lengthType
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t

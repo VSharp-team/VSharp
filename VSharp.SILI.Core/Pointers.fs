@@ -5,7 +5,7 @@ open VSharp.Core.Common
 
 module internal Pointers =
     let private underlyingPointerTypeSizeof mtd = term >> function // for `T* ptr` returns `sizeof(T)`
-        | Ptr(_, _, typ, _) -> makeNumber (Types.sizeOf typ) mtd
+        | Ptr(_, _, typ, _) -> makeNumber mtd (Types.sizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
@@ -222,7 +222,7 @@ module internal Pointers =
         let makeDiff p q =
             let tp = Numeric typedefof<int64>
             if p = q
-            then makeNumber 0L mtd
+            then makeNumber mtd 0L
             else
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp mtd

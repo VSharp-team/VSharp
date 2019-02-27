@@ -151,39 +151,39 @@ module internal Memory =
         construct metadata constant typ typ []
 
     let private makeSymbolicOveralArrayLength metadata (source : IExtractingSymbolicConstantSource) arrayName =
-        Constant metadata (sprintf "|%s|" arrayName) (source.WithExtractor(Arrays.LengthExtractor())) Arrays.lengthTermType
+        Constant metadata (sprintf "|%s|" arrayName) (source.WithExtractor(Arrays.LengthExtractor())) lengthType
 
     let private makeSymbolicArrayRank metadata (source : IExtractingSymbolicConstantSource) arrayName =
-        Constant metadata ("RankOf_%s" + arrayName) (source.WithExtractor(Arrays.RankExtractor())) Arrays.lengthTermType
+        Constant metadata ("RankOf_%s" + arrayName) (source.WithExtractor(Arrays.RankExtractor())) lengthType
 
     let private makeSymbolicArrayLowerBound metadata time name fql heap =
         match Options.ExplorationMode() with
-        | TrustConventions -> defaultOf time metadata Arrays.lengthTermType <| Some fql
+        | TrustConventions -> defaultOf time metadata lengthType <| Some fql
         | CompleteExploration ->
-            Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
+            Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
 
     let private makeSymbolicArrayLength metadata name fql heap =
-        Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} Arrays.lengthTermType
+        Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
 
     let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             match Options.ExplorationMode() with
-            | TrustConventions -> Arrays.zeroLowerBound metadata dimension fql
+            | TrustConventions -> Arrays.zeroLowerBounds metadata dimension fql
             | CompleteExploration ->
                 let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
-                let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber i metadata)} Arrays.lengthTermType
-                Seq.foldi (fun h i l -> Heap.add (makePathNumericKey fql ArrayLowerBound i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
+                let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber metadata i)} lengthType
+                Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLowerBound i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty (Seq.init dimension mkLowerBound)
         | _ -> __notImplemented__()
 
     let private makeSymbolicArrayLengths metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             let idOfLength i = sprintf "%s.%i_Length" arrayName i
-            let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber i metadata)} Arrays.lengthTermType
+            let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber metadata i)} lengthType
             let lengths = Seq.init dimension mkLength
             let length = Seq.reduce (mul metadata) lengths
-            Seq.foldi (fun h i l -> Heap.add (makePathNumericKey fql ArrayLength i metadata) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
+            Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLength i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty lengths, length
         | _ -> __notImplemented__()
 
     let private makeSymbolicArray metadata source dimension elemTyp typ arrayName fql =
@@ -193,7 +193,7 @@ module internal Memory =
             let makeConcrete d =
                 let lb = makeSymbolicArrayLowerBounds metadata source arrayName d fql
                 let al, length = makeSymbolicArrayLengths metadata source arrayName d fql
-                lb, al, length, makeNumber d metadata
+                lb, al, length, makeNumber metadata d
             match dimension with
             | Vector -> makeConcrete 1
             | ConcreteDimension d -> makeConcrete d
@@ -214,7 +214,7 @@ module internal Memory =
                 let ref = referenceSubLocations [StructField(key, t)] liSource.location
                 makeField {liSource with location = ref} t
             let lengthName = sprintf "%s.m_StringLength" strName
-            let length = makeSymbolicStringField Strings.strLength Arrays.lengthTermType (Constant mtd lengthName)
+            let length = makeSymbolicStringField Strings.strLength lengthType (Constant mtd lengthName)
             let arrayFQL = Strings.makeArrayFQL fql
             let array = makeSymbolicStringField Strings.strArray (ArrayType (Char, Vector)) (fun src t -> makeSymbStrArray mtd time src length t (sprintf "%s.m_FirstChar" strName) arrayFQL)
             Strings.makeStringOfFields mtd time length array arrayFQL fql
@@ -255,7 +255,7 @@ module internal Memory =
             let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
             makeSymbolicInstance metadata time source source id (Some fql) concreteType
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap time fql (idx : term) = function
-        | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata Arrays.lengthTermType <| Some fql
+        | DefaultInstantiator(_, _) -> fun () -> defaultOf time metadata lengthType <| Some fql
         | LazyInstantiator(array, _) -> instantiator |?? fun () ->
             let name = sprintf "%O.%s_LowerBound" array (idx.term.IndicesToString())
             makeSymbolicArrayLowerBound metadata time name fql heap
@@ -266,7 +266,7 @@ module internal Memory =
             // all dimensions are known (they can be symbolic, but still defined). If this code triggers then we have
             // requested length by a greater dimension than our array has. That can happen in case of comparison of array
             // lengths when arrays have different ranks. In that case we consider lengths in all other dimensions equal to 1.
-            makeNumber 1 metadata
+            makeNumber metadata 1
         | LazyInstantiator(array, _) -> instantiator |?? fun () ->
             let name = sprintf "%O.%s_Length" array (idx.term.IndicesToString())
             makeSymbolicArrayLength metadata name fql heap
@@ -394,11 +394,11 @@ module internal Memory =
                     resultCell, Array v.metadata dimension length lower constant newContents lengths arrTyp
                 | ArrayLength key ->
                     let instantiator = makeInstantiator key arrayLengthLazyInstantiator
-                    let resultCell, newLengths = newHeap lengths instantiator fastNumericCompare <| makePtr key indexType
+                    let resultCell, newLengths = newHeap lengths instantiator fastNumericCompare <| makePtr key lengthType
                     resultCell, Array v.metadata dimension length lower constant contents newLengths arrTyp
                 | ArrayLowerBound key ->
                     let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
-                    let resultCell, newLower = newHeap lower instantiator fastNumericCompare <| makePtr key indexType
+                    let resultCell, newLower = newHeap lower instantiator fastNumericCompare <| makePtr key lengthType
                     resultCell, Array v.metadata dimension length newLower constant contents lengths arrTyp
                 | _ -> __unreachable__()
             | Union gvs ->
@@ -754,7 +754,7 @@ module internal Memory =
         else (reference, state)
 
     let private checkIndices mtd state arrayRef (indices : term list) k =
-        let intToTerm i = makeNumber i mtd
+        let intToTerm i = makeNumber mtd i
         let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound arrayRef)
         let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength arrayRef)
         Cps.Seq.mapFold (deref mtd) state idOfDimensionsForLowerBounds (fun (lowerBoundsList, state') ->

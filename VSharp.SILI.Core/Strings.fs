@@ -12,25 +12,25 @@ module internal Strings =
     let makeArrayFQL fql = addToOptionFQL fql <| StructField(strArray, ArrayType(Char, Vector))
 
     let makeStringOfFields metadata time length array arrayFQL fql =
-        let lengthFQL = addToOptionFQL fql <| StructField(strLength, Arrays.lengthTermType)
+        let lengthFQL = addToOptionFQL fql <| StructField(strLength, lengthType)
         let fields = Heap.ofSeq (seq [ makeKey strLength lengthFQL, { value = length; created = time; modified = time };
                                        makeKey strArray arrayFQL, { value = array; created = time; modified = time } ])
         Struct metadata fields String
 
     let makeConcreteStringStruct metadata time (str : string) fql =
-        let length = Concrete metadata str.Length lengthTermType
+        let length = Concrete metadata str.Length lengthType
         let arraySource = (str + "\000").ToCharArray()
-        let valMaker i = makeNumber arraySource.[i] metadata
-        let keyMaker i mtd = makeIndexArray metadata (fun _ -> makeNumber i mtd) 1
+        let valMaker i = makeNumber metadata arraySource.[i]
+        let keyMaker mtd i = makeIndexArray metadata (fun _ -> makeIndex mtd i) 1
         let arrayFQL = makeArrayFQL fql
         let array = makeLinearConcreteArray metadata keyMaker valMaker (str.Length + 1) Char arrayFQL
         makeStringOfFields metadata time length array arrayFQL fql
 
     let makeStringArray metadata time length instor contents elType arrayFQL =
-        let arrLength = makeNumber 1 metadata |> add metadata length
+        let arrLength = makeNumber metadata 1 |> add metadata length
         let indexLength = makeIndexArray metadata (always length) 1
         let indexLengthKey = makePathKey arrayFQL (mkArrayIndex Char) indexLength
-        let contentsWithZero = Heap.add indexLengthKey { value = makeNumber '\000' metadata; created = time; modified = time } contents
+        let contentsWithZero = Heap.add indexLengthKey { value = makeNumber metadata '\000'; created = time; modified = time } contents
         makeArray metadata arrLength contentsWithZero instor elType arrayFQL
 
     let simplifyStructEq mtd x y =
