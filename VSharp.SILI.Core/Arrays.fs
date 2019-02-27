@@ -167,13 +167,14 @@ module internal Arrays =
         Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
 
     let (|VectorT|_|) = term >> function
-        | Array(ConcreteT(one, _), length, lower, instor, contents, lengths, ArrayType (elemTyp, typ))
-            when one :?> int = 1 && (typ = Vector || typ = ConcreteDimension 1) -> Some(VectorT (length, lower, instor, contents, lengths, elemTyp))
+        | Array(ConcreteT(one, _), length, lower, instor, contents, _, ArrayType (elemTyp, Vector))
+            when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents, elemTyp))
         | _ -> None
 
     let (|Index|_|) = function
-        | VectorT(ConcreteT(length, _), lower, [_, DefaultInstantiator _], contents, _, _)
-            when length :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(contents.[makeIndex Metadata.empty 0])
+        // TODO: add check that keys are not Arrays if need
+        | VectorT(ConcreteT(length, _), [_, DefaultInstantiator _], contents, elemTyp)
+            when length :?> int = 1 && elemTyp = Types.indexType -> Some(contents.[makeIndex Metadata.empty 0].value)
         | _ -> None
 
     type LengthExtractor() =
