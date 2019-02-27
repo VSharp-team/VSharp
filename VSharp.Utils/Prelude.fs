@@ -30,6 +30,9 @@ module public Prelude =
     let inline public snd3 (_, y, _) = y
     let inline public thd3 (_, _, z) = z
 
+    let inline public appIfNotNull f lhs rhs =
+        if lhs = null then rhs else f lhs
+
     let inline public (|?) lhs rhs =
         if lhs = null then rhs else lhs
     let inline public (|??) lhs rhs = Option.defaultValue rhs lhs

@@ -98,8 +98,7 @@ module internal Interpreter =
                     | _ -> __unreachable__()))
         dict
 
-    let rec internalCall metadataMethod argsAndThis (s : state) k =
-        let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
+    let rec internalCall fullMethodName argsAndThis (s : state) k =
         let k' (result, state) = k (result, Memory.PopStack state)
         let methodInfo = externalImplementations.[fullMethodName]
         let extractArgument (_, value, _) =
@@ -256,13 +255,13 @@ module internal Interpreter =
             reduceBlockStatement state ast.Body (fun (result', state') ->
             ControlFlow.ComposeSequentially result result' state state' |> k))
         let k = Enter caller state k
-        if metadataMethod.IsInternalCall then
+        if metadataMethod.IsInternalCall || metadataMethod.IsPInvokeImpl then
             // TODO: internal calls should pass throught CallGraph.call too
-            printLog Trace "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
-            let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
+            printLog Trace "CALLING EXTERN OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
+            let fullMethodName = appIfNotNull (fun (info : PInvokeInfo) -> info.ImportName) metadataMethod.PInvokeInfo <| DecompilerServices.metadataMethodToString metadataMethod
             if externalImplementations.ContainsKey(fullMethodName) then
                 let funcId = {metadataMethod = metadataMethod; state = {v = state}}
-                let invoke k (argsAndThis, state) = internalCall metadataMethod argsAndThis state k
+                let invoke k (argsAndThis, state) = internalCall fullMethodName argsAndThis state k
                 reduceMethodCallParametersCheck state this parameters funcId ast.Signature invoke k
             elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                 match parameters with
@@ -270,7 +269,7 @@ module internal Interpreter =
                     let parameters' = optCons parameters this
                     let extrn = concreteExternalImplementations.[fullMethodName]
                     reduceFunction state None (Specified parameters') {metadataMethod = extrn.MetadataMethod; state = {v = state}} extrn.Signature (invoke extrn) k
-                | _ -> internalfail "internal call with unspecified parameters!"
+                | _ -> internalfail "calling extern with unspecified parameters!"
             else __notImplemented__()
         else
             reduceFunction state this parameters {metadataMethod = ast.MetadataMethod; state = {v = state}} ast.Signature (invoke ast) k
