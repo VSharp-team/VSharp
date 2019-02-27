@@ -111,6 +111,7 @@ module internal Types =
 
     let pointerType = Numeric typedefof<int>
     let indexType = Numeric typedefof<int>
+    let lengthType = Numeric typedefof<int>
 
     let isNumeric = function
         | Numeric _ -> true
