@@ -125,9 +125,7 @@ module internal ControlFlow =
                     let composeOne (g, v) =
                         List.map (fun (g', v') -> (g &&& g', composeFlat v' v)) gvs'
                     gvs |> List.collect composeOne |> List.filter (fst >> Terms.isFalse >> not) |> Merging.mergeSame
-                | _ ->
-                    let gs, vs = List.unzip gvs
-                    List.zip gs (List.map (composeFlat newRes) vs)
+                | _ -> List.map (mapsnd (composeFlat newRes)) gvs
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
@@ -176,16 +174,16 @@ module internal ControlFlow =
 
 
     let composeStatements statements isContinueConsumer statementMapper newScope (result, state) k =
-        let rec composeStatementsH statements isContinueConsumer statementMapper newScope rs localk =
+        let rec composeStatementsH statements rs localk =
             match statements with
-            | Seq.Empty -> k rs
+            | Seq.Empty -> localk rs
             | Seq.Cons(statement, tail) ->
-                let cmpseTailIfNeed (newRS : statementResult * state) modSt ifLastk k = if Seq.isEmpty tail then ifLastk newRS else composeStatementsH tail isContinueConsumer statementMapper newScope (mapsnd modSt newRS) k
+                let cmpseTailIfNeed newRS modSt ifLastk k = if Seq.isEmpty tail then ifLastk newRS else composeStatementsH tail (mapsnd modSt newRS) k
                 invokeAfter (isContinueConsumer statement) rs (fun state -> statementMapper state statement)
                     (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) id k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS tailState))
                     (fun (newR, newS) k -> cmpseTailIfNeed (newR, newS) newScope k (fun (tailRes, tailState) -> k <| composeSequentially newR tailRes newS (State.popStack tailState)))
                     localk
-        composeStatementsH statements isContinueConsumer statementMapper newScope (result, state) (fun (newRes, newState) -> k <| composeSequentially result newRes state newState)
+        composeStatementsH statements (result, state) (fun (newRes, newState) -> k <| composeSequentially result newRes state newState)
 
     let unguardResults gvs =
         let unguard gres =

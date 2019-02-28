@@ -648,7 +648,3 @@ module internal Terms =
             | _ -> ()
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
-
-    let unwrapReferenceType = function
-        | Reference t -> t
-        | t -> t

@@ -551,7 +551,7 @@ module internal Interpreter =
             failOrInvoke
                 statementResult
                 state
-                (fun k -> allocate state initializer (NoResult()) k)
+                (allocate state initializer (NoResult()))
                 (fun _ _ _ state k -> allocate state Nop statementResult k)
                 (fun _ _ normal state k -> allocate state (Guarded normal) statementResult k)
                 k)
@@ -797,7 +797,7 @@ module internal Interpreter =
             failOrInvoke
                 statementResult
                 state
-                (fun k -> readFieldLocal state k)
+                (readFieldLocal state)
                 (fun _ _ _ state k -> k (statementResult, state))
                 (fun _ _ _ state k -> readFieldLocal state k)
                 (fun (r, s) -> k (ControlFlow.ResultToTerm r, s))))
@@ -1095,8 +1095,7 @@ module internal Interpreter =
         let termType = qualifiedTypeName |> Type.GetType |> Types.FromDotNetType state
         BranchStatements state
             (fun state k -> k (Memory.IsTypeNameInitialized termType state, state))
-            (fun state k ->
-                k (NoComputation, state))
+            (fun state k -> k (NoComputation, state))
             (fun state k ->
                 let state = Memory.AllocateDefaultStatic state termType
                 let fieldInitializerExpressions = DecompilerServices.getDefaultFieldValuesOf true false qualifiedTypeName
@@ -1113,12 +1112,12 @@ module internal Interpreter =
                         failOrInvoke
                             statementResult
                             state
-                            (fun k -> mutate value state k)
+                            (mutate value state)
                             (fun _ exn _ state k ->
                                 // TODO: uncomment it when ref and out will be Implemented
                                 (* RuntimeExceptions.TypeInitializerException qualifiedTypeName exn state Throw |> k*)
                                 k (Throw exn, state))
-                            (fun _ _ normal state k -> mutate (ControlFlow.ResultToTerm (Guarded normal)) state k)
+                            (fun _ _ normal -> mutate (ControlFlow.ResultToTerm (Guarded normal)))
                             k)
                 let fieldInitializers = Seq.map initOneField fieldInitializerExpressions
                 reduceSequentially state fieldInitializers (fun (result, state) ->

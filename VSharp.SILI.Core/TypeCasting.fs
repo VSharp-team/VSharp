@@ -73,4 +73,4 @@ module internal TypeCasting =
                 let contents, _ = derefForCast mtd state term
                 typeOf contents, typeOf term
             | _ -> typeOf term, defaultLocalType
-        p |> unwrapReferenceType, l |> unwrapReferenceType, p |> unwrapReferenceType |> Types.specifyType
+        p |> Types.unwrapReferenceType, l |> Types.unwrapReferenceType, p |> Types.unwrapReferenceType |> Types.specifyType

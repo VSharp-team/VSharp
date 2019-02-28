@@ -422,8 +422,11 @@ module internal Memory =
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
         let typ' = if List.isEmpty path then typ else path |> List.last |> typeOfPathSegment
-        let readInstor = lazyInstantiator |?? selectLazyInstantiator<termType> metadata groundHeap Timestamp.infinity (TopLevelStatics typ, path) typ'
-        let lazyInstantiator = if read then Some readInstor else None
+        let lazyInstantiator =
+            if read then
+                let readInstor = lazyInstantiator |?? selectLazyInstantiator<termType> metadata groundHeap Timestamp.infinity (TopLevelStatics typ, path) typ'
+                Some readInstor
+            else None
         let ptr = {location = typ; fullyQualifiedLocation = TopLevelStatics typ, []; typ = typ; time = Timestamp.infinity; path = path}
         let mapper (k, v) (ctx, s) = substituteTypeVariables ctx s k, fillHoles ctx s v
         accessHeap<termType, termType> read restricted metadata groundHeap (makeTrue metadata) update statics Timestamp.zero Common.typesEqual contextList mapper lazyInstantiator ptr
@@ -787,7 +790,7 @@ module internal Memory =
         let heapKey = makeKey address <| makeTopLevelFQL TopLevelHeap (address, typ, typ)
         (ref, { s with heap = allocateInGeneralizedHeap heapKey term time s.heap } )
 
-    let allocateInStaticMemory metadata (s : state) address term =
+    let allocateInStaticMemory _ (s : state) address term =
         let time = tick()
         let heapKey = makeTopLevelKey TopLevelStatics address
         { s with statics = allocateInGeneralizedHeap heapKey term time s.statics }
@@ -801,9 +804,8 @@ module internal Memory =
         if isRef
             then instance, state, false
             else
-                let key = (Pointers.symbolicThisStackKey, token)
-                let state = newStackFrame state metadata (EmptyIdentifier()) [(key, Specified instance, typ)]
-                referenceLocalVariable metadata state key true, state, true
+                let state = newStackFrame state metadata (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
+                referenceLocalVariable metadata state thisKey true, state, true
 
 // ------------------------------- Static Memory Initialization -------------------------------
 
