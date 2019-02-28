@@ -25,10 +25,10 @@ type MetadataMethodIdentifier =
 
 [<StructuralEquality;NoComparison>]
 type DelegateIdentifier =
-    { metadataDelegate : JetBrains.Decompiler.Ast.INode; closureContext : Core.frames transparent }
+    { metadataDelegate : JetBrains.Decompiler.Ast.INode; closureContext : Core.frames transparent; returnType : termType }
     interface Core.IDelegateIdentifier with
         member x.ContextFrames = x.closureContext.v
-        override x.ReturnType = Core.Void // TODO
+        override x.ReturnType = x.returnType
     override x.ToString() = "<delegate>"
 
 module internal Interpreter =
@@ -464,26 +464,39 @@ module internal Interpreter =
         let returnDelegateTerm state k = k (Return delegateTerm, state)
         npeOrInvokeExpression ast state metadataMethod.IsStatic targetTerm returnDelegateTerm k)))
 
-    and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) lambdaContext =
+    and getLambdaReturnType state ast (signature : IFunctionSignature) =
+        let fullType = DecompilerServices.getTypeOfNode ast
+        let fullMetadataTypeArray =
+            match fullType with
+            | :? IMetadataClassType as fullMetadataClassType -> fullMetadataClassType.Arguments
+            | _ -> MetadataTypes.getLambdaTypeSignature ast ||?? lazy (internalfail "Can't get type signature of lambda")
+        let returnMetadataType =
+            Array.tryLast fullMetadataTypeArray ||?? lazy(DecompilerServices.resolveType typeof<Void>)
+        let returnType = MetadataTypes.fromMetadataType state returnMetadataType
+        returnMetadataType, returnType
+
+    and makeLambdaBlockInterpreter (ast : ILambdaBlockExpression) lambdaContext returnType =
         fun caller state args k ->
             let k = Enter caller state k
             let invoke state k = reduceBlockStatement state ast.Body k
-            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}} ast.Signature invoke k
+            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}; returnType = returnType} ast.Signature invoke k
 
     and reduceLambdaBlockExpression state (ast : ILambdaBlockExpression) k =
         let k = Enter ast state k
-        Functions.MakeLambda2 state ast.Signature null (makeLambdaBlockInterpreter ast state.frames) |> k
+        let returnMetadataType, returnType = getLambdaReturnType state ast ast.Signature
+        Functions.MakeLambda2 state ast.Signature returnMetadataType (makeLambdaBlockInterpreter ast state.frames returnType) |> k
 
-    and makeLambdaInterpreter (ast : ILambdaExpression) lambdaContext =
+    and makeLambdaInterpreter (ast : ILambdaExpression) lambdaContext returnType =
         let invokeBody state k =
             reduceExpression state ast.Body (fun (term, state) -> k (ControlFlow.ThrowOrReturn term, state))
         fun caller state args k ->
             let k = Enter caller state k
-            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}} ast.Signature invokeBody k
+            reduceFunction state None args {metadataDelegate = ast; closureContext = {v=lambdaContext}; returnType = returnType} ast.Signature invokeBody k
 
     and reduceLambdaExpression state (ast : ILambdaExpression) k =
         let k = Enter ast state k
-        Functions.MakeLambda2 state ast.Signature null (makeLambdaInterpreter ast state.frames) |> k
+        let returnMetadataType, returnType = getLambdaReturnType state ast ast.Signature
+        Functions.MakeLambda2 state ast.Signature returnMetadataType (makeLambdaInterpreter ast state.frames returnType) |> k
 
     and reduceAnonymousMethodExpression state (ast : IAnonymousMethodExpression) k =
         __notImplemented__()
@@ -1468,7 +1481,11 @@ type internal SymbolicInterpreter() =
                 let ast = d.metadataDelegate
                 let lambdaContext = d.closureContext.v
                 match ast with
-                | :? ILambdaBlockExpression as lbe -> Interpreter.makeLambdaBlockInterpreter lbe lambdaContext ast state Unspecified k
-                | :? ILambdaExpression as le -> Interpreter.makeLambdaInterpreter le lambdaContext ast state Unspecified k
+                | :? ILambdaBlockExpression as lbe ->
+                    let _, returnType = Interpreter.getLambdaReturnType state lbe lbe.Signature
+                    Interpreter.makeLambdaBlockInterpreter lbe lambdaContext returnType ast state Unspecified k
+                | :? ILambdaExpression as le ->
+                    let _, returnType = Interpreter.getLambdaReturnType state le le.Signature
+                    Interpreter.makeLambdaInterpreter le lambdaContext returnType ast state Unspecified k
                 | _ -> __notImplemented__()
             | _ -> __notImplemented__()
