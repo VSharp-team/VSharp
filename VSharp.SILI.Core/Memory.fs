@@ -351,7 +351,7 @@ module internal Memory =
                 let newHeap heap instor keyCompare ptr = accessHeap<'a, term> read false metadata groundHeap guard update heap c keyCompare contextList termKeyMapper (Some instor) ptr
                 let makePtr key typ = { location = key; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path' }
                 let makeInstantiator key instantiator =
-                    let realInstantiator, targetType = if read then lazyInstantiator, Some(path |> List.last |> typeOfPathSegment) else None, None
+                    let realInstantiator, targetType = if read then lazyInstantiator, Some(typeOfPath path) else None, None
                     let doJob = lazy(Merging.guardedMap (fun c -> instantiator v.metadata realInstantiator targetType groundHeap m fql' key c ()) constant)
                     doJob.Force
                 match location with
@@ -401,7 +401,7 @@ module internal Memory =
         let firstLocation = TopLevelStack location, []
         let time = frameTime state location
         let cell, _ = stackDeref time (fun () -> (stackLazyInstantiator state time location).value) state location
-        let termLazyInstantiator = if read && not (List.isEmpty path) then genericLazyInstantiator metadata None (TopLevelStack location, path) (path |> List.last |> typeOfPathSegment) else __unreachable__
+        let termLazyInstantiator = if read && not (List.isEmpty path) then genericLazyInstantiator metadata None (TopLevelStack location, path) (typeOfPath path) else __unreachable__
         let accessedCell, newBaseValue = accessTerm read metadata None (makeTrue metadata) update [] (Some termLazyInstantiator) time firstLocation path cell
         let newState = if read || cell.value = newBaseValue then state else writeStackLocation state location { cell with value = newBaseValue; modified = accessedCell.modified }
         accessedCell.value, newState
@@ -410,7 +410,7 @@ module internal Memory =
 
     and private commonHierarchicalHeapAccess read restricted update metadata groundHeap heap contextList lazyInstantiator addr typ path time =
         let firstLocation = TopLevelHeap(addr, typ, typ), []
-        let typ' = if List.isEmpty path then typ else path |> List.last |> typeOfPathSegment
+        let typ' = if List.isEmpty path then typ else typeOfPath path
         let readInstor = lazyInstantiator |?? selectLazyInstantiator<term> metadata groundHeap time.v (TopLevelHeap(addr, typ, typ'), path) typ'
         let lazyInstantiator = if read then Some readInstor else None
         let ptr = {location = addr; fullyQualifiedLocation = firstLocation; typ = typ; time = time.v; path = path}
@@ -421,7 +421,7 @@ module internal Memory =
         commonHierarchicalHeapAccess true restricted makePair metadata None heap [] None key typ' [] {v = Timestamp.infinity} |> fst
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
-        let typ' = if List.isEmpty path then typ else path |> List.last |> typeOfPathSegment
+        let typ' = if List.isEmpty path then typ else typeOfPath path
         let lazyInstantiator =
             if read then
                 let readInstor = lazyInstantiator |?? selectLazyInstantiator<termType> metadata groundHeap Timestamp.infinity (TopLevelStatics typ, path) typ'

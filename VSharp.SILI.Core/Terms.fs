@@ -375,7 +375,7 @@ module internal Terms =
         | TopLevelStatics typ -> typ
         | TopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
 
-    let typeOfPathSegment = function
+    let typeOfPath = List.last >> function
         | StructField(_, t)
         | ArrayIndex(_, t) -> t
         | ArrayLowerBound _
@@ -391,7 +391,7 @@ module internal Terms =
         | Struct(_, t)
         | Array(_, _, _, _, _, _, t) -> t
         | Ref(tl, []) -> typeOfTopLevel tl |> Reference
-        | Ref(_, path) -> List.last path |> typeOfPathSegment
+        | Ref(_, path) -> typeOfPath path
         | Ptr(_, _, typ, _) -> Pointer typ
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t ->
