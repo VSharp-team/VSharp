@@ -102,6 +102,7 @@ module internal Memory =
         let contents =
             fields
             |> FSharp.Collections.Array.fold (fun acc (name, typ) ->
+                let typ = wrapReferenceType typ
                 let value = mkField metadata name typ
                 Heap.add (makePathKey fql (mkFieldKey typ) name) { value = value; created = time; modified = time } acc) Heap.empty
         Struct metadata contents typ
@@ -113,8 +114,6 @@ module internal Memory =
         | Numeric t -> CastConcrete 0 t metadata
         | Func _
         | Reference _
-        | ClassType _
-        | ArrayType _
         | InterfaceType _ -> makeNullRef metadata
         | TypeVariable _ ->
             Common.statelessConditionalExecution
@@ -419,8 +418,7 @@ module internal Memory =
 
     and readHeap metadata restricted heap key typ =
         let typ' = removeTypeVariable typ
-        let lazyInst = if isConcrete key then Some <| fun () -> Union metadata [] else None
-        commonHierarchicalHeapAccess true restricted makePair metadata None heap [] lazyInst key typ' [] {v = Timestamp.infinity} |> fst
+        commonHierarchicalHeapAccess true restricted makePair metadata None heap [] None key typ' [] {v = Timestamp.infinity} |> fst
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
         let typ' = if List.isEmpty path then typ else path |> List.last |> typeOfPathSegment
@@ -642,7 +640,8 @@ module internal Memory =
         let heap = composeHeapsOf ctx state state'.heap
         let statics = composeStaticsOf ctx state state'.statics
         assert(state'.typeVariables |> snd |> Stack.isEmpty)
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = state.pc; typeVariables = state.typeVariables }
+        let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
+        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = pc; typeVariables = state.typeVariables }
 
 // ------------------------------- High-level read/write -------------------------------
 

@@ -176,7 +176,7 @@ module internal Merging =
         match g, h with
         | _, _ when u = v -> u
         | True, _
-        | _, False
+        | _, False -> u
         | False, _
         | _, True -> v
         | ErrorT _, _ -> g
@@ -200,6 +200,9 @@ module internal Merging =
         // TODO: get rid of extra zips/unzips
         let (|MergedHeap|_|) = function | Merged gvs -> Some gvs | _ -> None
         let guards, heaps = List.zip guards heaps |> simplify (|MergedHeap|_|) |> List.unzip
+        let Merged = function
+            | [(True, x)] -> x
+            | xs -> Merged xs
         // TODO: non-restricted heaps should be merged in a different way
         let defined, undefined =
             heaps

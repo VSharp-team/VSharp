@@ -12,7 +12,7 @@ module Substitution =
     let rec substitute subst typeSubst term =
         match term.term with
         | Ref(topLevel, path) ->
-            topLevel |> substituteRef subst typeSubst path (fun tl path -> Ref term.metadata tl path) |> Merging.merge
+            topLevel |> substituteRef subst typeSubst path (fun tl path -> Ref term.metadata tl path) |> Merging.merge |> subst
         | Ptr(topLevel, path, typ, shift) ->
             let ctor =
                 match shift with

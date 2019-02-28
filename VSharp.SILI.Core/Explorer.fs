@@ -144,10 +144,11 @@ module internal Explorer =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
         functionApplicationResult mtd funcId name state (fun res ->
         let recursiveResult = ControlFlow.throwOrReturn res
-        let recursiveState =
-            { mutateStackClosure mtd funcId time state with
-                heap = RecursiveApplication(funcId, addr, time);
-                statics = RecursiveApplication(funcId, addr, time) }
+        let heapSymbol = RecursiveApplication(funcId, addr, time)
+        let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
+        let heap = Memory.composeHeapsOf ctx state heapSymbol
+        let statics = Memory.composeStaticsOf ctx state heapSymbol
+        let recursiveState = { mutateStackClosure mtd funcId time state with heap = heap; statics = statics }
         k (recursiveResult, recursiveState))
 
     let higherOrderApplication mtd funcId (state : state) k =

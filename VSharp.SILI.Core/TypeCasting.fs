@@ -29,12 +29,6 @@ module internal TypeCasting =
         | _ -> __notImplemented__()
 
     let private doCast mtd term targetType isChecked =
-        let changeLast = // For References
-            List.changeLast (function
-                | StructField(f, _) -> StructField(f, targetType)
-                | ArrayIndex(i, _) -> ArrayIndex(i, targetType)
-                | s -> s)
-
         let castPointer term typ = // For Pointers
             match targetType with
             | Pointer typ' -> castReferenceToPointer mtd typ' term
@@ -42,8 +36,7 @@ module internal TypeCasting =
 
         match term.term with
         | Ptr(_, _, typ, _) -> castPointer term typ
-        | Ref(TopLevelHeap(addr, baseType, _), path) -> HeapRef term.metadata addr baseType targetType path
-        | Ref(key, path) -> Ref mtd key (changeLast path)
+        | Ref(TopLevelHeap(addr, baseType, _), []) -> HeapRef term.metadata addr baseType targetType []
         | _ -> __unreachable__()
 
     let rec canCast mtd state targetType term =
