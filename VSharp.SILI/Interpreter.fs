@@ -43,6 +43,17 @@ module internal Interpreter =
     let restoreAfter k x = let r = k x in Restore(); r
     let restoreBefore k x = Restore(); k x
 
+    let reduceTypeVariablesSubsitution state (ownerType : IMetadataClassType) k =
+        let state =
+            if ownerType = null then []
+            else
+                let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
+                let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
+                Seq.zip leftArg rightArg |> Seq.toList
+            |> Memory.NewTypeVariables state
+        let k = mapsnd Memory.PopTypeVariables >> k
+        state, k
+
 // ------------------------------- Environment interaction -------------------------------
 
     let externalImplementations =
@@ -267,20 +278,16 @@ module internal Interpreter =
             reduceFunction state this parameters {metadataMethod = ast.MetadataMethod; state = {v = state}} ast.Signature (invoke ast) k
 
     and reduceEventAccessExpression state (ast : IEventAccessExpression) k =
-        reduceTypeVariablesSubsitution state ast.EventSpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ast.EventSpecification.OwnerType k
         let qualifiedTypeName = ast.EventSpecification.Event.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (result, state) ->
-        __notImplemented__()))
+        __notImplemented__())
 
     and reduceIndexerCallExpression state (ast : IIndexerCallExpression) k =
-        reduceTypeVariablesSubsitution state ast.PropertySpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ast.PropertySpecification.OwnerType k
         let qualifiedTypeName = ast.PropertySpecification.Property.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (result, state) ->
-        __notImplemented__()))
+        __notImplemented__())
 
     and reduceMethodCall (caller : locationBinding) state target (metadataMethod : JetBrains.Metadata.Reader.API.IMetadataMethod) arguments k =
         let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName
@@ -298,17 +305,13 @@ module internal Interpreter =
         let reduceTarget state k = reduceExpressionToRef state true ast.Target k
         let reduceArg arg = fun state k -> reduceExpression state arg k
         let reduceArgs = ast.Arguments |> List.ofSeq |> List.map reduceArg
-        reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType (fun subst ->
-        let state = Memory.NewTypeVariables state subst
-        let k = mapsnd Memory.PopTypeVariables >> k
-        reduceMethodCall ast state reduceTarget ast.MethodInstantiation.MethodSpecification.Method reduceArgs k)
+        let state, k = reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType k
+        reduceMethodCall ast state reduceTarget ast.MethodInstantiation.MethodSpecification.Method reduceArgs k
 
     and reducePropertyAccessExpression state (ast : IPropertyAccessExpression) k =
-        reduceTypeVariablesSubsitution state ast.PropertySpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
-        let obtainTarget state k = reduceExpressionToRef state true ast.Target k
-        reduceMethodCall ast state obtainTarget ast.PropertySpecification.Property.Getter [] k)
+        let reduceTarget state k = reduceExpressionToRef state true ast.Target k
+        let state, k = reduceTypeVariablesSubsitution state ast.PropertySpecification.OwnerType k
+        reduceMethodCall ast state reduceTarget ast.PropertySpecification.Property.Getter [] k
 
     and reduceArgListCreationExpression state (ast : IArgListCreationExpression) k =
         __notImplemented__()
@@ -448,9 +451,7 @@ module internal Interpreter =
         GuardedApplyStatement state deleg invoke k))
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
-        reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType k
         let metadataMethod = ast.MethodInstantiation.MethodSpecification.Method
         let qualifiedTypeName = metadataMethod.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (result, state) ->
@@ -462,7 +463,7 @@ module internal Interpreter =
         let k = Enter ast state k
         let delegateTerm, state = Functions.MakeLambda state metadataMethod invoke
         let returnDelegateTerm state k = k (Return delegateTerm, state)
-        npeOrInvokeExpression ast state metadataMethod.IsStatic targetTerm returnDelegateTerm k)))
+        npeOrInvokeExpression ast state metadataMethod.IsStatic targetTerm returnDelegateTerm k))
 
     and getLambdaReturnType state ast (signature : IFunctionSignature) =
         let fullType = DecompilerServices.getTypeOfNode ast
@@ -746,11 +747,9 @@ module internal Interpreter =
         | :? IThisReferenceExpression as expression ->
             k (Memory.ReferenceLocalVariable state ("this", getThisTokenBy expression) followHeapRefs, state)
         | :? IFieldAccessExpression as expression ->
-            reduceTypeVariablesSubsitution state expression.FieldSpecification.OwnerType (fun subst ->
-            let k = mapsnd Memory.PopTypeVariables >> k
-            let state = Memory.NewTypeVariables state subst
+            let state, k = reduceTypeVariablesSubsitution state expression.FieldSpecification.OwnerType k
             reduceExpressionToRef state true expression.Target (fun (target, state) ->
-            referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k))
+            referenceToField ast state followHeapRefs target expression.FieldSpecification.Field k)
         | :? IDerefExpression as expression -> reduceExpressionToRef state followHeapRefs expression.Argument k
         | :? ICreationExpression as expression -> reduceCreationExpression true state expression k
         | :? ILiteralExpression as expression -> reduceLiteralExpressionToRef state expression k
@@ -798,9 +797,7 @@ module internal Interpreter =
         k (Memory.Dereference state reference))
 
     and reduceFieldAccessExpression state (ast : IFieldAccessExpression) k =
-        reduceTypeVariablesSubsitution state ast.FieldSpecification.OwnerType (fun subst ->
-        let state = Memory.NewTypeVariables state subst
-        let k = mapsnd Memory.PopTypeVariables >> k
+        let state, k = reduceTypeVariablesSubsitution state ast.FieldSpecification.OwnerType k
         let qualifiedTypeName = ast.FieldSpecification.Field.DeclaringType.AssemblyQualifiedName
         initializeStaticMembersIfNeed ast state qualifiedTypeName (fun (statementResult, state) ->
             let readFieldLocal state k =
@@ -813,7 +810,7 @@ module internal Interpreter =
                 (readFieldLocal state)
                 (fun _ _ _ state k -> k (statementResult, state))
                 (fun _ _ _ state k -> readFieldLocal state k)
-                (fun (r, s) -> k (ControlFlow.ResultToTerm r, s))))
+                (fun (r, s) -> k (ControlFlow.ResultToTerm r, s)))
 
     and readField caller state target (field : JetBrains.Metadata.Reader.API.IMetadataField) (k : term * state -> 'a) =
         let fieldName = DecompilerServices.idOfMetadataField field
@@ -870,14 +867,12 @@ module internal Interpreter =
             reduceBinaryOperation ast state (DecompilerServices.convertOperation ast.OperationType) ast.LeftArgument ast.RightArgument isChecked (MetadataTypes.getSystemTypeOfNode ast) k
 
     and reduceUserDefinedBinaryOperationExpression state (ast : IUserDefinedBinaryOperationExpression) k =
-        reduceTypeVariablesSubsitution state ast.MethodSpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ast.MethodSpecification.OwnerType k
         let k = Enter ast state k
         let reduceTarget state k = k (Terms.MakeNullRef (), state)
         let reduceLeftArg state k = reduceExpression state ast.LeftArgument k
         let reduceRightArg state k = reduceExpression state ast.RightArgument k
-        reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k)
+        reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceLeftArg; reduceRightArg] k
 
     and reduceAssignment (caller : locationBinding) state (left : IExpression) (right : IExpression) k =
         let targetReducer =
@@ -915,26 +910,23 @@ module internal Interpreter =
         mutate ast state left obtainResult obtainTarget k)))
 
     and readTargeted state (ast : IExpression) k =
+        let k ((targetRef, result), state) = k (targetRef, result, state)
         match ast with
         | :? IParameterReferenceExpression
         | :? ILocalVariableReferenceExpression ->
             reduceExpression state ast (fun (result, state) ->
-            k (Nop, result, state))
+            k ((Nop, result), state))
         | :? IFieldAccessExpression as field ->
-            reduceTypeVariablesSubsitution state field.FieldSpecification.OwnerType (fun subst ->
-            let state = Memory.NewTypeVariables state subst
-            let k = fun (targetRef, result, state) -> k (targetRef, result, Memory.PopTypeVariables state)
+            let state, k = reduceTypeVariablesSubsitution state field.FieldSpecification.OwnerType k
             reduceExpressionToRef state true field.Target (fun (targetRef, state) ->
             readField field state targetRef field.FieldSpecification.Field (fun (result, state) ->
-            k (targetRef, result, state))))
+            k ((targetRef, result), state)))
         | :? IPropertyAccessExpression as property ->
-            reduceTypeVariablesSubsitution state property.PropertySpecification.OwnerType (fun subst ->
-            let state = Memory.NewTypeVariables state subst
-            let k = fun (targetRef, result, state) -> k (targetRef, result, Memory.PopTypeVariables state)
+            let state, k = reduceTypeVariablesSubsitution state property.PropertySpecification.OwnerType k
             reduceExpressionToRef state true property.Target (fun (targetRef, state) ->
             let obtainTarget state k = k (targetRef, state)
             reduceMethodCall ast state obtainTarget property.PropertySpecification.Property.Getter [] (fun (result, state) ->
-            k (targetRef, result, state))))
+            k ((targetRef, result), state)))
         | :? IIndexerCallExpression
         | _ -> __notImplemented__()
 
@@ -956,14 +948,12 @@ module internal Interpreter =
             let k = Enter caller state k
             Memory.Mutate state fieldRef rightTerm |> k)))
         | :? IPropertyAccessExpression as property ->
-            reduceTypeVariablesSubsitution state property.PropertySpecification.OwnerType (fun subst ->
-            let k = mapsnd Memory.PopTypeVariables >> k
-            let state = Memory.NewTypeVariables state subst
+            let state, k = reduceTypeVariablesSubsitution state property.PropertySpecification.OwnerType k
             target state (fun (targetTerm, state) ->
             right state (fun (rightTerm, state) ->
             let target state k = k (targetTerm, state)
             let right state k = k (rightTerm, state)
-            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] (fun (_, state) -> k (rightTerm, state)))))
+            reduceMethodCall property state target property.PropertySpecification.Property.Setter [right] (fun (_, state) -> k (rightTerm, state))))
         | :? IArrayElementAccessExpression as arrayAccess ->
             reduceExpressionToRef state true arrayAccess.Array (fun (array, state) ->
             Cps.Seq.mapFoldk reduceExpression state arrayAccess.Indexes (fun (indices, state) ->
@@ -1048,12 +1038,10 @@ module internal Interpreter =
         | _ -> __notImplemented__()
 
     and reduceUserDefinedTypeCastExpression state (ast : IUserDefinedTypeCastExpression) k =
-        reduceTypeVariablesSubsitution state ast.MethodSpecification.OwnerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ast.MethodSpecification.OwnerType k
         let reduceTarget state k = k (MakeNullRef (), state)
         let reduceArg state k = reduceExpression state ast.Argument k
-        reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k)
+        reduceMethodCall ast state reduceTarget ast.MethodSpecification.Method [reduceArg] k
 
     and reduceTryCastExpression state (ast : ITryCastExpression) k =
         let k = Enter ast state k
@@ -1083,12 +1071,7 @@ module internal Interpreter =
         let k = Enter ast state k
         k (Types.CastConcrete instance typedefof<Type>, state)
 
-    and reduceTypeVariablesSubsitution state (ownerType : IMetadataClassType) k =
-        if ownerType = null then k []
-            else
-                let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
-                let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
-                Seq.zip leftArg rightArg |> Seq.toList |> k
+
 // ------------------------------- Objects construction -------------------------------
 
     and reduceAnonymousObjectCreationExpression state (ast : IAnonymousObjectCreationExpression) k =
@@ -1173,9 +1156,7 @@ module internal Interpreter =
         match decompiledMethod with
         | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decompiledMethod ->
             printLog Trace "DECOMPILED MethodWithExplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
-            reduceTypeVariablesSubsitution state decompiledMethod.Initializer.MethodInstantiation.MethodSpecification.OwnerType (fun subst ->
-            let k = mapsnd Memory.PopTypeVariables >> k
-            let state = Memory.NewTypeVariables state subst
+            let state, k = reduceTypeVariablesSubsitution state decompiledMethod.Initializer.MethodInstantiation.MethodSpecification.OwnerType k
             let initializerMethod = decompiledMethod.Initializer.MethodInstantiation.MethodSpecification.Method
             let initializerQualifiedTypeName = initializerMethod.DeclaringType.AssemblyQualifiedName
             let initializerAssemblyPath = initializerMethod.DeclaringType.Assembly.Location
@@ -1184,7 +1165,7 @@ module internal Interpreter =
             initializeFieldsIfNeed state (decompiledMethod.MetadataMethod.DeclaringType) (initializerMethod.DeclaringType) qualifiedTypeName (fun state ->
             Cps.Seq.mapFoldk reduceExpression state args (fun (args, state) ->
             initializeStaticMembersIfNeed caller state initializerQualifiedTypeName (fun (result, state) ->
-            decompileAndReduceMethod decompiledMethod state this (Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k'))))) k)
+            decompileAndReduceMethod decompiledMethod state this (Specified args) initializerQualifiedTypeName initializerMethod initializerAssemblyPath (composeResult result state k'))))) k
         | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decompiledMethod ->
             printLog Trace "DECOMPILED MethodWithImplicitInitializer %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
             let initializerQualifiedTypeName, initializerMethod, initializerAssemblyPath = baseCtorInfo metadataMethod
@@ -1206,9 +1187,7 @@ module internal Interpreter =
 
     and reduceObjectCreation returnRef (caller : locationBinding) state constructedType objectInitializerList collectionInitializerList (constructorSpecification : MethodSpecification) invokeArguments k =
         let ownerType = if constructorSpecification = null then null else constructorSpecification.OwnerType
-        reduceTypeVariablesSubsitution state ownerType (fun subst ->
-        let k = mapsnd Memory.PopTypeVariables >> k
-        let state = Memory.NewTypeVariables state subst
+        let state, k = reduceTypeVariablesSubsitution state ownerType k
         let k = Enter caller state k
         let constructedTermType = MetadataTypes.fromMetadataType state constructedType
         let qualifiedTypeName = DecompilerServices.assemblyQualifiedName constructedType
@@ -1243,7 +1222,7 @@ module internal Interpreter =
                 invokeArguments state (fun (arguments, state) ->
                 let assemblyPath = DecompilerServices.locationOfType qualifiedTypeName
                 decompileAndReduceMethod caller state (Some reference) (Specified arguments) qualifiedTypeName constructorSpecification.Method assemblyPath (fun res ->
-                invokeInitializers result state res k))))
+                invokeInitializers result state res k)))
 
     and reduceObjectCreationExpression toRef state (ast : IObjectCreationExpression) k =
         let arguments state = Cps.List.mapFoldk reduceExpression state (List.ofArray ast.Arguments)
