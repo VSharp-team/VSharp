@@ -118,7 +118,7 @@ module internal DecompilerServices =
     let public isConstructor (m : IMetadataMethod) =
         m.Name = ".ctor"
 
-    let public decomplieSuitableMethod methodComparator (decompiledClass : IDecompiledClass) (methodInfo : IMetadataMethod) =
+    let public decompileSuitableMethod methodComparator (decompiledClass : IDecompiledClass) (methodInfo : IMetadataMethod) =
         // TODO: this list can be memorized for one time, implement it after indexer expressions
         List.append
             (List.ofSeq decompiledClass.Methods)
@@ -134,7 +134,7 @@ module internal DecompilerServices =
 
     let public decompileMethod assemblyPath qualifiedTypeName (methodInfo : IMetadataMethod) =
         let decompiledClass = decompileClass assemblyPath qualifiedTypeName
-        decomplieSuitableMethod (fun l r -> l.Equals r) decompiledClass (methodInfo : IMetadataMethod)
+        decompileSuitableMethod (fun l r -> l.Equals r) decompiledClass (methodInfo : IMetadataMethod)
 
     let public resolveType (typ : System.Type) =
         let assembly = loadAssembly (JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location))

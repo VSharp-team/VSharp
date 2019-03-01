@@ -54,12 +54,6 @@ module public List =
         assert(tail = ys)
         result
 
-    let public changeLast f xs =
-        let cons x = function
-            | [] -> [f x]
-            | xs -> x :: xs
-        List.foldBack cons xs []
-
     let rec public cartesian = function
         | [xs] -> Seq.map List.singleton xs
         | xs::xss ->

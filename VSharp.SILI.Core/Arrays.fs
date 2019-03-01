@@ -160,8 +160,8 @@ module internal Arrays =
         let indices =
             List.foldBack (fun i s ->
                 let indicesInDim = Seq.init i intToTerm
-                let res = Seq.map (fun x -> Seq.map (cons x) s) indicesInDim
-                res |> Seq.concat) dimensions (Seq.init 1 (always List.empty))
+                Seq.collect (fun x -> Seq.map (cons x) s) indicesInDim
+                ) dimensions (Seq.init 1 (always List.empty))
             |> Seq.map (fun index -> makePathKey fql (mkArrayIndex elemTyp) <| makeIndexArray mtd (fun i -> index.[i]) index.Length)
         let contents = Seq.zip indices linearContent |> Heap.ofSeq
         let constant = Constant mtd defaultArrayName (DefaultArray()) typ

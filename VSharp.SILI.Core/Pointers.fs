@@ -280,8 +280,11 @@ module internal Pointers =
             (isNearlyPtr t1 && Types.isNumeric t2) || (isNearlyPtr t2 && Types.isNumeric t1)
         | _ -> false
 
-    let topLevelLocation = Merging.map (function
-        | {term = Ref(TopLevelHeap (a, _, _), [])} -> a
+    let topLevelLocation = Merging.map (term >> function
+        | Ref(TopLevelHeap (a, _, _), [])
+        | Ptr(TopLevelHeap (a, _, _), [], _, _) -> a
+        | Ref(NullAddress, _)
+        | Ptr(NullAddress, _, _, _) -> makeZeroAddress Metadata.empty
         | _ -> __notImplemented__())
 
     type HeapAddressExtractor() =

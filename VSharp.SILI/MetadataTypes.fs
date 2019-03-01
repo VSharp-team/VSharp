@@ -79,3 +79,16 @@ module internal MetadataTypes =
         let mt = getMetadataTypeOfNode node
         if mt = null then typedefof<obj>
         else metadataToDotNetType mt
+
+    let rec getLambdaTypeSignature (node : JetBrains.Decompiler.Ast.INode) =
+        match node.Parent with
+        | null -> None
+        | :? JetBrains.Decompiler.Ast.ITypeCastExpression as cast ->
+            // We should hack because delegates have Type "__AnonymousDelegate"
+            let fullMetadataType = cast.TargetType :?> IMetadataClassType
+            let fullType = metadataToDotNetType fullMetadataType
+            if fullType.FullName.StartsWith("System.Action")
+                then [||]
+                else fullMetadataType.Arguments
+            |> Some
+        | node -> getLambdaTypeSignature node.Parent

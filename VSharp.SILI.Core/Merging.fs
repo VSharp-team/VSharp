@@ -176,7 +176,7 @@ module internal Merging =
         match g, h with
         | _, _ when u = v -> u
         | True, _
-        | _, False
+        | _, False -> u
         | False, _
         | _, True -> v
         | ErrorT _, _ -> g
@@ -197,14 +197,15 @@ module internal Merging =
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     and mergeGeneralizedHeaps<'a when 'a : equality> read guards (heaps : list<'a generalizedHeap>) =
-        // TODO: get rid of extra zips/unzips
-        let (|MergedHeap|_|) = function | Merged gvs -> Some gvs | _ -> None
-        let guards, heaps = List.zip guards heaps |> simplify (|MergedHeap|_|) |> List.unzip
+        let (|MergedHeap|_|) = function Merged gvs -> Some gvs | _ -> None
+        let guardsAndHeaps = List.zip guards heaps |> simplify (|MergedHeap|_|)
+        let Merged = function
+            | [(True, x)] -> x
+            | xs -> Merged xs
         // TODO: non-restricted heaps should be merged in a different way
         let defined, undefined =
-            heaps
-                |> List.zip guards
-                |> List.mappedPartition (function (g, Defined(r, s)) -> Some(g, r, s) | _ -> None)
+            guardsAndHeaps
+            |> List.mappedPartition (function (g, Defined(r, s)) -> Some(g, r, s) | _ -> None)
         if defined.IsEmpty then
             undefined |> mergeSame |> Merged
         else

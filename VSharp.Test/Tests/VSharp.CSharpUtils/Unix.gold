@@ -5627,7 +5627,7 @@ RESULT: 18
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression System.Int32 -> System.Object>
+1 ==> <Lambda Expression System.Int32 -> System.Int32>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.Boolean VSharp.CSharpUtils.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
@@ -5635,8 +5635,8 @@ RESULT: True
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> <Lambda Expression System.Int32 -> System.Object>
-2 ==> <Lambda Expression System.Int32 -> System.Object>
+1 ==> <Lambda Expression System.Int32 -> System.Void>
+2 ==> <Lambda Expression System.Int32 -> System.Void>
 ---------- s1 = ----------
 VSharp.CSharpUtils.Tests.Lambdas ==> STRUCT VSharp.CSharpUtils.Tests.Lambdas[]
 METHOD: System.String VSharp.CSharpUtils.Tests.Strings.EmptyString(System.Int32, System.Int32)

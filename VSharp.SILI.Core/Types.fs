@@ -370,3 +370,7 @@ module internal Types =
     let rec specifyType = function
         | TypeVariable(Implicit(_, _, typ)) -> specifyType typ
         | typ -> typ
+
+    let unwrapReferenceType = function
+        | Reference t -> t
+        | t -> t

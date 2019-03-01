@@ -64,7 +64,33 @@ module Transformations =
             parentBlock.ReplaceWith(newParent)
         | parent -> parent.ReplaceChild(child, AstFactory.CreateBlockStatement(newChildren))
 
-    let private abstractLoopStatementToRecursion (abstractLoopStatement : IAbstractLoopStatement) lambdaDotNetType callArgumentsNames callArguments externalBody body fullBodyBlock traverseBody =
+    let private getReturnTypeOfLoopStatement (ast : INode) : Type option = // None == System.Void
+        let hasReturn =
+            try
+                ast.VisitPreorder(fun (node : INode) ->
+                    match node with
+                    | :? IReturnStatement -> failwith "Got return"
+                    | _ -> ())
+                false
+            with Failure "Got return" -> true
+        let rec getReturnTypeFromMethod (node : INode) =
+            match node with
+            | null -> internalfail "Can't find enclosing method"
+            | :? IDecompiledMethod as dm -> dm.MetadataMethod.ReturnValue.Type
+            | node -> getReturnTypeFromMethod node.Parent
+
+        if hasReturn
+            then
+                let returnType =
+                    match MetadataTypes.getLambdaTypeSignature ast with
+                    | Some signature -> Array.tryLast signature
+                    | None -> Some <| getReturnTypeFromMethod ast
+                returnType
+                |> Option.filter (fun t -> t.FullName <> "System.Void")
+                |> Option.map MetadataTypes.metadataToDotNetType
+            else None
+
+    let private abstractLoopStatementToRecursion (abstractLoopStatement : IAbstractLoopStatement) indexerTypes callArgumentsNames callArguments externalBody body fullBodyBlock traverseBody =
         (*
         Here we transform loops into anaphoric lambda recursive calls
 
@@ -73,6 +99,7 @@ module Transformations =
         property of delegate calls to invoke this!
         *)
 
+        let returnType = getReturnTypeOfLoopStatement abstractLoopStatement
         let internalBody = abstractLoopStatement.Body
         abstractLoopStatement.ReplaceChild(internalBody, null)
         let instructionReference = abstractLoopStatement.InstructionReference
@@ -91,6 +118,19 @@ module Transformations =
 
         let signature = AstFactory.CreateFunctionSignature()
         let lambdaBlock = AstFactory.CreateLambdaBlockExpression(signature, body, instructionReference)
+        let lambdaDotNetType =
+            match returnType with
+            | Some returnType ->
+                Array.append indexerTypes [|returnType|]
+                |> Array.map toString
+                |> join ","
+                |> sprintf "System.Func`%i[%s]" (indexerTypes.Length + 1)
+            | None when indexerTypes.Length = 0 -> "System.Action"
+            | None ->
+                Array.map toString indexerTypes
+                |> join ","
+                |> sprintf "System.Action`%i[%s]" indexerTypes.Length
+            |> Type.GetType
         let lambdaType = DecompilerServices.resolveType lambdaDotNetType
         DecompilerServices.setTypeOfNode lambdaBlock lambdaType
 
@@ -142,7 +182,6 @@ module Transformations =
         let indexerVariables = Array.map variableOfIndexer indexers
         let indexerInitializers = Array.map initializerOfIndexer indexers
 
-        let lambdaDotNetType = typedefof<System.Action<_>>.MakeGenericType(indexerTypes)
         let condition = forStatement.Condition
         let iterator = forStatement.Iterator
         forStatement.ReplaceChild(condition, null)
@@ -177,7 +216,7 @@ module Transformations =
 
         let fullBodyBlock _ callStatement = Seq.singleton callStatement
 
-        abstractLoopStatementToRecursion forStatement lambdaDotNetType indexerVariables indexerInitializers externalBody body fullBodyBlock replaceParameters
+        abstractLoopStatementToRecursion forStatement indexerTypes indexerVariables indexerInitializers externalBody body fullBodyBlock replaceParameters
         |> Seq.exactlyOne :?> IExpressionStatement
 
     let loopStatementToRecursion (loopStatement : ILoopStatement) =
@@ -215,7 +254,6 @@ module Transformations =
         without giving it a name. The interpreter must consider "CurrentLambdaExpression"
         property of delegate calls to invoke this!
         *)
-        let lambdaDotNetType = typedefof<System.Action>
         let condition = loopStatement.Condition
         let loopType = loopStatement.LoopType
         loopStatement.ReplaceChild(condition, null)
@@ -233,7 +271,7 @@ module Transformations =
             | LoopType.Postconditional -> Seq.append internalBodyContent [callStatement]
             | _ -> Seq.singleton callStatement
 
-        abstractLoopStatementToRecursion loopStatement lambdaDotNetType [||] [||] externalBody body fullBodyBlock (fun _ _ -> ())
+        abstractLoopStatementToRecursion loopStatement [||] [||] [||] externalBody body fullBodyBlock (fun _ _ -> ())
 
     let private usingStatementWithAssignmentToBlock (usingStatement : IUsingStatement) =
         (*
