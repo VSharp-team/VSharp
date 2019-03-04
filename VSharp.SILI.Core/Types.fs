@@ -254,7 +254,7 @@ module internal Types =
             | null -> Null
             | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension {v="System.Array"})
+            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj> |> Reference, SymbolicDimension {v="System.Array"})
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e

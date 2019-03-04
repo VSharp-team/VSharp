@@ -357,17 +357,17 @@ module internal Merging =
     let map f t =
         match t.term with
         | Union gvs -> guardedApply f gvs |> merge
-        | Error e -> e
+        | Error _ -> t
         | _ -> f t
 
     let statedMap f state term =
         match term.term with
         | Union gvs -> guardedStateMap f gvs state
-        | Error e -> e, state
+        | Error _ -> term, state
         | _ -> f state term
 
     let statedMapk f state term k =
         match term.term with
         | Union gvs -> guardedStateMapk f gvs state k
-        | Error e -> k (e, state)
+        | Error _ -> k (term, state)
         | _ -> f state term k
