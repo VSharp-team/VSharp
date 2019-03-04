@@ -270,14 +270,18 @@ module internal Pointers =
         simplifyBinaryOperation mtd OperationType.Subtract State.empty x y (typeof<System.Void>.MakePointerType()) fst
 
     let isPointerOperation op t1 t2 =
-        let isNearlyPtr t = Types.isReference t || Types.isPointer t
+        let isNull = (=) Types.pointerType
+        let isRefOrNull t = isNull t || Types.isReference t
+        let isPtrOrNull t = isNull t || Types.isPointer t
 
         match op with
         | OperationType.Equal
-        | OperationType.NotEqual -> isNearlyPtr t1 && isNearlyPtr t2
-        | OperationType.Subtract -> isNearlyPtr t1 && (isNearlyPtr t2 || Types.isNumeric t2)
+        | OperationType.NotEqual ->
+            isRefOrNull t1 && isRefOrNull t2
+            || isPtrOrNull t1 && isPtrOrNull t2
+        | OperationType.Subtract -> Types.isPointer t1 && (Types.isPointer t2 || Types.isNumeric t2)
         | OperationType.Add ->
-            (isNearlyPtr t1 && Types.isNumeric t2) || (isNearlyPtr t2 && Types.isNumeric t1)
+            (Types.isPointer t1 && Types.isNumeric t2) || (Types.isPointer t2 && Types.isNumeric t1)
         | _ -> false
 
     let topLevelLocation = Merging.map (term >> function

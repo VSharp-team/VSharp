@@ -391,7 +391,7 @@ module internal Terms =
         | Struct(_, t)
         | Array(_, _, _, _, _, _, t) -> t
         | Ref(tl, []) -> typeOfTopLevel tl |> Reference
-        | Ref(_, path) -> typeOfPath path
+        | Ref(_, path) -> typeOfPath path |> Reference
         | Ptr(_, _, typ, _) -> Pointer typ
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t ->

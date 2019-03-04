@@ -102,6 +102,7 @@ module internal Memory =
             | { heap = None } -> Some(li.location)
             | _ -> None
         match src with
+        | :? lazyInstantiation<obj> as li -> getLocation li
         | :? lazyInstantiation<termType> as li -> getLocation li
         | :? lazyInstantiation<term> as li -> getLocation li // TODO: generic shape pattern matching doesn't work in F#!
         | _ -> None                                          // TODO: there should be more cases
@@ -329,7 +330,7 @@ module internal Memory =
             | None ->
                 let baseGuard = restGavs |> List.map (fst3 >> (!!)) |> conjunction metadata
                 let lazyValue =
-                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation then Union metadata []
+                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation && List.isEmpty contextList then Union metadata []
                     else lazyInstantiator |?? genericLazyInstantiator metadata groundHeap ptr.fullyQualifiedLocation ptr.typ |> eval
                 let baseCell = { value = lazyValue; created = time; modified = time}
                 let gavs = if read then restGavs else (baseGuard, ptr.location, baseCell)::restGavs
@@ -684,6 +685,7 @@ module internal Memory =
 
     and private referenceTerm name followHeapRefs term =
         match term.term with
+        | Error _
         | Ref _ when followHeapRefs -> term
         | Union gvs -> guardedMap (referenceTerm name followHeapRefs) gvs
         | _ -> StackRef term.metadata name []

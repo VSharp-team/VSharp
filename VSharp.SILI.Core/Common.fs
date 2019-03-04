@@ -173,6 +173,6 @@ module internal Common =
             match solvePC condition (State.pathConditionOf conditionState) with
             | Unsat -> elseBranch conditionState k
             | _ ->
-                match solve (!!condition) with
+                match solvePC !!condition (State.pathConditionOf conditionState) with
                 | Unsat -> thenBranch conditionState k
                 | _ -> execution conditionState condition k)
