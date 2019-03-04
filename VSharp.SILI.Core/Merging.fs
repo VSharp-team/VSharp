@@ -41,13 +41,21 @@ module internal Merging =
     and keysResolver<'a, 'b, 'c when 'c : equality> r (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper getter (k : heapKey<'c, fql>) hgvs =
         let key = keyMapper k
         let value = (List.pick thd3 hgvs).value
+        let bestTypeOf =
+            match Option.bind typeOfFQL k.FQL with
+            | Some typ -> always typ
+            | None -> typeOf
         let instIfShould = function
             | _, g, Some v -> (g, v)
-            | i, g, _ -> (g, cellMap (read r (getter i) key << typeOf) value)
+            | i, g, _ -> (g, cellMap (read r (getter i) key << bestTypeOf) value)
         mergeCells <| List.map instIfShould hgvs
 
     and keysResolver2<'a, 'b, 'c, 'd when 'c : equality> r h1 h2 (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper resolve (k : heapKey<'c, fql>) v1 v2 : 'd =
-        let read h v = cellMap (read r h (keyMapper k) << typeOf) v.value
+        let bestTypeOf =
+            match Option.bind typeOfFQL k.FQL with
+            | Some typ -> always typ
+            | None -> typeOf
+        let read h v = cellMap (read r h (keyMapper k) << bestTypeOf) v.value
         match v1, v2 with
         | Some v1, Some v2 -> resolve v1 v2
         | Some v, _ -> resolve v (read h2 v)

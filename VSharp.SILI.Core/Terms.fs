@@ -414,6 +414,12 @@ module internal Terms =
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
 
+    let typeOfFQL = function
+        | TopLevelHeap(_, _, typ), []
+        | TopLevelStatics typ, [] -> Some typ
+        | _, [] -> None
+        | _, path -> Some <| typeOfPath path
+
 
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
