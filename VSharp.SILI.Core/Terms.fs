@@ -233,7 +233,10 @@ and
         override x.GetHashCode() = x.term.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? term as other -> x.term.Equals(other.term)
+            | :? term as other ->
+                x.term.Equals(other.term)
+                // TODO: get rid of the comparison of miscs when ControlFlow is removed
+                && (not <| x.term.Equals(Nop) || x.metadata.misc = other.metadata.misc)
             | _ -> false
 
 and
@@ -249,12 +252,16 @@ type INonComposableSymbolicConstantSource =
 module internal Terms =
 
     module internal Metadata =
-        let empty = { origins = List.empty; misc = null }
+        let empty<'a> = { origins = List.empty; misc = null }
         let combine m1 m2 = { origins = List.append m1.origins m2.origins |> List.distinct; misc = null }
         let combine3 m1 m2 m3 = { origins = List.append3 m1.origins m2.origins m3.origins |> List.distinct; misc = null }
         let addMisc t obj =
             if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
             t.metadata.misc.Add obj |> ignore
+        let removeMisc t obj =
+            if t.metadata.misc <> null then
+                t.metadata.misc.Remove obj |> ignore
+                if t.metadata.misc.Count = 0 then t.metadata.misc <- null
         let miscContains t obj = t.metadata.misc <> null && t.metadata.misc.Contains(obj)
         let firstOrigin m =
             match m.origins with
@@ -264,7 +271,7 @@ module internal Terms =
 
     let term (term : term) = term.term
 
-    let Nop = { term = Nop; metadata = Metadata.empty }
+    let Nop<'a> = { term = Nop; metadata = Metadata.empty } // { origins = List.empty; misc = null } }
     let Error metadata term = { term = Error term; metadata = metadata }
     let Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
     let Constant metadata name source typ = { term = Constant({v=name}, source, typ); metadata = metadata }

@@ -34,7 +34,7 @@ module internal ControlFlowConstructors =
 
 module internal ControlFlow =
 
-    type private ReturnMarker() = class end
+    type private ReturnMarker = ReturnMarker
 
     let rec merge2Results condition1 condition2 thenRes elseRes =
         let metadata = Metadata.combine thenRes.metadata elseRes.metadata
@@ -91,8 +91,10 @@ module internal ControlFlow =
         match term.term with
         | Error t -> Throw term.metadata t
         | GuardedValues(gs, vs) -> vs |> List.map throwOrReturn |> List.zip gs |> Guarded term.metadata
-        | Nop when not <| Metadata.miscContains term (ReturnMarker()) -> NoResult term.metadata
-        | _ -> Return term.metadata term
+        | Nop when not <| Metadata.miscContains term ReturnMarker -> NoResult term.metadata
+        | _ ->
+            Metadata.removeMisc term ReturnMarker
+            Return term.metadata term
 
     let rec consumeErrorOrReturn consumer term =
         match term.term with
@@ -129,12 +131,15 @@ module internal ControlFlow =
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
             Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
 
-    let rec resultToTerm result =
+    let rec private resultToTermWithReturnMarkerMaker addMarker result =
         match result.result with
-        | Return term -> Metadata.addMisc term (ReturnMarker()); { term = term.term; metadata = result.metadata }
+        | Return term -> addMarker term; { term = term.term; metadata = result.metadata }
         | Throw err -> Error result.metadata err
-        | Guarded gvs -> Merging.guardedMap resultToTerm gvs
+        | Guarded gvs -> Merging.guardedMap (resultToTermWithReturnMarkerMaker addMarker) gvs
         | _ -> Nop
+
+    let resultToTerm = resultToTermWithReturnMarkerMaker (fun term -> Metadata.addMisc term ReturnMarker)
+    let resultToTermWithNoReturnMarker = resultToTermWithReturnMarkerMaker ignore // TODO: [new-frontend] remove everything related to ReturnMarker
 
     let pickOutExceptions result =
         let gvs =
