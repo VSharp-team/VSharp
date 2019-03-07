@@ -222,6 +222,7 @@ module internal State =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
     let pushTypeVariablesSubstitution state subst =
+        assert (subst <> [])
         let oldMappedStack, oldStack = state.typeVariables
         let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
         let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push k v acc) oldMappedStack

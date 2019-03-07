@@ -44,15 +44,17 @@ module internal Interpreter =
     let restoreBefore k x = Restore(); k x
 
     let reduceTypeVariablesSubsitution state (ownerType : IMetadataClassType) k =
-        let state =
-            if ownerType = null then []
-            else
+        if ownerType = null then state, k
+        else
+            let subst =
                 let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
                 let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
                 Seq.zip leftArg rightArg |> Seq.toList
-            |> Memory.NewTypeVariables state
-        let k = mapsnd Memory.PopTypeVariables >> k
-        state, k
+            if subst = [] then state, k
+            else
+                let state = Memory.NewTypeVariables state subst
+                let k = mapsnd Memory.PopTypeVariables >> k
+                state, k
 
 // ------------------------------- Environment interaction -------------------------------
 
