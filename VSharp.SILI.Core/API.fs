@@ -163,6 +163,7 @@ module API =
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
+        let DereferenceWithoutValidation state reference = Memory.derefWithoutValidation m.Value state reference
         let DereferenceLocalVariable state id = Memory.referenceLocalVariable m.Value state id false |> Memory.deref m.Value state
         let Mutate state reference value = Memory.mutate m.Value state reference value
 
