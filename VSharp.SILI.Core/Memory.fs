@@ -673,7 +673,7 @@ module internal Memory =
     and derefWith actionNull metadata state location = hierarchicalAccess true true actionNull makePair metadata state location
 
     and derefWithoutValidation metadata state location =
-        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) makePair metadata state location
+        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) makePair metadata state location |> fst
 
     and mutate metadata state reference value =
         assert(value <> Nop)
@@ -886,7 +886,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                derefWithoutValidation ctx.mtd state' loc |> fst |> x.extractor.Extract
+                derefWithoutValidation ctx.mtd state' loc |> x.extractor.Extract
 
     type keyInitializedSource<'a when 'a : equality> with
         interface IStatedSymbolicConstantSource with

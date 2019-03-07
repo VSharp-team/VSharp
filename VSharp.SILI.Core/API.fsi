@@ -140,6 +140,7 @@ module API =
         val ReferenceArrayIndex : state -> term -> term list -> term * state
 
         val Dereference : state -> term -> term * state
+        val DereferenceWithoutValidation : state -> term -> term
         val DereferenceLocalVariable : state -> stackKey -> term * state
         val Mutate : state -> term -> term -> term * state
 
