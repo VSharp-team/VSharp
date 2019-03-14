@@ -210,7 +210,10 @@ module internal Memory =
         | InterfaceType _
         | TypeVariable _
         | ClassType _ as t ->
-            let t = Types.Variable.fromTermType name typeSource t
+            let t =
+                match fql with
+                | Some(TopLevelStatics t, []) -> t
+                | _ -> Types.Variable.fromTermType name typeSource t
             Struct metadata Heap.empty t
         | ArrayType(_, d) as t ->
             let t = Types.Variable.fromTermType name typeSource t
