@@ -104,6 +104,7 @@ module API =
         val ThrowOrIgnore : term -> statementResult
         val ConsumeErrorOrReturn : (term -> statementResult) -> term -> statementResult
         val ComposeSequentially : statementResult -> statementResult -> state -> state -> statementResult * state
+        val ComposeExpressions : term list -> state -> (state -> term list -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
         val ConsumeBreak : statementResult -> statementResult
         val PickOutExceptions : statementResult -> (term * term) option * (term * statementResult) list
 

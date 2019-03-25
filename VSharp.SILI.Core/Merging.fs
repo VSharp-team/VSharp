@@ -356,6 +356,39 @@ module internal Merging =
     let guardedCartesianProduct mapper ctor terms =
         guardedCartesianProductRec mapper ctor True [] terms
 
+    let rec private guardedSequentialProductRec gacc terms k =
+        match terms with
+        | x::xs ->
+            let errorsOfX, x' = List.partition (snd >> isError) (unguard x)
+            let errorsOfX = List.map (mapfst ((&&&) gacc)) errorsOfX
+            match x' with
+            | [] -> k errorsOfX None False
+            | _ ->
+                let gacc' = gacc &&& disjunction Metadata.empty (List.map fst x')
+                guardedSequentialProductRec gacc' xs (fun errors results ->
+                let results =
+                    match results with
+                    | Some results ->
+                        let x' = List.map (mapfst ((&&&) gacc)) x'
+                        Some (x'::results)
+                    | None -> None
+                k (errorsOfX @ errors) results)
+        | [] -> k [(gacc, Nop)] (Some []) gacc
+
+    let guardedSequentialProduct terms =
+        let simplify = genericSimplify >> function
+            | [] -> None
+            | [(True, v)] -> Some v
+            | ts -> Some (Union Metadata.empty ts)
+        guardedSequentialProductRec True terms (fun errors results computationExistsGuard ->
+            let results =
+                match results with
+                | Some results ->
+                    Cps.List.mapk (fun r k -> Option.bind k (simplify r)) results Some
+                | None -> None
+            let errors = simplify errors |> Option.filter ((<>) Nop)
+            errors, Option.map (withFst computationExistsGuard) results)
+
     let commonGuardedApply f gvs =
         List.map (fun (g, v) -> (g, f v)) gvs
 

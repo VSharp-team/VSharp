@@ -103,22 +103,21 @@ module internal ControlFlow =
         | Terms.GuardedValues(gs, vs) -> vs |> List.map (consumeErrorOrReturn consumer) |> List.zip gs |> Guarded term.metadata
         | _ -> Return term.metadata term
 
-    let rec composeSequentially oldRes newRes oldState newState =
+    let private composeSequentiallyWithStateMapper oldRes newRes =
         let calculationDone result =
             match result.result with
             | NoResult -> false
             | _ -> true
-        let rec composeFlat newRes oldRes =
+        let composeFlat newRes oldRes =
             match oldRes.result with
             | NoResult -> newRes
             | _ -> oldRes
         match oldRes.result with
-        | NoResult ->
-            newRes, newState
+        | NoResult -> newRes, fun _ newState -> newState
         | Break
         | Continue
         | Throw _
-        | Return _ -> oldRes, oldState
+        | Return _ -> oldRes, fun oldState _ -> oldState
         | Guarded gvs ->
             let conservativeGuard = List.fold (fun acc (g, v) -> if calculationDone v then acc ||| g else acc) False gvs
             let result =
@@ -129,7 +128,14 @@ module internal ControlFlow =
                     gvs |> List.collect composeOne |> List.filter (fst >> Terms.isFalse >> not) |> Merging.mergeSame
                 | _ -> List.map (mapsnd (composeFlat newRes)) gvs
             let commonMetadata = Metadata.combine oldRes.metadata newRes.metadata
-            Guarded commonMetadata result, Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
+            Guarded commonMetadata result, fun oldState newState -> Merging.merge2States conservativeGuard !!conservativeGuard oldState newState
+
+    let composeResultsSequentially oldRes newRes =
+        composeSequentiallyWithStateMapper oldRes newRes |> fst
+
+    let composeSequentially oldRes newRes oldState newState =
+        composeSequentiallyWithStateMapper oldRes newRes
+        |> mapsnd (fun composeStates -> composeStates oldState newState)
 
     let rec private resultToTermWithReturnMarkerMaker addMarker result =
         match result.result with
@@ -162,6 +168,26 @@ module internal ControlFlow =
 
     let mergeResults grs =
         Merging.guardedMap resultToTerm grs |> throwOrReturn
+
+    let composeExpressions exprs state exprsMapper k =
+        let error, exprs = Merging.guardedSequentialProduct exprs
+        let error = Option.map throwOrIgnore error
+        match exprs with
+        | None ->
+            match error with
+            | Some error -> k (error, state)
+            | None -> __unreachable__()
+        | Some (computationExistsGuard, exprs) ->
+            let composeWithError =
+                match error with
+                | Some error -> composeResultsSequentially error
+                | None -> id
+            let state, popState =
+                match computationExistsGuard with
+                | True -> state, id
+                | _ -> State.withPathCondition state computationExistsGuard, State.popPathCondition
+            exprsMapper state exprs (fun (result, state) ->
+            k (composeWithError result, popState state))
 
     let private invokeAfter consumeContinue (result, state) statement defaultCompose composeWithNewFrame k =
         let pathCondition = currentCalculationPathCondition consumeContinue result
