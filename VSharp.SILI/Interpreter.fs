@@ -250,9 +250,17 @@ module internal Interpreter =
             | _ -> parametersAndThis, funcId
         k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
 
+    and reduceMethodCallParametersCheck state this parameters funcId (signature : IFunctionSignature) invoke k =
+        let reduceFunction ctorSpecified state parameters k =
+            reduceFunctionSignature funcId state signature this (ctorSpecified parameters) (invoke k)
+        match parameters with
+        | Specified parameters ->
+            ControlFlow.ComposeExpressions parameters state (reduceFunction Specified) k
+        | Unspecified -> reduceFunction (always Unspecified) state parameters k
+
     and reduceFunction state this parameters funcId (signature : IFunctionSignature) invoke k =
-        reduceFunctionSignature funcId state signature this parameters (fun (_, state) ->
-        Call funcId state invoke (fun (result, state) -> (ControlFlow.ConsumeBreak result, state) |> k))
+        let invoke k (_, state) = Call funcId state invoke (mapfst ControlFlow.ConsumeBreak >> k)
+        reduceMethodCallParametersCheck state this parameters funcId signature invoke k
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
         let metadataMethod = ast.MetadataMethod
@@ -266,8 +274,9 @@ module internal Interpreter =
             printLog Trace "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
             let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
             if externalImplementations.ContainsKey(fullMethodName) then
-                reduceFunctionSignature {metadataMethod = metadataMethod; state = {v = state}} state ast.Signature this parameters (fun (argsAndThis, state) ->
-                internalCall metadataMethod argsAndThis state k)
+                let funcId = {metadataMethod = metadataMethod; state = {v = state}}
+                let invoke k (argsAndThis, state) = internalCall metadataMethod argsAndThis state k
+                reduceMethodCallParametersCheck state this parameters funcId ast.Signature invoke k
             elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                 match parameters with
                 | Specified parameters ->
@@ -1148,7 +1157,9 @@ module internal Interpreter =
                 match this with
                 | Some this ->
                     Cps.List.mapFoldk reduceExpression state initializers (fun (values, state) ->
-                    mutateFields this names types values initializers state |> snd |> k)
+                    ControlFlow.ComposeExpressions values state (fun state values k ->
+                    mutateFields this names types values initializers state
+                    |> mapfst ControlFlow.ThrowOrReturn |> k) (snd >> k))
                 | _ -> k state
             else k state
         let baseCtorInfo (metadataMethod : IMetadataMethod) =

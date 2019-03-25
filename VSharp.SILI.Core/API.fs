@@ -129,6 +129,7 @@ module API =
         let ThrowOrIgnore t = ControlFlow.throwOrIgnore t
         let ConsumeErrorOrReturn consumer t = ControlFlow.consumeErrorOrReturn consumer t
         let ComposeSequentially oldRes newRes oldState newState = ControlFlow.composeSequentially oldRes newRes oldState newState
+        let ComposeExpressions exprs state exprsMapper k = ControlFlow.composeExpressions exprs state exprsMapper k
         let ConsumeBreak r = ControlFlow.consumeBreak r
         let PickOutExceptions r = ControlFlow.pickOutExceptions r
 
