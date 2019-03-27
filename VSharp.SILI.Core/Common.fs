@@ -136,19 +136,20 @@ module internal Common =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
             k <| merge2 condition !!condition thenResult elseResult))
+        let chooseBranch condition k =
+            match condition with
+            | Terms.True ->  thenBranch k
+            | Terms.False -> elseBranch k
+            | condition ->
+                match solve condition with
+                | Unsat -> elseBranch k
+                | _ ->
+                    match solve (!!condition) with
+                    | Unsat -> thenBranch k
+                    | _ -> execution condition k
+
         conditionInvocation (fun condition ->
-        match condition with
-        | Terms.True ->  thenBranch k
-        | Terms.False -> elseBranch k
-        | Terms.ErrorT _ -> k condition
-        | UnionT gvs -> Merging.commonGuardedMapk execution gvs merge k
-        | _ ->
-            match solve condition with
-            | Unsat -> elseBranch k
-            | _ ->
-                match solve (!!condition) with
-                | Unsat -> thenBranch k
-                | _ -> execution condition k)
+        Merging.commonGuardedErroredApplyk chooseBranch id condition merge k)
 
     let statedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
@@ -157,22 +158,23 @@ module internal Common =
             let result = merge2 condition !!condition thenResult elseResult
             let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
             k (result, state)))
-        conditionInvocation state (fun (condition, conditionState) ->
-        let thenCondition =
-            Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
-            |> Merging.unguard |> Merging.merge
-        let elseCondition =
-            Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
-            |> Merging.unguard |> Merging.merge
-        match thenCondition, elseCondition, condition with
-        | False, _, _ -> elseBranch conditionState k
-        | _, False, _ -> thenBranch conditionState k
-        | _, _, (Terms.ErrorT _ as e) -> k (errorHandler e, conditionState)
-        | _, _, UnionT gvs -> Merging.commonGuardedErroredMapk execution errorHandler gvs conditionState merge k
-        | _ ->
-            match solvePC condition (State.pathConditionOf conditionState) with
-            | Unsat -> elseBranch conditionState k
+        let chooseBranch conditionState condition k =
+            let thenCondition =
+                Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
+                |> Merging.unguard |> Merging.merge
+            let elseCondition =
+                Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
+                |> Merging.unguard |> Merging.merge
+            match thenCondition, elseCondition with
+            | False, _ -> elseBranch conditionState k
+            | _, False -> thenBranch conditionState k
             | _ ->
-                match solvePC !!condition (State.pathConditionOf conditionState) with
-                | Unsat -> thenBranch conditionState k
-                | _ -> execution conditionState condition k)
+                match solvePC condition (State.pathConditionOf conditionState) with
+                | Unsat -> elseBranch conditionState k
+                | _ ->
+                    match solvePC !!condition (State.pathConditionOf conditionState) with
+                    | Unsat -> thenBranch conditionState k
+                    | _ -> execution conditionState condition k
+
+        conditionInvocation state (fun (condition, conditionState) ->
+        Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition merge k)

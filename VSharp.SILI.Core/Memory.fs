@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 #nowarn "69"
 
@@ -361,54 +361,51 @@ module internal Memory =
                 accessRec gavs lv h
             | Some(a, v) -> accessRec ((makeTrue metadata, a, v)::restGavs) None h
 
-    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : term -> timestamp -> term * timestamp) contextList lazyInstantiator ptrTime ptrFql path ({value = v; created = c; modified = m} as cell) =
-        match path with
-        | [] ->
-            let newTerm, newModified = update v m
-            { cell with value = newTerm; modified = newModified }, newTerm
-        | location :: path' ->
-            match v.term with
-            | Error _ -> cell, v
-            | Struct(fields, t) ->
-                let fql' = addToFQL location ptrFql
-                match location with
-                | StructField(name, typ) ->
-                    let instantiator = if read then lazyInstantiator else Some <| genericLazyInstantiator<'a> v.metadata groundHeap m fql' typ
-                    let ptr' = { location = name; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path' }
-                    let mapper (k, v) (ctx, s) = k, fillHoles ctx s v
-                    let resultCell, newFields = accessHeap<'a, string> read false metadata groundHeap guard update fields c compareStringKey contextList mapper instantiator ptr'
-                    resultCell, Struct v.metadata newFields t
-                | _ -> __unreachable__()
-            | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
-                let fql' = addToFQL location ptrFql
-                let newHeap heap instor keyCompare ptr = accessHeap<'a, term> read false metadata groundHeap guard update heap c keyCompare contextList termKeyMapper (Some instor) ptr
-                let makePtr key typ = { location = key; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path' }
-                let makeInstantiator key instantiator =
-                    let realInstantiator, targetType = if read then lazyInstantiator, Some(typeOfPath path) else None, None
-                    let doJob = lazy(Merging.guardedMap (fun c -> instantiator v.metadata realInstantiator targetType groundHeap m fql' key c ()) constant)
-                    doJob.Force
-                match location with
-                | ArrayIndex(key, typ) ->
-                    let instantiator = makeInstantiator key arrayElementLazyInstantiator
-                    let resultCell, newContents = newHeap contents instantiator Arrays.equalsArrayIndices <| makePtr key typ
-                    resultCell, Array v.metadata dimension length lower constant newContents lengths arrTyp
-                | ArrayLength key ->
-                    let instantiator = makeInstantiator key arrayLengthLazyInstantiator
-                    let resultCell, newLengths = newHeap lengths instantiator fastNumericCompare <| makePtr key lengthType
-                    resultCell, Array v.metadata dimension length lower constant contents newLengths arrTyp
-                | ArrayLowerBound key ->
-                    let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
-                    let resultCell, newLower = newHeap lower instantiator fastNumericCompare <| makePtr key lengthType
-                    resultCell, Array v.metadata dimension length newLower constant contents lengths arrTyp
-                | _ -> __unreachable__()
-            | Union gvs ->
-                let internalMerge gvs =
-                    let cells, newVs = List.fold (fun (cells, newVs) (g, (c, v)) -> (g, c)::cells, (g, v)::newVs) ([], []) gvs
-                    mergeCells cells, merge newVs
-                let createCell v = { cell with value = v }
-                commonGuardedMap (accessTerm read metadata groundHeap guard update contextList lazyInstantiator ptrTime ptrFql path << createCell) gvs internalMerge
-            | t ->
-                internalfailf "expected complex type, but got %O" t
+    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : term -> timestamp -> term * timestamp) contextList lazyInstantiator ptrTime ptrFql path ({created = c; modified = m} as cell) =
+        let internalMerge gvs =
+            let cells, newVs = List.fold (fun (cells, newVs) (g, (c, v)) -> (g, c)::cells, (g, v)::newVs) ([], []) gvs
+            mergeCells cells, merge newVs
+        let doAccess term =
+            match path with
+            | [] ->
+                let newTerm, newModified = update term m
+                { cell with value = newTerm; modified = newModified }, newTerm
+            | location :: path' ->
+                match term.term with
+                | Struct(fields, t) ->
+                    let fql' = addToFQL location ptrFql
+                    match location with
+                    | StructField(name, typ) ->
+                        let instantiator = if read then lazyInstantiator else Some <| genericLazyInstantiator<'a> term.metadata groundHeap m fql' typ
+                        let ptr' = { location = name; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path' }
+                        let mapper (k, term) (ctx, s) = k, fillHoles ctx s term
+                        let resultCell, newFields = accessHeap<'a, string> read false metadata groundHeap guard update fields c compareStringKey contextList mapper instantiator ptr'
+                        resultCell, Struct term.metadata newFields t
+                    | _ -> __unreachable__()
+                | Array(dimension, length, lower, constant, contents, lengths, arrTyp) ->
+                    let fql' = addToFQL location ptrFql
+                    let newHeap heap instor keyCompare ptr = accessHeap<'a, term> read false metadata groundHeap guard update heap c keyCompare contextList termKeyMapper (Some instor) ptr
+                    let makePtr key typ = { location = key; fullyQualifiedLocation = fql'; typ = typ; time = ptrTime; path = path' }
+                    let makeInstantiator key instantiator =
+                        let realInstantiator, targetType = if read then lazyInstantiator, Some(typeOfPath path) else None, None
+                        let doJob = lazy(guardedMap (fun c -> instantiator term.metadata realInstantiator targetType groundHeap m fql' key c ()) constant)
+                        doJob.Force
+                    match location with
+                    | ArrayIndex(key, typ) ->
+                        let instantiator = makeInstantiator key arrayElementLazyInstantiator
+                        let resultCell, newContents = newHeap contents instantiator Arrays.equalsArrayIndices <| makePtr key typ
+                        resultCell, Array term.metadata dimension length lower constant newContents lengths arrTyp
+                    | ArrayLength key ->
+                        let instantiator = makeInstantiator key arrayLengthLazyInstantiator
+                        let resultCell, newLengths = newHeap lengths instantiator fastNumericCompare <| makePtr key lengthType
+                        resultCell, Array term.metadata dimension length lower constant contents newLengths arrTyp
+                    | ArrayLowerBound key ->
+                        let instantiator = makeInstantiator key arrayLowerBoundLazyInstantiator
+                        let resultCell, newLower = newHeap lower instantiator fastNumericCompare <| makePtr key lengthType
+                        resultCell, Array term.metadata dimension length newLower constant contents lengths arrTyp
+                    | _ -> __unreachable__()
+                | t -> internalfailf "expected complex type, but got %O" t
+        commonGuardedErroredApply doAccess (withFst cell) cell.value internalMerge
 
     and private compareStringKey mtd loc key = makeBool (loc = key) mtd
 
@@ -533,40 +530,40 @@ module internal Memory =
 
     and private accessGeneralizedHeap read = accessGeneralizedHeapWithIDs ImmutableHashSet.Empty read
 
-    and private hierarchicalAccess validate read actionNull updateDefined metadata state term =
-        match term.term with
-        | Error _ -> (term, state)
-        | Ref(NullAddress, _) -> actionNull metadata state Null
-        | Ref(TopLevelStack location, path) ->
-            commonHierarchicalStackAccess read updateDefined metadata state location path
-        | Ref(TopLevelHeap(addr, bT, _), path) ->
-            let doRead state k =
-                let accessDefined contextList lazyInstantiator groundHeap r h = //TODO: get rid of time
-                    let cell, heap = commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path {v = Timestamp.zero}
-                    cell.value, heap
-                let result, h' = accessGeneralizedHeap read (readHeap metadata) heapOf term accessDefined (heapOf state)
-                k (result, withHeap state h')
-            if validate then
-                Common.statedConditionalExecution state
-                    (fun state k -> k (Pointers.isZeroAddress metadata addr, state))
-                    (fun state k -> k (actionNull metadata state bT))
-                    doRead
-                    merge merge2Terms id id
-            else doRead state id
-        | Ref(TopLevelStatics location, path) ->
-            let accessDefined contextList lazyInstantiator groundHeap r h =
-                let cell, statics = commonHierarchicalStaticsAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator location path
-                cell.value, statics
-            let result, m' = accessGeneralizedHeap read (readStatics metadata) staticsOf term accessDefined (staticsOf state)
-            result, withStatics state m'
-        | Union gvs -> guardedStateMap (hierarchicalAccess validate read actionNull updateDefined metadata) gvs state
-        | Ptr(_, _, viewType, _) ->
-            let ref = getReferenceFromPointer metadata term
-            let term, state = hierarchicalAccess validate read actionNull updateDefined metadata state ref
-            if typeOf term = viewType
-            then term, state
-            else __notImplemented__() // TODO: [columpio] [Reinterpretation]
-        | t -> internalfailf "expected reference or pointer, but got %O" t
+    and private hierarchicalAccess validate read actionNull updateDefined metadata =
+        let doAccess state term =
+            match term.term with
+            | Ref(NullAddress, _) -> actionNull metadata state Null
+            | Ref(TopLevelStack location, path) ->
+                commonHierarchicalStackAccess read updateDefined metadata state location path
+            | Ref(TopLevelHeap(addr, bT, _), path) ->
+                let doRead state k =
+                    let accessDefined contextList lazyInstantiator groundHeap r h = //TODO: get rid of time
+                        let cell, heap = commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path {v = Timestamp.zero}
+                        cell.value, heap
+                    let result, h' = accessGeneralizedHeap read (readHeap metadata) heapOf term accessDefined (heapOf state)
+                    k (result, withHeap state h')
+                if validate then
+                    Common.statedConditionalExecution state
+                        (fun state k -> k (Pointers.isZeroAddress metadata addr, state))
+                        (fun state k -> k (actionNull metadata state bT))
+                        doRead
+                        merge merge2Terms id id
+                else doRead state id
+            | Ref(TopLevelStatics location, path) ->
+                let accessDefined contextList lazyInstantiator groundHeap r h =
+                    let cell, statics = commonHierarchicalStaticsAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator location path
+                    cell.value, statics
+                let result, m' = accessGeneralizedHeap read (readStatics metadata) staticsOf term accessDefined (staticsOf state)
+                result, withStatics state m'
+            | Ptr(_, _, viewType, _) ->
+                let ref = getReferenceFromPointer metadata term
+                let term, state = hierarchicalAccess validate read actionNull updateDefined metadata state ref
+                if typeOf term = viewType
+                then term, state
+                else __notImplemented__() // TODO: [columpio] [Reinterpretation]
+            | t -> internalfailf "expected reference or pointer, but got %O" t
+        guardedErroredStatedApply doAccess
 
 // ------------------------------- Composition -------------------------------
 
@@ -705,11 +702,11 @@ module internal Memory =
 
 // ------------------------------- Referencing -------------------------------
 
-    and private referenceTerm name followHeapRefs term =
-        match term.term with
-        | Ref _ when followHeapRefs -> term
-        | Union gvs -> guardedMap (referenceTerm name followHeapRefs) gvs
-        | _ -> StackRef term.metadata name []
+    and private referenceTerm name followHeapRefs =
+        guardedErroredApply (fun term ->
+            match term.term with
+            | Ref _ when followHeapRefs -> term
+            | _ -> StackRef term.metadata name [])
 
     and referenceLocalVariable metadata state location followHeapRefs =
         let reference = StackRef metadata location []
@@ -717,27 +714,25 @@ module internal Memory =
         referenceTerm location followHeapRefs term
 
     let rec private referenceFieldOf state field parentRef reference =
-        match reference.term with
-        | Error _ -> reference, state
-        | Ref(TopLevelHeap(addr, bT, sT), path) ->
-            assert(List.isEmpty path)
-            HeapRef reference.metadata addr bT sT [field], state
-        | Null ->
-            let term, state = npe reference.metadata state
-            Error reference.metadata term, state
-        | Struct _ -> referenceSubLocations [field] parentRef, state
-        | Union gvs -> guardedStateMap (fun state term -> referenceFieldOf state field parentRef term) gvs state
-        | t -> internalfailf "expected reference or struct, but got %O" t, state
+        let referenceField state reference =
+            match reference.term with
+            | Ref(TopLevelHeap(addr, bT, sT), path) ->
+                assert(List.isEmpty path)
+                HeapRef reference.metadata addr bT sT [field], state
+            | Null ->
+                let term, state = npe reference.metadata state
+                Error reference.metadata term, state
+            | Struct _ -> referenceSubLocations [field] parentRef, state
+            | t -> internalfailf "expected reference or struct, but got %O" t, state
+        guardedErroredStatedApply referenceField state reference
 
     let rec private followOrReturnReference metadata state reference =
         let term, state = deref metadata state reference
-        match term.term with
-        | Error _
-        | Ref _
-        | Ptr _ -> term, state
-        | Union gvs when List.forall (fun (_, t) -> isError t || isRefOrPtr t) gvs ->
-            guardedStateMap (followOrReturnReference metadata) gvs state
-        | _ -> reference, state
+        guardedErroredStatedApply (fun state term ->
+            match term.term with
+            | Ref _
+            | Ptr _ -> term, state
+            | _ -> reference, state) state term
 
     let referenceField metadata state followHeapRefs name typ parentRef =
         let typ = Types.wrapReferenceType typ
@@ -772,9 +767,8 @@ module internal Memory =
     let referenceArrayIndex metadata state arrayRef (indices : term list) =
         let array, state = deref metadata state arrayRef
         // TODO: what about followHeapRefs?
-        let rec reference state term =
+        let rec reference = guardedErroredStatedApply (fun state term ->
             match term.term with
-            | Error _ -> (term, state)
             | Array(_, _, _, _, _, _, ArrayType(elementType, _)) ->
                 Common.statedConditionalExecution state
                     (fun state k -> checkIndices metadata state arrayRef indices k)
@@ -786,8 +780,7 @@ module internal Memory =
                         let exn, state = State.createInstance metadata typeof<System.IndexOutOfRangeException> [] state
                         k (Error metadata exn, state))
                     merge merge2Terms id id
-            | Union gvs -> guardedStateMap reference gvs state
-            | t -> internalfailf "accessing index of non-array term %O" t
+            | t -> internalfailf "accessing index of non-array term %O" t)
         reference state array
 
     let () =
