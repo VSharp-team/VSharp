@@ -200,7 +200,7 @@ module internal Interpreter =
                         (fun state k -> k (API.Types.IsSubtype constraintType persistentType &&& API.Types.IsSubtype constraintType localType, state))
                         (fun state k -> decompileAndReduceMethod state this constraintType k)
                         (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern; state = {v = state}} state k) k) k
-        GuardedApplyStatement state this
+        GuardedStatedApplyStatementK state this
             (fun state term k ->
                 let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes state this termTypePattern
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters k) k
@@ -446,7 +446,7 @@ module internal Interpreter =
                     invoke state term k
                 | Lambda(lambda) -> lambda ast state (Specified args) k
                 | _ -> __notImplemented__()
-        GuardedApplyStatement state deleg invoke k))
+        GuardedStatedApplyStatementK state deleg invoke k))
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         let state, k = reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType k

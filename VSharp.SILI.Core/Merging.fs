@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 open VSharp
 
@@ -40,27 +40,22 @@ module internal Merging =
 
     and keysResolver<'a, 'b, 'c when 'c : equality> r (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper getter (k : heapKey<'c, fql>) hgvs =
         let key = keyMapper k
-        let value = (List.pick thd3 hgvs).value
-        let bestTypeOf =
-            match Option.bind typeOfFQL k.FQL with
-            | Some typ -> always typ
-            | None -> typeOf
+        let typ = Option.get k.FQL |> typeOfFQL
         let instIfShould = function
             | _, g, Some v -> (g, v)
-            | i, g, _ -> (g, cellMap (read r (getter i) key << bestTypeOf) value)
+            | i, g, _ -> (g, read r (getter i) key typ)
         mergeCells <| List.map instIfShould hgvs
 
     and keysResolver2<'a, 'b, 'c, 'd when 'c : equality> r h1 h2 (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper resolve (k : heapKey<'c, fql>) v1 v2 : 'd =
-        let bestTypeOf =
-            match Option.bind typeOfFQL k.FQL with
-            | Some typ -> always typ
-            | None -> typeOf
-        let read h v = cellMap (read r h (keyMapper k) << bestTypeOf) v.value
+        let read h =
+            let key = keyMapper k
+            let typ = Option.get k.FQL |> typeOfFQL
+            read r h key typ
         match v1, v2 with
         | Some v1, Some v2 -> resolve v1 v2
-        | Some v, _ -> resolve v (read h2 v)
-        | _, Some v -> resolve (read h1 v) v
-        | _ -> __unreachable__()
+        | Some v, _ -> resolve v (read h2)
+        | _, Some v -> resolve (read h1) v
+        | _, _ -> __unreachable__()
 
     and private structMerge = function
         | [] -> []
@@ -271,44 +266,52 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs [] |> mergeSame
 
+// ------------------------------------ Mapping non-term sequences ------------------------------------
+
+    and guardedMapWithoutMerge f gvs =
+        List.map (fun (g, v) -> (g, f v)) gvs
+
     and commonGuardedMapk mapper gvs merge k =
-        let gs, vs = List.unzip gvs
-        Cps.List.mapk mapper vs (List.zip gs >> merge >> k)
-    and commonGuardedMap mapper gvs merge = commonGuardedMapk (Cps.ret <| mapper) gvs merge id
-    and guardedMapk mapper gvs k = commonGuardedMapk mapper gvs merge k
-    and guardedMap mapper gvs = guardedMapk (Cps.ret mapper) gvs id
+        let foldFunc gvs (g, v) k =
+            mapper v (fun v' -> k ((g, v') :: gvs))
+        Cps.List.foldlk foldFunc [] gvs (merge >> k)
+    and guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
 
-    and cellMap f = function
-        | UnionT gvs -> commonGuardedMapk (Cps.ret f) gvs mergeCells id
-        | t -> f t
+// ---------------------- Applying functions to terms and mapping term sequences ----------------------
 
-    let commonGuardedStateMapk mapper gvs state merge k =
-        let gs, vs = List.unzip gvs
-        Cps.List.mapk (mapper state) vs (fun vsst ->
-        let vs, states = List.unzip vsst
-        k (vs |> List.zip gs |> merge, mergeStates gs states))
-    let guardedStateMapk mapper gvs state k = commonGuardedStateMapk mapper gvs state merge k
-    let guardedStateMap mapper gvs state = guardedStateMapk (Cps.ret2 mapper) gvs state id
+    let commonGuardedErroredMapk mapper errorMapper gvs merge k =
+        let foldFunc gvs (g, v) k =
+            if isError v then k ((g, errorMapper v) :: gvs)
+            else mapper v (fun t -> k ((g, t) :: gvs))
+        Cps.List.foldlk foldFunc [] gvs (merge >> k)
 
-    let commonGuardedErroredMapk mapper errorMapper gvs state merge k =
-        let ges, gvs = List.partition (snd >> isError) gvs
-        let egs, es = List.unzip ges
-        let vgs, vs = List.unzip gvs
-        let eg = disjunction Metadata.empty egs
-        Cps.List.mapk (mapper state) vs (fun vsst ->
-        let vs', states = List.unzip vsst
-        let ges' = es |> List.map errorMapper |> List.zip egs
-        let gvs' = List.zip vgs vs' |> List.append ges' |> merge
-        let state' = mergeStates (eg :: vgs) (state :: states)
-        k (gvs', state'))
-    let guardedErroredMapk mapper errorMapper gvses state k = commonGuardedErroredMapk mapper errorMapper gvses state merge k
-    let guardedErroredMap mapper errorMapper gvses state = guardedErroredMapk (Cps.ret2 mapper) errorMapper gvses state id
-
-    let guardedErroredApply mapper term state =
+    let commonGuardedErroredApplyk f errorHandler term merge k =
         match term.term with
-        | Error _ -> term, state
-        | Union gvs -> guardedErroredMap mapper id gvs state
-        | _ -> mapper state term
+        | Error _ -> errorHandler term |> k
+        | Union gvs -> commonGuardedErroredMapk f errorHandler gvs merge k
+        | _ -> f term k
+    let commonGuardedErroredApply f errorHandler term merge = commonGuardedErroredApplyk (Cps.ret f) errorHandler term merge id
+    let guardedErroredApply f term = commonGuardedErroredApply f id term merge
+
+    let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge k =
+        let foldFunc (gvs, egs, vgs, states) (g, v) k =
+            if isError v then k ((g, errorMapper v) :: gvs, g :: egs, vgs, states)
+            // TODO: do not map if (guard & pc) = false
+            else mapper (State.withPathCondition state g) v (fun (t, s) -> k ((g, t) :: gvs, egs, g :: vgs, State.popPathCondition s :: states))
+        Cps.List.foldlk foldFunc ([], [], [], []) gvs (fun (gvs, egs, vgs, states) ->
+        let eg = disjunction Metadata.empty egs
+        let state' = mergeStates (eg :: vgs) (state :: states)
+        k (merge gvs, state'))
+
+    let commonGuardedErroredStatedApplyk f errorHandler state term merge k =
+        match term.term with
+        | Error _ -> k (errorHandler term, state)
+        | Union gvs -> commonGuardedErroredStatedMapk f errorHandler gvs state merge k
+        | _ -> f state term k
+    let guardedErroredStatedApplyk f state term k = commonGuardedErroredStatedApplyk f id state term merge k
+    let guardedErroredStatedApply f state term = guardedErroredStatedApplyk (Cps.ret2 f) state term id
+
+// ----------------------------------------------------------------------------------------------------
 
     let unguard = function
         | {term = Union gvs} -> gvs
@@ -352,7 +355,6 @@ module internal Merging =
             |> genericSimplify
         | [] -> [(gacc, ctor xsacc)]
 
-
     let guardedCartesianProduct mapper ctor terms =
         guardedCartesianProductRec mapper ctor True [] terms
 
@@ -388,27 +390,3 @@ module internal Merging =
                 | None -> None
             let errors = simplify errors |> Option.filter ((<>) Nop)
             errors, Option.map (withFst computationExistsGuard) results)
-
-    let commonGuardedApply f gvs =
-        List.map (fun (g, v) -> (g, f v)) gvs
-
-    let guardedApply f gvs =
-        gvs |> List.map (fun (g, v) -> (g, if isError v then v else f v))
-
-    let map f t =
-        match t.term with
-        | Union gvs -> guardedApply f gvs |> merge
-        | Error _ -> t
-        | _ -> f t
-
-    let statedMap f state term =
-        match term.term with
-        | Union gvs -> guardedStateMap f gvs state
-        | Error _ -> term, state
-        | _ -> f state term
-
-    let statedMapk f state term k =
-        match term.term with
-        | Union gvs -> guardedStateMapk f gvs state k
-        | Error _ -> k (term, state)
-        | _ -> f state term k

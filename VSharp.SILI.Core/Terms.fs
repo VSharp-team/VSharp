@@ -388,6 +388,10 @@ module internal Terms =
         | ArrayLowerBound _
         | ArrayLength _ -> Types.lengthType
 
+    let typeOfFQL = function
+        | tl, [] -> typeOfTopLevel tl
+        | _, path -> typeOfPath path
+
     let rec typeOf term =
         match term.term with
         | Error _ -> termType.Bottom
@@ -413,13 +417,6 @@ module internal Terms =
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
-
-    let typeOfFQL = function
-        | TopLevelHeap(_, _, typ), []
-        | TopLevelStatics typ, [] -> Some typ
-        | _, [] -> None
-        | _, path -> Some <| typeOfPath path
-
 
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType

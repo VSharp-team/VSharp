@@ -283,7 +283,7 @@ module internal Pointers =
             (Types.isPointer t1 && Types.isNumeric t2) || (Types.isPointer t2 && Types.isNumeric t1)
         | _ -> false
 
-    let topLevelLocation = Merging.map (term >> function
+    let topLevelLocation = Merging.guardedErroredApply (term >> function
         | Ref(TopLevelHeap (a, _, _), [])
         | Ptr(TopLevelHeap (a, _, _), [], _, _) -> a
         | Ref(NullAddress, _)

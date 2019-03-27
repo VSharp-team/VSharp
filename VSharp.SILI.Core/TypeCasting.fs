@@ -7,7 +7,6 @@ module internal TypeCasting =
 
     let rec primitiveCast mtd isChecked hierarchyCast targetType state term k =
         match term.term with
-        | Error _ -> k (term, state)
         | Nop -> internalfailf "casting void to %O!" targetType
         | Concrete(value, _) ->
             if Terms.isFunction term && Types.isFunction targetType
@@ -43,13 +42,14 @@ module internal TypeCasting =
 
     let rec canCast mtd state targetType term =
         let derefForCast = Memory.derefWith (fun m s _ -> Concrete m null Null, s)
-        match term.term with
-        | Ptr(_, _, typ, _) -> Common.is mtd (termType.Pointer typ) targetType, state
-        | Ref _ ->
-            let contents, state = derefForCast mtd state term
-            canCast mtd state targetType contents
-        | Union gvs -> Merging.guardedStateMap (fun state term -> canCast mtd state targetType term) gvs state
-        | _ -> Common.is mtd (typeOf term) targetType, state
+        let castCheck state term =
+            match term.term with
+            | Ptr(_, _, typ, _) -> Common.is mtd (termType.Pointer typ) targetType, state
+            | Ref _ ->
+                let contents, state = derefForCast mtd state term
+                canCast mtd state targetType contents
+            | _ -> Common.is mtd (typeOf term) targetType, state
+        Merging.guardedErroredStatedApply castCheck state term
 
     let cast mtd state argument targetType isChecked primitiveCast fail k =
         let hierarchyCast targetType state term k =
@@ -59,7 +59,7 @@ module internal TypeCasting =
                 (fun state k -> k (fail state term targetType))
                 ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore
                 (fun (statementResult, state) -> k (ControlFlow.resultToTerm statementResult, state))
-        Merging.statedMapk (primitiveCast hierarchyCast targetType) state argument k
+        Merging.guardedErroredStatedApplyk (primitiveCast hierarchyCast targetType) state argument k
 
     let castReferenceToPointer mtd state reference k =
         let derefForCast = Memory.derefWith (fun m s _ -> makeNullRef m, s)

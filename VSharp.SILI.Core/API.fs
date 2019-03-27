@@ -39,26 +39,11 @@ module API =
     let BranchExpressionsOnNull state reference thenExpression elseExpression k =
         BranchExpressions state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenExpression elseExpression k
 
-    let GuardedApplyExpressionK term mapper k =
-        match term.term with
-        | Error _ -> k term
-        | Union gvs -> Merging.guardedMapk mapper gvs k
-        | _ -> mapper term k
-    let GuardedApplyExpression term mapper =
-        match term.term with
-        | Error _ -> term
-        | Union gvs -> Merging.guardedMap mapper gvs
-        | _ -> mapper term
-    let GuardedApplyStatement state term mapper k =
-        match term.term with
-        | Error e -> k (Throw term.metadata e, state)
-        | Union gvs -> Merging.commonGuardedStateMapk mapper gvs state ControlFlow.mergeResults k
-        | _ -> mapper state term k
-    let GuardedApplyStatelessStatement term mapper =
-        match term.term with
-        | Error e -> Throw term.metadata e
-        | Union gvs -> Merging.commonGuardedMapk (Cps.ret mapper) gvs ControlFlow.mergeResults id
-        | _ -> mapper term
+    let GuardedApplyExpression term f = Merging.guardedErroredApply f term
+    let GuardedStatedApplyStatementK state term f k =
+        Merging.commonGuardedErroredStatedApplyk f ControlFlow.throwOrIgnore state term ControlFlow.mergeResults k
+    let GuardedStatelessApplyStatement term f =
+        Merging.commonGuardedErroredApply f ControlFlow.throwOrIgnore term ControlFlow.mergeResults
 
     let PerformBinaryOperation op isChecked state t left right k = Operators.simplifyBinaryOperation m.Value op isChecked state t left right k
     let PerformUnaryOperation op isChecked state t arg k = Operators.simplifyUnaryOperation m.Value op isChecked state t arg k
