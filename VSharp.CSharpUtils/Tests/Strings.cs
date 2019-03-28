@@ -9,5 +9,17 @@ namespace VSharp.CSharpUtils.Tests
         {
             return String.Empty;
         }
+
+        public static string SymbolicString(string s)
+        {
+            var len = s.Length;
+            return s;
+        }
+
+        public static int NullLength()
+        {
+            string s = null;
+            return s.Length;
+        }
     }
 }
