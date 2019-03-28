@@ -93,14 +93,18 @@ module Substitution =
         path |> Merging.genericGuardedCartesianProduct (substituteSegment subst typeSubst) ctor
 
     and substituteRef subst typeSubst path ctor topLevel =
-        path |> substitutePath subst typeSubst (fun path' ->
+        let substituteTopLevelAndConstuct path' =
+            let inline substTermKeyAndConstruct key topLevelCtor =
+                key
+                |> substitute subst typeSubst
+                |> Merging.guardedErroredApply (fun key' -> ctor (topLevelCtor key') path')
             match topLevel with
             | TopLevelHeap(addr, bt, st) ->
                 let bt' = typeSubst bt
                 let st' = typeSubst st
-                addr
-                |> substitute subst typeSubst
-                |> Merging.guardedErroredApply (fun addr' -> ctor (TopLevelHeap(addr', bt', st')) path')
+                substTermKeyAndConstruct addr (fun addr' -> TopLevelHeap(addr', bt', st'))
+            | TopLevelPool key -> substTermKeyAndConstruct key TopLevelPool
             | TopLevelStatics typ -> ctor (typ |> typeSubst |> TopLevelStatics) path'
             | NullAddress
-            | TopLevelStack _ as tl -> ctor tl path')
+            | TopLevelStack _ as tl -> ctor tl path'
+        path |> substitutePath subst typeSubst substituteTopLevelAndConstuct

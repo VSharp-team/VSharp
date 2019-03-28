@@ -241,6 +241,20 @@ module internal Memory =
         | Void -> Nop
         | _ -> __notImplemented__()
 
+    let private printPathSegment = function
+        | StructField(f, _) -> f
+        | ArrayIndex(i, _) -> sprintf "[%s]" (i.term.IndicesToString())
+        | ArrayLowerBound i
+        | ArrayLength i -> i.term.IndicesToString()
+
+    let nameOfLocation = function
+        | TopLevelStack(name, _), [] -> name
+        | TopLevelPool key, [] -> Strings.strToString key
+        | TopLevelStatics typ, [] -> toString typ
+        | TopLevelHeap(key, _, _), path ->
+            toString key :: List.map printPathSegment path |> join "."
+        | _, path -> path |> List.map printPathSegment |> join "."
+
     let private genericLazyInstantiator<'a when 'a : equality> metadata heap time fql typ () =
         let source : 'a lazyInstantiation = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
         makeSymbolicInstance metadata time source source (nameOfLocation fql) (Some fql) typ
@@ -463,6 +477,13 @@ module internal Memory =
 
     and readStatics metadata restricted statics key _ =
         commonHierarchicalStaticsAccess true restricted makePair metadata None statics [] None key [] |> fst
+
+    and commonInterningPoolAccess read restricted update metadata groundHeap pool contextList externalLI addr time =
+        let location = TopLevelPool addr, []
+        let typ = Reference String
+        let ptr = {location = addr; fullyQualifiedLocation = location; typ = typ; time = time.v; path = []}
+        let lazyInstor = externalLI |?? selectLazyInstantiator<term> metadata groundHeap time.v location typ
+        accessHeap<term, term> read restricted metadata groundHeap (makeTrue metadata) update pool Timestamp.zero Strings.simplifyStructEq contextList termKeyMapper (Some lazyInstor) ptr
 
     and mutateStack metadata state location path time value =
         commonHierarchicalStackAccess false (fun _ _ -> value, time) metadata state location path |> snd

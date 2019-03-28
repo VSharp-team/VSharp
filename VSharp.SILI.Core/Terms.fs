@@ -180,6 +180,7 @@ type termNode =
             | NullAddress -> "null"
             | TopLevelStack key -> printref "Stack" key path
             | TopLevelStatics typ -> printref "Static" typ path
+            | TopLevelPool key -> printref "Pool" key path
             | TopLevelHeap(addr, _, _) ->
                 let addrStr =
                     match addr.term with
@@ -210,6 +211,7 @@ and topLevelAddress =
     | TopLevelStack of stackKey
     | TopLevelHeap of term * termType * termType // Address * Base type * Sight type
     | TopLevelStatics of termType
+    | TopLevelPool of term
 
 and pathSegment =
     | StructField of string * termType
@@ -383,6 +385,7 @@ module internal Terms =
         | NullAddress -> Null
         | TopLevelHeap(_, _, sightTyp) -> sightTyp
         | TopLevelStatics typ -> typ
+        | TopLevelPool _ -> Reference Types.String
         | TopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
 
     let typeOfPath = List.last >> function
@@ -625,6 +628,7 @@ module internal Terms =
         folder state term
 
     and foldTopLevel folder visited state = function
+        | TopLevelPool addr
         | TopLevelHeap(addr, _, _) -> doFold folder visited state addr
         | NullAddress
         | TopLevelStack _

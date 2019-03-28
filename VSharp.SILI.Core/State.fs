@@ -105,19 +105,6 @@ module internal State =
     let decomposeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
 
-    let private printPathSegment = function
-        | StructField(f, _) -> f
-        | ArrayIndex(i, _) -> sprintf "[%s]" (i.term.IndicesToString())
-        | ArrayLowerBound i
-        | ArrayLength i -> i.term.IndicesToString()
-
-    let nameOfLocation = function
-        | TopLevelStack(name, _), [] -> name
-        | TopLevelStatics typ, [] -> toString typ
-        | TopLevelHeap(key, _, _), path ->
-            toString key :: List.map printPathSegment path |> join "."
-        | _, path -> path |> List.map printPathSegment |> join "."
-
     let readStackLocation (s : state) key = MappedStack.find key s.stack
     let readHeapLocation (s : symbolicHeap) key = s.heap.[key].value
 

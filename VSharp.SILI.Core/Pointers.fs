@@ -105,6 +105,7 @@ module internal Pointers =
         | TopLevelHeap(addr1, _, _), TopLevelHeap(addr2, _, _) -> fastNumericCompare mtd addr1 addr2
         | TopLevelStatics typ1, TopLevelStatics typ2 -> typesEqual mtd typ1 typ2
         | TopLevelStack key1, TopLevelStack key2 -> makeBool (key1 = key2) mtd
+        | TopLevelPool key1, TopLevelPool key2 -> Strings.simplifyStructEq mtd key1 key2
         | _ -> makeFalse mtd
 
     let private equalPathSegment mtd x y =
