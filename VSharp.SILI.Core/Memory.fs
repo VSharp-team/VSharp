@@ -931,6 +931,21 @@ module internal Memory =
     let internal termLocInitialized mtd loc state =
         keyInitialized mtd loc fillHoles heapOf state.heap
 
+// -------------------------------------- Interning ----------------------------------------
+
+    let private internCommon metadata state read lazyValue poolKey =
+        let internalLI () = lazyValue
+        let intern state poolKey =
+            let poolRef = Ref metadata (TopLevelPool poolKey) []
+            let time = tick()
+            let accessDefined contextList externalLI groundHeap r h =
+                let lazyInstatiator = externalLI |?? internalLI
+                let cell, pool = commonInterningPoolAccess read r makePair metadata groundHeap h contextList (Some lazyInstatiator) poolKey {v = time}
+                cell.value, pool
+            let result, pool' = accessGeneralizedHeap read (readPool metadata) poolOf poolRef accessDefined state.iPool
+            result, withPool state pool'
+        Merging.guardedErroredStatedApply intern state poolKey
+
 // -------------------------------------- To State.fs --------------------------------------
 
     let () =
