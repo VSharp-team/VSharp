@@ -85,6 +85,8 @@ module internal Strings =
     let getHashCode metadata addr =
         Merging.guardedErroredApply (transformString (hash >> makeNumber metadata) (fun () -> makeHashOfAddress metadata addr))
 
+    let strToString term = transformString id (fun () -> toString term) term
+
     let simplifyStructEq mtd x y =
         match x.term, y.term with
         | Struct(fieldsOfX, StringType), Struct(fieldsOfY, StringType) ->
