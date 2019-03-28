@@ -37,5 +37,23 @@ namespace VSharp.CSharpUtils.Tests
         {
             return new string(a);
         }
+
+        public static string ConcreteIsInterned()
+        {
+            String a = "interned";
+            return String.IsInterned(a);
+        }
+
+        public static string ConcreteIntern()
+        {
+            string a = new string(new char[] {'a', 'b', 'c'});
+            return String.Intern(a);
+        }
+
+        public static Object NotInterned()
+        {
+            string a = new string(new char[] {'a', 'b', 'c'});
+            return String.IsInterned(a);
+        }
     }
 }
