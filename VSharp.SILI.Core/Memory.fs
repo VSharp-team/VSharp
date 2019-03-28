@@ -499,6 +499,9 @@ module internal Memory =
     and private mutateStatics restricted metadata statics location _ path time value =
         commonHierarchicalStaticsAccess false restricted (fun _ _ -> value, time) metadata None statics [] None location path |> snd
 
+    and private mutatePool restricted metadata pool location _ _ time value =
+        commonInterningPoolAccess false restricted (fun _ _ -> value, time) metadata None pool [] None location {v = time} |> snd
+
     and private independent<'a when 'a : equality> (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) (read : ImmutableHashSet<IFunctionIdentifier> -> state -> term * 'a generalizedHeap) funcId location : bool =
         exploredRecursiveIds.Contains funcId ||
         let exploredRecursiveIds = exploredRecursiveIds.Add funcId
@@ -703,13 +706,17 @@ module internal Memory =
     and composeStaticsOf ctx state statics =
         composeGeneralizedHeaps (fillAndMutateCommon mutateStatics) substituteTypeVariables readStatics ctx staticsOf withStatics state statics
 
+    and composePoolsOf ctx state pool =
+        composeGeneralizedHeaps (fillAndMutateCommon mutatePool) fillHoles readPool ctx poolOf withPool state pool
+
     and composeStates ctx state state' =
         let stack = composeStacksOf ctx state state'
         let heap = composeHeapsOf ctx state state'.heap
         let statics = composeStaticsOf ctx state state'.statics
+        let pool = composePoolsOf ctx state state'.iPool
         assert(state'.typeVariables |> snd |> Stack.isEmpty)
         let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = pc; typeVariables = state.typeVariables }
+        { stack = stack; heap = heap; statics = statics; iPool = pool; frames = state.frames; pc = pc; typeVariables = state.typeVariables }
 
 // ------------------------------- High-level read/write -------------------------------
 
