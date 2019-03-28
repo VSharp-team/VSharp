@@ -2,6 +2,7 @@ namespace VSharp
 
 [<CustomEquality;NoComparison>]
 type public 'a memoryCell when 'a : equality =
+    // TODO: add guard of cell
     { value : 'a; created : timestamp; modified : timestamp }  // Value * Creation timestamp * Modification timestamp
     override x.GetHashCode() = x.value.GetHashCode()
     override x.Equals(y) =

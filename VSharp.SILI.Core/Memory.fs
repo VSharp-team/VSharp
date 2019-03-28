@@ -291,6 +291,7 @@ module internal Memory =
             makeSymbolicArrayLength metadata name fql heap
 
     let private staticMemoryLazyInstantiator metadata typ () =
+        // TODO: init constant fields using Reflection
         Struct metadata Heap.empty typ
 
     let private selectLazyInstantiator<'a when 'a : equality> metadata (heap : 'a generalizedHeap option) time fql typ =
@@ -361,6 +362,7 @@ module internal Memory =
             let minCreated, maxModified = Option.fold (fun (c, m) _ -> min time c, max time m) (minCreated, maxModified) lazyValue
             { value = merge (optCons gvs lazyValue); created = minCreated; modified = maxModified }, h'
         if Heap.contains ptr.location h then
+            // TODO: if guard of location (MemoryCell.fs : 5) not True, then add lazy value
             accessRec [(makeTrue metadata, ptr.location, Heap.find ptr.location h)] None h
         else
             let baseGav, restGavs = findSuitableLocations metadata h keyCompare contextList mapper ptr
