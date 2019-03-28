@@ -282,6 +282,9 @@ module internal State =
     let mutable readTerm : termMetadata -> bool -> term memoryCell -> fql -> termType -> term memoryCell =
         fun _ _ _ -> internalfail "read for term is not ready"
 
+    let mutable readPool : termMetadata -> bool -> heap<term, term, fql> -> term -> termType -> term memoryCell =
+        fun _ _ _ -> internalfail "read for interning pool is not ready"
+
 // ------------------------------- Pretty-printing -------------------------------
 
     let private compositionToString s1 s2 =

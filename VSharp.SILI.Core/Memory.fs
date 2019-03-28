@@ -485,6 +485,11 @@ module internal Memory =
         let lazyInstor = externalLI |?? selectLazyInstantiator<term> metadata groundHeap time.v location typ
         accessHeap<term, term> read restricted metadata groundHeap (makeTrue metadata) update pool Timestamp.zero Strings.simplifyStructEq contextList termKeyMapper (Some lazyInstor) ptr
 
+    and readPool metadata restricted heap key _ =
+        // TODO: save guard of pool value (Merging.fs : 168 -> [g, v])
+        let lazyInstor = fun () -> Union metadata []
+        commonInterningPoolAccess true restricted makePair metadata None heap [] (Some lazyInstor) key {v = Timestamp.infinity} |> fst
+
     and mutateStack metadata state location path time value =
         commonHierarchicalStackAccess false (fun _ _ -> value, time) metadata state location path |> snd
 
@@ -804,11 +809,6 @@ module internal Memory =
             | t -> internalfailf "accessing index of non-array term %O" t)
         reference state array
 
-    let () =
-        State.readHeap <- readHeap
-        State.readStatics <- readStatics
-        State.readTerm <- readTerm
-
 // ------------------------------- Allocation -------------------------------
 
     let newStackFrame state metadata funcId frame = State.newStackFrame (tick()) metadata state funcId frame
@@ -923,6 +923,14 @@ module internal Memory =
 
     let internal termLocInitialized mtd loc state =
         keyInitialized mtd loc fillHoles heapOf state.heap
+
+// -------------------------------------- To State.fs --------------------------------------
+
+    let () =
+        State.readHeap <- readHeap
+        State.readStatics <- readStatics
+        State.readTerm <- readTerm
+        State.readPool <- readPool
 
 // ------------------------------- Compositions of constants -------------------------------
 

@@ -25,6 +25,7 @@ module internal Merging =
     let private readHeap = State.readHeap Metadata.empty
     let private readStatics = State.readStatics Metadata.empty
     let private readTerm = State.readTerm Metadata.empty
+    let private readPool = State.readPool Metadata.empty
 
     let rec private boolMerge = function
         | [] -> []
@@ -241,7 +242,8 @@ module internal Merging =
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap readHeap resolve
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
-            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
+            let mergedPool = merge2GeneralizedHeaps condition1 condition2 state1.iPool state2.iPool readPool resolve
+            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; iPool = mergedPool }
 
     and mergeStates conditions states : state =
         assert(List.length states > 0)
@@ -255,7 +257,8 @@ module internal Merging =
         let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells (State.stackLazyInstantiator first)
         let mergedHeap = mergeGeneralizedHeaps readHeap conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps readStatics conditions (List.map State.staticsOf states)
-        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
+        let mergedPool = mergeGeneralizedHeaps readPool conditions (List.map State.poolOf states)
+        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; iPool = mergedPool; frames = frames; pc = path; typeVariables = tv }
 
     and genericSimplify gvs =
         let rec loop gvs out =
