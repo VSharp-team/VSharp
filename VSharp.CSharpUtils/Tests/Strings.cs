@@ -9,5 +9,16 @@ namespace VSharp.CSharpUtils.Tests
         {
             return String.Empty;
         }
+
+        public static int GetConcreteHash()
+        {
+            String str = "sample string";
+            return str.GetHashCode();
+        }
+
+        public static int GetSymbolicHash(string a)
+        {
+            return a.GetHashCode();
+        }
     }
 }
