@@ -164,5 +164,8 @@ module API =
         val StringLength : state -> term -> term * state
         val StringCtorOfCharArray : state -> term -> term -> term * state
 
+        val InternString : state -> term -> term * state
+        val IsInternedString : state -> term -> term * state
+
     module Database =
         val QuerySummary : IFunctionIdentifier -> functionSummary

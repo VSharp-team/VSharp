@@ -33,9 +33,14 @@ module internal Memory =
         timestamp.Restore()
 
     let npe mtd state = State.createInstance mtd typeof<System.NullReferenceException> [] state
+    let ane mtd state = State.createInstance mtd typeof<System.ArgumentNullException> [] state
 
     let private npeTerm mtd state _ =
         let exn, state = npe mtd state
+        Error mtd exn, state
+
+    let private aneTerm mtd state _ =
+        let exn, state = ane mtd state
         Error mtd exn, state
 
     let rec private referenceSubLocations locations term =
@@ -945,6 +950,14 @@ module internal Memory =
             let result, pool' = accessGeneralizedHeap read (readPool metadata) poolOf poolRef accessDefined state.iPool
             result, withPool state pool'
         Merging.guardedErroredStatedApply intern state poolKey
+
+    let intern metadata state strRef =
+        let poolKey, state = derefWith aneTerm metadata state strRef
+        internCommon metadata state false strRef poolKey
+
+    let isInterned metadata state strRef =
+        let poolKey, state = derefWith aneTerm metadata state strRef
+        internCommon metadata state true (makeNullRef metadata) poolKey
 
 // -------------------------------------- To State.fs --------------------------------------
 

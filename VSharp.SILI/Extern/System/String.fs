@@ -24,3 +24,23 @@ module internal String =
         assert(List.length args = 1)
         let hash, state = Memory.StringHashCode state (List.head args)
         ControlFlow.ThrowOrReturn hash, state
+
+    let IsStringInterned state args =
+        assert(List.length args = 2)
+        let string, state = Memory.IsInternedString state (List.item 1 args)
+        ControlFlow.ThrowOrReturn string, state
+
+    let InternString state args =
+        assert(List.length args = 2)
+        let string, state = Memory.InternString state (List.item 1 args)
+        ControlFlow.ThrowOrReturn string, state
+
+    let InternalIsInterned state args =
+        assert(List.length args = 1)
+        let string, state = Memory.IsInternedString state (List.head args)
+        ControlFlow.ThrowOrReturn string, state
+
+    let InternalIntern state args =
+        assert(List.length args = 1)
+        let string, state = Memory.InternString state (List.head args)
+        ControlFlow.ThrowOrReturn string, state

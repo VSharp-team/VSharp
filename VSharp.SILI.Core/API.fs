@@ -207,6 +207,9 @@ module API =
                 (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value (Memory.tick()) fql) |> k)
                 id
 
+        let InternString state strRef = Memory.intern m.Value state strRef
+        let IsInternedString state strRef = Memory.isInterned m.Value state strRef
+
     module Database =
         let QuerySummary funcId =
             Database.querySummary funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)

@@ -17,3 +17,15 @@ module internal String =
 
     [<Implements("System.Int32 System.String.GetHashCode(this)")>]
     val GetHashCode : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.AppDomain.IsStringInterned(this, System.String)")>]
+    val IsStringInterned : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.AppDomain.GetOrInternString(this, System.String)")>]
+    val InternString : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.String.InternalIsInterned(System.String)")>]
+    val InternalIsInterned : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.String.InternalIntern(System.String)")>]
+    val InternalIntern : state -> term list -> statementResult * state
