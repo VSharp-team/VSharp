@@ -21,5 +21,10 @@ namespace VSharp.CSharpUtils.Tests
             string s = null;
             return s.Length;
         }
+
+        public static string HopHeyCharArray(char[] a)
+        {
+            return new string(a);
+        }
     }
 }
