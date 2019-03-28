@@ -610,6 +610,8 @@ module internal Memory =
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
+        | Concrete(:? concreteStringAddress, _) ->
+            { term with metadata = ctx.mtd }
         | Pointers.SymbolicThisOnStack(token, path) ->
             let id = ("this", token)
             let reference = referenceLocalVariable term.metadata state id false |> deref term.metadata state |> fst
@@ -829,6 +831,9 @@ module internal Memory =
     let freshHeapLocation metadata =
         Concrete metadata ([freshAddress()]) pointerType
 
+    let makeStringLocation metadata string =
+        Concrete metadata string pointerType
+
     let allocateOnStack metadata s key term =
         let time = tick()
         let { func = frameMetadata; entries = oldFrame; time = frameTime } = Stack.peek s.frames.f
@@ -862,21 +867,9 @@ module internal Memory =
         (ref, { s with heap = allocateInGeneralizedHeap heapKey term time s.heap } )
 
     let allocateString metadata state string =
-        let address = freshHeapLocation metadata
+        let address = makeStringLocation metadata string
         let fql = makeTopLevelFQL TopLevelHeap (address, String, String)
         Strings.makeConcreteStringStruct metadata (tick()) string fql |> allocateInHeap metadata state address
-
-    let mkDefaultStaticStruct metadata state targetType fql =
-        let dnt = toDotNetType targetType
-        let time = tick()
-        let mkDefaultField metadata name typ = StructField(name, typ) |> addToOptionFQL fql |> defaultOf time metadata typ
-        if targetType = String then
-            let emptyString, state = allocateString metadata state System.String.Empty
-            let mkField metadata name typ =
-                if name = "System.String.Empty" then emptyString
-                else mkDefaultField metadata name typ
-            mkStruct metadata time true mkField dnt targetType fql, state
-        else mkStruct metadata time true mkDefaultField dnt targetType fql, state
 
     let allocateInStaticMemory _ (s : state) address term =
         let time = tick()
@@ -906,35 +899,40 @@ module internal Memory =
     let private mkKeyGuard mtd fillHolesInKey getter heap (key : 'a) =
         Constant mtd (IdGenerator.startingWith "hasKey#") ({ heap = heap; key = key; getter = {v=getter}; fillHolesInKey = {v=fillHolesInKey} } : 'a keyInitializedSource) Bool
 
-    let private guardOfDefinedHeap mtd fillHolesInKey getter key r (h : heap<'key, term, fql>) =
+    let private guardOfDefinedHeap mtd isDeterministic fillHolesInKey getter key r (h : heap<'key, term, fql>) =
         if Heap.contains key h then Merging.guardOf h.[key].value
-        elif r then False
+        elif r || isDeterministic then False
         else mkKeyGuard mtd fillHolesInKey getter (Defined r h) key
 
-    let rec private guardOfHeap (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) mtd fillHolesInKey getter key = function
-        | Defined(r, h) -> guardOfDefinedHeap mtd fillHolesInKey getter key r h
-        | Merged ghs -> guardedMap (guardOfHeap exploredRecursiveIds mtd fillHolesInKey getter key) ghs
+    let rec private guardOfHeap (exploredRecursiveIds : ImmutableHashSet<IFunctionIdentifier>) mtd isDeterministic fillHolesInKey getter key = function
+        | Defined(r, h) -> guardOfDefinedHeap mtd isDeterministic fillHolesInKey getter key r h
+        | Merged ghs -> guardedMap (guardOfHeap exploredRecursiveIds mtd isDeterministic fillHolesInKey getter key) ghs
         | Mutation(h, h') ->
-            guardOfHeap exploredRecursiveIds mtd fillHolesInKey getter key h ||| guardOfDefinedHeap mtd fillHolesInKey getter key false h'
+            guardOfHeap exploredRecursiveIds mtd isDeterministic fillHolesInKey getter key h ||| guardOfDefinedHeap mtd isDeterministic fillHolesInKey getter key false h'
         | Composition(s, ctx, h) ->
-            guardOfHeap exploredRecursiveIds mtd fillHolesInKey getter key (getter s) ||| guardOfHeap exploredRecursiveIds mtd fillHolesInKey getter (fillHolesInKey ctx s key) h
+            let groundGuard = guardOfHeap exploredRecursiveIds mtd isDeterministic fillHolesInKey getter key (getter s)
+            groundGuard ||| guardOfHeap exploredRecursiveIds mtd isDeterministic fillHolesInKey getter (fillHolesInKey ctx s key) h
         | RecursiveApplication(f, _, _) when exploredRecursiveIds.Contains f -> False
         | RecursiveApplication(f, _, _) ->
             match Database.querySummary f with
             | Some summary ->
-                guardOfHeap (exploredRecursiveIds.Add f) mtd fillHolesInKey getter key <| getter summary.state
+                guardOfHeap (exploredRecursiveIds.Add f) mtd isDeterministic fillHolesInKey getter key <| getter summary.state
             | None -> True
         | HigherOrderApplication _ as h ->
-            mkKeyGuard mtd fillHolesInKey getter h key
+            if isDeterministic then False
+            else mkKeyGuard mtd fillHolesInKey getter h key
 
     let private keyInitialized mtd key fillHolesInKey getter heap =
-        guardOfHeap ImmutableHashSet<IFunctionIdentifier>.Empty mtd fillHolesInKey getter key heap
+        guardOfHeap ImmutableHashSet<IFunctionIdentifier>.Empty mtd false fillHolesInKey getter key heap
 
-    let internal termTypeInitialized mtd termType state =
-        keyInitialized mtd termType substituteTypeVariables staticsOf state.statics
+    let internal termTypeInitialized mtd termType statics =
+        keyInitialized mtd termType substituteTypeVariables staticsOf statics
 
-    let internal termLocInitialized mtd loc state =
-        keyInitialized mtd loc fillHoles heapOf state.heap
+    let internal termLocInitialized mtd loc heap =
+        keyInitialized mtd loc fillHoles heapOf heap
+
+    let internal deterministicHasTermKey mtd loc heap =
+        guardOfHeap ImmutableHashSet<IFunctionIdentifier>.Empty mtd true fillHoles heapOf loc heap
 
 // -------------------------------------- Interning ----------------------------------------
 
@@ -958,6 +956,38 @@ module internal Memory =
     let isInterned metadata state strRef =
         let poolKey, state = derefWith aneTerm metadata state strRef
         internCommon metadata state true (makeNullRef metadata) poolKey
+
+    let isInternedLiteral metadata state stringLiteral =
+        let poolKey = Strings.makeConcreteStringStruct metadata (tick()) stringLiteral None
+        internCommon metadata state true (makeNullRef metadata) poolKey
+
+    let internLiteral metadata (state : state) stringLiteral =
+        let address = makeStringLocation metadata stringLiteral
+        let fql = makeTopLevelFQL TopLevelHeap (address, String, String)
+        let strSruct = Strings.makeConcreteStringStruct metadata (tick()) stringLiteral fql
+        let strRef, state =
+            if deterministicHasTermKey metadata strSruct state.iPool = False
+                then allocateInHeap metadata state address strSruct
+                else Nop, state
+        internCommon metadata state false strRef strSruct
+
+    let internLiterals metadata state literals =
+        let internLiteral state literal = internLiteral metadata state literal |> snd
+        List.fold internLiteral state literals
+
+// -----------------------------------------------------------------------------------------
+
+    let mkDefaultStaticStruct metadata state targetType fql =
+        let dnt = toDotNetType targetType
+        let time = tick()
+        let mkDefaultField metadata name typ = StructField(name, typ) |> addToOptionFQL fql |> defaultOf time metadata typ
+        if targetType = String then
+            let emptyStringRef, state = internLiteral metadata state ""
+            let mkField metadata name typ =
+                if name = "System.String.Empty" then emptyStringRef
+                else mkDefaultField metadata name typ
+            mkStruct metadata time true mkField dnt targetType fql, state
+        else mkStruct metadata time true mkDefaultField dnt targetType fql, state
 
 // -------------------------------------- To State.fs --------------------------------------
 

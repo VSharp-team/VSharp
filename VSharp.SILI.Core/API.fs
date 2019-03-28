@@ -185,7 +185,7 @@ module API =
 
         let AllocateString string state = Memory.allocateString m.Value state string
 
-        let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
+        let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state.statics
         let Dump state = State.dumpMemory state
 
         let ArrayLength arrayTerm = Arrays.length arrayTerm
@@ -209,6 +209,8 @@ module API =
 
         let InternString state strRef = Memory.intern m.Value state strRef
         let IsInternedString state strRef = Memory.isInterned m.Value state strRef
+        let IsInternedLiteral state str = Memory.isInternedLiteral m.Value state str
+        let InternLiterals state strList = Memory.internLiterals m.Value state strList
 
     module Database =
         let QuerySummary funcId =

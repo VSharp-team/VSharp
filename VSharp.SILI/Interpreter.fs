@@ -120,6 +120,26 @@ module internal Interpreter =
         | :? (statementResult * state) as r -> k' r
         | _ -> internalfail "internal call should return tuple StatementResult * State!"
 
+// ------------------------------- Literals interning -------------------------------
+
+    and internLiterals state ast =
+        let rec internLiteralsRec literals (ast : INode) k =
+            let inline isStringType (ast : ILiteralExpression) = MetadataTypes.fromMetadataType state ast.Value.Type = Types.String
+            let inline addCurrentToLiterals (ast : INode) =
+                match ast with
+                | :? ILiteralExpression as ast when isStringType ast -> ast.Value.Value.ToString() :: literals
+                | _ -> literals
+            let k = Enter ast state k
+            let emptyList : string list = []
+            let interned = DecompilerServices.getPropertyOfNode ast "InternedLiterals" emptyList :?> string list
+            if not <| List.isEmpty interned then k (List.append literals interned)
+            else Cps.Seq.foldlk internLiteralsRec (addCurrentToLiterals ast) ast.Children k
+        let internIfNotNull ast =
+            internLiteralsRec List.empty ast (fun interned ->
+            do DecompilerServices.setPropertyOfNode ast "InternedLiterals" interned
+            Memory.InternLiterals state interned)
+        appIfNotNull internIfNotNull ast state
+
 // ------------------------------- Member calls -------------------------------
 
     and decompileAndReduceMethod caller state this parameters qualifiedTypeName (metadataMethod : IMetadataMethod) assemblyPath k =
@@ -132,10 +152,13 @@ module internal Interpreter =
             match decompiledMethod with
             | DecompilerServices.DecompilationResult.MethodWithoutInitializer decompiledMethod ->
                 printLog Trace "DECOMPILED %s:\n%s" qualifiedTypeName (JetBrains.Decompiler.Ast.NodeEx.ToStringDebug(decompiledMethod))
+                let state = internLiterals state decompiledMethod
                 reduceDecompiledMethod caller state this parameters decompiledMethod (fun state k' -> k' (NoComputation, state)) k
-            | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer _
-            | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer _
-            | DecompilerServices.DecompilationResult.ObjectConstuctor _
+            | DecompilerServices.DecompilationResult.MethodWithExplicitInitializer decMethod
+            | DecompilerServices.DecompilationResult.MethodWithImplicitInitializer decMethod
+            | DecompilerServices.DecompilationResult.ObjectConstuctor decMethod ->
+                let state = internLiterals state decMethod
+                reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
             | DecompilerServices.DecompilationResult.DefaultConstuctor ->
                 reduceBaseOrThisConstuctorCall caller state this parameters qualifiedTypeName metadataMethod assemblyPath decompiledMethod k
             | DecompilerServices.DecompilationResult.DecompilationError ->
@@ -757,6 +780,7 @@ module internal Interpreter =
         | :? IAddressOfExpression as expression -> reduceAddressOfExpressionToRef state expression k
         | :? IAbstractBinaryOperationExpression
         | :? ITryCastExpression
+        | :? IMethodCallExpression
         | :? IAbstractTypeCastExpression -> reduceExpression state ast k
         | :? IPropertyAccessExpression as expression-> reducePropertyAccessExpression state expression k
         | _ -> __notImplemented__()
@@ -831,7 +855,7 @@ module internal Interpreter =
         let obj = ast.Value.Value
         match mType with
         | Types.StringType ->
-            Memory.AllocateString (obj :?> string) state |> k
+            Memory.IsInternedLiteral state (obj :?> string) |> k
         | Core.Null -> k (Terms.MakeNullRef (), state)
         | _ -> k (Concrete obj mType, state)
 
@@ -1099,6 +1123,7 @@ module internal Interpreter =
                 let initOneField (name, (typ, expression)) state k =
                     if expression = null then k (NoComputation, state)
                     else
+                        let state = internLiterals state expression
                         let k = Enter expression state k
                         let address, state = Memory.ReferenceStaticField state false name (MetadataTypes.fromMetadataType state typ) termType
                         reduceExpression state expression (fun (value, state) ->
@@ -1120,6 +1145,7 @@ module internal Interpreter =
                 reduceSequentially state fieldInitializers (fun (result, state) ->
                 match DecompilerServices.getStaticConstructorOf qualifiedTypeName with
                 | Some constr ->
+                    let state = internLiterals state constr
                     reduceDecompiledMethod null state None (Specified []) constr (fun state k -> k (result, state)) k
                 | None -> k (result, state)))
             k
@@ -1146,10 +1172,14 @@ module internal Interpreter =
                 let types, initializers = List.unzip typesAndInitializers
                 match this with
                 | Some this ->
-                    Cps.List.mapFoldk reduceExpression state initializers (fun (values, state) ->
-                    ControlFlow.ComposeExpressions values state (fun state values k ->
-                    mutateFields this names types values initializers state
-                    |> mapfst ControlFlow.ThrowOrReturn |> k) (snd >> k))
+                    let inline internAndReduce state ast k =
+                        let state = internLiterals state ast
+                        reduceExpression state ast k
+                    let doMutate state values k =
+                        let reference, state = mutateFields this names types values initializers state
+                        k (ControlFlow.ThrowOrReturn reference, state)
+                    Cps.List.mapFoldk internAndReduce state initializers (fun (values, state) ->
+                    ControlFlow.ComposeExpressions values state doMutate (snd >> k))
                 | _ -> k state
             else k state
         let baseCtorInfo (metadataMethod : IMetadataMethod) =

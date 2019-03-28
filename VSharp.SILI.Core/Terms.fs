@@ -10,6 +10,7 @@ type stackKey = string * string // Name and token
 type locationBinding = obj
 type stackHash = int list
 type concreteHeapAddress = int list
+type concreteStringAddress = string
 type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
@@ -106,6 +107,7 @@ type termNode =
             | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
             | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+            | Concrete(:? concreteStringAddress as k, _) ->  k
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
@@ -185,6 +187,7 @@ type termNode =
                 let addrStr =
                     match addr.term with
                     | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
+                    | Concrete(:? concreteStringAddress as k, _) -> k
                     | t -> toString t
                 path |> pathToString indent |> cons addrStr |> join "." |> templateRef "Heap"
 
