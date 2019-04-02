@@ -11,39 +11,37 @@ module internal Arrays =
             override x.SubTerms = Seq.empty
 
     let private defaultArrayName = "<defaultArray>"
-    let lengthType = typedefof<int>
-    let lengthTermType = Numeric lengthType
 
-    let private mkArrayIndex typ idx = ArrayIndex(idx, typ)
+    let mkArrayIndex typ idx = ArrayIndex(idx, typ)
 
     let makeArray mtd length contents instantiator elemTyp fql =
-        let zero = makeZeroIndex mtd
-        let zeroKey = makePathKey fql ArrayLowerBound zero
+        let zero = makeNumber mtd 0
+        let zeroKey = makePathIndexKey mtd ArrayLowerBound 0 fql
         let lowerBound = Heap.add zeroKey { value = zero; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
         let typ = ArrayType(elemTyp, Vector)
         let lengths = Heap.add zeroKey { value = length; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
-        Array mtd (makeNumber 1 mtd) length lowerBound instantiator contents lengths typ
+        Array mtd (makeNumber mtd 1) length lowerBound instantiator contents lengths typ
 
     let makeLinearConcreteArray mtd keyMaker valMaker length elemTyp fql =
-        let pathKeyMaker i = makePathKey fql (mkArrayIndex elemTyp) <| keyMaker i mtd
+        let pathKeyMaker i = makePathKey fql (mkArrayIndex elemTyp) <| keyMaker mtd i
         let contents =
             valMaker
             |> Seq.init length
             |> Seq.foldi (fun h i v -> Heap.add (pathKeyMaker i) { value = v; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty
-        let length = makeNumber length mtd
-        let constant = Constant mtd defaultArrayName (DefaultArray()) <| ArrayType(lengthTermType, Vector)
+        let length = makeNumber mtd length
+        let constant = Constant mtd defaultArrayName (DefaultArray()) <| ArrayType(elemTyp, Vector)
         let instantiator = [makeTrue mtd, DefaultInstantiator(constant, elemTyp)]
         makeArray mtd length contents instantiator elemTyp fql
 
     let makeIndexArray mtd maker length =
-        makeLinearConcreteArray mtd makeNumber maker length lengthTermType None
+        makeLinearConcreteArray mtd makeIndex maker length Types.indexType None
 
     let makeLinearSymbolicArray mtd length symbolicValue elemType =
         let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)]
         makeArray mtd length Heap.empty instantiator elemType
 
     let makeSymbolicIndexArray mtd length symbolicValue =
-        makeLinearSymbolicArray mtd length symbolicValue lengthTermType
+        makeLinearSymbolicArray mtd length symbolicValue Types.indexType
 
     let simplifyArraysEquality mtd x y indecesEq eq =
         let createCell v = {value = v; created = Timestamp.zero; modified = Timestamp.zero}
@@ -97,17 +95,17 @@ module internal Arrays =
             equalsArrayIndices
             (fun mtd x y -> Arithmetics.simplifyEqual mtd x y id)
 
-    let zeroLowerBound metadata dimension fql =
-        let bound = { value = Concrete metadata 0 lengthTermType; created = Timestamp.zero; modified = Timestamp.zero }
-        Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makePathNumericKey fql ArrayLowerBound i metadata))
+    let zeroLowerBounds metadata dimension fql =
+        let bound = { value = Concrete metadata 0 Types.lengthType; created = Timestamp.zero; modified = Timestamp.zero }
+        Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makePathIndexKey metadata ArrayLowerBound i fql))
 
-    let length = Merging.map (function
+    let length = Merging.guardedErroredApply (function
         | {term = Array(_, l, _, _, _, _, _)} -> l
-        | t -> internalfail "extracting length of non-array object %O" t)
+        | t -> internalfailf "extracting length of non-array object %O" t)
 
-    let rank = Merging.map (function
+    let rank = Merging.guardedErroredApply (function
         | {term = Array(d, _, _, _, _, _, _)} -> d
-        | t -> internalfail "extracting rank of non-array object %O" t)
+        | t -> internalfailf "extracting rank of non-array object %O" t)
 
     let rec private guardsProduct mtd = function
         | [] -> [(makeTrue mtd, [])]
@@ -127,11 +125,11 @@ module internal Arrays =
         let unguardedLengths = guardsProduct mtd lengthList
         let makeArray (lengthList : term list) =
             let dim = List.length lengthList
-            let lowerBounds = zeroLowerBound mtd dim fql
+            let lowerBounds = zeroLowerBounds mtd dim fql
             let length = List.reduce (mul mtd) lengthList
             let constant = Constant mtd defaultArrayName (DefaultArray()) typ
-            let lengths = Seq.foldi (fun h i l -> Heap.add (makePathNumericKey fql ArrayLength i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty lengthList
-            Array mtd (makeNumber dim mtd) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ
+            let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty lengthList
+            Array mtd (makeNumber mtd dim) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
     let rec fromInitializer mtd time rank typ initializer fql =
@@ -153,28 +151,30 @@ module internal Arrays =
         let linearContent, dimensions = flatten rank initializer
         let len = List.length linearContent
         assert(len = List.reduce (*) dimensions)
-        let intToTerm i = Concrete mtd i lengthTermType
+        let intToTerm i = Concrete mtd i Types.lengthType
         let dimensionList = dimensions |> List.map intToTerm
-        let length = makeNumber len mtd
-        let lengths = Seq.foldi (fun h i l -> Heap.add (makePathNumericKey fql ArrayLength i mtd) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty dimensionList
+        let length = makeNumber mtd len
+        let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty dimensionList
+        let mkIndex = makeIndex mtd
         let indices =
             List.foldBack (fun i s ->
-                let indicesInDim = Seq.init i intToTerm
+                let indicesInDim = Seq.init i mkIndex
                 Seq.collect (fun x -> Seq.map (cons x) s) indicesInDim
                 ) dimensions (Seq.init 1 (always List.empty))
             |> Seq.map (fun index -> makePathKey fql (mkArrayIndex elemTyp) <| makeIndexArray mtd (fun i -> index.[i]) index.Length)
         let contents = Seq.zip indices linearContent |> Heap.ofSeq
         let constant = Constant mtd defaultArrayName (DefaultArray()) typ
-        Array mtd (makeNumber rank mtd) length (zeroLowerBound mtd rank fql) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
+        Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
 
     let (|VectorT|_|) = term >> function
-        | Array(ConcreteT(one, _), length, lower, instor, contents, lengths, ArrayType (elemTyp, typ))
-            when one :?> int = 1 && (typ = Vector || typ = ConcreteDimension 1) -> Some(VectorT (length, lower, instor, contents, lengths, elemTyp))
+        | Array(ConcreteT(one, _), length, lower, instor, contents, _, ArrayType (elemTyp, Vector))
+            when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents, elemTyp))
         | _ -> None
 
     let (|Index|_|) = function
-        | VectorT(ConcreteT(length, _), lower, [_, DefaultInstantiator _], contents, _, _)
-            when length :?> int = 1 && lower = zeroLowerBound Metadata.empty 1 None -> Some(contents.[makeZeroIndex Metadata.empty])
+        // TODO: add check that keys are not Arrays if need
+        | VectorT(ConcreteT(length, _), [_, DefaultInstantiator _], contents, elemTyp)
+            when length :?> int = 1 && elemTyp = Types.indexType -> Some(contents.[makeIndex Metadata.empty 0].value)
         | _ -> None
 
     type LengthExtractor() =

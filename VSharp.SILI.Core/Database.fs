@@ -13,7 +13,7 @@ module internal Database =
 
     let report id result state =
         assert(not (summaries.ContainsKey id))
-        let result = ControlFlow.resultToTerm result
+        let result = ControlFlow.resultToTermWithNoReturnMarker result
         let summary = { result = result; state = state}
         printLog Info "For %O got %O\n%O\n\n" id result (State.dumpMemory state)
         summaries.Add(id, summary) |> ignore

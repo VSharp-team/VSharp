@@ -5,9 +5,27 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter
 
-// ------------------------------- mscorlib.System.Array -------------------------------
+// ------------------------------- mscorlib.System.String -------------------------------
 
 module internal String =
 
     [<Implements("System.Void System.String..ctor(this, System.Char[])")>]
-    val ctorOfCharArray : state -> term list -> statementResult * state
+    val CtorOfCharArray : state -> term list -> statementResult * state
+
+    [<Implements("System.Int32 System.String.get_Length(this)")>]
+    val GetLength : state -> term list -> statementResult * state
+
+    [<Implements("System.Int32 System.String.GetHashCode(this)")>]
+    val GetHashCode : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.AppDomain.IsStringInterned(this, System.String)")>]
+    val IsStringInterned : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.AppDomain.GetOrInternString(this, System.String)")>]
+    val InternString : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.String.InternalIsInterned(System.String)")>]
+    val InternalIsInterned : state -> term list -> statementResult * state
+
+    [<Implements("System.String System.String.InternalIntern(System.String)")>]
+    val InternalIntern : state -> term list -> statementResult * state

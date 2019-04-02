@@ -54,6 +54,12 @@ module public List =
         assert(tail = ys)
         result
 
+    let public discardLast xs =
+        let unfolder = function
+            | x::xs when List.isEmpty xs |> not -> Some(x, xs)
+            | _ -> None
+        List.unfold unfolder xs
+
     let rec public cartesian = function
         | [xs] -> Seq.map List.singleton xs
         | xs::xss ->

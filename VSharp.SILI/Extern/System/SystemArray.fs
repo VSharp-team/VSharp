@@ -24,7 +24,7 @@ module internal SystemArray =
         assert(List.length args = 2)
         let this, dimension = List.item 0 args, List.item 1 args
         let array, state = Memory.Dereference state this
-        GuardedApplyStatement state array (fun state term k ->
+        GuardedStatedApplyStatementK state array (fun state term k ->
             match term.term with
             | Array(d, _, _, _, _, _, _) ->
                 let lowerBound = Concrete 0 Types.TLength
@@ -41,7 +41,7 @@ module internal SystemArray =
     let GetRank state args =
         assert(List.length args = 1)
         let array, state = Memory.Dereference state (List.head args)
-        let result = GuardedApplyStatelessStatement array (fun term ->
+        let result = GuardedStatelessApplyStatement array (fun term ->
             match term.term with
             | Array(d, _, _, _, _, _, _) -> Return d
             | term -> internalfailf "expected array, but %O got!" term)

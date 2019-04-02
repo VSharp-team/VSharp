@@ -34,14 +34,14 @@ namespace VSharp.CSharpUtils.Tests.Generic
     {
         public static LinkedList<int> RetDictionary()
         {
-            return new LinkedList<int>();;
+            return new LinkedList<int>();
         }
-        
+
         public static List<double> RetList()
         {
             return new List<double>();
         }
-        
+
         public static T RetT(T t)
         {
             return t;

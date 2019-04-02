@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 open VSharp
 open System.Text
@@ -23,7 +23,7 @@ type 'key generalizedHeap when 'key : equality =
     | Merged of (term * 'key generalizedHeap) list
 and staticMemory = termType generalizedHeap
 and typeVariables = mappedStack<typeId, termType> * typeId list stack
-and state = { stack : stack; heap : term generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition; typeVariables : typeVariables }
+and state = { stack : stack; heap : term generalizedHeap; statics : staticMemory; iPool : term generalizedHeap; frames : frames; pc : pathCondition; typeVariables : typeVariables }
 
 type IActivator =
     abstract member CreateInstance : locationBinding -> System.Type -> term list -> state -> (term * state)
@@ -77,6 +77,7 @@ module internal State =
         stack = MappedStack.empty;
         heap = Defined false SymbolicHeap.empty;
         statics = Defined false SymbolicHeap.empty;
+        iPool = Defined false SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
         pc = List.empty;
         typeVariables = (MappedStack.empty, Stack.empty)
@@ -86,6 +87,7 @@ module internal State =
         stack = MappedStack.empty;
         heap = Defined true SymbolicHeap.empty;
         statics = Defined true SymbolicHeap.empty;
+        iPool = Defined true SymbolicHeap.empty;
         frames = { f = Stack.empty; sh = List.empty };
         pc = List.empty;
         typeVariables = (MappedStack.empty, Stack.empty)
@@ -102,19 +104,6 @@ module internal State =
         { mtd = Metadata.combine c1.mtd c2.mtd; addr = composeAddresses c1.addr c2.addr; time = Timestamp.compose c1.time c2.time }
     let decomposeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr; time = Timestamp.decompose c1.time c2.time }
-
-    let private printPathSegment = function
-        | StructField(f, _) -> f
-        | ArrayIndex(i, _) -> sprintf "[%s]" (i.term.IndicesToString())
-        | ArrayLowerBound i
-        | ArrayLength i -> i.term.IndicesToString()
-
-    let nameOfLocation = function
-        | TopLevelStack(name, _), [] -> name
-        | TopLevelStatics typ, [] -> toString typ
-        | TopLevelHeap(key, _, _), path ->
-            toString key :: List.map printPathSegment path |> join "."
-        | _, path -> path |> List.map printPathSegment |> join "."
 
     let readStackLocation (s : state) key = MappedStack.find key s.stack
     let readHeapLocation (s : symbolicHeap) key = s.heap.[key].value
@@ -205,12 +194,14 @@ module internal State =
     let stackOf (s : state) = s.stack
     let heapOf (s : state) = s.heap
     let staticsOf (s : state) = s.statics
+    let poolOf (s: state) = s.iPool
     let framesOf (s : state) = s.frames
     let framesHashOf (s : state) = s.frames.sh
     let pathConditionOf (s : state) = s.pc
 
     let withHeap (s : state) h' = { s with heap = h' }
     let withStatics (s : state) m' = { s with statics = m' }
+    let withPool (s : state) i' = { s with iPool = i' }
 
     let private heapKeyToString = term >> function
         | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
@@ -222,6 +213,7 @@ module internal State =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
     let pushTypeVariablesSubstitution state subst =
+        assert (subst <> [])
         let oldMappedStack, oldStack = state.typeVariables
         let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
         let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push k v acc) oldMappedStack
@@ -272,23 +264,26 @@ module internal State =
     let configure act = activator <- act
     let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
 
-    let mutable genericLazyInstantiator : termMetadata -> fql -> termType -> unit -> term =
-        fun _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
+    let mutable genericLazyInstantiator : termMetadata -> timestamp -> fql -> termType -> unit -> term =
+        fun _ _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let stackLazyInstantiator state time key =
         let t = typeOfStackLocation state key
         let metadata = metadataOfStackLocation state key
         let fql = TopLevelStack key, []
-        { value = genericLazyInstantiator metadata fql t (); created = time; modified = time }
+        { value = genericLazyInstantiator metadata time fql t (); created = time; modified = time }
 
     let mutable readHeap : termMetadata -> bool -> heap<term, term, fql> -> term -> termType -> term memoryCell =
-        fun _ _ _ -> internalfail "read heap is not ready"
+        fun _ _ _ -> internalfail "read for heap is not ready"
 
     let mutable readStatics : termMetadata -> bool -> heap<termType, term, fql> -> termType -> termType -> term memoryCell =
-        fun _ _ _ -> internalfail "read heap is not ready"
+        fun _ _ _ -> internalfail "read for statics is not ready"
 
     let mutable readTerm : termMetadata -> bool -> term memoryCell -> fql -> termType -> term memoryCell =
-        fun _ _ _ -> internalfail "read heap is not ready"
+        fun _ _ _ -> internalfail "read for term is not ready"
+
+    let mutable readPool : termMetadata -> bool -> heap<term, term, fql> -> term -> termType -> term memoryCell =
+        fun _ _ _ -> internalfail "read for interning pool is not ready"
 
 // ------------------------------- Pretty-printing -------------------------------
 
@@ -327,7 +322,8 @@ module internal State =
     and private dumpMemoryRec s n concrete ids =
         let sh, n, concrete = dumpGeneralizedHeap heapKeyToString "h" n concrete ids s.heap
         let mh, n, concrete = dumpGeneralizedHeap staticKeyToString "s" n concrete ids s.statics
-        (sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete)
+        let ph, n, concrete = dumpGeneralizedHeap toString "p" n concrete ids s.iPool
+        (sprintf "{ heap = %s, statics = %s, pool = %s }" sh mh ph, n, concrete)
 
     let dumpMemory (s : state) =
         let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<int, string>())
