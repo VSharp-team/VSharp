@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.Test.Tests
 {
 //    public class ListNode
 //    {
@@ -138,7 +139,7 @@ namespace VSharp.CSharpUtils.Tests
             return arr;
         }
 
-        public static System.Array RetSystemArray1(System.Array arr)
+        public static Array RetSystemArray1(Array arr)
         {
             if (arr is int[])
             {
@@ -153,7 +154,7 @@ namespace VSharp.CSharpUtils.Tests
             return arr;
         }
 
-        public static System.Array RetSystemArray2(System.Array arr)
+        public static Array RetSystemArray2(Array arr)
         {
             if (arr is int[])
             {

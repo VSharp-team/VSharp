@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VSharp.CSharpUtils
+namespace VSharp.Test.Tests
 {
     public class TryCatch
     {

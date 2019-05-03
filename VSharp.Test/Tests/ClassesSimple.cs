@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.Test.Tests
 {
     internal class ClassesSimpleA
     {

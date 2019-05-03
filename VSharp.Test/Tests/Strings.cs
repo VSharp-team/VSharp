@@ -1,6 +1,6 @@
 using System;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.Test.Tests
 {
     public sealed class Strings
     {

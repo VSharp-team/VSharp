@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VSharp.CSharpUtils.Tests
+namespace VSharp.Test.Tests
 {
     //public class StaticClass
     //{
@@ -35,7 +35,7 @@ namespace VSharp.CSharpUtils.Tests
     //        }
     //        catch (Exception)
     //        {
-    //            return t.ToString() == "VSharp.CSharpUtils.Tests.StaticClass";
+    //            return t.ToString() == "VSharp.Test.Tests.StaticClass";
     //        }
     //    }
     //}

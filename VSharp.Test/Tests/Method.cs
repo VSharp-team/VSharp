@@ -1,6 +1,6 @@
-using VSharp.CSharpUtils.Tests.Typecast;
+using VSharp.Test.Tests.Typecast;
 
-namespace VSharp.CSharpUtils.Tests.Methods
+namespace VSharp.Test.Tests.Methods
 {
     public interface IVirtual
     {

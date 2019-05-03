@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using VSharp.CSharpUtils.Tests.Typecast;
+using VSharp.Test.Tests.Typecast;
 
-namespace VSharp.CSharpUtils.Tests.Generic
+namespace VSharp.Test.Tests.Generic
 {
     public interface IKeeper<in T>
     {

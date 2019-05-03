@@ -1,7 +1,7 @@
 ﻿using System;
-using VSharp.CSharpUtils.Tests.Typecast;
+using VSharp.Test.Tests.Typecast;
 
-namespace VSharp.CSharpUtils.Tests.Typecast
+namespace VSharp.Test.Tests.Typecast
 {
     public class Celsius
     {
