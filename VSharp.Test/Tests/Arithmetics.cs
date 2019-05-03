@@ -99,7 +99,7 @@ namespace VSharp.CSharpUtils.Tests
         }
 
         // Expecting a
-        public static int ShiftLeftOnZero (int a)
+        public static int ShiftLeftOnZero(int a)
         {
             return (a << 0) >> 0;
         }

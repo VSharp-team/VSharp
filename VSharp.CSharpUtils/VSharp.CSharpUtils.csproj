@@ -42,21 +42,6 @@
     <Compile Include="ArrayUtils.cs" />
     <Compile Include="ImplementsAttribute.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Tests\Arithmetics.cs" />
-    <Compile Include="Tests\Generic.cs" />
-    <Compile Include="Tests\Logics.cs" />
-    <Compile Include="Tests\ClassesSimple.cs" />
-    <Compile Include="Tests\Conditional.cs" />
-    <Compile Include="Tests\Recursion.cs" />
-    <Compile Include="Tests\Lambdas.cs" />
-    <Compile Include="Tests\StaticMembers.cs" />
-    <Compile Include="Tests\Strings.cs" />
-    <Compile Include="Tests\Tree.cs" />
-    <Compile Include="Tests\TryCatch.cs" />
-    <Compile Include="Tests\Lists.cs" />
-    <Compile Include="Tests\Typecast.cs" />
-    <Compile Include="Tests\Unsafe.cs" />
-    <Compile Include="Tests\Method.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
