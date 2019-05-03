@@ -24,6 +24,7 @@ namespace VSharp.Test.Tests.Generic
         }
     }
 
+    [TestSvmFixture]
     public static class GenericInitialize<T, U, P, K, N, Z>
         where T : U
         where U : IKeeper<P>
@@ -32,22 +33,26 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
+        [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
             return new LinkedList<int>();
         }
 
+        [TestSvm]
         public static List<double> RetList()
         {
             return new List<double>();
         }
 
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
         }
     }
 
+    [TestSvmFixture]
     public static class GenericTest<T, U, P, K, N, Z>
         where T : U
         where U : IKeeper<P>
@@ -56,37 +61,44 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
         }
 
+        [TestSvm]
         public static U RetU(U u)
         {
             return u;
         }
 
+        [TestSvm]
         public static P RetP(P p)
         {
             return p;
         }
 
+        [TestSvm]
         public static K RetK(K k)
         {
             return k;
         }
 
+        [TestSvm]
         public static N RetT(N n)
         {
             return n;
         }
 
+        [TestSvm]
         public static Z RetU(Z z)
         {
             return z;
         }
     }
 
+    [TestSvmFixture]
     public class Foo<T, U>
     {
         private T _filed;
@@ -95,25 +107,30 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
+        [TestSvm]
         public T GetFields()
         {
             return  _filed;
         }
 
+        [TestSvm]
         public void SetField(T f)
         {
             _filed = f;
         }
     }
 
+    [TestSvmFixture]
     public static class GenericMethod
     {
+        [TestSvm]
         public static int TestFoo(Foo<int, Piece> f)
         {
             if (f == null) return 0;
             return f.GetFields();
         }
 
+        [TestSvm]
         public static int TestFoo(LinkedList<int> l)
         {
             if (l == null) return 0;
@@ -122,6 +139,7 @@ namespace VSharp.Test.Tests.Generic
         }
     }
 
+    [TestSvmFixture]
     public static class TetsUnion
     {
 //        public static Coord RetCoord(Object obj, Coord coord, int field)
@@ -153,6 +171,7 @@ namespace VSharp.Test.Tests.Generic
 //            return obj;
 //        }
 
+        [TestSvm]
         public static int RetWorked(Object obj, int a)
         {
             if (obj as BlackPawn != null)
@@ -193,35 +212,35 @@ namespace VSharp.Test.Tests.Generic
 //        }
 //    }
 
-    
+
 //    public interface IFooTest<T, U>
 //        where T : IFoo<U>
 //        where U : IFoo<T>
 //    {
-//        
+//
 //    }
-//    
+//
 //    public class FooFoo<T, U> {}
-//    
+//
     public interface IFoo<out T> where T : Typecast.Piece {}
-//    
+//
 //    public interface IFooOne : IFoo<IFooTwo> {}
-//        
+//
 //    public interface IFooTwo : IFoo<IFooOne> {}
-//    
+//
 //    public class RecFoo : Foo<RecFoo> {}
 //    public class RecFooOne : Foo<RecFooTwo> {}
 //    public class RecFooTwo : Foo<RecFooOne> {}
-//    
-//    public class Ret<T, U> 
+//
+//    public class Ret<T, U>
 //        where T : Foo<U>, new()
 //        where U : Foo<T>
 //    {
-//TODO: don't parse, need fix        
+//TODO: don't parse, need fix
 //        public delegate Object MyDelegateOne(String obj);
 //
 //        public delegate Object MyDelegateTwo(Object obj);
-//    
+//
 //        public T PropT { get; set; }
 //        public U PropU { get; set; }
 //

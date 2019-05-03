@@ -1,7 +1,9 @@
-﻿using System;
+using NUnit.Framework;
+ using System;
 
 namespace VSharp.Test.Tests
 {
+    [TestSvmFixture]
     public static class Fibonacci
     {
         private static int FibRec(int n)
@@ -11,11 +13,13 @@ namespace VSharp.Test.Tests
             return FibRec(n - 1) + FibRec(n - 2);
         }
 
+        [TestSvm]
         public static int Fib2()
         {
             return FibRec(2);
         }
 
+        [TestSvm]
         public static int Fib5()
         {
             return FibRec(5);
@@ -41,6 +45,7 @@ namespace VSharp.Test.Tests
             }
         }
 
+        [TestSvm]
         public static int FibUnbound(int n)
         {
             _c = 42;
@@ -50,6 +55,7 @@ namespace VSharp.Test.Tests
 
     }
 
+    [TestSvmFixture]
     public static class GCD
     {
         private static int GcdRec(int n, int m)
@@ -61,17 +67,20 @@ namespace VSharp.Test.Tests
             return GcdRec(n, m - n);
         }
 
+        [TestSvm]
         public static int Gcd1()
         {
             return GcdRec(15, 4);
         }
 
+        [TestSvm]
         public static int Gcd15()
         {
             return GcdRec(30, 75);
         }
     }
 
+    [TestSvmFixture]
     public static class McCarthy91
     {
         public static int McCarthy(int n)

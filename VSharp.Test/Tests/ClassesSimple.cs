@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -198,8 +199,10 @@ namespace VSharp.Test.Tests
         private static int field1 = ClassesSimpleExceptionInitializer.Init1(24);
     }
 
+    [TestSvmFixture]
     public static class ClassesSimple
     {
+        [TestSvm]
         public static bool Test1(int n)
         {
             ClassesSimpleA a = new ClassesSimpleA(n);
@@ -213,6 +216,7 @@ namespace VSharp.Test.Tests
             public int MyValue;
         }
 
+        [TestSvm]
         public static int SimpleStructureAccess(int newMyValue)
         {
             var x = new MyStruct();
@@ -220,19 +224,23 @@ namespace VSharp.Test.Tests
             return x.MyValue;
         }
 
+        [TestSvm]
         public static int ValueTypeMethod(int x, int y)
         {
             return x.CompareTo(y);
         }
     }
 
+    [TestSvmFixture]
     public static class ClassesSimpleException
     {
+        [TestSvm]
         public static void Test1()
         {
             ClassesSimpleException0 a = new ClassesSimpleException0();
         }
 
+        [TestSvm]
         public static void Test2()
         {
             ClassesSimpleException1 a = new ClassesSimpleException1();
@@ -240,14 +248,17 @@ namespace VSharp.Test.Tests
     }
 
 
+    [TestSvmFixture]
     public static class ClassesSimpleHierarchy
     {
+        [Ignore("Stuck until the engine becomes more effective")]
         public static List<string> Test1()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123, 42);
             return ClassesSimpleRegistrator.entries;
         }
 
+        [Ignore("Stuck until the engine becomes more effective")]
         public static int Test2()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
@@ -255,6 +266,7 @@ namespace VSharp.Test.Tests
         }
     }
 
+    [TestSvmFixture]
     public class ClassesSimplePropertyAccess
     {
         private SimpleStruct _structProperty;
@@ -287,6 +299,7 @@ namespace VSharp.Test.Tests
             SecretProperty = new List<bool>();
         }
 
+        [TestSvm]
         public void TestProperty1()
         {
             var st = new ClassesSimplePropertyAccess();
@@ -294,6 +307,7 @@ namespace VSharp.Test.Tests
         }
     }
 
+    [TestSvmFixture]
     public class ClassesSimplePropertyAccessModify
     {
         public class SimpleStruct
@@ -309,11 +323,13 @@ namespace VSharp.Test.Tests
         public SimpleStruct StructProperty
         { get; set; }
 
+        [TestSvm]
         public int TestProperty1(int anyVarName)
         {
             return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
         }
 
+        [TestSvm]
         public void FirstUseInGuard(SimpleStruct s)
         {
             if (s.X > 5)

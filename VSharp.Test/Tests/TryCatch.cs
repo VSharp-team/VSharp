@@ -2,8 +2,10 @@
 
 namespace VSharp.Test.Tests
 {
+    [TestSvmFixture]
     public class TryCatch
     {
+        [TestSvm]
         public int SafeFunc(int n)
         {
             try
@@ -34,6 +36,7 @@ namespace VSharp.Test.Tests
             }
         }
 
+        [TestSvm]
         public bool MakeOdd(int n)
         {
             try
@@ -55,6 +58,7 @@ namespace VSharp.Test.Tests
             return n % 2 == 1;
         }
 
+        [TestSvm]
         public static int ThrowNull(int n)
         {
             try
@@ -121,6 +125,7 @@ namespace VSharp.Test.Tests
             }
         }
 
+        [TestSvm]
         public static int UsingTest()
         {
             var myDispose = new MyDispose(new []{ 57 });
@@ -130,6 +135,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
+        [TestSvm]
         public static int UsingTestWithInheritance()
         {
             var myDispose = new AnotherDisposable(new []{ 57 });
@@ -139,6 +145,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
+        [TestSvm]
         public static int UsingTestWithInheritance1()
         {
             var myDispose = new AnotherDisposable1(new []{ 57 });
@@ -148,6 +155,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 77
         }
 
+        [TestSvm]
         public static int AnotherUsingTestWithInheritance1()
         {
             var myDispose = new YetAnotherDisposable1(new []{ 57 });
@@ -157,6 +165,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
+        [TestSvm]
         public static int AnotherUsingTestWithInheritance2()
         {
             var myDispose = new YetAnotherDisposable2(new []{ 57 });

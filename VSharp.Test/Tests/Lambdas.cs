@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 
 namespace VSharp.Test.Tests
 {
+    [TestSvmFixture]
     public static class Lambdas
     {
         private static int Mult2(int n)
@@ -25,12 +26,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
+        [TestSvm]
         public static int Always18()
         {
             return Mult2(9);
         }
 
         // Expecting always true
+        [TestSvm]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;

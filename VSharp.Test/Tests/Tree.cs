@@ -1,4 +1,5 @@
-﻿using System;
+using NUnit.Framework;
+ using System;
 
 namespace VSharp.Test.Tests
 {
@@ -18,6 +19,7 @@ namespace VSharp.Test.Tests
         public int Depth => 1 + Math.Max(Left?.Depth ?? 0, Right?.Depth ?? 0);
     }
 
+    [TestSvmFixture]
     public static class TreeTest
     {
         public static bool CheckGeneratedDepthConcrete3()
