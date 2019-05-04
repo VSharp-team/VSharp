@@ -1,0 +1,9 @@
+METHOD: System.Void VSharp.Test.Tests.Typecast.Pawn.SetNewField(System.Int32)
+RESULT: <VOID>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT TypeVariable{this}{VSharp.Test.Tests.Typecast.Pawn}[
+	| VSharp.Test.Tests.Typecast.Pawn._newField ~> field]
+---------- s1 = ----------
+VSharp.Test.Tests.Typecast.Pawn ==> STRUCT VSharp.Test.Tests.Typecast.Pawn[]

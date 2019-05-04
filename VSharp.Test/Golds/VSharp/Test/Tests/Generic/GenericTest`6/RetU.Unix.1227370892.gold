@@ -1,0 +1,6 @@
+METHOD: U VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(U)
+RESULT: (HeapRef u)
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> STRUCT VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z][]

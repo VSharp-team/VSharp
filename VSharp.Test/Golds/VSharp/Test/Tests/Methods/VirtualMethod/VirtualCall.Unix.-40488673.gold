@@ -1,0 +1,20 @@
+METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.VirtualCall(VSharp.Test.Tests.Methods.IVirtual)
+RESULT: UNION[
+	| !(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & !(VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) ~> λ[F]_3
+	| !(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) ~> λ[F]_2
+	| !(0 == a) & !(VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) ~> λ[F]_1
+	| !(0 == a) & (TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) ~> 7
+	| 0 == a ~> 0]
+HEAP:
+{ heap = merge[
+	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC), app(λ[F]_1)),
+	(!(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & !(VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}), app(λ[F]_3)),
+	(!(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}), app(λ[F]_2)),
+	((TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) | 0 == a, <empty>)], statics = merge[
+	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) & (TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC), app(λ[F]_1)),
+	(!(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & !(VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}), app(λ[F]_3)),
+	(!(0 == a) & !(TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.IVirtual <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}), app(λ[F]_2)),
+	((TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual} <: VSharp.Test.Tests.Methods.VirtualC) & (VSharp.Test.Tests.Methods.VirtualC <: TypeVariable{a}{VSharp.Test.Tests.Methods.IVirtual}) | 0 == a, s0)] } where
+---------- s0 = ----------
+VSharp.Test.Tests.Methods.VirtualC ==> STRUCT VSharp.Test.Tests.Methods.VirtualC[]
+VSharp.Test.Tests.Methods.VirtualMethod ==> STRUCT VSharp.Test.Tests.Methods.VirtualMethod[]

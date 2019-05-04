@@ -1,0 +1,417 @@
+METHOD: System.Single VSharp.Test.Tests.Arithmetics.AbsSingleMethod()
+RESULT: 5.9
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [|
+	0: 1;
+	10: 10000000000;
+	11: 100000000000;
+	12: 1000000000000;
+	13: 10000000000000;
+	14: 100000000000000;
+	15: 1E+15;
+	1: 10;
+	2: 100;
+	3: 1000;
+	4: 10000;
+	5: 100000;
+	6: 1000000;
+	7: 10000000;
+	8: 100000000;
+	9: 1000000000;
+	 ... 16 ... |]
+2 ==> [|
+	0: -1;
+	100: 29;
+	101: 30;
+	102: 31;
+	103: 32;
+	104: 33;
+	105: 34;
+	106: 35;
+	107: 36;
+	108: 37;
+	109: 38;
+	10: -1;
+	110: 39;
+	111: 40;
+	112: 41;
+	113: 42;
+	114: 43;
+	115: 44;
+	116: 45;
+	117: 46;
+	118: 47;
+	119: 48;
+	11: -1;
+	120: 49;
+	121: 50;
+	122: 51;
+	123: -1;
+	124: -1;
+	125: -1;
+	126: -1;
+	127: -1;
+	128: -1;
+	129: -1;
+	12: -1;
+	130: -1;
+	131: -1;
+	132: -1;
+	133: -1;
+	134: -1;
+	135: -1;
+	136: -1;
+	137: -1;
+	138: -1;
+	139: -1;
+	13: -1;
+	140: -1;
+	141: -1;
+	142: -1;
+	143: -1;
+	144: -1;
+	145: -1;
+	146: -1;
+	147: -1;
+	148: -1;
+	149: -1;
+	14: -1;
+	150: -1;
+	151: -1;
+	152: -1;
+	153: -1;
+	154: -1;
+	155: -1;
+	156: -1;
+	157: -1;
+	158: -1;
+	159: -1;
+	15: -1;
+	160: -1;
+	161: -1;
+	162: -1;
+	163: -1;
+	164: -1;
+	165: -1;
+	166: -1;
+	167: -1;
+	168: -1;
+	169: -1;
+	16: -1;
+	170: -1;
+	171: -1;
+	172: -1;
+	173: -1;
+	174: -1;
+	175: -1;
+	176: -1;
+	177: -1;
+	178: -1;
+	179: -1;
+	17: -1;
+	180: -1;
+	181: -1;
+	182: -1;
+	183: -1;
+	184: -1;
+	185: -1;
+	186: -1;
+	187: -1;
+	188: -1;
+	189: -1;
+	18: -1;
+	190: -1;
+	191: -1;
+	192: -1;
+	193: -1;
+	194: -1;
+	195: -1;
+	196: -1;
+	197: -1;
+	198: -1;
+	199: -1;
+	19: -1;
+	1: -1;
+	200: -1;
+	201: -1;
+	202: -1;
+	203: -1;
+	204: -1;
+	205: -1;
+	206: -1;
+	207: -1;
+	208: -1;
+	209: -1;
+	20: -1;
+	210: -1;
+	211: -1;
+	212: -1;
+	213: -1;
+	214: -1;
+	215: -1;
+	216: -1;
+	217: -1;
+	218: -1;
+	219: -1;
+	21: -1;
+	220: -1;
+	221: -1;
+	222: -1;
+	223: -1;
+	224: -1;
+	225: -1;
+	226: -1;
+	227: -1;
+	228: -1;
+	229: -1;
+	22: -1;
+	230: -1;
+	231: -1;
+	232: -1;
+	233: -1;
+	234: -1;
+	235: -1;
+	236: -1;
+	237: -1;
+	238: -1;
+	239: -1;
+	23: -1;
+	240: -1;
+	241: -1;
+	242: -1;
+	243: -1;
+	244: -1;
+	245: -1;
+	246: -1;
+	247: -1;
+	248: -1;
+	249: -1;
+	24: -1;
+	250: -1;
+	251: -1;
+	252: -1;
+	253: -1;
+	254: -1;
+	255: -1;
+	25: -1;
+	26: -1;
+	27: -1;
+	28: -1;
+	29: -1;
+	2: -1;
+	30: -1;
+	31: -1;
+	32: -1;
+	33: -1;
+	34: -1;
+	35: -1;
+	36: -1;
+	37: -1;
+	38: -1;
+	39: -1;
+	3: -1;
+	40: -1;
+	41: -1;
+	42: -1;
+	43: 62;
+	44: -1;
+	45: -1;
+	46: -1;
+	47: 63;
+	48: 52;
+	49: 53;
+	4: -1;
+	50: 54;
+	51: 55;
+	52: 56;
+	53: 57;
+	54: 58;
+	55: 59;
+	56: 60;
+	57: 61;
+	58: -1;
+	59: -1;
+	5: -1;
+	60: -1;
+	61: -1;
+	62: -1;
+	63: -1;
+	64: -1;
+	65: 0;
+	66: 1;
+	67: 2;
+	68: 3;
+	69: 4;
+	6: -1;
+	70: 5;
+	71: 6;
+	72: 7;
+	73: 8;
+	74: 9;
+	75: 10;
+	76: 11;
+	77: 12;
+	78: 13;
+	79: 14;
+	7: -1;
+	80: 15;
+	81: 16;
+	82: 17;
+	83: 18;
+	84: 19;
+	85: 20;
+	86: 21;
+	87: 22;
+	88: 23;
+	89: 24;
+	8: -1;
+	90: 25;
+	91: -1;
+	92: -1;
+	93: -1;
+	94: -1;
+	95: -1;
+	96: -1;
+	97: 26;
+	98: 27;
+	99: 28;
+	9: -1;
+	 ... 256 ... |]
+3 ==> [|
+	0: System.Empty;
+	10: System.UInt32;
+	11: System.Int64;
+	12: System.UInt64;
+	13: System.Single;
+	14: System.Double;
+	15: System.Decimal;
+	16: System.DateTime;
+	17: System.Object;
+	18: System.String;
+	1: System.Object;
+	2: System.DBNull;
+	3: System.Boolean;
+	4: System.Char;
+	5: System.SByte;
+	6: System.Byte;
+	7: System.Int16;
+	8: System.UInt16;
+	9: System.Int32;
+	 ... 19 ... |]
+4 ==> [|
+	0: 'A';
+	10: 'K';
+	11: 'L';
+	12: 'M';
+	13: 'N';
+	14: 'O';
+	15: 'P';
+	16: 'Q';
+	17: 'R';
+	18: 'S';
+	19: 'T';
+	1: 'B';
+	20: 'U';
+	21: 'V';
+	22: 'W';
+	23: 'X';
+	24: 'Y';
+	25: 'Z';
+	26: 'a';
+	27: 'b';
+	28: 'c';
+	29: 'd';
+	2: 'C';
+	30: 'e';
+	31: 'f';
+	32: 'g';
+	33: 'h';
+	34: 'i';
+	35: 'j';
+	36: 'k';
+	37: 'l';
+	38: 'm';
+	39: 'n';
+	3: 'D';
+	40: 'o';
+	41: 'p';
+	42: 'q';
+	43: 'r';
+	44: 's';
+	45: 't';
+	46: 'u';
+	47: 'v';
+	48: 'w';
+	49: 'x';
+	4: 'E';
+	50: 'y';
+	51: 'z';
+	52: '0';
+	53: '1';
+	54: '2';
+	55: '3';
+	56: '4';
+	57: '5';
+	58: '6';
+	59: '7';
+	5: 'F';
+	60: '8';
+	61: '9';
+	62: '+';
+	63: '/';
+	64: '=';
+	6: 'G';
+	7: 'H';
+	8: 'I';
+	9: 'J';
+	 ... 65 ... |]
+5 ==> STRUCT System.DBNull[]
+---------- s1 = ----------
+System.Convert ==> STRUCT System.Convert[
+	| System.Convert.ConvertTypes ~> UNION[
+		| !hasKey#2 ~> (HeapRef 3)
+		| hasKey#2 ~> (HeapRef System.Convert.ConvertTypes)]
+	| System.Convert.DBNull ~> UNION[
+		| !(0 == System.DBNull.Value) & !hasKey#2 & hasKey#3 ~> (HeapRef System.DBNull.Value)
+		| !hasKey#2 & !hasKey#3 ~> (HeapRef 5)
+		| !hasKey#2 & 0 == System.DBNull.Value & hasKey#3 ~> null
+		| hasKey#2 ~> (HeapRef System.Convert.DBNull)]
+	| System.Convert.EncodingPad ~> UNION[
+		| !hasKey#2 ~> 61
+		| hasKey#2 ~> System.Convert.EncodingPad]
+	| System.Convert.EnumType ~> UNION[
+		| !hasKey#2 ~> System.Enum
+		| hasKey#2 ~> (HeapRef System.Convert.EnumType)]
+	| System.Convert.base64LineBreakPosition ~> UNION[
+		| !hasKey#2 ~> 76
+		| hasKey#2 ~> System.Convert.base64LineBreakPosition]
+	| System.Convert.base64Table ~> UNION[
+		| !hasKey#2 ~> (HeapRef 4)
+		| hasKey#2 ~> (HeapRef System.Convert.base64Table)]
+	| System.Convert.s_decodingMap ~> UNION[
+		| !hasKey#2 ~> (HeapRef 2)
+		| hasKey#2 ~> (HeapRef System.Convert.s_decodingMap)]]
+System.DBNull ==> STRUCT System.DBNull[
+	| System.DBNull.Value ~> UNION[
+		| !hasKey#2 & !hasKey#3 ~> (HeapRef 5)
+		| hasKey#2 | hasKey#3 ~> (HeapRef System.DBNull.Value)]]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> UNION[
+		| !hasKey#1 ~> 2.71828182845905
+		| hasKey#1 ~> System.Math.E]
+	| System.Math.PI ~> UNION[
+		| !hasKey#1 ~> 3.14159265358979
+		| hasKey#1 ~> System.Math.PI]
+	| System.Math.doubleRoundLimit ~> UNION[
+		| !hasKey#1 ~> 1E+16
+		| hasKey#1 ~> System.Math.doubleRoundLimit]
+	| System.Math.maxRoundingDigits ~> UNION[
+		| !hasKey#1 ~> 15
+		| hasKey#1 ~> System.Math.maxRoundingDigits]
+	| System.Math.roundPower10Double ~> UNION[
+		| !hasKey#1 ~> (HeapRef 1)
+		| hasKey#1 ~> (HeapRef System.Math.roundPower10Double)]]
+System.Object ==> STRUCT System.Object[]
+VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]

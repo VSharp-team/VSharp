@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Unsafe.SimplePointerDifference(System.Int32, System.Double)
+RESULT: x
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Unsafe ==> STRUCT VSharp.Test.Tests.Unsafe[]

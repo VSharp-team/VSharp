@@ -1,0 +1,16 @@
+METHOD: System.Int32 VSharp.Test.Tests.TryCatch.AnotherUsingTestWithInheritance2()
+RESULT: 87
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.Test.Tests.TryCatch+YetAnotherDisposable2[
+	| VSharp.Test.Tests.TryCatch+MyDispose.X_field ~> (HeapRef 2)]
+2 ==> [|
+	0: 30;
+	 ... 1 ... |]
+---------- s1 = ----------
+System.IDisposable ==> STRUCT System.IDisposable[]
+System.Object ==> STRUCT System.Object[]
+VSharp.Test.Tests.TryCatch+MyDispose ==> STRUCT VSharp.Test.Tests.TryCatch+MyDispose[]
+VSharp.Test.Tests.TryCatch+YetAnotherDisposable2 ==> STRUCT VSharp.Test.Tests.TryCatch+YetAnotherDisposable2[]
+VSharp.Test.Tests.TryCatch ==> STRUCT VSharp.Test.Tests.TryCatch[]

@@ -1,0 +1,13 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conditional.PostconditionLoop(System.Int32)
+RESULT: UNION[
+	| !(-1 + n <= 0) & !(-2 + n <= 0) ~> μ[<delegate>, num]
+	| !(-1 + n <= 0) & -2 + n <= 0 ~> -2 + n
+	| -1 + n <= 0 ~> -1 + n]
+HEAP:
+{ heap = merge[
+	(-1 + n <= 0 | -2 + n <= 0, <empty>),
+	(!(-1 + n <= 0) & !(-2 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))], statics = merge[
+	(-1 + n <= 0 | -2 + n <= 0, s0),
+	(!(-1 + n <= 0) & !(-2 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]

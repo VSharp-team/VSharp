@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.CheckedUnchecked(System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: checked(x0 + unchecked(checked(x2 + x3 + x4) + x1) + unchecked(-(x6 * x7) + x5))
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]

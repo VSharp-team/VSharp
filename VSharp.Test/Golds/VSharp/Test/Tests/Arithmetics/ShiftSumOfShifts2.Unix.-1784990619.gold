@@ -1,0 +1,6 @@
+METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.ShiftSumOfShifts2(System.Int64)
+RESULT: a << 34
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]

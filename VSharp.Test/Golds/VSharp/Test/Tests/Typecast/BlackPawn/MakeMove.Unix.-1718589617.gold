@@ -1,0 +1,11 @@
+METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Typecast.BlackPawn.MakeMove(VSharp.Test.Tests.Typecast.Coord)
+RESULT: (HeapRef this)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+this ==> STRUCT TypeVariable{this}{VSharp.Test.Tests.Typecast.BlackPawn}[
+	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> VSharp.Test.Tests.Typecast.Coord.X + VSharp.Test.Tests.Typecast.Coord.Y
+	| VSharp.Test.Tests.Typecast.Piece._yCoord ~> -VSharp.Test.Tests.Typecast.Coord.Y + VSharp.Test.Tests.Typecast.Coord.X]
+---------- s1 = ----------
+VSharp.Test.Tests.Typecast.BlackPawn ==> STRUCT VSharp.Test.Tests.Typecast.BlackPawn[]
+VSharp.Test.Tests.Typecast.Coord ==> STRUCT VSharp.Test.Tests.Typecast.Coord[]

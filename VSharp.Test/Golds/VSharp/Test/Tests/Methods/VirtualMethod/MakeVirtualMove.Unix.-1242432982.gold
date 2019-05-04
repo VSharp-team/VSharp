@@ -1,0 +1,22 @@
+METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.Test.Tests.Typecast.Pawn, VSharp.Test.Tests.Typecast.Coord)
+RESULT: UNION[
+	| !(0 == p) ~> (HeapRef p)
+	| 0 == p ~> null]
+HEAP:
+{ heap = merge[
+	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, h0),
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))], statics = merge[
+	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, s1),
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))] } where
+---------- h0 = ----------
+p ==> STRUCT TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}[
+	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> UNION[
+		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) ~> VSharp.Test.Tests.Typecast.Coord.X + VSharp.Test.Tests.Typecast.Coord.Y
+		| 0 == p ~> p.VSharp.Test.Tests.Typecast.Piece._xCoord]
+	| VSharp.Test.Tests.Typecast.Piece._yCoord ~> UNION[
+		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) ~> -VSharp.Test.Tests.Typecast.Coord.Y + VSharp.Test.Tests.Typecast.Coord.X
+		| 0 == p ~> p.VSharp.Test.Tests.Typecast.Piece._yCoord]]
+---------- s1 = ----------
+VSharp.Test.Tests.Methods.VirtualMethod ==> STRUCT VSharp.Test.Tests.Methods.VirtualMethod[]
+VSharp.Test.Tests.Typecast.Coord ==> STRUCT VSharp.Test.Tests.Typecast.Coord[]
+VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]

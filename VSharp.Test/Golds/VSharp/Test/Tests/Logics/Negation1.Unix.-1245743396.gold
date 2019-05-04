@@ -1,0 +1,6 @@
+METHOD: System.Boolean VSharp.Test.Tests.Logics.Negation1(System.Int32)
+RESULT: False
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Logics ==> STRUCT VSharp.Test.Tests.Logics[]

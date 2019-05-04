@@ -1,0 +1,6 @@
+METHOD: System.Boolean VSharp.Test.Tests.Logics.Order3(System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: -b + a + -c == 0
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Logics ==> STRUCT VSharp.Test.Tests.Logics[]

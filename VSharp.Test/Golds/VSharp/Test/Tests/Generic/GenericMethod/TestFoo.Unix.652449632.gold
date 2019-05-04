@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.GenericMethod.TestFoo(VSharp.Test.Tests.Generic.Foo`2[System.Int32,VSharp.Test.Tests.Typecast.Piece])
+RESULT: UNION[
+	| !(0 == f) ~> f.VSharp.Test.Tests.Generic.Foo`2._filed
+	| 0 == f ~> 0]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Generic.Foo`2[System.Int32,VSharp.Test.Tests.Typecast.Piece] ==> STRUCT VSharp.Test.Tests.Generic.Foo`2[System.Int32,VSharp.Test.Tests.Typecast.Piece][]
+VSharp.Test.Tests.Generic.GenericMethod ==> STRUCT VSharp.Test.Tests.Generic.GenericMethod[]

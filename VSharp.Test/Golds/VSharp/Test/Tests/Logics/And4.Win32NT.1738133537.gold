@@ -1,0 +1,6 @@
+METHOD: System.Boolean VSharp.Test.Tests.Logics.And4(System.Boolean, System.Boolean)
+RESULT: True
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Logics ==> STRUCT VSharp.Test.Tests.Logics[]

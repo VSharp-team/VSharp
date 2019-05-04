@@ -1,0 +1,259 @@
+METHOD: System.Boolean VSharp.Test.Tests.TryCatch.MakeOdd(System.Int32)
+RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 0 == n % 2 | (-n + 1) % 2 == 1 & n <= 0 | 0 == n
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.ArgumentException[
+	| System.ArgumentException.m_paramName ~> null
+	| System.Exception._HResult ~> -2147024809
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !hasKey#7 ~> null
+			| hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
+	| System.Exception._message ~> (HeapRef 2)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 4)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+10 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'N';
+		1: 'o';
+		2: 't';
+		3: ' ';
+		4: 'o';
+		5: 'd';
+		6: 'd';
+		7: '!';
+		8: '\000';
+		 ... 9 ... |]
+	| System.String.m_StringLength ~> 8]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'h';
+		11: 'o';
+		12: 'u';
+		13: 'l';
+		14: 'd';
+		15: ' ';
+		16: 'n';
+		17: 'o';
+		18: 't';
+		19: ' ';
+		1: 'r';
+		20: 'b';
+		21: 'e';
+		22: ' ';
+		23: 'z';
+		24: 'e';
+		25: 'r';
+		26: 'o';
+		27: '!';
+		28: '\000';
+		2: 'g';
+		3: 'u';
+		4: 'm';
+		5: 'e';
+		6: 'n';
+		7: 't';
+		8: ' ';
+		9: 's';
+		 ... 29 ... |]
+	| System.String.m_StringLength ~> 28]
+3 ==> STRUCT System.Object[]
+4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+5 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
+	| System.String.m_StringLength ~> 37]
+6 ==> STRUCT System.InvalidOperationException[
+	| System.Exception._HResult ~> -2146233079
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
+			| !hasKey#7 & 0 == n ~> null]]
+	| System.Exception._message ~> (HeapRef 7)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 8)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+7 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'H';
+		10: 't';
+		11: 'i';
+		12: 'v';
+		13: 'e';
+		14: ' ';
+		15: 'n';
+		16: 'u';
+		17: 'm';
+		18: 'b';
+		19: 'e';
+		1: 'm';
+		20: 'r';
+		21: 's';
+		22: ' ';
+		23: 'a';
+		24: 'r';
+		25: 'e';
+		26: ' ';
+		27: 'a';
+		28: 'l';
+		29: 's';
+		2: 'm';
+		30: 'o';
+		31: ' ';
+		32: 'n';
+		33: 'o';
+		34: 't';
+		35: ' ';
+		36: 'a';
+		37: 'l';
+		38: 'l';
+		39: 'o';
+		3: '.';
+		40: 'w';
+		41: 'e';
+		42: 'd';
+		43: '!';
+		44: '\000';
+		4: '.';
+		5: ' ';
+		6: 'n';
+		7: 'e';
+		8: 'g';
+		9: 'a';
+		 ... 45 ... |]
+	| System.String.m_StringLength ~> 44]
+8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+9 ==> STRUCT System.Exception[
+	| System.Exception._HResult ~> -2146233088
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
+			| !hasKey#7 & 0 == n ~> null]]
+	| System.Exception._message ~> (HeapRef 10)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+---------- s1 = ----------
+System.ArgumentException ==> STRUCT System.ArgumentException[]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> UNION[
+		| !(0 == n) | hasKey#3 ~> System.Exception._COMPlusExceptionCode
+		| !hasKey#3 & 0 == n ~> -532462766]
+	| System.Exception.s_EDILock ~> UNION[
+		| !(0 == n) | hasKey#3 ~> (HeapRef System.Exception.s_EDILock)
+		| !hasKey#3 & 0 == n ~> (HeapRef 3)]]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| !(0 == n) | hasKey#5 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)
+			| !hasKey#5 & 0 == n ~> null]]]
+System.InvalidOperationException ==> STRUCT System.InvalidOperationException[]
+System.Object ==> STRUCT System.Object[]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
+		| !(0 == n) | hasKey#8 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
+		| !hasKey#8 & 0 == n ~> (HeapRef 5)]]
+System.SystemException ==> STRUCT System.SystemException[]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
+			| !hasKey#7 & 0 == n ~> null]]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.Test.Tests.TryCatch ==> STRUCT VSharp.Test.Tests.TryCatch[]
