@@ -5,10 +5,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using NUnit.Framework;
+using NUnit.Framework.Interfaces;
+using NUnit.Framework.Internal;
+using NUnit.Framework.Internal.Builders;
+using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter;
 
 namespace VSharp.Test
@@ -53,201 +56,282 @@ namespace VSharp.Test
         }
     }
 
-    [TestFixture]
-    public sealed class SiliTests
+    [SetUpFixture]
+    public class SetUpSvm
     {
-        private const string MethodSeparator = "METHOD: ";
-        private const string ResultSeparator = "RESULT: ";
-        private const string TestsDirectoryName = "Tests";
-        private const string IdealTestFileExtension = ".gold";
-
-//        private void OverwriteIdealValues(string path, IDictionary<MethodInfo, string> result)
-//        {
-//            if (File.Exists(path))
-//            {
-//                File.Delete(path);
-//            }
-//
-//            foreach (KeyValuePair<MethodInfo, string> keyValuePair in result)
-//            {
-//                string text = $"{MethodSeparator}{MethodInfoToString(keyValuePair.Key)}\n{ResultSeparator}{keyValuePair.Value}\n";
-//                File.AppendAllText(path, text);
-//            }
-//        }
-
-        private string MethodInfoToString(MethodInfo methodInfo)
+        [OneTimeSetUp]
+        public void PrepareSvm()
         {
-            string parameters = string.Join(", ", methodInfo.GetParameters().Select(p => p.ParameterType.ToString()));
-            return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
-        }
+            Trace.Listeners.Add(new DumpStackTraceListener());
 
-        private void PrepareSvm()
-        {
+            var ci = new CultureInfo("en-GB")
+            {
+                NumberFormat = {
+                    PositiveInfinitySymbol = "Infinity",
+                    NegativeInfinitySymbol = "-Infinity"
+                }
+            };
+            Thread.CurrentThread.CurrentCulture = ci;
+
             // Something like Propositional.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             SVM.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
         }
+    }
 
-        private IDictionary<string, string> ParseIdealValues(string resultPath, StringBuilder failReason)
+    public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
+    {
+        private class DummyFilter : IPreFilter
         {
-            string resultText = "";
-            if (File.Exists(resultPath))
+            /* Filter for exploring all possible methods */
+            public bool IsMatch(Type type)
             {
-                try
+                return true;
+            }
+
+            public bool IsMatch(Type type, MethodInfo method)
+            {
+                return true;
+            }
+        }
+
+        private class DummyTypeInfo : ITypeInfo
+        {
+            /*
+             * This class is mostly a hack to bypass NUnit test-class validation checks
+             * (NUnit doesn't allow test class to be generic with not specified parameters
+             * However, we want to keep generic classes generic, e.g. in ``Tests/Generic.cs")
+             * It's a copy-paste of NUnit.Framework.Internal.TypeWrapper with certain modifications
+             * (e.g. ``ContainsGenericParameters" always returns ``false")
+             * For NUnit validation checks see:
+             * NUnit.Framework.Internal.Builders.NUnitTestFixtureBuilder.CheckTestFixtureIsValid
+             */
+            public Type Type { get; }
+
+            public DummyTypeInfo(Type type)
+            {
+                Type = type;
+            }
+
+            public ITypeInfo BaseType
+            {
+                get
                 {
-                    resultText = File.ReadAllText(resultPath);
-                }
-                catch (IOException e)
-                {
-                    failReason.AppendFormat("Can't read gold file! Exception: {0}\n\n", e.Message);
+                    var baseType = Type.GetTypeInfo().BaseType;
+
+                    return baseType != null
+                        ? new TypeWrapper(baseType)
+                        : null;
                 }
             }
 
-            if (string.IsNullOrEmpty(resultText))
+            public string Name => Type.Name;
+
+            public string FullName => Type.FullName;
+
+            public Assembly Assembly => Type.GetTypeInfo().Assembly;
+
+            public string Namespace => Type.Namespace;
+
+            public bool IsAbstract => Type.GetTypeInfo().IsAbstract;
+
+            public bool IsGenericType => false;
+
+            public bool IsType(Type type)
+            {
+                return Type == type;
+            }
+
+            public bool ContainsGenericParameters => false;
+
+            public bool IsGenericTypeDefinition => false;
+
+            public bool IsSealed => Type.GetTypeInfo().IsSealed;
+
+            public bool IsStaticClass => true;
+
+            public string GetDisplayName()
+            {
+                return TypeHelper.GetDisplayName(Type);
+            }
+
+            public string GetDisplayName(object[] args)
+            {
+                return TypeHelper.GetDisplayName(Type, args);
+            }
+
+            public ITypeInfo MakeGenericType(Type[] typeArgs)
+            {
+                return new TypeWrapper(Type.MakeGenericType(typeArgs));
+            }
+
+            public Type GetGenericTypeDefinition()
+            {
+                return Type.GetGenericTypeDefinition();
+            }
+
+            public T[] GetCustomAttributes<T>(bool inherit) where T : class
+            {
+                return (T[])((ICustomAttributeProvider)Type.GetTypeInfo()).GetCustomAttributes(typeof(T), inherit);
+            }
+
+            public bool IsDefined<T>(bool inherit) where T : class
+            {
+                return ((ICustomAttributeProvider) Type.GetTypeInfo()).IsDefined(typeof(T), inherit);
+            }
+
+            public bool HasMethodWithAttribute(Type attributeType)
+            {
+                return Reflect.HasMethodWithAttribute(Type, attributeType);
+            }
+
+            public IMethodInfo[] GetMethods(BindingFlags flags)
+            {
+                var methods = Type.GetMethods(flags);
+                var result = new MethodWrapper[methods.Length];
+
+                for (int i = 0; i < methods.Length; i++)
+                    result[i] = new MethodWrapper(Type, methods[i]);
+
+                return result;
+            }
+
+            public ConstructorInfo GetConstructor(Type[] argTypes)
+            {
+                return Type.GetConstructor(argTypes);
+            }
+
+            public bool HasConstructor(Type[] argTypes)
+            {
+                return GetConstructor(argTypes) != null;
+            }
+
+            public object Construct(object[] args)
             {
                 return null;
             }
 
-            IEnumerable<string> methodsWithResults = Regex.Split(resultText, $"^{MethodSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s));
-            var resultsDictionary = new Dictionary<string, string>();
-            foreach (string str in methodsWithResults)
+            public override string ToString()
             {
-                IList<string> methodsAndResults = Regex.Split(str, $"^{ResultSeparator}", RegexOptions.Multiline).Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                resultsDictionary.Add(methodsAndResults[0].Trim('\n', '\r'), methodsAndResults[1].Replace("\r\n", "\n").Trim('\n', '\r'));
+                return Type.ToString();
             }
-
-            return resultsDictionary;
         }
 
-        private IList<IDictionary<string, string>> ReadAllIdealValues(string testDir, StringBuilder failReason)
+        public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
         {
-            string os = Environment.OSVersion.Platform.ToString();
-            string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
-            IDictionary<string, string> values = ParseIdealValues(goldFile, failReason);
-            var result = new List<IDictionary<string, string>>();
-            if (values != null)
-                result.Add(values);
-            return result;
+            var typ = new DummyTypeInfo(typeInfo.Type);
+            yield return new NUnitTestFixtureBuilder().BuildFrom(typ, new DummyFilter());
+        }
+    }
+
+    public class IdealValuesHandler
+    {
+        private const string MethodSeparator = "METHOD: ";
+        private const string ResultSeparator = "RESULT: ";
+        private const string GoldsDirectoryName = "Golds";
+        private const string IdealTestFileExtension = ".gold";
+        private const string IdealTemporaryFileExtension = ".tmp";
+
+        private string _idealValuePath;
+        public string ExpectedValue;
+        private string _methodName;
+
+        public IdealValuesHandler(MethodInfo methodInfo, [CallerFilePath] string currentFilePath = "")
+        {
+            var currentFolder = Path.GetDirectoryName(currentFilePath);
+            _idealValuePath = GetIdealValuePath(currentFolder, methodInfo);
+            ExpectedValue = ReadIdealValue(_idealValuePath);
+            _methodName = MethodInfoToString(methodInfo);
         }
 
-        private static string _currentTestDirectory = "";
-
-        private static Assembly LoadFromTestFolder(object sender, ResolveEventArgs args)
+        private static string GetIdealValuePath(string currentFolder, MethodInfo methodInfo)
         {
-            // This handler is called only when the common language runtime tries to bind to the assembly and fails.
-            string name = new AssemblyName(args.Name).Name;
-            string additionalPath = _currentTestDirectory + Path.DirectorySeparatorChar + name + ".dll";
-            if (File.Exists(additionalPath))
-            {
-                return Assembly.LoadFrom(additionalPath);
-            }
-
-            return null;
+            var typeName = methodInfo?.DeclaringType?.FullName?.Split('.');
+            if (typeName == null)
+                return null;
+            var os = Environment.OSVersion.Platform.ToString();
+            var paramsHash = methodInfo.GetParameters().Select(p => p.ToString().GetHashCode()).ToArray();
+            var hash = paramsHash.Aggregate(paramsHash.Length, (current, t) => unchecked(current * 314159 + t));
+            var methodName = $"{methodInfo.Name}.{os}.{hash}{IdealTestFileExtension}";
+            var idealValuePath = Path.Combine(currentFolder, GoldsDirectoryName, Path.Combine(typeName), methodName);
+            return idealValuePath;
         }
 
-        [Test]
-        public void RunCSharpTests()
+        private static string ReadIdealValue(string idealValuePath)
         {
-            Trace.Listeners.Add(new DumpStackTraceListener());
+            if (!File.Exists(idealValuePath))
+                return null;
+            var idealValueContents = File.ReadAllText(idealValuePath);
+            if (string.IsNullOrEmpty(idealValueContents))
+                return null;
 
-            CultureInfo ci = new CultureInfo("en-GB");
-            ci.NumberFormat.PositiveInfinitySymbol = "Infinity";
-            ci.NumberFormat.NegativeInfinitySymbol = "-Infinity";
-            Thread.CurrentThread.CurrentCulture = ci;
+            var idealValue = idealValueContents.Split(new []{ResultSeparator}, 2, StringSplitOptions.None);
+            return idealValue[1].Trim();
+        }
 
-            var ignoredLibs = new List<string>
-            {
-                //"VSharp.CSharpUtils.dll",
-                "ChessDotNet.dll"
-            };
-            var ignoredTypes = new List<string>
-            {
-                "Calculator"
-                , "AnonymousType"
-//                , "Arithmetics"
-//                , "Logics"
-//                , "Conditional"
-//                , "Fibonacci"
-//                , "GCD"
-                , "McCarthy91"
-//                , "Lambdas"
-//                , "ClassesSimple"
-                , "ClassesSimpleHierarchy"
-//                , "StaticClass"
-//                , "StaticMembers"
-//                , "TryCatch"
-//                , "Lists"
-//                , "Typecast"
-//                , "Generic"
-//                , "Strings"
-//                , "Methods"
-                , "Bag"
-                , "Tree"
-                , "Celsius"
-                , "Fahrenheit"
-                , "IPromotion"
-                , "Employee"
-                , "Helper"
-                , "Array"
-//                , "Unsafe"
-            };
+        private static string MethodInfoToString(MethodInfo methodInfo)
+        {
+            var parameters = string.Join(", ", methodInfo.GetParameters().Select(p => p.ParameterType.ToString()));
+            return $"{methodInfo.ReturnType} {methodInfo.DeclaringType}.{methodInfo.Name}({parameters})";
+        }
 
-            var failReason = new StringBuilder();
-            string pathToTests = Path.Combine(Path.GetFullPath("."), "..", "..", TestsDirectoryName);
-            string[] tests = Directory.GetDirectories(pathToTests);
-            PrepareSvm();
-            foreach (string testDir in tests)
+        public void CreateTemporaryIdealFile(string gotValue)
+        {
+            var text = $"{MethodSeparator}{_methodName}\n{ResultSeparator}{gotValue}\n";
+            var idealValueRoot = Path.GetDirectoryName(_idealValuePath);
+            Debug.Assert(idealValueRoot != null);
+            Directory.CreateDirectory(idealValueRoot);
+            File.WriteAllText(_idealValuePath + IdealTemporaryFileExtension, text);
+        }
+
+        public string DiffOfGotAndIdealValues(string gotValue)
+        {
+            return ExpectedValue == null
+                ? $"There is no gold file for {_methodName}!\nGOT: {gotValue}"
+                : $"{MethodSeparator}{_methodName}\nEXPECTED: {ExpectedValue}\nGOT:      {gotValue}";
+        }
+    }
+
+    public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
+    {
+        public TestCommand Wrap(TestCommand command)
+        {
+            return new TestSvmCommand(command);
+        }
+
+        private class TestSvmCommand : DelegatingTestCommand
+        {
+            public TestSvmCommand(TestCommand innerCommand) : base(innerCommand) {}
+
+            public override TestResult Execute(TestExecutionContext context)
             {
-                string[] libEntries = Directory.GetFiles(testDir);
-                foreach (string lib in libEntries)
+                var methodInfo = innerCommand.Test.Method.MethodInfo;
+                var idealValue = new IdealValuesHandler(methodInfo);
+                var gotValue = SVM.ExploreOne(methodInfo);
+
+                if (string.Equals(idealValue.ExpectedValue, gotValue))
                 {
-                    if (!lib.EndsWith(".dll", StringComparison.Ordinal) || ignoredLibs.Exists(i => lib.EndsWith(i)))
-                    {
-                        continue;
-                    }
-
-                    _currentTestDirectory = testDir;
-                    AppDomain currentDomain = AppDomain.CurrentDomain;
-                    currentDomain.AssemblyResolve += LoadFromTestFolder;
-
-                    IDictionary<MethodInfo, string> got = SVM.Run(Assembly.LoadFile(lib), ignoredTypes);
-
-//                    string os = Environment.OSVersion.Platform.ToString();
-//                    string goldFile = testDir + Path.DirectorySeparatorChar + os + IdealTestFileExtension;
-//                    OverwriteIdealValues(goldFile, got);
-
-                    IList<IDictionary<string, string>> expected = ReadAllIdealValues(testDir, failReason);
-                    if (expected.Count == 0)
-                    {
-                        Assert.Fail($"Could not find or parse ideal values for {lib}");
-                    }
-
-                    foreach (KeyValuePair<MethodInfo, string> keyValuePair in got)
-                    {
-                        string method = MethodInfoToString(keyValuePair.Key);
-                        string gotValue = keyValuePair.Value;
-                        string expectedValue = "";
-                        if (expected.All(dict =>
-                        {
-                            if (dict.TryGetValue(method, out expectedValue))
-                            {
-                                return !string.Equals(expectedValue, gotValue);
-                            }
-
-                            failReason.AppendFormat("Gold file does not contain ideal values for {0}!\n", method);
-                            return true;
-                        }))
-                        {
-                            failReason.AppendFormat("{0}{1}\nEXPECTED: {2}\nGOT:      {3}\n\n", MethodSeparator, method, expectedValue, gotValue);
-                        }
-                    }
+                    context.CurrentResult.SetResult(ResultState.Success);
                 }
+                else
+                {
+                    idealValue.CreateTemporaryIdealFile(gotValue);
+                    var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
+                    context.CurrentResult.SetResult(ResultState.Failure, diff);
+                }
+                return context.CurrentResult;
             }
+        }
 
-            string fail = failReason.ToString();
-            if (!string.IsNullOrEmpty(fail))
-            {
-                Assert.Fail(fail);
-            }
+        private static NUnitTestCaseBuilder _builder = new NUnitTestCaseBuilder();
+
+        public TestMethod BuildFrom(IMethodInfo method, NUnit.Framework.Internal.Test suite)
+        {
+            var defaultParameters = method.GetParameters().Select(
+                parameter => TypeUtils.defaultOf(parameter.ParameterType)).ToArray();
+            var parameters = new TestCaseParameters(defaultParameters);
+            if (method.ReturnType.Type != typeof(void))
+                parameters.ExpectedResult = null;
+            return _builder.BuildTestMethod(method, suite, parameters);
         }
     }
 }

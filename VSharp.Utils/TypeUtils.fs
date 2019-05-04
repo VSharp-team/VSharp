@@ -40,6 +40,11 @@ type hierarchy with
     new (typ : System.Type) = hierarchy (Hierarchy.getInheritanceHierarchy typ)
 
 module TypeUtils =
+    let defaultOf (t : System.Type) =
+        if t.IsValueType && System.Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
+            then System.Activator.CreateInstance t
+            else null
+
     let private integralTypes =
         new HashSet<System.Type>(
                           [typedefof<byte>; typedefof<sbyte>;
