@@ -70,7 +70,7 @@ module internal Common =
             let source = {left = leftTermType; right = rightTermType}
             Constant metadata subtypeName source Bool
 
-        let isGround t = (Types.toDotNetType t |> hierarchy).IsGround
+        let isGround t = Hierarchy.isGround(Types.toDotNetType t)
 
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue metadata
@@ -93,7 +93,7 @@ module internal Common =
         | t1, (TypeVariable(Implicit (_, _, t)) as t2) ->
             is metadata t1 t &&& makeSubtypeBoolConst t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
-            if lt.Is rt then makeTrue metadata
+            if rt.IsAssignableFrom lt then makeTrue metadata
             elif isGround t1 && isGround t2 then makeFalse metadata
             else makeSubtypeBoolConst t1 t2
         | _ -> makeFalse metadata
@@ -111,7 +111,7 @@ module internal Common =
         let makeIsValueTypeBoolConst termType =
             Constant metadata (sprintf "IsValueType(%O)" termType) ({termType = termType}) Bool
         match termType with
-        | ConcreteType t when t.Inheritor.IsValueType -> makeTrue metadata
+        | ConcreteType t when t.IsValueType -> makeTrue metadata
         | TypeVariable(Implicit(_, _, t)) ->
             if (Types.toDotNetType t).IsValueType
                 then makeIsValueTypeBoolConst termType
