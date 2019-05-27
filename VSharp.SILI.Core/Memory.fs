@@ -606,7 +606,8 @@ module internal Memory =
         let addr = fillKey ctx source addr
         let path = List.map (fillHolesInPathSegment ctx source) path
         let v = fillHoles ctx source cell.value
-        mutateHeap restricted ctx.mtd target addr typ path time v
+        let newTyp = substituteTypeVariables ctx source typ
+        mutateHeap restricted ctx.mtd target addr newTyp path time v
 
     and private composeDefinedHeaps writer restricted s h h' =
         foldHeapLocations (writer restricted s) h h'
