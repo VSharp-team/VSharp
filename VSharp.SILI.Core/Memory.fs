@@ -58,22 +58,26 @@ module internal Memory =
     let inline private foldHeapLocationsRec folder acc loc typ heap =
         Heap.foldFQL (fun acc subloc cell -> folder acc loc typ (snd <| getFQLOfKey subloc) cell) acc heap
 
-    let rec private foldSubLocations folder acc loc typ path cell = // TODO: get rid of typ
-        let foldHeap acc target = foldHeapLocationsRec (foldSubLocations folder) acc loc typ target
-        match cell.value.term with
-        | Struct(contents, _) ->
-            foldHeap acc contents
-        | Array(_, _, lower, _, contents, lengths, _) ->
-            let acc = foldHeap acc lower
-            let acc = foldHeap acc lengths
-            foldHeap acc contents
-        | _ -> folder acc loc typ path cell
+    let rec private foldSubLocations folder mergeAcc acc loc typ path cell = // TODO: get rid of typ
+        let foldHeap acc target = foldHeapLocationsRec (foldSubLocations folder mergeAcc) acc loc typ target
+        let apply term =
+            match term.term with
+            | Struct(contents, _) ->
+                foldHeap acc contents
+            | Array(_, _, lower, _, contents, lengths, _) ->
+                let acc = foldHeap acc lower
+                let acc = foldHeap acc lengths
+                foldHeap acc contents
+            | _ -> folder acc loc typ path cell
+        commonGuardedErroredApply apply apply (cell.value) (fun l ->
+            let gs, vs = l |> List.unzip
+            mergeAcc gs vs)
 
-    let private foldHeapLocations folder acc heap =
-        Heap.fold (fun acc loc cell -> foldSubLocations folder acc loc (typeOf cell.value) [] cell) acc heap
+    let private foldHeapLocations folder mergeAcc acc heap =
+        Heap.fold (fun acc loc cell -> foldSubLocations folder mergeAcc acc loc (typeOf cell.value) [] cell) acc heap
 
-    let private foldStackLocations folder acc stack =
-        stackFold (fun acc loc cell -> foldSubLocations folder acc loc (typeOf cell.value) [] cell) acc stack
+    let private foldStackLocations folder mergeAcc acc stack =
+        stackFold (fun acc loc cell -> foldSubLocations folder mergeAcc acc loc (typeOf cell.value) [] cell) acc stack
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
@@ -606,17 +610,17 @@ module internal Memory =
         let addr = fillKey ctx source addr
         let path = List.map (fillHolesInPathSegment ctx source) path
         let v = fillHoles ctx source cell.value
-        let newTyp = substituteTypeVariables ctx source typ
-        mutateHeap restricted ctx.mtd target addr newTyp path time v
+        let typ = substituteTypeVariables ctx source typ |> specifyType
+        mutateHeap restricted ctx.mtd target addr typ path time v
 
-    and private composeDefinedHeaps writer restricted s h h' =
-        foldHeapLocations (writer restricted s) h h'
+    and private composeDefinedHeaps writer readHeap restricted s h h' =
+        foldHeapLocations (writer restricted s) (mergeDefinedHeaps false readHeap) h h'
 
     and private composeGeneralizedHeaps<'key when 'key : equality> writer fillHolesInKey readHeap (ctx : compositionContext) getter setter s (h' : 'key generalizedHeap) =
         match getter s, h' with
         | Defined(r, h), Defined(r', h') ->
             assert(not r')
-            composeDefinedHeaps (writer fillHolesInKey ctx) r s h h' |> Defined r
+            composeDefinedHeaps (writer fillHolesInKey ctx) (readHeap ctx.mtd) r s h h' |> Defined r
         | Merged ghs, _ ->
             let gs, hs = List.unzip ghs
             hs |> List.map (fun h -> composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter (setter s h) h') |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs
@@ -649,7 +653,7 @@ module internal Memory =
             match h' with
             | Defined(r, h') ->
                 let ctx'' = decomposeContexts ctx ctx'
-                let h = composeDefinedHeaps (writer fillHolesInKey ctx'') r s h' h'' |> Defined r
+                let h = composeDefinedHeaps (writer fillHolesInKey ctx'') (readHeap ctx.mtd) r s h' h'' |> Defined r
                 composeGeneralizedHeaps writer fillHolesInKey readHeap ctx' getter setter s' h
             | _ ->
                 let h'' = fillHolesInHeap fillHolesInKey ctx s h''
@@ -662,7 +666,7 @@ module internal Memory =
         | Mutation(h, h'), Defined(r, h'') ->
             // TODO: this is probably wrong!
             assert(not r)
-            Mutation(h, composeDefinedHeaps (writer fillHolesInKey ctx) false s h' h'')
+            Mutation(h, composeDefinedHeaps (writer fillHolesInKey ctx) (readHeap ctx.mtd) false s h' h'')
         | RecursiveApplication _, Composition _ -> __notImplemented__()
         | HigherOrderApplication _, Composition _ -> __notImplemented__()
         | RecursiveApplication _, HigherOrderApplication _ -> __notImplemented__()
@@ -671,7 +675,7 @@ module internal Memory =
         | Mutation _, HigherOrderApplication _ -> __notImplemented__()
 
     and composeStacksOf ctx state state' =
-        (foldStackLocations (fillAndMutateStack ctx state) state state'.stack).stack
+        (foldStackLocations (fillAndMutateStack ctx state) mergeStates state state'.stack).stack
 
     and composeHeapsOf ctx state heap =
         composeGeneralizedHeaps (fillAndMutateCommon mutateHeap) fillHoles readHeap ctx heapOf withHeap state heap
