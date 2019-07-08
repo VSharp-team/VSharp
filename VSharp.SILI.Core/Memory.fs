@@ -96,7 +96,7 @@ module internal Memory =
         | :? lazyInstantiation<'a> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
-    let (|LazyInstantiationEpsilon|_|) (src : ISymbolicConstantSource) =
+    let (|LazyInstantiationEpsilon|_|) (src : ISymbolicConstantSource) = // for None case of ground heap
         let getLocation (li : 'a lazyInstantiation) =
             match li with
             | { heap = None } -> Some(li.location)
@@ -114,7 +114,8 @@ module internal Memory =
             fields
             |> FSharp.Collections.Array.fold (fun acc (name, typ) ->
                 let typ = wrapReferenceType typ
-                let value = mkField metadata name typ
+                let fql' = StructField(name, typ) |> addToOptionFQL fql
+                let value = mkField metadata name typ fql'
                 Heap.add (makePathKey fql (mkFieldKey typ) name) { value = value; created = time; modified = time } acc) Heap.empty
         Struct metadata contents typ
 
@@ -133,7 +134,7 @@ module internal Memory =
                 (fun k -> k <| makeNullRef metadata)
                 Merging.merge Merging.merge2Terms id
         | StructType(dotNetType, _) ->
-            mkStruct metadata time false (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dotNetType typ fql
+            mkStruct metadata time false (fun m _ t -> defaultOf time m t) dotNetType typ fql
         | Pointer typ -> makeNullPtr metadata typ
         | _ -> __notImplemented__()
 
@@ -143,7 +144,7 @@ module internal Memory =
     let mkDefaultStruct metadata targetType fql =
         let dnt = toDotNetType targetType
         let time = tick()
-        mkStruct metadata time false (fun m name t -> StructField(name, t) |> addToOptionFQL fql |> defaultOf time m t) dnt targetType fql
+        mkStruct metadata time false (fun m _ t -> defaultOf time m t) dnt targetType fql
 
     let private makeSymbolicHeapReference metadata (source : IExtractingSymbolicConstantSource) name typ construct =
         let source' = source.WithExtractor(Pointers.HeapAddressExtractor())
@@ -836,14 +837,16 @@ module internal Memory =
     let mkDefaultStaticStruct metadata state targetType fql =
         let dnt = toDotNetType targetType
         let time = tick()
-        let mkDefaultField metadata name typ = StructField(name, typ) |> addToOptionFQL fql |> defaultOf time metadata typ
-        if targetType = String then
-            let emptyString, state = allocateString metadata state System.String.Empty
-            let mkField metadata name typ =
-                if name = "System.String.Empty" then emptyString
-                else mkDefaultField metadata name typ
-            mkStruct metadata time true mkField dnt targetType fql, state
-        else mkStruct metadata time true mkDefaultField dnt targetType fql, state
+        let defaultValue metadata _ typ fql' = defaultOf time metadata typ fql'
+        let mkField, state =
+            if targetType = String then
+                let emptyStringRef, state = allocateString metadata state System.String.Empty
+                let mkStringField metadata name typ fql' =
+                    if name = "System.String.Empty" then emptyStringRef
+                    else defaultValue metadata name typ fql'
+                mkStringField, state
+            else defaultValue, state
+        mkStruct metadata time true mkField dnt targetType fql, state
 
     let allocateInStaticMemory _ (s : state) address term =
         let time = tick()
