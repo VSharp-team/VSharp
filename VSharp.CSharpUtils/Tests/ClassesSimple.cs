@@ -313,5 +313,12 @@ namespace VSharp.CSharpUtils.Tests
         {
             return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
         }
+
+        public void FirstUseInGuard(SimpleStruct s)
+        {
+            if (s.X > 5)
+                return;
+            s.X = 42;
+        }
     }
 }

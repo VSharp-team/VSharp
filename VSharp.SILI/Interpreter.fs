@@ -1,4 +1,4 @@
-﻿namespace VSharp.Interpreter
+namespace VSharp.Interpreter
 
 open VSharp
 open VSharp.Core
@@ -44,15 +44,15 @@ module internal Interpreter =
     let restoreBefore k x = Restore(); k x
 
     let reduceTypeVariablesSubsitution state (ownerType : IMetadataClassType) k =
-        let state =
-            if ownerType = null then []
-            else
+        if ownerType = null || Seq.isEmpty ownerType.Type.GenericParameters then state, k
+        else
+            let subst =
                 let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
                 let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
                 Seq.zip leftArg rightArg |> Seq.toList
-            |> Memory.NewTypeVariables state
-        let k = mapsnd Memory.PopTypeVariables >> k
-        state, k
+            let state = Memory.NewTypeVariables state subst
+            let k = mapsnd Memory.PopTypeVariables >> k
+            state, k
 
 // ------------------------------- Environment interaction -------------------------------
 
@@ -98,8 +98,7 @@ module internal Interpreter =
                     | _ -> __unreachable__()))
         dict
 
-    let rec internalCall metadataMethod argsAndThis (s : state) k =
-        let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
+    let rec internalCall fullMethodName argsAndThis (s : state) k =
         let k' (result, state) = k (result, Memory.PopStack state)
         let methodInfo = externalImplementations.[fullMethodName]
         let extractArgument (_, value, _) =
@@ -117,17 +116,6 @@ module internal Interpreter =
         match result with
         | :? (statementResult * state) as r -> k' r
         | _ -> internalfail "internal call should return tuple StatementResult * State!"
-
-// ------------------------------- Preparation -------------------------------
-
-    and initialize state k =
-        Reset()
-        let k = Enter null state k
-        let stringTypeName = typeof<string>.AssemblyQualifiedName
-        let emptyString, state = Memory.AllocateString String.Empty state
-        initializeStaticMembersIfNeed null state stringTypeName (fun (result, state) ->
-        let emptyFieldRef, state = Memory.ReferenceStaticField state false "System.String.Empty" Types.String Types.String
-        Memory.Mutate state emptyFieldRef emptyString |> snd |> restoreAfter k)
 
 // ------------------------------- Member calls -------------------------------
 
@@ -211,7 +199,7 @@ module internal Interpreter =
                         (fun state k -> k (API.Types.IsSubtype constraintType persistentType &&& API.Types.IsSubtype constraintType localType, state))
                         (fun state k -> decompileAndReduceMethod state this constraintType k)
                         (fun state k -> reduceAbstractMethodApplication caller {metadataMethod = metadataMethodPattern; state = {v = state}} state k) k) k
-        GuardedApplyStatement state this
+        GuardedStatedApplyStatementK state this
             (fun state term k ->
                 let persistentType, localType, constraintType = Terms.PersistentLocalAndConstraintTypes state this termTypePattern
                 findAndDecompileAndReduceMethod state persistentType localType constraintType this parameters k) k
@@ -248,9 +236,17 @@ module internal Interpreter =
             | _ -> parametersAndThis, funcId
         k (parametersAndThis, Memory.NewStackFrame state funcId parametersAndThis)
 
+    and reduceMethodCallParametersCheck state this parameters funcId (signature : IFunctionSignature) invoke k =
+        let reduceFunction ctorSpecified state parameters k =
+            reduceFunctionSignature funcId state signature this (ctorSpecified parameters) (invoke k)
+        match parameters with
+        | Specified parameters ->
+            ControlFlow.ComposeExpressions parameters state (reduceFunction Specified) k
+        | Unspecified -> reduceFunction (always Unspecified) state parameters k
+
     and reduceFunction state this parameters funcId (signature : IFunctionSignature) invoke k =
-        reduceFunctionSignature funcId state signature this parameters (fun (_, state) ->
-        Call funcId state invoke (fun (result, state) -> (ControlFlow.ConsumeBreak result, state) |> k))
+        let invoke k (_, state) = Call funcId state invoke (mapfst ControlFlow.ConsumeBreak >> k)
+        reduceMethodCallParametersCheck state this parameters funcId signature invoke k
 
     and reduceDecompiledMethod caller state this parameters (ast : IDecompiledMethod) initializerInvoke k =
         let metadataMethod = ast.MetadataMethod
@@ -259,20 +255,21 @@ module internal Interpreter =
             reduceBlockStatement state ast.Body (fun (result', state') ->
             ControlFlow.ComposeSequentially result result' state state' |> k))
         let k = Enter caller state k
-        if metadataMethod.IsInternalCall then
+        if metadataMethod.IsInternalCall || metadataMethod.IsPInvokeImpl then
             // TODO: internal calls should pass throught CallGraph.call too
-            printLog Trace "INTERNAL CALL OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
-            let fullMethodName = DecompilerServices.metadataMethodToString metadataMethod
+            printLog Trace "CALLING EXTERN OF %s.%s" ast.MetadataMethod.DeclaringType.AssemblyQualifiedName metadataMethod.Name
+            let fullMethodName = appIfNotNull (fun (info : PInvokeInfo) -> info.ImportName) metadataMethod.PInvokeInfo <| DecompilerServices.metadataMethodToString metadataMethod
             if externalImplementations.ContainsKey(fullMethodName) then
-                reduceFunctionSignature {metadataMethod = metadataMethod; state = {v = state}} state ast.Signature this parameters (fun (argsAndThis, state) ->
-                internalCall metadataMethod argsAndThis state k)
+                let funcId = {metadataMethod = metadataMethod; state = {v = state}}
+                let invoke k (argsAndThis, state) = internalCall fullMethodName argsAndThis state k
+                reduceMethodCallParametersCheck state this parameters funcId ast.Signature invoke k
             elif concreteExternalImplementations.ContainsKey(fullMethodName) then
                 match parameters with
                 | Specified parameters ->
                     let parameters' = optCons parameters this
                     let extrn = concreteExternalImplementations.[fullMethodName]
                     reduceFunction state None (Specified parameters') {metadataMethod = extrn.MetadataMethod; state = {v = state}} extrn.Signature (invoke extrn) k
-                | _ -> internalfail "internal call with unspecified parameters!"
+                | _ -> internalfail "calling extern with unspecified parameters!"
             else __notImplemented__()
         else
             reduceFunction state this parameters {metadataMethod = ast.MetadataMethod; state = {v = state}} ast.Signature (invoke ast) k
@@ -448,7 +445,7 @@ module internal Interpreter =
                     invoke state term k
                 | Lambda(lambda) -> lambda ast state (Specified args) k
                 | _ -> __notImplemented__()
-        GuardedApplyStatement state deleg invoke k))
+        GuardedStatedApplyStatementK state deleg invoke k))
 
     and reduceDelegateCreationExpression state (ast : IDelegateCreationExpression) k =
         let state, k = reduceTypeVariablesSubsitution state ast.MethodInstantiation.MethodSpecification.OwnerType k
@@ -1146,7 +1143,9 @@ module internal Interpreter =
                 match this with
                 | Some this ->
                     Cps.List.mapFoldk reduceExpression state initializers (fun (values, state) ->
-                    mutateFields this names types values initializers state |> snd |> k)
+                    ControlFlow.ComposeExpressions values state (fun state values k ->
+                    mutateFields this names types values initializers state
+                    |> mapfst ControlFlow.ThrowOrReturn |> k) (snd >> k))
                 | _ -> k state
             else k state
         let baseCtorInfo (metadataMethod : IMetadataMethod) =
@@ -1447,8 +1446,7 @@ type internal SymbolicInterpreter() =
             API.Reset()
             Interpreter.restoreBefore k
         member x.InitEntryPoint state epDeclaringType k =
-            Interpreter.initialize state (fun state ->
-            Interpreter.initializeStaticMembersIfNeed null state epDeclaringType (snd >> k))
+            Interpreter.initializeStaticMembersIfNeed null state epDeclaringType (snd >> k)
         member x.Invoke funcId state this k =
             API.SaveConfiguration()
             let k = Interpreter.restoreBefore k

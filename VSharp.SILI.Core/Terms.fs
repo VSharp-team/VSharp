@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 open VSharp
 open global.System
@@ -233,7 +233,10 @@ and
         override x.GetHashCode() = x.term.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? term as other -> x.term.Equals(other.term)
+            | :? term as other ->
+                x.term.Equals(other.term)
+                // TODO: get rid of the comparison of miscs when ControlFlow is removed
+                && (not <| x.term.Equals(Nop) || x.metadata.misc = other.metadata.misc)
             | _ -> false
 
 and
@@ -249,12 +252,16 @@ type INonComposableSymbolicConstantSource =
 module internal Terms =
 
     module internal Metadata =
-        let empty = { origins = List.empty; misc = null }
+        let empty<'a> = { origins = List.empty; misc = null }
         let combine m1 m2 = { origins = List.append m1.origins m2.origins |> List.distinct; misc = null }
         let combine3 m1 m2 m3 = { origins = List.append3 m1.origins m2.origins m3.origins |> List.distinct; misc = null }
         let addMisc t obj =
             if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
             t.metadata.misc.Add obj |> ignore
+        let removeMisc t obj =
+            if t.metadata.misc <> null then
+                t.metadata.misc.Remove obj |> ignore
+                if t.metadata.misc.Count = 0 then t.metadata.misc <- null
         let miscContains t obj = t.metadata.misc <> null && t.metadata.misc.Contains(obj)
         let firstOrigin m =
             match m.origins with
@@ -264,7 +271,7 @@ module internal Terms =
 
     let term (term : term) = term.term
 
-    let Nop = { term = Nop; metadata = Metadata.empty }
+    let Nop<'a> = { term = Nop; metadata = Metadata.empty } // { origins = List.empty; misc = null } }
     let Error metadata term = { term = Error term; metadata = metadata }
     let Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
     let Constant metadata name source typ = { term = Constant({v=name}, source, typ); metadata = metadata }
@@ -292,7 +299,10 @@ module internal Terms =
     let makePathKey fql constr key = {key = key; FQL = constr key |> addToOptionFQL fql |> reverseFQL}
     let getFQLOfKey = function
         | {FQL = Some fql} -> fql
-        | {FQL = None} as k -> internalfail "requested fql from unexpected key %O" k
+        | {FQL = None} as k -> internalfailf "requested fql from unexpected key %O" k
+    let getFQLOfRef = term >> function
+        | Ref(tl, path) -> (tl, List.rev path)
+        | t -> internalfailf "Expected reference, got %O" t
 
     let makeFQLRef metadata (tl, path) = Ref metadata tl path
 
@@ -379,7 +389,11 @@ module internal Terms =
         | StructField(_, t)
         | ArrayIndex(_, t) -> t
         | ArrayLowerBound _
-        | ArrayLength _ -> Types.indexType
+        | ArrayLength _ -> Types.lengthType
+
+    let typeOfFQL = function
+        | tl, [] -> typeOfTopLevel tl
+        | _, path -> typeOfPath path
 
     let rec typeOf term =
         match term.term with
@@ -391,7 +405,7 @@ module internal Terms =
         | Struct(_, t)
         | Array(_, _, _, _, _, _, t) -> t
         | Ref(tl, []) -> typeOfTopLevel tl |> Reference
-        | Ref(_, path) -> typeOfPath path
+        | Ref(_, path) -> typeOfPath path |> Reference
         | Ptr(_, _, typ, _) -> Pointer typ
         | Union gvs ->
             let nonEmptyTypes = List.filter (fun t ->
@@ -406,7 +420,6 @@ module internal Terms =
                 if allSame then t
                 else
                     internalfailf "evaluating type of unexpected union %O!" term
-
 
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
@@ -461,17 +474,14 @@ module internal Terms =
     let makeZero metadata =
         Concrete metadata [0] (Numeric typedefof<int>)
 
-    let makeZeroIndex metadata =
-        Concrete metadata [0] Types.indexType
+    let makeIndex metadata i =
+        Concrete metadata i Types.indexType
 
     let makeZeroAddress metadata =
         Concrete metadata [0] Types.pointerType
 
-    let makeNumber n metadata =
+    let makeNumber metadata n =
         Concrete metadata n (Numeric(n.GetType()))
-
-    let makeConcreteString (s : string) metadata =
-        Concrete metadata s Types.String
 
     let makeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)
@@ -491,14 +501,11 @@ module internal Terms =
         if srcTyp = dstTyp then expr
         else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
 
-    let makeStringKey typeName =
-        makeConcreteString typeName Metadata.empty
-
     let negate term metadata =
         assert(isBool term)
         makeUnary OperationType.LogicalNeg term false Bool metadata
 
-    let makePathNumericKey fql refTarget i mtd = makePathKey fql refTarget <| makeNumber i mtd
+    let makePathIndexKey mtd refTarget i fql = makePathKey fql refTarget <| makeIndex mtd i
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
@@ -608,7 +615,7 @@ module internal Terms =
             | None -> state
             | Some indent -> doFold folder visited state indent
         | GuardedValues(gs, vs) ->
-            foldSeq folder  visited gs state |> foldSeq folder visited vs
+            foldSeq folder visited gs state |> foldSeq folder visited vs
         | Error e ->
             doFold folder visited state e
         | _ -> state

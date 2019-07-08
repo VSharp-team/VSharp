@@ -5,7 +5,7 @@ open VSharp.Core.Common
 
 module internal Pointers =
     let private underlyingPointerTypeSizeof mtd = term >> function // for `T* ptr` returns `sizeof(T)`
-        | Ptr(_, _, typ, _) -> makeNumber (Types.sizeOf typ) mtd
+        | Ptr(_, _, typ, _) -> makeNumber mtd (Types.sizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
@@ -96,8 +96,7 @@ module internal Pointers =
     let private isZero mtd x =
         Arithmetics.simplifyEqual mtd x (makeZero mtd) id
 
-    let isZeroAddress mtd x =
-        Arithmetics.simplifyEqual mtd x (makeZeroAddress mtd) id
+    let isZeroAddress mtd x = fastNumericCompare mtd x (makeZeroAddress mtd)
 
     let private compareTopLevel mtd = function
         | NullAddress, NullAddress -> makeTrue mtd
@@ -223,7 +222,7 @@ module internal Pointers =
         let makeDiff p q =
             let tp = Numeric typedefof<int64>
             if p = q
-            then makeNumber 0L mtd
+            then makeNumber mtd 0L
             else
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp mtd
@@ -270,17 +269,21 @@ module internal Pointers =
         simplifyBinaryOperation mtd OperationType.Subtract State.empty x y (typeof<System.Void>.MakePointerType()) fst
 
     let isPointerOperation op t1 t2 =
-        let isNearlyPtr t = Types.isReference t || Types.isPointer t
+        let isNull = (=) Types.pointerType
+        let isRefOrNull t = isNull t || Types.isReference t
+        let isPtrOrNull t = isNull t || Types.isPointer t
 
         match op with
         | OperationType.Equal
-        | OperationType.NotEqual -> isNearlyPtr t1 && isNearlyPtr t2
-        | OperationType.Subtract -> isNearlyPtr t1 && (isNearlyPtr t2 || Types.isNumeric t2)
+        | OperationType.NotEqual ->
+            isRefOrNull t1 && isRefOrNull t2
+            || isPtrOrNull t1 && isPtrOrNull t2
+        | OperationType.Subtract -> Types.isPointer t1 && (Types.isPointer t2 || Types.isNumeric t2)
         | OperationType.Add ->
-            (isNearlyPtr t1 && Types.isNumeric t2) || (isNearlyPtr t2 && Types.isNumeric t1)
+            (Types.isPointer t1 && Types.isNumeric t2) || (Types.isPointer t2 && Types.isNumeric t1)
         | _ -> false
 
-    let topLevelLocation = Merging.map (term >> function
+    let topLevelLocation = Merging.guardedErroredApply (term >> function
         | Ref(TopLevelHeap (a, _, _), [])
         | Ptr(TopLevelHeap (a, _, _), [], _, _) -> a
         | Ref(NullAddress, _)

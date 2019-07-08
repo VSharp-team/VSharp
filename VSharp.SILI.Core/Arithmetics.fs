@@ -82,14 +82,14 @@ module internal Arithmetics =
 
     and private simplifyAdditionToProduct mtd state t xmtd a b y matched unmatched =
         // Simplifying (a * b) + y at this step
-        match a.term, b.term, y with
+        match a.term, y with
         // (a * y) + y = (a + 1) * y if unckecked and a is concrete
-        | Concrete(aval, atyp), _, _ when b = y ->
+        | Concrete(aval, atyp), _ when b = y ->
             let mtd' = Metadata.combine3 mtd a.metadata y.metadata
             let aPlusOne, state = simplifyConcreteAddition mtd' false state (Types.toDotNetType atyp) aval 1
             simplifyMultiplication xmtd false state t aPlusOne y matched
         // (a * b) + (c * b) = (a + c) * b if unchecked and a and c are concrete
-        | Concrete(aval, _), _, Mul(ConcreteT(cval, _) as c, d, false, _) when d = b ->
+        | Concrete(aval, _), Mul(ConcreteT(cval, _) as c, d, false, _) when d = b ->
             let mtd' = Metadata.combine3 mtd a.metadata c.metadata
             let aPlusC, state = simplifyConcreteAddition mtd' false state t aval cval
             simplifyMultiplication xmtd false state t aPlusC b matched

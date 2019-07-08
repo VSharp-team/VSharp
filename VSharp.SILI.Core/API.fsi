@@ -23,10 +23,9 @@ module API =
     val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
     val BranchExpressionsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
 
-    val GuardedApplyExpressionK : term -> (term -> (term -> 'a) -> 'a) -> (term -> 'a) -> 'a
     val GuardedApplyExpression : term -> (term -> term) -> term
-    val GuardedApplyStatement : state -> term -> (state -> term -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val GuardedApplyStatelessStatement : term -> (term -> statementResult) -> statementResult
+    val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
+    val GuardedStatelessApplyStatement : term -> (term -> statementResult) -> statementResult
 
     val PerformBinaryOperation : OperationType -> bool -> state -> System.Type -> term -> term -> (term * state -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> bool -> state -> termType -> term -> (term * state -> 'a) -> 'a
@@ -104,6 +103,7 @@ module API =
         val ThrowOrIgnore : term -> statementResult
         val ConsumeErrorOrReturn : (term -> statementResult) -> term -> statementResult
         val ComposeSequentially : statementResult -> statementResult -> state -> state -> statementResult * state
+        val ComposeExpressions : term list -> state -> (state -> term list -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
         val ConsumeBreak : statementResult -> statementResult
         val PickOutExceptions : statementResult -> (term * term) option * (term * statementResult) list
 
@@ -140,6 +140,7 @@ module API =
         val ReferenceArrayIndex : state -> term -> term list -> term * state
 
         val Dereference : state -> term -> term * state
+        val DereferenceWithoutValidation : state -> term -> term
         val DereferenceLocalVariable : state -> stackKey -> term * state
         val Mutate : state -> term -> term -> term * state
 
@@ -158,6 +159,9 @@ module API =
         val ArrayLength : term -> term
         val ArrayLengthByDimension : state -> term -> term -> term * state
         val ArrayLowerBoundByDimension : state -> term -> term -> term * state
+
+        val StringLength : state -> term -> term * state
+        val StringCtorOfCharArray : state -> term -> term -> term * state
 
     module Database =
         val QuerySummary : IFunctionIdentifier -> functionSummary

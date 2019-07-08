@@ -111,6 +111,7 @@ module internal Types =
 
     let pointerType = Numeric typedefof<int>
     let indexType = Numeric typedefof<int>
+    let lengthType = Numeric typedefof<int>
 
     let isNumeric = function
         | Numeric _ -> true
@@ -177,7 +178,7 @@ module internal Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType-> true
+        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType -> true
         | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
         | _ -> false
 
@@ -254,7 +255,7 @@ module internal Types =
             | null -> Null
             | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj>, SymbolicDimension {v="System.Array"})
+            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension {v="System.Array"})
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
@@ -262,7 +263,7 @@ module internal Types =
                 ArrayType(
                     fromCommonDotNetType (a.GetElementType()) |> wrapReferenceType,
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
-            | s when s.IsValueType && not s.IsGenericParameter-> StructType s (getGenericArguments s)
+            | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
             | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
                 let methodInfo = f.GetMethod("Invoke")
                 let returnType = methodInfo.ReturnType |> fromCommonDotNetType

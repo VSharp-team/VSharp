@@ -39,26 +39,11 @@ module API =
     let BranchExpressionsOnNull state reference thenExpression elseExpression k =
         BranchExpressions state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenExpression elseExpression k
 
-    let GuardedApplyExpressionK term mapper k =
-        match term.term with
-        | Error _ -> k term
-        | Union gvs -> Merging.guardedMapk mapper gvs k
-        | _ -> mapper term k
-    let GuardedApplyExpression term mapper =
-        match term.term with
-        | Error _ -> term
-        | Union gvs -> Merging.guardedMap mapper gvs
-        | _ -> mapper term
-    let GuardedApplyStatement state term mapper k =
-        match term.term with
-        | Error e -> k (Throw term.metadata e, state)
-        | Union gvs -> Merging.commonGuardedStateMapk mapper gvs state ControlFlow.mergeResults k
-        | _ -> mapper state term k
-    let GuardedApplyStatelessStatement term mapper =
-        match term.term with
-        | Error e -> Throw term.metadata e
-        | Union gvs -> Merging.commonGuardedMapk (Cps.ret mapper) gvs ControlFlow.mergeResults id
-        | _ -> mapper term
+    let GuardedApplyExpression term f = Merging.guardedErroredApply f term
+    let GuardedStatedApplyStatementK state term f k =
+        Merging.commonGuardedErroredStatedApplyk f ControlFlow.throwOrIgnore state term ControlFlow.mergeResults k
+    let GuardedStatelessApplyStatement term f =
+        Merging.commonGuardedErroredApply f ControlFlow.throwOrIgnore term ControlFlow.mergeResults
 
     let PerformBinaryOperation op isChecked state t left right k = Operators.simplifyBinaryOperation m.Value op isChecked state t left right k
     let PerformUnaryOperation op isChecked state t arg k = Operators.simplifyUnaryOperation m.Value op isChecked state t arg k
@@ -78,7 +63,7 @@ module API =
 
         let MakeNullRef () = makeNullRef m.Value
         let MakeDefault typ = Memory.mkDefault m.Value typ None
-        let MakeNumber n = makeNumber n m.Value
+        let MakeNumber n = makeNumber m.Value n
         let MakeLambda body signature = Lambdas.make m.Value body signature
 
         let TypeOf term = typeOf term
@@ -98,7 +83,7 @@ module API =
 
         let SizeOf t = Types.sizeOf t
 
-        let TLength = Arrays.lengthTermType
+        let TLength = Types.lengthType
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
@@ -129,6 +114,7 @@ module API =
         let ThrowOrIgnore t = ControlFlow.throwOrIgnore t
         let ConsumeErrorOrReturn consumer t = ControlFlow.consumeErrorOrReturn consumer t
         let ComposeSequentially oldRes newRes oldState newState = ControlFlow.composeSequentially oldRes newRes oldState newState
+        let ComposeExpressions exprs state exprsMapper k = ControlFlow.composeExpressions exprs state exprsMapper k
         let ConsumeBreak r = ControlFlow.consumeBreak r
         let PickOutExceptions r = ControlFlow.pickOutExceptions r
 
@@ -163,6 +149,7 @@ module API =
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
+        let DereferenceWithoutValidation state reference = Memory.derefWithoutValidation m.Value state reference
         let DereferenceLocalVariable state id = Memory.referenceLocalVariable m.Value state id false |> Memory.deref m.Value state
         let Mutate state reference value = Memory.mutate m.Value state reference value
 
@@ -174,9 +161,10 @@ module API =
 
         let AllocateDefaultStatic state targetType =
             let fql = makeTopLevelFQL TopLevelStatics targetType
-            Memory.allocateInStaticMemory m.Value state targetType (Memory.mkDefaultStruct m.Value true targetType fql)
+            let staticStruct, state = Memory.mkDefaultStaticStruct m.Value state targetType fql
+            Memory.allocateInStaticMemory m.Value state targetType staticStruct
 
-        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value false termType
+        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value termType
 
         let AllocateDefaultStruct state typ =
             let address = Memory.freshHeapLocation m.Value
@@ -195,10 +183,7 @@ module API =
             let state = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer fql |> Mutate state ref |> snd
             ref, state
 
-        let AllocateString str state =
-            let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL TopLevelHeap (address, Types.String, Types.String)
-            Strings.makeString m.Value (Memory.tick()) str fql |> Memory.allocateInHeap m.Value state address
+        let AllocateString string state = Memory.allocateString m.Value state string
 
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state
@@ -206,6 +191,17 @@ module API =
         let ArrayLength arrayTerm = Arrays.length arrayTerm
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
+
+        let StringLength state strRef =
+            let strStruct, state = Dereference state strRef
+            Strings.length strStruct, state
+
+        let StringCtorOfCharArray state this arrayRef =
+            let fql = Some <| getFQLOfRef this
+            BranchExpressionsOnNull state arrayRef
+                (fun state k -> k (Strings.makeConcreteStringStruct m.Value (Memory.tick()) "" fql, state))
+                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value (Memory.tick()) fql) |> k)
+                id
 
     module Database =
         let QuerySummary funcId =
@@ -220,7 +216,8 @@ module API =
             let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
             thrower term, state
         let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let args = [makeConcreteString qualifiedTypeName m.Value; innerException]
+            let typeName, state = Memory.AllocateString qualifiedTypeName state
+            let args = [typeName; innerException]
             let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
             thrower term, state
         let IndexOutOfRangeException state thrower =

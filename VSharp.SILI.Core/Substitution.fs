@@ -21,12 +21,11 @@ module Substitution =
                     fun tl path ->
                         shift
                         |> substitute subst typeSubst
-                        |> Merging.map (IndentedPtr term.metadata tl path typ)
+                        |> Merging.guardedErroredApply (IndentedPtr term.metadata tl path typ)
             topLevel |> substituteRef subst typeSubst path ctor |> Merging.merge
         | Error e ->
-            e |> substitute subst typeSubst |> Merging.unguard |> Merging.guardedApply (fun e' ->
+            e |> substitute subst typeSubst |> Merging.guardedErroredApply (fun e' ->
             if e' = e then term else Error term.metadata e')
-            |> Merging.merge
         | Expression(op, args, t) ->
             let t = typeSubst t
             args |> substituteMany subst typeSubst (fun args' ->
@@ -78,7 +77,7 @@ module Substitution =
         terms |> Merging.guardedCartesianProduct (substitute subst typeSubst >> Merging.unguard) ctor
 
     and private substituteAndMap subst typeSubst mapper =
-        substitute subst typeSubst >> Merging.unguard >> Merging.commonGuardedApply mapper
+        substitute subst typeSubst >> Merging.unguard >> Merging.guardedMapWithoutMerge mapper
 
     and private substituteSegment subst typeSubst = function
         | StructField(f, t) -> ([True, StructField(f, typeSubst t)])
@@ -101,7 +100,7 @@ module Substitution =
                 let st' = typeSubst st
                 addr
                 |> substitute subst typeSubst
-                |> Merging.map (fun addr' -> ctor (TopLevelHeap(addr', bt', st')) path')
+                |> Merging.guardedErroredApply (fun addr' -> ctor (TopLevelHeap(addr', bt', st')) path')
             | TopLevelStatics typ -> ctor (typ |> typeSubst |> TopLevelStatics) path'
             | NullAddress
             | TopLevelStack _ as tl -> ctor tl path')
