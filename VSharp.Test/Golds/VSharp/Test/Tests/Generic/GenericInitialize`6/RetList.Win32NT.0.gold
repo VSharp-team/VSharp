@@ -1,0 +1,28 @@
+METHOD: System.Collections.Generic.List`1[System.Double] VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.List`1[System.Double][
+	| System.Collections.Generic.List`1._items ~> UNION[
+		| !hasKey#1 ~> (HeapRef 2)
+		| (!(System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) | !(VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double])) & hasKey#1 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)
+		| (System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) & (VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double]) & hasKey#1 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)]
+	| System.Collections.Generic.List`1._size ~> 0
+	| System.Collections.Generic.List`1._syncRoot ~> null
+	| System.Collections.Generic.List`1._version ~> 0]
+2 ==> [| ... 0 ... |]
+---------- s1 = ----------
+System.Collections.Generic.List`1[System.Double] ==> UNION[
+	| !(System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) | !(VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double]) | !hasKey#1 ~> STRUCT System.Collections.Generic.List`1[System.Double][
+		| System.Collections.Generic.List`1._defaultCapacity ~> UNION[
+			| !hasKey#1 ~> 4
+			| (!(System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) | !(VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double])) & hasKey#1 ~> System.Collections.Generic.List`1._defaultCapacity]
+		| System.Collections.Generic.List`1._emptyArray ~> UNION[
+			| !hasKey#1 ~> (HeapRef 2)
+			| (!(System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) | !(VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double])) & hasKey#1 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)]]
+	| (System.Collections.Generic.List`1[System.Double] <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) & (VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] <: System.Collections.Generic.List`1[System.Double]) & hasKey#1 ~> STRUCT VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]]
+System.Object ==> UNION[
+	| !(System.Object <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) | !hasKey#2 ~> STRUCT System.Object[]
+	| (System.Object <: VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z]) & hasKey#2 ~> STRUCT VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]]
+VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> STRUCT VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z][]

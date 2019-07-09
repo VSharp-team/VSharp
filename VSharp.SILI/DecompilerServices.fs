@@ -14,10 +14,14 @@ module internal DecompilerServices =
     let internal jetBrainsFileSystemPath path = JetBrains.Util.FileSystemPath.Parse(path)
 
     let rec internal loadAssemblyByName (name : string) =
-        let path = System.Reflection.Assembly.Load(name).Location
-        if not(assemblies.ContainsKey(path)) then
+        let path =
+            try Some(System.Reflection.Assembly.Load(name).Location)
+            with :? System.IO.FileNotFoundException -> None
+        match path with
+        | Some path when not(assemblies.ContainsKey(path)) ->
             let jbPath = JetBrains.Util.FileSystemPath.Parse(path)
             loadAssembly jbPath |> ignore
+        | _ -> ()
 
     and internal loadAssembly (path : JetBrains.Util.FileSystemPath) =
         let assembly = Dict.getValueOrUpdate assemblies (path.ToString()) (fun () -> assemblyLoader.LoadFrom(path, fun _ -> true))

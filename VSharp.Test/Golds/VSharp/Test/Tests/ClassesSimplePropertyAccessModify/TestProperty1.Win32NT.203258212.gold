@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.ClassesSimplePropertyAccessModify.TestProperty1(System.Int32)
+RESULT: anyVarName
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccessModify[
+	| VSharp.Test.Tests.ClassesSimplePropertyAccessModify.<StructProperty>k__BackingField ~> (HeapRef 2)]
+2 ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[
+	| VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct.X ~> anyVarName]
+---------- s1 = ----------
+VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct[]
+VSharp.Test.Tests.ClassesSimplePropertyAccessModify ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccessModify[]

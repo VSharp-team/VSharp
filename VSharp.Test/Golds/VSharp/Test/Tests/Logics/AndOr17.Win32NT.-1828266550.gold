@@ -1,0 +1,6 @@
+METHOD: System.Boolean VSharp.Test.Tests.Logics.AndOr17(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
+RESULT: !b & a | !b & a & c | (!b | !c) & a | a & c
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Logics ==> STRUCT VSharp.Test.Tests.Logics[]

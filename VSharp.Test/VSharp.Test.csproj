@@ -17,20 +17,22 @@
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <Optimize>true</Optimize>
     <OutputPath>bin\Release</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Z3, Version=4.6.0.0, Culture=neutral, PublicKeyToken=9c8d792caae602a2">
       <HintPath>..\lib\Microsoft.Z3.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="nunit.framework">
-      <HintPath>..\packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
+    <Reference Include="nunit.framework, Version=3.11.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb">
+      <HintPath>..\packages\NUnit.3.11.0\lib\net45\nunit.framework.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -39,6 +41,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SiliTests.cs" />
+    <Compile Include="Tests\Arithmetics.cs" />
+    <Compile Include="Tests\Generic.cs" />
+    <Compile Include="Tests\Logics.cs" />
+    <Compile Include="Tests\ClassesSimple.cs" />
+    <Compile Include="Tests\Conditional.cs" />
+    <Compile Include="Tests\Recursion.cs" />
+    <Compile Include="Tests\Lambdas.cs" />
+    <Compile Include="Tests\StaticMembers.cs" />
+    <Compile Include="Tests\Strings.cs" />
+    <Compile Include="Tests\Tree.cs" />
+    <Compile Include="Tests\TryCatch.cs" />
+    <Compile Include="Tests\Lists.cs" />
+    <Compile Include="Tests\Typecast.cs" />
+    <Compile Include="Tests\Unsafe.cs" />
+    <Compile Include="Tests\Method.cs" />
     <Compile Include="UtilsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -70,9 +87,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Golds" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">echo f | xcopy  "$(SolutionDir)\VSharp.CSharpUtils\bin\$(Configuration)\VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test\Tests\VSharp.CSharpUtils\VSharp.CSharpUtils.dll" /Y</PostBuildEvent>
-    <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">cp "$(SolutionDir)/VSharp.CSharpUtils/bin/$(Configuration)/VSharp.CSharpUtils.dll" "$(SolutionDir)VSharp.Test/Tests/VSharp.CSharpUtils/VSharp.CSharpUtils.dll"</PostBuildEvent>
-  </PropertyGroup>
 </Project>

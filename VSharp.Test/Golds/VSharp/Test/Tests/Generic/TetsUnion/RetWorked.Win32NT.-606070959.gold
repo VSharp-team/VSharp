@@ -1,0 +1,10 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.TetsUnion.RetWorked(System.Object, System.Int32)
+RESULT: UNION[
+	| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) & (!(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | !(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj)) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) ~> 6 + a
+	| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) & (!(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | !(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj)) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) ~> 5
+	| !(0 == obj) & (!(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | !(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj)) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) ~> 11
+	| (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.BlackPawn) | 0 == obj) & (!(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj) ~> a]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Generic.TetsUnion ==> STRUCT VSharp.Test.Tests.Generic.TetsUnion[]

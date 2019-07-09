@@ -1,0 +1,14 @@
+METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeInterfaceMove(VSharp.Test.Tests.Typecast.IMovable, VSharp.Test.Tests.Typecast.Coord)
+RESULT: UNION[
+	| !(0 == p) ~> STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]
+	| 0 == p ~> null]
+HEAP:
+{ heap = merge[
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.IMovable <: TypeVariable{p}{VSharp.Test.Tests.Typecast.IMovable}), app(STRUCT TypeVariable{λ[MakeMove]_2}{VSharp.Test.Tests.Typecast.IMovable}[])),
+	(!(0 == p) & (VSharp.Test.Tests.Typecast.IMovable <: TypeVariable{p}{VSharp.Test.Tests.Typecast.IMovable}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[])),
+	(0 == p, <empty>)], statics = merge[
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.IMovable <: TypeVariable{p}{VSharp.Test.Tests.Typecast.IMovable}), app(STRUCT TypeVariable{λ[MakeMove]_2}{VSharp.Test.Tests.Typecast.IMovable}[])),
+	(!(0 == p) & (VSharp.Test.Tests.Typecast.IMovable <: TypeVariable{p}{VSharp.Test.Tests.Typecast.IMovable}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[])),
+	(0 == p, s0)] } where
+---------- s0 = ----------
+VSharp.Test.Tests.Methods.VirtualMethod ==> STRUCT VSharp.Test.Tests.Methods.VirtualMethod[]

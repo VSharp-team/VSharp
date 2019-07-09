@@ -6,4 +6,4 @@ before_build:
 configuration: Release
 
 test_script:
-  - nunit-console-x86 VSharp.Test\bin\Release\VSharp.Test.dll
+  - nunit3-console VSharp.Test\bin\Release\VSharp.Test.dll --x86 --result=myresults.xml;format=AppVeyor

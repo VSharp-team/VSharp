@@ -1,0 +1,17 @@
+METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Typecast.Piece.MakeMove(VSharp.Test.Tests.Typecast.Coord)
+RESULT: UNION[
+	| !(VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}) ~> STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]
+	| (VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}) ~> (HeapRef this)]
+HEAP:
+{ heap = merge[
+	((VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}), h0),
+	(!(VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))], statics = merge[
+	((VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}), s1),
+	(!(VSharp.Test.Tests.Typecast.Piece <: TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))] } where
+---------- h0 = ----------
+this ==> STRUCT TypeVariable{this}{VSharp.Test.Tests.Typecast.Piece}[
+	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> VSharp.Test.Tests.Typecast.Coord.X
+	| VSharp.Test.Tests.Typecast.Piece._yCoord ~> VSharp.Test.Tests.Typecast.Coord.Y]
+---------- s1 = ----------
+VSharp.Test.Tests.Typecast.Coord ==> STRUCT VSharp.Test.Tests.Typecast.Coord[]
+VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]

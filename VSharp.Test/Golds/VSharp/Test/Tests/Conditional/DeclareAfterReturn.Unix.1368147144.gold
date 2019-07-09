@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conditional.DeclareAfterReturn(System.Boolean, System.Boolean, System.Int32)
+RESULT: UNION[
+	| !f ~> x
+	| !flag & f ~> x + x + x + x
+	| f & flag ~> 42]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]

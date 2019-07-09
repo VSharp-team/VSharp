@@ -1,0 +1,391 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.LowerBoundExceptionTest(System.Int32[,])
+RESULT: <ERROR: UNION[
+	| !(0 == array) ~> (HeapRef 7)
+	| 0 == array ~> (HeapRef 1)]>
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.NullReferenceException[
+	| System.Exception._HResult ~> -2147467261
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !hasKey#9 ~> null
+			| hasKey#9 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
+	| System.Exception._message ~> (HeapRef 3)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+10 ==> STRUCT System.Object[]
+11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+12 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
+	| System.String.m_StringLength ~> 37]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'f';
+		11: 'e';
+		12: 'r';
+		13: 'e';
+		14: 'n';
+		15: 'c';
+		16: 'e';
+		17: 'E';
+		18: 'x';
+		19: 'c';
+		1: 'r';
+		20: 'e';
+		21: 'p';
+		22: 't';
+		23: 'i';
+		24: 'o';
+		25: 'n';
+		26: '\000';
+		2: 'g';
+		3: '_';
+		4: 'N';
+		5: 'u';
+		6: 'l';
+		7: 'l';
+		8: 'R';
+		9: 'e';
+		 ... 27 ... |]
+	| System.String.m_StringLength ~> 26]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
+	| System.String.m_StringLength ~> 49]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+6 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
+	| System.String.m_StringLength ~> 37]
+7 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._exceptionMethod ~> null
+	| System.Exception._exceptionMethodString ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !hasKey#18 ~> null
+			| hasKey#18 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
+	| System.Exception._message ~> (HeapRef 9)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 11)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception._watsonBuckets ~> null
+	| System.Exception._xcode ~> -532462766
+	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> 0]]
+8 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'A';
+		10: 'u';
+		11: 't';
+		12: 'O';
+		13: 'f';
+		14: 'R';
+		15: 'a';
+		16: 'n';
+		17: 'g';
+		18: 'e';
+		19: 'E';
+		1: 'r';
+		20: 'x';
+		21: 'c';
+		22: 'e';
+		23: 'p';
+		24: 't';
+		25: 'i';
+		26: 'o';
+		27: 'n';
+		28: '\000';
+		2: 'g';
+		3: '_';
+		4: 'I';
+		5: 'n';
+		6: 'd';
+		7: 'e';
+		8: 'x';
+		9: 'O';
+		 ... 29 ... |]
+	| System.String.m_StringLength ~> 28]
+9 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'G';
+		10: 's';
+		11: 'o';
+		12: 'u';
+		13: 'r';
+		14: 'c';
+		15: 'e';
+		16: ' ';
+		17: 's';
+		18: 't';
+		19: 'r';
+		1: 'e';
+		20: 'i';
+		21: 'n';
+		22: 'g';
+		23: 's';
+		24: ' ';
+		25: 'c';
+		26: 'u';
+		27: 'r';
+		28: 'r';
+		29: 'e';
+		2: 't';
+		30: 'n';
+		31: 't';
+		32: 'l';
+		33: 'y';
+		34: ' ';
+		35: 'n';
+		36: 'o';
+		37: 't';
+		38: ' ';
+		39: 's';
+		3: 't';
+		40: 'u';
+		41: 'p';
+		42: 'p';
+		43: 'o';
+		44: 'r';
+		45: 't';
+		46: 'e';
+		47: 'd';
+		48: '!';
+		49: '\000';
+		4: 'i';
+		5: 'n';
+		6: 'g';
+		7: ' ';
+		8: 'r';
+		9: 'e';
+		 ... 50 ... |]
+	| System.String.m_StringLength ~> 49]
+---------- s1 = ----------
+System.Array ==> STRUCT System.Array[
+	| System.Array.MaxArrayLength ~> UNION[
+		| !hasKey#1 ~> 2146435071
+		| hasKey#1 ~> System.Array.MaxArrayLength]
+	| System.Array.MaxByteArrayLength ~> UNION[
+		| !hasKey#1 ~> 2147483591
+		| hasKey#1 ~> System.Array.MaxByteArrayLength]]
+System.Environment ==> STRUCT System.Environment[
+	| System.Environment.MaxEnvVariableValueLength ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> 32767
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> System.Environment.MaxEnvVariableValueLength]
+	| System.Environment.MaxMachineNameLength ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> 256
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> System.Environment.MaxMachineNameLength]
+	| System.Environment.MaxSystemEnvVariableLength ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> 1024
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> System.Environment.MaxSystemEnvVariableLength]
+	| System.Environment.MaxUserEnvVariableLength ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> 255
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> System.Environment.MaxUserEnvVariableLength]
+	| System.Environment.isUserNonInteractive ~> !(0 == array) & System.Environment.isUserNonInteractive & hasKey#12 | 0 == array & System.Environment.isUserNonInteractive & hasKey#3
+	| System.Environment.m_os ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> null
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> (HeapRef System.Environment.m_os)]
+	| System.Environment.m_resHelper ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> null
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> (HeapRef System.Environment.m_resHelper)]
+	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> null
+			| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> (HeapPtr System.Environment.processWinStation.System.IntPtr.m_value as System.Void)]]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> !(0 == array) & System.Environment.s_CheckedOSWin8OrAbove & hasKey#12 | 0 == array & System.Environment.s_CheckedOSWin8OrAbove & hasKey#3
+	| System.Environment.s_CheckedWinRT ~> !(0 == array) & System.Environment.s_CheckedWinRT & hasKey#12 | 0 == array & System.Environment.s_CheckedWinRT & hasKey#3
+	| System.Environment.s_InternalSyncObject ~> UNION[
+		| !(0 == array) & !hasKey#12 | !hasKey#3 & 0 == array ~> null
+		| !(0 == array) & hasKey#12 | 0 == array & hasKey#3 ~> (HeapRef System.Environment.s_InternalSyncObject)]
+	| System.Environment.s_IsWindows8OrAbove ~> !(0 == array) & System.Environment.s_IsWindows8OrAbove & hasKey#12 | 0 == array & System.Environment.s_IsWindows8OrAbove & hasKey#3
+	| System.Environment.s_WinRTSupported ~> !(0 == array) & System.Environment.s_WinRTSupported & hasKey#12 | 0 == array & System.Environment.s_WinRTSupported & hasKey#3]
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> UNION[
+		| !(0 == array) & !hasKey#14 | !hasKey#5 & 0 == array ~> -532462766
+		| !(0 == array) & hasKey#14 | 0 == array & hasKey#5 ~> System.Exception._COMPlusExceptionCode]
+	| System.Exception.s_EDILock ~> UNION[
+		| !(0 == array) & !hasKey#14 ~> (HeapRef 10)
+		| !(0 == array) & hasKey#14 | 0 == array & hasKey#5 ~> (HeapRef System.Exception.s_EDILock)
+		| !hasKey#5 & 0 == array ~> (HeapRef 4)]]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| !(0 == array) & !hasKey#16 | !hasKey#7 & 0 == array ~> null
+			| !(0 == array) & hasKey#16 | 0 == array & hasKey#7 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)]]]
+System.NullReferenceException ==> STRUCT System.NullReferenceException[]
+System.Object ==> STRUCT System.Object[]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
+		| !(0 == array) & !hasKey#19 ~> (HeapRef 12)
+		| !(0 == array) & hasKey#19 | 0 == array & hasKey#10 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
+		| !hasKey#10 & 0 == array ~> (HeapRef 6)]]
+System.SystemException ==> STRUCT System.SystemException[]
+System.UIntPtr ==> STRUCT System.UIntPtr[
+	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| System.UIntPtr.m_value ~> UNION[
+			| !(0 == array) & !hasKey#18 | !hasKey#9 & 0 == array ~> null
+			| !(0 == array) & hasKey#18 | 0 == array & hasKey#9 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]

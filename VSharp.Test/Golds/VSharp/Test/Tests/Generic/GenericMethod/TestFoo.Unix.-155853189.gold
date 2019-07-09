@@ -1,0 +1,56 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.GenericMethod.TestFoo(System.Collections.Generic.LinkedList`1[System.Int32])
+RESULT: UNION[
+	| !(0 == l) & !(0 == l.System.Collections.Generic.LinkedList`1.head) ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item
+	| !(0 == l) & 0 == l.System.Collections.Generic.LinkedList`1.head ~> 1
+	| 0 == l ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'V';
+		1: 'e';
+		2: 'r';
+		3: 's';
+		4: 'i';
+		5: 'o';
+		6: 'n';
+		7: '\000';
+		 ... 8 ... |]
+	| System.String.m_StringLength ~> 7]
+2 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		1: 'o';
+		2: 'u';
+		3: 'n';
+		4: 't';
+		5: '\000';
+		 ... 6 ... |]
+	| System.String.m_StringLength ~> 5]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'D';
+		1: 'a';
+		2: 't';
+		3: 'a';
+		4: '\000';
+		 ... 5 ... |]
+	| System.String.m_StringLength ~> 4]
+l.System.Collections.Generic.LinkedList`1.head ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][
+	| System.Collections.Generic.LinkedListNode`1.item ~> UNION[
+		| !(0 == l) & !(0 == l.System.Collections.Generic.LinkedList`1.head) ~> 1 + l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item
+		| 0 == l | 0 == l.System.Collections.Generic.LinkedList`1.head ~> l.System.Collections.Generic.LinkedList`1.head.System.Collections.Generic.LinkedListNode`1.item]]
+---------- s1 = ----------
+System.Collections.Generic.LinkedListNode`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedListNode`1[System.Int32][]
+System.Collections.Generic.LinkedList`1[System.Int32] ==> STRUCT System.Collections.Generic.LinkedList`1[System.Int32][
+	| System.Collections.Generic.LinkedList`1.CountName ~> UNION[
+		| !(0 == l) & !hasKey#1 ~> (HeapRef 2)
+		| 0 == l | hasKey#1 ~> (HeapRef System.Collections.Generic.LinkedList`1.CountName)]
+	| System.Collections.Generic.LinkedList`1.ValuesName ~> UNION[
+		| !(0 == l) & !hasKey#1 ~> (HeapRef 3)
+		| 0 == l | hasKey#1 ~> (HeapRef System.Collections.Generic.LinkedList`1.ValuesName)]
+	| System.Collections.Generic.LinkedList`1.VersionName ~> UNION[
+		| !(0 == l) & !hasKey#1 ~> (HeapRef 1)
+		| 0 == l | hasKey#1 ~> (HeapRef System.Collections.Generic.LinkedList`1.VersionName)]]
+VSharp.Test.Tests.Generic.GenericMethod ==> STRUCT VSharp.Test.Tests.Generic.GenericMethod[]

@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conditional.FirstEvenGreaterThen7()
+RESULT: 8
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]

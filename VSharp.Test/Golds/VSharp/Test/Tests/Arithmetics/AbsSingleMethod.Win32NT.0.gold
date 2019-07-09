@@ -1,0 +1,153 @@
+METHOD: System.Single VSharp.Test.Tests.Arithmetics.AbsSingleMethod()
+RESULT: 5.9
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [|
+	0: 1;
+	10: 10000000000;
+	11: 100000000000;
+	12: 1000000000000;
+	13: 10000000000000;
+	14: 100000000000000;
+	15: 1E+15;
+	1: 10;
+	2: 100;
+	3: 1000;
+	4: 10000;
+	5: 100000;
+	6: 1000000;
+	7: 10000000;
+	8: 100000000;
+	9: 1000000000;
+	 ... 16 ... |]
+2 ==> [|
+	0: System.Empty;
+	10: System.UInt32;
+	11: System.Int64;
+	12: System.UInt64;
+	13: System.Single;
+	14: System.Double;
+	15: System.Decimal;
+	16: System.DateTime;
+	17: System.Object;
+	18: System.String;
+	1: System.Object;
+	2: System.DBNull;
+	3: System.Boolean;
+	4: System.Char;
+	5: System.SByte;
+	6: System.Byte;
+	7: System.Int16;
+	8: System.UInt16;
+	9: System.Int32;
+	 ... 19 ... |]
+3 ==> [|
+	0: 'A';
+	10: 'K';
+	11: 'L';
+	12: 'M';
+	13: 'N';
+	14: 'O';
+	15: 'P';
+	16: 'Q';
+	17: 'R';
+	18: 'S';
+	19: 'T';
+	1: 'B';
+	20: 'U';
+	21: 'V';
+	22: 'W';
+	23: 'X';
+	24: 'Y';
+	25: 'Z';
+	26: 'a';
+	27: 'b';
+	28: 'c';
+	29: 'd';
+	2: 'C';
+	30: 'e';
+	31: 'f';
+	32: 'g';
+	33: 'h';
+	34: 'i';
+	35: 'j';
+	36: 'k';
+	37: 'l';
+	38: 'm';
+	39: 'n';
+	3: 'D';
+	40: 'o';
+	41: 'p';
+	42: 'q';
+	43: 'r';
+	44: 's';
+	45: 't';
+	46: 'u';
+	47: 'v';
+	48: 'w';
+	49: 'x';
+	4: 'E';
+	50: 'y';
+	51: 'z';
+	52: '0';
+	53: '1';
+	54: '2';
+	55: '3';
+	56: '4';
+	57: '5';
+	58: '6';
+	59: '7';
+	5: 'F';
+	60: '8';
+	61: '9';
+	62: '+';
+	63: '/';
+	64: '=';
+	6: 'G';
+	7: 'H';
+	8: 'I';
+	9: 'J';
+	 ... 65 ... |]
+4 ==> STRUCT System.DBNull[]
+---------- s1 = ----------
+System.Convert ==> STRUCT System.Convert[
+	| System.Convert.ConvertTypes ~> UNION[
+		| !hasKey#2 ~> (HeapRef 2)
+		| hasKey#2 ~> (HeapRef System.Convert.ConvertTypes)]
+	| System.Convert.DBNull ~> UNION[
+		| !(0 == System.DBNull.Value) & !hasKey#2 & hasKey#3 ~> (HeapRef System.DBNull.Value)
+		| !hasKey#2 & !hasKey#3 ~> (HeapRef 4)
+		| !hasKey#2 & 0 == System.DBNull.Value & hasKey#3 ~> null
+		| hasKey#2 ~> (HeapRef System.Convert.DBNull)]
+	| System.Convert.EnumType ~> UNION[
+		| !hasKey#2 ~> System.Enum
+		| hasKey#2 ~> (HeapRef System.Convert.EnumType)]
+	| System.Convert.base64LineBreakPosition ~> UNION[
+		| !hasKey#2 ~> 76
+		| hasKey#2 ~> System.Convert.base64LineBreakPosition]
+	| System.Convert.base64Table ~> UNION[
+		| !hasKey#2 ~> (HeapRef 3)
+		| hasKey#2 ~> (HeapRef System.Convert.base64Table)]]
+System.DBNull ==> STRUCT System.DBNull[
+	| System.DBNull.Value ~> UNION[
+		| !hasKey#2 & !hasKey#3 ~> (HeapRef 4)
+		| hasKey#2 | hasKey#3 ~> (HeapRef System.DBNull.Value)]]
+System.Math ==> STRUCT System.Math[
+	| System.Math.E ~> UNION[
+		| !hasKey#1 ~> 2.71828182845905
+		| hasKey#1 ~> System.Math.E]
+	| System.Math.PI ~> UNION[
+		| !hasKey#1 ~> 3.14159265358979
+		| hasKey#1 ~> System.Math.PI]
+	| System.Math.doubleRoundLimit ~> UNION[
+		| !hasKey#1 ~> 1E+16
+		| hasKey#1 ~> System.Math.doubleRoundLimit]
+	| System.Math.maxRoundingDigits ~> UNION[
+		| !hasKey#1 ~> 15
+		| hasKey#1 ~> System.Math.maxRoundingDigits]
+	| System.Math.roundPower10Double ~> UNION[
+		| !hasKey#1 ~> (HeapRef 1)
+		| hasKey#1 ~> (HeapRef System.Math.roundPower10Double)]]
+System.Object ==> STRUCT System.Object[]
+VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]

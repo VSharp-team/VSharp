@@ -1,0 +1,19 @@
+METHOD: System.Int32[] VSharp.Test.Tests.Lists.RetOneDArray2(System.Int32)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [|
+	1: UNION[
+		| !(5 == n) & !(8 == n) ~> 0
+		| !(8 == n) & 5 == n ~> 42
+		| 8 == n ~> 89];
+	4: UNION[
+		| !(5 == n) ~> 0
+		| 5 == n ~> 99];
+	7: UNION[
+		| !(8 == n) ~> 0
+		| 8 == n ~> 66];
+	 ... n ... |]
+---------- s1 = ----------
+VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]

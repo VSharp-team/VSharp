@@ -1,0 +1,13 @@
+METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.CastAfterNull()
+RESULT: 38
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT VSharp.Test.Tests.Typecast.Piece[
+	| VSharp.Test.Tests.Typecast.Piece.Rate ~> 0
+	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> 1
+	| VSharp.Test.Tests.Typecast.Piece._yCoord ~> 3]
+---------- s1 = ----------
+System.Object ==> STRUCT System.Object[]
+VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]
+VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]

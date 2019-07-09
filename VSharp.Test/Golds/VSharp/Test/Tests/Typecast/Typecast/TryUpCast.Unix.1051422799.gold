@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.TryUpCast(VSharp.Test.Tests.Typecast.Piece)
+RESULT: UNION[
+	| !(0 == piece) ~> 33
+	| 0 == piece ~> 42]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]

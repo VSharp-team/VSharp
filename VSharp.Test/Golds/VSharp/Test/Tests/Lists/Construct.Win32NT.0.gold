@@ -1,0 +1,41 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lists.Construct()
+RESULT: True
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> STRUCT System.Collections.Generic.List`1[System.Int32][
+	| System.Collections.Generic.List`1._items ~> (HeapRef 3)
+	| System.Collections.Generic.List`1._size ~> 4
+	| System.Collections.Generic.List`1._syncRoot ~> null
+	| System.Collections.Generic.List`1._version ~> 4]
+2 ==> [| ... 0 ... |]
+3 ==> [|
+	0: 1;
+	1: 2;
+	2: 3;
+	3: 4;
+	 ... 4 ... |]
+4 ==> [| ... 4 x 1 ... |]
+5 ==> [|
+	0: 5;
+	1: 6;
+	2: 7;
+	3: 8;
+	 ... 4 ... |]
+---------- s1 = ----------
+System.Array ==> STRUCT System.Array[
+	| System.Array.MaxArrayLength ~> UNION[
+		| !hasKey#3 ~> 2146435071
+		| hasKey#3 ~> System.Array.MaxArrayLength]
+	| System.Array.MaxByteArrayLength ~> UNION[
+		| !hasKey#3 ~> 2147483591
+		| hasKey#3 ~> System.Array.MaxByteArrayLength]]
+System.Collections.Generic.List`1[System.Int32] ==> STRUCT System.Collections.Generic.List`1[System.Int32][
+	| System.Collections.Generic.List`1._defaultCapacity ~> UNION[
+		| !hasKey#1 ~> 4
+		| hasKey#1 ~> System.Collections.Generic.List`1._defaultCapacity]
+	| System.Collections.Generic.List`1._emptyArray ~> UNION[
+		| !hasKey#1 ~> (HeapRef 2)
+		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)]]
+System.Object ==> STRUCT System.Object[]
+VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]

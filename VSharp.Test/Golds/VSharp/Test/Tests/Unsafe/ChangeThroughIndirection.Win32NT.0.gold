@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Unsafe.ChangeThroughIndirection()
+RESULT: 14
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Unsafe ==> STRUCT VSharp.Test.Tests.Unsafe[]

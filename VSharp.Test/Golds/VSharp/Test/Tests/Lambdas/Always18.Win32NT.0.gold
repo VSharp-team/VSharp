@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lambdas.Always18()
+RESULT: 18
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> <Lambda Expression System.Int32 -> System.Int32>
+---------- s1 = ----------
+VSharp.Test.Tests.Lambdas ==> STRUCT VSharp.Test.Tests.Lambdas[]

@@ -1,0 +1,159 @@
+METHOD: System.Int32[] VSharp.Test.Tests.Lists.Mutate(System.Int32)
+RESULT: UNION[
+	| !(i < 0) & i < 5 ~> (HeapRef 1)
+	| !(i < 5) | i < 0 ~> <ERROR: (HeapRef 2)>]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [|
+	0: UNION[
+		| !(0 == i) | !(i < 5) | i < 0 ~> 1
+		| !(i < 0) & 0 == i & i < 5 ~> 10];
+	1: UNION[
+		| !(1 == i) | !(i < 5) | i < 0 ~> 2
+		| !(i < 0) & 1 == i & i < 5 ~> 10];
+	2: UNION[
+		| !(2 == i) | !(i < 5) | i < 0 ~> 3
+		| !(i < 0) & 2 == i & i < 5 ~> 10];
+	3: UNION[
+		| !(3 == i) | !(i < 5) | i < 0 ~> 4
+		| !(i < 0) & 3 == i & i < 5 ~> 10];
+	4: UNION[
+		| !(4 == i) | !(i < 5) | i < 0 ~> 5
+		| !(i < 0) & 4 == i & i < 5 ~> 10];
+	i: UNION[
+		| !(0 == i) & !(1 == i) & !(2 == i) & !(3 == i) & !(4 == i) & !(i < 0) & i < 5 ~> 10
+		| !(0 == i) & !(1 == i) & !(2 == i) & !(3 == i) & !(4 == i) & (!(i < 5) | i < 0) | !(i < 0) & (0 == i | 1 == i | 2 == i | 3 == i | 4 == i) & i < 5 ~> 0
+		| (!(i < 5) | i < 0) & 0 == i ~> 1
+		| (!(i < 5) | i < 0) & 1 == i ~> 2
+		| (!(i < 5) | i < 0) & 2 == i ~> 3
+		| (!(i < 5) | i < 0) & 3 == i ~> 4
+		| (!(i < 5) | i < 0) & 4 == i ~> 5];
+	 ... 5 ... |]
+2 ==> STRUCT System.IndexOutOfRangeException[
+	| System.Exception._HResult ~> -2146233080
+	| System.Exception._className ~> null
+	| System.Exception._data ~> null
+	| System.Exception._dynamicMethods ~> null
+	| System.Exception._helpURL ~> null
+	| System.Exception._innerException ~> null
+	| System.Exception._message ~> (HeapRef 3)
+	| System.Exception._remoteStackIndex ~> 0
+	| System.Exception._remoteStackTraceString ~> null
+	| System.Exception._safeSerializationManager ~> (HeapRef 5)
+	| System.Exception._source ~> null
+	| System.Exception._stackTrace ~> null
+	| System.Exception._stackTraceString ~> null
+	| System.Exception.captured_traces ~> null
+	| System.Exception.native_trace_ips ~> null]
+3 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'I';
+		10: 'o';
+		11: 'u';
+		12: 't';
+		13: 's';
+		14: 'i';
+		15: 'd';
+		16: 'e';
+		17: ' ';
+		18: 't';
+		19: 'h';
+		1: 'n';
+		20: 'e';
+		21: ' ';
+		22: 'b';
+		23: 'o';
+		24: 'u';
+		25: 'n';
+		26: 'd';
+		27: 's';
+		28: ' ';
+		29: 'o';
+		2: 'd';
+		30: 'f';
+		31: ' ';
+		32: 't';
+		33: 'h';
+		34: 'e';
+		35: ' ';
+		36: 'a';
+		37: 'r';
+		38: 'r';
+		39: 'a';
+		3: 'e';
+		40: 'y';
+		41: '.';
+		42: '\000';
+		4: 'x';
+		5: ' ';
+		6: 'w';
+		7: 'a';
+		8: 's';
+		9: ' ';
+		 ... 43 ... |]
+	| System.String.m_StringLength ~> 42]
+4 ==> STRUCT System.Object[]
+5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
+	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
+6 ==> STRUCT System.String[
+	| System.String.m_FirstChar ~> [|
+		0: 'C';
+		10: 'r';
+		11: 'i';
+		12: 'a';
+		13: 'l';
+		14: 'i';
+		15: 'z';
+		16: 'a';
+		17: 't';
+		18: 'i';
+		19: 'o';
+		1: 'L';
+		20: 'n';
+		21: 'M';
+		22: 'a';
+		23: 'n';
+		24: 'a';
+		25: 'g';
+		26: 'e';
+		27: 'r';
+		28: '_';
+		29: 'R';
+		2: 'R';
+		30: 'e';
+		31: 'a';
+		32: 'l';
+		33: 'T';
+		34: 'y';
+		35: 'p';
+		36: 'e';
+		37: '\000';
+		3: '_';
+		4: 'S';
+		5: 'a';
+		6: 'f';
+		7: 'e';
+		8: 'S';
+		9: 'e';
+		 ... 38 ... |]
+	| System.String.m_StringLength ~> 37]
+---------- s1 = ----------
+System.Exception ==> STRUCT System.Exception[
+	| System.Exception._COMPlusExceptionCode ~> UNION[
+		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#3 ~> System.Exception._COMPlusExceptionCode
+		| !hasKey#3 & (!(i < 5) | i < 0) ~> -532462766]
+	| System.Exception.s_EDILock ~> UNION[
+		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#3 ~> (HeapRef System.Exception.s_EDILock)
+		| !hasKey#3 & (!(i < 5) | i < 0) ~> (HeapRef 4)]]
+System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
+System.Object ==> STRUCT System.Object[]
+System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
+		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#5 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
+		| !hasKey#5 & (!(i < 5) | i < 0) ~> (HeapRef 6)]]
+System.SystemException ==> STRUCT System.SystemException[]
+VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]

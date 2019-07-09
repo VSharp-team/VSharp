@@ -1,0 +1,13 @@
+METHOD: System.Void* VSharp.Test.Tests.Unsafe.CompilerHackLikePtrReturn(System.Void*)
+RESULT: (HeapPtr ptr as System.Void)
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.IntPtr ==> STRUCT System.IntPtr[
+	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| System.IntPtr.m_value ~> UNION[
+			| !hasKey#1 ~> null
+			| hasKey#1 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)]]]
+System.Object ==> STRUCT System.Object[]
+System.ValueType ==> STRUCT System.ValueType[]
+VSharp.Test.Tests.Unsafe ==> STRUCT VSharp.Test.Tests.Unsafe[]
