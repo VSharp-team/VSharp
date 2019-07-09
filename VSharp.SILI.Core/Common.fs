@@ -79,7 +79,7 @@ module internal Common =
         | Bottom, _ | _, Bottom -> makeFalse metadata
         | Reference _, Reference _ -> makeTrue metadata
         | Pointer _, Pointer _ -> makeTrue metadata
-        | Func _, Func _ -> makeTrue metadata
+        | Func _, Func _ -> makeTrue metadata //TODO: doesn't implement symbolic execution of delegate
         | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
             if name.v = "System.Array" then makeTrue metadata else makeSubtypeBoolConst t1 t2
         | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
@@ -88,6 +88,8 @@ module internal Common =
             if d1 = d2 then is metadata t1 t2 else makeFalse metadata
         | TypeVariable(Implicit (_, _, t)) as t1, t2 ->
             is metadata t t2 ||| makeSubtypeBoolConst t1 t2
+        | termType.InterfaceType(_, _), TypeVariable(Implicit (_, _, t)) when (not <| Types.isObject t) ->
+            makeFalse metadata
         | t1, (TypeVariable(Implicit (_, _, t)) as t2) ->
             is metadata t1 t &&& makeSubtypeBoolConst t1 t2
         | ConcreteType lt as t1, (ConcreteType rt as t2) ->
