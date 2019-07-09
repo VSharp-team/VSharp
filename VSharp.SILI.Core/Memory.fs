@@ -55,37 +55,39 @@ module internal Memory =
 // ------------------------------- Traversal -------------------------------
 
     // TODO: path should NOT be accumulated, but taken from key metainfo
-    let inline private foldHeapLocationsRec folder acc typ heap =
-        Heap.foldFQL (fun acc subloc cell -> folder acc typ (getFQLOfKey subloc |> snd |> List.last |> Some) cell) acc heap
+    let inline private foldHeapLocationsRec folder =
+        Heap.foldFQL (fun acc subloc -> folder acc (getFQLOfKey subloc |> snd |> List.tryLast))
 
-    let rec private foldSubLocations folder fillPath mergeAcc acc typ segment cell = // TODO: get rid of typ
-        let foldHeap acc target = foldHeapLocationsRec (foldSubLocations folder fillPath mergeAcc) acc typ target
-        let pushSegment acc =
+    let rec private foldSubLocations folder fillPath mergeAcc acc segment cell =
+        let foldHeap target acc = foldHeapLocationsRec (foldSubLocations folder fillPath mergeAcc) acc target
+        let pushSegment ((h, (l, path)) as acc) =
             match segment with
             | Some segment ->
                 let segment = [fillPath segment]
-                mapsnd (mapsnd (fun l -> List.append l segment)) acc
+                (h, (l, List.append path segment))
             | None -> acc
         let popSegment = mapsnd (mapsnd List.discardLast)
         let apply term =
             match term.term with
             | Struct(contents, _) ->
-                foldHeap (pushSegment acc) contents |> popSegment
+                pushSegment acc |> foldHeap contents |> popSegment
             | Array(_, _, lower, _, contents, lengths, _) ->
-                let acc = foldHeap (pushSegment acc) lower
-                let acc = foldHeap acc lengths
-                foldHeap acc contents |> popSegment
-            | _ -> folder acc typ segment cell
+                pushSegment acc
+                |> foldHeap lower
+                |> foldHeap lengths
+                |> foldHeap contents
+                |> popSegment
+            | _ -> folder acc segment cell
         commonGuardedErroredApply apply apply (cell.value) (fun l ->
             let gs, vs = l |> List.unzip
             let keyPath = vs |> List.head |> snd
             mergeAcc gs (List.map fst vs), keyPath)
 
-    let private foldHeapLocations folder fillKey fillPath mergeAcc acc heap =
-        Heap.fold (fun acc loc cell -> fst <| foldSubLocations folder fillPath mergeAcc (acc, (fillKey loc, [])) (typeOf cell.value) None cell) acc heap
+    let private foldHeapLocations folder fillKey fillPath mergeAcc acc heap = // TODO: get rid of typeOf
+        Heap.fold (fun acc loc cell -> fst <| foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc (acc, (fillKey loc, [])) None cell) acc heap
 
     let private foldStackLocations folder fillPath mergeAcc acc stack =
-        stackFold (fun acc loc cell -> fst <| foldSubLocations folder fillPath mergeAcc (acc, (loc, [])) (typeOf cell.value) None cell) acc stack
+        stackFold (fun acc loc cell -> fst <| foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc (acc, (loc, [])) None cell) acc stack
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
