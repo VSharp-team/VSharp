@@ -186,4 +186,112 @@ namespace VSharp.Test.Tests
             return arr;
         }
     }
+
+    public static class Container
+    {
+        public static int X = 0;
+    }
+
+    public class Bag
+    {
+        public int X;
+
+        public Bag(int x)
+        {
+            X = x;
+        }
+    }
+
+    public class First
+    {
+        public Second A = null;
+        public int B;
+
+        public int Get()
+        {
+            return B;
+        }
+
+        public void Inc()
+        {
+            B++;
+        }
+    }
+
+    public class Second : First
+    {
+        private First b;
+
+        public int Get()
+        {
+            if (b != null)
+                return b.Get();
+            return 0;
+        }
+
+        public void Inc()
+        {
+            b?.Inc();
+        }
+    }
+
+    [TestSvmFixture]
+    public static class RecursiveAccess
+    {
+        public static First G(First f)
+        {
+            if (f != null && f.A != null)
+            {
+                f.B++;
+            }
+            return f;
+        }
+
+        [TestSvm]
+        public static int F(int x)
+        {
+            if (x > 10)
+            {
+                Container.X = x;
+                return x;
+            }
+            var tmp = new Bag(Container.X);
+            Container.X++;
+            Container.X = F(Container.X);
+            return Container.X + tmp.X;
+        }
+
+        [TestSvm]
+        public static int G(int x)
+        {
+            return F(5) + 10;
+        }
+
+        [TestSvm]
+        public static int NonEmptyPath(First f)
+        {
+            int res = 0;
+            if (f != null && f.A != null)
+            {
+                f.A.B = 7;
+                var p = G(f.A);
+                if (p != null)
+                {
+                    res = p.B;
+                }
+            }
+            return res;
+        }
+
+        [TestSvm]
+        public static int TestStack(Second b)
+        {
+            if (b != null)
+            {
+                b.Inc();
+                return b.Get();
+            }
+            return 0;
+        }
+    }
 }
