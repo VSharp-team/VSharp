@@ -2,11 +2,10 @@ namespace VSharp
 
 open System.Collections.Generic
 
-module public Hierarchy =
+module TypeUtils =
     let isGround (x : System.Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
 
-module TypeUtils =
     let defaultOf (t : System.Type) =
         if t.IsValueType && System.Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
             then System.Activator.CreateInstance t

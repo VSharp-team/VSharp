@@ -66,17 +66,17 @@ module internal Memory =
                 let segment = [fillPath segment]
                 (h, (l, List.append path segment))
             | None -> acc
-        let popSegment = mapsnd (mapsnd List.discardLast)
+        let changePath (_, (_, path)) = mapsnd (mapsnd (always path))
         let apply term =
             match term.term with
             | Struct(contents, _) ->
-                pushSegment acc |> foldHeap contents |> popSegment
+                pushSegment acc |> foldHeap contents |> changePath acc
             | Array(_, _, lower, _, contents, lengths, _) ->
                 pushSegment acc
                 |> foldHeap lower
                 |> foldHeap lengths
                 |> foldHeap contents
-                |> popSegment
+                |> changePath acc
             | _ -> folder acc segment cell
         commonGuardedErroredApply apply apply (cell.value) (fun l ->
             let gs, vs = l |> List.unzip
@@ -609,24 +609,21 @@ module internal Memory =
         | ArrayLowerBound addr -> ArrayLowerBound(fillHoles ctx source addr)
         | ArrayLength addr -> ArrayLength(fillHoles ctx source addr)
 
+    and private fillAndPushSegment ctx source path = function
+        | Some segment -> List.append path [fillHolesInPathSegment ctx source segment]
+        | None -> path
     and private fillAndMutateStack (ctx : compositionContext) source (target : _, (addr, path) : stackKey * pathSegment list) _ segment cell =
         let time = Timestamp.compose ctx.time cell.modified
-        let segment =
-            match segment with
-            | Some segment -> [fillHolesInPathSegment ctx source segment]
-            | None -> []
+        let path' = fillAndPushSegment ctx source path segment
         let v = fillHoles ctx source cell.value
-        mutateStack ctx.mtd target addr (List.append path segment) time v, (addr, path)
+        mutateStack ctx.mtd target addr path' time v, (addr, path)
 
     and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (target : heap<'a, term, fql>, (addr, path) : 'a * pathSegment list) typ segment cell : heap<'a, term, fql> * ('a * pathSegment list) =
         let time = Timestamp.compose ctx.time cell.modified
-        let segment =
-            match segment with
-            | Some segment -> [fillHolesInPathSegment ctx source segment]
-            | None -> []
+        let path' = fillAndPushSegment ctx source path segment
         let v = fillHoles ctx source cell.value
         let typ = substituteTypeVariables ctx source typ |> specifyType
-        mutateHeap restricted ctx.mtd target addr typ (List.append path segment) time v, (addr, path)
+        mutateHeap restricted ctx.mtd target addr typ path' time v, (addr, path)
 
     and private composeDefinedHeaps writer fillKey fillPath readHeap restricted s h h' =
         foldHeapLocations (writer restricted s) fillKey fillPath (mergeDefinedHeaps false readHeap) h h'

@@ -31,7 +31,7 @@ type termType =
     | InterfaceType of System.Type * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
-    | Func of termType list * termType
+    | Func of termType list * termType //TODO: Do we really need Func type?
     | Reference of termType
     | Pointer of termType // C-style pointers like int*
 
@@ -178,7 +178,7 @@ module internal Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Explicit t) when not t.IsValueType-> true
+        | TypeVariable(Explicit t) when not t.IsValueType -> true
         | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
         | _ -> false
 

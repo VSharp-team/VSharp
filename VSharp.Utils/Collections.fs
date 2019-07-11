@@ -47,12 +47,6 @@ module public List =
             assert(List.forall ((=)x) xs)
             x
 
-    let public discardLast xs =
-        let unfolder = function
-            | x::xs when List.isEmpty xs |> not -> Some(x, xs)
-            | _ -> None
-        List.unfold unfolder xs
-
     let public minus xs ys =
         let l1 = List.length xs
         let l2 = List.length ys

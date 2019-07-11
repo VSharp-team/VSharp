@@ -70,7 +70,7 @@ module internal Common =
             let source = {left = leftTermType; right = rightTermType}
             Constant metadata subtypeName source Bool
 
-        let isGround t = Hierarchy.isGround(Types.toDotNetType t)
+        let isGround t = TypeUtils.isGround(Types.toDotNetType t)
 
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue metadata
@@ -79,7 +79,7 @@ module internal Common =
         | Bottom, _ | _, Bottom -> makeFalse metadata
         | Reference _, Reference _ -> makeTrue metadata
         | Pointer _, Pointer _ -> makeTrue metadata
-        | Func _, Func _ -> makeTrue metadata //TODO: doesn't implement symbolic execution of delegate
+        | Func _, Func _ -> makeTrue metadata
         | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
             if name.v = "System.Array" then makeTrue metadata else makeSubtypeBoolConst t1 t2
         | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
