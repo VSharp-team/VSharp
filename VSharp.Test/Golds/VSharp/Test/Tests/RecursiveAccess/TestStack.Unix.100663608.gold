@@ -1,0 +1,15 @@
+METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.TestStack(VSharp.Test.Tests.Second)
+RESULT: UNION[
+	| !(0 == b) & !(0 == b.VSharp.Test.Tests.Second.b) ~> 1 + b.VSharp.Test.Tests.Second.b.VSharp.Test.Tests.First.B
+	| 0 == b | 0 == b.VSharp.Test.Tests.Second.b ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+b.VSharp.Test.Tests.Second.b ==> STRUCT TypeVariable{b.VSharp.Test.Tests.Second.b}{VSharp.Test.Tests.First}[
+	| VSharp.Test.Tests.First.B ~> UNION[
+		| !(0 == b) & !(0 == b.VSharp.Test.Tests.Second.b) ~> 1 + b.VSharp.Test.Tests.Second.b.VSharp.Test.Tests.First.B
+		| 0 == b | 0 == b.VSharp.Test.Tests.Second.b ~> b.VSharp.Test.Tests.Second.b.VSharp.Test.Tests.First.B]]
+---------- s1 = ----------
+VSharp.Test.Tests.First ==> STRUCT VSharp.Test.Tests.First[]
+VSharp.Test.Tests.RecursiveAccess ==> STRUCT VSharp.Test.Tests.RecursiveAccess[]
+VSharp.Test.Tests.Second ==> STRUCT VSharp.Test.Tests.Second[]

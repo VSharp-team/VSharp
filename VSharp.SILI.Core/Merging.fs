@@ -199,6 +199,10 @@ module internal Merging =
         | _, ErrorT _ -> { vcell with value = h }
         | _ -> mergeCells [(g, ucell); (h, vcell)]
 
+    and mergeDefinedHeaps restricted read guards heaps =
+        let getter i = List.item i heaps
+        Heap.merge guards heaps (keysResolver restricted read Heap.getKey getter)
+
     and mergeGeneralizedHeaps<'a when 'a : equality> read guards (heaps : list<'a generalizedHeap>) =
         let (|MergedHeap|_|) = function Merged gvs -> Some gvs | _ -> None
         let guardsAndHeaps = List.zip guards heaps |> simplify (|MergedHeap|_|)
@@ -214,8 +218,7 @@ module internal Merging =
         else
             let definedGuards, restricted, definedHeaps = List.unzip3 defined
             let restricted = List.unique restricted
-            let getter i = List.item i definedHeaps
-            let definedHeap = Heap.merge definedGuards definedHeaps (keysResolver restricted read Heap.getKey getter) |> State.Defined restricted
+            let definedHeap = mergeDefinedHeaps restricted read definedGuards definedHeaps |> State.Defined restricted
             if undefined.IsEmpty then definedHeap
             else
                 let definedGuard = disjunction Metadata.empty definedGuards

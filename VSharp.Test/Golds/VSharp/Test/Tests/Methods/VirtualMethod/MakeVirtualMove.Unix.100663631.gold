@@ -5,9 +5,9 @@ RESULT: UNION[
 HEAP:
 { heap = merge[
 	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, h0),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))], statics = merge[
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app((HeapRef λ[MakeMove]_1)))], statics = merge[
 	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, s1),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app(STRUCT TypeVariable{λ[MakeMove]_1}{VSharp.Test.Tests.Typecast.IMovable}[]))] } where
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app((HeapRef λ[MakeMove]_1)))] } where
 ---------- h0 = ----------
 p ==> STRUCT TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}[
 	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> UNION[

@@ -47,7 +47,7 @@ module internal Interpreter =
         if ownerType = null || Seq.isEmpty ownerType.Type.GenericParameters then state, k
         else
             let subst =
-                let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> hierarchy >> Explicit)
+                let leftArg = ownerType.Type.GenericParameters |> Seq.map (MetadataTypes.genericParameterFromMetadata >> Explicit)
                 let rightArg = ownerType.Arguments |> Seq.map (MetadataTypes.fromMetadataType state)
                 Seq.zip leftArg rightArg |> Seq.toList
             let state = Memory.NewTypeVariables state subst

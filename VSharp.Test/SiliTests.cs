@@ -249,8 +249,7 @@ namespace VSharp.Test
             if (typeName == null)
                 return null;
             var os = Environment.OSVersion.Platform.ToString();
-            var paramsHash = methodInfo.GetParameters().Select(p => p.ToString().GetHashCode()).ToArray();
-            var hash = paramsHash.Aggregate(paramsHash.Length, (current, t) => unchecked(current * 314159 + t));
+            var hash = methodInfo.MetadataToken;
             var methodName = $"{methodInfo.Name}.{os}.{hash}{IdealTestFileExtension}";
             var idealValuePath = Path.Combine(currentFolder, GoldsDirectoryName, Path.Combine(typeName), methodName);
             return idealValuePath;

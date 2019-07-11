@@ -26,12 +26,12 @@ type termType =
     | Null
     | Bool
     | Numeric of System.Type
-    | StructType of hierarchy * termType list        // Value type with generic argument
-    | ClassType of hierarchy * termType list         // Reference type with generic argument
-    | InterfaceType of hierarchy * termType list     // Interface type with generic argument
+    | StructType of System.Type * termType list        // Value type with generic argument
+    | ClassType of System.Type * termType list         // Reference type with generic argument
+    | InterfaceType of System.Type * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
-    | Func of termType list * termType
+    | Func of termType list * termType //TODO: Do we really need Func type?
     | Reference of termType
     | Pointer of termType // C-style pointers like int*
 
@@ -46,10 +46,10 @@ type termType =
         | StructType(t, g)
         | ClassType(t, g)
         | InterfaceType(t, g) ->
-            if t.Inheritor.IsGenericType
+            if t.IsGenericType
                 then
                     let args = String.Join(",", (Seq.map toString g))
-                    sprintf "%s[%s]" (t.Inheritor.GetGenericTypeDefinition().FullName) args
+                    sprintf "%s[%s]" (t.GetGenericTypeDefinition().FullName) args
                 else toString t
         | TypeVariable(Explicit t) -> toString t
         | TypeVariable(Implicit (name, _, t)) -> sprintf "%s{%O}" name.v t
@@ -62,7 +62,7 @@ type termType =
 
 and [<CustomEquality;CustomComparison>]
     typeId =
-        | Explicit of hierarchy
+        | Explicit of System.Type
         | Implicit of (string transparent) * ISymbolicTypeSource * termType
         override x.GetHashCode() =
             match x with
@@ -81,7 +81,7 @@ and [<CustomEquality;CustomComparison>]
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Explicit h1, Explicit h2 -> compare (hash h1.Inheritor) (hash h2.Inheritor) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
+                    | Explicit h1, Explicit h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
                     | Explicit _, Implicit _ -> -1
                     | Implicit _, Explicit _ -> 1
                     | Implicit(_, c1, _), Implicit(_, c2, _) ->
@@ -90,15 +90,15 @@ and [<CustomEquality;CustomComparison>]
 
 module internal Types =
     let (|StructType|_|) = function
-        | StructType(t, g) -> Some(StructType(t.Inheritor, g))
+        | StructType(t, g) -> Some(StructType(t, g))
         | _ -> None
 
     let (|ClassType|_|) = function
-        | ClassType(t, g) -> Some(ClassType(t.Inheritor, g))
+        | ClassType(t, g) -> Some(ClassType(t, g))
         | _ -> None
 
     let (|InterfaceType|_|) = function
-        | InterfaceType(t, g) -> Some(InterfaceType(t.Inheritor, g))
+        | InterfaceType(t, g) -> Some(InterfaceType(t, g))
         | _ -> None
 
     let (|Char|_|) = function
@@ -178,7 +178,7 @@ module internal Types =
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Explicit t) when not t.Inheritor.IsValueType -> true
+        | TypeVariable(Explicit t) when not t.IsValueType -> true
         | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
         | _ -> false
 
@@ -199,7 +199,7 @@ module internal Types =
             if t.IsGenericType
                 then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
-        | TypeVariable(Explicit t) -> t.Inheritor
+        | TypeVariable(Explicit t) -> t
         | TypeVariable(Implicit(_, _, t)) -> toDotNetType t
         | ArrayType(_, SymbolicDimension _) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
@@ -225,10 +225,10 @@ module internal Types =
 
 
     module internal Constructor =
-        let private StructType (t : Type) g = StructType (hierarchy t) g
-        let private ClassType (t : Type) g = ClassType (hierarchy t) g
-        let private InterfaceType (t : Type) g = InterfaceType (hierarchy t) g
-        let private Explicit (t : Type) = Explicit(hierarchy t)
+        let private StructType (t : Type) g = StructType t g
+        let private ClassType (t : Type) g = ClassType t g
+        let private InterfaceType (t : Type) g = InterfaceType t g
+        let private Explicit (t : Type) = Explicit t
 
         let getVariance (genericParameterAttributes : GenericParameterAttributes) =
             let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
@@ -293,9 +293,9 @@ module internal Types =
 
         let (|StructureType|_|) = function
             | termType.StructType(t, genArg) -> Some(StructureType(t, genArg))
-            | Numeric t -> Some(StructureType(hierarchy t, []))
-            | Bool -> Some(StructureType(hierarchy typedefof<bool>, []))
-            | TypeVariable(Explicit t) when t.Inheritor.IsValueType -> Some(StructureType(t, []))
+            | Numeric t -> Some(StructureType(t, []))
+            | Bool -> Some(StructureType(typedefof<bool>, []))
+            | TypeVariable(Explicit t) when t.IsValueType -> Some(StructureType(t, []))
             | _ -> None
 
         let (|ReferenceType|_|) = function
@@ -303,7 +303,7 @@ module internal Types =
             | termType.InterfaceType(t, genArg) -> Some(ReferenceType(t, genArg))
             | termType.ArrayType _ as arr ->
                 let t = toDotNetType arr
-                Some(ReferenceType(hierarchy t, []))
+                Some(ReferenceType(t, []))
             | _ -> None
 
         let (|ComplexType|_|) = function
@@ -329,7 +329,7 @@ module internal Types =
                 | ArrayType(elemType, dim) ->
                     let newElemType = getNewType elemType
                     ArrayType(newElemType, updateDimension dim)
-                | ConcreteType t as termType when t.Inheritor.IsSealed && not t.Inheritor.IsGenericParameter -> termType
+                | ConcreteType t as termType when t.IsSealed && not t.IsGenericParameter -> termType
                 | Pointer termType -> Pointer (create name source termType)
                 | termType -> create name source termType
             getNewType termType
