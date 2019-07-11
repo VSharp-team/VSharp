@@ -58,36 +58,41 @@ module internal Memory =
     let inline private foldHeapLocationsRec folder =
         Heap.foldFQL (fun acc subloc -> folder acc (getFQLOfKey subloc |> snd |> List.tryLast))
 
+    type private foldSubLocationAccWrapper<'acc, 'loc, 'pathSegment> =
+        { acc : 'acc; loc : 'loc; path : 'pathSegment list }
+
     let rec private foldSubLocations folder fillPath mergeAcc acc segment cell =
-        let foldHeap target acc = foldHeapLocationsRec (foldSubLocations folder fillPath mergeAcc) acc target
-        let pushSegment ((h, (l, path)) as acc) =
+        let foldHeap target acc =
+            foldHeapLocationsRec (foldSubLocations folder fillPath mergeAcc) acc target
+        let acc' = lazy (
             match segment with
             | Some segment ->
-                let segment = [fillPath segment]
-                (h, (l, List.append path segment))
-            | None -> acc
-        let changePath (_, (_, path)) = mapsnd (mapsnd (always path))
+                { acc with path = fillPath segment :: acc.path }
+            | None -> acc)
+        let changePath acc' = { acc' with path = acc.path } 
         let apply term =
             match term.term with
             | Struct(contents, _) ->
-                pushSegment acc |> foldHeap contents |> changePath acc
+                acc'.Force()
+             |> foldHeap contents
+             |> changePath
             | Array(_, _, lower, _, contents, lengths, _) ->
-                pushSegment acc
-                |> foldHeap lower
-                |> foldHeap lengths
-                |> foldHeap contents
-                |> changePath acc
+                acc'.Force()
+             |> foldHeap lower
+             |> foldHeap lengths
+             |> foldHeap contents
+             |> changePath
             | _ -> folder acc segment cell
-        commonGuardedErroredApply apply apply (cell.value) (fun l ->
-            let gs, vs = l |> List.unzip
-            let keyPath = vs |> List.head |> snd
-            mergeAcc gs (List.map fst vs), keyPath)
+        commonGuardedErroredApply apply apply (cell.value) (fun gvs ->
+            let gs, vs = List.unzip gvs
+            let acc' = List.head vs
+            { acc' with acc =  mergeAcc gs (List.map (fun acc -> acc.acc) vs) })
 
     let private foldHeapLocations folder fillKey fillPath mergeAcc acc heap = // TODO: get rid of typeOf
-        Heap.fold (fun acc loc cell -> fst <| foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc (acc, (fillKey loc, [])) None cell) acc heap
+        Heap.fold (fun acc loc cell -> (foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc ({ acc = acc; loc = fillKey loc; path = [] }) None cell).acc) acc heap
 
     let private foldStackLocations folder fillPath mergeAcc acc stack =
-        stackFold (fun acc loc cell -> fst <| foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc (acc, (loc, [])) None cell) acc stack
+        stackFold (fun acc loc cell -> (foldSubLocations (fun acc -> folder acc (typeOf cell.value)) fillPath mergeAcc ({ acc = acc; loc = loc; path = [] }) None cell).acc) acc stack
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
@@ -609,21 +614,23 @@ module internal Memory =
         | ArrayLowerBound addr -> ArrayLowerBound(fillHoles ctx source addr)
         | ArrayLength addr -> ArrayLength(fillHoles ctx source addr)
 
-    and private fillAndPushSegment ctx source path = function
-        | Some segment -> List.append path [fillHolesInPathSegment ctx source segment]
-        | None -> path
-    and private fillAndMutateStack (ctx : compositionContext) source (target : _, (addr, path) : stackKey * pathSegment list) _ segment cell =
-        let time = Timestamp.compose ctx.time cell.modified
-        let path' = fillAndPushSegment ctx source path segment
-        let v = fillHoles ctx source cell.value
-        mutateStack ctx.mtd target addr path' time v, (addr, path)
+    and private fillAndPushSegment ctx source path =
+        Option.map (fillHolesInPathSegment ctx source)
+     >> optCons path
+     >> List.rev
 
-    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (target : heap<'a, term, fql>, (addr, path) : 'a * pathSegment list) typ segment cell : heap<'a, term, fql> * ('a * pathSegment list) =
+    and private fillAndMutateStack (ctx : compositionContext) source (acc : foldSubLocationAccWrapper<_,stackKey,_>) _ segment cell =
         let time = Timestamp.compose ctx.time cell.modified
-        let path' = fillAndPushSegment ctx source path segment
+        let path' = fillAndPushSegment ctx source acc.path segment
+        let v = fillHoles ctx source cell.value
+        { acc with acc = mutateStack ctx.mtd acc.acc acc.loc path' time v }
+
+    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (acc : foldSubLocationAccWrapper<heap<'a,_,_>,'a,_>) typ segment cell =
+        let time = Timestamp.compose ctx.time cell.modified
+        let path' = fillAndPushSegment ctx source acc.path segment
         let v = fillHoles ctx source cell.value
         let typ = substituteTypeVariables ctx source typ |> specifyType
-        mutateHeap restricted ctx.mtd target addr typ path' time v, (addr, path)
+        { acc with acc = mutateHeap restricted ctx.mtd acc.acc acc.loc typ path' time v }
 
     and private composeDefinedHeaps writer fillKey fillPath readHeap restricted s h h' =
         foldHeapLocations (writer restricted s) fillKey fillPath (mergeDefinedHeaps false readHeap) h h'
