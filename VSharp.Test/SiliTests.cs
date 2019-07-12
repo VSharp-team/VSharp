@@ -243,14 +243,23 @@ namespace VSharp.Test
             _methodName = MethodInfoToString(methodInfo);
         }
 
+        private static int MethodHash(MethodInfo methodInfo)
+        {
+            return methodInfo
+                .GetParameters()
+                .Concat(new []{methodInfo.ReturnParameter})
+                .Select(p => p.ParameterType.ToString())
+                .Aggregate(0, (current, t) =>
+                    t.Aggregate(unchecked(current + t.Length), (h, c) => unchecked(h * 314159 + c)));
+        }
+
         private static string GetIdealValuePath(string currentFolder, MethodInfo methodInfo)
         {
             var typeName = methodInfo?.DeclaringType?.FullName?.Split('.');
             if (typeName == null)
                 return null;
             var os = Environment.OSVersion.Platform.ToString();
-            var hash = methodInfo.MetadataToken;
-            var methodName = $"{methodInfo.Name}.{os}.{hash}{IdealTestFileExtension}";
+            var methodName = $"{methodInfo.Name}.{os}.{MethodHash(methodInfo)}{IdealTestFileExtension}";
             var idealValuePath = Path.Combine(currentFolder, GoldsDirectoryName, Path.Combine(typeName), methodName);
             return idealValuePath;
         }
