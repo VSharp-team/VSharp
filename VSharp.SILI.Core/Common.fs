@@ -87,7 +87,6 @@ module internal Common =
         | termType.Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> makeFalse mtd
-        | Reference _, Reference _ -> makeTrue mtd
         | Pointer _, Pointer _ -> makeTrue mtd
         | Func _, Func _ -> makeTrue mtd
         | ArrayType _ , ArrayType(_, SymbolicDimension) -> makeTrue mtd

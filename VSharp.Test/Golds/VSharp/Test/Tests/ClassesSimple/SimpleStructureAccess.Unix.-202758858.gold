@@ -3,5 +3,5 @@ RESULT: newMyValue
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.ClassesSimple+MyStruct ==> VSharp.Test.Tests.ClassesSimple+MyStruct STRUCT []
 VSharp.Test.Tests.ClassesSimple ==> CLASS []
+VSharp.Test.Tests.ClassesSimple+MyStruct ==> VSharp.Test.Tests.ClassesSimple+MyStruct STRUCT []

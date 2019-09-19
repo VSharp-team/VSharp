@@ -203,7 +203,7 @@ namespace VSharp.Test.Tests
     public static class ClassesSimple
     {
         [TestSvm]
-        public static bool Test1(int n) // TODO: #FQLsNotEqual (MemoryCell : 10), because of "constructed instance" hack
+        public static bool Test1(int n) // TODO: keys of MemoryCell are equal, but FQLs are not (because of "constructed instance" hack)
         {
             ClassesSimpleA a = new ClassesSimpleA(n);
             a.IncN();
@@ -343,7 +343,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public void TestProperty1()
+        public void TestProperty1() // TODO: keys of MemoryCell are equal, but FQLs are not
         {
             var st = new ClassesSimplePropertyAccess();
             st.StructProperty.Set(42);

@@ -440,10 +440,10 @@ module internal Memory =
 
     and private compareStringKey mtd loc key = makeBool mtd (loc = key)
 
-    and private readTerm mtd (_ : bool) cell fql typ =
+    and private readTerm mtd (_ : bool) term fql typ =
         let path = snd fql |> List.last |> List.singleton
         let lazyInstor = genericLazyInstantiator mtd None fql typ
-        accessTerm true mtd None (makeTrue mtd) id [] (Some lazyInstor) fql path cell |> fst
+        accessTerm true mtd None (makeTrue mtd) id [] (Some lazyInstor) fql path term |> fst
 
     and private commonHierarchicalStackAccess read update metadata state location path =
         let firstLocation = TopLevelStack location, []
@@ -828,7 +828,7 @@ module internal Memory =
             if targetType = String then
                 let emptyStringRef, state = allocateString metadata state System.String.Empty
                 let mkStringField metadata name typ fql' =
-                    if name = "System.String.Empty" then emptyStringRef
+                    if name = "Empty" then emptyStringRef
                     else defaultValue metadata name typ fql'
                 mkStringField, state
             else defaultValue, state

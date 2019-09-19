@@ -6,28 +6,26 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> System.String CLASS [
-	| System.String.m_FirstChar ~> [|
-		0: '\000';
-		 ... 1 ... |]
-	| System.String.m_StringLength ~> 0]
+	| System::String::m_FirstChar ~> [| 0 ~> '\000' ... 1 ... |]
+	| System::String::m_StringLength ~> 0]
 ---------- s1 = ----------
 System.String ==> CLASS [
-	| System.String.Empty ~> UNION[
+	| Empty ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.String.Empty)]
-	| System.String.TrimBoth ~> UNION[
+	| TrimBoth ~> UNION[
 		| !hasKey#1 ~> 2
 		| hasKey#1 ~> System.String.TrimBoth]
-	| System.String.TrimHead ~> UNION[
+	| TrimHead ~> UNION[
 		| !hasKey#1 ~> 0
 		| hasKey#1 ~> System.String.TrimHead]
-	| System.String.TrimTail ~> UNION[
+	| TrimTail ~> UNION[
 		| !hasKey#1 ~> 1
 		| hasKey#1 ~> System.String.TrimTail]
-	| System.String.alignConst ~> UNION[
+	| alignConst ~> UNION[
 		| !hasKey#1 ~> 3
 		| hasKey#1 ~> System.String.alignConst]
-	| System.String.charPtrAlignConst ~> UNION[
+	| charPtrAlignConst ~> UNION[
 		| !hasKey#1 ~> 1
 		| hasKey#1 ~> System.String.charPtrAlignConst]]
 VSharp.Test.Tests.Strings ==> CLASS []

@@ -4,4 +4,4 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.Test.Tests.SimpleStruct ==> VSharp.Test.Tests.SimpleStruct STRUCT [
-	| VSharp.Test.Tests.SimpleStruct.X ~> x]
+	| X ~> x]

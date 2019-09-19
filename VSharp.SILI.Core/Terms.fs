@@ -61,10 +61,10 @@ type termNode =
             | _ -> Int32.MaxValue
         let arrayOfIndicesConcreteContentsToString contents =
             let separator = ", "
-            Heap.toString "%s%s" separator (always "") (always toString) (fst >> sortKeyFromTerm) contents
+            Heap.toString "%s%s" separator (always "") (always toString) sortKeyFromTerm contents
         let arrayOfIndicesSymbolicContentsToString contents =
             let separator = ", "
-            Heap.toString "%s: %s" separator toString (always toString) (fst >> sortKeyFromTerm) contents
+            Heap.toString "%s: %s" separator toString (always toString) sortKeyFromTerm contents
         let arrayOfIndicesToString = function
             | Array(d, _, _, [(_, instantiator)], contents, _) ->
                 let printed =
@@ -87,12 +87,12 @@ type termNode =
             | _ when priority < parentPriority -> sprintf "(%s)" str
             | _ -> str
 
-        let isCheckNeed curChecked parentChecked = if curChecked <> parentChecked then curChecked else parentChecked
-
-        let formatIfNotEmpty indent value =
+        let formatIfNotEmpty format value =
             match value with
             | _ when String.IsNullOrEmpty value -> value
-            | _ -> sprintf "\n%s%s" indent value
+            | _ -> format value
+
+        let formatWithIndent indent = sprintf "\n%s%s" indent
 
         let extendIndent = (+) "\t"
 
@@ -113,48 +113,50 @@ type termNode =
                     assert (List.length operands = 1)
                     let operand = List.head operands
                     let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority
-                    let printedOperand = toStr operation.priority (isCheckNeed isChecked parentChecked) indent operand.term
+                    let printedOperand = toStr operation.priority isChecked indent operand.term
                     sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
                 | Operator(operator, isChecked) ->
                     assert (List.length operands >= 2)
-                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority (isCheckNeed isChecked parentChecked) indent)
+                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority isChecked indent)
                     let sortedOperands = if Operations.isCommutative operator && not isChecked then List.sort printedOperands else printedOperands
                     sortedOperands
                         |> String.concat (Operations.operationToString operator)
                         |> checkExpression isChecked parentChecked operation.priority parentPriority
                 | Cast(_, dest, isChecked) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority (isCheckNeed isChecked parentChecked) indent (List.head operands).term) |>
+                    sprintf "(%O)%s" dest (toStr operation.priority isChecked indent (List.head operands).term) |>
                         checkExpression isChecked parentChecked operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
-                fieldsToString indent fields |> formatIfNotEmpty indent |> sprintf "%O STRUCT [%s]" t
+                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t
             | Class fields ->
-                fieldsToString indent fields |> formatIfNotEmpty indent |> sprintf "CLASS [%s]"
-            | Array(_, _, _, instantiators, contents, dimensions) ->
-                let tryGetConstant = function
+                fieldsToString indent fields |> sprintf "CLASS [%s]"
+            | Array(_, _, _, instantiators, contents, lengths) ->
+                let printInstor = function
                     | DefaultInstantiator t -> sprintf "default of %O" t
                     | LazyInstantiator t -> toString t
-                let guardedTerms = instantiators |> List.map (fun (l, r) -> l, tryGetConstant r)
-                let guardedToString (guard, str) =
+                let guardedToString (guard, instor) =
                     let guardString = toStringWithParentIndent indent guard
-                    sprintf "| %s ~> %s" guardString str
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                let printedOne =
+                    let instorString = printInstor instor
+                    sprintf "| %s ~> %s" guardString instorString
+                let printedInstors = instantiators |> List.map guardedToString |> Seq.sort |> join ("\n" + indent)
+                let simplifiedInstors =
                     match instantiators with
                     | [_, i] ->
                         match i with
                         | DefaultInstantiator _ -> ""
                         | LazyInstantiator t -> sprintf "%O: " t
-                    | _ -> sprintf "%s: " printed
-                sprintf "%s[|%s ... %s ... |]" printedOne (arrayContentsToString contents indent) (Heap.toString "%O%O" " x " (always "") (always toString) (fst >> toString) dimensions)
+                    | _ -> sprintf "%s: " printedInstors
+                let printedLengths = Heap.toString "%O%O" " x " (always "") (toStringWithParentIndent indent |> always) toString lengths
+                let printedContents = arrayContentsToString contents indent
+                sprintf "%s[|%s... %s ... |]" simplifiedInstors printedContents printedLengths
             | Union(guardedTerms) ->
                 let guardedToString (guard, term) =
                     let guardString = toStringWithParentIndent indent guard
                     let termString = toStringWithParentIndent indent term
                     sprintf "| %s ~> %s" guardString termString
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                sprintf "UNION[%s]" (formatIfNotEmpty indent printed)
+                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]"
             | Ref(topLevel, path) -> printRef topLevel path None
             | Ptr(topLevel, path, typ, shift) ->
                 let basePtr = printRef topLevel path (Some typ)
@@ -163,48 +165,53 @@ type termNode =
                 | None -> basePtr
             | _ -> __unreachable__()
 
-        and pathToString path =
-            path 
-            |> List.map (function
-                | BlockField(field, _) -> field
-                | ArrayIndex(idx, _) -> idx.term.IndicesToString() |> sprintf "[%s]"
-                | ArrayLowerBound idx -> sprintf "LowerBoundDimension_%O" idx
-                | ArrayLength idx -> sprintf "LengthDimension_%O" idx)
+        and fieldsToString indent fields =
+            let stringResult = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent |> always) toString fields
+            formatIfNotEmpty (formatWithIndent indent) stringResult
 
-        and fieldsToString indent fields = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent |> always) (fst >> toString) fields
-
-        and printRef topLevel path mbtyp =
-            let templateRef name contents =
-                match mbtyp with
-                | Some typ -> sprintf "(%sPtr %s as %O)" name contents typ
-                | None -> sprintf "(%sRef %s)" name contents
-            let printref name key path = templateRef name <| sprintf "(%O, %s)" key (pathToString path |> join ".")
+        and printRef topLevel path pointerType =
+            let fqlStr = List.map toString path |> cons (toString topLevel) |> join "."
+            let makeRef sort =
+                match pointerType with
+                | Some typ -> sprintf "(%sPtr %s as %O)" sort fqlStr typ
+                | None -> sprintf "(%sRef %s)" sort fqlStr
             match topLevel with
-            | NullAddress -> "null"
-            | TopLevelStack key -> printref "Stack" key path
-            | TopLevelStatics typ -> printref "Static" typ path
-            | TopLevelHeap(addr, _, _) ->
-                let addrStr =
-                    match addr.term with
-                    | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
-                    | t -> toString t
-                path |> pathToString |> cons addrStr |> join "." |> templateRef "Heap"
+            | NullAddress ->
+                assert(List.isEmpty path)
+                fqlStr
+            | TopLevelHeap _ -> makeRef "Heap"
+            | TopLevelStack _ -> makeRef "Stack"
+            | TopLevelStatics _ -> makeRef "Static"
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
         and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
 
-        and arrayContentsToString contents parentIndent =
-            let separator = ";\n" + parentIndent
-            let mapper = toStringWithParentIndent parentIndent
+        and isPrimitiveTerm term =
+            match term.term with
+            | Struct _
+            | Class _
+            | Array _
+            | Union _ -> false
+            | _ -> true
+
+        and arrayContentsToString contents indent =
+            let contentsIsLinear = Heap.forall (snd >> isPrimitiveTerm) contents
+            let separator = if contentsIsLinear then " " else "\n" + indent
+            let heapSeparator = ";" + separator
+            let mapper = toStringWithParentIndent indent
             let keyMapper key =
                 match key.term with
                 | Array _ -> key.term.IndicesToString()
-                | _ -> toStringWithParentIndent parentIndent key
-            let stringResult = Heap.toString "%s: %s" separator keyMapper (always mapper) (fun (k, v) -> sprintf "%s: %s" (keyMapper k) (mapper v)) contents
-            match stringResult with
-            | _ when String.IsNullOrEmpty stringResult -> stringResult
-            | _ -> "\n" + parentIndent + stringResult + separator
+                | _ -> toStringWithParentIndent indent key
+            let sortKeyFromIndex index = // TODO: change when index will be term list
+                let stringIndex = keyMapper index
+                let id = ref 0
+                let parseOne str = if Int32.TryParse(str, id) then !id else Int32.MaxValue
+                Array.foldBack (parseOne >> cons) (stringIndex.Split(',')) List.empty
+            let stringResult = Heap.toString "%s ~> %s" heapSeparator keyMapper (always mapper) sortKeyFromIndex contents
+            let format contents = sprintf "%s%s%s" separator contents separator
+            formatIfNotEmpty format stringResult
 
         toStr -1 false "\t" x
 
@@ -213,14 +220,26 @@ and topLevelAddress =
     | TopLevelStack of stackKey
     | TopLevelHeap of term * termType * termType // Address * Base type * Sight type
     | TopLevelStatics of termType
+    override x.ToString() =
+        match x with
+        | TopLevelStack(name, _) -> name
+        | TopLevelStatics typ -> toString typ
+        | TopLevelHeap(key, _, _) -> toString key
+        | NullAddress -> "null"
 
 and pathSegment =
     | BlockField of string * termType
     | ArrayIndex of term * termType
     | ArrayLowerBound of term
     | ArrayLength of term
+    override x.ToString() =
+        match x with
+        | BlockField(field, _) -> field
+        | ArrayIndex(idx, _) -> idx.term.IndicesToString() |> sprintf "[%s]"
+        | ArrayLowerBound idx
+        | ArrayLength idx -> toString idx
 
-and fql = topLevelAddress * pathSegment list
+and fql = topLevelAddress * pathSegment list // TODO: change fql and create ToString() for it
 
 and
     [<StructuralEquality;NoComparison>]

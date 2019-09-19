@@ -1,7 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.F(System.Int32)
 RESULT: UNION[
 	| !(x <= 10) ~> x
-	| x <= 10 ~> 1.VSharp.Test.Tests.Bag.X + μ[F]_1]
+	| x <= 10 ~> 1.VSharp::Test::Tests::Bag::X + μ[F]_1]
 HEAP:
 { heap = merge[
 	(!(x <= 10), <empty>),
@@ -10,23 +10,23 @@ HEAP:
 	(x <= 10, write({ heap = h0, statics = s1 } ⚪ recapp(F), s3))] } where
 ---------- h0 = ----------
 1 ==> VSharp.Test.Tests.Bag CLASS [
-	| VSharp.Test.Tests.Bag.X ~> UNION[
+	| VSharp::Test::Tests::Bag::X ~> UNION[
 		| !(x <= 10) ~> x
 		| x <= 10 ~> VSharp.Test.Tests.Container.X]]
 ---------- s1 = ----------
 System.Object ==> CLASS []
 VSharp.Test.Tests.Bag ==> CLASS []
 VSharp.Test.Tests.Container ==> CLASS [
-	| VSharp.Test.Tests.Container.X ~> UNION[
+	| X ~> UNION[
 		| !(x <= 10) ~> 1 + x
 		| x <= 10 ~> 1 + VSharp.Test.Tests.Container.X]]
 VSharp.Test.Tests.RecursiveAccess ==> CLASS []
 ---------- s2 = ----------
 VSharp.Test.Tests.Container ==> CLASS [
-	| VSharp.Test.Tests.Container.X ~> UNION[
+	| X ~> UNION[
 		| !(x <= 10) ~> x
 		| x <= 10 ~> VSharp.Test.Tests.Container.X]]
 VSharp.Test.Tests.RecursiveAccess ==> CLASS []
 ---------- s3 = ----------
 VSharp.Test.Tests.Container ==> CLASS [
-	| VSharp.Test.Tests.Container.X ~> μ[F]_1]
+	| X ~> μ[F]_1]

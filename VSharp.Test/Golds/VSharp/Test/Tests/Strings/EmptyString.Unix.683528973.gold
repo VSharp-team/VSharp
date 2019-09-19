@@ -6,25 +6,23 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> System.String CLASS [
-	| System.String.m_FirstChar ~> [|
-		0: '\000';
-		 ... 1 ... |]
-	| System.String.m_StringLength ~> 0]
+	| System::String::m_FirstChar ~> [| 0 ~> '\000' ... 1 ... |]
+	| System::String::m_StringLength ~> 0]
 ---------- s1 = ----------
 System.String ==> CLASS [
-	| System.String.Empty ~> UNION[
+	| Empty ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.String.Empty)]
-	| System.String.PROBABILISTICMAP_BLOCK_INDEX_MASK ~> UNION[
+	| PROBABILISTICMAP_BLOCK_INDEX_MASK ~> UNION[
 		| !hasKey#1 ~> 7
 		| hasKey#1 ~> System.String.PROBABILISTICMAP_BLOCK_INDEX_MASK]
-	| System.String.PROBABILISTICMAP_BLOCK_INDEX_SHIFT ~> UNION[
+	| PROBABILISTICMAP_BLOCK_INDEX_SHIFT ~> UNION[
 		| !hasKey#1 ~> 3
 		| hasKey#1 ~> System.String.PROBABILISTICMAP_BLOCK_INDEX_SHIFT]
-	| System.String.PROBABILISTICMAP_SIZE ~> UNION[
+	| PROBABILISTICMAP_SIZE ~> UNION[
 		| !hasKey#1 ~> 8
 		| hasKey#1 ~> System.String.PROBABILISTICMAP_SIZE]
-	| System.String.StackallocIntBufferSizeLimit ~> UNION[
+	| StackallocIntBufferSizeLimit ~> UNION[
 		| !hasKey#1 ~> 128
 		| hasKey#1 ~> System.String.StackallocIntBufferSizeLimit]]
 VSharp.Test.Tests.Strings ==> CLASS []

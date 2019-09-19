@@ -156,7 +156,10 @@ module internal DecompilerServices =
         JetBrains.Util.FileSystemPath.Parse(typ.Assembly.Location)
 
     let idOfMetadataField (field : IMetadataField) =
-        sprintf "%s.%s" field.DeclaringType.FullyQualifiedName field.Name
+        let getBlockName (field : IMetadataField) =
+            field.DeclaringType.FullyQualifiedName.Replace(".", "::").Replace("+", "::")
+        if field.IsStatic then field.Name
+        else sprintf "%s::%s" (getBlockName field) field.Name
 
     let private initializerOf (f : IDecompiledField) =
         let mf = f.MetadataField

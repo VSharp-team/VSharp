@@ -4,10 +4,10 @@ HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 System.IntPtr ==> System.IntPtr STRUCT [
-	| System.IntPtr.Zero ~> System.IntPtr STRUCT [
-		| System.IntPtr.m_value ~> UNION[
+	| Zero ~> System.IntPtr STRUCT [
+		| System::IntPtr::m_value ~> UNION[
 			| !hasKey#1 ~> null
-			| hasKey#1 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)]]]
+			| hasKey#1 ~> (HeapPtr System.IntPtr.Zero.System::IntPtr::m_value as System.Void)]]]
 System.Object ==> CLASS []
 System.ValueType ==> CLASS []
 VSharp.Test.Tests.Unsafe ==> CLASS []
