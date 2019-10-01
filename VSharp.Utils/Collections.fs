@@ -83,6 +83,10 @@ module public Map =
                 | None -> m)
             Map.empty map
 
+    let findOrDefaultWith k map defThunk =
+        let optionValue = Map.tryFind k map
+        Option.defaultWith defThunk optionValue
+
 module public Dict =
     let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
         if dict.ContainsKey(key) then dict.[key]
@@ -114,11 +118,11 @@ module public Stack =
 
     let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
-        | hd::tl -> hd
+        | hd::_ -> hd
 
     let pop = function
         | [] -> failwith "Attempt to pop an empty stack"
-        | hd::tl -> tl
+        | _::tl -> tl
 
     let push stack element = element::stack
 

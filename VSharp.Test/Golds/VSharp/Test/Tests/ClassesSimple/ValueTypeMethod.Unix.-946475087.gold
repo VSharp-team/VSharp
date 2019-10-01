@@ -6,11 +6,11 @@ RESULT: UNION[
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-System.Int32 ==> STRUCT System.Int32[
+System.Int32 ==> System.Int32 STRUCT [
 	| System.Int32.MaxValue ~> UNION[
 		| !hasKey#1 ~> 2147483647
 		| hasKey#1 ~> System.Int32.MaxValue]
 	| System.Int32.MinValue ~> UNION[
 		| !hasKey#1 ~> -2147483648
 		| hasKey#1 ~> System.Int32.MinValue]]
-VSharp.Test.Tests.ClassesSimple ==> STRUCT VSharp.Test.Tests.ClassesSimple[]
+VSharp.Test.Tests.ClassesSimple ==> CLASS []

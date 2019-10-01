@@ -97,6 +97,24 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
+        public class A {
+            public virtual int F() {
+                return 1;
+            }
+        }
+
+        public class B : A {
+            public override int F() {
+                return 2;
+            }
+        }
+
+        public class C : B {
+            public override int F() {
+                return 3;
+            }
+        }
+
         [TestSvm]
         public static int VirtualCall1(VirtualC a, int n)
         {
@@ -109,16 +127,16 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-//        public static int VirtualCall2(VirtualB a) //TODO: Ticket
-//        {
-//            if (a == null) return 0;
-//            if (a is VirtualE)
-//            {
-//                return ((VirtualE) a).F();
-//            }
-//
-//            return a.F();
-//        }
+        public static int VirtualCall2(VirtualB a) //TODO: Ticket
+        {
+            if (a == null) return 0;
+            if (a is VirtualE)
+            {
+                return ((VirtualE) a).F();
+            }
+
+            return a.F();
+        }
 
         [TestSvm]
         public static int VirtualCall3(VirtualG a, int n)
@@ -130,6 +148,11 @@ namespace VSharp.Test.Tests.Methods
             }
 
             return a.F();
+        }
+
+        [Ignore("Decompiler error")]
+        public static int VirtualCall4(A a) {
+            return ((B) a).F();
         }
     }
 }

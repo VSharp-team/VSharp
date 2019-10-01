@@ -1,7 +1,6 @@
 ﻿namespace VSharp.Core
 
 open VSharp
-open System.Collections.Generic
 
 module internal Arrays =
     [<StructuralEquality;NoComparison>]
@@ -10,55 +9,44 @@ module internal Arrays =
         interface INonComposableSymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    let private defaultArrayName = "<defaultArray>"
-
     let mkArrayIndex typ idx = ArrayIndex(idx, typ)
 
-    let makeArray mtd length contents instantiator elemTyp fql =
+    let makeArray mtd length contents instantiator fql =
         let zero = makeNumber mtd 0
-        let zeroKey = makePathIndexKey mtd ArrayLowerBound 0 fql
-        let lowerBound = Heap.add zeroKey { value = zero; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
-        let typ = ArrayType(elemTyp, Vector)
-        let lengths = Heap.add zeroKey { value = length; created = Timestamp.zero; modified = Timestamp.zero } Heap.empty
-        Array mtd (makeNumber mtd 1) length lowerBound instantiator contents lengths typ
+        let zeroKey = makePathIndexKey mtd ArrayLowerBound 0 fql Types.lengthType
+        let lowerBound = Heap.add zeroKey zero Heap.empty
+        let lengths = Heap.add zeroKey length Heap.empty
+        Array mtd (makeNumber mtd 1) length lowerBound instantiator contents lengths
 
     let makeLinearConcreteArray mtd keyMaker valMaker length elemTyp fql =
-        let pathKeyMaker i = makePathKey fql (mkArrayIndex elemTyp) <| keyMaker mtd i
+        let pathKeyMaker i = makePathKey fql (mkArrayIndex elemTyp) (keyMaker mtd i) elemTyp
         let contents =
             valMaker
             |> Seq.init length
-            |> Seq.foldi (fun h i v -> Heap.add (pathKeyMaker i) { value = v; created = Timestamp.zero; modified = Timestamp.zero } h) Heap.empty
+            |> Seq.foldi (fun h i v -> Heap.add (pathKeyMaker i) v h) Heap.empty
         let length = makeNumber mtd length
-        let constant = Constant mtd defaultArrayName (DefaultArray()) <| ArrayType(elemTyp, Vector)
-        let instantiator = [makeTrue mtd, DefaultInstantiator(constant, elemTyp)]
-        makeArray mtd length contents instantiator elemTyp fql
+        let instantiator = [makeTrue mtd, DefaultInstantiator elemTyp]
+        makeArray mtd length contents instantiator fql
 
     let makeIndexArray mtd maker length =
         makeLinearConcreteArray mtd makeIndex maker length Types.indexType None
 
-    let makeLinearSymbolicArray mtd length symbolicValue elemType =
-        let instantiator = [Terms.True, LazyInstantiator (symbolicValue, elemType)]
-        makeArray mtd length Heap.empty instantiator elemType
-
-    let makeSymbolicIndexArray mtd length symbolicValue =
-        makeLinearSymbolicArray mtd length symbolicValue Types.indexType
+    let private getTypeOfArrayInstor = function
+        | DefaultInstantiator typ
+        | LazyInstantiator typ -> typ
 
     let simplifyArraysEquality mtd x y indecesEq eq =
-        let createCell v = {value = v; created = Timestamp.zero; modified = Timestamp.zero}
         let simplifyHeapPointwiseEquality h1 h2 eq =
             let unifier acc =
-                let resolve v1 v2 = acc &&& eq mtd v1.value v2.value
-                Merging.keysResolver2 false (createCell x) (createCell y) (State.readTerm mtd) getFQLOfKey resolve
+                let resolve v1 v2 = acc &&& eq mtd v1 v2
+                Merging.keysResolver2 false x y (State.readTerm mtd) getFQLOfKey resolve
             // TODO: make comparison finish when acc is false
             Heap.unify2 (makeTrue mtd) h1 h2 unifier
         let simplifyGInstantiatorEquality gInstor1 gInstor2 =
             let instorEq mtd x y =
-                match x, y with
-                | DefaultInstantiator(_, typ1), DefaultInstantiator(_, typ2) -> makeBool (typ1 = typ2) mtd
-                | LazyInstantiator(term1, typ1), LazyInstantiator(term2, typ2)
-                | DefaultInstantiator(term1, typ1), LazyInstantiator(term2, typ2)
-                | LazyInstantiator(term1, typ1), DefaultInstantiator(term2, typ2) ->
-                    if typ1 = typ2 then eq mtd term1 term2 else False
+                let typ1 = getTypeOfArrayInstor x
+                let typ2 = getTypeOfArrayInstor y
+                makeBool mtd (typ1 = typ2)
             List.fold (fun acc (g1, instor1) ->
                 simplifyOr mtd acc (List.fold (fun acc (g2, instor2) ->
                     simplifyAnd mtd g1 g2 (fun guardsEq ->
@@ -67,7 +55,7 @@ module internal Arrays =
                 (makeFalse mtd)
                 gInstor1
         match x.term, y.term with
-        | Array(dim1, len1, lb1, instor1, content1, l1, _), Array(dim2, len2, lb2, instor2, content2, l2, _) ->
+        | Array(dim1, len1, lb1, instor1, content1, l1), Array(dim2, len2, lb2, instor2, content2, l2) ->
             Propositional.lazyConjunction mtd <|
                 seq[
                     fun() -> Arithmetics.simplifyEqual mtd dim1 dim2 id;
@@ -85,9 +73,9 @@ module internal Arrays =
             (fun mtd x y -> Arithmetics.simplifyEqual mtd x y id)
 
     let equalsArrayIndices mtd addr1 addr2 =
-        match typeOf addr1, typeOf addr2 with
-        | Numeric _, Numeric _ -> fastNumericCompare mtd addr1 addr2
-        | ArrayType _, ArrayType _ -> equalsIndicesArrays mtd addr1 addr2
+        match addr1.term, addr2.term with
+        | _ when isNumeric addr1 && isNumeric addr2 -> fastNumericCompare mtd addr1 addr2
+        | Array _, Array _ -> equalsIndicesArrays mtd addr1 addr2
         | _ -> __notImplemented__()
 
     let equals mtd addr1 addr2 =
@@ -96,15 +84,15 @@ module internal Arrays =
             (fun mtd x y -> Arithmetics.simplifyEqual mtd x y id)
 
     let zeroLowerBounds metadata dimension fql =
-        let bound = { value = Concrete metadata 0 Types.lengthType; created = Timestamp.zero; modified = Timestamp.zero }
-        Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makePathIndexKey metadata ArrayLowerBound i fql))
+        let bound = Concrete metadata 0 Types.lengthType
+        Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makePathIndexKey metadata ArrayLowerBound i fql Types.lengthType))
 
     let length = Merging.guardedErroredApply (function
-        | {term = Array(_, l, _, _, _, _, _)} -> l
+        | {term = Array(_, l, _, _, _, _)} -> l
         | t -> internalfailf "extracting length of non-array object %O" t)
 
     let rank = Merging.guardedErroredApply (function
-        | {term = Array(d, _, _, _, _, _, _)} -> d
+        | {term = Array(d, _, _, _, _, _)} -> d
         | t -> internalfailf "extracting rank of non-array object %O" t)
 
     let rec private guardsProduct mtd = function
@@ -118,25 +106,18 @@ module internal Arrays =
             FSharpx.Collections.List.lift2 (fun (g1, v1) (g2, v2) -> (g1 &&& g2, v1::v2)) current rest
 
     let rec makeDefault mtd lengthList typ fql =
-        let elemTyp =
-            match typ with
-            | ArrayType(e, _) -> e
-            | _ -> internalfail "unexpected type of array!"
+        let elemTyp = Types.elementType typ
         let unguardedLengths = guardsProduct mtd lengthList
         let makeArray (lengthList : term list) =
             let dim = List.length lengthList
             let lowerBounds = zeroLowerBounds mtd dim fql
             let length = List.reduce (mul mtd) lengthList
-            let constant = Constant mtd defaultArrayName (DefaultArray()) typ
-            let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty lengthList
-            Array mtd (makeNumber mtd dim) length lowerBounds [Terms.True, DefaultInstantiator(constant, elemTyp)] Heap.empty lengths typ
+            let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql Types.lengthType) l h) Heap.empty lengthList
+            Array mtd (makeNumber mtd dim) length lowerBounds [Terms.True, DefaultInstantiator elemTyp] Heap.empty lengths
         unguardedLengths |> List.map (fun (g, ls) -> (g, makeArray ls)) |> Merging.merge
 
-    let rec fromInitializer mtd time rank typ initializer fql =
-        let elemTyp =
-            match typ with
-            | ArrayType(e, _) -> e
-            | _ -> internalfail "unexpected type of array!"
+    let rec fromInitializer mtd rank typ initializer fql =
+        let elemTyp = Types.elementType typ
         let rec flatten depth term =
             match term.term with
             | Concrete(:? (term list) as terms, _) ->
@@ -147,34 +128,33 @@ module internal Arrays =
                 | d::_ ->
                     List.concat children, (List.length children)::d
                 | [] -> [], List.init depth (always 0)
-            | _ -> [{ value = term; created = time; modified = time }], []
+            | _ -> [term], []
         let linearContent, dimensions = flatten rank initializer
         let len = List.length linearContent
         assert(len = List.reduce (*) dimensions)
         let intToTerm i = Concrete mtd i Types.lengthType
         let dimensionList = dimensions |> List.map intToTerm
         let length = makeNumber mtd len
-        let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql) { value = l; created = Timestamp.zero; modified = Timestamp.zero} h) Heap.empty dimensionList
+        let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql Types.lengthType) l h) Heap.empty dimensionList
         let mkIndex = makeIndex mtd
         let indices =
             List.foldBack (fun i s ->
                 let indicesInDim = Seq.init i mkIndex
                 Seq.collect (fun x -> Seq.map (cons x) s) indicesInDim
                 ) dimensions (Seq.init 1 (always List.empty))
-            |> Seq.map (fun index -> makePathKey fql (mkArrayIndex elemTyp) <| makeIndexArray mtd (fun i -> index.[i]) index.Length)
+            |> Seq.map (fun index -> makePathKey fql (mkArrayIndex elemTyp) (makeIndexArray mtd (fun i -> index.[i]) index.Length) elemTyp)
         let contents = Seq.zip indices linearContent |> Heap.ofSeq
-        let constant = Constant mtd defaultArrayName (DefaultArray()) typ
-        Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator(constant, elemTyp)] contents lengths typ
+        Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator elemTyp] contents lengths
 
     let (|VectorT|_|) = term >> function
-        | Array(ConcreteT(one, _), length, lower, instor, contents, _, ArrayType (elemTyp, Vector))
-            when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents, elemTyp))
+        | Array(ConcreteT(one, _), length, lower, instor, contents, _)
+            when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents))
         | _ -> None
 
     let (|Index|_|) = function
         // TODO: add check that keys are not Arrays if need
-        | VectorT(ConcreteT(length, _), [_, DefaultInstantiator _], contents, elemTyp)
-            when length :?> int = 1 && elemTyp = Types.indexType -> Some(contents.[makeIndex Metadata.empty 0].value)
+        | VectorT(ConcreteT(length, _), [_, DefaultInstantiator elemType], contents)
+            when length :?> int = 1 && elemType = Types.indexType -> Some(contents.[makeIndex Metadata.empty 0])
         | _ -> None
 
     type LengthExtractor() =

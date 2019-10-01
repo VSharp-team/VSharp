@@ -3,4 +3,4 @@ RESULT: -b + a + -c == 0
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Logics ==> STRUCT VSharp.Test.Tests.Logics[]
+VSharp.Test.Tests.Logics ==> CLASS []

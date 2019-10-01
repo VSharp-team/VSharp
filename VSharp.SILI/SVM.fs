@@ -52,6 +52,9 @@ module public SVM =
     let public ConfigureSolver (solver : ISolver) =
         Core.API.ConfigureSolver solver
 
+    let public ConfigureSimplifier (simplifier : IPropositionalSimplifier) =
+        Core.API.ConfigureSimplifier simplifier
+
     let public Run (assembly : Assembly) (ignoreList : List<_>) =
         let ignoreList = List.ofSeq ignoreList
         let dictionary = new Dictionary<MethodInfo, functionSummary>()

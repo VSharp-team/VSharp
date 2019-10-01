@@ -1,0 +1,6 @@
+METHOD: V VSharp.Test.Tests.Generic.GenericClass`2[R,V].RetV(V)
+RESULT: v
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Generic.GenericClass`2[R,V] ==> CLASS []

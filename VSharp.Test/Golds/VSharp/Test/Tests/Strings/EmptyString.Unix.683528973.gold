@@ -5,13 +5,13 @@ RESULT: UNION[
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.String[
+1 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: '\000';
 		 ... 1 ... |]
 	| System.String.m_StringLength ~> 0]
 ---------- s1 = ----------
-System.String ==> STRUCT System.String[
+System.String ==> CLASS [
 	| System.String.Empty ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.String.Empty)]
@@ -27,4 +27,4 @@ System.String ==> STRUCT System.String[
 	| System.String.StackallocIntBufferSizeLimit ~> UNION[
 		| !hasKey#1 ~> 128
 		| hasKey#1 ~> System.String.StackallocIntBufferSizeLimit]]
-VSharp.Test.Tests.Strings ==> STRUCT VSharp.Test.Tests.Strings[]
+VSharp.Test.Tests.Strings ==> CLASS []

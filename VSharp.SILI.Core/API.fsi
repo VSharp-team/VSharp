@@ -8,6 +8,7 @@ module API =
 
     val Configure : IActivator -> IInterpreter -> unit
     val ConfigureSolver : ISolver -> unit
+    val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
@@ -37,7 +38,8 @@ module API =
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
-        val Struct : heap<string, term, fql> -> termType -> term
+        val Struct : string heap -> termType -> term
+        val Class : string heap -> term
         val Union : (term * term) list -> term
 
         val True : term
@@ -49,13 +51,14 @@ module API =
         val MakeLambda : 'a symbolicLambda -> termType -> term
 
         val TypeOf : term -> termType
+        val BaseTypeOfRef : term -> termType
+        val SightTypeOfRef : term -> termType
         val (|Lambda|_|) : termNode -> 'a symbolicLambda option
         val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * 'a generalizedHeap option * bool) option
         val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
 
-        val PersistentLocalAndConstraintTypes : (state -> term -> termType -> termType * termType * termType)
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
     module RuntimeExceptions =
@@ -76,16 +79,19 @@ module API =
         val IsInteger : termType -> bool
         val IsReal : termType -> bool
         val IsNativeInt : System.Type -> bool
+        val IsValueType : termType -> term
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
-        val IsSubtype : termType -> termType -> term
-        val CanCast : state -> termType -> term -> term * state
+        val TypeIsType : termType -> termType -> term
+        val TypeIsRef : termType -> term -> term
+        val RefIsRef : term -> term -> term
+        val CanCast : state -> termType -> term -> term
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
         val CastConcrete : 'a -> System.Type -> term
-        val CastReferenceToPointer : state -> term -> (term * state -> 'a) -> 'a
+        val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]
     module public ControlFlowConstructors =
@@ -144,11 +150,11 @@ module API =
         val DereferenceLocalVariable : state -> stackKey -> term * state
         val Mutate : state -> term -> term -> term * state
 
-        val AllocateOnStack : state -> stackKey -> term -> state
-        val AllocateInHeap : state -> term -> term * state
+        val AllocateOnStack : state -> stackKey -> termType -> term -> state
+        val AllocateInHeap : state -> termType -> term -> term * state
         val AllocateDefaultStatic : state -> termType -> state
-        val MakeDefaultStruct : termType -> fql -> term
-        val AllocateDefaultStruct : state -> termType -> term * state
+        val MakeDefaultBlock : termType -> fql -> term
+        val AllocateDefaultBlock : state -> termType -> term * state
         val AllocateDefaultArray : state -> term list -> termType -> term * state
         val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state
         val AllocateString : string -> state -> term * state

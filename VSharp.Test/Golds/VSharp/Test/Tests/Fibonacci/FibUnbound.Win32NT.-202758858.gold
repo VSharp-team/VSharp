@@ -10,10 +10,10 @@ HEAP:
 	(-1 + n < 2 | n < 2, s1),
 	(!(-1 + n < 2) & !(n < 2), write({ heap = <empty>, statics = s0 } ⚪ recapp(MutatingFib), s2))] } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Fibonacci ==> STRUCT VSharp.Test.Tests.Fibonacci[
+VSharp.Test.Tests.Fibonacci ==> CLASS [
 	| VSharp.Test.Tests.Fibonacci._c ~> 42]
 ---------- s1 = ----------
-VSharp.Test.Tests.Fibonacci ==> STRUCT VSharp.Test.Tests.Fibonacci[
+VSharp.Test.Tests.Fibonacci ==> CLASS [
 	| VSharp.Test.Tests.Fibonacci._a ~> UNION[
 		| -1 + n < 2 | n < 2 ~> 1]
 	| VSharp.Test.Tests.Fibonacci._b ~> UNION[
@@ -22,7 +22,7 @@ VSharp.Test.Tests.Fibonacci ==> STRUCT VSharp.Test.Tests.Fibonacci[
 	| VSharp.Test.Tests.Fibonacci._c ~> UNION[
 		| -1 + n < 2 | n < 2 ~> 42]]
 ---------- s2 = ----------
-VSharp.Test.Tests.Fibonacci ==> STRUCT VSharp.Test.Tests.Fibonacci[
+VSharp.Test.Tests.Fibonacci ==> CLASS [
 	| VSharp.Test.Tests.Fibonacci._a ~> UNION[
 		| !(-1 + n < 2) ~> VSharp.Test.Tests.Fibonacci._a + VSharp.Test.Tests.Fibonacci._b
 		| -1 + n < 2 ~> 1]

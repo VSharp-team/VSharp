@@ -9,4 +9,4 @@ HEAP:
 	(0 == p, s0),
 	(!(0 == p), app((HeapRef λ[MakeMove]_1)))] } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> STRUCT VSharp.Test.Tests.Methods.VirtualMethod[]
+VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []

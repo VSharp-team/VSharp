@@ -3,4 +3,4 @@ RESULT: a / 512 >> 12
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]
+VSharp.Test.Tests.Arithmetics ==> CLASS []

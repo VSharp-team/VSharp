@@ -26,7 +26,7 @@ module internal SystemArray =
         let array, state = Memory.Dereference state this
         GuardedStatedApplyStatementK state array (fun state term k ->
             match term.term with
-            | Array(d, _, _, _, _, _, _) ->
+            | Array(d, _, _, _, _, _) ->
                 let lowerBound = Concrete 0 Types.TLength
                 checkBounds state lowerBound d dimension
                     (fun state k ->
@@ -43,7 +43,7 @@ module internal SystemArray =
         let array, state = Memory.Dereference state (List.head args)
         let result = GuardedStatelessApplyStatement array (fun term ->
             match term.term with
-            | Array(d, _, _, _, _, _, _) -> Return d
+            | Array(d, _, _, _, _, _) -> Return d
             | term -> internalfailf "expected array, but %O got!" term)
         result, state
 

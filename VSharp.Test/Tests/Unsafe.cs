@@ -55,7 +55,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static void* CompilerHackLikePtrReturn(void* ptr)
+        public static void* CompilerHackLikePtrReturn(void* ptr) // TODO: #FQLsNotEqual equality of concrete "this" and "constructed instance"
         {
             var x = (IntPtr) ptr;
             return x.ToPointer();

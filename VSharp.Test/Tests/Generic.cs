@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using NUnit.Framework;
 using VSharp.Test.Tests.Typecast;
 
 namespace VSharp.Test.Tests.Generic
@@ -99,6 +100,46 @@ namespace VSharp.Test.Tests.Generic
     }
 
     [TestSvmFixture]
+    public static class GenericClass<R, V>
+        where R : class
+        where V : struct
+    {
+        [TestSvm]
+        public static R RetR(R r)
+        {
+            return r;
+        }
+
+        [TestSvm]
+        public static V RetV(V v)
+        {
+            return v;
+        }
+    }
+
+    [TestSvmFixture]
+    public static class SpecializeGenerics
+    {
+        [Ignore("Box is not implemented")]
+        public static object RetConstructedRWithInt()
+        {
+            return GenericClass<object, int>.RetR(0);
+        }
+
+        [TestSvm]
+        public static object RetConstructedRWithObject()
+        {
+            return GenericClass<object, int>.RetR(new object());
+        }
+
+        [TestSvm]
+        public static int RetConstructedVWithInt()
+        {
+            return GenericClass<object, int>.RetV(0);
+        }
+    }
+
+    [TestSvmFixture]
     public class Foo<T, U>
     {
         private T _filed;
@@ -110,7 +151,7 @@ namespace VSharp.Test.Tests.Generic
         [TestSvm]
         public T GetFields()
         {
-            return  _filed;
+            return _filed;
         }
 
         [TestSvm]

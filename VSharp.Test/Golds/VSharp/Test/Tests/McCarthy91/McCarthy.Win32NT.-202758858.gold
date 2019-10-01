@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.McCarthy91.McCarthy(System.Int32)
+RESULT: UNION[
+	| !(n <= 100) ~> -10 + n
+	| n <= 100 ~> μ[McCarthy]_2]
+HEAP:
+{ heap = merge[
+	(!(n <= 100), <empty>),
+	(n <= 100, { heap = { heap = <empty>, statics = s0 } ⚪ recapp(McCarthy), statics = { heap = <empty>, statics = s0 } ⚪ recapp(McCarthy) } ⚪ recapp(McCarthy))], statics = merge[
+	(!(n <= 100), s0),
+	(n <= 100, { heap = { heap = <empty>, statics = s0 } ⚪ recapp(McCarthy), statics = { heap = <empty>, statics = s0 } ⚪ recapp(McCarthy) } ⚪ recapp(McCarthy))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.McCarthy91 ==> CLASS []

@@ -35,10 +35,6 @@ module internal MetadataTypes =
             else originType.MakeGenericType(c.Arguments |> Array.map metadataToDotNetType)
         | _ -> Type.GetType(arg.AssemblyQualifiedName, true)
 
-    let isReferenceType (t : IMetadataType) =
-        let dnt = metadataToDotNetType t
-        not dnt.IsValueType
-
     let rec fromMetadataType state (t : IMetadataType) =
         match t with
         | null -> ClassType(typedefof<obj>, [])

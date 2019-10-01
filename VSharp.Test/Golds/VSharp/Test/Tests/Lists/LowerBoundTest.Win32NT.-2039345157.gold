@@ -14,11 +14,11 @@ HEAP:
 	3, 1: 4;
 	 ... 4 x 2 ... |]
 ---------- s1 = ----------
-System.Array ==> STRUCT System.Array[
+System.Array ==> CLASS [
 	| System.Array.MaxArrayLength ~> UNION[
 		| !hasKey#1 ~> 2146435071
 		| hasKey#1 ~> System.Array.MaxArrayLength]
 	| System.Array.MaxByteArrayLength ~> UNION[
 		| !hasKey#1 ~> 2147483591
 		| hasKey#1 ~> System.Array.MaxByteArrayLength]]
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+VSharp.Test.Tests.Lists ==> CLASS []

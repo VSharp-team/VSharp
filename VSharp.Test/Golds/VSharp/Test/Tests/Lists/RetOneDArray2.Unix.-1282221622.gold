@@ -16,4 +16,4 @@ HEAP:
 		| 8 == n ~> 66];
 	 ... n ... |]
 ---------- s1 = ----------
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+VSharp.Test.Tests.Lists ==> CLASS []

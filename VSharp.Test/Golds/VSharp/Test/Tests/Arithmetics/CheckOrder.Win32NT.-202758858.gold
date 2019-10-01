@@ -3,4 +3,4 @@ RESULT: checked(2000000000 + x1 + 2000000000)
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]
+VSharp.Test.Tests.Arithmetics ==> CLASS []

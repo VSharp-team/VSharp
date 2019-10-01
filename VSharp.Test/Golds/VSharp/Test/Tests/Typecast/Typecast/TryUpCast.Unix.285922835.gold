@@ -5,4 +5,4 @@ RESULT: UNION[
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]
+VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

@@ -1,15 +1,15 @@
 METHOD: System.Array VSharp.Test.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> <ERROR: UNION[
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 6)
-		| !(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable{arr} <: System.Int32[]) & (ArrayTypeVariable{arr} <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable{arr} <: System.Int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable{arr} <: System.Int32[,]) & (ArrayTypeVariable{arr} <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
-	| !(1 < arr.0_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
+	| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !(1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[]) | ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.0_Length) & ((HeapRef arr) <: System.Int32[,]) ~> <ERROR: UNION[
+		| !((HeapRef arr) <: System.Int32[]) | 0 == arr ~> (HeapRef 1)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 6)]>
+	| !(0 == arr) & !(1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[,]) & ((HeapRef arr) <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 6)>
+	| !(1 < arr.0_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.IndexOutOfRangeException[
+1 ==> System.IndexOutOfRangeException CLASS [
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -24,8 +24,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-10 ==> STRUCT System.String[
+10 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -67,7 +68,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'I';
 		10: 'o';
@@ -114,13 +115,13 @@ HEAP:
 		9: ' ';
 		 ... 43 ... |]
 	| System.String.m_StringLength ~> 42]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> System.Object CLASS []
+4 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+5 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -162,7 +163,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.IndexOutOfRangeException[
+6 ==> System.IndexOutOfRangeException CLASS [
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -177,8 +178,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT System.String[
+7 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'I';
 		10: 'o';
@@ -225,35 +227,35 @@ HEAP:
 		9: ' ';
 		 ... 43 ... |]
 	| System.String.m_StringLength ~> 42]
-8 ==> STRUCT System.Object[]
-9 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+8 ==> System.Object CLASS []
+9 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-arr ==> TypeVariable{arr}{<Reference to System.Object>}: [|
+arr ==> <Reference to System.Object>: [|
 	1, 1: UNION[
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & (ArrayTypeVariable{arr} <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef arr.[1, 1])];
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & ((HeapRef arr) <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) | (!((HeapRef arr) <: System.Int32[,]) | !(1 < arr.0_Length) | !(1 < arr.1_Length) | 0 == arr) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef arr.[1, 1])];
 	1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) & 1 < arr.0_Length ~> 5
-		| !(1 < arr.0_Length) | !(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr ~> (HeapRef arr.[1])];
+		| !((HeapRef arr) <: System.Int32[]) | !(1 < arr.0_Length) | 0 == arr ~> (HeapRef arr.[1])
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & 1 < arr.0_Length ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
-System.Exception ==> STRUCT System.Exception[
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#3 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#8 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> -532462766
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#3) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#8 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Exception._COMPlusExceptionCode]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#8 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#3 & ((HeapRef arr) <: System.Int32[]) ~> -532462766
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#3) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#8 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#3 & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 3)
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#8 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> (HeapRef 8)
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#3) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#8 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Exception.s_EDILock)]]
-System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#8 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) ~> (HeapRef 8)
+		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#3 & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 3)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#3) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#8 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Exception.s_EDILock)]]
+System.IndexOutOfRangeException ==> CLASS []
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#5 & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 5)
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#10 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> (HeapRef 10)
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#5) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#10 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#10 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) ~> (HeapRef 10)
+		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#5 & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 5)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#5) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#10 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.Lists ==> CLASS []

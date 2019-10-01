@@ -57,50 +57,81 @@ module internal Common =
 
 // ------------------------------- Type casting -------------------------------
 
-    // TODO: support composition for this constant source
+    type subtypeElement =
+        | Term of term
+        | Type of termType
+        override x.ToString() =
+            match x with
+            | Term term ->
+                assert(isRef term)
+                toString term
+            | Type typ -> toString typ
+
     [<StructuralEquality;NoComparison>]
     type private symbolicSubtypeSource =
-        {left : termType; right : termType}
+        {left : subtypeElement; right : subtypeElement}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    let rec is metadata leftType rightType =
-        let makeSubtypeBoolConst leftTermType rightTermType =
-            let subtypeName = sprintf "(%O <: %O)" leftTermType rightTermType
-            let source = {left = leftTermType; right = rightTermType}
-            Constant metadata subtypeName source Bool
+    let private makeSubtypeBoolConst mtd left right =
+        let subtypeName = sprintf "(%O <: %O)" left right
+        let source = {left = left; right = right}
+        Constant mtd subtypeName source Bool
 
+    let rec typeIsType mtd leftType rightType = // left is subtype of right
         let isGround t = TypeUtils.isGround(Types.toDotNetType t)
+        let boolConst left right = makeSubtypeBoolConst mtd (Type left) (Type right)
 
         match leftType, rightType with
-        | _ when leftType = rightType -> makeTrue metadata
+        | _ when leftType = rightType -> makeTrue mtd
         | termType.Null, _
         | Void, _   | _, Void
-        | Bottom, _ | _, Bottom -> makeFalse metadata
-        | Reference _, Reference _ -> makeTrue metadata
-        | Pointer _, Pointer _ -> makeTrue metadata
-        | Func _, Func _ -> makeTrue metadata
-        | ArrayType _ as t1, (ArrayType(_, SymbolicDimension name) as t2) ->
-            if name.v = "System.Array" then makeTrue metadata else makeSubtypeBoolConst t1 t2
-        | ArrayType(_, SymbolicDimension _) as t1, (ArrayType _ as t2)  when t1 <> t2 ->
-            makeSubtypeBoolConst t1 t2
+        | Bottom, _ | _, Bottom -> makeFalse mtd
+        | Reference _, Reference _ -> makeTrue mtd
+        | Pointer _, Pointer _ -> makeTrue mtd
+        | Func _, Func _ -> makeTrue mtd
+        | ArrayType _ , ArrayType(_, SymbolicDimension) -> makeTrue mtd
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
-            if d1 = d2 then is metadata t1 t2 else makeFalse metadata
-        | TypeVariable(Implicit (_, _, t)) as t1, t2 ->
-            is metadata t t2 ||| makeSubtypeBoolConst t1 t2
-        | termType.InterfaceType(_, _), TypeVariable(Implicit (_, _, t)) when (not <| Types.isObject t) ->
-            makeFalse metadata
-        | t1, (TypeVariable(Implicit (_, _, t)) as t2) ->
-            is metadata t1 t &&& makeSubtypeBoolConst t1 t2
-        | ConcreteType lt as t1, (ConcreteType rt as t2) ->
-            if rt.IsAssignableFrom lt then makeTrue metadata
-            elif isGround t1 && isGround t2 then makeFalse metadata
-            else makeSubtypeBoolConst t1 t2
-        | _ -> makeFalse metadata
+            if d1 = d2 then typeIsType mtd t1 t2 else makeFalse mtd
+        | ComplexType _, ComplexType _ ->
+            let lt = Types.toDotNetType leftType
+            let rt = Types.toDotNetType rightType
+            if rt.IsAssignableFrom lt then makeTrue mtd
+            elif isGround leftType && isGround rightType then makeFalse mtd
+            else boolConst leftType rightType
+        | _ -> makeFalse mtd
 
-    let typesEqual mtd x y = is mtd x y &&& is mtd y x
+    let refIsType mtd ref typ =
+        let typeCheck ref =
+            let boolConst ref = if isSymbolicRef ref then makeSubtypeBoolConst mtd (Term ref) (Type typ) else False
+            let refType = baseTypeOfRef ref
+            typeIsType mtd refType typ ||| boolConst ref
+        Merging.guardedErroredApply typeCheck ref
 
-    // TODO: support composition for this constant source
+    let typeIsRef mtd typ ref =
+        let typeCheck ref =
+            let boolConst ref = if isSymbolicRef ref then makeSubtypeBoolConst mtd (Type typ) (Term ref) else True
+            let refType = baseTypeOfRef ref
+            match typ with
+            | InterfaceType _ -> makeFalse mtd
+            | _ -> typeIsType mtd typ refType &&& boolConst ref
+        Merging.guardedErroredApply typeCheck ref
+
+    let refIsRef mtd leftRef rightRef =
+        let typeCheck left right =
+            let leftType = baseTypeOfRef left
+            let rightType = baseTypeOfRef right
+            match left, right with
+            | SymbolicRef, SymbolicRef -> makeSubtypeBoolConst mtd (Term left) (Term right)
+            | SymbolicRef, ConcreteRef -> refIsType mtd left rightType
+            | ConcreteRef, SymbolicRef -> typeIsRef mtd leftType right
+            | ConcreteRef, ConcreteRef -> typeIsType mtd leftType rightType
+            | _ -> __unreachable__()
+        let guardedApplyToRightRef left = Merging.guardedErroredApply (typeCheck left) rightRef
+        Merging.guardedErroredApply guardedApplyToRightRef leftRef
+
+    let typesEqual mtd x y = typeIsType mtd x y &&& typeIsType mtd y x
+
     [<StructuralEquality;NoComparison>]
     type private isValueTypeConstantSource =
         {termType : termType}
@@ -111,19 +142,21 @@ module internal Common =
         let makeIsValueTypeBoolConst termType =
             Constant metadata (sprintf "IsValueType(%O)" termType) ({termType = termType}) Bool
         match termType with
-        | ConcreteType t when t.IsValueType -> makeTrue metadata
-        | TypeVariable(Implicit(_, _, t)) ->
-            if (Types.toDotNetType t).IsValueType
-                then makeIsValueTypeBoolConst termType
-                else makeFalse metadata
-        | _ -> makeFalse metadata
+        | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> makeTrue metadata
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeFalse metadata
+        | TypeVariable _ -> makeIsValueTypeBoolConst termType
+        | t -> makeBool metadata (Types.toDotNetType t).IsValueType
 
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
             override x.Compose ctx state =
-                let left = State.substituteTypeVariables ctx state x.left
-                let right = State.substituteTypeVariables ctx state x.right
-                is ctx.mtd left right
+                let fillTerm = State.fillHoles ctx state
+                let fillType = State.substituteTypeVariables ctx state
+                match x.left, x.right with
+                | Term l, Term r -> refIsRef ctx.mtd (fillTerm l) (fillTerm r)
+                | Term l, Type r -> refIsType ctx.mtd (fillTerm l) (fillType r)
+                | Type l, Term r -> typeIsRef ctx.mtd (fillType l) (fillTerm r)
+                | Type l, Type r -> typeIsType ctx.mtd (fillType l) (fillType r)
 
     type isValueTypeConstantSource with
          interface IStatedSymbolicConstantSource with
@@ -131,9 +164,9 @@ module internal Common =
                 let typ = State.substituteTypeVariables ctx state x.termType
                 isValueType ctx.mtd typ
 
-// ------------------------------- Branching -------------------------------
+// ---------------------------------------- Branching ---------------------------------------
 
-    let statelessConditionalExecution conditionInvocation thenBranch elseBranch merge merge2 k =
+    let commonStatelessConditionalExecution pc conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution condition k =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
@@ -143,17 +176,18 @@ module internal Common =
             | Terms.True ->  thenBranch k
             | Terms.False -> elseBranch k
             | condition ->
-                match solve condition with
+                match solvePC condition pc with
                 | Unsat -> elseBranch k
                 | _ ->
-                    match solve (!!condition) with
+                    match solvePC (!!condition) pc with
                     | Unsat -> thenBranch k
                     | _ -> execution condition k
-
         conditionInvocation (fun condition ->
-        Merging.commonGuardedErroredApplyk chooseBranch id condition merge k)
+        Merging.commonGuardedErroredApplyk chooseBranch errorHandler condition merge k)
 
-    let statedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let statelessConditionalExecution pc conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecution pc conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k
+
+    let commonStatedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution conditionState condition k =
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
@@ -177,6 +211,7 @@ module internal Common =
                     match solvePC !!condition (State.pathConditionOf conditionState) with
                     | Unsat -> thenBranch conditionState k
                     | _ -> execution conditionState condition k
-
         conditionInvocation state (fun (condition, conditionState) ->
         Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition merge k)
+
+    let statedConditionalExecution state conditionInvocation thenBranch elseBranch k = commonStatedConditionalExecution state conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -185,6 +186,32 @@ namespace VSharp.Test.Tests
             }
             return arr;
         }
+
+        [TestSvm]
+        public static Array RetSystemArray3(Array arr)
+        {
+            if (arr is object[])
+            {
+                var arrOne = arr as object[];
+                arrOne[1] = new object();
+            }
+            if (arr is int[])
+            {
+                var arrOne = arr as int[];
+                arrOne[1] = 3;
+            }
+            if (arr is string[,])
+            {
+                var arrOne = arr as string[,];
+                arrOne[1,1] = "42";
+            }
+            if (arr is int[,])
+            {
+                var arrOne = arr as int[,];
+                arrOne[1,1] = 42;
+            }
+            return arr;
+        }
     }
 
     public static class Container
@@ -292,6 +319,29 @@ namespace VSharp.Test.Tests
                 return b.Get();
             }
             return 0;
+        }
+
+        public static LinkedListNode<int> G(LinkedListNode<int> l, LinkedListNode<int> n)
+        {
+            LinkedListNode<int> tmp;
+            while (l.Value > 7) // кручу-верчу, запутать хочу
+            {
+                tmp = l;
+                l = n;
+                n = tmp;
+                l = l.Next;
+            }
+            return l;
+        }
+
+        // Test on tracking current heap address during access to heap for filtering possible locations
+        [Ignore("Current heap address should be inside ref, otherwise node m will not be filtered out")]
+        public static int MemoryTest(LinkedList<int> l)
+        {
+            LinkedListNode<int> n = new LinkedListNode<int>(10);
+            LinkedListNode<int> x = G(l.First, n);
+            LinkedListNode<int> m = new LinkedListNode<int>(42);
+            return x.Value;
         }
     }
 }

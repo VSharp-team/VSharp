@@ -1,15 +1,15 @@
 METHOD: System.Array VSharp.Test.Tests.Lists.RetSystemArray1(System.Array)
 RESULT: UNION[
-	| !(0 == arr) & !(1 < arr.0_Length) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> <ERROR: UNION[
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 7)
-		| !(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr ~> (HeapRef 1)]>
-	| !(0 == arr) & !(1 < arr.1_Length) & !(ArrayTypeVariable{arr} <: System.Int32[]) & (ArrayTypeVariable{arr} <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & (ArrayTypeVariable{arr} <: System.Int32[]) | ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
-	| !(0 == arr) & !(1 < arr.1_Length) & (ArrayTypeVariable{arr} <: System.Int32[,]) & (ArrayTypeVariable{arr} <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 7)>
-	| !(1 < arr.0_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
+	| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !(1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[,]) & 1 < arr.0_Length | !(0 == arr) & ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[]) | ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) & 1 < arr.0_Length ~> (HeapRef arr)
+	| !(0 == arr) & !(1 < arr.0_Length) & ((HeapRef arr) <: System.Int32[,]) ~> <ERROR: UNION[
+		| !((HeapRef arr) <: System.Int32[]) | 0 == arr ~> (HeapRef 1)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 7)]>
+	| !(0 == arr) & !(1 < arr.1_Length) & ((HeapRef arr) <: System.Int32[,]) & ((HeapRef arr) <: System.Int32[]) & 1 < arr.0_Length ~> <ERROR: (HeapRef 7)>
+	| !(1 < arr.0_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & ((!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) | 1 < arr.0_Length & 1 < arr.1_Length) ~> <ERROR: (HeapRef 1)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.IndexOutOfRangeException[
+1 ==> System.IndexOutOfRangeException CLASS [
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -18,7 +18,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !hasKey#8 ~> null
 			| hasKey#8 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
@@ -31,15 +31,15 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.Object[]
-11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+10 ==> System.Object CLASS []
+11 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-12 ==> STRUCT System.String[
+12 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -81,7 +81,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'A';
 		10: 'u';
@@ -114,7 +114,7 @@ HEAP:
 		9: 'O';
 		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
-3 ==> STRUCT System.String[
+3 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'G';
 		10: 's';
@@ -168,13 +168,13 @@ HEAP:
 		9: 'e';
 		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
-4 ==> STRUCT System.Object[]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+4 ==> System.Object CLASS []
+5 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.String[
+6 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -216,7 +216,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-7 ==> STRUCT System.IndexOutOfRangeException[
+7 ==> System.IndexOutOfRangeException CLASS [
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -225,7 +225,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !hasKey#17 ~> null
 			| hasKey#17 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
@@ -238,9 +238,9 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
-8 ==> STRUCT System.String[
+8 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'A';
 		10: 'u';
@@ -273,7 +273,7 @@ HEAP:
 		9: 'O';
 		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
-9 ==> STRUCT System.String[
+9 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'G';
 		10: 's';
@@ -327,71 +327,71 @@ HEAP:
 		9: 'e';
 		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
-arr ==> TypeVariable{arr}{<Reference to System.Object>}: [|
+arr ==> <Reference to System.Object>: [|
 	1, 1: UNION[
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & (ArrayTypeVariable{arr} <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length) | !(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef arr.[1, 1])];
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & ((HeapRef arr) <: System.Int32[,]) & 1 < arr.0_Length & 1 < arr.1_Length ~> 7
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) | (!((HeapRef arr) <: System.Int32[,]) | !(1 < arr.0_Length) | !(1 < arr.1_Length) | 0 == arr) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef arr.[1, 1])];
 	1: UNION[
-		| !(0 == arr) & (ArrayTypeVariable{arr} <: System.Int32[]) & 1 < arr.0_Length ~> 5
-		| !(1 < arr.0_Length) | !(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr ~> (HeapRef arr.[1])];
+		| !((HeapRef arr) <: System.Int32[]) | !(1 < arr.0_Length) | 0 == arr ~> (HeapRef arr.[1])
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & 1 < arr.0_Length ~> 5];
 	 ...  ... |]
 ---------- s1 = ----------
-System.Environment ==> STRUCT System.Environment[
+System.Environment ==> CLASS [
 	| System.Environment.MaxEnvVariableValueLength ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> 32767
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxEnvVariableValueLength]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> 32767
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxEnvVariableValueLength]
 	| System.Environment.MaxMachineNameLength ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> 256
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxMachineNameLength]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> 256
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxMachineNameLength]
 	| System.Environment.MaxSystemEnvVariableLength ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> 1024
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxSystemEnvVariableLength]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> 1024
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxSystemEnvVariableLength]
 	| System.Environment.MaxUserEnvVariableLength ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> 255
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxUserEnvVariableLength]
-	| System.Environment.isUserNonInteractive ~> !(0 == arr) & (1 < arr.0_Length & System.Environment.isUserNonInteractive | System.Environment.isUserNonInteractive & hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.isUserNonInteractive & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.isUserNonInteractive) & (ArrayTypeVariable{arr} <: System.Int32[,]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & System.Environment.isUserNonInteractive) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr)
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> 255
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Environment.MaxUserEnvVariableLength]
+	| System.Environment.isUserNonInteractive ~> !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length & System.Environment.isUserNonInteractive | System.Environment.isUserNonInteractive & hasKey#2) | (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.isUserNonInteractive & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.isUserNonInteractive) & ((HeapRef arr) <: System.Int32[,]) | (!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & System.Environment.isUserNonInteractive)
 	| System.Environment.m_os ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.m_os)]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> null
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.m_os)]
 	| System.Environment.m_resHelper ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.m_resHelper)]
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> null
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.m_resHelper)]
+	| System.Environment.processWinStation ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> UNION[
-			| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-			| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.Environment.processWinStation.System.IntPtr.m_value as System.Void)]]
-	| System.Environment.s_CheckedOSWin8OrAbove ~> !(0 == arr) & (1 < arr.0_Length & System.Environment.s_CheckedOSWin8OrAbove | System.Environment.s_CheckedOSWin8OrAbove & hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_CheckedOSWin8OrAbove & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_CheckedOSWin8OrAbove) & (ArrayTypeVariable{arr} <: System.Int32[,]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & System.Environment.s_CheckedOSWin8OrAbove) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr)
-	| System.Environment.s_CheckedWinRT ~> !(0 == arr) & (1 < arr.0_Length & System.Environment.s_CheckedWinRT | System.Environment.s_CheckedWinRT & hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_CheckedWinRT & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_CheckedWinRT) & (ArrayTypeVariable{arr} <: System.Int32[,]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & System.Environment.s_CheckedWinRT) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr)
+			| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> null
+			| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.Environment.processWinStation.System.IntPtr.m_value as System.Void)]]
+	| System.Environment.s_CheckedOSWin8OrAbove ~> !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length & System.Environment.s_CheckedOSWin8OrAbove | System.Environment.s_CheckedOSWin8OrAbove & hasKey#2) | (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_CheckedOSWin8OrAbove & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_CheckedOSWin8OrAbove) & ((HeapRef arr) <: System.Int32[,]) | (!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & System.Environment.s_CheckedOSWin8OrAbove)
+	| System.Environment.s_CheckedWinRT ~> !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length & System.Environment.s_CheckedWinRT | System.Environment.s_CheckedWinRT & hasKey#2) | (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_CheckedWinRT & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_CheckedWinRT) & ((HeapRef arr) <: System.Int32[,]) | (!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & System.Environment.s_CheckedWinRT)
 	| System.Environment.s_InternalSyncObject ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.s_InternalSyncObject)]
-	| System.Environment.s_IsWindows8OrAbove ~> !(0 == arr) & (1 < arr.0_Length & System.Environment.s_IsWindows8OrAbove | System.Environment.s_IsWindows8OrAbove & hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_IsWindows8OrAbove & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_IsWindows8OrAbove) & (ArrayTypeVariable{arr} <: System.Int32[,]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & System.Environment.s_IsWindows8OrAbove) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr)
-	| System.Environment.s_WinRTSupported ~> !(0 == arr) & (1 < arr.0_Length & System.Environment.s_WinRTSupported | System.Environment.s_WinRTSupported & hasKey#2) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_WinRTSupported & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_WinRTSupported) & (ArrayTypeVariable{arr} <: System.Int32[,]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | 0 == arr) & System.Environment.s_WinRTSupported) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr)]
-System.Exception ==> STRUCT System.Exception[
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#11 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#2 & ((HeapRef arr) <: System.Int32[]) ~> null
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#2) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#11 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Environment.s_InternalSyncObject)]
+	| System.Environment.s_IsWindows8OrAbove ~> !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length & System.Environment.s_IsWindows8OrAbove | System.Environment.s_IsWindows8OrAbove & hasKey#2) | (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_IsWindows8OrAbove & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_IsWindows8OrAbove) & ((HeapRef arr) <: System.Int32[,]) | (!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & System.Environment.s_IsWindows8OrAbove)
+	| System.Environment.s_WinRTSupported ~> !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length & System.Environment.s_WinRTSupported | System.Environment.s_WinRTSupported & hasKey#2) | (!((HeapRef arr) <: System.Int32[]) | 0 == arr) & (!(0 == arr) & ((!(1 < arr.0_Length) | !(1 < arr.1_Length)) & System.Environment.s_WinRTSupported & hasKey#11 | 1 < arr.0_Length & 1 < arr.1_Length & System.Environment.s_WinRTSupported) & ((HeapRef arr) <: System.Int32[,]) | (!((HeapRef arr) <: System.Int32[,]) | 0 == arr) & System.Environment.s_WinRTSupported)]
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#4 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#13 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> -532462766
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#4) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#13 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> System.Exception._COMPlusExceptionCode]
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#13 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#4 & ((HeapRef arr) <: System.Int32[]) ~> -532462766
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#4) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#13 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#4 & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 4)
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#13 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> (HeapRef 10)
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#4) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#13 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Exception.s_EDILock)]]
-System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#13 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) ~> (HeapRef 10)
+		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#4 & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 4)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#4) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#13 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Exception.s_EDILock)]]
+System.IndexOutOfRangeException ==> CLASS []
+System.IntPtr ==> System.IntPtr STRUCT [
+	| System.IntPtr.Zero ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> UNION[
-			| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#6 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#15 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-			| !(0 == arr) & (1 < arr.0_Length | hasKey#6) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#15 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)]]]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+			| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#15 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#6 & ((HeapRef arr) <: System.Int32[]) ~> null
+			| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#6) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#15 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)]]]
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#9 & (ArrayTypeVariable{arr} <: System.Int32[]) ~> (HeapRef 6)
-		| !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#18 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> (HeapRef 12)
-		| !(0 == arr) & (1 < arr.0_Length | hasKey#9) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#18 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+		| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#18 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) ~> (HeapRef 12)
+		| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#9 & ((HeapRef arr) <: System.Int32[]) ~> (HeapRef 6)
+		| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#9) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#18 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
+System.SystemException ==> CLASS []
+System.UIntPtr ==> System.UIntPtr STRUCT [
+	| System.UIntPtr.Zero ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
-			| !(0 == arr) & !(1 < arr.0_Length) & !hasKey#8 & (ArrayTypeVariable{arr} <: System.Int32[]) | !(0 == arr) & !(ArrayTypeVariable{arr} <: System.Int32[]) & !hasKey#17 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & (ArrayTypeVariable{arr} <: System.Int32[,]) ~> null
-			| !(0 == arr) & (1 < arr.0_Length | hasKey#8) & (ArrayTypeVariable{arr} <: System.Int32[]) | (!(ArrayTypeVariable{arr} <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#17 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!(ArrayTypeVariable{arr} <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]]
-System.ValueType ==> STRUCT System.ValueType[]
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+			| !((HeapRef arr) <: System.Int32[]) & !(0 == arr) & !hasKey#17 & (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & ((HeapRef arr) <: System.Int32[,]) | !(0 == arr) & !(1 < arr.0_Length) & !hasKey#8 & ((HeapRef arr) <: System.Int32[]) ~> null
+			| !(0 == arr) & ((HeapRef arr) <: System.Int32[]) & (1 < arr.0_Length | hasKey#8) | (!((HeapRef arr) <: System.Int32[,]) | (!(1 < arr.0_Length) | !(1 < arr.1_Length)) & hasKey#17 | 0 == arr | 1 < arr.0_Length & 1 < arr.1_Length) & (!((HeapRef arr) <: System.Int32[]) | 0 == arr) ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]]
+System.ValueType ==> CLASS []
+VSharp.Test.Tests.Lists ==> CLASS []

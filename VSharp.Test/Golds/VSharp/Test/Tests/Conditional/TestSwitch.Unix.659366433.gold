@@ -5,7 +5,7 @@ RESULT: UNION[
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.ArgumentException[
+1 ==> System.ArgumentException CLASS [
 	| System.ArgumentException._paramName ~> null
 	| System.Exception._HResult ~> -2147024809
 	| System.Exception._className ~> null
@@ -21,8 +21,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'H';
 		10: ' ';
@@ -45,13 +46,13 @@ HEAP:
 		9: 'e';
 		 ... 19 ... |]
 	| System.String.m_StringLength ~> 18]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> System.Object CLASS []
+4 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+5 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -94,18 +95,18 @@ HEAP:
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
-System.ArgumentException ==> STRUCT System.ArgumentException[]
-System.Exception ==> STRUCT System.Exception[
+System.ArgumentException ==> CLASS []
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
 		| !('A' == c) & !('B' == c) & !('C' == c) & !('D' == c) & !('R' == c) & !hasKey#3 & 'T' == c ~> -532462766
 		| !('T' == c) | 'A' == c | 'B' == c | 'C' == c | 'D' == c | 'R' == c | hasKey#3 ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
 		| !('A' == c) & !('B' == c) & !('C' == c) & !('D' == c) & !('R' == c) & !hasKey#3 & 'T' == c ~> (HeapRef 3)
 		| !('T' == c) | 'A' == c | 'B' == c | 'C' == c | 'D' == c | 'R' == c | hasKey#3 ~> (HeapRef System.Exception.s_EDILock)]]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
 		| !('A' == c) & !('B' == c) & !('C' == c) & !('D' == c) & !('R' == c) & !hasKey#5 & 'T' == c ~> (HeapRef 5)
 		| !('T' == c) | 'A' == c | 'B' == c | 'C' == c | 'D' == c | 'R' == c | hasKey#5 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.Conditional ==> CLASS []

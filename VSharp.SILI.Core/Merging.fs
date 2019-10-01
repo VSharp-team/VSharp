@@ -6,14 +6,16 @@ module internal Merging =
 
     type private MergeType =
         | StructMerge of termType
-        | ArrayMerge of termType
+        | ClassMerge
+        | ArrayMerge
         | BoolMerge
         | DefaultMerge
 
     let private mergeTypeOf term =
         match term.term with
-        | Struct (_, t) -> StructMerge t
-        | Array (_, _, _, _, _, _, t) -> ArrayMerge t
+        | Struct(_, t) -> StructMerge t
+        | Class _ -> ClassMerge
+        | Array _ -> ArrayMerge
         | _ when isBool term -> BoolMerge
         | _ -> DefaultMerge
 
@@ -26,30 +28,23 @@ module internal Merging =
     let private readStatics = State.readStatics Metadata.empty
     let private readTerm = State.readTerm Metadata.empty
 
-    let rec private boolMerge = function
-        | [] -> []
-        | [(g, v)] as gvs ->
-            match g with
-            | True -> gvs
-            | _ -> [propagateGuard g v]
-        | [(g1, v1); (g2, v2)] -> [(g1 ||| g2, (g1 &&& v1) ||| (g2 &&& v2))]
-        | (g, v)::gvs ->
-            let guard = List.fold (|||) g (List.map fst gvs)
-            let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (g &&& v) gvs
-            [(guard, value)]
+    let rec private boolMerge gvs =
+        let guard = List.fold (|||) False (List.map fst gvs)
+        let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) False gvs
+        [(guard, value)]
 
-    and keysResolver<'a, 'b, 'c when 'c : equality> r (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper getter (k : heapKey<'c, fql>) hgvs =
+    and keysResolver<'a, 'b, 'c when 'c : equality> r (read : bool -> 'a -> 'b -> termType -> term) keyMapper getter (k : 'c memoryCell) hgvs =
         let key = keyMapper k
-        let typ = Option.get k.FQL |> typeOfFQL
+        let typ = baseTypeOfKey k
         let instIfShould = function
             | _, g, Some v -> (g, v)
             | i, g, _ -> (g, read r (getter i) key typ)
-        mergeCells <| List.map instIfShould hgvs
+        merge <| List.map instIfShould hgvs
 
-    and keysResolver2<'a, 'b, 'c, 'd when 'c : equality> r h1 h2 (read : bool -> 'a -> 'b -> termType -> term memoryCell) keyMapper resolve (k : heapKey<'c, fql>) v1 v2 : 'd =
+    and keysResolver2<'a, 'b, 'c, 'd when 'c : equality> r h1 h2 (read : bool -> 'a -> 'b -> termType -> term) keyMapper resolve (k : 'c memoryCell) v1 v2 : 'd =
         let read h =
             let key = keyMapper k
-            let typ = Option.get k.FQL |> typeOfFQL
+            let typ = baseTypeOfKey k
             read r h key typ
         match v1, v2 with
         | Some v1, Some v2 -> resolve v1 v2
@@ -57,50 +52,39 @@ module internal Merging =
         | _, Some v -> resolve (read h1) v
         | _, _ -> __unreachable__()
 
-    and private structMerge = function
-        | [] -> []
-        | [(g, v)] as gvs ->
-            match g with
-            | True -> gvs
-            | _ -> [propagateGuard g v]
-        | (x :: _) as gvs ->
-            let t = x |> snd |> typeOf
-            assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
-            let gs, vs = List.unzip gvs
-            let extractFields = term >> function
-                | Struct(fs, _) -> fs
-                | t -> internalfailf "Expected struct, got %O" t
-            let fss = vs |> List.map extractFields
-            let getter i = {value = List.item i vs; created = Timestamp.zero; modified = Timestamp.zero}
-            let merged = keysResolver<term memoryCell, fql, string> false readTerm getFQLOfKey getter |> Heap.merge gs fss
-            [(Propositional.disjunction Metadata.empty gs, Struct (fst x).metadata merged t)]
+    and private blockMerge typ mtd gvs =
+        let gs, vs = List.unzip gvs
+        let fss = vs |> List.map fieldsOf
+        let getter i = List.item i vs
+        let mergedFields = keysResolver<term, fql, string> false readTerm getFQLOfKey getter |> Heap.merge gs fss
+        [(Propositional.disjunction Metadata.empty gs, Block mtd mergedFields typ)]
 
-    and private arrayMerge = function
+    and private arrayMerge mtd gvs =
+        let gs, vs = List.unzip gvs
+        let extractArrayInfo = term >> function
+            | Array(dim, len, lower, init, contents, lengths) -> (dim, len, lower, init, contents, lengths)
+            | t -> internalfailf "Expected array, got %O" t
+        let ds, lens, lows, inits, contents, lengths =
+            vs
+            |> Seq.map extractArrayInfo
+            |> fun info -> Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
+        let d = List.unique ds
+        let l = merge <| List.zip gs lens
+        let getter i = List.item i vs
+        let resolveKeys = keysResolver<term, fql, term> false readTerm getFQLOfKey getter
+        let mergedLower =  Heap.merge gs lows resolveKeys
+        let mergedContents = Heap.merge gs contents resolveKeys
+        let mergedLengths = Heap.merge gs lengths resolveKeys
+        let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame
+        [(Propositional.disjunction Metadata.empty gs, Array mtd d l mergedLower mergedInit mergedContents mergedLengths)]
+
+    and private commonTypedMerge typedMerge = function
         | [] -> []
         | [(g, v)] as gvs ->
             match g with
             | True -> gvs
             | _ -> [propagateGuard g v]
-        | (x :: _) as gvs ->
-            let t = x |> snd |> typeOf
-            assert(gvs |> Seq.map (snd >> typeOf) |> Seq.forall ((=) t))
-            let gs, vs = List.unzip gvs
-            let extractArrayInfo = term >> function
-                | Array(dim, len, lower, init, contents, lengths, _) -> (dim, len, lower, init, contents, lengths)
-                | t -> internalfailf "Expected array, got %O" t
-            let ds, lens, lows, inits, contents, lengths =
-                vs
-                |> Seq.map extractArrayInfo
-                |> fun info -> Seq.foldBack (fun (d, l, lw, i, c, ls) (da, la, lwa, ia, ca, lsa) -> (d::da, l::la, lw::lwa, i::ia, c::ca, ls::lsa)) info ([], [], [], [], [], [])
-            let d = List.unique ds
-            let l = merge <| List.zip gs lens
-            let getter i = {value = List.item i vs; created = Timestamp.zero; modified = Timestamp.zero}
-            let resolveKeys = keysResolver<term memoryCell, fql, term> false readTerm getFQLOfKey getter
-            let mergedLower =  Heap.merge gs lows resolveKeys
-            let mergedContents = Heap.merge gs contents resolveKeys
-            let mergedLengths = Heap.merge gs lengths resolveKeys
-            let mergedInit = inits |> Seq.map2 (fun ng init -> Seq.map (fun (g, v) -> (ng &&& g, v)) init) gs |> Seq.concat |> List.ofSeq |> mergeSame
-            [(Propositional.disjunction Metadata.empty gs, Array Metadata.empty d l mergedLower mergedInit mergedContents mergedLengths t)]
+        | (_, v) :: _ as gvs -> typedMerge v.metadata gvs
 
     and private simplify (|Unguard|_|) gvs =
         let rec loop gvs out =
@@ -131,47 +115,42 @@ module internal Merging =
                     | _ -> loop rest ((joined, v)::out)
             loop gvs []
 
-    and private typedMerge gvs t =
-        match t with
-        | BoolMerge -> boolMerge gvs
-        | StructMerge _ -> structMerge gvs
-        | ArrayMerge _ -> arrayMerge gvs
-        | DefaultMerge -> gvs
+    and private typedMerge = function
+        | BoolMerge -> commonTypedMerge (always boolMerge)
+        | StructMerge typ -> commonTypedMerge (blockMerge (Some typ))
+        | ClassMerge -> commonTypedMerge (blockMerge None)
+        | ArrayMerge -> commonTypedMerge arrayMerge
+        | DefaultMerge -> id
 
     and propagateGuard g v =
         match v.term with
-        | Struct(contents, t) ->
-            let contents' = Heap.map' (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents
-            (Terms.True, Struct v.metadata contents' t)
-        | Array(dimension, len, lower, init, contents, lengths, t) ->
-            let contents' = Heap.map' (fun _ cell -> { cell with value = merge [(g, cell.value)] }) contents
-            let lower' = Heap.map' (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lower
-            let lengths' = Heap.map' (fun _ cell -> { cell with value = merge [(g, cell.value)] }) lengths
+        | Block(contents, typ) ->
+            let contents' = Heap.map' (fun _ v -> merge [(g, v)]) contents
+            (Terms.True, Block v.metadata contents' typ)
+        | Array(dimension, len, lower, init, contents, lengths) ->
+            let contents' = Heap.map' (fun _ v -> merge [(g, v)]) contents
+            let lower' = Heap.map' (fun _ v -> merge [(g, v)]) lower
+            let lengths' = Heap.map' (fun _ v -> merge [(g, v)]) lengths
             let init' = List.map (fun (gi, i) -> gi &&& g, i) init
-            (Terms.True, Array v.metadata dimension len lower' init' contents' lengths' t)
+            (Terms.True, Array v.metadata dimension len lower' init' contents' lengths')
         | _ -> (g, v)
 
     and private compress = function
         | [] -> []
         | [(_, v)] -> [True, v]
-        | [(_, v1); (_, v2)] as gvs when mergeTypeOf v1 = mergeTypeOf v2 -> typedMerge (mergeSame gvs) (mergeTypeOf v1)
+        | [(_, v1); (_, v2)] as gvs when mergeTypeOf v1 = mergeTypeOf v2 -> typedMerge (mergeTypeOf v1) (mergeSame gvs)
         | [_; _] as gvs -> gvs
         | gvs ->
             gvs
             |> mergeSame
             |> List.groupBy (snd >> mergeTypeOf)
-            |> List.collect (fun (t, gvs) -> if List.length gvs >= 2 then typedMerge gvs t else gvs)
+            |> List.collect (fun (t, gvs) -> if List.length gvs >= 2 then typedMerge t gvs else gvs)
 
-    and merge gvs =
+    and merge (gvs : (term * term) list) : term =
         match compress (simplify (|UnionT|_|) gvs) with
         | [(True, v)] -> v
         | [(g, v)] when Terms.isBool v -> g &&& v
         | gvs' -> Union Metadata.empty gvs'
-
-    and mergeCells (gcs : list<term * term memoryCell>) : term memoryCell =
-        let foldCell (acc1, acc2, acc3) (g, cell) = ((g, cell.value)::acc1, min acc2 cell.created, max acc3 cell.modified)
-        let gvs, c, m = gcs |> List.fold foldCell ([], System.UInt32.MaxValue, System.UInt32.MinValue)
-        { value = merge gvs; created = c; modified = m }
 
     and merge2Terms g h u v =
         let g = guardOf u &&& g
@@ -185,19 +164,6 @@ module internal Merging =
         | ErrorT _, _ -> g
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
-
-    and merge2Cells g h ({value = u;created = cu;modified = mu} as ucell : term memoryCell) ({value = v;created = cv;modified = mv} as vcell : term memoryCell) =
-        let g = guardOf u &&& g
-        let h = guardOf v &&& h
-        match g, h with
-        | _, _ when u = v -> { value = u; created = min cu cv; modified = min mu mv }
-        | True, _
-        | _, False -> ucell
-        | False, _
-        | _, True -> vcell
-        | ErrorT _, _ -> { ucell with value = g }
-        | _, ErrorT _ -> { vcell with value = h }
-        | _ -> mergeCells [(g, ucell); (h, vcell)]
 
     and mergeDefinedHeaps restricted read guards heaps =
         let getter i = List.item i heaps
@@ -240,7 +206,7 @@ module internal Merging =
         | _ ->
             assert(state1.pc = state2.pc)
             assert(state1.frames = state2.frames)
-            let resolve = merge2Cells condition1 condition2
+            let resolve = merge2Terms condition1 condition2
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap readHeap resolve
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
@@ -255,12 +221,12 @@ module internal Merging =
         assert(states |> List.forall (fun s -> s.frames = frames))
         assert(states |> List.forall (fun s -> s.pc = path))
         assert(states |> List.forall (fun s -> s.typeVariables = tv))
-        let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) mergeCells (State.stackLazyInstantiator first)
+        let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) merge (State.stackLazyInstantiator first)
         let mergedHeap = mergeGeneralizedHeaps readHeap conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps readStatics conditions (List.map State.staticsOf states)
         { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
 
-    and genericSimplify gvs =
+    and genericSimplify gvs : (term * 'a) list =
         let rec loop gvs out =
             match gvs with
             | [] -> out
@@ -294,7 +260,9 @@ module internal Merging =
         | Union gvs -> commonGuardedErroredMapk f errorHandler gvs merge k
         | _ -> f term k
     let commonGuardedErroredApply f errorHandler term merge = commonGuardedErroredApplyk (Cps.ret f) errorHandler term merge id
-    let guardedErroredApply f term = commonGuardedErroredApply f id term merge
+
+    let guardedErroredApplyk f term k = commonGuardedErroredApplyk f id term merge k
+    let guardedErroredApply f term = guardedErroredApplyk (Cps.ret f) term id
 
     let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge k =
         let foldFunc (gvs, egs, vgs, states) (g, v) k =
