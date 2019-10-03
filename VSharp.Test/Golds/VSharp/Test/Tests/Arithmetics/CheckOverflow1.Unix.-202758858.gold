@@ -3,7 +3,7 @@ RESULT: <ERROR: (HeapRef 1)>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.OverflowException[
+1 ==> System.OverflowException CLASS [
 	| System.Exception._HResult ~> -2146233066
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -18,8 +18,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'A';
 		10: ' ';
@@ -69,13 +70,13 @@ HEAP:
 		9: 'c';
 		 ... 46 ... |]
 	| System.String.m_StringLength ~> 45]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> System.Object CLASS []
+4 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+5 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -118,19 +119,19 @@ HEAP:
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
-System.ArithmeticException ==> STRUCT System.ArithmeticException[]
-System.Exception ==> STRUCT System.Exception[
+System.ArithmeticException ==> CLASS []
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
 		| !hasKey#4 ~> -532462766
 		| hasKey#4 ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
 		| !hasKey#4 ~> (HeapRef 3)
 		| hasKey#4 ~> (HeapRef System.Exception.s_EDILock)]]
-System.Object ==> STRUCT System.Object[]
-System.OverflowException ==> STRUCT System.OverflowException[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+System.Object ==> CLASS []
+System.OverflowException ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
 		| !hasKey#6 ~> (HeapRef 5)
 		| hasKey#6 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.Arithmetics ==> CLASS []

@@ -10,4 +10,4 @@ HEAP:
 		| flag1 ~> 42];
 	 ... 5 ... |]
 ---------- s1 = ----------
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+VSharp.Test.Tests.Lists ==> CLASS []

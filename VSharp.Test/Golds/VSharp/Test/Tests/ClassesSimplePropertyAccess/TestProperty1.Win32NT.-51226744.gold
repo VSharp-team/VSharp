@@ -3,11 +3,11 @@ RESULT: <VOID>
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccess[
+1 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess CLASS [
 	| VSharp.Test.Tests.ClassesSimplePropertyAccess.<SecretProperty>k__BackingField ~> (HeapRef 2)
-	| VSharp.Test.Tests.ClassesSimplePropertyAccess._structProperty ~> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct[
+	| VSharp.Test.Tests.ClassesSimplePropertyAccess._structProperty ~> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
 		| VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct.X ~> 0]]
-2 ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+2 ==> System.Collections.Generic.List`1[System.Boolean] CLASS [
 	| System.Collections.Generic.List`1._items ~> UNION[
 		| !hasKey#3 ~> (HeapRef 3)
 		| hasKey#3 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)]
@@ -16,13 +16,13 @@ HEAP:
 	| System.Collections.Generic.List`1._version ~> 0]
 3 ==> [| ... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1[System.Boolean] ==> STRUCT System.Collections.Generic.List`1[System.Boolean][
+System.Collections.Generic.List`1[System.Boolean] ==> CLASS [
 	| System.Collections.Generic.List`1._defaultCapacity ~> UNION[
 		| !hasKey#3 ~> 4
 		| hasKey#3 ~> System.Collections.Generic.List`1._defaultCapacity]
 	| System.Collections.Generic.List`1._emptyArray ~> UNION[
 		| !hasKey#3 ~> (HeapRef 3)
 		| hasKey#3 ~> (HeapRef System.Collections.Generic.List`1._emptyArray)]]
-System.Object ==> STRUCT System.Object[]
-VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct[]
-VSharp.Test.Tests.ClassesSimplePropertyAccess ==> STRUCT VSharp.Test.Tests.ClassesSimplePropertyAccess[]
+System.Object ==> CLASS []
+VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
+VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []

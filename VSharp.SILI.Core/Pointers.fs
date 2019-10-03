@@ -94,7 +94,7 @@ module internal Pointers =
         | _ -> internalfailf "expected pointer but got: %O" p
 
     let private isZero mtd x =
-        Arithmetics.simplifyEqual mtd x (makeZero mtd) id
+        Arithmetics.simplifyEqual mtd x (makeZeroAddress mtd) id
 
     let isZeroAddress mtd x = fastNumericCompare mtd x (makeZeroAddress mtd)
 
@@ -104,12 +104,12 @@ module internal Pointers =
         | NullAddress, TopLevelHeap(addr, _, _) -> isZeroAddress mtd addr
         | TopLevelHeap(addr1, _, _), TopLevelHeap(addr2, _, _) -> fastNumericCompare mtd addr1 addr2
         | TopLevelStatics typ1, TopLevelStatics typ2 -> typesEqual mtd typ1 typ2
-        | TopLevelStack key1, TopLevelStack key2 -> makeBool (key1 = key2) mtd
+        | TopLevelStack key1, TopLevelStack key2 -> makeBool mtd (key1 = key2)
         | _ -> makeFalse mtd
 
     let private equalPathSegment mtd x y =
         match x, y with
-        | StructField(field1, typ1), StructField(field2, typ2) -> makeBool (field1 = field2) mtd &&& typesEqual mtd typ1 typ2
+        | BlockField(field1, typ1), BlockField(field2, typ2) -> makeBool mtd (field1 = field2) &&& typesEqual mtd typ1 typ2
         | ArrayIndex(addr1, _), ArrayIndex(addr2, _) -> Arrays.equalsIndicesArrays mtd addr1 addr2
         | ArrayLowerBound x, ArrayLowerBound y
         | ArrayLength x, ArrayLength y -> fastNumericCompare mtd x y

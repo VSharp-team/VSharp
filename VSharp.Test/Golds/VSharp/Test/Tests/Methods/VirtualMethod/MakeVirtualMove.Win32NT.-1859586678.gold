@@ -4,19 +4,19 @@ RESULT: UNION[
 	| 0 == p ~> null]
 HEAP:
 { heap = merge[
-	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, h0),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app((HeapRef λ[MakeMove]_1)))], statics = merge[
-	((VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) | 0 == p, s1),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}), app((HeapRef λ[MakeMove]_1)))] } where
+	((VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) | 0 == p, h0),
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)), app((HeapRef λ[MakeMove]_1)))], statics = merge[
+	((VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) | 0 == p, s1),
+	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)), app((HeapRef λ[MakeMove]_1)))] } where
 ---------- h0 = ----------
-p ==> STRUCT TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}[
+p ==> VSharp.Test.Tests.Typecast.Pawn CLASS [
 	| VSharp.Test.Tests.Typecast.Piece._xCoord ~> UNION[
-		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) ~> VSharp.Test.Tests.Typecast.Coord.X + VSharp.Test.Tests.Typecast.Coord.Y
+		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) ~> VSharp.Test.Tests.Typecast.Coord.X + VSharp.Test.Tests.Typecast.Coord.Y
 		| 0 == p ~> p.VSharp.Test.Tests.Typecast.Piece._xCoord]
 	| VSharp.Test.Tests.Typecast.Piece._yCoord ~> UNION[
-		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: TypeVariable{p}{VSharp.Test.Tests.Typecast.Pawn}) ~> -VSharp.Test.Tests.Typecast.Coord.Y + VSharp.Test.Tests.Typecast.Coord.X
+		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) ~> -VSharp.Test.Tests.Typecast.Coord.Y + VSharp.Test.Tests.Typecast.Coord.X
 		| 0 == p ~> p.VSharp.Test.Tests.Typecast.Piece._yCoord]]
 ---------- s1 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> STRUCT VSharp.Test.Tests.Methods.VirtualMethod[]
-VSharp.Test.Tests.Typecast.Coord ==> STRUCT VSharp.Test.Tests.Typecast.Coord[]
-VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]
+VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
+VSharp.Test.Tests.Typecast.Coord ==> VSharp.Test.Tests.Typecast.Coord STRUCT []
+VSharp.Test.Tests.Typecast.Piece ==> CLASS []

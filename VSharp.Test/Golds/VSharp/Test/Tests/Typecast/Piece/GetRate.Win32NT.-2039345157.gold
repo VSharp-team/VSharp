@@ -3,4 +3,4 @@ RESULT: this.VSharp.Test.Tests.Typecast.Piece.Rate
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]
+VSharp.Test.Tests.Typecast.Piece ==> CLASS []

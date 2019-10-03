@@ -1,8 +1,8 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.Unboxing(System.Object)
 RESULT: UNION[
-	| !(0 == obj) & (TypeVariable{obj}{System.Object} <: System.Int32) ~> 13
-	| !(TypeVariable{obj}{System.Object} <: System.Int32) | 0 == obj ~> 23]
+	| !((HeapRef obj) <: System.Int32) | 0 == obj ~> 23
+	| !(0 == obj) & ((HeapRef obj) <: System.Int32) ~> 13]
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]
+VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

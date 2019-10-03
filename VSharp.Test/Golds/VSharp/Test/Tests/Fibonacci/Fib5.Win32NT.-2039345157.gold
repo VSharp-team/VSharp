@@ -3,4 +3,4 @@ RESULT: 8
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Fibonacci ==> STRUCT VSharp.Test.Tests.Fibonacci[]
+VSharp.Test.Tests.Fibonacci ==> CLASS []

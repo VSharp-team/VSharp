@@ -1,0 +1,7 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.SpecializeGenerics.RetConstructedVWithInt()
+RESULT: 0
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Generic.GenericClass`2[System.Object,System.Int32] ==> CLASS []
+VSharp.Test.Tests.Generic.SpecializeGenerics ==> CLASS []

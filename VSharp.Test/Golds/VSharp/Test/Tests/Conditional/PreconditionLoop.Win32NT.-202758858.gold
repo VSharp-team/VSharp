@@ -10,4 +10,4 @@ HEAP:
 	(!(0 < n) | !(1 < n), s0),
 	(0 < n & 1 < n, { heap = <empty>, statics = s0 } ⚪ recapp(<delegate>))] } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]
+VSharp.Test.Tests.Conditional ==> CLASS []

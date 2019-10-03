@@ -30,7 +30,7 @@ HEAP:
 		| (!(i < 5) | i < 0) & 3 == i ~> 4
 		| (!(i < 5) | i < 0) & 4 == i ~> 5];
 	 ... 5 ... |]
-2 ==> STRUCT System.IndexOutOfRangeException[
+2 ==> System.IndexOutOfRangeException CLASS [
 	| System.Exception._HResult ~> -2146233080
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -39,7 +39,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !hasKey#8 ~> null
 			| hasKey#8 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
@@ -52,9 +52,9 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
-3 ==> STRUCT System.String[
+3 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'A';
 		10: 'u';
@@ -87,7 +87,7 @@ HEAP:
 		9: 'O';
 		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
-4 ==> STRUCT System.String[
+4 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'G';
 		10: 's';
@@ -141,13 +141,13 @@ HEAP:
 		9: 'e';
 		 ... 50 ... |]
 	| System.String.m_StringLength ~> 49]
-5 ==> STRUCT System.Object[]
-6 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+5 ==> System.Object CLASS []
+6 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-7 ==> STRUCT System.String[
+7 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -190,7 +190,7 @@ HEAP:
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
-System.Environment ==> STRUCT System.Environment[
+System.Environment ==> CLASS [
 	| System.Environment.MaxEnvVariableValueLength ~> UNION[
 		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#2 ~> System.Environment.MaxEnvVariableValueLength
 		| !hasKey#2 & (!(i < 5) | i < 0) ~> 32767]
@@ -210,7 +210,7 @@ System.Environment ==> STRUCT System.Environment[
 	| System.Environment.m_resHelper ~> UNION[
 		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#2 ~> (HeapRef System.Environment.m_resHelper)
 		| !hasKey#2 & (!(i < 5) | i < 0) ~> null]
-	| System.Environment.processWinStation ~> STRUCT System.IntPtr[
+	| System.Environment.processWinStation ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> UNION[
 			| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#2 ~> (HeapPtr System.Environment.processWinStation.System.IntPtr.m_value as System.Void)
 			| !hasKey#2 & (!(i < 5) | i < 0) ~> null]]
@@ -221,29 +221,29 @@ System.Environment ==> STRUCT System.Environment[
 		| !hasKey#2 & (!(i < 5) | i < 0) ~> null]
 	| System.Environment.s_IsWindows8OrAbove ~> !(i < 0) & System.Environment.s_IsWindows8OrAbove & i < 5 | (!(i < 5) | i < 0) & System.Environment.s_IsWindows8OrAbove & hasKey#2
 	| System.Environment.s_WinRTSupported ~> !(i < 0) & System.Environment.s_WinRTSupported & i < 5 | (!(i < 5) | i < 0) & System.Environment.s_WinRTSupported & hasKey#2]
-System.Exception ==> STRUCT System.Exception[
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
 		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#4 ~> System.Exception._COMPlusExceptionCode
 		| !hasKey#4 & (!(i < 5) | i < 0) ~> -532462766]
 	| System.Exception.s_EDILock ~> UNION[
 		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#4 ~> (HeapRef System.Exception.s_EDILock)
 		| !hasKey#4 & (!(i < 5) | i < 0) ~> (HeapRef 5)]]
-System.IndexOutOfRangeException ==> STRUCT System.IndexOutOfRangeException[]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+System.IndexOutOfRangeException ==> CLASS []
+System.IntPtr ==> System.IntPtr STRUCT [
+	| System.IntPtr.Zero ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> UNION[
 			| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#6 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)
 			| !hasKey#6 & (!(i < 5) | i < 0) ~> null]]]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
 		| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#9 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
 		| !hasKey#9 & (!(i < 5) | i < 0) ~> (HeapRef 7)]]
-System.SystemException ==> STRUCT System.SystemException[]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+System.SystemException ==> CLASS []
+System.UIntPtr ==> System.UIntPtr STRUCT [
+	| System.UIntPtr.Zero ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !(i < 0) & i < 5 | (!(i < 5) | i < 0) & hasKey#8 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
 			| !hasKey#8 & (!(i < 5) | i < 0) ~> null]]]
-System.ValueType ==> STRUCT System.ValueType[]
-VSharp.Test.Tests.Lists ==> STRUCT VSharp.Test.Tests.Lists[]
+System.ValueType ==> CLASS []
+VSharp.Test.Tests.Lists ==> CLASS []

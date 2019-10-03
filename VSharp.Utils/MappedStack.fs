@@ -22,16 +22,16 @@ module public MappedStack =
         let contents' = Map.add key' value contents
         contents', peaks'
 
-    let reserve key ((contents, peaks) as stack) =
+    let reserve key (contents, peaks) =
         let idx = peakIdx peaks key + 1ul
         let peaks' = Map.add key idx peaks
         contents, peaks'
 
-    let push key value ((contents, peaks) as stack) =
+    let push key value ((_, peaks) as stack) =
         let idx = peakIdx peaks key + 1ul
         addToStack key value stack idx
 
-    let add key value ((contents, peaks) as stack) =
+    let add key value ((_, peaks) as stack) =
         let idx = Dict.tryGetValue peaks key 1ul
         addToStack key value stack idx
 
@@ -83,22 +83,22 @@ module public MappedStack =
         let peaks = List.head stacks |> snd
         assert(List.forall (snd >> ((=) peaks)) (List.tail stacks))
         let keys = new System.Collections.Generic.HashSet<_>()
-        List.iter (fst >> Map.toSeq >> Seq.map (fun (k, cell) -> (k, cell.created)) >> keys.UnionWith) stacks
-        let mergeOneKey (k, time) =
-            let vals = List.map2 (fun g (s, _) -> (g, Map.tryFind k s |?? lazyInstantiate time (fst k))) guards stacks
+        List.iter (fst >> Map.toSeq >> Seq.map fst >> keys.UnionWith) stacks
+        let mergeOneKey k =
+            let vals = List.map2 (fun g (s, _) -> (g, Map.tryFind k s |?? lazyInstantiate (fst k) ())) guards stacks
             (k, resolve vals)
         (keys |> Seq.map mergeOneKey |> Map.ofSeq, peaks)
 
     let merge2 (contents1, peaks1) (contents2, peaks2) resolve lazyInstantiate =
         assert(peaks1 = peaks2)
-        let newEntries = contents2 |> Map.toSeq |> Seq.choose (fun (k, cell) -> if Map.containsKey k contents1 then None else Some(k, cell.created))
+        let newEntries = contents2 |> Map.toSeq |> Seq.choose (fun (k, _) -> if Map.containsKey k contents1 then None else Some k)
         let modifiedEntries =
-            contents1 |> Map.toSeq |> Seq.choose (fun (k, cell) ->
-                if not <| Map.containsKey k contents2 || contents2.[k].value <> cell.value then Some(k, cell.created) else None)
+            contents1 |> Map.toSeq |> Seq.choose (fun (k, v) ->
+                if not <| Map.containsKey k contents2 || contents2.[k] <> v then Some k else None)
         let relevantEntries = new System.Collections.Generic.HashSet<_>(newEntries)
         relevantEntries.UnionWith(modifiedEntries)
-        let mergeOneKey result (k, time) =
-            let val1 = Map.tryFind k contents1 |?? lazyInstantiate time (fst k)
-            let val2 = Map.tryFind k contents2 |?? lazyInstantiate time (fst k)
+        let mergeOneKey result k =
+            let val1 = lazyInstantiate (fst k) |> Map.findOrDefaultWith k contents1
+            let val2 = lazyInstantiate (fst k) |> Map.findOrDefaultWith k contents2
             Map.add k (resolve val1 val2) result
         (relevantEntries |> Seq.fold mergeOneKey contents1, peaks1)

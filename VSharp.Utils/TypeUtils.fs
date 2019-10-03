@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System.Collections.Generic
+open System.Reflection
 
 module TypeUtils =
     let isGround (x : System.Type) =
@@ -36,6 +37,19 @@ module TypeUtils =
     let isIntegral = integralTypes.Contains
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains
+
+    // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
+    // returns false, if "t" is value type or if we have no information about "t" type from constraints
+    let rec isReferenceTypeParameter (t : System.Type) =
+        let checkAttribute (t : System.Type) =
+            t.GenericParameterAttributes &&& GenericParameterAttributes.ReferenceTypeConstraint <> GenericParameterAttributes.None
+        let isSimpleReferenceConstraint (t : System.Type) = t.IsClass && t <> typeof<System.ValueType>
+        let isReferenceConstraint (c : System.Type) = if c.IsGenericParameter then isReferenceTypeParameter c else isSimpleReferenceConstraint c
+        checkAttribute t || t.GetGenericParameterConstraints() |> Array.exists isReferenceConstraint
+
+    // returns true, if at least one constraint on type parameter "t" implies that "t" is value type (for example, "t : struct" case)
+    // returns false, if "t" is reference type or if we have no information about "t" type from constraints
+    let isValueTypeParameter (t : System.Type) = t.IsValueType
 
     let private isInt = (=) typeof<int32>
     let private isUInt = (=) typeof<uint32>

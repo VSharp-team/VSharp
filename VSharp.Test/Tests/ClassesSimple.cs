@@ -203,7 +203,7 @@ namespace VSharp.Test.Tests
     public static class ClassesSimple
     {
         [TestSvm]
-        public static bool Test1(int n)
+        public static bool Test1(int n) // TODO: #FQLsNotEqual (MemoryCell : 10), because of "constructed instance" hack
         {
             ClassesSimpleA a = new ClassesSimpleA(n);
             a.IncN();
@@ -267,6 +267,49 @@ namespace VSharp.Test.Tests
     }
 
     [TestSvmFixture]
+    public struct SimpleStruct
+    {
+        public static int X;
+        public static int Y;
+        public static int Z;
+
+        [TestSvm]
+        public void Set(int x)
+        {
+            X = x;
+        }
+    }
+    [TestSvmFixture]
+    public static class ClassesSimpleMerge
+    {
+        class A
+        {
+            public int x;
+        }
+
+        class B
+        {
+            public int x;
+        }
+
+        [TestSvm]
+        public static object MergingClassesFieldsTest(object o)
+        {
+            if (o is A)
+            {
+                var tmp = o as A;
+                tmp.x = 2;
+            }
+            else if (o is B)
+            {
+                var tmp = o as B;
+                tmp.x = 10;
+            }
+            return o;
+        }
+    }
+
+    [TestSvmFixture]
     public class ClassesSimplePropertyAccess
     {
         private SimpleStruct _structProperty;
@@ -304,6 +347,13 @@ namespace VSharp.Test.Tests
         {
             var st = new ClassesSimplePropertyAccess();
             st.StructProperty.Set(42);
+        }
+
+        [TestSvm]
+        public void TestProperty2()
+        {
+            var st = new SimpleStruct();
+            st.Set(42);
         }
     }
 

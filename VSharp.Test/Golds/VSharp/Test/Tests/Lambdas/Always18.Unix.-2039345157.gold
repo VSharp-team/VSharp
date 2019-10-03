@@ -5,4 +5,4 @@ HEAP:
 ---------- h0 = ----------
 1 ==> <Lambda Expression System.Int32 -> System.Int32>
 ---------- s1 = ----------
-VSharp.Test.Tests.Lambdas ==> STRUCT VSharp.Test.Tests.Lambdas[]
+VSharp.Test.Tests.Lambdas ==> CLASS []

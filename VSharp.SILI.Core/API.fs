@@ -14,6 +14,8 @@ module API =
         Explorer.configure interpreter
     let ConfigureSolver solver =
         Common.configureSolver solver
+    let ConfigureSimplifier simplifier =
+        Propositional.configureSimplifier simplifier
     let Reset() =
         Memory.reset()
         IdGenerator.reset()
@@ -32,8 +34,8 @@ module API =
         ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
     let HigherOrderApply funcId state k = Explorer.higherOrderApplication m.Value funcId state k
     let BranchStatements state condition thenBranch elseBranch k =
-         Common.statedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
-    let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression Merging.merge Merging.merge2Terms id k
+         Common.commonStatedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
+    let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression k
     let BranchStatementsOnNull state reference thenBranch elseBranch k =
         BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenBranch elseBranch k
     let BranchExpressionsOnNull state reference thenExpression elseExpression k =
@@ -56,6 +58,7 @@ module API =
         let Constant name source typ = Constant m.Value name source typ
         let Expression op args typ = Expression m.Value op args typ
         let Struct fields typ = Struct m.Value fields typ
+        let Class fields = Class m.Value fields
         let Union gvs = Union m.Value gvs
 
         let True = True
@@ -67,13 +70,15 @@ module API =
         let MakeLambda body signature = Lambdas.make m.Value body signature
 
         let TypeOf term = typeOf term
+        let BaseTypeOfRef ref = baseTypeOfRef ref
+        let SightTypeOfRef ref = sightTypeOfRef ref
+
         let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
         let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
         let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
-        let PersistentLocalAndConstraintTypes = TypeCasting.persistentLocalAndConstraintTypes m.Value
         let ConstantsOf terms = discoverConstants terms
 
     module Types =
@@ -88,16 +93,20 @@ module API =
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
         let IsNativeInt t = Pointers.isNativeInt t
+        let IsValueType t = Common.isValueType m.Value t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
-        let IsSubtype leftType rightType = Common.is m.Value leftType rightType
+        let TypeIsType leftType rightType = Common.typeIsType m.Value leftType rightType
+        let TypeIsRef typ ref = Common.typeIsRef m.Value typ ref
+        let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
+
         let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
         let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k
         let CastConcrete value typ = CastConcrete value typ m.Value
-        let CastReferenceToPointer state reference k = TypeCasting.castReferenceToPointer m.Value state reference k
+        let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer m.Value state reference
 
     module public ControlFlowConstructors =
         let NoComputation = NoResult Metadata.empty
@@ -153,34 +162,34 @@ module API =
         let DereferenceLocalVariable state id = Memory.referenceLocalVariable m.Value state id false |> Memory.deref m.Value state
         let Mutate state reference value = Memory.mutate m.Value state reference value
 
-        let AllocateOnStack state key term = Memory.allocateOnStack m.Value state key term
+        let AllocateOnStack state key typ term = Memory.allocateOnStack m.Value state key typ term
 
-        let AllocateInHeap state term =
+        let AllocateInHeap state typ term =
             let address = Memory.freshHeapLocation m.Value
-            Memory.allocateInHeap m.Value state address term
+            Memory.allocateInHeap m.Value state address typ term
 
         let AllocateDefaultStatic state targetType =
             let fql = makeTopLevelFQL TopLevelStatics targetType
-            let staticStruct, state = Memory.mkDefaultStaticStruct m.Value state targetType fql
+            let staticStruct, state = Memory.mkDefaultStatic m.Value state targetType fql
             Memory.allocateInStaticMemory m.Value state targetType staticStruct
 
-        let MakeDefaultStruct termType fql = Some fql |> Memory.mkDefaultStruct m.Value termType
+        let MakeDefaultBlock termType fql = Memory.mkDefaultBlock m.Value termType (Some fql)
 
-        let AllocateDefaultStruct state typ =
+        let AllocateDefaultBlock state typ =
             let address = Memory.freshHeapLocation m.Value
             let fql = TopLevelHeap(address, typ, typ), []
-            MakeDefaultStruct typ fql |> Memory.allocateInHeap m.Value state address
+            MakeDefaultBlock typ fql |> Memory.allocateInHeap m.Value state address typ
 
         let AllocateDefaultArray state dimensions typ =
             let address = Memory.freshHeapLocation m.Value
             let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
-            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address
+            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
 
         let AllocateInitializedArray state dimensions rank typ initializer =
             let address = Memory.freshHeapLocation m.Value
             let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
-            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address
-            let state = Arrays.fromInitializer m.Value (Memory.tick()) rank typ initializer fql |> Mutate state ref |> snd
+            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
+            let state = Arrays.fromInitializer m.Value rank typ initializer fql |> Mutate state ref |> snd
             ref, state
 
         let AllocateString string state = Memory.allocateString m.Value state string
@@ -199,8 +208,8 @@ module API =
         let StringCtorOfCharArray state this arrayRef =
             let fql = Some <| getFQLOfRef this
             BranchExpressionsOnNull state arrayRef
-                (fun state k -> k (Strings.makeConcreteStringStruct m.Value (Memory.tick()) "" fql, state))
-                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value (Memory.tick()) fql) |> k)
+                (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" fql, state))
+                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value fql) |> k)
                 id
 
     module Database =

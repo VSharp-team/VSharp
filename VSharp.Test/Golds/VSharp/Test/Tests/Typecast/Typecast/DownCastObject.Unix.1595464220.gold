@@ -1,8 +1,8 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.DownCastObject(System.Object)
 RESULT: UNION[
-	| !(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) ~> 5
-	| !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj ~> 6]
+	| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj ~> 6
+	| !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) ~> 5]
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]
+VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

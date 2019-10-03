@@ -3,4 +3,4 @@ RESULT: 1
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.TryCatch ==> STRUCT VSharp.Test.Tests.TryCatch[]
+VSharp.Test.Tests.TryCatch ==> CLASS []

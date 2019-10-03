@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+using System;
+using NUnit.Framework;
 
 namespace VSharp.Test
 {
@@ -49,6 +50,62 @@ namespace VSharp.Test
             Assert.AreEqual(v6, "v#!6");
             Assert.AreEqual(f4, "Foo4");
             Assert.AreEqual(f5, "Foo5");
+        }
+
+        public interface INothing {}
+        public class Nothing : INothing {}
+
+        public class GenericParametersKeeper<A, B, C, D, E, F, G, H, I, J>
+            where A : B
+            where B : J
+            where C : struct
+            where D : E, F
+            where E : I
+            where F : J, new()
+            where G : H
+            where H : Nothing
+            where I : class
+            where J : INothing
+        {}
+
+        private Type[] GetGenericArguments()
+        {
+            var constructedType = typeof(GenericParametersKeeper<Nothing, Nothing, int, Nothing, object, Nothing, Nothing, Nothing, object, Nothing>);
+            return constructedType.GetGenericTypeDefinition().GetGenericArguments();
+        }
+
+        [Test]
+        public void IsReferenceTypeParameterTest()
+        {
+            // Testing "IsReferenceTypeParameter" function
+            var genericArguments = GetGenericArguments();
+            Assert.AreEqual(false, TypeUtils.isReferenceTypeParameter(genericArguments[0]));
+            Assert.AreEqual(false, TypeUtils.isReferenceTypeParameter(genericArguments[1]));
+            Assert.AreEqual(false, TypeUtils.isReferenceTypeParameter(genericArguments[2]));
+            Assert.AreEqual(true, TypeUtils.isReferenceTypeParameter(genericArguments[3]));
+            Assert.AreEqual(true, TypeUtils.isReferenceTypeParameter(genericArguments[4]));
+            Assert.AreEqual(false, TypeUtils.isReferenceTypeParameter(genericArguments[5]));
+            Assert.AreEqual(true, TypeUtils.isReferenceTypeParameter(genericArguments[6]));
+            Assert.AreEqual(true, TypeUtils.isReferenceTypeParameter(genericArguments[7]));
+            Assert.AreEqual(true, TypeUtils.isReferenceTypeParameter(genericArguments[8]));
+            Assert.AreEqual(false, TypeUtils.isReferenceTypeParameter(genericArguments[9]));
+        }
+
+        [Test]
+        public void IsValueTypeParameterTest()
+        {
+            // Testing "IsValueTypeParameter" function
+            var genericArguments = GetGenericArguments();
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[0]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[1]));
+            Assert.AreEqual(true, TypeUtils.isValueTypeParameter(genericArguments[2]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[3]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[4]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[5]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[6]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[7]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[8]));
+            Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[9]));
         }
     }
 }

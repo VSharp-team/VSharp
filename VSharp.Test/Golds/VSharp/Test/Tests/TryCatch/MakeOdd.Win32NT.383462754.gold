@@ -3,7 +3,7 @@ RESULT: !(0 == n % 2) & !(n <= 0) & 1 == n % 2 | !(n <= 0) & (1 + n) % 2 == 1 & 
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.ArgumentException[
+1 ==> System.ArgumentException CLASS [
 	| System.ArgumentException.m_paramName ~> null
 	| System.Exception._HResult ~> -2147024809
 	| System.Exception._className ~> null
@@ -13,7 +13,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !hasKey#7 ~> null
 			| hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)]]
@@ -26,9 +26,9 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
-10 ==> STRUCT System.String[
+10 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'N';
 		1: 'o';
@@ -41,12 +41,12 @@ HEAP:
 		8: '\000';
 		 ... 9 ... |]
 	| System.String.m_StringLength ~> 8]
-11 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+11 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'A';
 		10: 'h';
@@ -79,13 +79,13 @@ HEAP:
 		9: 's';
 		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> System.Object CLASS []
+4 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+5 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -127,7 +127,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.InvalidOperationException[
+6 ==> System.InvalidOperationException CLASS [
 	| System.Exception._HResult ~> -2146233079
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -136,7 +136,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
 			| !hasKey#7 & 0 == n ~> null]]
@@ -149,9 +149,9 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
-7 ==> STRUCT System.String[
+7 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'H';
 		10: 't';
@@ -200,12 +200,12 @@ HEAP:
 		9: 'a';
 		 ... 45 ... |]
 	| System.String.m_StringLength ~> 44]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+8 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-9 ==> STRUCT System.Exception[
+9 ==> System.Exception CLASS [
 	| System.Exception._HResult ~> -2146233088
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -214,7 +214,7 @@ HEAP:
 	| System.Exception._exceptionMethodString ~> null
 	| System.Exception._helpURL ~> null
 	| System.Exception._innerException ~> null
-	| System.Exception._ipForWatsonBuckets ~> STRUCT System.UIntPtr[
+	| System.Exception._ipForWatsonBuckets ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
 			| !hasKey#7 & 0 == n ~> null]]
@@ -227,33 +227,33 @@ HEAP:
 	| System.Exception._stackTraceString ~> null
 	| System.Exception._watsonBuckets ~> null
 	| System.Exception._xcode ~> -532462766
-	| System.Exception._xptrs ~> STRUCT System.IntPtr[
+	| System.Exception._xptrs ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> 0]]
 ---------- s1 = ----------
-System.ArgumentException ==> STRUCT System.ArgumentException[]
-System.Exception ==> STRUCT System.Exception[
+System.ArgumentException ==> CLASS []
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
 		| !(0 == n) | hasKey#3 ~> System.Exception._COMPlusExceptionCode
 		| !hasKey#3 & 0 == n ~> -532462766]
 	| System.Exception.s_EDILock ~> UNION[
 		| !(0 == n) | hasKey#3 ~> (HeapRef System.Exception.s_EDILock)
 		| !hasKey#3 & 0 == n ~> (HeapRef 3)]]
-System.IntPtr ==> STRUCT System.IntPtr[
-	| System.IntPtr.Zero ~> STRUCT System.IntPtr[
+System.IntPtr ==> System.IntPtr STRUCT [
+	| System.IntPtr.Zero ~> System.IntPtr STRUCT [
 		| System.IntPtr.m_value ~> UNION[
 			| !(0 == n) | hasKey#5 ~> (HeapPtr System.IntPtr.Zero.System.IntPtr.m_value as System.Void)
 			| !hasKey#5 & 0 == n ~> null]]]
-System.InvalidOperationException ==> STRUCT System.InvalidOperationException[]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+System.InvalidOperationException ==> CLASS []
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
 		| !(0 == n) | hasKey#8 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
 		| !hasKey#8 & 0 == n ~> (HeapRef 5)]]
-System.SystemException ==> STRUCT System.SystemException[]
-System.UIntPtr ==> STRUCT System.UIntPtr[
-	| System.UIntPtr.Zero ~> STRUCT System.UIntPtr[
+System.SystemException ==> CLASS []
+System.UIntPtr ==> System.UIntPtr STRUCT [
+	| System.UIntPtr.Zero ~> System.UIntPtr STRUCT [
 		| System.UIntPtr.m_value ~> UNION[
 			| !(0 == n) | hasKey#7 ~> (HeapPtr System.UIntPtr.Zero.System.UIntPtr.m_value as System.Void)
 			| !hasKey#7 & 0 == n ~> null]]]
-System.ValueType ==> STRUCT System.ValueType[]
-VSharp.Test.Tests.TryCatch ==> STRUCT VSharp.Test.Tests.TryCatch[]
+System.ValueType ==> CLASS []
+VSharp.Test.Tests.TryCatch ==> CLASS []

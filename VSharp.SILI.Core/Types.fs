@@ -2,22 +2,16 @@ namespace VSharp.Core
 
 open VSharp
 open global.System
-open System.Collections.Generic
 open System.Reflection
 
 type ISymbolicTypeSource =
     abstract TypeEquals : ISymbolicTypeSource -> bool
 
-type variance =
-    | Contravariant
-    | Covariant
-    | Invarinat
-
 [<StructuralEquality;NoComparison>]
 type arrayDimensionType =
     | Vector
     | ConcreteDimension of int
-    | SymbolicDimension of string transparent
+    | SymbolicDimension
 
 [<StructuralEquality;NoComparison>]
 type termType =
@@ -51,56 +45,35 @@ type termType =
                     let args = String.Join(",", (Seq.map toString g))
                     sprintf "%s[%s]" (t.GetGenericTypeDefinition().FullName) args
                 else toString t
-        | TypeVariable(Explicit t) -> toString t
-        | TypeVariable(Implicit (name, _, t)) -> sprintf "%s{%O}" name.v t
+        | TypeVariable(Id t) -> toString t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
-        | ArrayType(_, SymbolicDimension name) -> name.v
+        | ArrayType(_, SymbolicDimension) -> "System.Array"
         | Reference t -> sprintf "<Reference to %O>" t
         | Pointer t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;CustomComparison>]
     typeId =
-        | Explicit of System.Type
-        | Implicit of (string transparent) * ISymbolicTypeSource * termType
+        | Id of System.Type
         override x.GetHashCode() =
             match x with
-            | Explicit h -> hash h
-            | Implicit(_, ts, t) -> (hash t) * 3571 ^^^ (hash ts)
+            | Id h -> hash h
         override x.Equals(o : obj) =
             match o with
             | :? typeId as other ->
                 match x, other with
-                | Implicit(_, s1, t1), Implicit(_, s2, t2) -> s1.TypeEquals s2 && t1 = t2
-                | Explicit h1, Explicit h2 -> h1 = h2
-                | _ -> false
+                | Id h1, Id h2 -> h1 = h2
             | _ -> false
         interface IComparable with
             override x.CompareTo(other) =
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Explicit h1, Explicit h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
-                    | Explicit _, Implicit _ -> -1
-                    | Implicit _, Explicit _ -> 1
-                    | Implicit(_, c1, _), Implicit(_, c2, _) ->
-                        compare (c1.GetHashCode()) (c2.GetHashCode())
+                    | Id h1, Id h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
                 | _ -> -1
 
 module internal Types =
-    let (|StructType|_|) = function
-        | StructType(t, g) -> Some(StructType(t, g))
-        | _ -> None
-
-    let (|ClassType|_|) = function
-        | ClassType(t, g) -> Some(ClassType(t, g))
-        | _ -> None
-
-    let (|InterfaceType|_|) = function
-        | InterfaceType(t, g) -> Some(InterfaceType(t, g))
-        | _ -> None
-
     let (|Char|_|) = function
         | Numeric t when t = typeof<char> -> Some()
         | _ -> None
@@ -173,19 +146,17 @@ module internal Types =
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
 
-    let rec isReferenceType = function
+    let concreteIsReferenceType = function
         | ClassType _
         | InterfaceType _
         | ArrayType _
         | Func _ -> true
-        | TypeVariable(Explicit t) when not t.IsValueType -> true
-        | TypeVariable(Implicit(_, _, t)) -> isReferenceType t
+        | TypeVariable _ -> __unreachable__()
         | _ -> false
 
-    let isValueType = not << isReferenceType
-
     let wrapReferenceType = function
-        | t when isReferenceType t -> Reference t
+        | TypeVariable _ as t -> t
+        | t when concreteIsReferenceType t -> Reference t
         | t -> t
 
     let rec toDotNetType t =
@@ -199,9 +170,8 @@ module internal Types =
             if t.IsGenericType
                 then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
-        | TypeVariable(Explicit t) -> t
-        | TypeVariable(Implicit(_, _, t)) -> toDotNetType t
-        | ArrayType(_, SymbolicDimension _) -> typedefof<System.Array>
+        | TypeVariable(Id t) -> t
+        | ArrayType(_, SymbolicDimension) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Reference t -> toDotNetType t
@@ -228,16 +198,6 @@ module internal Types =
         let private StructType (t : Type) g = StructType t g
         let private ClassType (t : Type) g = ClassType t g
         let private InterfaceType (t : Type) g = InterfaceType t g
-        let private Explicit (t : Type) = Explicit t
-
-        let getVariance (genericParameterAttributes : GenericParameterAttributes) =
-            let (==>) (left : GenericParameterAttributes) (right : GenericParameterAttributes) =
-                left &&& right = right
-            let variance = genericParameterAttributes &&& GenericParameterAttributes.VarianceMask
-            match variance with
-            | _ when variance ==> GenericParameterAttributes.Contravariant -> Contravariant
-            | _ when variance ==> GenericParameterAttributes.Covariant -> Covariant
-            | _ -> Invarinat
 
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
@@ -248,14 +208,12 @@ module internal Types =
             let genericArguments = getGenericArguments interfaceType
             InterfaceType interfaceType genericArguments
 
-        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map makeInterfaceType |> List.ofSeq
-
         and private fromCommonDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
             | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension {v="System.Array"})
+            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
@@ -271,31 +229,18 @@ module internal Types =
                                     Seq.map (fun (p : System.Reflection.ParameterInfo) ->
                                     fromCommonDotNetType p.ParameterType)
                 Func(List.ofSeq parameters, returnType)
-            | p when p.IsGenericParameter -> fromDotNetGenericParameter p
+            | p when p.IsGenericParameter -> TypeVariable(Id p)
             | c when c.IsClass -> ClassType c (getGenericArguments c)
             | i when i.IsInterface -> makeInterfaceType i
             | _ -> __notImplemented__()
 
-        and private fromDotNetGenericParameterConstraint (dotNetType : Type) =
-            match dotNetType with
-            | g when g.IsGenericParameter ->
-                fromDotNetGenericParameter g :: fromDotNetGenericParameterConstraints (g.GetGenericParameterConstraints())
-            | i when i.IsInterface -> makeInterfaceType i |> List.singleton
-            | _ -> List.Empty
-
-        and private fromDotNetGenericParameterConstraints (constraints : Type[]) =
-            constraints |> Seq.collect fromDotNetGenericParameterConstraint |> Seq.distinct |> List.ofSeq
-
-        and private fromDotNetGenericParameter (genericParameter : Type) : termType =
-            TypeVariable(Explicit genericParameter)
-
-        and fromDotNetType (dotNetType : System.Type) =  if dotNetType = null then Null else fromCommonDotNetType dotNetType
+        and fromDotNetType (dotNetType : System.Type) = if dotNetType = null then Null else fromCommonDotNetType dotNetType
 
         let (|StructureType|_|) = function
             | termType.StructType(t, genArg) -> Some(StructureType(t, genArg))
             | Numeric t -> Some(StructureType(t, []))
             | Bool -> Some(StructureType(typedefof<bool>, []))
-            | TypeVariable(Explicit t) when t.IsValueType -> Some(StructureType(t, []))
+            | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> Some(StructureType(t, []))
             | _ -> None
 
         let (|ReferenceType|_|) = function
@@ -304,39 +249,16 @@ module internal Types =
             | termType.ArrayType _ as arr ->
                 let t = toDotNetType arr
                 Some(ReferenceType(t, []))
+            | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> Some(ReferenceType(t, []))
             | _ -> None
 
         let (|ComplexType|_|) = function
             | StructureType(t, genArg)
             | ReferenceType(t, genArg) -> Some(ComplexType(t, genArg))
-            | TypeVariable(Explicit t)-> Some(ComplexType(t, []))
-            | _ -> None
-
-        let (|ConcreteType|_|) = function
-            | ComplexType(t, _) -> Some(ConcreteType t)
+            | TypeVariable(Id t) -> Some(ComplexType(t, []))
             | _ -> None
 
     open Constructor
-
-    module public Variable =
-        let create name source termType = TypeVariable(Implicit({v=sprintf "TypeVariable{%s}" name}, source, termType))
-
-        let fromTermType name source termType =
-            let updateDimension = function
-                | SymbolicDimension _ -> SymbolicDimension {v=sprintf "ArrayTypeVariable{%s}" name}
-                | d -> d
-            let rec getNewType = function
-                | ArrayType(elemType, dim) ->
-                    let newElemType = getNewType elemType
-                    ArrayType(newElemType, updateDimension dim)
-                | ConcreteType t as termType when t.IsSealed && not t.IsGenericParameter -> termType
-                | Pointer termType -> Pointer (create name source termType)
-                | termType -> create name source termType
-            getNewType termType
-
-        let fromDotNetType name source dotnetType =
-            let termType = fromDotNetType dotnetType
-            fromTermType name source termType
 
     let public Char = Numeric typedefof<char>
 
@@ -367,10 +289,6 @@ module internal Types =
         let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
         if isStatic || t.BaseType = null then ourFields
         else Array.append (fieldsOf t.BaseType false) ourFields
-
-    let rec specifyType = function
-        | TypeVariable(Implicit(_, _, typ)) -> specifyType typ
-        | typ -> typ
 
     let unwrapReferenceType = function
         | Reference t -> t

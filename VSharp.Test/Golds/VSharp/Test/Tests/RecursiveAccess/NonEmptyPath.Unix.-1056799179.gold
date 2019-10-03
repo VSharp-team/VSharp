@@ -6,11 +6,11 @@ RESULT: UNION[
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-f.VSharp.Test.Tests.First.A ==> STRUCT TypeVariable{f.VSharp.Test.Tests.First.A}{VSharp.Test.Tests.Second}[
+f.VSharp.Test.Tests.First.A ==> VSharp.Test.Tests.Second CLASS [
 	| VSharp.Test.Tests.First.B ~> UNION[
 		| !(0 == f) & !(0 == f.VSharp.Test.Tests.First.A) & !(0 == f.VSharp.Test.Tests.First.A.VSharp.Test.Tests.First.A) ~> 8
 		| !(0 == f) & !(0 == f.VSharp.Test.Tests.First.A) & 0 == f.VSharp.Test.Tests.First.A.VSharp.Test.Tests.First.A ~> 7
 		| 0 == f | 0 == f.VSharp.Test.Tests.First.A ~> f.VSharp.Test.Tests.First.A.VSharp.Test.Tests.First.B]]
 ---------- s1 = ----------
-VSharp.Test.Tests.First ==> STRUCT VSharp.Test.Tests.First[]
-VSharp.Test.Tests.RecursiveAccess ==> STRUCT VSharp.Test.Tests.RecursiveAccess[]
+VSharp.Test.Tests.First ==> CLASS []
+VSharp.Test.Tests.RecursiveAccess ==> CLASS []

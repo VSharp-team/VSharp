@@ -5,8 +5,8 @@ RESULT: UNION[
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT VSharp.Test.Tests.ClassesSimpleException0[]
-2 ==> STRUCT System.NullReferenceException[
+1 ==> VSharp.Test.Tests.ClassesSimpleException0 CLASS []
+2 ==> System.NullReferenceException CLASS [
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -21,8 +21,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT System.String[
+3 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'O';
 		10: 'e';
@@ -80,13 +81,13 @@ HEAP:
 		9: 'f';
 		 ... 54 ... |]
 	| System.String.m_StringLength ~> 53]
-4 ==> STRUCT System.Object[]
-5 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+4 ==> System.Object CLASS []
+5 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-6 ==> STRUCT System.String[
+6 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -129,23 +130,23 @@ HEAP:
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
 ---------- s1 = ----------
-System.Exception ==> STRUCT System.Exception[
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
 		| !hasKey#1 & !hasKey#5 ~> -532462766
 		| hasKey#1 | hasKey#5 ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
 		| !hasKey#1 & !hasKey#5 ~> (HeapRef 4)
 		| hasKey#1 | hasKey#5 ~> (HeapRef System.Exception.s_EDILock)]]
-System.NullReferenceException ==> STRUCT System.NullReferenceException[]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+System.NullReferenceException ==> CLASS []
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
 		| !hasKey#1 & !hasKey#7 ~> (HeapRef 6)
 		| hasKey#1 | hasKey#7 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-VSharp.Test.Tests.ClassesSimpleException ==> STRUCT VSharp.Test.Tests.ClassesSimpleException[]
-VSharp.Test.Tests.ClassesSimpleException0 ==> STRUCT VSharp.Test.Tests.ClassesSimpleException0[
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.ClassesSimpleException ==> CLASS []
+VSharp.Test.Tests.ClassesSimpleException0 ==> CLASS [
 	| VSharp.Test.Tests.ClassesSimpleException0.field0 ~> UNION[
 		| !hasKey#1 ~> 0
 		| hasKey#1 ~> VSharp.Test.Tests.ClassesSimpleException0.field0]]
-VSharp.Test.Tests.ClassesSimpleExceptionInitializer ==> STRUCT VSharp.Test.Tests.ClassesSimpleExceptionInitializer[]
+VSharp.Test.Tests.ClassesSimpleExceptionInitializer ==> CLASS []

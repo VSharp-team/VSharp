@@ -1,6 +1,5 @@
 namespace VSharp
 
-open JetBrains.Decompiler.Ast
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp.Core
@@ -87,6 +86,7 @@ module internal Z3 =
                 match addr with
                 | [addr] -> (ctx()).MkNumeral(addr.ToString(), type2Sort typ)
                 | _ -> __notImplemented__()
+            | _ when TypeUtils.isIntegral (obj.GetType()) -> (ctx()).MkInt(obj.ToString()) :> Expr
             | _ -> (ctx()).MkNumeral(obj.ToString(), type2Sort typ)
         | _ -> __notImplemented__()
 
@@ -195,7 +195,7 @@ module internal Z3 =
     let rec private decodeExpr op t (expr : Expr) =
         Expression (Operator(op, false)) (expr.Args |> Seq.map decode |> List.ofSeq) t
 
-    and private decodeBoolExpr op (expr : BoolExpr) =
+    and private decodeBoolExpr op (expr : Expr) =
         decodeExpr op Bool expr
 
     and decode (expr : Expr) =
@@ -204,21 +204,18 @@ module internal Z3 =
             match expr with
             | :? IntNum as i -> Concrete i.Int (Numeric typeof<int>)
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric typeof<int>)
-            | :? BoolExpr as b ->
-                if b.IsTrue then True
-                elif b.IsFalse then False
-                elif b.IsNot then decodeBoolExpr OperationType.LogicalNeg b
-                elif b.IsAnd then decodeBoolExpr OperationType.LogicalAnd b
-                elif b.IsOr then decodeBoolExpr OperationType.LogicalOr b
-                elif b.IsEq then decodeBoolExpr OperationType.Equal b
-                elif b.IsGT then decodeBoolExpr OperationType.Greater b
-                elif b.IsGE then decodeBoolExpr OperationType.GreaterOrEqual b
-                elif b.IsLT then decodeBoolExpr OperationType.Less b
-                elif b.IsLE then decodeBoolExpr OperationType.LessOrEqual b
-                else __notImplemented__()
             | _ ->
-                __notImplemented__()
-
+                if expr.IsTrue then True
+                elif expr.IsFalse then False
+                elif expr.IsNot then decodeBoolExpr OperationType.LogicalNeg expr
+                elif expr.IsAnd then decodeBoolExpr OperationType.LogicalAnd expr
+                elif expr.IsOr then decodeBoolExpr OperationType.LogicalOr expr
+                elif expr.IsEq then decodeBoolExpr OperationType.Equal expr
+                elif expr.IsGT then decodeBoolExpr OperationType.Greater expr
+                elif expr.IsGE then decodeBoolExpr OperationType.GreaterOrEqual expr
+                elif expr.IsLT then decodeBoolExpr OperationType.Less expr
+                elif expr.IsLE then decodeBoolExpr OperationType.LessOrEqual expr
+                else __notImplemented__()
 
 // ------------------------------- Solving, etc. -------------------------------
 
@@ -248,9 +245,15 @@ module internal Z3 =
             | OperationType.Equal when List.forall (TypeOf >> Types.IsBool) args ->
                 false
             | _ -> true
-        let encoded = encodeTermExt stopper t
-        let simple = encoded.Simplify()
-        let result = decode simple
-        printLog Trace "SOLVER: simplification of %O   gave   %O" t result
-        printLog Trace "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
-        result
+        let context = new EncodingContext()
+        ctxs.Push(context)
+        try
+            let encoded = encodeTermExt stopper t
+            let simple = encoded.Simplify()
+            let result = decode simple
+            printLog Trace "SOLVER: simplification of %O   gave   %O" t result
+            printLog Trace "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
+            result
+        finally
+            ctxs.Pop() |> ignore
+            context.Dispose()

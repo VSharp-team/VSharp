@@ -5,9 +5,9 @@ open VSharp
 module Substitution =
 
     let substituteHeap keySubst valueSubst heap =
-        Heap.mapFold (fun errs k cell ->
-            let ges, v' = Merging.erroredUnguard cell.value
-            ((keySubst k, {cell with value = valueSubst v'}), List.append errs ges)) [] heap
+        Heap.mapFold (fun errs k v ->
+            let ges, v' = Merging.erroredUnguard v
+            ((keySubst k, valueSubst v'), List.append errs ges)) [] heap
 
     let rec substitute subst typeSubst term =
         match term.term with
@@ -40,36 +40,27 @@ module Substitution =
         | Union gvs ->
             let gvs' = gvs |> List.collect (fun (g, v) ->
                 let ges, ggs = substitute subst typeSubst g |> Merging.erroredUnguard
-                (ggs, substitute subst typeSubst v)::ges)
+                if isFalse ggs then ges else (ggs, substitute subst typeSubst v)::ges)
             if gvs' = gvs then term else Merging.merge gvs'
-        | Struct(contents, typ) ->
-            let typ = typeSubst typ
+        | Block(contents, typ) ->
             let contents', errs = substituteHeap id (substitute subst typeSubst) contents
             let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
-            (!!guard, Struct term.metadata contents' typ)::errs |> Merging.merge
-        | Array(dim, len, lower, inst, contents, lengths, typ) ->
-            let typ = typeSubst typ
+            let typ' = Option.map typeSubst typ
+            (!!guard, Block term.metadata contents' typ')::errs |> Merging.merge
+        | Array(dim, len, lower, inst, contents, lengths) ->
             let dimerrs, dim' = dim |> substitute subst typeSubst |> Merging.erroredUnguard
             let lenerrs, len' = len |> substitute subst typeSubst |> Merging.erroredUnguard
             let lower', lowererrs = substituteHeap subst (substitute subst typeSubst) lower
             let contents', contentserrs = substituteHeap subst (substitute subst typeSubst) contents
             let lengths', lengthserrs = substituteHeap subst (substitute subst typeSubst) lengths
-            let insterrs, inst' =
-                inst
-                |> List.map (fun (g, i) ->
-                    let ges, g' = g |> substitute subst typeSubst |> Merging.erroredUnguard
-                    let ges, gis =
-                        match i with
-                        | DefaultInstantiator _ -> ges, [(g, i)]
-                        | LazyInstantiator(term, typ) ->
-                            let ges', gts' = term |> substitute subst typeSubst |> Merging.unguard |> List.partition (snd >> isError)
-                            List.append ges ges', List.map (fun (g, t) -> (g' &&& g, LazyInstantiator(t, typ))) gts'
-                    ges, Merging.genericSimplify gis)
-                |> List.unzip
-            let insterrs, inst' = List.concat insterrs, List.concat inst'
+            let getErrorsAndInstors (ges, gis) (g, i) =
+                let ges', g' = g |> substitute subst typeSubst |> Merging.erroredUnguard
+                let gis' = Merging.genericSimplify [(g', i)]
+                List.append ges ges', List.append gis gis'
+            let insterrs, inst' = List.fold getErrorsAndInstors ([], []) inst
             let errs = List.concat [dimerrs; lenerrs; lowererrs; contentserrs; lengthserrs; insterrs]
             let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
-            let result = Terms.Array term.metadata dim' len' lower' inst' contents' lengths' typ
+            let result = Array term.metadata dim' len' lower' inst' contents' lengths'
             (!!guard, result)::errs |> Merging.merge
         | _ -> subst term
 
@@ -80,7 +71,7 @@ module Substitution =
         substitute subst typeSubst >> Merging.unguard >> Merging.guardedMapWithoutMerge mapper
 
     and private substituteSegment subst typeSubst = function
-        | StructField(f, t) -> ([True, StructField(f, typeSubst t)])
+        | BlockField(f, t) -> ([True, BlockField(f, typeSubst t)])
         | ArrayIndex(i, t) ->
             let t' = typeSubst t
             substituteAndMap subst typeSubst (fun i' -> ArrayIndex(i', t')) i
@@ -92,7 +83,7 @@ module Substitution =
     and private substitutePath subst typeSubst ctor path =
         path |> Merging.genericGuardedCartesianProduct (substituteSegment subst typeSubst) ctor
 
-    and substituteRef subst typeSubst path ctor topLevel =
+    and substituteRef subst typeSubst path ctor topLevel = // TODO: add substitution of FQL
         path |> substitutePath subst typeSubst (fun path' ->
             match topLevel with
             | TopLevelHeap(addr, bt, st) ->

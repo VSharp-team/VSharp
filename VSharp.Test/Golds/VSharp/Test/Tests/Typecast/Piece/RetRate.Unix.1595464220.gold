@@ -1,12 +1,12 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Piece.RetRate(System.Object)
 RESULT: UNION[
-	| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) ~> <ERROR: (HeapRef 2)>
-	| !(0 == obj) & (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) ~> obj.VSharp.Test.Tests.Typecast.Piece.Rate
+	| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj) ~> <ERROR: (HeapRef 2)>
+	| !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) ~> obj.VSharp.Test.Tests.Typecast.Piece.Rate
 	| 0 == obj ~> <ERROR: (HeapRef 6)>]
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.String[
+1 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'S';
 		10: 'c';
@@ -39,7 +39,7 @@ HEAP:
 		9: ' ';
 		 ... 29 ... |]
 	| System.String.m_StringLength ~> 28]
-2 ==> STRUCT System.InvalidCastException[
+2 ==> System.InvalidCastException CLASS [
 	| System.Exception._HResult ~> -2147467262
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -54,14 +54,15 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-3 ==> STRUCT System.Object[]
-4 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+3 ==> System.Object CLASS []
+4 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
-5 ==> STRUCT System.String[
+5 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'C';
 		10: 'r';
@@ -103,7 +104,7 @@ HEAP:
 		9: 'e';
 		 ... 38 ... |]
 	| System.String.m_StringLength ~> 37]
-6 ==> STRUCT System.NullReferenceException[
+6 ==> System.NullReferenceException CLASS [
 	| System.Exception._HResult ~> -2147467261
 	| System.Exception._className ~> null
 	| System.Exception._data ~> null
@@ -118,8 +119,9 @@ HEAP:
 	| System.Exception._stackTrace ~> null
 	| System.Exception._stackTraceString ~> null
 	| System.Exception.captured_traces ~> null
+	| System.Exception.caught_in_unmanaged ~> 0
 	| System.Exception.native_trace_ips ~> null]
-7 ==> STRUCT System.String[
+7 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: 'O';
 		10: 'e';
@@ -177,25 +179,25 @@ HEAP:
 		9: 'f';
 		 ... 54 ... |]
 	| System.String.m_StringLength ~> 53]
-8 ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+8 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.m_realObject ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_realType ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_savedSerializationInfo ~> null
 	| System.Runtime.Serialization.SafeSerializationManager.m_serializedStates ~> null]
 ---------- s1 = ----------
-System.Exception ==> STRUCT System.Exception[
+System.Exception ==> CLASS [
 	| System.Exception._COMPlusExceptionCode ~> UNION[
-		| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) & !hasKey#3 ~> -532462766
-		| (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#3 ~> System.Exception._COMPlusExceptionCode]
+		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj) & !hasKey#3 ~> -532462766
+		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#3 ~> System.Exception._COMPlusExceptionCode]
 	| System.Exception.s_EDILock ~> UNION[
-		| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) & !hasKey#3 ~> (HeapRef 3)
-		| (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#3 ~> (HeapRef System.Exception.s_EDILock)]]
-System.InvalidCastException ==> STRUCT System.InvalidCastException[]
-System.NullReferenceException ==> STRUCT System.NullReferenceException[]
-System.Object ==> STRUCT System.Object[]
-System.Runtime.Serialization.SafeSerializationManager ==> STRUCT System.Runtime.Serialization.SafeSerializationManager[
+		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj) & !hasKey#3 ~> (HeapRef 3)
+		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#3 ~> (HeapRef System.Exception.s_EDILock)]]
+System.InvalidCastException ==> CLASS []
+System.NullReferenceException ==> CLASS []
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
 	| System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName ~> UNION[
-		| !(0 == obj) & !(TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) & !hasKey#5 ~> (HeapRef 5)
-		| (TypeVariable{obj}{System.Object} <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#5 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
-System.SystemException ==> STRUCT System.SystemException[]
-VSharp.Test.Tests.Typecast.Piece ==> STRUCT VSharp.Test.Tests.Typecast.Piece[]
+		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj) & !hasKey#5 ~> (HeapRef 5)
+		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj | hasKey#5 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)]]
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.Typecast.Piece ==> CLASS []

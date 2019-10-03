@@ -19,7 +19,6 @@ type IDelegateIdentifier =
     abstract ContextFrames : frames
 
 module internal Explorer =
-    open System
 
     let private currentlyExploredFunctions = new HashSet<IFunctionIdentifier>()
     let private currentlyCalledFunctions = new HashSet<IFunctionIdentifier>()
@@ -33,8 +32,9 @@ module internal Explorer =
     let configure itprtr = interpreter <- itprtr
 
     let private formInitialStatics metadata typ =
-        let staticMemoryEntry = Struct metadata Heap.empty typ
-        Heap.empty.Add(makeTopLevelKey TopLevelStatics typ, { value = staticMemoryEntry; created = Timestamp.zero; modified = Timestamp.zero })
+        let staticMemoryEntry = Memory.makeSymbolicBlock metadata typ
+        let key = makeTopLevelKey TopLevelStatics typ typ
+        Heap.add key staticMemoryEntry Heap.empty
 
     let private invoke id state this k =
         interpreter.Invoke id state this k
@@ -92,7 +92,7 @@ module internal Explorer =
         let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
         match bottomOccurence with
         | None -> false
-        | Some { func = Some(_, p'); entries = _; time =  _ } when s.pc = p' ->
+        | Some { func = Some(_, p'); entries = _ } when s.pc = p' ->
             match Options.RecursionUnrollingMode() with
             | NeverUnroll -> true
             | _ -> false
@@ -121,7 +121,7 @@ module internal Explorer =
         | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, ro.extractor :? IdTermExtractor)
         | _ -> None
 
-    let private mutateStackClosure mtd (funcId : IFunctionIdentifier) time state =
+    let private mutateStackClosure mtd (funcId : IFunctionIdentifier) state =
         match funcId with
         | :? IDelegateIdentifier as di ->
             let mutateLocation st (frame : entry) =
@@ -130,46 +130,44 @@ module internal Explorer =
                 let typ = frame.typ
                 let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
                 let fql = makeTopLevelFQL TopLevelStack frame.key
-                let value = Memory.makeSymbolicInstance mtd time source source name fql typ
-                Memory.mutateStack mtd st frame.key [] time value
+                let value = Memory.makeSymbolicInstance mtd source name fql typ
+                Memory.mutateStack mtd st frame.key [] value
             di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
         | _ -> state
 
-    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state time k =
+    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state k =
         let typ = Types.wrapReferenceType funcId.ReturnType
         let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Memory.makeSymbolicInstance mtd time source source name None typ |> k
+        Memory.makeSymbolicInstance mtd source name None typ |> k
 
-    let recursionApplication mtd (funcId : IFunctionIdentifier) state addr time k =
+    let recursionApplication mtd (funcId : IFunctionIdentifier) state addr k =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
-        functionApplicationResult mtd funcId name state time (fun res ->
+        functionApplicationResult mtd funcId name state (fun res ->
         let recursiveResult = ControlFlow.throwOrReturn res
-        let heapSymbol = RecursiveApplication(funcId, addr, time)
-        let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
+        let heapSymbol = RecursiveApplication(funcId, addr)
+        let ctx : compositionContext = { mtd = mtd; addr = addr }
         let heap = Memory.composeHeapsOf ctx state heapSymbol
         let statics = Memory.composeStaticsOf ctx state heapSymbol
-        let recursiveState = { mutateStackClosure mtd funcId time state with heap = heap; statics = statics }
+        let recursiveState = { mutateStackClosure mtd funcId state with heap = heap; statics = statics }
         k (recursiveResult, recursiveState))
 
     let higherOrderApplication mtd funcId (state : state) k =
         let addr = [Memory.freshAddress()]
-        let time = Memory.tick()
         let name = IdGenerator.startingWith <| sprintf "λ[%O]_" funcId
-        functionApplicationResult mtd funcId name state time (fun res ->
+        functionApplicationResult mtd funcId name state (fun res ->
         let higherOrderResult = ControlFlow.throwOrReturn res
         let higherOrderState =
-            { mutateStackClosure mtd funcId time state with
-                heap = HigherOrderApplication(res, addr, time);
-                statics = HigherOrderApplication(res, addr, time) }
+            { mutateStackClosure mtd funcId state with
+                heap = HigherOrderApplication(res, addr);
+                statics = HigherOrderApplication(res, addr) }
         k (higherOrderResult , higherOrderState))
 
     let reproduceEffect mtd funcId state k =
         let addr = [Memory.freshAddress()]
-        let time = Memory.tick()
         if currentlyExploredFunctions.Contains funcId then
-            recursionApplication mtd funcId state addr time k
+            recursionApplication mtd funcId state addr k
         else
-            let ctx : compositionContext = { mtd = mtd; addr = addr; time = time }
+            let ctx : compositionContext = { mtd = mtd; addr = addr }
             explore funcId (fun summary ->
             let result = Memory.fillHoles ctx state summary.result |> ControlFlow.throwOrReturn
             let state = Memory.composeStates ctx state summary.state

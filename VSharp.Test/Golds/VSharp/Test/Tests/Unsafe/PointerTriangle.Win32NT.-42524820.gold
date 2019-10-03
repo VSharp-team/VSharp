@@ -3,4 +3,4 @@ RESULT: x
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Unsafe ==> STRUCT VSharp.Test.Tests.Unsafe[]
+VSharp.Test.Tests.Unsafe ==> CLASS []

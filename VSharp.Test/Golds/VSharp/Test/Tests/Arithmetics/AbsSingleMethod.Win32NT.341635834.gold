@@ -109,9 +109,9 @@ HEAP:
 	8: 'I';
 	9: 'J';
 	 ... 65 ... |]
-4 ==> STRUCT System.DBNull[]
+4 ==> System.DBNull CLASS []
 ---------- s1 = ----------
-System.Convert ==> STRUCT System.Convert[
+System.Convert ==> CLASS [
 	| System.Convert.ConvertTypes ~> UNION[
 		| !hasKey#2 ~> (HeapRef 2)
 		| hasKey#2 ~> (HeapRef System.Convert.ConvertTypes)]
@@ -129,11 +129,11 @@ System.Convert ==> STRUCT System.Convert[
 	| System.Convert.base64Table ~> UNION[
 		| !hasKey#2 ~> (HeapRef 3)
 		| hasKey#2 ~> (HeapRef System.Convert.base64Table)]]
-System.DBNull ==> STRUCT System.DBNull[
+System.DBNull ==> CLASS [
 	| System.DBNull.Value ~> UNION[
 		| !hasKey#2 & !hasKey#3 ~> (HeapRef 4)
 		| hasKey#2 | hasKey#3 ~> (HeapRef System.DBNull.Value)]]
-System.Math ==> STRUCT System.Math[
+System.Math ==> CLASS [
 	| System.Math.E ~> UNION[
 		| !hasKey#1 ~> 2.71828182845905
 		| hasKey#1 ~> System.Math.E]
@@ -149,5 +149,5 @@ System.Math ==> STRUCT System.Math[
 	| System.Math.roundPower10Double ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.Math.roundPower10Double)]]
-System.Object ==> STRUCT System.Object[]
-VSharp.Test.Tests.Arithmetics ==> STRUCT VSharp.Test.Tests.Arithmetics[]
+System.Object ==> CLASS []
+VSharp.Test.Tests.Arithmetics ==> CLASS []

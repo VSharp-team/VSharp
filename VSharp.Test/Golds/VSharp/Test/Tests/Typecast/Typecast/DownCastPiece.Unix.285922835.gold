@@ -1,8 +1,8 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.DownCastPiece(VSharp.Test.Tests.Typecast.Piece)
 RESULT: UNION[
-	| !(0 == piece) & (TypeVariable{piece}{VSharp.Test.Tests.Typecast.Piece} <: VSharp.Test.Tests.Typecast.Pawn) ~> 10
-	| !(TypeVariable{piece}{VSharp.Test.Tests.Typecast.Piece} <: VSharp.Test.Tests.Typecast.Pawn) | 0 == piece ~> 20]
+	| !((HeapRef piece) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == piece ~> 20
+	| !(0 == piece) & ((HeapRef piece) <: VSharp.Test.Tests.Typecast.Pawn) ~> 10]
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> STRUCT VSharp.Test.Tests.Typecast.Typecast[]
+VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

@@ -1,7 +1,6 @@
 namespace VSharp.Core
 
 open VSharp
-open VSharp.CSharpUtils
 
 type IPropositionalSimplifier =
     abstract member Simplify : term -> term

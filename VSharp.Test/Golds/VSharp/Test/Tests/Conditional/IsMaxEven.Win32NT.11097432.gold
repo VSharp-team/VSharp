@@ -22,7 +22,7 @@ HEAP:
 	9: 1000000000;
 	 ... 16 ... |]
 ---------- s1 = ----------
-System.Math ==> STRUCT System.Math[
+System.Math ==> CLASS [
 	| System.Math.E ~> UNION[
 		| !hasKey#1 ~> 2.71828182845905
 		| hasKey#1 ~> System.Math.E]
@@ -38,4 +38,4 @@ System.Math ==> STRUCT System.Math[
 	| System.Math.roundPower10Double ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1)
 		| hasKey#1 ~> (HeapRef System.Math.roundPower10Double)]]
-VSharp.Test.Tests.Conditional ==> STRUCT VSharp.Test.Tests.Conditional[]
+VSharp.Test.Tests.Conditional ==> CLASS []

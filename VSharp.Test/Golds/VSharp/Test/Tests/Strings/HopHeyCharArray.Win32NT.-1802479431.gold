@@ -3,7 +3,7 @@ RESULT: (HeapRef 1)
 HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
-1 ==> STRUCT System.String[
+1 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> | !(0 == a) ~> System.Char
 		| 0 == a ~> default of System.Char: [|
 		0: UNION[
@@ -16,13 +16,13 @@ HEAP:
 	| System.String.m_StringLength ~> UNION[
 		| !(0 == a) ~> a.0_Length
 		| 0 == a ~> 0]]
-2 ==> STRUCT System.String[
+2 ==> System.String CLASS [
 	| System.String.m_FirstChar ~> [|
 		0: '\000';
 		 ... 1 ... |]
 	| System.String.m_StringLength ~> 0]
 ---------- s1 = ----------
-System.String ==> STRUCT System.String[
+System.String ==> CLASS [
 	| System.String.Empty ~> UNION[
 		| !hasKey#1 ~> (HeapRef 2)
 		| hasKey#1 ~> (HeapRef System.String.Empty)]
@@ -41,4 +41,4 @@ System.String ==> STRUCT System.String[
 	| System.String.charPtrAlignConst ~> UNION[
 		| !hasKey#1 ~> 1
 		| hasKey#1 ~> System.String.charPtrAlignConst]]
-VSharp.Test.Tests.Strings ==> STRUCT VSharp.Test.Tests.Strings[]
+VSharp.Test.Tests.Strings ==> CLASS []
