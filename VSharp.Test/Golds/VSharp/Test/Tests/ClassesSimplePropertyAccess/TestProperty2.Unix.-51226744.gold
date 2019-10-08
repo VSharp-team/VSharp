@@ -3,5 +3,5 @@ RESULT: <VOID>
 HEAP:
 { heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
-VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
 VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
+VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []

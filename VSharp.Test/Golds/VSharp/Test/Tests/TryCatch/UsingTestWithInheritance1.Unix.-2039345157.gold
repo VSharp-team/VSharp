@@ -4,13 +4,11 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> VSharp.Test.Tests.TryCatch+AnotherDisposable1 CLASS [
-	| VSharp.Test.Tests.TryCatch+MyDispose.X_field ~> (HeapRef 2)]
-2 ==> [|
-	0: 20;
-	 ... 1 ... |]
+	| VSharp::Test::Tests::TryCatch::MyDispose::X_field ~> (HeapRef 2)]
+2 ==> [| 0 ~> 20 ... 1 ... |]
 ---------- s1 = ----------
 System.IDisposable ==> CLASS []
 System.Object ==> CLASS []
+VSharp.Test.Tests.TryCatch ==> CLASS []
 VSharp.Test.Tests.TryCatch+AnotherDisposable1 ==> CLASS []
 VSharp.Test.Tests.TryCatch+MyDispose ==> CLASS []
-VSharp.Test.Tests.TryCatch ==> CLASS []

@@ -4,20 +4,20 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> System.Collections.Generic.List`1[System.Double] CLASS [
-	| System.Collections.Generic.List`1._items ~> UNION[
+	| System::Collections::Generic::List`1::_items ~> UNION[
 		| !hasKey#1 ~> (HeapRef 2)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1.s_emptyArray)]
-	| System.Collections.Generic.List`1._size ~> 0
-	| System.Collections.Generic.List`1._syncRoot ~> null
-	| System.Collections.Generic.List`1._version ~> 0]
-2 ==> [| ... 0 ... |]
+		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Double].s_emptyArray)]
+	| System::Collections::Generic::List`1::_size ~> 0
+	| System::Collections::Generic::List`1::_syncRoot ~> null
+	| System::Collections::Generic::List`1::_version ~> 0]
+2 ==> [|... 0 ... |]
 ---------- s1 = ----------
 System.Collections.Generic.List`1[System.Double] ==> CLASS [
-	| System.Collections.Generic.List`1.DefaultCapacity ~> UNION[
+	| DefaultCapacity ~> UNION[
 		| !hasKey#1 ~> 4
-		| hasKey#1 ~> System.Collections.Generic.List`1.DefaultCapacity]
-	| System.Collections.Generic.List`1.s_emptyArray ~> UNION[
+		| hasKey#1 ~> System.Collections.Generic.List`1[System.Double].DefaultCapacity]
+	| s_emptyArray ~> UNION[
 		| !hasKey#1 ~> (HeapRef 2)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1.s_emptyArray)]]
+		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Double].s_emptyArray)]]
 System.Object ==> CLASS []
 VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> CLASS []

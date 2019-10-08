@@ -101,18 +101,7 @@ module internal State =
     let decomposeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
         { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr }
 
-    let private printPathSegment = function
-        | BlockField(f, _) -> f
-        | ArrayIndex(i, _) -> sprintf "[%s]" (i.term.IndicesToString())
-        | ArrayLowerBound i
-        | ArrayLength i -> i.term.IndicesToString()
-
-    let nameOfLocation = function
-        | TopLevelStack(name, _), [] -> name
-        | TopLevelStatics typ, [] -> toString typ
-        | TopLevelHeap(key, _, _), path ->
-            toString key :: List.map printPathSegment path |> join "."
-        | _, path -> path |> List.map printPathSegment |> join "."
+    let nameOfLocation (topLevel, path) = List.map toString path |> cons (toString topLevel) |> join "."
 
     let readStackLocation (s : state) key = MappedStack.find key s.stack
     let readHeapLocation (s : term heap) key = s.heap.[key]
@@ -205,12 +194,6 @@ module internal State =
     let withHeap (s : state) h' = { s with heap = h' }
     let withStatics (s : state) m' = { s with statics = m' }
 
-    let private heapKeyToString = term >> function
-        | Concrete(:? (int list) as k, _) -> k |> List.map toString |> join "."
-        | t -> toString t
-
-    let private staticKeyToString (t : termType) = toString t
-
     let mkMetadata (location : locationBinding) state =
         { origins = [{ location = location; stack = framesHashOf state}]; misc = null }
 
@@ -284,31 +267,31 @@ module internal State =
     let private compositionToString s1 s2 =
         sprintf "%s ⚪ %s" s1 s2
 
-    let private dumpHeap keyToString valueToString prefix n r h (concrete : StringBuilder) (ids : Dictionary<int, string>) =
+    let private dumpHeap<'a, 'b when 'a : equality and 'b : comparison> keyToString valueToString (sorter : 'a -> 'b) prefix n r h (concrete : StringBuilder) (ids : Dictionary<int, string>) =
         let id = ref ""
         if ids.TryGetValue(hash h, id) then !id, n, concrete
         else
             let freshIdentifier = sprintf "%s%d%s" prefix n (if r then "[restr.]" else "")
             ids.Add(hash h, freshIdentifier)
-            freshIdentifier, n+1, concrete.Append(sprintf "\n---------- %s = ----------\n" freshIdentifier).Append(Heap.dump h keyToString valueToString)
+            freshIdentifier, n+1, concrete.Append(sprintf "\n---------- %s = ----------\n" freshIdentifier).Append(Heap.dump h keyToString valueToString sorter)
 
-    let rec private dumpGeneralizedHeap<'a when 'a : equality> (keyToString : 'a -> string) valueToString prefix n (concrete : StringBuilder) (ids : Dictionary<int, string>) = function
+    let rec private dumpGeneralizedHeap<'a, 'b when 'a : equality and 'b : comparison> keyToString valueToString sorter prefix n (concrete : StringBuilder) (ids : Dictionary<int, string>) = function
         | Defined(r, s) when Heap.isEmpty s -> (if r then "<empty[restr.]>" else "<empty>"), n, concrete
-        | Defined(r, s) -> dumpHeap keyToString valueToString prefix n r s concrete ids
+        | Defined(r, s) -> dumpHeap<'a, 'b> keyToString valueToString sorter prefix n r s concrete ids
         | HigherOrderApplication(f, _) -> sprintf "app(%O)" f, n, concrete
         | RecursiveApplication(f, _) -> sprintf "recapp(%O)" f, n, concrete // TODO: add recursive definition into concrete section
         | Mutation(h, h') ->
-            let s, n, concrete = dumpGeneralizedHeap keyToString valueToString prefix n concrete ids h
-            let s', n, concrete = dumpHeap keyToString valueToString prefix n false h' concrete ids
+            let s, n, concrete = dumpGeneralizedHeap keyToString valueToString sorter prefix n concrete ids h
+            let s', n, concrete = dumpHeap<'a, 'b> keyToString valueToString sorter prefix n false h' concrete ids
             sprintf "write(%s, %s)" s s', n, concrete
         | Composition(state, _, h') ->
             let s, n, concrete = dumpMemoryRec state n concrete ids
-            let s', n, concrete = dumpGeneralizedHeap keyToString valueToString prefix n concrete ids h'
+            let s', n, concrete = dumpGeneralizedHeap keyToString valueToString sorter prefix n concrete ids h'
             compositionToString s s', n, concrete
         | Merged ghs ->
             let gss, (n, concrete) =
                 List.mapFold (fun (n, concrete) (g, h) ->
-                        let s, n, concrete = dumpGeneralizedHeap keyToString valueToString prefix n concrete ids h
+                        let s, n, concrete = dumpGeneralizedHeap keyToString valueToString sorter prefix n concrete ids h
                         sprintf "(%O, %s)" g s, (n, concrete))
                     (n, concrete) ghs
             gss |> join ",\n\t" |> sprintf "merge[\n\t%s]", n, concrete
@@ -318,9 +301,12 @@ module internal State =
             match v.term with
             | Class _ -> sprintf "%O %O" typ v
             | _ -> toString v
-        let sh, n, concrete = dumpGeneralizedHeap heapKeyToString heapValueToString "h" n concrete ids s.heap
-        let mh, n, concrete = dumpGeneralizedHeap staticKeyToString (always toString) "s" n concrete ids s.statics
-        (sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete)
+        let sorter = term >> function
+            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> concreteHeapAddress
+            | _ -> [System.Int32.MaxValue]
+        let sh, n, concrete = dumpGeneralizedHeap toString heapValueToString sorter "h" n concrete ids s.heap
+        let mh, n, concrete = dumpGeneralizedHeap toString (always toString) toString "s" n concrete ids s.statics
+        sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete
 
     let dumpMemory (s : state) =
         let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<int, string>())

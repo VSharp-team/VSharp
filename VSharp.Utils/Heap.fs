@@ -13,8 +13,6 @@ type public heap<'key, 'term, 'fql, 'typ> when 'key : equality and 'term : equal
     member x.Add(pair) = {heap = x.heap.Add(pair)}
     member x.Remove(key) = x.heap.Remove(key)
     member x.Item
-        with get key = x.heap.[{key = key; FQL = None; typ = Unchecked.defaultof<'typ>}]
-    member x.Item
         with get key = x.heap.[key]
     static member ofSeq(items) = {heap = PersistentHashMap<memoryCell<'key, 'fql, 'typ>, 'term>.ofSeq(items)}
     member x.Iterator() = x.heap.Iterator()
@@ -62,6 +60,8 @@ module public Heap =
         h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public fold folder state (h : heap<'a, 'b, 'fql, 'typ>) =
         h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k.key v) state
+    let public forall predicate (h : heap<'a, 'b, 'fql, 'typ>) =
+        h |> toSeq |> Seq.forall predicate
 
     let private mapFoldKeyValue folder state (key, value) =
         let (k, v), state = folder state key.key value
@@ -107,9 +107,9 @@ module public Heap =
         let elements =
             h
             |> toSeq
-            |> Seq.sortBy (mapfst getKey >> sorter)
+            |> Seq.sortBy (fst >> getKey >> sorter)
             |> Seq.map (fun (k, v) -> sprintf format (keyMapper k.key) (valueMapper k.typ v))
         elements |> join separator
 
-    let public dump (h : heap<'a, 'b, 'fql, 'typ>) keyToString valueToString =
-        toString "%s ==> %O" "\n" keyToString valueToString Prelude.toString h
+    let public dump (h : heap<'a, 'b, 'fql, 'typ>) keyToString valueToString sorter =
+        toString "%s ==> %O" "\n" keyToString valueToString sorter h

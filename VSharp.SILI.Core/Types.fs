@@ -276,16 +276,20 @@ module internal Types =
 
     let isReal = toDotNetType >> TypeUtils.isReal
 
-    let rec fieldsOf (t : System.Type) isStatic =
+    let getFieldName (field : FieldInfo) =
+        let getBlockName (field : FieldInfo) =
+            (safeGenericTypeDefinition field.DeclaringType).FullName.Replace(".", "::").Replace("+", "::")
+        if field.IsStatic then field.Name
+        else sprintf "%s::%s" (getBlockName field) field.Name
+
+    let rec fieldsOf (t : System.Type) isStatic = // TODO: move this to specific module
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
-            else
-                let fieldName = sprintf "%s.%s" ((safeGenericTypeDefinition field.DeclaringType).FullName) field.Name
-                Some (fieldName, fromDotNetType field.FieldType)
+            else Some (getFieldName field, fromDotNetType field.FieldType)
         let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
         if isStatic || t.BaseType = null then ourFields
         else Array.append (fieldsOf t.BaseType false) ourFields

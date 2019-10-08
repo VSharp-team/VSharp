@@ -202,11 +202,12 @@ module API =
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
 
         let StringLength state strRef =
+            let fql = getFQLOfRef strRef |> Some
             let strStruct, state = Dereference state strRef
-            Strings.length strStruct, state
+            Strings.length fql strStruct, state
 
         let StringCtorOfCharArray state this arrayRef =
-            let fql = Some <| getFQLOfRef this
+            let fql = getFQLOfRef this |> Some
             BranchExpressionsOnNull state arrayRef
                 (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" fql, state))
                 (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value fql) |> k)

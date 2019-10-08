@@ -151,12 +151,6 @@ module internal Arrays =
             when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents))
         | _ -> None
 
-    let (|Index|_|) = function
-        // TODO: add check that keys are not Arrays if need
-        | VectorT(ConcreteT(length, _), [_, DefaultInstantiator elemType], contents)
-            when length :?> int = 1 && elemType = Types.indexType -> Some(contents.[makeIndex Metadata.empty 0])
-        | _ -> None
-
     type LengthExtractor() =
         inherit TermExtractor()
         override x.Extract t = length t

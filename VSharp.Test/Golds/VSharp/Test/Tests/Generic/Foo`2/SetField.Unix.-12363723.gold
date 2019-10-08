@@ -4,7 +4,7 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 this ==> VSharp.Test.Tests.Generic.Foo`2[T,U] CLASS [
-	| VSharp.Test.Tests.Generic.Foo`2._filed ~> UNION[
+	| VSharp::Test::Tests::Generic::Foo`2::_filed ~> UNION[
 		| !IsValueType(T) ~> (HeapRef f)
 		| IsValueType(T) ~> f]]
 ---------- s1 = ----------

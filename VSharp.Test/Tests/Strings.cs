@@ -14,7 +14,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static string SymbolicString(string s) // TODO: #FQLsNotEqual
+        public static string SymbolicString(string s) // TODO: keys of MemoryCell are equal, but FQLs are not
         {
             var len = s.Length;
             return s;

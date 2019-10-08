@@ -6,16 +6,20 @@ open Types
 
 module internal Strings =
 
-    let strLength = "System.String.m_StringLength"
-    let strArray = "System.String.m_FirstChar"
+    let strLength = "System::String::m_StringLength"
+    let strArray = "System::String::m_FirstChar"
 
-    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(strArray, ArrayType(Char, Vector))
+    let stringArrayType = ArrayType(Char, Vector)
+
+    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(strArray, stringArrayType)
     let makeLengthFQL fql = addToOptionFQL fql <| BlockField(strLength, lengthType)
 
+    let makeArrayFieldKey fql = makeKey strArray (makeArrayFQL fql) stringArrayType
+    let makeLengthFieldKey fql = makeKey strLength (makeLengthFQL fql) lengthType
+
     let makeStringOfFields metadata length array arrayFQL fql =
-        let lengthFQL = makeLengthFQL fql
-        let fields = Heap.ofSeq (seq [ makeKey strLength lengthFQL lengthType, length;
-                                       makeKey strArray arrayFQL (ArrayType(Char, Vector)), array])
+        let fields = Heap.ofSeq (seq [ makeLengthFieldKey fql, length;
+                                       makeKey strArray arrayFQL stringArrayType, array])
         Class metadata fields
 
     let makeConcreteStringStruct metadata (str : string) fql =
@@ -41,36 +45,17 @@ module internal Strings =
             makeStringOfFields metadata length stringArray arrayFQL fql
         | t -> internalfailf "expected char array, but got %O" t)
 
-    let length = Merging.guardedErroredApply (term >> function
-        | Class fields -> fields.[strLength]
+    let length fql = Merging.guardedErroredApply (term >> function
+        | Class fields -> fields.[makeLengthFieldKey fql]
         | t -> internalfailf "expected string struct, but got %O" t)
 
-    let simplifyStructEq mtd x y =
+    let simplifyStructEq mtd x xFQL y yFQL =
         match x.term, y.term with
         | Class fieldsOfX, Class fieldsOfY ->
-            let str1Len = fieldsOfX.[strLength]
-            let str2Len = fieldsOfY.[strLength]
-            let str1Arr = fieldsOfX.[strArray]
-            let str2Arr = fieldsOfY.[strArray]
+            let str1Len = fieldsOfX.[makeLengthFieldKey xFQL]
+            let str2Len = fieldsOfY.[makeLengthFieldKey yFQL]
+            let str1Arr = fieldsOfX.[makeArrayFieldKey xFQL]
+            let str2Arr = fieldsOfY.[makeArrayFieldKey yFQL]
             simplifyEqual mtd str1Len str2Len (fun lengthEq ->
             simplifyAnd mtd lengthEq (Arrays.equals mtd str1Arr str2Arr) id)
         | _ -> internalfailf "expected string struct and string struct, but got %O and %O" x y
-
-    let simplifyConcatenation mtd x y =
-        // TODO: implement concatenation
-        Terms.makeBinary OperationType.Add x y false String mtd
-
-    let simplifyOperation mtd op x y =
-        match op with
-        | OperationType.Add -> simplifyConcatenation mtd x y
-        | OperationType.Equal -> simplifyStructEq mtd x y
-        | OperationType.NotEqual -> !! (simplifyStructEq mtd x y)
-        | _ -> __notImplemented__()
-
-    let isStringOperation op t1 t2 =
-        isString t1 && isString t2 &&
-        match op with
-        | OperationType.Add
-        | OperationType.Equal
-        | OperationType.NotEqual -> true
-        | _ -> false
