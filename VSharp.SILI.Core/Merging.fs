@@ -276,14 +276,13 @@ module internal Merging =
     let guardedApplykWithPC pc f term k = commonGuardedApplykWithPC pc f term merge k
     let guardedApplyWithPC pc f term = guardedApplykWithPC pc (Cps.ret f) term id
     let commonGuardedStatedMapk mapper gvs state merge mergeStates k =
-        let foldFunc (gvs, egs, vgs, states) (g, v) k =
+        let foldFunc (g, v) k =
             let pc = conditionUnderState g state
             match pc with
-            | False -> k (gvs, egs, vgs, states)
-            |_ -> mapper (State.withPathCondition state g) v (fun (t, s) -> k ((g, t) :: gvs, egs, g :: vgs, State.popPathCondition s :: states))
-        Cps.List.foldlk foldFunc ([], [], [], []) gvs (fun (gvs, egs, vgs, states) ->
-        let eg = disjunction Metadata.empty egs
-        let state' = mergeStates (eg :: vgs) (state :: states)
+            | False -> k None
+            | _ -> mapper (State.withPathCondition state g) v (fun (t, s) -> k <| Some((g, t), g, State.popPathCondition s))
+        Cps.List.choosek foldFunc gvs (List.unzip3 >> fun (gvs, vgs, states) ->
+        let state' = mergeStates vgs states
         k (merge gvs, state'))
 
     let commonGuardedStatedApplyk f state term merge mergeStates k =

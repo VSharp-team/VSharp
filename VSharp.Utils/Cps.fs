@@ -15,6 +15,11 @@ module public Cps =
             | [] -> k []
             | x::xs' -> f x (fun y -> mapk f xs' (k << cons y))
 
+        let rec choosek f xs k =
+            match xs with
+            | [] -> k []
+            | x::xs' -> f x (function Some y -> choosek f xs' (k << cons y) | None -> choosek f xs' k)
+
         let rec foldl f a xs k =
             match xs with
             | [] -> k a
