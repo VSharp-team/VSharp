@@ -63,7 +63,6 @@ module internal Z3 =
             | Numeric _
             | ArrayType _
             | Void
-            | Bottom
             | Null
             | StructType _
             | ClassType _
@@ -94,7 +93,7 @@ module internal Z3 =
     let rec private encodeExpression stopper term op args typ =
         (ctx()).Cache.Get term (fun () ->
             match op with
-            | Operator(operator, _) ->
+            | Operator operator ->
                 if stopper operator args then
                     let name = IdGenerator.startingWith "%tmp"
                     encodeConstant name typ term
@@ -125,7 +124,7 @@ module internal Z3 =
                     | :? StandardFunctionIdentifier as sf -> (ctx()).MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
                     | _ -> __notImplemented__()
                 (ctx()).MkApp(decl, encodeTerms stopper args)
-            | Cast(Numeric _, Numeric _, false) -> encodeTermExt stopper (List.head args)
+            | Cast(Numeric _, Numeric _) -> encodeTermExt stopper (List.head args)
             | Cast _ ->
                 __notImplemented__())
 
@@ -189,7 +188,7 @@ module internal Z3 =
 // ------------------------------- Decoding -------------------------------
 
     let rec private decodeExpr op t (expr : Expr) =
-        Expression (Operator(op, false)) (expr.Args |> Seq.map decode |> List.ofSeq) t
+        Expression (Operator op) (expr.Args |> Seq.map decode |> List.ofSeq) t
 
     and private decodeBoolExpr op (expr : Expr) =
         decodeExpr op Bool expr

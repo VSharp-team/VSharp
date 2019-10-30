@@ -66,18 +66,18 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-        let array, state = Memory.Dereference state arrayRef
+        let array = Memory.Dereference state arrayRef
         let dimensionsNumberTerm = Memory.ArrayRank array
         let dimensionsNumber = extractIntFromTerm dimensionsNumberTerm
         let rec helper currentDimension (multiIndex : term list) (state, j) =
             if currentDimension = dimensionsNumber then
                 let valueTerm = termCreator rawData (j * size)
-                let ref, state = Memory.ReferenceArrayIndex state arrayRef multiIndex
+                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
                 let _, state = Memory.Mutate state ref valueTerm
                 (state, j + 1)
             else
                 let currentDimensionTerm = MakeNumber currentDimension
-                let currentLengthTerm, state = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
+                let currentLengthTerm = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
                 let currentLength = extractIntFromTerm currentLengthTerm
                 let res =
                     List.init currentLength id |>

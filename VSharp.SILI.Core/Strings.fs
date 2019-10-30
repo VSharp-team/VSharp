@@ -38,14 +38,14 @@ module internal Strings =
         let contentsWithZero = Heap.add indexLengthKey (makeNumber metadata '\000') contents
         makeArray metadata arrLength contentsWithZero instor arrayFQL
 
-    let ctorOfCharArray metadata stringFQL arrayFQL = Merging.guardedErroredApply (term >> function
+    let ctorOfCharArray metadata stringFQL arrayFQL = Merging.guardedApply (term >> function
         | Array(ConcreteT(d, _), len, lb, i, contents, _) when d :?> int = 1 && lb = zeroLowerBounds Metadata.empty 1 arrayFQL ->
             let arrayFQL = makeArrayFQL stringFQL
             let stringArray = makeStringArray metadata len i contents arrayFQL
             makeStringOfFields metadata len stringArray arrayFQL stringFQL
         | t -> internalfailf "expected char array, but got %O" t)
 
-    let length fql = Merging.guardedErroredApply (term >> function
+    let length fql = Merging.guardedApply (term >> function
         | Class fields -> fields.[makeLengthFieldKey fql]
         | t -> internalfailf "expected string struct, but got %O" t)
 

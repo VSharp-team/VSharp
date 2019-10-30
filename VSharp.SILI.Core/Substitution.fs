@@ -33,48 +33,41 @@ module Substitution =
                     fun tl path ->
                         shift
                         |> substitute subst addressSubst typeSubst
-                        |> Merging.guardedErroredApply (IndentedPtr term.metadata tl path typ)
+                        |> Merging.guardedApply (IndentedPtr term.metadata tl path typ)
             substituteRef subst addressSubst typeSubst topLevel path ctor |> Merging.merge
-        | Error e ->
-            e |> substitute subst addressSubst typeSubst |> Merging.guardedErroredApply (fun e' ->
-            if e' = e then term else Error term.metadata e')
         | Expression(op, args, t) ->
             let t = typeSubst t
             substituteMany subst addressSubst typeSubst args (fun args' ->
             if args = args' then term
             else
                 match op with
-                | Operator(op, isChecked) -> Operators.simplifyOperation term.metadata op isChecked t args' id
-                | Cast(_, targetType, isChecked) ->
+                | Operator(op) -> Operators.simplifyOperation term.metadata op t args' id
+                | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'
-                    TypeCasting.cast term.metadata isChecked State.empty arg targetType (fun _ _ _ -> __unreachable__()) fst
+                    TypeCasting.cast term.metadata arg targetType id
                 | Application _ -> __notImplemented__())
             |> Merging.merge
         | Union gvs ->
-            let gvs' = gvs |> List.collect (fun (g, v) ->
-                let ges, ggs = substitute subst addressSubst typeSubst g |> Merging.erroredUnguard
-                if isFalse ggs then ges else (ggs, substitute subst addressSubst typeSubst v)::ges)
+            let gvs' = gvs |> List.choose (fun (g, v) ->
+                let ggs = substitute subst addressSubst typeSubst g |> Merging.unguardMerge
+                if isFalse ggs then None else Some (ggs, substitute subst addressSubst typeSubst v))
             if gvs' = gvs then term else Merging.merge gvs'
         | Block(contents, typ) ->
             let contents' = substituteHeap id subst addressSubst typeSubst contents
             let typ' = Option.map typeSubst typ
             Block term.metadata contents' typ'
         | Array(dim, len, lower, inst, contents, lengths) ->
-            let dimerrs, dim' = dim |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
-            let lenerrs, len' = len |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
+            let dim' = dim |> substitute subst addressSubst typeSubst |> Merging.unguardMerge
+            let len' = len |> substitute subst addressSubst typeSubst |> Merging.unguardMerge
             let lower' = substituteHeap subst subst addressSubst typeSubst lower
             let contents' = substituteHeap subst subst addressSubst typeSubst contents
             let lengths' = substituteHeap subst subst addressSubst typeSubst lengths
-            let getErrorsAndInstors (ges, gis) (g, i) =
-                let ges', g' = g |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
-                let gis' = Merging.genericSimplify [(g', i)]
-                List.append ges ges', List.append gis gis'
-            let insterrs, inst' = List.fold getErrorsAndInstors ([], []) inst
-            let errs = List.concat [dimerrs; lenerrs; insterrs]
-            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
-            let result = Array term.metadata dim' len' lower' inst' contents' lengths'
-            (!!guard, result)::errs |> Merging.merge
+            let getInstors (g, i) =
+                let g' = g |> substitute subst addressSubst typeSubst |> Merging.unguardMerge
+                Merging.genericSimplify [(g', i)]
+            let inst' = List.collect getInstors inst
+            Array term.metadata dim' len' lower' inst' contents' lengths'
         | _ -> subst term
 
     and private substituteMany subst addressSubst typeSubst terms ctor =

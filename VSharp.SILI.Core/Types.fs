@@ -16,7 +16,6 @@ type arrayDimensionType =
 [<StructuralEquality;NoComparison>]
 type termType =
     | Void
-    | Bottom
     | Null // TODO: delete Null from termType
     | Bool
     | Numeric of typeId
@@ -30,7 +29,6 @@ type termType =
     override x.ToString() =
         match x with
         | Void -> "System.Void"
-        | Bottom -> "exception"
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
         | Numeric(Id t) -> t.FullName
@@ -134,10 +132,6 @@ module internal Types =
         | Void -> true
         | _ -> false
 
-    let isBottom = function
-        | Bottom -> true
-        | _ -> false
-
     let isNull = function
         | Null -> true
         | _ -> false
@@ -171,7 +165,6 @@ module internal Types =
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Pointer t -> (toDotNetType t).MakePointerType()
         | Null -> __unreachable__()
-        | _ -> __notImplemented__()
 
     let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =

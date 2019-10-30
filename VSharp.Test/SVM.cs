@@ -18,7 +18,6 @@ namespace VSharp.Test
         public SVM(ExplorerBase explorer)
         {
             _explorer = explorer;
-            API.Configure(explorer);
         }
 
         private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m,

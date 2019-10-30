@@ -26,9 +26,6 @@ and staticMemory = termType generalizedHeap
 and typeVariables = mappedStack<typeId, termType> * typeId list stack
 and state = { stack : stack; heap : term generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition; typeVariables : typeVariables }
 
-type IActivator =
-    abstract member CreateInstance : locationBinding -> System.Type -> term list -> state -> (term * state)
-
 type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : compositionContext -> state -> term
@@ -215,7 +212,6 @@ module internal State =
         let substitute constructor t args = constructor t (List.map substituteTypeVariables args)
         match typ with
         | Void
-        | Bottom
         | Null
         | Bool
         | Numeric _ -> typ
@@ -229,14 +225,6 @@ module internal State =
         | Pointer t -> Pointer(substituteTypeVariables t)
 
 // ------------------------------- Memory layer -------------------------------
-
-    type private NullActivator() =
-        interface IActivator with
-            member x.CreateInstance _ _ _ _ =
-                internalfail "activator is not ready"
-    let mutable private activator : IActivator = new NullActivator() :> IActivator
-    let configure act = activator <- act
-    let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
 
     let mutable genericLazyInstantiator : termMetadata -> heapFQL -> termType -> unit -> term =
         fun _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
