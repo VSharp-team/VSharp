@@ -1,0 +1,6 @@
+METHOD: System.SByte VSharp.Test.Tests.Conversions.Conv_Ovf_short_sbyte_No_Overflow1()
+RESULT: 127
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []

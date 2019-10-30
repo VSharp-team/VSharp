@@ -29,38 +29,11 @@ type public ExplorerBase() =
                 | LocalVariableKey _ -> false
                 | _ ->
                     let reference = Memory.ReferenceLocalVariable entry.key
-                    let value, _ = Memory.Dereference s reference
+                    let value = Memory.Dereference s reference
                     match value.term with
                     | Concrete _ -> false
                     | _ -> true)
         | _ -> internalfail "Some new ICodeLocation"
-
-    interface IActivator with
-        member x.CreateInstance _ exceptionType arguments state =
-            x.InitEntryPoint state exceptionType (fun state ->
-            let constructors = exceptionType.GetConstructors()
-            let argumentsLength = List.length arguments
-            let argumentsTypes =
-                List.map (TypeOf >> Types.ToDotNetType) arguments
-            let ctors =
-                constructors
-                |> List.ofArray
-                |> List.filter (fun (ci : ConstructorInfo)
-                                 -> ci.GetParameters().Length = argumentsLength
-                                    && ci.GetParameters()
-                                       |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
-            assert(List.length ctors = 1)
-            let ctor = List.head ctors
-            let methodId = x.MakeMethodIdentifier ctor
-            assert (not <| exceptionType.IsValueType)
-            let reference, state = Memory.AllocateDefaultBlock state (Types.FromDotNetType state exceptionType)
-            let invoke state k = x.Invoke methodId state (Some reference) k
-            x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun (res, state) ->
-            assert (res = Nop)
-            reference, state))
-
-    member x.NullReferenceException state =
-        (x :> IActivator).CreateInstance () typeof<System.NullReferenceException> [] state
 
     member x.InterpretEntryPoint (id : IFunctionIdentifier) k =
         let initialState = State.emptyRestricted
@@ -231,6 +204,50 @@ type public ExplorerBase() =
         let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
         x.InitEntryPoint state funcId.Method.DeclaringType (fun state ->
         x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull, isMethodOfStruct))
+
+    member private x.CreateInstance exceptionType arguments state =
+        x.InitEntryPoint state exceptionType (fun state ->
+        let constructors = exceptionType.GetConstructors()
+        let argumentsLength = List.length arguments
+        let argumentsTypes =
+            List.map (TypeOf >> Types.ToDotNetType) arguments
+        let ctors =
+            constructors
+            |> List.ofArray
+            |> List.filter (fun (ci : ConstructorInfo)
+                             -> ci.GetParameters().Length = argumentsLength
+                                && ci.GetParameters()
+                                   |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
+        assert(List.length ctors = 1)
+        let ctor = List.head ctors
+        let methodId = x.MakeMethodIdentifier ctor
+        assert (not <| exceptionType.IsValueType)
+        let reference, state = Memory.AllocateDefaultBlock state (Types.FromDotNetType state exceptionType)
+        let invoke state k = x.Invoke methodId state (Some reference) k
+        x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun (res, state) ->
+        assert (res = Nop)
+        reference, state))
+
+    member x.InvalidProgramException state =
+        x.CreateInstance typeof<System.InvalidProgramException> [] state
+    member x.NullReferenceException state =
+        x.CreateInstance typeof<System.NullReferenceException> [] state
+    member x.IndexOutOfRangeException state =
+        x.CreateInstance typeof<System.IndexOutOfRangeException> [] state
+    member x.DivideByZeroException state =
+        x.CreateInstance typeof<System.DivideByZeroException> [] state
+    member x.OverflowException state =
+        x.CreateInstance typeof<System.OverflowException> [] state
+    member x.ArithmeticException state =
+        x.CreateInstance typeof<System.ArithmeticException> [] state
+    member x.TypeInitializerException qualifiedTypeName innerException state =
+        let typeName, state = Memory.AllocateString qualifiedTypeName state
+        let args = [typeName; innerException]
+        x.CreateInstance typeof<System.TypeInitializationException> args state
+    member x.InvalidCastException state =
+        let message, state = Memory.AllocateString "Specified cast is not valid." state
+        x.CreateInstance typeof<System.InvalidCastException> [message] state
+
     abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 

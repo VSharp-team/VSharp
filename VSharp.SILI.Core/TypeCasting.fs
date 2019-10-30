@@ -5,11 +5,11 @@ open VSharp
 
 module internal TypeCasting =
 
-    let private doCast mtd term targetType isChecked =
+    let private doCast mtd term targetType =
         let castPointer term typ = // For Pointers
             match targetType with
             | Pointer typ' -> castReferenceToPointer mtd typ' term
-            | _ -> makeCast (Pointer typ) targetType term isChecked mtd
+            | _ -> makeCast (Pointer typ) targetType term mtd
 
         match term.term with
         | Ptr(_, _, typ, _) -> castPointer term typ
@@ -20,10 +20,11 @@ module internal TypeCasting =
     let canCast mtd term targetType =
         let castCheck term =
             match term.term with
+            | Concrete(value, _) -> makeBool mtd <| CanCastConcrete value targetType
             | Ptr(_, _, typ, _) -> typeIsType mtd (Pointer typ) targetType
             | Ref _ -> refIsType mtd term targetType
             | _ -> typeIsType mtd (typeOf term) targetType
-        Merging.guardedErroredApply castCheck term
+        Merging.guardedApply castCheck term
 
     let isCast mtd state term targetType =
         Common.statelessConditionalExecutionWithMerge state.pc
@@ -31,30 +32,25 @@ module internal TypeCasting =
             (fun k -> makeFalse mtd |> k)
             (fun k -> canCast mtd term targetType |> k)
 
-    let cast mtd isChecked state term targetType fail k =
-        let hierarchyCast state term =
-            Common.statedConditionalExecutionWithMergek state
-                (fun state k -> k (canCast mtd term targetType, state))
-                (fun state k -> k (doCast mtd term targetType isChecked, state))
-                (fun state k -> k (fail state term targetType))
-        let primitiveCast state term k =
+    let cast mtd term targetType k =
+        let primitiveCast term k =
             match term.term with
-            | _ when typeOf term = targetType -> k (term, state)
+            | _ when typeOf term = targetType -> k term
             | Nop -> internalfailf "casting void to %O!" targetType
-            | Concrete(value, _) -> k (CastConcrete isChecked value (Types.toDotNetType targetType) term.metadata, state)
+            | Concrete(value, _) -> k <| CastConcrete value (Types.toDotNetType targetType) term.metadata
             | Constant(_, _, t)
-            | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
+            | Expression(_, _, t) -> k <| makeCast t targetType term mtd
             | Ref _ ->
-                statedConditionalExecutionWithMergek state
-                    (fun state k -> k (Pointers.isNull mtd term, state))
-                    (fun state k -> k (makeNullRef mtd, state))
-                    (fun state k -> hierarchyCast state term k)
+                statelessConditionalExecutionWithMergek []
+                    (fun k -> k <| Pointers.isNull mtd term)
+                    (fun k -> k <| makeNullRef mtd)
+                    (fun k -> k <| doCast mtd term targetType)
                     k
             | Ptr _
             | Array _
-            | Struct _ -> hierarchyCast state term k
+            | Struct _ -> k <| doCast mtd term targetType
             | _ -> __unreachable__()
-        Merging.guardedErroredStatedApplyk primitiveCast state term k
+        Merging.guardedApplyk primitiveCast term k
 
     let castReferenceToPointer mtd state reference =
         let getType ref =
@@ -64,4 +60,4 @@ module internal TypeCasting =
         let doCast reference =
             let typ = commonTypeOf getType reference
             Terms.castReferenceToPointer mtd typ reference
-        Merging.guardedErroredApply doCast reference
+        Merging.guardedApply doCast reference

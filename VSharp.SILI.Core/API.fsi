@@ -7,7 +7,6 @@ open System.Reflection
 module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
-    val Configure : IActivator -> unit
     val ConfigureSolver : ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
@@ -18,20 +17,19 @@ module API =
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
     val BranchExpressions : state -> ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
-    val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item * state -> 'a) -> 'a) -> (state -> ('item * state -> 'a) -> 'a) -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> (term -> term -> 'item -> 'item -> 'item) -> (term -> term -> state -> state -> state) -> (term -> 'item) -> ('item * state -> 'a) -> 'b)
+    val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item * state -> 'a) -> 'a) -> (state -> ('item * state -> 'a) -> 'a) -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> (term -> term -> 'item -> 'item -> 'item) -> (term -> term -> state -> state -> state) -> ('item * state -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
     val GuardedApplyExpressionWithPC : term list -> term -> (term -> term) -> term
     val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
-    val GuardedErroredStatedApplyk : (state -> term -> ('item * state -> 'a) -> 'a) -> (term -> 'item) -> state -> term -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> ('item * state -> 'a) -> 'a
+    val GuardedStatedApplyk : (state -> term -> ('item * state -> 'a) -> 'a) -> state -> term -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> ('item * state -> 'a) -> 'a
 
-    val PerformBinaryOperation : OperationType -> bool -> state -> term -> term -> (term * state -> 'a) -> 'a
-    val PerformUnaryOperation : OperationType -> bool -> state -> termType -> term -> (term * state -> 'a) -> 'a
+    val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
+    val PerformUnaryOperation : OperationType -> termType -> term -> (term -> 'a) -> 'a
 
     [<AutoOpen>]
     module Terms =
         val Nop : term
-        val Error : term -> term
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
@@ -68,12 +66,6 @@ module API =
 
         val AddConditionToState : state -> term -> state
 
-    module RuntimeExceptions =
-        val InvalidCastException : state -> (term -> 'a) -> 'a * state
-        val TypeInitializerException : string -> term -> state -> (term -> 'a) -> 'a * state
-        val IndexOutOfRangeException : state -> (term -> 'a) -> 'a * state
-        val InvalidProgramException : state -> (term -> 'a) -> 'a * state
-
     module Types =
         val Numeric : System.Type -> termType
 
@@ -99,9 +91,9 @@ module API =
         val TypeIsRef : termType -> term -> term
         val RefIsType : term -> termType -> term
         val RefIsRef : term -> term -> term
-        val CanCast : term -> termType -> term
-        val IsCast : state -> termType -> term -> term
-        val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> term * state) -> (term * state -> 'b) -> 'b
+        val IsCast : termType -> term -> term
+        val Cast : term -> termType -> term
+        val CastConcrete : 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]
@@ -123,7 +115,7 @@ module API =
         val (>>=) : term -> term -> term
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
-
+        val IsZero : term -> term
     module public Memory =
         val EmptyState : state
 
@@ -136,11 +128,10 @@ module API =
         val ReferenceField : term -> fieldId -> termType -> term
         val ReferenceLocalVariable : stackKey -> term
         val ReferenceStaticField : termType -> fieldId -> termType -> term
-        val ReferenceArrayIndex : state -> term -> term list -> term * state
+        val ReferenceArrayIndex : state -> term -> term list -> term
 
-        val Dereference : state -> term -> term * state
-        val DereferenceWithoutValidation : state -> term -> term
-        val DereferenceLocalVariable : state -> stackKey -> term * state
+        val Dereference : state -> term -> term
+        val DereferenceLocalVariable : state -> stackKey -> term
         val Mutate : state -> term -> term -> term * state
         val ReadBlockField : term -> fieldId -> termType -> term
 
@@ -159,11 +150,14 @@ module API =
 
         val ArrayLength : term -> term
         val ArrayRank : term -> term
-        val ArrayLengthByDimension : state -> term -> term -> term * state
-        val ArrayLowerBoundByDimension : state -> term -> term -> term * state
+        val ArrayLengthByDimension : state -> term -> term -> term
+        val ArrayLowerBoundByDimension : state -> term -> term -> term
 
         val StringLength : state -> term -> term * state
         val StringCtorOfCharArray : state -> term -> term -> term * state
+
+    module Options =
+        val HandleNativeInt : 'a -> 'a -> 'a
 
     module Marshalling =
         val Unmarshal : state -> obj -> term * state

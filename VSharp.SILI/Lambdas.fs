@@ -17,5 +17,5 @@ module internal Lambdas =
             match deleg.term with
             | Lambda(lambda) -> lambda caller cilState (Specified args) k
             | _ -> __unreachable__()
-        let term, state = Memory.Dereference cilState.state deleg
-        InstructionsSet.GuardedApply {cilState with state = state} term callDelegate k
+        let term = Memory.Dereference cilState.state deleg
+        InstructionsSet.GuardedApply cilState term callDelegate k

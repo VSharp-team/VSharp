@@ -78,19 +78,18 @@ type EmptyIdentifier() =
 
 [<StructuralEquality;NoComparison>]
 type operation =
-    | Operator of OperationType * bool
+    | Operator of OperationType
     | Application of IFunctionIdentifier
-    | Cast of termType * termType * bool
+    | Cast of termType * termType
     member x.priority =
         match x with
-        | Operator (op, _) -> Operations.operationPriority op
+        | Operator op -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
 
 [<StructuralEquality;NoComparison>]
 type termNode =
     | Nop
-    | Error of term
     | Concrete of obj * termType
     | Constant of string transparent * ISymbolicConstantSource * termType
     | Array of term                                       // Dimension
@@ -131,12 +130,8 @@ type termNode =
     override x.ToString() =
         let getTerm (term : term) = term.term
 
-        let checkExpression curChecked parentChecked priority parentPriority str =
-            match curChecked, parentChecked with
-            | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
-            | false, _ when curChecked <> parentChecked -> sprintf "unchecked(%s)" str
-            | _ when priority < parentPriority -> sprintf "(%s)" str
-            | _ -> str
+        let checkExpression priority parentPriority =
+            if priority < parentPriority then sprintf "(%s)" else id
 
         let formatIfNotEmpty format value =
             match value with
@@ -147,9 +142,8 @@ type termNode =
 
         let extendIndent = (+) "\t"
 
-        let rec toStr parentPriority parentChecked indent term =
+        let rec toStr parentPriority indent term =
             match term with
-            | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name.v
             | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
@@ -161,24 +155,24 @@ type termNode =
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
                 match operation with
-                | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
+                | Operator operator when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
                     let operand = List.head operands
-                    let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority
-                    let printedOperand = toStr operation.priority isChecked indent operand.term
+                    let opStr = Operations.operationToString operator |> checkExpression operation.priority parentPriority
+                    let printedOperand = toStr operation.priority indent operand.term
                     sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
-                | Operator(operator, isChecked) ->
+                | Operator operator ->
                     assert (List.length operands >= 2)
-                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority isChecked indent)
-                    let sortedOperands = if Operations.isCommutative operator && not isChecked then List.sort printedOperands else printedOperands
+                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority indent)
+                    let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
                     sortedOperands
                         |> String.concat (Operations.operationToString operator)
-                        |> checkExpression isChecked parentChecked operation.priority parentPriority
-                | Cast(_, dest, isChecked) ->
+                        |> checkExpression operation.priority parentPriority
+                | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority isChecked indent (List.head operands).term) |>
-                        checkExpression isChecked parentChecked operation.priority parentPriority
-                | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
+                    sprintf "(%O)%s" dest (toStr operation.priority indent (List.head operands).term) |>
+                        checkExpression operation.priority parentPriority
+                | Application f -> operands |> List.map (getTerm >> toStr -1 indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
                 fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t
             | Class fields ->
@@ -235,7 +229,7 @@ type termNode =
             | RefTopLevelStack _ -> makeRef "Stack"
             | RefTopLevelStatics _ -> makeRef "Static"
 
-        and toStringWithIndent indent term = toStr -1 false indent term.term
+        and toStringWithIndent indent term = toStr -1 indent term.term
 
         and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
 
@@ -265,7 +259,7 @@ type termNode =
             let format contents = sprintf "%s%s%s" separator contents separator
             formatIfNotEmpty format stringResult
 
-        toStr -1 false "\t" x
+        toStr -1 "\t" x
 
 and ITopLevelAddress =
     abstract BaseType : termType
@@ -403,7 +397,6 @@ module internal Terms =
 // --------------------------------------- Primitives ---------------------------------------
 
     let Nop<'a> = HashMap.addTerm Nop Metadata.empty<'a>
-    let Error metadata term = HashMap.addTerm (Error term) metadata
     let Concrete metadata obj typ = HashMap.addTerm (Concrete(obj, typ)) metadata
     let Constant metadata name source typ = HashMap.addTerm (Constant({v=name}, source, typ)) metadata
     let Array metadata dimension length lower constant contents lengths = HashMap.addTerm (Array(dimension, length, lower, constant, contents, lengths)) metadata
@@ -455,10 +448,6 @@ module internal Terms =
 
     let isVoid = term >> function
         | Nop -> true
-        | _ -> false
-
-    let isError = term >> function
-        | Error _ -> true
         | _ -> false
 
     let isConcrete = term >> function
@@ -562,24 +551,19 @@ module internal Terms =
         | path -> typeOfPath path
 
     let private typeOfUnion getType gvs =
-        let folder types (_, v) =
-            if isError v || isVoid v then types else getType v :: types
-        let nonEmptyTypes = List.fold folder [] gvs
-        let notNullTypes = List.filter (Types.isNull >> not) nonEmptyTypes
-        match notNullTypes with
-        | [] when List.isEmpty nonEmptyTypes -> Bottom
+        let nonEmptyTypes = List.choose (fun (_, v) -> if isVoid v then None else Some (getType v)) gvs
+        match nonEmptyTypes with
         | [] -> Null
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.concreteIsReferenceType notNullTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
+                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 
     let commonTypeOf getType term =
         match term.term with
         | Nop -> termType.Void
-        | Error _ -> termType.Bottom
         | Union gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
@@ -639,7 +623,14 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> isRef term
 
-    let CastConcrete isChecked (value : obj) (t : System.Type) metadata =
+    let CanCastConcrete (value : obj) targetType =
+        let targetType = Types.toDotNetType targetType
+        let actualType = if box value = null then targetType else value.GetType()
+        actualType = targetType
+        || targetType.IsAssignableFrom(actualType)
+        || typedefof<IConvertible>.IsAssignableFrom(actualType) && (TypeUtils.isIntegral targetType || TypeUtils.isReal targetType)
+
+    let CastConcrete (value : obj) (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
@@ -651,7 +642,7 @@ module internal Terms =
                     if t.IsPointer then
                         new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
                     //TODO: ability to convert negative integers to UInt32 without overflowException
-                    elif not isChecked && TypeUtils.isIntegral t then
+                    elif TypeUtils.isIntegral t then
                         TypeUtils.uncheckedChangeType value t
                     else Convert.ChangeType(value, t)
                 Concrete metadata casted (fromDotNetType t)
@@ -690,27 +681,27 @@ module internal Terms =
     let makeNumber metadata n =
         Concrete metadata n (Numeric(Id(n.GetType())))
 
-    let makeBinary operation x y isChecked t metadata =
+    let makeBinary operation x y t metadata =
         assert(Operations.isBinary operation)
-        Expression metadata (Operator(operation, isChecked)) [x; y] t
+        Expression metadata (Operator operation) [x; y] t
 
-    let makeNAry operation x isChecked t metadata =
+    let makeNAry operation x t metadata =
         match x with
         | [] -> raise(new ArgumentException("List of args should be not empty"))
         | [x] -> x
-        | _ -> Expression metadata (Operator(operation, isChecked)) x t
+        | _ -> Expression metadata (Operator operation) x t
 
-    let makeUnary operation x isChecked t metadata =
+    let makeUnary operation x t metadata =
         assert(Operations.isUnary operation)
-        Expression metadata (Operator(operation, isChecked)) [x] t
+        Expression metadata (Operator operation) [x] t
 
-    let makeCast srcTyp dstTyp expr isChecked metadata =
+    let makeCast srcTyp dstTyp expr metadata =
         if srcTyp = dstTyp then expr
-        else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
+        else Expression metadata (Cast(srcTyp, dstTyp)) [expr] dstTyp
 
     let negate term metadata =
         assert(isBool term)
-        makeUnary OperationType.LogicalNeg term false Bool metadata
+        makeUnary OperationType.LogicalNeg term Bool metadata
 
     let makePathIndexKey mtd refTarget i fql typ = makePathKey fql refTarget (makeIndex mtd i) typ
 
@@ -719,10 +710,6 @@ module internal Terms =
 
     let (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
-        | _ -> None
-
-    let (|ErrorT|_|) = term >> function
-        | Error e -> Some(ErrorT e)
         | _ -> None
 
     let (|UnionT|_|) = term >> function
@@ -734,55 +721,55 @@ module internal Terms =
         | _ -> None
 
     let (|UnaryMinus|_|) = function
-        | Expression(Operator(OperationType.UnaryMinus, isChecked), [x], t) -> Some(UnaryMinus(x, isChecked, t))
+        | Expression(Operator OperationType.UnaryMinus, [x], t) -> Some(UnaryMinus(x, t))
         | _ -> None
 
     let (|UnaryMinusT|_|) = term >> (|UnaryMinus|_|)
 
     let (|Add|_|) = term >> function
-        | Expression(Operator(OperationType.Add, isChecked), [x;y], t) -> Some(Add(x, y, isChecked, t))
+        | Expression(Operator OperationType.Add, [x;y], t) -> Some(Add(x, y, t))
         | _ -> None
 
     let (|Sub|_|) = term >> function
-        | Expression(Operator(OperationType.Subtract, isChecked), [x;y], t) -> Some(Sub(x, y, isChecked, t))
+        | Expression(Operator OperationType.Subtract, [x;y], t) -> Some(Sub(x, y, t))
         | _ -> None
 
     let (|Mul|_|) = term >> function
-        | Expression(Operator(OperationType.Multiply, isChecked), [x;y], t) -> Some(Mul(x, y, isChecked, t))
+        | Expression(Operator OperationType.Multiply, [x;y], t) -> Some(Mul(x, y, t))
         | _ -> None
 
     let (|Div|_|) = term >> function
-        | Expression(Operator(OperationType.Divide, isChecked), [x;y], t) -> Some(Div(x, y, isChecked, t))
+        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t))
         | _ -> None
 
     let (|Rem|_|) = term >> function
-        | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
+        | Expression(Operator OperationType.Remainder, [x;y], t) -> Some(Rem(x, y, t))
         | _ -> None
 
     let (|Negation|_|) = function
-        | Expression(Operator(OperationType.LogicalNeg, _), [x], _) -> Some(Negation x)
+        | Expression(Operator OperationType.LogicalNeg, [x], _) -> Some(Negation x)
         | _ -> None
 
     let (|NegationT|_|) = term >> (|Negation|_|)
 
     let (|Conjunction|_|) = function
-        | Expression(Operator(OperationType.LogicalAnd, _), xs, _) -> Some(Conjunction xs)
+        | Expression(Operator OperationType.LogicalAnd, xs, _) -> Some(Conjunction xs)
         | _ -> None
 
     let (|Disjunction|_|) = function
-        | Expression(Operator(OperationType.LogicalOr, _), xs, _) -> Some(Disjunction xs)
+        | Expression(Operator OperationType.LogicalOr, xs, _) -> Some(Disjunction xs)
         | _ -> None
 
     let (|Xor|_|) = term >> function
-        | Expression(Operator(OperationType.LogicalXor, _), [x;y], _) -> Some(Xor(x, y))
+        | Expression(Operator OperationType.LogicalXor, [x;y], _) -> Some(Xor(x, y))
         | _ -> None
 
     let (|ShiftLeft|_|) = term >> function
-        | Expression(Operator(OperationType.ShiftLeft, isChecked), [x;y], t) -> Some(ShiftLeft(x, y, isChecked, t))
+        | Expression(Operator OperationType.ShiftLeft, [x;y], t) -> Some(ShiftLeft(x, y, t))
         | _ -> None
 
     let (|ShiftRight|_|) = term >> function
-        | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
+        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t))
         | _ -> None
 
     let isObject = term >> function
@@ -820,8 +807,6 @@ module internal Terms =
             | Some indent -> doFold folder visited state indent
         | GuardedValues(gs, vs) ->
             foldSeq folder visited gs state |> foldSeq folder visited vs
-        | Error e ->
-            doFold folder visited state e
         | _ -> state
 
     and doFold folder (visited : HashSet<term>) state term =

@@ -106,7 +106,7 @@ module internal Marshalling =
                             connect term obj
                             obj
                         else
-                            let value = Memory.derefWithoutValidation mtd state term
+                            let value = Memory.deref mtd state term
                             bypass false (Some term) (Some typ) value
                     | Array(d, _, bounds, _, contents, lengths) ->
                         let elementTyp = (Option.get typ) |> Types.elementType |> toDotNetType
@@ -166,8 +166,7 @@ module internal Marshalling =
                     true
                 | Nop
                 | Constant _
-                | Expression _
-                | Error _ ->
+                | Expression _ ->
                     false
                 | Union gvs ->
                     List.forall (fun (_, v) -> bypass reference v) gvs
@@ -181,7 +180,7 @@ module internal Marshalling =
                     let t = toDotNetType typ
                     if isTypeInstance t then true
                     else
-                        let value = Memory.derefWithoutValidation mtd state term
+                        let value = Memory.deref mtd state term
                         bypass (Some term) value
                 | Array(d, l, bs, insts, contents, lengths) ->
                     let acc0 = bypass None d
