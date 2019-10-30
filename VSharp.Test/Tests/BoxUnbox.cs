@@ -48,14 +48,14 @@ namespace VSharp.Test.Tests
             return Cast<B>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny2()
         {
             var b = new B(5);
             return Cast<A>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny3()
         {
             var a = new A();

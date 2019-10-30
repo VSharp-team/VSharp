@@ -26,7 +26,7 @@ namespace VSharp.Test.Tests
         }
 
         // Overflow exception
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int DivideWithOverflow()
         {
             int a = Int32.MinValue;
@@ -51,7 +51,7 @@ namespace VSharp.Test.Tests
         }
 
         // divide by zero exception
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static float DivideOnZero1()
         {
             int x = 8;
@@ -60,7 +60,7 @@ namespace VSharp.Test.Tests
         }
 
         // divide by zero exception
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static float DivideOnZero2()
         {
             uint x = 8;
@@ -130,7 +130,7 @@ namespace VSharp.Test.Tests
             return Mul_Ovf(a, b);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static uint Mul_OverFlow1()
         {
             int a = -1;
@@ -146,7 +146,7 @@ namespace VSharp.Test.Tests
             return checked(a - b);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int Sub_Overflow1()
         {
             int a = 0;
@@ -154,7 +154,7 @@ namespace VSharp.Test.Tests
             return Sub_Ovf(a, b);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int Sub_Overflow2()
         {
             int a = 1;
@@ -162,7 +162,7 @@ namespace VSharp.Test.Tests
             return Sub_Ovf(a, b);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int Sub_Overflow3()
         {
             int a = Int32.MinValue;
@@ -208,13 +208,13 @@ namespace VSharp.Test.Tests
             return checked(a - b);
         }
 
-        [TestSvm]
+        [Ignore("Bug in Core: it assumes that a - b == a + (-b)")]
         public static uint Sub_Ovf_Un_NoOverflow1()
         {
             return Sub_Ovf_Un(5, 4);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static uint Sub_Ovf_Un_Overflow1()
         {
             return Sub_Ovf_Un(4, 5);
@@ -222,7 +222,7 @@ namespace VSharp.Test.Tests
 
         // if a = UInt32.MaxValue then a
         // else overflow
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static uint Sub_Ovf_Un_Overflow2(uint a)
         {
             return Sub_Ovf_Un(a, a + 1);
@@ -282,13 +282,13 @@ namespace VSharp.Test.Tests
             return a % b;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int Rem_Ints_DivideOnZero(int a)
         {
             return Rem_Ints(a, 0);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int Rem_Ints_Overflow()
         {
             return Rem_Ints(int.MinValue, -1);
@@ -300,7 +300,7 @@ namespace VSharp.Test.Tests
             return a % b;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static uint RemUn_Ints_DivideOnZero(uint a)
         {
             return RemUn_Ints(a, 0);
@@ -323,7 +323,7 @@ namespace VSharp.Test.Tests
     public sealed class Arithmetics
     {
         // 7 + n
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod1(int n, int m)
         {
             return -((n - m) + (m - n) + (1 + m + 2 + 0 - m + 4 + m) - (m + n)) + 14 + (n * (5 - 4) + (5 - 7 + m / m) * n) / m;
@@ -344,7 +344,7 @@ namespace VSharp.Test.Tests
         }
 
         // 6*n - 126826
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod4(int n, int m)
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
@@ -387,14 +387,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting overflow error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckOverflow1(int x1)
         {
             return CheckOverflow0(2147483620, 2147483620 + x1);
         }
 
         // Expecting overflow error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckOverflow2(int x1)
         {
             int x = 1000 * 1000 * 1000;
@@ -411,7 +411,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting devide by zero error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckDivideByZeroException0(int x1)
         {
             int x = 255;

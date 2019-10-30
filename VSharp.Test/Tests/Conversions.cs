@@ -43,7 +43,7 @@ namespace VSharp.Test.Tests
             return checked((sbyte) a);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static sbyte Conv_Ovf_short_sbyte_Overflow1()
         {
             short a = short.MaxValue;
@@ -82,7 +82,7 @@ namespace VSharp.Test.Tests
             return checked((long) a);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static long Conv_Ovf_Un_ulong_long_Overflow1()
         {
             ulong a = ulong.MaxValue;
@@ -102,7 +102,7 @@ namespace VSharp.Test.Tests
             return checked((ulong) a);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static ulong Conv_Ovf_long_ulong_Overflow1()
         {
             long a = -45;
@@ -134,7 +134,7 @@ namespace VSharp.Test.Tests
             return checked((IntPtr) a);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static UIntPtr Conv_Ovf_int_UNativeInt(int a)
         {
             return checked((UIntPtr) a);

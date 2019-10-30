@@ -1,0 +1,6 @@
+METHOD: System.UInt64 VSharp.Test.Tests.Conversions.Conv_Ovf_long_ulong(System.Int64)
+RESULT: (System.UInt64)(System.Int64)(System.UInt64)a
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []

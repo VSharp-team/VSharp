@@ -1,0 +1,6 @@
+METHOD: System.SByte VSharp.Test.Tests.Conversions.Conv_Ovf_short_sbyte(System.Int16)
+RESULT: (System.SByte)(System.Int32)(System.SByte)a
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []
