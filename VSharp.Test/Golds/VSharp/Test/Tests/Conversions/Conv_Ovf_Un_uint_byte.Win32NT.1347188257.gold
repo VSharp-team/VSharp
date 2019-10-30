@@ -1,0 +1,6 @@
+METHOD: System.Byte VSharp.Test.Tests.Conversions.Conv_Ovf_Un_uint_byte(System.UInt32)
+RESULT: (System.Byte)(System.Int32)(System.Byte)a
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []

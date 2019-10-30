@@ -1,0 +1,6 @@
+METHOD: System.UInt32 VSharp.Test.Tests.Arithmetics_CIL.RemUn_Ints_No_Overflow()
+RESULT: 2147483648
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []
