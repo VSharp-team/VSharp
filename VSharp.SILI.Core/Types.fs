@@ -17,7 +17,7 @@ type arrayDimensionType =
 type termType =
     | Void
     | Bottom
-    | Null
+    | Null // TODO: delete Null from termType
     | Bool
     | Numeric of System.Type
     | StructType of System.Type * termType list        // Value type with generic argument
@@ -25,7 +25,6 @@ type termType =
     | InterfaceType of System.Type * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
-    | Func of termType list * termType //TODO: Do we really need Func type?
     | Reference of termType
     | Pointer of termType // C-style pointers like int*
 
@@ -36,7 +35,6 @@ type termType =
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
         | Numeric t -> t.FullName
-        | Func(domain, range) -> String.Join(" -> ", List.append domain [range])
         | StructType(t, g)
         | ClassType(t, g)
         | InterfaceType(t, g) ->
@@ -94,10 +92,6 @@ module internal Types =
         | Bool -> true
         | _ -> false
 
-    let isFunction = function
-        | Func _ -> true
-        | _ -> false
-
     let isClass = function
         | ClassType _ -> true
         | _ -> false
@@ -134,14 +128,6 @@ module internal Types =
         | Pointer _ -> true
         | _ -> false
 
-    let domainOf = function
-        | Func(domain, _) -> domain
-        | _ -> []
-
-    let rangeOf = function
-        | Func(_, range) -> range
-        | t -> t
-
     let elementType = function
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
@@ -149,8 +135,7 @@ module internal Types =
     let concreteIsReferenceType = function
         | ClassType _
         | InterfaceType _
-        | ArrayType _
-        | Func _ -> true
+        | ArrayType _ -> true
         | TypeVariable _ -> __unreachable__()
         | _ -> false
 
@@ -161,7 +146,6 @@ module internal Types =
 
     let rec toDotNetType t =
         match t with
-        | Null -> null
         | Bool -> typedefof<bool>
         | Numeric t -> t
         | StructType(t, args)
@@ -176,6 +160,7 @@ module internal Types =
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Reference t -> toDotNetType t
         | Pointer t -> (toDotNetType t).MakePointerType()
+        | Null -> __unreachable__()
         | _ -> typedefof<obj>
 
     let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
@@ -208,33 +193,26 @@ module internal Types =
             let genericArguments = getGenericArguments interfaceType
             InterfaceType interfaceType genericArguments
 
-        and private fromCommonDotNetType (dotNetType : Type) =
+        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map makeInterfaceType |> List.ofSeq
+
+        and fromDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
-            | p when p.IsPointer -> p.GetElementType() |> fromCommonDotNetType |> Pointer
+            | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromCommonDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension)
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
-                    fromCommonDotNetType (a.GetElementType()) |> wrapReferenceType,
+                    fromDotNetType (a.GetElementType()) |> wrapReferenceType,
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
-            | f when f.IsSubclassOf(typedefof<System.Delegate>) ->
-                let methodInfo = f.GetMethod("Invoke")
-                let returnType = methodInfo.ReturnType |> fromCommonDotNetType
-                let parameters = methodInfo.GetParameters() |>
-                                    Seq.map (fun (p : System.Reflection.ParameterInfo) ->
-                                    fromCommonDotNetType p.ParameterType)
-                Func(List.ofSeq parameters, returnType)
             | p when p.IsGenericParameter -> TypeVariable(Id p)
             | c when c.IsClass -> ClassType c (getGenericArguments c)
             | i when i.IsInterface -> makeInterfaceType i
             | _ -> __notImplemented__()
-
-        and fromDotNetType (dotNetType : System.Type) = if dotNetType = null then Null else fromCommonDotNetType dotNetType
 
         let (|StructureType|_|) = function
             | termType.StructType(t, genArg) -> Some(StructureType(t, genArg))
@@ -270,29 +248,9 @@ module internal Types =
 
     let isString = (=) String
 
-    let isPrimitive = toDotNetType >> TypeUtils.isPrimitive
-
     let isInteger = toDotNetType >> TypeUtils.isIntegral
 
     let isReal = toDotNetType >> TypeUtils.isReal
-
-    let getFieldName (field : FieldInfo) =
-        let getBlockName (field : FieldInfo) =
-            (safeGenericTypeDefinition field.DeclaringType).FullName.Replace(".", "::").Replace("+", "::")
-        if field.IsStatic then field.Name
-        else sprintf "%s::%s" (getBlockName field) field.Name
-
-    let rec fieldsOf (t : System.Type) isStatic = // TODO: move this to specific module
-        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
-        let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
-        let fields = t.GetFields(flags)
-        let extractFieldInfo (field : FieldInfo) =
-            // Events may appear at this point. Filtering them out...
-            if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
-            else Some (getFieldName field, fromDotNetType field.FieldType)
-        let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
-        if isStatic || t.BaseType = null then ourFields
-        else Array.append (fieldsOf t.BaseType false) ourFields
 
     let unwrapReferenceType = function
         | Reference t -> t

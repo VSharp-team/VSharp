@@ -1,0 +1,13 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.ForWithBreak(System.Int32)
+RESULT: UNION[
+	| !(0 < x) ~> 0
+	| !(μ[Vertex = 7, RV = [7], __loc__1] < μ[Vertex = 7, RV = [7], x]) & 0 < x ~> μ[Vertex = 7, RV = [7], __loc__0]
+	| 0 < x & 12 == μ[Vertex = 7, RV = [7], __loc__1] & μ[Vertex = 7, RV = [7], __loc__1] < μ[Vertex = 7, RV = [7], x] ~> 42 + μ[Vertex = 7, RV = [7], __loc__0]]
+HEAP:
+{ heap = merge[
+	(!(μ[Vertex = 7, RV = [7], __loc__1] < μ[Vertex = 7, RV = [7], x]) & 0 < x | 0 < x & 12 == μ[Vertex = 7, RV = [7], __loc__1], { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 7, RV = [7])),
+	(!(0 < x), <empty>)], statics = merge[
+	(!(μ[Vertex = 7, RV = [7], __loc__1] < μ[Vertex = 7, RV = [7], x]) & 0 < x | 0 < x & 12 == μ[Vertex = 7, RV = [7], __loc__1], { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 7, RV = [7])),
+	(!(0 < x), s0)] } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

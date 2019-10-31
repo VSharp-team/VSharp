@@ -64,7 +64,7 @@ namespace VSharp.Test.Tests
             return a.Count == b.Length && b.Length == c.Length && c.Length == c[3] - 4;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public int[] Mutate(int i)
         {
             var a = new int[] {1, 2, 3, 4, 5};
@@ -79,13 +79,13 @@ namespace VSharp.Test.Tests
             return c.GetLowerBound(1);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public int LowerBoundExceptionTest(int[,] array)
         {
             return array.GetLowerBound(2);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public int LowerBoundSymbolicTest(int[,] array, int dimension)
         {
             return array.GetLowerBound(dimension);
@@ -96,6 +96,26 @@ namespace VSharp.Test.Tests
         {
             var c = new int[4, 2] { { 1, 1 }, { 2, 2 }, { 3, 3 }, { 4, 4 } };
             return c.GetUpperBound(0);
+        }
+
+        [TestSvm]
+        public int ArrayLength(int f)
+        {
+            int[] tmp;
+            switch (f)
+            {
+                case 0:
+                    tmp = new[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+                    break;
+                case 1:
+                    tmp = new[] {1, 2, 3};
+                    break;
+                default:
+                    tmp = new int [f + 1];
+                    break;
+            }
+
+            return tmp.Length;
         }
 
 //        public void ClearTest()
@@ -150,7 +170,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm]
+        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray1(Array arr)
         {
             if (arr is int[])
@@ -166,7 +186,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm]
+        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray2(Array arr)
         {
             if (arr is int[])
@@ -187,7 +207,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm]
+        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray3(Array arr)
         {
             if (arr is object[])

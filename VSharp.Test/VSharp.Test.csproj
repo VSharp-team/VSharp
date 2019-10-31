@@ -1,94 +1,28 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{A52177E6-B792-4866-A520-645173F1206A}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>VSharp.Test</RootNamespace>
-    <AssemblyName>VSharp.Test</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Microsoft.Z3, Version=4.6.0.0, Culture=neutral, PublicKeyToken=9c8d792caae602a2">
-      <HintPath>..\lib\Microsoft.Z3.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="nunit.framework, Version=3.11.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb">
-      <HintPath>..\packages\NUnit.3.11.0\lib\net45\nunit.framework.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="SiliTests.cs" />
-    <Compile Include="Tests\Arithmetics.cs" />
-    <Compile Include="Tests\Generic.cs" />
-    <Compile Include="Tests\Logics.cs" />
-    <Compile Include="Tests\ClassesSimple.cs" />
-    <Compile Include="Tests\Conditional.cs" />
-    <Compile Include="Tests\Recursion.cs" />
-    <Compile Include="Tests\Lambdas.cs" />
-    <Compile Include="Tests\StaticMembers.cs" />
-    <Compile Include="Tests\Strings.cs" />
-    <Compile Include="Tests\Tree.cs" />
-    <Compile Include="Tests\TryCatch.cs" />
-    <Compile Include="Tests\Lists.cs" />
-    <Compile Include="Tests\Typecast.cs" />
-    <Compile Include="Tests\Unsafe.cs" />
-    <Compile Include="Tests\Method.cs" />
-    <Compile Include="UtilsTests.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj">
-      <Project>{270acd61-be60-4d72-85ad-d9385fd84c8e}</Project>
-      <Name>VSharp.SILI.Core</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj">
-      <Project>{6A6742B3-E86E-4FA5-AFE1-361F38DCE4C3}</Project>
-      <Name>VSharp.SILI</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj">
-      <Project>{db460dae-4cab-4ac6-9dda-99cba541839e}</Project>
-      <Name>VSharp.Solver</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
-      <Project>{6F686B61-8105-42F2-950E-BD6AEC0887CA}</Project>
-      <Name>VSharp.Utils</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Condition="'$(OS)' == 'Windows_NT' " Include="..\lib\libz3_$(Platform).dll">
-      <Link>libz3.dll</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Condition="'$(OS)' != 'Windows_NT' " Include="..\lib\libz3_$(Platform).so">
-      <Link>libz3.so</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Golds" />
-  </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="nunit" Version="3.12.0" />
+        <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
+      <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
+    </ItemGroup>
+
 </Project>

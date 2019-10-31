@@ -1,0 +1,57 @@
+METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.G(System.Int32)
+RESULT: UNION[
+	| !(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 ~> 11 + VSharp.Test.Tests.Container.X + VSharp.Test.Tests.Container.X
+	| !(2 + VSharp.Test.Tests.Container.X <= 10) & (!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1) & 1 + VSharp.Test.Tests.Container.X <= 10 & hasKey#1 ~> 13 + VSharp.Test.Tests.Container.X + VSharp.Test.Tests.Container.X + VSharp.Test.Tests.Container.X
+	| !hasKey#1 & (!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1) ~> 10 + 2.VSharp::Test::Tests::Bag::X + 3.1.VSharp::Test::Tests::Bag::X + μ[F]_1
+	| (!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1) & 1 + VSharp.Test.Tests.Container.X <= 10 & 2 + VSharp.Test.Tests.Container.X <= 10 & hasKey#1 ~> 10 + 2.VSharp::Test::Tests::Bag::X + 3.1.VSharp::Test::Tests::Bag::X + μ[F]_1 + VSharp.Test.Tests.Container.X
+	| (!hasKey#1 | 1 + VSharp.Test.Tests.Container.X <= 10) & (!hasKey#1 | 2 + VSharp.Test.Tests.Container.X <= 10) ~> 1.VSharp::Test::Tests::Bag::X + 2.VSharp::Test::Tests::Bag::X + 3.1.VSharp::Test::Tests::Bag::X + μ[F]_1 + 10]
+HEAP:
+{ heap = merge[
+	(!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1, h0),
+	((!hasKey#1 | 1 + VSharp.Test.Tests.Container.X <= 10) & (!hasKey#1 | 2 + VSharp.Test.Tests.Container.X <= 10), { heap = h1, statics = s2 } ⚪ recapp(F))], statics = merge[
+	(!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1, s3),
+	((!hasKey#1 | 1 + VSharp.Test.Tests.Container.X <= 10) & (!hasKey#1 | 2 + VSharp.Test.Tests.Container.X <= 10), write({ heap = h1, statics = s2 } ⚪ recapp(F), s4))] } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Bag CLASS [
+	| VSharp::Test::Tests::Bag::X ~> UNION[
+		| !hasKey#1 & (!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1) ~> 0
+		| (!(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 | !(2 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1) & hasKey#1 ~> VSharp.Test.Tests.Container.X]]
+2 ==> VSharp.Test.Tests.Bag CLASS [
+	| VSharp::Test::Tests::Bag::X ~> UNION[
+		| !hasKey#1 ~> 1
+		| hasKey#1 ~> 1 + VSharp.Test.Tests.Container.X]]
+---------- h1 = ----------
+1 ==> VSharp.Test.Tests.Bag CLASS [
+	| VSharp::Test::Tests::Bag::X ~> UNION[
+		| !hasKey#1 ~> 0
+		| hasKey#1 ~> VSharp.Test.Tests.Container.X]]
+2 ==> VSharp.Test.Tests.Bag CLASS [
+	| VSharp::Test::Tests::Bag::X ~> UNION[
+		| !hasKey#1 ~> 1
+		| hasKey#1 ~> 1 + VSharp.Test.Tests.Container.X]]
+3.1 ==> VSharp.Test.Tests.Bag CLASS [
+	| VSharp::Test::Tests::Bag::X ~> UNION[
+		| !hasKey#1 ~> 2
+		| hasKey#1 ~> 2 + VSharp.Test.Tests.Container.X]]
+---------- s2 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Bag ==> CLASS []
+VSharp.Test.Tests.Container ==> CLASS [
+	| X ~> UNION[
+		| !hasKey#1 ~> 3
+		| hasKey#1 ~> 3 + VSharp.Test.Tests.Container.X]]
+VSharp.Test.Tests.RecursiveAccess ==> CLASS []
+---------- s3 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Bag ==> CLASS []
+VSharp.Test.Tests.Container ==> CLASS [
+	| X ~> UNION[
+		| !(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 ~> 1 + VSharp.Test.Tests.Container.X
+		| !(2 + VSharp.Test.Tests.Container.X <= 10) & 1 + VSharp.Test.Tests.Container.X <= 10 & hasKey#1 ~> 3 + VSharp.Test.Tests.Container.X + VSharp.Test.Tests.Container.X]]
+VSharp.Test.Tests.RecursiveAccess ==> CLASS []
+---------- s4 = ----------
+VSharp.Test.Tests.Container ==> CLASS [
+	| X ~> UNION[
+		| !(1 + VSharp.Test.Tests.Container.X <= 10) & hasKey#1 ~> 1 + VSharp.Test.Tests.Container.X
+		| !(2 + VSharp.Test.Tests.Container.X <= 10) & 1 + VSharp.Test.Tests.Container.X <= 10 & hasKey#1 ~> 3 + VSharp.Test.Tests.Container.X + VSharp.Test.Tests.Container.X
+		| (!hasKey#1 | 1 + VSharp.Test.Tests.Container.X <= 10) & (!hasKey#1 | 2 + VSharp.Test.Tests.Container.X <= 10) ~> 2.VSharp::Test::Tests::Bag::X + 3.1.VSharp::Test::Tests::Bag::X + μ[F]_1]]

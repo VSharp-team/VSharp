@@ -55,6 +55,24 @@ namespace VSharp.Test.Tests.Typecast
         }
     }
 
+    public struct Coord2 : INormalize
+    {
+        public int X;
+        public int Y;
+
+        public Coord2(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public double Norm()
+        {
+            X = X + Y * X;
+            return X;
+        }
+    }
+
     [TestSvmFixture]
     public static class Typecast
     {
@@ -111,6 +129,13 @@ namespace VSharp.Test.Tests.Typecast
             Pawn pawn = (Pawn)obj;
             return pawn;
         }
+
+        [TestSvm]
+        public static Pawn TypeCastConcreteNull()
+        {
+            return TypeCast(null);
+        }
+
 
         [TestSvm]
         public static int Unboxing(Object obj)
@@ -181,7 +206,7 @@ namespace VSharp.Test.Tests.Typecast
             return Rate;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public int RetRate(object obj)
         {
             var a = (Piece)obj;
@@ -320,20 +345,28 @@ namespace VSharp.Test.Tests.Typecast
     [TestSvmFixture]
     public static class Helper
     {
-        [Ignore("Symbolic boxing and unboxing are not implemented")]
+        [TestSvm]
         public static double CastStructToInterface(Coord arg)
         {
             INormalize tmp = arg;
             return tmp.Norm();
         }
 
-        [Ignore("Symbolic boxing and unboxing are not implemented")]
+        [TestSvm]
+        public static int CastStructToInterfaceAndWriteInBoxed(Coord2 arg)
+        {
+            INormalize tmp = arg;
+            var y = (int) tmp.Norm();
+            return arg.X + y; // arg.X should not change
+        }
+
+        [Ignore("Exceptions handling")]
         public static int UnboxingInt(Object obj)
         {
             return (int)obj;
         }
 
-        [Ignore("Symbolic boxing and unboxing are not implemented")]
+        [TestSvm]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

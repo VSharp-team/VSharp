@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.AcyclicGotos(System.Int32)
+RESULT: UNION[
+	| !(x < 1000) & !(x <= 100) ~> x / 1000
+	| (!(x < 42) & x <= 100 | !(x <= 100) & x < 1000) & (x < 1000 | x <= 100) ~> 100 + x
+	| x < 42 & x <= 100 ~> 10 * x]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

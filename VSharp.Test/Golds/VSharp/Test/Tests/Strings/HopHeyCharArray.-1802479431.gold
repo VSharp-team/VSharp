@@ -1,0 +1,27 @@
+METHOD: System.String VSharp.Test.Tests.Strings.HopHeyCharArray(System.Char[])
+RESULT: (HeapRef 2)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> [| 0 ~> '\000' ... 1 ... |]
+	| System::String::m_StringLength ~> 0]
+2 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> | !(0 == a) ~> System.Char
+		| 0 == a ~> default of System.Char: [|
+		0 ~> UNION[
+			| !(0 == a) & !(0 == a.0_Length) ~> 2.System::String::m_FirstChar.[0]
+			| 0 == a | 0 == a.0_Length ~> '\000'];
+		a.0_Length ~> '\000'
+		... UNION[
+			| !(0 == a) ~> 1 + a.0_Length
+			| 0 == a ~> 1] ... |]
+	| System::String::m_StringLength ~> UNION[
+		| !(0 == a) ~> a.0_Length
+		| 0 == a ~> 0]]
+---------- s1 = ----------
+System.String ==> CLASS [
+	| Empty ~> UNION[
+		| !hasKey#1 ~> (HeapRef 1)
+		| hasKey#1 ~> (HeapRef System.String.Empty)]]
+VSharp.Test.Tests.Strings ==> CLASS []

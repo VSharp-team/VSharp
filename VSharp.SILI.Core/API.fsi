@@ -6,29 +6,24 @@ open VSharp
 module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
-    val Configure : IActivator -> IInterpreter -> unit
+    val Configure : IActivator -> unit
     val ConfigureSolver : ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
 
-    val InterpretEntryPoint : IFunctionIdentifier -> (functionSummary -> 'a) -> 'a
-    val Explore : IFunctionIdentifier -> (functionSummary -> 'a) -> 'a
-
-    val Call : IFunctionIdentifier -> state -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val ComposeStatements : (statementResult * state) -> seq<'a> -> ('a -> bool) -> (state -> 'a -> (statementResult * state -> 'b) -> 'b) -> (statementResult * state -> 'b) -> 'b
-    val HigherOrderApply : IFunctionIdentifier -> state -> (statementResult * state -> 'a) -> 'a
-    val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'b
-    val BranchExpressions : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
-    val BranchStatementsOnNull : state -> term -> (state -> (statementResult * state -> 'a) -> 'a) -> (state -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val BranchExpressionsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
+    val HigherOrderApply : ICodeLocation -> state -> (term * state -> 'a) -> 'a
+    val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
+    val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
+    val BranchExpressions : state -> ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
+    val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item * state -> 'a) -> 'a) -> (state -> ('item * state -> 'a) -> 'a) -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> (term -> term -> 'item -> 'item -> 'item) -> (term -> term -> state -> state -> state) -> (term -> 'item) -> ('item * state -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
-    val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-    val GuardedStatelessApplyStatement : term -> (term -> statementResult) -> statementResult
+    val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
+    val GuardedErroredStatedApplyk : (state -> term -> ('item * state -> 'a) -> 'a) -> (term -> 'item) -> state -> term -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> ('item * state -> 'a) -> 'a
 
-    val PerformBinaryOperation : OperationType -> bool -> state -> System.Type -> term -> term -> (term * state -> 'a) -> 'a
+    val PerformBinaryOperation : OperationType -> bool -> state -> term -> term -> (term * state -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> bool -> state -> termType -> term -> (term * state -> 'a) -> 'a
 
     [<AutoOpen>]
@@ -46,26 +41,33 @@ module API =
         val False : term
 
         val MakeNullRef : unit -> term
-        val MakeDefault : termType -> term
+        val MakeDefault : termType -> term -> term
         val MakeNumber : 'a -> term
-        val MakeLambda : 'a symbolicLambda -> termType -> term
 
         val TypeOf : term -> termType
         val BaseTypeOfRef : term -> termType
         val SightTypeOfRef : term -> termType
-        val (|Lambda|_|) : termNode -> 'a symbolicLambda option
+
+        val isStruct : term -> bool
+        val isReference : term -> bool
+        val IsNullReference : term -> term
+
+        val (|True|_|) : term -> unit option
+        val (|False|_|) : term -> unit option
         val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * 'a generalizedHeap option * bool) option
-        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (IFunctionIdentifier * state * term option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (ICodeLocation * state * term option * bool) option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
 
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
+        val AddConditionToState : state -> term -> state
+
     module RuntimeExceptions =
-        val NullReferenceException : state -> (term -> 'a) -> 'a * state
         val InvalidCastException : state -> (term -> 'a) -> 'a * state
         val TypeInitializerException : string -> term -> state -> (term -> 'a) -> 'a * state
         val IndexOutOfRangeException : state -> (term -> 'a) -> 'a * state
+        val InvalidProgramException : state -> (term -> 'a) -> 'a * state
 
     module Types =
         val FromDotNetType : state -> System.Type -> termType
@@ -78,40 +80,23 @@ module API =
         val IsBool : termType -> bool
         val IsInteger : termType -> bool
         val IsReal : termType -> bool
-        val IsNativeInt : System.Type -> bool
+        val IsPointer : termType -> bool
         val IsValueType : termType -> term
 
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
+        val elementType : termType -> termType
+
         val TypeIsType : termType -> termType -> term
+        val TypeIsNullable : termType -> term
         val TypeIsRef : termType -> term -> term
+        val RefIsType : term -> termType -> term
         val RefIsRef : term -> term -> term
-        val CanCast : state -> termType -> term -> term
-        val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
-        val HierarchyCast : state -> term -> termType -> (state -> term -> termType -> statementResult * state) -> (term * state -> 'b) -> 'b
-        val CastConcrete : 'a -> System.Type -> term
+        val IsCast : state -> termType -> term -> term
+        val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> term * state) -> (term * state -> 'b) -> 'b
+        val CastConcrete : bool -> 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
-
-    [<AutoOpen>]
-    module public ControlFlowConstructors =
-        val NoComputation : statementResult
-        val NoResult : unit -> statementResult
-        val Break : unit -> statementResult
-        val Continue : unit -> statementResult
-        val Return : term -> statementResult
-        val Throw : term -> statementResult
-        val Guarded : (term * statementResult) list -> statementResult
-
-    module public ControlFlow =
-        val ResultToTerm : statementResult -> term
-        val ThrowOrReturn : term -> statementResult
-        val ThrowOrIgnore : term -> statementResult
-        val ConsumeErrorOrReturn : (term -> statementResult) -> term -> statementResult
-        val ComposeSequentially : statementResult -> statementResult -> state -> state -> statementResult * state
-        val ComposeExpressions : term list -> state -> (state -> term list -> (statementResult * state -> 'a) -> 'a) -> (statementResult * state -> 'a) -> 'a
-        val ConsumeBreak : statementResult -> statementResult
-        val PickOutExceptions : statementResult -> (term * term) option * (term * statementResult) list
 
     [<AutoOpen>]
     module public Operators =
@@ -140,15 +125,16 @@ module API =
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
         val NewTypeVariables : state -> (typeId * termType) list -> state
 
-        val ReferenceField : state -> bool -> string -> termType -> term -> term * state
-        val ReferenceLocalVariable : state -> stackKey -> bool -> term
-        val ReferenceStaticField : state -> bool -> string -> termType -> termType -> term * state
+        val ReferenceField : string -> termType -> term -> term
+        val ReferenceLocalVariable : stackKey -> term
+        val ReferenceStaticField : termType -> string -> termType -> term
         val ReferenceArrayIndex : state -> term -> term list -> term * state
 
         val Dereference : state -> term -> term * state
         val DereferenceWithoutValidation : state -> term -> term
         val DereferenceLocalVariable : state -> stackKey -> term * state
         val Mutate : state -> term -> term -> term * state
+        val ReadBlockField : term -> string -> termType -> term
 
         val AllocateOnStack : state -> stackKey -> termType -> term -> state
         val AllocateInHeap : state -> termType -> term -> term * state
@@ -163,6 +149,7 @@ module API =
         val Dump : state -> string
 
         val ArrayLength : term -> term
+        val ArrayRank : term -> term
         val ArrayLengthByDimension : state -> term -> term -> term * state
         val ArrayLowerBoundByDimension : state -> term -> term -> term * state
 
@@ -170,4 +157,4 @@ module API =
         val StringCtorOfCharArray : state -> term -> term -> term * state
 
     module Database =
-        val QuerySummary : IFunctionIdentifier -> functionSummary
+        val QuerySummary : ICodeLocation -> codeLocationSummary

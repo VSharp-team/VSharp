@@ -1,6 +1,0 @@
-METHOD: System.UInt64 VSharp.Test.Tests.Arithmetics.ShiftDevision4(System.UInt64)
-RESULT: a >> 41
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []

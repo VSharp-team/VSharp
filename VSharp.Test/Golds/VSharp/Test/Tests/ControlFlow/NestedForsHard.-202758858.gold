@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.NestedForsHard(System.Int32)
+RESULT: UNION[
+	| !(0 < x) ~> x
+	| 0 < x ~> μ[Vertex = 8, RV = [8], x]]
+HEAP:
+{ heap = merge[
+	(!(0 < x), <empty>),
+	(0 < x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 8, RV = [8]))], statics = merge[
+	(!(0 < x), s0),
+	(0 < x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 8, RV = [8]))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

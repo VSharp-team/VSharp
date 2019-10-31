@@ -1,0 +1,18 @@
+METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.VirtualCall9(VSharp.Test.Tests.Methods.VirtualMethod+A)
+RESULT: UNION[
+	| !((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & !(0 == a) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) ~> 1
+	| !(0 == a) & !(VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a)) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) ~> λ[F]_1
+	| !(0 == a) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & (VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a)) ~> 2
+	| !(VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) & (!((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | 0 == a) ~> λ[F]_2]
+HEAP:
+{ heap = merge[
+	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a)) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B), app(λ[F]_1)),
+	(!(VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) & (!((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | 0 == a), app(λ[F]_2)),
+	((!((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) | !(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & (VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a))) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))), <empty>)], statics = merge[
+	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a)) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B), app(λ[F]_1)),
+	(!(VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) & (!((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | 0 == a), app(λ[F]_2)),
+	((!((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a)) | !(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) & (VSharp.Test.Tests.Methods.VirtualMethod+B <: (HeapRef a))) & (!(0 == a) & ((HeapRef a) <: VSharp.Test.Tests.Methods.VirtualMethod+B) | !(0 == a) & (VSharp.Test.Tests.Methods.VirtualMethod+A <: (HeapRef a))), s0)] } where
+---------- s0 = ----------
+VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
+VSharp.Test.Tests.Methods.VirtualMethod+A ==> CLASS []
+VSharp.Test.Tests.Methods.VirtualMethod+B ==> CLASS []

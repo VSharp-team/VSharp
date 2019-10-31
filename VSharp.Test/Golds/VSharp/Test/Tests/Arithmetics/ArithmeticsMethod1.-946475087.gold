@@ -1,0 +1,78 @@
+METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ArithmeticsMethod1(System.Int32, System.Int32)
+RESULT: UNION[
+	| !(0 == m) ~> 7 + n
+	| 0 == m ~> <ERROR: (HeapRef 1)>]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> System.DivideByZeroException CLASS [
+	| System::Exception::_HResult ~> -2147352558
+	| System::Exception::_className ~> null
+	| System::Exception::_data ~> null
+	| System::Exception::_dynamicMethods ~> null
+	| System::Exception::_helpURL ~> null
+	| System::Exception::_innerException ~> null
+	| System::Exception::_message ~> (HeapRef 2)
+	| System::Exception::_remoteStackIndex ~> 0
+	| System::Exception::_remoteStackTraceString ~> null
+	| System::Exception::_safeSerializationManager ~> (HeapRef 5)
+	| System::Exception::_source ~> null
+	| System::Exception::_stackTrace ~> null
+	| System::Exception::_stackTraceString ~> null
+	| System::Exception::captured_traces ~> null
+	| System::Exception::caught_in_unmanaged ~> 0
+	| System::Exception::native_trace_ips ~> null]
+2 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> [| 0 ~> 'A'; 1 ~> 't'; 2 ~> 't'; 3 ~> 'e'; 4 ~> 'm'; 5 ~> 'p'; 6 ~> 't'; 7 ~> 'e'; 8 ~> 'd'; 9 ~> ' '; 10 ~> 't'; 11 ~> 'o'; 12 ~> ' '; 13 ~> 'd'; 14 ~> 'i'; 15 ~> 'v'; 16 ~> 'i'; 17 ~> 'd'; 18 ~> 'e'; 19 ~> ' '; 20 ~> 'b'; 21 ~> 'y'; 22 ~> ' '; 23 ~> 'z'; 24 ~> 'e'; 25 ~> 'r'; 26 ~> 'o'; 27 ~> '.'; 28 ~> '\000' ... 29 ... |]
+	| System::String::m_StringLength ~> 28]
+3 ==> System.Object CLASS []
+4 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> [| 0 ~> 'C'; 1 ~> 'L'; 2 ~> 'R'; 3 ~> '_'; 4 ~> 'S'; 5 ~> 'a'; 6 ~> 'f'; 7 ~> 'e'; 8 ~> 'S'; 9 ~> 'e'; 10 ~> 'r'; 11 ~> 'i'; 12 ~> 'a'; 13 ~> 'l'; 14 ~> 'i'; 15 ~> 'z'; 16 ~> 'a'; 17 ~> 't'; 18 ~> 'i'; 19 ~> 'o'; 20 ~> 'n'; 21 ~> 'M'; 22 ~> 'a'; 23 ~> 'n'; 24 ~> 'a'; 25 ~> 'g'; 26 ~> 'e'; 27 ~> 'r'; 28 ~> '_'; 29 ~> 'R'; 30 ~> 'e'; 31 ~> 'a'; 32 ~> 'l'; 33 ~> 'T'; 34 ~> 'y'; 35 ~> 'p'; 36 ~> 'e'; 37 ~> '\000' ... 38 ... |]
+	| System::String::m_StringLength ~> 37]
+5 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
+	| System::Runtime::Serialization::SafeSerializationManager::m_realObject ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_realType ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_savedSerializationInfo ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_serializedStates ~> null]
+6 ==> System.DivideByZeroException CLASS [
+	| System::Exception::_HResult ~> -2147352558
+	| System::Exception::_className ~> null
+	| System::Exception::_data ~> null
+	| System::Exception::_dynamicMethods ~> null
+	| System::Exception::_helpURL ~> null
+	| System::Exception::_innerException ~> null
+	| System::Exception::_message ~> (HeapRef 7)
+	| System::Exception::_remoteStackIndex ~> 0
+	| System::Exception::_remoteStackTraceString ~> null
+	| System::Exception::_safeSerializationManager ~> (HeapRef 8)
+	| System::Exception::_source ~> null
+	| System::Exception::_stackTrace ~> null
+	| System::Exception::_stackTraceString ~> null
+	| System::Exception::captured_traces ~> null
+	| System::Exception::caught_in_unmanaged ~> 0
+	| System::Exception::native_trace_ips ~> null]
+7 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> [| 0 ~> 'A'; 1 ~> 't'; 2 ~> 't'; 3 ~> 'e'; 4 ~> 'm'; 5 ~> 'p'; 6 ~> 't'; 7 ~> 'e'; 8 ~> 'd'; 9 ~> ' '; 10 ~> 't'; 11 ~> 'o'; 12 ~> ' '; 13 ~> 'd'; 14 ~> 'i'; 15 ~> 'v'; 16 ~> 'i'; 17 ~> 'd'; 18 ~> 'e'; 19 ~> ' '; 20 ~> 'b'; 21 ~> 'y'; 22 ~> ' '; 23 ~> 'z'; 24 ~> 'e'; 25 ~> 'r'; 26 ~> 'o'; 27 ~> '.'; 28 ~> '\000' ... 29 ... |]
+	| System::String::m_StringLength ~> 28]
+8 ==> System.Runtime.Serialization.SafeSerializationManager CLASS [
+	| System::Runtime::Serialization::SafeSerializationManager::m_realObject ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_realType ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_savedSerializationInfo ~> null
+	| System::Runtime::Serialization::SafeSerializationManager::m_serializedStates ~> null]
+---------- s1 = ----------
+System.ArithmeticException ==> CLASS []
+System.DivideByZeroException ==> CLASS []
+System.Exception ==> CLASS [
+	| _COMPlusExceptionCode ~> UNION[
+		| !(0 == m) | hasKey#4 ~> System.Exception._COMPlusExceptionCode
+		| !hasKey#4 & 0 == m ~> -532462766]
+	| s_EDILock ~> UNION[
+		| !(0 == m) | hasKey#4 ~> (HeapRef System.Exception.s_EDILock)
+		| !hasKey#4 & 0 == m ~> (HeapRef 3)]]
+System.Object ==> CLASS []
+System.Runtime.Serialization.SafeSerializationManager ==> CLASS [
+	| RealTypeSerializationName ~> UNION[
+		| !(0 == m) | hasKey#6 ~> (HeapRef System.Runtime.Serialization.SafeSerializationManager.RealTypeSerializationName)
+		| !hasKey#6 & 0 == m ~> (HeapRef 4)]]
+System.SystemException ==> CLASS []
+VSharp.Test.Tests.Arithmetics ==> CLASS []

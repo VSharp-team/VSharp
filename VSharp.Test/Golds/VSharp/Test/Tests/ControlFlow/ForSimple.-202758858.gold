@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.ForSimple(System.Int32)
+RESULT: UNION[
+	| !(1 <= x) ~> 0
+	| 1 <= x ~> μ[Vertex = 3, RV = [3], __loc__0]]
+HEAP:
+{ heap = merge[
+	(!(1 <= x), <empty>),
+	(1 <= x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]))], statics = merge[
+	(!(1 <= x), s0),
+	(1 <= x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

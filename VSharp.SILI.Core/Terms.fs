@@ -13,17 +13,24 @@ type concreteHeapAddress = int list
 type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
+type ICodeLocation =
+    abstract Location : obj
+
 type IFunctionIdentifier =
-    abstract ReturnType : termType
+    inherit ICodeLocation
+    abstract ReturnType : Type
+
 type StandardFunctionIdentifier(id : StandardFunction) =
     interface IFunctionIdentifier with
-        override x.ReturnType = Numeric typeof<double>
+        override x.Location = id :> obj
+        override x.ReturnType = typeof<double>
     member x.Function = id
     override x.ToString() = id.ToString()
 
 type EmptyIdentifier() =
     interface IFunctionIdentifier with
-        override x.ReturnType = Core.Void
+        override x.Location = null
+        override x.ReturnType = typeof<Void>
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -101,7 +108,8 @@ type termNode =
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name.v
-            | Concrete(_, t) when Types.isFunction t -> sprintf "<Lambda Expression %O>" t
+            | Concrete(_, ClassType(t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+                sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
             | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
             | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
@@ -207,7 +215,7 @@ type termNode =
             let sortKeyFromIndex index = // TODO: change when index will be term list
                 let stringIndex = keyMapper index
                 let id = ref 0
-                let parseOne str = if Int32.TryParse(str, id) then !id else Int32.MaxValue
+                let parseOne (str : string) = if Int32.TryParse(str, id) then !id else Int32.MaxValue
                 Array.foldBack (parseOne >> cons) (stringIndex.Split(',')) List.empty
             let stringResult = Heap.toString "%s ~> %s" heapSeparator keyMapper (always mapper) sortKeyFromIndex contents
             let format contents = sprintf "%s%s%s" separator contents separator
@@ -255,10 +263,7 @@ and
         override x.GetHashCode() = x.term.GetHashCode()
         override x.Equals(o : obj) =
             match o with
-            | :? term as other ->
-                x.term.Equals(other.term)
-                // TODO: get rid of the comparison of miscs when ControlFlow is removed
-                && (not <| x.term.Equals(Nop) || x.metadata.misc = other.metadata.misc)
+            | :? term as other -> x.term.Equals(other.term)
             | _ -> false
 
 and
@@ -295,7 +300,8 @@ module internal Terms =
     let term (term : term) = term.term
 
 // --------------------------------------- Primitives ---------------------------------------
-    let Nop<'a> = { term = Nop; metadata = Metadata.empty } // { origins = List.empty; misc = null } }
+
+    let Nop<'a> = { term = Nop; metadata = Metadata.empty<'a> }
     let Error metadata term = { term = Error term; metadata = metadata }
     let Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
     let Constant metadata name source typ = { term = Constant({v=name}, source, typ); metadata = metadata }
@@ -461,7 +467,7 @@ module internal Terms =
                 List.forall ((=) t) ts
                 || List.forall Types.isReference nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
-            else internalfailf "evaluating type of unexpected union %O!" term
+            else internalfailf "evaluating type of unexpected union %O!" gvs
 
     let commonTypeOf getType term =
         match term.term with
@@ -513,19 +519,30 @@ module internal Terms =
 
     let isBool t =     isPrimitiveTerm t && typeOf t |> Types.isBool
     let isNumeric t =  isPrimitiveTerm t && typeOf t |> Types.isNumeric
-    let isFunction t = isPrimitiveTerm t && typeOf t |> Types.isFunction
-    let domainOf =     typeOf >> Types.domainOf
-    let rangeOf =      typeOf >> Types.rangeOf
 
-    let CastConcrete value (t : System.Type) metadata =
+    let rec isStruct term = // TODO: use common function
+        match term.term with
+        | Struct _ -> true
+        | Union gvs -> List.forall (snd >> isStruct) gvs
+        | _ -> false
+
+    let rec isReference term =
+        match term.term with
+        | Union gvs -> List.forall (snd >> isReference) gvs
+        | _ -> isRef term
+
+    let CastConcrete isChecked (value : obj) (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType()
         try
             if actualType = t then
                 Concrete metadata value (fromDotNetType t)
             elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
                 let casted =
-                    if t.IsPointer
-                    then new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
+                    if t.IsPointer then
+                        new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
+                    //TODO: ability to convert negative integers to UInt32 without overflowException
+                    elif not isChecked && TypeUtils.isIntegral t then
+                        TypeUtils.uncheckedChangeType value t
                     else Convert.ChangeType(value, t)
                 Concrete metadata casted (fromDotNetType t)
             elif t.IsAssignableFrom(actualType) then
@@ -533,7 +550,7 @@ module internal Terms =
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->
-            internalfailf "cannot cast %s to %s!" t.FullName actualType.FullName
+            internalfailf "cannot cast %s to %s!" actualType.FullName t.FullName
 
     let makeTrue metadata =
         Concrete metadata (box true) Bool
@@ -589,10 +606,6 @@ module internal Terms =
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
-
-    let (|Null|_|) = function
-        | Ref(NullAddress, []) -> Some(Null)
-        | _ -> None
 
     let (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))

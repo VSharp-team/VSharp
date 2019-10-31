@@ -197,24 +197,28 @@ module internal Merging =
             Heap.merge2 h1 h2 (keysResolver2 r1 h1 h2 read Heap.getKey resolve) |> State.Defined r1
         | _ -> mergeGeneralizedHeaps read [g1; g2] [h1; h2]
 
-    and merge2States condition1 condition2 (state1 : state) (state2 : state) =
+    and private addToPathConditionIfNeed cond pc = if isTrue cond then pc else cond :: pc
+
+    and merge2States condition1 condition2 state1 state2 =
+        assert(state1.pc = state2.pc)
+        assert(state1.frames = state2.frames)
+        let mergedConditions = condition1 ||| condition2
+        let mergedPC = addToPathConditionIfNeed mergedConditions state1.pc
         match condition1, condition2 with
-        | True, _ -> state1
-        | False, _ -> state2
-        | _, True -> state2
-        | _, False -> state1
+        | True, _
+        | _, False -> {state1 with pc = mergedPC}
+        | _, True
+        | False, _ -> {state2 with pc = mergedPC}
         | _ ->
-            assert(state1.pc = state2.pc)
-            assert(state1.frames = state2.frames)
             let resolve = merge2Terms condition1 condition2
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap readHeap resolve
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
-            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics }
+            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; pc = mergedPC }
 
-    and mergeStates conditions states : state =
+    and mergeStates conditions states =
         assert(List.length states > 0)
-        let first : state = List.head states
+        let first = List.head states
         let frames = first.frames
         let path = first.pc
         let tv = first.typeVariables
@@ -224,7 +228,9 @@ module internal Merging =
         let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) merge (State.stackLazyInstantiator first)
         let mergedHeap = mergeGeneralizedHeaps readHeap conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps readStatics conditions (List.map State.staticsOf states)
-        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = path; typeVariables = tv }
+        let mergedConditions = disjunction Metadata.empty conditions
+        let mergedPC = if isTrue mergedConditions then path else mergedConditions :: path
+        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = mergedPC; typeVariables = tv }
 
     and genericSimplify gvs : (term * 'a) list =
         let rec loop gvs out =
@@ -264,7 +270,7 @@ module internal Merging =
     let guardedErroredApplyk f term k = commonGuardedErroredApplyk f id term merge k
     let guardedErroredApply f term = guardedErroredApplyk (Cps.ret f) term id
 
-    let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge k =
+    let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge mergeStates k =
         let foldFunc (gvs, egs, vgs, states) (g, v) k =
             if isError v then k ((g, errorMapper v) :: gvs, g :: egs, vgs, states)
             // TODO: do not map if (guard & pc) = false
@@ -274,12 +280,12 @@ module internal Merging =
         let state' = mergeStates (eg :: vgs) (state :: states)
         k (merge gvs, state'))
 
-    let commonGuardedErroredStatedApplyk f errorHandler state term merge k =
+    let commonGuardedErroredStatedApplyk f errorHandler state term merge mergeStates k =
         match term.term with
         | Error _ -> k (errorHandler term, state)
-        | Union gvs -> commonGuardedErroredStatedMapk f errorHandler gvs state merge k
+        | Union gvs -> commonGuardedErroredStatedMapk f errorHandler gvs state merge mergeStates k
         | _ -> f state term k
-    let guardedErroredStatedApplyk f state term k = commonGuardedErroredStatedApplyk f id state term merge k
+    let guardedErroredStatedApplyk f state term k = commonGuardedErroredStatedApplyk f id state term merge mergeStates k
     let guardedErroredStatedApply f state term = guardedErroredStatedApplyk (Cps.ret2 f) state term id
 
 // ----------------------------------------------------------------------------------------------------

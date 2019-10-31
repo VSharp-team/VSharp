@@ -1,0 +1,9 @@
+METHOD: System.Object VSharp.Test.Tests.UnboxAny.UnboxAny5()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [| 0 ~> 1; 1 ~> 2; 2 ~> 3 ... 3 ... |]
+---------- s1 = ----------
+System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
+VSharp.Test.Tests.UnboxAny ==> CLASS []

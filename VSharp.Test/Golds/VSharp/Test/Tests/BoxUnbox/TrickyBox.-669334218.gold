@@ -1,0 +1,11 @@
+METHOD: System.Object VSharp.Test.Tests.BoxUnbox.TrickyBox(System.Int32)
+RESULT: UNION[
+	| !(5 == x) ~> (HeapRef 2)
+	| 5 == x ~> (HeapRef 1)]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> x
+2 ==> 42
+---------- s1 = ----------
+VSharp.Test.Tests.BoxUnbox ==> CLASS []

@@ -1,0 +1,11 @@
+METHOD: System.Object VSharp.Test.Tests.BoxUnbox.BoxNullable(System.Nullable`1[System.Int32])
+RESULT: UNION[
+	| !x.System::Nullable`1::hasValue ~> null
+	| x.System::Nullable`1::hasValue ~> (HeapRef 1)]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> x.System::Nullable`1::value
+---------- s1 = ----------
+System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
+VSharp.Test.Tests.BoxUnbox ==> CLASS []

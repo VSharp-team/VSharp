@@ -1,9 +1,9 @@
-image: Visual Studio 2017
+image: Visual Studio 2019
 
 before_build:
-  - nuget restore
+  - dotnet restore
 
 configuration: Release
 
 test_script:
-  - nunit3-console VSharp.Test\bin\Release\VSharp.Test.dll --x86 --result=myresults.xml;format=AppVeyor
+  - dotnet test -c Release

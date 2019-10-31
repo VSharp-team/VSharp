@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VSharp.CSharpUtils
+namespace VSharp
 {
     [AttributeUsage(AttributeTargets.All)]
     public class ImplementsAttribute : Attribute

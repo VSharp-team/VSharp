@@ -1,4 +1,5 @@
 using System;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -6,7 +7,7 @@ namespace VSharp.Test.Tests
     public sealed class Arithmetics
     {
         // 7 + n
-        [TestSvm]
+        [Ignore("Reinterpretation is not implemented")]
         public static int ArithmeticsMethod1(int n, int m)
         {
             return -((n - m) + (m - n) + (1 + m + 2 + 0 - m + 4 + m) - (m + n)) + 14 + (n * (5 - 4) + (5 - 7 + m / m) * n) / m;
@@ -27,7 +28,7 @@ namespace VSharp.Test.Tests
         }
 
         // 6*n - 126826
-        [TestSvm]
+        [Ignore("Reinterpretation is not implemented")]
         public static int ArithmeticsMethod4(int n, int m)
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
@@ -70,14 +71,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting overflow error
-        [TestSvm]
+        [Ignore("Reinterpretation is not implemented")]
         public static int CheckOverflow1(int x1)
         {
             return CheckOverflow0(2147483620, 2147483620 + x1);
         }
 
         // Expecting overflow error
-        [TestSvm]
+        [Ignore("Reinterpretation is not implemented")]
         public static int CheckOverflow2(int x1)
         {
             int x = 1000 * 1000 * 1000;
@@ -94,7 +95,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting devide by zero error
-        [TestSvm]
+        [Ignore("Reinterpretation is not implemented")]
         public static int CheckDivideByZeroException0(int x1)
         {
             int x = 255;

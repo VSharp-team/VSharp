@@ -1,6 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ShiftMultiplication(System.Int16)
-RESULT: 0
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []

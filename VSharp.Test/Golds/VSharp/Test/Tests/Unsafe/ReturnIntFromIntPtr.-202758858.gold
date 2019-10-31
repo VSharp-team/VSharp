@@ -1,0 +1,11 @@
+METHOD: System.Int32 VSharp.Test.Tests.Unsafe.ReturnIntFromIntPtr(System.Int32)
+RESULT: myFavouriteParameter
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.IntPtr ==> System.IntPtr STRUCT [
+	| Zero ~> System.IntPtr STRUCT [
+		| System::IntPtr::_value ~> UNION[
+			| !hasKey#1 ~> null
+			| hasKey#1 ~> (HeapPtr System.IntPtr.Zero.System::IntPtr::_value as System.Void)]]]
+VSharp.Test.Tests.Unsafe ==> CLASS []

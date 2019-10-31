@@ -1,0 +1,7 @@
+METHOD: System.Boolean VSharp.Test.Tests.BoxUnbox.AlwaysNull()
+RESULT: True
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
+VSharp.Test.Tests.BoxUnbox ==> CLASS []

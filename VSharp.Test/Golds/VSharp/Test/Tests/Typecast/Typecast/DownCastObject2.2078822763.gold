@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.DownCastObject2(System.Object, System.Object)
+RESULT: UNION[
+	| !((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj1) & (!((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj2) & ((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) | !((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj1) & !(0 == obj2) & ((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn) & ((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | !((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) & !(0 == obj1) & (!((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj2) & ((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn) | !(0 == obj2) & (!((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj1) & (!((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj1) & ((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | (!((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj1) & (!((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) | 0 == obj1) & (!((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj2) ~> 6
+	| !(0 == obj1) & (!(0 == obj2) & ((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | (!((HeapRef obj2) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj2) & ((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Pawn)) & ((HeapRef obj1) <: VSharp.Test.Tests.Typecast.Piece) ~> 5]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

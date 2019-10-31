@@ -1,0 +1,15 @@
+METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.NonEmptyPath(VSharp.Test.Tests.First)
+RESULT: UNION[
+	| !(0 == f) & !(0 == f.VSharp::Test::Tests::First::A) & !(0 == f.VSharp::Test::Tests::First::A.VSharp::Test::Tests::First::A) ~> 8
+	| !(0 == f) & !(0 == f.VSharp::Test::Tests::First::A) & 0 == f.VSharp::Test::Tests::First::A.VSharp::Test::Tests::First::A ~> 7
+	| 0 == f | 0 == f.VSharp::Test::Tests::First::A ~> 0]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+f.VSharp::Test::Tests::First::A ==> VSharp.Test.Tests.Second CLASS [
+	| VSharp::Test::Tests::First::B ~> UNION[
+		| !(0 == f) & !(0 == f.VSharp::Test::Tests::First::A) & !(0 == f.VSharp::Test::Tests::First::A.VSharp::Test::Tests::First::A) ~> 8
+		| !(0 == f) & !(0 == f.VSharp::Test::Tests::First::A) & 0 == f.VSharp::Test::Tests::First::A.VSharp::Test::Tests::First::A ~> 7
+		| 0 == f | 0 == f.VSharp::Test::Tests::First::A ~> f.VSharp::Test::Tests::First::A.VSharp::Test::Tests::First::B]]
+---------- s1 = ----------
+VSharp.Test.Tests.RecursiveAccess ==> CLASS []

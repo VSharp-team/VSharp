@@ -1,6 +1,0 @@
-METHOD: System.Boolean VSharp.Test.Tests.Logics.Or6(System.Boolean, System.Boolean)
-RESULT: True
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Logics ==> CLASS []

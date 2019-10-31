@@ -1,0 +1,16 @@
+METHOD: System.String VSharp.Test.Tests.Strings.EmptyString(System.Int32, System.Int32)
+RESULT: UNION[
+	| !hasKey#1 ~> (HeapRef 1)
+	| hasKey#1 ~> (HeapRef System.String.Empty)]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> System.String CLASS [
+	| System::String::m_FirstChar ~> [| 0 ~> '\000' ... 1 ... |]
+	| System::String::m_StringLength ~> 0]
+---------- s1 = ----------
+System.String ==> CLASS [
+	| Empty ~> UNION[
+		| !hasKey#1 ~> (HeapRef 1)
+		| hasKey#1 ~> (HeapRef System.String.Empty)]]
+VSharp.Test.Tests.Strings ==> CLASS []

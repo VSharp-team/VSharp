@@ -79,16 +79,14 @@ module internal Common =
         Constant mtd subtypeName source Bool
 
     let rec typeIsType mtd leftType rightType = // left is subtype of right
-        let isGround t = TypeUtils.isGround(Types.toDotNetType t)
         let boolConst left right = makeSubtypeBoolConst mtd (Type left) (Type right)
 
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue mtd
-        | termType.Null, _
+        | Null, _
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> makeFalse mtd
         | Pointer _, Pointer _ -> makeTrue mtd
-        | Func _, Func _ -> makeTrue mtd
         | ArrayType _ , ArrayType(_, SymbolicDimension) -> makeTrue mtd
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then typeIsType mtd t1 t2 else makeFalse mtd
@@ -96,7 +94,7 @@ module internal Common =
             let lt = Types.toDotNetType leftType
             let rt = Types.toDotNetType rightType
             if rt.IsAssignableFrom lt then makeTrue mtd
-            elif isGround leftType && isGround rightType then makeFalse mtd
+            elif TypeUtils.isGround lt && TypeUtils.isGround rt then makeFalse mtd
             else boolConst leftType rightType
         | _ -> makeFalse mtd
 
@@ -137,13 +135,14 @@ module internal Common =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
 
-    let internal isValueType metadata termType =
+    let isValueType metadata termType = // TODO: add this to typeIsType
         let makeIsValueTypeBoolConst termType =
             Constant metadata (sprintf "IsValueType(%O)" termType) ({termType = termType}) Bool
         match termType with
         | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> makeTrue metadata
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeFalse metadata
         | TypeVariable _ -> makeIsValueTypeBoolConst termType
+        | Null -> __unreachable__()
         | t -> makeBool metadata (Types.toDotNetType t).IsValueType
 
     type symbolicSubtypeSource with
@@ -163,9 +162,30 @@ module internal Common =
                 let typ = State.substituteTypeVariables ctx state x.termType
                 isValueType ctx.mtd typ
 
+    [<StructuralEquality;NoComparison>]
+    type private isNullableConstantSource =
+        {termType : termType}
+        interface IStatedSymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+
+    let isNullable metadata termType =
+        let makeIsNullableBoolConst termType =
+            Constant metadata (sprintf "IsNullable(%O)" termType) ({termType = termType}) Bool
+        match termType with
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeFalse metadata
+        | TypeVariable _ -> makeIsNullableBoolConst termType
+        | Null -> __unreachable__()
+        | _ -> makeBool metadata (System.Nullable.GetUnderlyingType(Types.toDotNetType termType) <> null)
+
+    type isNullableConstantSource with
+         interface IStatedSymbolicConstantSource with
+            override x.Compose ctx state =
+                let typ = State.substituteTypeVariables ctx state x.termType
+                isNullable ctx.mtd typ
+
 // ---------------------------------------- Branching ---------------------------------------
 
-    let commonStatelessConditionalExecution pc conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let commonStatelessConditionalExecutionk pc conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
         let execution condition k =
             thenBranch (fun thenResult ->
             elseBranch (fun elseResult ->
@@ -184,14 +204,16 @@ module internal Common =
         conditionInvocation (fun condition ->
         Merging.commonGuardedErroredApplyk chooseBranch errorHandler condition merge k)
 
-    let statelessConditionalExecution pc conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecution pc conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k
+    let statelessConditionalExecutionWithMergek pc conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecutionk pc conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k
+    let statelessConditionalExecutionWithMerge pc conditionInvocation thenBranch elseBranch = statelessConditionalExecutionWithMergek pc conditionInvocation thenBranch elseBranch id
 
-    let commonStatedConditionalExecution (state : state) conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch mergeResults mergeStates merge2Results merge2States errorHandler k =
         let execution conditionState condition k =
+            assert (condition <> True && condition <> False)
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
             elseBranch (State.withPathCondition conditionState !!condition) (fun (elseResult, elseState) ->
-            let result = merge2 condition !!condition thenResult elseResult
-            let state = Merging.merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
+            let result = merge2Results condition !!condition thenResult elseResult
+            let state = merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
             k (result, state)))
         let chooseBranch conditionState condition k =
             let thenCondition =
@@ -211,6 +233,8 @@ module internal Common =
                     | Unsat -> thenBranch conditionState k
                     | _ -> execution conditionState condition k
         conditionInvocation state (fun (condition, conditionState) ->
-        Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition merge k)
+        Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition mergeResults mergeStates k)
 
-    let statedConditionalExecution state conditionInvocation thenBranch elseBranch k = commonStatedConditionalExecution state conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k
+    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch Merging.merge Merging.mergeStates Merging.merge2Terms Merging.merge2States id k
+    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch = statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id

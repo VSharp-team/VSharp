@@ -1,0 +1,13 @@
+METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeConcreteMove(VSharp.Test.Tests.Typecast.Coord)
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Typecast.Piece CLASS [
+	| VSharp::Test::Tests::Typecast::Piece::Rate ~> 0
+	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> c.VSharp::Test::Tests::Typecast::Coord::X
+	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> c.VSharp::Test::Tests::Typecast::Coord::Y]
+---------- s1 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
+VSharp.Test.Tests.Typecast.Piece ==> CLASS []

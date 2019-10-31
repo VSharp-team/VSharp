@@ -1,0 +1,15 @@
+METHOD: System.Object VSharp.Test.Tests.ClassesSimpleMerge.MergingClassesFieldsTest(System.Object)
+RESULT: (HeapRef o)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+o ==> UNION[
+	| !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) | !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) | (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) | 0 == o) & (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) | 0 == o) ~> CLASS [
+		| VSharp::Test::Tests::ClassesSimpleMerge::A::x ~> UNION[
+			| !((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) & !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) | (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) | 0 == o) & (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) | 0 == o) ~> o.VSharp::Test::Tests::ClassesSimpleMerge::A::x
+			| !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) ~> 2]
+		| VSharp::Test::Tests::ClassesSimpleMerge::B::x ~> UNION[
+			| !((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) & !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) ~> 10
+			| !(0 == o) & ((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) | (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+A) | 0 == o) & (!((HeapRef o) <: VSharp.Test.Tests.ClassesSimpleMerge+B) | 0 == o) ~> o.VSharp::Test::Tests::ClassesSimpleMerge::B::x]]]
+---------- s1 = ----------
+VSharp.Test.Tests.ClassesSimpleMerge ==> CLASS []

@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="String.fsi" />
+        <Compile Include="String.fs" />
+        <Compile Include="SystemArray.fsi" />
+        <Compile Include="SystemArray.fs" />
+        <Compile Include="Math.fsi" />
+        <Compile Include="Math.fs" />
+        <Compile Include="Environment.fsi" />
+        <Compile Include="Environment.fs" />
+        <Compile Include="Thread.fsi" />
+        <Compile Include="Thread.fs" />
+        <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fsi" />
+        <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fs" />
+        <Compile Include="Type.fsi" />
+        <Compile Include="Type.fs" />
+        <Compile Include="Loader.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+    </ItemGroup>
+
+</Project>

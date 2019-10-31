@@ -9,6 +9,11 @@ module public Seq =
             i := !i + 1
             f s !i t) st xs
 
+    let public cons x xs = seq {
+        yield x
+        yield! xs
+    }
+
     let public (|Cons|Empty|) s =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)
@@ -127,14 +132,6 @@ module public Stack =
     let push stack element = element::stack
 
     let updateHead stack newHd = push (pop stack) newHd
-
-    let updateMiddle stack idx newVal =
-        let rec updateMiddleRec xs idx acc =
-            match xs with
-            | [] -> acc
-            | x::xs' when idx = 0 -> updateMiddleRec xs' (idx - 1) (newVal::acc)
-            | x::xs' -> updateMiddleRec xs' (idx - 1) (x::acc)
-        updateMiddleRec stack ((List.length stack) - idx - 1) [] |> List.rev
 
     let empty = List.empty
 

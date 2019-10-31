@@ -34,8 +34,8 @@ module internal Encode =
     | _ -> false
 
 
-    module private FunctionSummaries =
-        let private keys = new Dictionary<IFunctionIdentifier * term option, string>()
+    module private CodeLocationSummaries =
+        let private keys = new Dictionary<ICodeLocation * term option, string>()
 
         let clear () = keys.Clear()
 
@@ -43,12 +43,12 @@ module internal Encode =
             | None -> sprintf "%O#res" funcId
             | Some _ -> IdGenerator.startingWith (toString funcId)
 
-        let private encodeBody funcId loc =
-            let pair = (funcId, loc)
-            if not <| keys.ContainsKey (funcId, loc) then
-                let key = toKey funcId loc
+        let private encodeBody codeLoc loc =
+            let pair = (codeLoc, loc)
+            if not <| keys.ContainsKey (codeLoc, loc) then
+                let key = toKey codeLoc loc
                 keys.Add(pair, key)
-                let summary = Database.QuerySummary funcId
+                let summary = Database.QuerySummary codeLoc
                 match loc with
                 | None ->
                     let results = [summary.result]
@@ -57,8 +57,8 @@ module internal Encode =
                     __notImplemented__()
             keys.[pair]
 
-        let encode constant funcId state location =
-            let schemaKey = encodeBody funcId location
+        let encode constant (codeLoc : ICodeLocation) state location =
+            let schemaKey = encodeBody codeLoc location
             let schema = schemas.[schemaKey]
             assert(schema.outputs.Length = 1)
             let args = List.map (fun arg -> (arg, compose state arg)) schema.inputs
@@ -101,7 +101,7 @@ module internal Encode =
         | Constant(_, source, _) ->
             match source with
             | RecursionOutcome(id, state, location, _) ->
-                FunctionSummaries.encode constant id state location |> Some
+                CodeLocationSummaries.encode constant id state location |> Some
             | LazyInstantiation(_, None, _) -> None
             | LazyInstantiation(_, Some _, _) -> __notImplemented__()
             | _ -> None // __notImplemented__()
@@ -159,7 +159,7 @@ module internal Encode =
     let encodeQuery (terms : term list) : HOCHCSystem =
         schemas.Clear()
         rules.Clear()
-        FunctionSummaries.clear()
+        CodeLocationSummaries.clear()
         let queries =
             terms
             |> schemasOfTerms

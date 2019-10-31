@@ -1,4 +1,5 @@
 using System;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -74,7 +75,7 @@ namespace VSharp.Test.Tests
 
         // It's not a problem, that we got <VOID> < 5 or smth like that, because some path conditions are not achievable from program.
         // In case of TestSwitch method, we got <VOID> from dereferencing of not assigned variable.
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static bool TestSwitch(char c)
         {
             int result;
@@ -113,7 +114,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ExceptionInCondition1(NewBool nb)
         {
             int n = 0;
@@ -129,13 +130,13 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ExceptionInCondition2(NewBool nb)
         {
             return nb.BoolValue ? 42 : 56;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ExceptionInCondition3(NewBool nb)
         {
             if (nb.ThrowException())

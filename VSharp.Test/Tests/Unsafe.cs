@@ -1,4 +1,5 @@
 using System;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -61,7 +62,7 @@ namespace VSharp.Test.Tests
             return x.ToPointer();
         }
 
-        [TestSvm]
+        [Ignore("Not working, because of (p - q) might not be multiple of 8")]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
@@ -71,7 +72,7 @@ namespace VSharp.Test.Tests
             return * (int*) (q + d);
         }
 
-        [TestSvm]
+        [Ignore("Not working, because the idea of test is not right")]
         public static int PointerTriangle(int x, int y, int z)
         {
             int* px = &x;

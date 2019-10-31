@@ -3,21 +3,21 @@ namespace VSharp.Core
 open System.Collections.Generic
 open VSharp.Logger
 
-type functionSummary = { result : term; state : state }
+type codeLocationSummary = { result : term; state : state }
 
 
 module internal Database =
-    let private summaries = new Dictionary<IFunctionIdentifier, functionSummary>()
+    let private summaries = new Dictionary<ICodeLocation, codeLocationSummary>()
 
-    let reported id = summaries.ContainsKey id
+    let reported codeLoc = summaries.ContainsKey codeLoc
 
-    let report id result state =
-        assert(not (summaries.ContainsKey id))
-        let result = ControlFlow.resultToTermWithNoReturnMarker result
+    let report codeLoc result state =
+        assert (List.length state.frames.f = 1)
+        assert(not (summaries.ContainsKey codeLoc))
         let summary = { result = result; state = state}
-        printLog Info "For %O got %O\n%O\n\n" id result (State.dumpMemory state)
-        summaries.Add(id, summary) |> ignore
+        printLog Info "For %O got %O\n%O\n\n" codeLoc result (State.dumpMemory state)
+        summaries.Add(codeLoc, summary) |> ignore
         summary
 
-    let querySummary id =
-        if summaries.ContainsKey id then Some(summaries.[id]) else None
+    let querySummary codeLoc =
+        if summaries.ContainsKey codeLoc then Some(summaries.[codeLoc]) else None

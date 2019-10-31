@@ -1,8 +1,0 @@
-METHOD: U VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(U)
-RESULT: UNION[
-	| !IsValueType(U) ~> (HeapRef u)
-	| IsValueType(U) ~> u]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> CLASS []

@@ -1,0 +1,14 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.ArrayLength(System.Int32)
+RESULT: UNION[
+	| !(0 == f) & !(1 == f) ~> 1 + f
+	| !(0 == f) & 1 == f ~> 3
+	| 0 == f ~> 10]
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [| 0 ~> 0; 1 ~> 1; 2 ~> 2; 3 ~> 3; 4 ~> 4; 5 ~> 5; 6 ~> 6; 7 ~> 7; 8 ~> 8; 9 ~> 9 ... 10 ... |]
+2 ==> [| 0 ~> 1; 1 ~> 2; 2 ~> 3 ... 3 ... |]
+3 ==> [|... 1 + f ... |]
+---------- s1 = ----------
+System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
+VSharp.Test.Tests.Lists ==> CLASS []

@@ -13,11 +13,24 @@ type public IZ3Solver =
     inherit ISmtSolver<AST>
 
 type public Z3Solver() =
+    let rec hasRecursiveCall t = // TODO: [encoding] temporary hack
+        match t.term with
+        | Concrete _ -> false
+        | Constant(_, source, _) ->
+            match source with
+            | RecursionOutcome(_, _, Some _, _) -> true
+            | _ -> false
+        | Expression(_, ts, _) -> haveRecursiveCall ts
+        | _ -> internalfailf "%O" t
+    and haveRecursiveCall = List.exists hasRecursiveCall
+
     interface IZ3Solver with
         member x.Solve terms =
-            let hochcs = Encode.encodeQuery terms
-            let chcs = CHCs.toFirstOrder hochcs
-            Z3.solve chcs
+            if haveRecursiveCall terms then SmtUnknown null
+            else
+                let hochcs = Encode.encodeQuery terms
+                let chcs = CHCs.toFirstOrder hochcs
+                Z3.solve chcs
 
 type public Z3Simplifier() =
     interface IPropositionalSimplifier with
