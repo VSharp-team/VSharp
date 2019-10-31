@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conditional.PreconditionLoop(System.Int32)
+RESULT: UNION[
+	| !(0 < n) ~> 0
+	| 0 < n ~> μ[Vertex = 3, RV = [3], __loc__0]]
+HEAP:
+{ heap = merge[
+	(!(0 < n), <empty>),
+	(0 < n, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]))], statics = merge[
+	(!(0 < n), s0),
+	(0 < n, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conditional ==> CLASS []

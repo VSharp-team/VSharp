@@ -1,0 +1,12 @@
+METHOD: System.Boolean VSharp.Test.Tests.BoxUnbox.True2()
+RESULT: True
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> 55
+2 ==> System.Nullable`1[System.Int32] STRUCT [
+	| System::Nullable`1::hasValue ~> True
+	| System::Nullable`1::value ~> 55]
+---------- s1 = ----------
+System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
+VSharp.Test.Tests.BoxUnbox ==> CLASS []

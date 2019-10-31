@@ -243,7 +243,27 @@ namespace VSharp.CSharpUtils
                 return e;
             }
         }
-
+        /// <summary>
+        /// Calculates <paramref name="x"/> & <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// </summary>
+        public static object BitwiseAnd(object x, object y, Type targetType)
+        {
+            return Convert.ChangeType((dynamic)x & (dynamic)y, targetType);
+        }
+        /// <summary>
+        /// Calculates <paramref name="x"/> | <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// </summary>
+        public static object BitwiseOr(object x, object y, Type targetType)
+        {
+            return Convert.ChangeType((dynamic)x | (dynamic)y, targetType);
+        }
+        /// <summary>
+        /// Calculates <paramref name="x"/> ^ <paramref name="y"/> casted to <paramref name="targetType"/>.
+        /// </summary>
+        public static object BitwiseXor(object x, object y, Type targetType)
+        {
+            return Convert.ChangeType((dynamic)x ^ (dynamic)y, targetType);
+        }
         public static int Compare(object x, object y)
         {
             if ((dynamic) x == (dynamic) y)

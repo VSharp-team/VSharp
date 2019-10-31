@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.Typecast.Helper.CastStructToInterfaceAndWriteInBoxed(VSharp.Test.Tests.Typecast.Coord2)
+RESULT: (System.Int32)(System.Double)(arg.VSharp::Test::Tests::Typecast::Coord2::X + arg.VSharp::Test::Tests::Typecast::Coord2::X * arg.VSharp::Test::Tests::Typecast::Coord2::Y) + arg.VSharp::Test::Tests::Typecast::Coord2::X
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Typecast.Coord2 STRUCT [
+	| VSharp::Test::Tests::Typecast::Coord2::X ~> arg.VSharp::Test::Tests::Typecast::Coord2::X + arg.VSharp::Test::Tests::Typecast::Coord2::X * arg.VSharp::Test::Tests::Typecast::Coord2::Y
+	| VSharp::Test::Tests::Typecast::Coord2::Y ~> arg.VSharp::Test::Tests::Typecast::Coord2::Y]
+---------- s1 = ----------
+VSharp.Test.Tests.Typecast.Coord2 ==> VSharp.Test.Tests.Typecast.Coord2 STRUCT []
+VSharp.Test.Tests.Typecast.Helper ==> CLASS []
+VSharp.Test.Tests.Typecast.INormalize ==> CLASS []

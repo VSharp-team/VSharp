@@ -50,6 +50,11 @@ namespace VSharp.Test.Tests.Methods
         {
             return 71;
         }
+
+        public virtual int F<T>()
+        {
+            return 7;
+        }
     }
 
     [TestSvmFixture]
@@ -63,6 +68,61 @@ namespace VSharp.Test.Tests.Methods
     }
 
     [TestSvmFixture]
+    public class VirtualH : VirtualC
+    {
+        [TestSvm]
+        public override int F()
+        {
+            return 7777777;
+        }
+
+        public override int F<T>()
+        {
+            return -7777777;
+        }
+    }
+
+    public class VirtualI<T> : VirtualC
+    {
+        public override int F()
+        {
+            return 111;
+        }
+
+        public override int F<_>()
+        {
+            return -111;
+        }
+    }
+
+    public class VirtualJ<T> : VirtualI<T>
+    {
+        public override int F()
+        {
+            return 5555;
+        }
+
+        public virtual int F<T, U>()
+        {
+            return base.F<U>();
+        }
+    }
+
+    public class VirtualK : VirtualI<double>
+    {
+        public override int F()
+        {
+            return 6666;
+        }
+
+        public virtual int F<T, U>()
+        {
+            return base.F<U>() + 10000;
+        }
+    }
+
+
+    [TestSvmFixture]
     public static class VirtualMethod
     {
         [TestSvm]
@@ -72,7 +132,7 @@ namespace VSharp.Test.Tests.Methods
             return p;
         }
 
-        [TestSvm]
+        [Ignore("Encoding of High-Order application")]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
@@ -127,7 +187,8 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        public static int VirtualCall2(VirtualB a) //TODO: Ticket
+        [TestSvm]
+        public static int VirtualCall2(VirtualB a)
         {
             if (a == null) return 0;
             if (a is VirtualE)
@@ -150,9 +211,82 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        [Ignore("Decompiler error")]
-        public static int VirtualCall4(A a) {
-            return ((B) a).F();
+        [TestSvm]
+        public static int VirtualCall4(VirtualH a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualC) a).F();
+            }
+
+            return ((IVirtual) a).F();
+        }
+
+        [TestSvm]
+        public static int VirtualCall5(VirtualH a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualC) a).F<int>();
+            }
+
+            return ((IVirtual) a).F();
+        }
+
+        [TestSvm]
+        public static int VirtualCall6(VirtualI<double> a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualC) a).F<int>();
+            }
+
+            return ((IVirtual) a).F();
+        }
+
+        [TestSvm]
+        public static int VirtualCall7(VirtualJ<float> a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualC) a).F<float>();
+            }
+
+            return a.F<float, int>();
+        }
+
+        [TestSvm]
+        public static int VirtualCall8(VirtualK a, int n)
+        {
+            if (a == null) return 0;
+            if (n > 10)
+            {
+                return ((VirtualC) a).F<float>();
+            }
+
+            return a.F<float, int>();
+        }
+
+        [Ignore("Reinterpretation is not implemented")]
+        public static int VirtualCall9(A a)
+        {
+            if (a is B)
+            {
+                return ((B) a).F();
+            }
+            return a.F();
+        }
+
+        [TestSvm]
+        public static int CheckSightTypeWorksCorrect(C c)
+        {
+            if (c == null) return 0;
+            A a = (A) c;
+            return a.F();
         }
     }
 }

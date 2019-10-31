@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualB.F()
+RESULT: 8
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Methods.VirtualB ==> CLASS []

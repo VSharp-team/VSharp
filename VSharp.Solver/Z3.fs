@@ -61,7 +61,6 @@ module internal Z3 =
             | Numeric _ as t when Types.IsReal t -> (ctx()).MkRealSort() :> Sort
             | Numeric t -> (ctx()).MkEnumSort(t.FullName, t.GetEnumNames()) :> Sort
             | ArrayType _
-            | Func _
             | Void
             | Bottom
             | Null
@@ -130,6 +129,7 @@ module internal Z3 =
                     | :? StandardFunctionIdentifier as sf -> (ctx()).MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
                     | _ -> __notImplemented__()
                 (ctx()).MkApp(decl, encodeTerms stopper args)
+            | Cast(Numeric _, Numeric _, false) -> encodeTermExt stopper (List.head args)
             | Cast _ ->
                 __notImplemented__())
 

@@ -17,7 +17,7 @@ type frames = { f : stackFrame stack; sh : stackHash }
 type 'key generalizedHeap when 'key : equality =
     | Defined of bool * 'key heap // bool = restricted
     | HigherOrderApplication of term * concreteHeapAddress
-    | RecursiveApplication of IFunctionIdentifier * concreteHeapAddress
+    | RecursiveApplication of ICodeLocation * concreteHeapAddress
     | Composition of state * compositionContext * 'key generalizedHeap
     | Mutation of 'key generalizedHeap * 'key heap
     | Merged of (term * 'key generalizedHeap) list
@@ -217,10 +217,9 @@ module internal State =
         match typ with
         | Void
         | Bottom
-        | termType.Null
+        | Null
         | Bool
         | Numeric _ -> typ
-        | Func(domain, range) -> Func(List.map (substituteTypeVariables) domain, substituteTypeVariables range)
         | StructType(t, args) -> substitute Types.StructType t args
         | ClassType(t, args) -> substitute Types.ClassType t args
         | InterfaceType(t, args) -> substitute Types.InterfaceType t args

@@ -3,106 +3,42 @@
 #nowarn "69"
 
 open VSharp
-open System.Collections.Generic
+open System.Reflection
 
-type public IInterpreter =
-    abstract member Reset : ('a -> 'b) -> ('a -> 'b)
-    abstract member InitEntryPoint : state -> string -> (state -> 'a) -> 'a
-    abstract member Invoke : IFunctionIdentifier -> state -> term option -> (statementResult * state -> 'a) -> 'a
 type IMethodIdentifier =
     inherit IFunctionIdentifier
     abstract IsStatic : bool
-    abstract DeclaringTypeAQN : string
+    abstract DeclaringType : System.Type
+    abstract DeclaringAssembly : Assembly
     abstract Token : string
 type IDelegateIdentifier =
     inherit IFunctionIdentifier
     abstract ContextFrames : frames
 
+type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IFunctionIdentifier, state : state) =
+    member x.VertexNumber with get() = vertexNumber
+    member x.RecursiveVertices with get() = recursiveVertices
+    member x.Frames with get() = state.frames
+    member x.FuncId with get() = funcId
+    override x.Equals(b) =
+        match b with
+        | :? ILCodePortion as ilcode -> ilcode.VertexNumber = vertexNumber && ilcode.RecursiveVertices = recursiveVertices && ilcode.FuncId = funcId
+        | _ -> false
+    override x.GetHashCode() =
+        let codeLoc = x :> ICodeLocation
+        codeLoc.Location.GetHashCode()
+    override x.ToString() = sprintf "Vertex = %d, RV = %O" vertexNumber recursiveVertices
+    interface ICodeLocation with
+        override x.Location = (vertexNumber, recursiveVertices) :> obj
+
 module internal Explorer =
-
-    let private currentlyExploredFunctions = new HashSet<IFunctionIdentifier>()
-    let private currentlyCalledFunctions = new HashSet<IFunctionIdentifier>()
-
-    type private NullInterpreter() =
-        interface IInterpreter with
-            member this.Reset _ = internalfail "interpreter is not ready"
-            member this.InitEntryPoint _ _ _ = internalfail "interpreter is not ready"
-            member this.Invoke _ _ _ _ = internalfail "interpreter is not ready"
-    let mutable private interpreter : IInterpreter = new NullInterpreter() :> IInterpreter
-    let configure itprtr = interpreter <- itprtr
-
-    let private formInitialStatics metadata typ =
-        let staticMemoryEntry = Memory.makeSymbolicBlock metadata typ
+    let formInitialStatics metadata typ =
+        let staticMemoryEntry = Memory.staticMemoryLazyInstantiator metadata typ ()
         let key = makeTopLevelKey TopLevelStatics typ typ
         Heap.add key staticMemoryEntry Heap.empty
 
-    let private invoke id state this k =
-        interpreter.Invoke id state this k
-
-    let interpretEntryPoint (id : IFunctionIdentifier) k =
-        let initialState = State.emptyRestricted
-        match id with
-        | :? IMethodIdentifier as m ->
-            assert(m.IsStatic)
-            interpreter.InitEntryPoint initialState m.DeclaringTypeAQN (fun state ->
-            interpreter.Invoke id state None (fun (result, state) -> k { result = ControlFlow.resultToTerm result; state = state }))
-        | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
-
-    let explore (id : IFunctionIdentifier) k =
-        match Database.querySummary id with
-        | Some r -> k r
-        | None ->
-            let k = interpreter.Reset k
-            let metadata = Metadata.empty
-            currentlyExploredFunctions.Add id |> ignore
-            let this, state, isMethodOfStruct =
-                match id with
-                | :? IMethodIdentifier as m ->
-                    let declaringQualifiedName = m.DeclaringTypeAQN
-                    let declaringType = declaringQualifiedName |> System.Type.GetType |> Types.Constructor.fromDotNetType
-                    let initialState = { State.empty with statics = State.Defined false (formInitialStatics metadata declaringType) }
-                    if m.IsStatic then (None, initialState, false)
-                    else
-                        Memory.makeSymbolicThis metadata initialState m.Token declaringType
-                        |> (fun (f, s, flag) -> Some f, s, flag)
-                | :? IDelegateIdentifier as dlgt ->
-                    let state = dlgt.ContextFrames.f |> List.rev |> List.fold (fun state frame ->
-                        let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
-                        match frame.func with
-                        | Some(f, p) ->
-                            let state = {state with pc = p}
-                            Memory.newStackFrame state metadata f fr
-                        | None -> Memory.newScope metadata state fr) State.empty
-                    let state = { state with pc = List.empty; frames = dlgt.ContextFrames}
-                    // TODO: Create dummy frame
-                    (None, state, false)
-                | _ -> __notImplemented__()
-            let state = if Option.isSome this then State.withPathCondition state (!!( Pointers.isNull metadata (Option.get this))) else state
-            invoke id state this (fun (res, state) ->
-                let state = if Option.isSome this then State.popPathCondition state else state
-                let state = if isMethodOfStruct then State.popStack state else state
-                currentlyExploredFunctions.Remove id |> ignore
-                Database.report id res state |> k)
-
-    let private detectUnboundRecursion id s =
-        let isRecursiveFrame (frame : stackFrame) =
-            match frame.func with
-            | Some(id', _) when id = id' -> true
-            | _ -> false
-        let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
-        match bottomOccurence with
-        | None -> false
-        | Some { func = Some(_, p'); entries = _ } when s.pc = p' ->
-            match Options.RecursionUnrollingMode() with
-            | NeverUnroll -> true
-            | _ -> false
-        | _ ->
-            match Options.RecursionUnrollingMode() with
-            | AlwaysUnroll -> false
-            | _ -> true
-
-    type private recursionOutcomeSource =
-        {id : IFunctionIdentifier; state : state; name : string transparent; typ : termType;
+    type private recursionOutcomeSource = // TODO: delete this and use LI (using new TopLevelAddress)
+        {id : ICodeLocation; state : state; name : string transparent; typ : termType;
             location : term option; extractor : TermExtractor; typeExtractor : TypeExtractor}
         interface IExtractingSymbolicConstantSource with
             override x.SubTerms = Seq.empty
@@ -115,88 +51,61 @@ module internal Explorer =
                 match other with
                 | :? recursionOutcomeSource as ros -> x.id = ros.id && x.typ = ros.typ
                 | _ -> false
+        override x.ToString () = sprintf "id = %O, name = %O, location = %O" x.id x.name x.location
 
     let (|RecursionOutcome|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, ro.extractor :? IdTermExtractor)
         | _ -> None
 
-    let private mutateStackClosure mtd (funcId : IFunctionIdentifier) state =
-        match funcId with
-        | :? IDelegateIdentifier as di ->
-            let mutateLocation st (frame : entry) =
-                let location = StackRef mtd frame.key []
-                let name = sprintf "μ[%O, %s]" funcId (fst frame.key)
-                let typ = frame.typ
-                let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-                let fql = makeTopLevelFQL TopLevelStack frame.key
-                let value = Memory.makeSymbolicInstance mtd source name fql typ
-                Memory.mutateStack mtd st frame.key [] value
-            di.ContextFrames.f |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
-        | _ -> state
+    let private mutateStackClosure mtd (codeLoc : ICodeLocation) state =
+        let mutateLocation st (frame : entry) =
+            let location = StackRef mtd frame.key []
+            let name = sprintf "μ[%O, %s]" codeLoc (fst frame.key)
+            let typ = frame.typ
+            let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+            let fql = makeTopLevelFQL TopLevelStack frame.key
+            let value = Memory.makeSymbolicInstance mtd source name fql typ
+            Memory.mutateStack mtd st frame.key [] value
+        let frames =
+            match codeLoc with
+            | :? IDelegateIdentifier as di -> di.ContextFrames.f
+            | :? ILCodePortion as ilcode -> [List.head ilcode.Frames.f]
+            | _ -> []
+        frames |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
 
-    let functionApplicationResult mtd (funcId : IFunctionIdentifier) name state k =
-        let typ = Types.wrapReferenceType funcId.ReturnType
-        let source = {id = funcId; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+    let recursionApplicationResult mtd (codeLoc : ICodeLocation) name state k =
+        let typ =
+            match codeLoc with
+            | :? IFunctionIdentifier as funcId -> funcId.ReturnType
+            | :? ILCodePortion -> typedefof<System.Void>
+            | _ -> internalfail "some new ICodeLocation"
+            |> Types.Constructor.fromDotNetType
+            |> State.substituteTypeVariables State.emptyCompositionContext state
+            |> Types.wrapReferenceType
+        let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
         Memory.makeSymbolicInstance mtd source name None typ |> k
 
-    let recursionApplication mtd (funcId : IFunctionIdentifier) state addr k =
-        let name = IdGenerator.startingWith <| sprintf "μ[%O]_" funcId
-        functionApplicationResult mtd funcId name state (fun res ->
-        let recursiveResult = ControlFlow.throwOrReturn res
-        let heapSymbol = RecursiveApplication(funcId, addr)
+    let recursionApplication mtd codeLoc state addr k =
+        let name = IdGenerator.startingWith <| sprintf "μ[%O]_" codeLoc
+        recursionApplicationResult mtd codeLoc name state (fun res ->
+        let heapSymbol = RecursiveApplication(codeLoc, addr)
+        let staticsSymbol = RecursiveApplication(codeLoc, addr)
         let ctx : compositionContext = { mtd = mtd; addr = addr }
         let heap = Memory.composeHeapsOf ctx state heapSymbol
-        let statics = Memory.composeStaticsOf ctx state heapSymbol
-        let recursiveState = { mutateStackClosure mtd funcId state with heap = heap; statics = statics }
-        k (recursiveResult, recursiveState))
+        let statics = Memory.composeStaticsOf ctx state staticsSymbol
+        let recursiveState = { mutateStackClosure mtd codeLoc state with heap = heap; statics = statics }
+        k (res, recursiveState))
 
     let higherOrderApplication mtd funcId (state : state) k =
         let addr = [Memory.freshAddress()]
         let name = IdGenerator.startingWith <| sprintf "λ[%O]_" funcId
-        functionApplicationResult mtd funcId name state (fun res ->
-        let higherOrderResult = ControlFlow.throwOrReturn res
+        recursionApplicationResult mtd funcId name state (fun res ->
         let higherOrderState =
             { mutateStackClosure mtd funcId state with
                 heap = HigherOrderApplication(res, addr);
                 statics = HigherOrderApplication(res, addr) }
-        k (higherOrderResult , higherOrderState))
-
-    let reproduceEffect mtd funcId state k =
-        let addr = [Memory.freshAddress()]
-        if currentlyExploredFunctions.Contains funcId then
-            recursionApplication mtd funcId state addr k
-        else
-            let ctx : compositionContext = { mtd = mtd; addr = addr }
-            explore funcId (fun summary ->
-            let result = Memory.fillHoles ctx state summary.result |> ControlFlow.throwOrReturn
-            let state = Memory.composeStates ctx state summary.state
-            k (result, state))
-
-    let callOrApplyEffect mtd areWeStuck body id state setup teardown k =
-        if areWeStuck then
-            reproduceEffect mtd id state k
-        else
-            setup id
-            body state (fun (result, state) ->
-            teardown id
-            k (result, state))
-
-    let call mtd funcId state body k =
-        let managedCallOrApply k =
-            match Options.RecursionUnrollingMode () with
-            | RecursionUnrollingModeType.SmartUnrolling ->
-                callOrApplyEffect mtd (detectUnboundRecursion funcId state) body funcId state ignore ignore k
-            | RecursionUnrollingModeType.NeverUnroll ->
-                let shouldStopUnrolling =
-                    currentlyCalledFunctions.Contains funcId ||
-                    not <| currentlyExploredFunctions.Contains funcId ||
-                    Database.reported funcId
-                let setup id = currentlyCalledFunctions.Add id |> ignore
-                let teardown id = currentlyCalledFunctions.Remove id |> ignore
-                callOrApplyEffect mtd shouldStopUnrolling body funcId state setup teardown k
-            | RecursionUnrollingModeType.AlwaysUnroll -> callOrApplyEffect mtd false body funcId state ignore ignore k
-        managedCallOrApply (fun (result, state) -> k (result, State.popStack state))
+        k (res , higherOrderState))
 
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with

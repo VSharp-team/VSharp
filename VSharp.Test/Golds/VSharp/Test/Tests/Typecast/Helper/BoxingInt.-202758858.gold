@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Typecast.Helper.BoxingInt(System.Int32)
+RESULT: obj
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> obj
+---------- s1 = ----------
+VSharp.Test.Tests.Typecast.Helper ==> CLASS []

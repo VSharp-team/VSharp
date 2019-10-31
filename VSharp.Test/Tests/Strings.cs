@@ -13,14 +13,14 @@ namespace VSharp.Test.Tests
             return String.Empty;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static string SymbolicString(string s) // TODO: keys of MemoryCell are equal, but FQLs are not
         {
             var len = s.Length;
             return s;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int NullLength()
         {
             string s = null;

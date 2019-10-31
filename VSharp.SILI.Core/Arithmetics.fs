@@ -33,10 +33,10 @@ module internal Arithmetics =
         if isChecked then
             let success = ref true
             let result = Calculator.AddChecked(x, y, t, success)
-            if !success then CastConcrete result t mtd, state
+            if !success then CastConcrete isChecked result t mtd, state
             else overflow mtd state
         else
-            CastConcrete (Calculator.Add(x, y, t)) t mtd, state
+            CastConcrete isChecked (Calculator.Add(x, y, t)) t mtd, state
 
     let rec private simplifyAdditionToSum mtd state t xmtd a b y matched unmatched =
         // Simplifying (a + b) + y at this step
@@ -73,7 +73,7 @@ module internal Arithmetics =
         // Simplifying (-x) + y at this step
         match x with
         // (-y) + y = 0
-        | _ when x = y -> (CastConcrete 0 t (Metadata.combine3 mtd xmtd y.metadata), state) |> matched
+        | _ when x = y -> (CastConcrete true 0 t (Metadata.combine3 mtd xmtd y.metadata), state) |> matched
         // -(y + b) = -b
         | Add(a, b, false, _) when a = y -> matched (b, state)
         // -(a + y) = -a
@@ -104,10 +104,10 @@ module internal Arithmetics =
             let tooBigShift = Calculator.Compare(x, ((Terms.sizeOf a) * 8) - 1) = 0
             if tooBigShift then
                 let mtd' = Metadata.combine3 mtd xmtd y.metadata
-                (CastConcrete 0 t mtd', state) |> matched
+                (CastConcrete true 0 t mtd', state) |> matched
             else
                 let mtd' = Metadata.combine3 mtd b.metadata y.metadata
-                simplifyShift xmtd OperationType.ShiftLeft false state t a (CastConcrete (Calculator.Add(x, 1, t)) t mtd') matched
+                simplifyShift xmtd OperationType.ShiftLeft false state t a (CastConcrete true (Calculator.Add(x, 1, t)) t mtd') matched
         | _ -> unmatched ()
 
     and private simplifyAdditionToExpression mtd state x y t matched unmatched =
@@ -152,10 +152,10 @@ module internal Arithmetics =
         if isChecked then
             let success = ref true
             let result = Calculator.UnaryMinusChecked(x, t, success)
-            if !success then CastConcrete result t mtd, state
+            if !success then CastConcrete isChecked result t mtd, state
             else overflow mtd state
         else
-            CastConcrete (Calculator.UnaryMinus(x, t)) t mtd, state
+            CastConcrete isChecked (Calculator.UnaryMinus(x, t)) t mtd, state
 
     and private simplifyUnaryMinus mtd isChecked state t x k =
         let simplifyConcrete x xc _ state =
@@ -181,10 +181,10 @@ module internal Arithmetics =
         if isChecked then
             let success = ref true
             let result = Calculator.MulChecked(x, y, t, success)
-            if !success then CastConcrete result t mtd, state
+            if !success then CastConcrete isChecked result t mtd, state
             else overflow mtd state
         else
-            CastConcrete (Calculator.Mul(x, y, t)) t mtd, state
+            CastConcrete isChecked (Calculator.Mul(x, y, t)) t mtd, state
 
     and private simplifyMultiplicationOfProduct mtd state t xmtd a b y matched unmatched =
         // Simplifying (a * b) * y at this step
@@ -221,9 +221,6 @@ module internal Arithmetics =
     and private simplifyMultiplicationOfDivision mtd state t xmtd a b y matched unmatched =
         // Simplifying (a / b) * y at this step
         match a, b, y with
-        // (a / y) * y = a if unchecked
-        | _, ConcreteT(bval, _), ConcreteT(yval, _) when Calculator.Compare(bval, yval) = 0 -> matched (a, state)
-        | _ when b = y -> matched (a, state)
         // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
             let mtd' = Metadata.combine3 mtd a.metadata y.metadata
@@ -245,19 +242,19 @@ module internal Arithmetics =
             let mtd' = Metadata.combine3 mtd b.metadata d.metadata
             if smallShift then
                 simplifyMultiplication mtd false state t a c (fun mul ->
-                let bPlusD = CastConcrete (Calculator.Add(bval, dval, t)) t mtd'
+                let bPlusD = CastConcrete true (Calculator.Add(bval, dval, t)) t mtd'
                 simplifyShift xmtd OperationType.ShiftLeft false (snd mul) t (fst mul) bPlusD matched)
             else
-                (CastConcrete 0 t mtd, state) |> matched
+                (CastConcrete true 0 t mtd, state) |> matched
         // (a << b) * 2^n = a << (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
         // (a << b) * 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
         | Concrete(x, _), ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) ->
             let n = Calculator.WhatPowerOf2(powOf2)
             let tooBigShift = Calculator.Compare(Calculator.Add(x, n, t), bitSizeOf a t) >= 0
-            if tooBigShift then (CastConcrete 0 t (Metadata.combine3 mtd xmtd y.metadata), state) |> matched
+            if tooBigShift then (CastConcrete true 0 t (Metadata.combine3 mtd xmtd y.metadata), state) |> matched
             else
                 let mtd' = Metadata.combine3 mtd b.metadata y.metadata
-                simplifyShift xmtd OperationType.ShiftLeft false state t a (CastConcrete (Calculator.Add(x, n, t)) t mtd') matched
+                simplifyShift xmtd OperationType.ShiftLeft false state t a (CastConcrete true (Calculator.Add(x, n, t)) t mtd') matched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationOfExpression mtd state t x y matched unmatched =
@@ -269,8 +266,8 @@ module internal Arithmetics =
 
     and private simplifyMultiplicationExt mtd isChecked state t x y matched unmatched =
         match x.term, y.term with
-        | Concrete(xval, _), _ when Calculator.IsZero(xval) -> (CastConcrete 0 t x.metadata, state) |> matched
-        | _, Concrete(yval, _) when Calculator.IsZero(yval) -> (CastConcrete 0 t y.metadata, state) |> matched
+        | Concrete(xval, _), _ when Calculator.IsZero(xval) -> (CastConcrete true 0 t x.metadata, state) |> matched
+        | _, Concrete(yval, _) when Calculator.IsZero(yval) -> (CastConcrete true 0 t y.metadata, state) |> matched
         | Concrete(x, _), _ when Calculator.FuzzyEqual(x, System.Convert.ChangeType(1, t)) -> matched (y, state)
         | _, Concrete(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> matched (x, state)
         | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, System.Convert.ChangeType(-1, t)) ->
@@ -302,7 +299,7 @@ module internal Arithmetics =
                 Calculator.DivChecked(x, y, t, success)
             else
                 Calculator.Div(x, y, t, success)
-        if !success then CastConcrete result t mtd, state
+        if !success then CastConcrete isChecked result t mtd, state
         else
             match result with
             | :? System.DivideByZeroException -> divideByZero mtd state
@@ -322,18 +319,18 @@ module internal Arithmetics =
                 | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, System.Convert.ChangeType(-1, typeOf x |> toDotNetType)) ->
                     simplifyUnaryMinus mtd isChecked state t x k
                 // x / x = 1 if unchecked
-                | x, y when not isChecked && x = y -> (CastConcrete 1 t mtd, state) |> k
+                | x, y when not isChecked && x = y -> (CastConcrete isChecked 1 t mtd, state) |> k
                 // x / -x = -1 if unchecked
-                | x, UnaryMinusT(y, false, _) when not <| isUnsigned t && not isChecked && x = y -> (CastConcrete -1 t mtd, state) |> k
+                | x, UnaryMinusT(y, false, _) when not <| isUnsigned t && not isChecked && x = y -> (CastConcrete isChecked -1 t mtd, state) |> k
                 // (a >> b) / 2^n = a >> (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
                 // (a >> b) / 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
                 | ShiftRight(a, ConcreteT(b, _), false, _), ConcreteT(powOf2, _)
                     when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                         let n = Calculator.WhatPowerOf2(powOf2)
                         let tooBigShift = Calculator.Compare(Calculator.Add(b, n, t), bitSizeOf a t) >= 0
-                        if tooBigShift then (CastConcrete 0 t mtd, state) |> k
+                        if tooBigShift then (CastConcrete isChecked 0 t mtd, state) |> k
                         else
-                            simplifyShift x.metadata OperationType.ShiftRight false state t a (CastConcrete (Calculator.Add(b, n, t)) t mtd) k
+                            simplifyShift x.metadata OperationType.ShiftRight false state t a (CastConcrete isChecked (Calculator.Add(b, n, t)) t mtd) k
                 // (a / b) / y = a / (b * y) if unchecked and b and y concrete
                 | Div(a, (ConcreteT(bval, _) as b), false, _), ConcreteT(yval, _) when not isChecked ->
                     let bMulY, state = simplifyConcreteMultiplication (Metadata.combine3 mtd b.metadata y.metadata) false state t bval yval
@@ -342,7 +339,7 @@ module internal Arithmetics =
             (fun x y state k -> simplifyDivision mtd isChecked state t x y k)
 
     and private checkNotZero doDivide mtd isChecked state t x y k =
-        simplifyEqual mtd y (CastConcrete 0 (toDotNetType(typeOf y)) mtd) (fun yIsZero ->
+        simplifyEqual mtd y (CastConcrete isChecked 0 (toDotNetType(typeOf y)) mtd) (fun yIsZero ->
             if Terms.isFalse yIsZero then doDivide mtd isChecked state t x y k
             elif Terms.isTrue yIsZero
             then k (divideByZero mtd state)
@@ -361,7 +358,7 @@ module internal Arithmetics =
                 Calculator.RemChecked(x, y, t, success)
             else
                 Calculator.Rem(x, y, t, success)
-        if !success then CastConcrete result t mtd, state
+        if !success then CastConcrete isChecked result t mtd, state
         else
             match result with
             | :? System.DivideByZeroException -> divideByZero mtd state
@@ -381,17 +378,17 @@ module internal Arithmetics =
                 // 0 % y = 0
                 | ConcreteT(xval, _), _ when Calculator.IsZero(xval) -> (x, state) |> k
                 // x % 1 = 0
-                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> (CastConcrete 0 t mtd, state) |> k
+                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> (CastConcrete isChecked 0 t mtd, state) |> k
                 // x % -1 = 0
                 | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, System.Convert.ChangeType(-1, t)) ->
-                    (CastConcrete 0 t mtd, state) |> k
+                    (CastConcrete isChecked 0 t mtd, state) |> k
                 // x % x = 0
-                | x, y when not isChecked && x = y -> (CastConcrete 0 t mtd, state) |> k
+                | x, y when not isChecked && x = y -> (CastConcrete isChecked 0 t mtd, state) |> k
                 // x % -x = 0 if unchecked
-                | x, UnaryMinusT(y, false, _) when not isChecked && x = y -> (CastConcrete 0 t mtd, state) |> k
+                | x, UnaryMinusT(y, false, _) when not isChecked && x = y -> (CastConcrete isChecked 0 t mtd, state) |> k
                 // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
                 | Mul(ConcreteT(a, _), _, false, _), ConcreteT(y, _) when not isChecked && divides t a y ->
-                     (CastConcrete 0 t mtd, state) |> k
+                     (CastConcrete isChecked 0 t mtd, state) |> k
                 | _ -> (makeBinary OperationType.Remainder x y isChecked (fromDotNetType t) mtd, state) |> k)
             (fun x y state k -> simplifyRemainder mtd isChecked state t x y k)
 
@@ -399,8 +396,8 @@ module internal Arithmetics =
 
     and private simplifyConcreteShift operation mtd _ state t x y =
         match operation with
-        | OperationType.ShiftLeft -> (CastConcrete (Calculator.ShiftLeft(x, y, t)) t mtd, state)
-        | OperationType.ShiftRight -> (CastConcrete (Calculator.ShiftRight(x, y, t)) t mtd, state)
+        | OperationType.ShiftLeft -> (CastConcrete true (Calculator.ShiftLeft(x, y, t)) t mtd, state)
+        | OperationType.ShiftRight -> (CastConcrete true (Calculator.ShiftRight(x, y, t)) t mtd, state)
         | _ -> __unreachable__()
 
     and private simplifyShiftLeftMul mtd state t xmtd a b y matched unmatched =
@@ -412,10 +409,10 @@ module internal Arithmetics =
             when Calculator.IsPowOfTwo(powOf2) ->
                 let n = Calculator.WhatPowerOf2(powOf2)
                 let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
-                if tooBigShift then (CastConcrete 0 t mtd, state) |> matched
+                if tooBigShift then (CastConcrete true 0 t mtd, state) |> matched
                 else
                     let mtd' = Metadata.combine3 xmtd a.metadata y.metadata
-                    simplifyShift mtd OperationType.ShiftLeft false state t b (CastConcrete (Calculator.Add(yval, n, t)) t mtd') matched
+                    simplifyShift mtd OperationType.ShiftLeft false state t b (CastConcrete true (Calculator.Add(yval, n, t)) t mtd') matched
         | _ -> unmatched ()
 
     and private simplifyShiftRightDiv mtd state t xmtd a b y matched unmatched =
@@ -427,10 +424,10 @@ module internal Arithmetics =
             when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                 let n = Calculator.WhatPowerOf2(powOf2)
                 let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
-                if tooBigShift then (CastConcrete 0 t mtd, state) |> matched
+                if tooBigShift then (CastConcrete true 0 t mtd, state) |> matched
                 else
                     let mtd' = Metadata.combine3 xmtd b.metadata y.metadata
-                    simplifyShift mtd OperationType.ShiftRight false state t a (CastConcrete (Calculator.Add(yval, n, t)) t mtd') matched
+                    simplifyShift mtd OperationType.ShiftRight false state t a (CastConcrete true (Calculator.Add(yval, n, t)) t mtd') matched
         | _ -> unmatched ()
 
     and private simplifyShiftLeftOfAddition mtd state t xmtd a b y matched unmatched =
@@ -440,10 +437,10 @@ module internal Arithmetics =
         // (a + a) << y = a << (y + 1) if unchecked, y is concrete, y < (size of a) * 8 - 1
         | Concrete(c, _) ->
             let tooBigShift = Calculator.Compare(c, ((Terms.sizeOf a) * 8) - 1) = 0
-            if tooBigShift then (CastConcrete 0 t mtd, state) |> matched
+            if tooBigShift then (CastConcrete true 0 t mtd, state) |> matched
             else
                 let mtd' = Metadata.combine xmtd b.metadata
-                simplifyShift mtd OperationType.ShiftLeft false state t a (CastConcrete (Calculator.Add(c, 1, t)) t mtd') matched
+                simplifyShift mtd OperationType.ShiftLeft false state t a (CastConcrete true (Calculator.Add(c, 1, t)) t mtd') matched
         | _ -> unmatched ()
 
     and private simplifyShiftOfShifted mtd op state t xmtd a b y matched unmatched =
@@ -452,12 +449,12 @@ module internal Arithmetics =
         // (a op b) op y = a op (b + y) if unchecked, b and y are concrete, b + y < (size of a) * 8
         | Concrete(x, _), Concrete(c, _), _ when Calculator.Compare(Calculator.Add(x, c, t), bitSizeOf a t) = -1 ->
             let mtd' = Metadata.combine3 mtd b.metadata y.metadata
-            simplifyShift xmtd op false state t a (CastConcrete (Calculator.Add(x, c, t)) t mtd') matched
+            simplifyShift xmtd op false state t a (CastConcrete true (Calculator.Add(x, c, t)) t mtd') matched
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
         | Concrete(_, _), Concrete(_, _), OperationType.ShiftLeft ->
-            (CastConcrete 0 t mtd, state) |> matched
+            (CastConcrete true 0 t mtd, state) |> matched
         | Concrete(_, _), Concrete(_, _), OperationType.ShiftRight when a |> typeOf |> toDotNetType |> isUnsigned ->
-            (CastConcrete 0 t mtd, state) |> matched
+            (CastConcrete true 0 t mtd, state) |> matched
         | _ -> unmatched ()
 
     and private simplifyShiftOfExpression mtd op isChecked state t x y matched unmatched =
@@ -472,7 +469,7 @@ module internal Arithmetics =
 
     and private simplifyShiftExt mtd op isChecked state t x y matched unmatched =
         match x.term, y.term with
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> (CastConcrete 0 t mtd, state) |> matched
+        | Concrete(x, _), _ when Calculator.IsZero(x) -> (CastConcrete isChecked 0 t mtd, state) |> matched
         | _, Concrete(y, _) when Calculator.IsZero(y) -> (x, state) |> matched
         | Expression _, Expression _
         | Expression _, _ -> simplifyShiftOfExpression mtd op isChecked state t x y matched unmatched
@@ -487,6 +484,15 @@ module internal Arithmetics =
                                 (fun x y state k -> simplifyShift mtd operation isChecked state t x y k)
 
 // TODO: IMPLEMENT BITWISE OPERATIONS!
+    and private simplifyBitwise mtd (op : OperationType) x y t resType k =
+        match x.term, y.term with
+        | Concrete(x, _), Concrete(y, _) ->
+            match op with
+            | OperationType.LogicalAnd -> k <| Concrete mtd (Calculator.BitwiseAnd(x, y, t)) resType
+            | OperationType.LogicalOr -> k <| Concrete mtd (Calculator.BitwiseOr(x, y, t)) resType
+            | OperationType.LogicalXor -> k <| Concrete mtd (Calculator.BitwiseXor(x, y, t)) resType
+            | _ -> __notImplemented__()
+        | _ -> k (Expression mtd (Operator(op, false)) [x; y] resType)
 
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
@@ -510,9 +516,9 @@ module internal Arithmetics =
                 match x, y with
                 | _ when x = y -> (Concrete mtd sameIsTrue Bool, s) |> k
                 | Add((ConcreteT(_, t) as c), x, false, _), y when x = y ->
-                    simplifyComparison mtd op c (CastConcrete 0 (toDotNetType t) mtd) comparator sameIsTrue (withSnd s >> k)
+                    simplifyComparison mtd op c (CastConcrete true 0 (toDotNetType t) mtd) comparator sameIsTrue (withSnd s >> k)
                 | x, Add((ConcreteT(_, t) as c), y, false, _) when x = y ->
-                    simplifyComparison mtd op (CastConcrete 0 (toDotNetType t) mtd) c comparator sameIsTrue (withSnd s >> k)
+                    simplifyComparison mtd op (CastConcrete true 0 (toDotNetType t) mtd) c comparator sameIsTrue (withSnd s >> k)
                 | _ -> (makeBinary op x y false Bool mtd, s) |> k)
             (fun x y state k -> simplifyComparison mtd op x y comparator sameIsTrue (withSnd state >> k))
 
@@ -574,7 +580,7 @@ module internal Arithmetics =
         | OperationType.LessOrEqual -> simplifyLessOrEqual metadata x y (withSnd state >> k)
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
-        | OperationType.LogicalXor -> __notImplemented__()
+        | OperationType.LogicalXor -> simplifyBitwise metadata op x y t (typeOf x) (withSnd state >> k)
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let simplifyUnaryOperation metadata op state x isChecked t k =

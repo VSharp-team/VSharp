@@ -1,7 +1,0 @@
-METHOD: System.Void VSharp.Test.Tests.ClassesSimplePropertyAccess.TestProperty2()
-RESULT: <VOID>
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
-VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []

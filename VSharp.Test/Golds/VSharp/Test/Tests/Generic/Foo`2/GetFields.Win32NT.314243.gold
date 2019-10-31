@@ -1,8 +1,0 @@
-METHOD: T VSharp.Test.Tests.Generic.Foo`2[T,U].GetFields()
-RESULT: UNION[
-	| !IsValueType(T) ~> (HeapRef this.VSharp::Test::Tests::Generic::Foo`2::_filed)
-	| IsValueType(T) ~> this.VSharp::Test::Tests::Generic::Foo`2::_filed]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Generic.Foo`2[T,U] ==> CLASS []

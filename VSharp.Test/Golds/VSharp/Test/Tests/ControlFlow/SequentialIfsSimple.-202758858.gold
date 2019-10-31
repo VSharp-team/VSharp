@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.SequentialIfsSimple(System.Int32)
+RESULT: UNION[
+	| !(-12 + x < 0) & !(2 * x == 50) ~> 1
+	| !(-12 + x < 0) & !(5 == x % 7) & 2 * x == 50 ~> 101
+	| !(-12 + x < 0) & 2 * x == 50 & 5 == x % 7 ~> 201
+	| !(2 * x == 50) & -12 + x < 0 ~> 0
+	| !(5 == x % 7) & -12 + x < 0 & 2 * x == 50 ~> 100
+	| -12 + x < 0 & 2 * x == 50 & 5 == x % 7 ~> 200]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

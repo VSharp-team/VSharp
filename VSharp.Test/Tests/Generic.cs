@@ -46,7 +46,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [TestSvm]
+        [Ignore("Need to delete Reference type constructor")]
         public static T RetT(T t)
         {
             return t;
@@ -62,13 +62,13 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        [TestSvm]
+        [Ignore("Need to delete Reference type constructor")]
         public static T RetT(T t)
         {
             return t;
         }
 
-        [TestSvm]
+        [Ignore("Need to delete Reference type constructor")]
         public static U RetU(U u)
         {
             return u;
@@ -86,7 +86,7 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        [TestSvm]
+        [Ignore("Need to delete Reference type constructor")]
         public static N RetT(N n)
         {
             return n;
@@ -148,7 +148,7 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        [TestSvm]
+        [Ignore("Need to delete Reference type constructor")]
         public T GetFields()
         {
             return _filed;

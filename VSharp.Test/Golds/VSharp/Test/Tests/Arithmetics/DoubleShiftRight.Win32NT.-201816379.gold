@@ -1,6 +1,0 @@
-METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.DoubleShiftRight(System.Int32)
-RESULT: (System.Int64)(a >> 15 >> 18)
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []

@@ -1,11 +1,12 @@
 ﻿using System;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
     [TestSvmFixture]
     public class TryCatch
     {
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public int SafeFunc(int n)
         {
             try
@@ -36,7 +37,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public bool MakeOdd(int n)
         {
             try
@@ -58,7 +59,7 @@ namespace VSharp.Test.Tests
             return n % 2 == 1;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ThrowNull(int n)
         {
             try
@@ -125,7 +126,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int UsingTest()
         {
             var myDispose = new MyDispose(new []{ 57 });
@@ -135,7 +136,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int UsingTestWithInheritance()
         {
             var myDispose = new AnotherDisposable(new []{ 57 });
@@ -145,7 +146,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int UsingTestWithInheritance1()
         {
             var myDispose = new AnotherDisposable1(new []{ 57 });
@@ -155,7 +156,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 77
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int AnotherUsingTestWithInheritance1()
         {
             var myDispose = new YetAnotherDisposable1(new []{ 57 });
@@ -165,7 +166,7 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 67
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int AnotherUsingTestWithInheritance2()
         {
             var myDispose = new YetAnotherDisposable2(new []{ 57 });
@@ -175,46 +176,48 @@ namespace VSharp.Test.Tests
             return num + myDispose.X_field[0]; // 87
         }
 
-//        public sealed class NotPositive : Exception
-//        {
-//        }
-//
-//        private int Fact(int n)
-//        {
-//            if (n <= 0)
-//                throw new NotPositive();
-//            try
-//            {
-//                return n * Fact(n - 1);
-//            }
-//            catch (NotPositive)
-//            {
-//                return 1;
-//            }
-//        }
-//
-//        public int CheckFactSafe(int n)
-//        {
-//            try
-//            {
-//                return Fact(n);
-//            }
-//            catch (NotPositive) when (n <= 0)
-//            {
-//                return 0;
-//            }
-//        }
-//
-//        public int CheckFactUnsafe(int n)
-//        {
-//            try
-//            {
-//                return Fact(n);
-//            }
-//            catch (NotPositive) when (n < 0)
-//            {
-//                return 0;
-//            }
-//        }
+        public sealed class NotPositive : Exception
+        {
+        }
+
+        private int Fact(int n)
+        {
+            if (n <= 0)
+                throw new NotPositive();
+            try
+            {
+                return n * Fact(n - 1);
+            }
+            catch (NotPositive)
+            {
+                return 1;
+            }
+        }
+
+        [Ignore("Exceptions handling")]
+        public int CheckFactSafe(int n)
+        {
+            try
+            {
+                return Fact(n);
+            }
+            catch (NotPositive) when (n <= 0)
+            {
+                return 0;
+            }
+        }
+
+        [Ignore("Exceptions handling")]
+        public int CheckFactUnsafe(int n)
+        {
+            try
+            {
+                return Fact(n);
+            }
+            catch (NotPositive) when (n < 0)
+            {
+                return 0;
+            }
+        }
     }
 }

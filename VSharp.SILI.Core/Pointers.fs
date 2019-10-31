@@ -64,8 +64,6 @@ module internal Pointers =
         | :? SymbolicPointerDifference as spd -> Some(spd.Pos, spd.Neg)
         | _ -> None
 
-    let isNativeInt typ = typ = typedefof<nativeint> || typ = typedefof<unativeint>
-
     let private (|ConstantPtrT|_|) = term >> function
         | Constant(_, (SymbolicPointerDifferenceT _ as spd), tp) -> Some(spd :?> SymbolicPointerDifference, tp)
         | _ -> None
@@ -185,10 +183,9 @@ module internal Pointers =
         addPtrToSymbolicPointerDifference x spd shiftTyp mtd (fun x ->
         shift mtd x y k)))
 
-    let rec private simplifyPointerAdditionGeneric mtd isNativeInt x y state k = // y must be normalized by Arithmetics!
+    let rec private simplifyPointerAdditionGeneric mtd x y state k = // y must be normalized by Arithmetics!
         let simplifyIndentedPointerAddition x y s k =
-            let multWithSizeOf t =
-                if isNativeInt then t else Arithmetics.mul mtd t <| underlyingPointerTypeSizeof mtd x
+            let multWithSizeOf t = Arithmetics.mul mtd t <| underlyingPointerTypeSizeof mtd x
 
             let simplifyRawPointerAddition x y s k = // x is not Indented Ptr
                 let k1 = withSnd s >> k
@@ -212,13 +209,13 @@ module internal Pointers =
         simplifyGenericBinary "add shift to pointer" state x y k
             (fun _ _ _ _ -> __unreachable__())
             simplifyIndentedPointerAddition
-            (simplifyPointerAdditionGeneric mtd isNativeInt)
+            (simplifyPointerAdditionGeneric mtd)
 
-    let private simplifyIndentedReferenceAddition mtd isNativeInt state x y k =
+    let private simplifyIndentedReferenceAddition mtd state x y k =
         let x', y' = if Terms.isNumeric y then x, y else y, x
-        simplifyPointerAdditionGeneric mtd isNativeInt x' y' state k
+        simplifyPointerAdditionGeneric mtd x' y' state k
 
-    let rec private simplifyPointerSubtractionGeneric mtd isNativeInt x y state k =
+    let rec private simplifyPointerSubtractionGeneric mtd x y state k =
         let makeDiff p q =
             let tp = Numeric typedefof<int64>
             if p = q
@@ -226,8 +223,7 @@ module internal Pointers =
             else
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp mtd
-        let divideBySizeof diff =
-            if isNativeInt then diff else Arithmetics.div mtd diff <| underlyingPointerTypeSizeof mtd x
+        let divideBySizeof diff = Arithmetics.div mtd diff <| underlyingPointerTypeSizeof mtd x
         let simplifyPointerDiffWithOffset p q offset s =
             simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff p q) offset) s k (fun diff s k -> k (divideBySizeof diff, s))
         let simplifyIndentedPointerSubtraction x y s k =
@@ -241,21 +237,20 @@ module internal Pointers =
         simplifyGenericBinary "pointer1 - pointer2" state x y k
             (fun _ _ _ _ -> __unreachable__())
             simplifyIndentedPointerSubtraction
-            (simplifyPointerSubtractionGeneric mtd isNativeInt)
+            (simplifyPointerSubtractionGeneric mtd)
 
-    let private simplifyIndentedReferenceSubtraction mtd isNativeInt state x y k =
+    let private simplifyIndentedReferenceSubtraction mtd state x y k =
         if isNumeric y
-        then simplifyPointerAdditionGeneric mtd isNativeInt x (Arithmetics.neg mtd y) state k
-        else simplifyPointerSubtractionGeneric mtd isNativeInt x y state k
+        then simplifyPointerAdditionGeneric mtd x (Arithmetics.neg mtd y) state k
+        else simplifyPointerSubtractionGeneric mtd x y state k
 
-    let simplifyBinaryOperation metadata op state x y targetType k =
-        let isNativeInt = isNativeInt targetType
+    let simplifyBinaryOperation metadata op state x y k =
 
         match op with
         | OperationType.Subtract ->
-            simplifyIndentedReferenceSubtraction metadata isNativeInt state x y k
+            simplifyIndentedReferenceSubtraction metadata state x y k
         | OperationType.Add ->
-            simplifyIndentedReferenceAddition metadata isNativeInt state x y k
+            simplifyIndentedReferenceAddition metadata state x y k
         | OperationType.Equal -> simplifyReferenceEqualityk metadata x y (withSnd state >> k)
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk metadata x y (fun e ->
@@ -263,10 +258,10 @@ module internal Pointers =
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let add mtd x y =
-        simplifyBinaryOperation mtd OperationType.Add State.empty x y (typeof<System.Void>.MakePointerType()) fst
+        simplifyBinaryOperation mtd OperationType.Add State.empty x y fst
 
     let sub mtd x y =
-        simplifyBinaryOperation mtd OperationType.Subtract State.empty x y (typeof<System.Void>.MakePointerType()) fst
+        simplifyBinaryOperation mtd OperationType.Subtract State.empty x y fst
 
     let isPointerOperation op t1 t2 =
         let isNull = (=) Types.pointerType
@@ -276,7 +271,8 @@ module internal Pointers =
         match op with
         | OperationType.Equal
         | OperationType.NotEqual ->
-            isRefOrNull t1 && isRefOrNull t2
+            t1 = Reference Null || t2 = Reference Null
+            || isRefOrNull t1 && isRefOrNull t2
             || isPtrOrNull t1 && isPtrOrNull t2
         | OperationType.Subtract -> Types.isPointer t1 && (Types.isPointer t2 || Types.isNumeric t2)
         | OperationType.Add ->

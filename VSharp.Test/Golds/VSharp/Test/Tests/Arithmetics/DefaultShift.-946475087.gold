@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.DefaultShift(System.Int32, System.Int32)
+RESULT: a << (31 & b)
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics ==> CLASS []

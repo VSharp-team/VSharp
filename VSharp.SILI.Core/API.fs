@@ -9,9 +9,8 @@ module API =
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
 
-    let Configure activator interpreter =
+    let Configure activator =
         State.configure activator
-        Explorer.configure interpreter
     let ConfigureSolver solver =
         Common.configureSolver solver
     let ConfigureSimplifier simplifier =
@@ -26,28 +25,21 @@ module API =
         Memory.restore()
         IdGenerator.restore()
 
-    let InterpretEntryPoint id k = Explorer.interpretEntryPoint id k
-    let Explore id k = Explorer.explore id k
-
-    let Call funcId state body k = Explorer.call m.Value funcId state body k
-    let ComposeStatements rs statements isContinueConsumer reduceStatement k =
-        ControlFlow.composeStatements statements isContinueConsumer reduceStatement (fun state -> Memory.newScope m.Value state []) rs k
-    let HigherOrderApply funcId state k = Explorer.higherOrderApplication m.Value funcId state k
-    let BranchStatements state condition thenBranch elseBranch k =
-         Common.commonStatedConditionalExecution state condition thenBranch elseBranch ControlFlow.mergeResults ControlFlow.merge2Results ControlFlow.throwOrIgnore k
-    let BranchExpressions state condition thenExpression elseExpression k = Common.statedConditionalExecution state condition thenExpression elseExpression k
-    let BranchStatementsOnNull state reference thenBranch elseBranch k =
-        BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenBranch elseBranch k
-    let BranchExpressionsOnNull state reference thenExpression elseExpression k =
-        BranchExpressions state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenExpression elseExpression k
+    let HigherOrderApply codeLoc state k = Explorer.higherOrderApplication m.Value codeLoc state k
+    let BranchStatements state condition thenStatement elseStatement k =
+        Common.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
+    let BranchStatementsOnNull state reference thenStatement elseStatement k =
+        BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenStatement elseStatement k
+    let BranchExpressions state condition thenBranch elseExpression k =
+        Common.statelessConditionalExecutionWithMergek state.pc condition thenBranch elseExpression k
+    let StatedConditionalExecution = Common.commonStatedConditionalExecutionk
 
     let GuardedApplyExpression term f = Merging.guardedErroredApply f term
-    let GuardedStatedApplyStatementK state term f k =
-        Merging.commonGuardedErroredStatedApplyk f ControlFlow.throwOrIgnore state term ControlFlow.mergeResults k
-    let GuardedStatelessApplyStatement term f =
-        Merging.commonGuardedErroredApply f ControlFlow.throwOrIgnore term ControlFlow.mergeResults
+    let GuardedStatedApplyStatementK state term f k = Merging.guardedErroredStatedApplyk f state term k
+    let GuardedErroredStatedApplyk f errorHandler state term merge mergeStates k =
+        Merging.commonGuardedErroredStatedApplyk f errorHandler state term merge mergeStates k
 
-    let PerformBinaryOperation op isChecked state t left right k = Operators.simplifyBinaryOperation m.Value op isChecked state t left right k
+    let PerformBinaryOperation op isChecked state left right k = Operators.simplifyBinaryOperation m.Value op isChecked state left right k
     let PerformUnaryOperation op isChecked state t arg k = Operators.simplifyUnaryOperation m.Value op isChecked state t arg k
 
     [<AutoOpen>]
@@ -65,21 +57,28 @@ module API =
         let False = False
 
         let MakeNullRef () = makeNullRef m.Value
-        let MakeDefault typ = Memory.mkDefault m.Value typ None
+        let MakeDefault typ ref = Merging.guardedErroredApply (getFQLOfRef >> Some >> Memory.mkDefault m.Value typ) ref
+
         let MakeNumber n = makeNumber m.Value n
-        let MakeLambda body signature = Lambdas.make m.Value body signature
 
         let TypeOf term = typeOf term
         let BaseTypeOfRef ref = baseTypeOfRef ref
         let SightTypeOfRef ref = sightTypeOfRef ref
 
-        let (|Lambda|_|) t = Lambdas.(|Lambda|_|) t
+        let isStruct term = isStruct term
+        let isReference term = isReference term
+        let IsNullReference term = Pointers.isNull m.Value term
+
+        let (|True|_|) t = (|True|_|) t
+        let (|False|_|) t = (|False|_|) t
         let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
         let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
         let ConstantsOf terms = discoverConstants terms
+
+        let AddConditionToState conditionState condition = State.withPathCondition conditionState condition
 
     module Types =
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
@@ -92,40 +91,24 @@ module API =
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
-        let IsNativeInt t = Pointers.isNativeInt t
+        let IsPointer t = Types.isPointer t
         let IsValueType t = Common.isValueType m.Value t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
+        let elementType arrayType = Types.elementType arrayType
+
         let TypeIsType leftType rightType = Common.typeIsType m.Value leftType rightType
+        let TypeIsNullable typ = Common.isNullable m.Value typ
         let TypeIsRef typ ref = Common.typeIsRef m.Value typ ref
+        let RefIsType ref typ = Common.refIsType m.Value ref typ
         let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
 
-        let CanCast state targetType term = TypeCasting.canCast m.Value state targetType term
-        let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value state term targetType isChecked (TypeCasting.primitiveCast m.Value isChecked) fail k
-        let HierarchyCast state term targetType fail k = TypeCasting.cast m.Value state term targetType false id fail k
-        let CastConcrete value typ = CastConcrete value typ m.Value
+        let IsCast state targetType term = TypeCasting.isCast m.Value state term targetType
+        let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value isChecked state term targetType fail k
+        let CastConcrete isChecked value typ = CastConcrete isChecked value typ m.Value
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer m.Value state reference
-
-    module public ControlFlowConstructors =
-        let NoComputation = NoResult Metadata.empty
-        let NoResult () = NoResult m.Value
-        let Break () = Break m.Value
-        let Continue () = Continue m.Value
-        let Return (term : term) = Return term.metadata term
-        let Throw (term : term) = Throw term.metadata term
-        let Guarded grs = Guarded m.Value grs
-
-    module public ControlFlow =
-        let ResultToTerm r = ControlFlow.resultToTerm r
-        let ThrowOrReturn t = ControlFlow.throwOrReturn t
-        let ThrowOrIgnore t = ControlFlow.throwOrIgnore t
-        let ConsumeErrorOrReturn consumer t = ControlFlow.consumeErrorOrReturn consumer t
-        let ComposeSequentially oldRes newRes oldState newState = ControlFlow.composeSequentially oldRes newRes oldState newState
-        let ComposeExpressions exprs state exprsMapper k = ControlFlow.composeExpressions exprs state exprsMapper k
-        let ConsumeBreak r = ControlFlow.consumeBreak r
-        let PickOutExceptions r = ControlFlow.pickOutExceptions r
 
     module public Operators =
         let (!!) x = Propositional.simplifyNegation m.Value x id
@@ -152,15 +135,16 @@ module API =
         let NewScope state frame = Memory.newScope m.Value state frame
         let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
-        let ReferenceField state followHeapRefs name typ parentRef = Memory.referenceField m.Value state followHeapRefs name typ parentRef
-        let ReferenceLocalVariable state location followHeapRefs = Memory.referenceLocalVariable m.Value state location followHeapRefs
-        let ReferenceStaticField state followHeapRefs fieldName fieldType targetType = Memory.referenceStaticField m.Value state followHeapRefs fieldName fieldType targetType
+        let ReferenceField name typ parentRef = Memory.referenceField name typ parentRef
+        let ReferenceLocalVariable location = Memory.referenceLocalVariable m.Value location
+        let ReferenceStaticField targetType fieldName fieldType = Memory.referenceStaticField m.Value targetType fieldName fieldType
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
         let DereferenceWithoutValidation state reference = Memory.derefWithoutValidation m.Value state reference
-        let DereferenceLocalVariable state id = Memory.referenceLocalVariable m.Value state id false |> Memory.deref m.Value state
+        let DereferenceLocalVariable state location = Memory.referenceLocalVariable m.Value location |> Memory.deref m.Value state
         let Mutate state reference value = Memory.mutate m.Value state reference value
+        let ReadBlockField blockTerm fieldName fieldType = Memory.readBlockField m.Value blockTerm fieldName fieldType
 
         let AllocateOnStack state key typ term = Memory.allocateOnStack m.Value state key typ term
 
@@ -197,6 +181,7 @@ module API =
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state
 
+        let ArrayRank arrayTerm = Arrays.rank arrayTerm
         let ArrayLength arrayTerm = Arrays.length arrayTerm
         let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
         let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
@@ -208,19 +193,16 @@ module API =
 
         let StringCtorOfCharArray state this arrayRef =
             let fql = getFQLOfRef this |> Some
-            BranchExpressionsOnNull state arrayRef
+            BranchStatementsOnNull state arrayRef
                 (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" fql, state))
                 (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value fql) |> k)
                 id
 
     module Database =
-        let QuerySummary funcId =
-            Database.querySummary funcId ||?? lazy(internalfailf "database does not contain exploration results for %O" funcId)
+        let QuerySummary codeLoc =
+            Database.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)
 
     module RuntimeExceptions =
-        let NullReferenceException state thrower =
-            let term, state = Memory.npe m.Value state
-            thrower term, state
         let InvalidCastException state thrower =
             let message, state = Memory.AllocateString "Specified cast is not valid." state
             let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
@@ -232,4 +214,7 @@ module API =
             thrower term, state
         let IndexOutOfRangeException state thrower =
             let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
+            thrower term, state
+        let InvalidProgramException state thrower =
+            let term, state = State.createInstance m.Value typeof<System.InvalidProgramException> [] state
             thrower term, state

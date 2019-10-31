@@ -1,117 +1,20 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>6a6742b3-e86e-4fa5-afe1-361f38dce4c3</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>VSharp.SILI</RootNamespace>
-    <AssemblyName>VSharp.SILI</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <Name>VSharp.SILI</Name>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <Tailcalls>false</Tailcalls>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Debug\VSharp.SILI.XML</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <Tailcalls>true</Tailcalls>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\VSharp.SILI.XML</DocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup>
-    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
-  </PropertyGroup>
-  <Choose>
-    <When Condition="'$(VisualStudioVersion)' == '11.0'">
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets')">
-        <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
-  <Import Project="$(FSharpTargetsPath)" />
-  <ItemGroup>
-    <Content Include="packages.config" />
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="DecompilerServices.fs" />
-    <Compile Include="MetadataTypes.fs" />
-    <Compile Include="Transformations.fs" />
-    <Compile Include="Functions.fs" />
-    <Compile Include="Interpreter.fs" />
-    <Compile Include="Extern\System\String.fsi" />
-    <Compile Include="Extern\System\String.fs" />
-    <Compile Include="Extern\System\SystemArray.fsi" />
-    <Compile Include="Extern\System\SystemArray.fs" />
-    <Compile Include="Extern\System\Math.fsi" />
-    <Compile Include="Extern\System\Math.fs" />
-    <Compile Include="Extern\System\Environment.fsi" />
-    <Compile Include="Extern\System\Environment.fs" />
-    <Compile Include="Extern\System\Thread.fsi" />
-    <Compile Include="Extern\System\Thread.fs" />
-    <Compile Include="SVM.fs" />
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj">
-      <Project>{783ca74c-2a2d-4866-9007-10b51f529423}</Project>
-      <Name>VSharp.CSharpUtils</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj">
-      <Project>{270acd61-be60-4d72-85ad-d9385fd84c8e}</Project>
-      <Name>VSharp.SILI.Core</Name>
-    </ProjectReference>
-    <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.2.2\lib\net45\FSharp.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSharpx.Collections">
-      <HintPath>..\packages\FSharpx.Collections.1.17.0\lib\net40\FSharpx.Collections.dll</HintPath>
-    </Reference>
-    <Reference Include="JetBrains.Decompiler.Core">
-      <HintPath>..\packages\JetBrains.Psi.Features.Core.105.0.20160523.140224\DotFiles\JetBrains.Decompiler.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="JetBrains.Platform.Metadata">
-      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Metadata.dll</HintPath>
-    </Reference>
-    <Reference Include="JetBrains.Platform.Util">
-      <HintPath>..\packages\JetBrains.Platform.Core.Shell.105.0.20160520.92915\DotFiles\JetBrains.Platform.Util.dll</HintPath>
-    </Reference>
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj">
-      <Name>VSharp.Utils</Name>
-      <Project>{6f686b61-8105-42f2-950e-bd6aec0887ca}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="JetBrains.Annotations">
-      <HintPath>..\packages\JetBrains.Annotations.10.1.4\lib\net20\JetBrains.Annotations.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="Instruction.fs" />
+        <Compile Include="CFG.fs" />
+        <Compile Include="InstructionsSet.fs" />
+        <Compile Include="Lambdas.fs" />
+        <Compile Include="Interpreter.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
+      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+    </ItemGroup>
+
 </Project>

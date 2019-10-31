@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.SwitchWithSequentialCases(System.Int32)
+RESULT: UNION[
+	| !(x < 5) | x < 0 ~> -1
+	| 0 == x ~> 1
+	| 1 == x ~> 11
+	| 2 == x ~> 101
+	| 3 == x ~> 1001
+	| 4 == x ~> 10001]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.ControlFlow ==> CLASS []

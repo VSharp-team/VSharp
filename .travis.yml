@@ -1,8 +1,8 @@
 language: csharp
+mono: none
+dotnet: 3.0.100
 solution: VSharp.sln
 install:
-  - nuget restore VSharp.sln
-  - nuget install NUnit.Console -Version 3.10.0 -OutputDirectory testrunner
+  - dotnet restore
 script:
-  - msbuild /p:Configuration=Release VSharp.sln
-  - mono ./testrunner/NUnit.ConsoleRunner.3.10.0/tools/nunit3-console.exe ./VSharp.Test/bin/Release/VSharp.Test.dll
+  - dotnet test -c Release

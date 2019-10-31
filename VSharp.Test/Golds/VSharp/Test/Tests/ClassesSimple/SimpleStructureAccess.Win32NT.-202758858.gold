@@ -1,7 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.ClassesSimple.SimpleStructureAccess(System.Int32)
-RESULT: newMyValue
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.ClassesSimple ==> CLASS []
-VSharp.Test.Tests.ClassesSimple+MyStruct ==> VSharp.Test.Tests.ClassesSimple+MyStruct STRUCT []

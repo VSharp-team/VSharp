@@ -1,19 +1,20 @@
 namespace VSharp
 
+open System
 open System.Collections.Generic
 open System.Reflection
 
 module TypeUtils =
-    let isGround (x : System.Type) =
+    let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
 
-    let defaultOf (t : System.Type) =
-        if t.IsValueType && System.Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
-            then System.Activator.CreateInstance t
+    let defaultOf (t : Type) =
+        if t.IsValueType && Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
+            then Activator.CreateInstance t
             else null
 
     let private integralTypes =
-        new HashSet<System.Type>(
+        new HashSet<Type>(
                           [typedefof<byte>; typedefof<sbyte>;
                            typedefof<int16>; typedefof<uint16>;
                            typedefof<int32>; typedefof<uint32>;
@@ -21,19 +22,18 @@ module TypeUtils =
                            typedefof<char>])
 
     let private unsignedTypes =
-        new HashSet<System.Type>(
+        new HashSet<Type>(
                           [typedefof<byte>; typedefof<uint16>;
                            typedefof<uint32>; typedefof<uint64>;])
 
     let private realTypes =
-        new HashSet<System.Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
+        new HashSet<Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
 
-    let private numericTypes = new HashSet<System.Type>(Seq.append integralTypes realTypes)
+    let private numericTypes = new HashSet<Type>(Seq.append integralTypes realTypes)
 
-    let private primitiveTypes = new HashSet<System.Type>(Seq.append numericTypes [typedefof<bool>])
+    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
     let isNumeric = numericTypes.Contains
-    let isPrimitive t = primitiveTypes.Contains t || t.IsEnum
     let isIntegral = integralTypes.Contains
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains
@@ -55,6 +55,32 @@ module TypeUtils =
     let private isUInt = (=) typeof<uint32>
     let private isLong = (=) typeof<int64>
     let private isULong = (=) typeof<uint64>
+
+    let uncheckedChangeType (value : obj) t =
+        let bytes =
+            match value with
+            | :? bool    as b  -> (if b then 1L else 0L) |> BitConverter.GetBytes
+            | :? byte    as n  -> n |> int64 |> BitConverter.GetBytes
+            | :? sbyte   as n  -> n |> int64 |> BitConverter.GetBytes
+            | :? int16   as n  -> n |> int64 |> BitConverter.GetBytes
+            | :? uint16  as n  -> n |> int64 |> BitConverter.GetBytes
+            | :? int     as n  -> n |> int64 |> BitConverter.GetBytes
+            | :? uint32  as n  -> n |> uint64 |> BitConverter.GetBytes
+            | :? int64   as n  -> n |> BitConverter.GetBytes
+            | :? uint64  as n  -> n |> BitConverter.GetBytes
+            | _ -> __notImplemented__()
+        match t with
+        | _ when t = typedefof<Boolean>   ->  BitConverter.ToBoolean(bytes, 0) :> obj
+        | _ when t = typedefof<Byte>      ->  bytes.[0]                        :> obj
+        | _ when t = typedefof<SByte>     ->  bytes.[0] |> sbyte               :> obj
+        | _ when t = typedefof<Char>      ->  BitConverter.ToChar(bytes, 0)    :> obj
+        | _ when t = typedefof<Int16>     ->  BitConverter.ToInt16(bytes, 0)   :> obj
+        | _ when t = typedefof<UInt16>    ->  BitConverter.ToUInt16(bytes, 0)  :> obj
+        | _ when t = typedefof<Int32>     ->  BitConverter.ToInt32(bytes, 0)   :> obj
+        | _ when t = typedefof<UInt32>    ->  BitConverter.ToUInt32(bytes, 0)  :> obj
+        | _ when t = typedefof<Int64>     ->  BitConverter.ToInt64(bytes, 0)   :> obj
+        | _ when t = typedefof<UInt64>    ->  BitConverter.ToUInt64(bytes, 0)  :> obj
+        | _ -> __notImplemented__()
 
     let failDeduceBinaryTargetType op x y =
         internalfailf "%s (%O x, %O y); is not a binary arithmetical operator" op x y

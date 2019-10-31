@@ -104,12 +104,11 @@ module public Heap =
         unify2 h1 h1 h2 (fun s k v1 v2 -> add k (resolve k v1 v2) s)
 
     let public toString format separator keyMapper valueMapper sorter (h : heap<'a, 'b, 'fql, 'typ>) =
-        let elements =
-            h
-            |> toSeq
-            |> Seq.sortBy (fst >> getKey >> sorter)
-            |> Seq.map (fun (k, v) -> sprintf format (keyMapper k.key) (valueMapper k.typ v))
-        elements |> join separator
+        h
+        |> toSeq
+        |> Seq.sortBy (fst >> getKey >> sorter)
+        |> Seq.map (fun (k, v) -> sprintf format (keyMapper k.key) (valueMapper k.typ v))
+        |> join separator
 
     let public dump (h : heap<'a, 'b, 'fql, 'typ>) keyToString valueToString sorter =
         toString "%s ==> %O" "\n" keyToString valueToString sorter h

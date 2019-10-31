@@ -234,13 +234,13 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public static class ClassesSimpleException
     {
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static void Test1()
         {
             ClassesSimpleException0 a = new ClassesSimpleException0();
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static void Test2()
         {
             ClassesSimpleException1 a = new ClassesSimpleException1();
@@ -379,7 +379,7 @@ namespace VSharp.Test.Tests
             return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public void FirstUseInGuard(SimpleStruct s)
         {
             if (s.X > 5)

@@ -1,0 +1,9 @@
+METHOD: System.Object VSharp.Test.Tests.BoxUnbox.Box7()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> 7
+---------- s1 = ----------
+System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
+VSharp.Test.Tests.BoxUnbox ==> CLASS []
