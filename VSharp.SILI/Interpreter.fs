@@ -130,15 +130,17 @@ and public ILInterpreter() as this =
     let findCfg (ilmm : ILMethodMetadata) =
         Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.methodBase)
 
+    member private x.Raise exptn (cilState : cilState) k =
+        let exc, state = exptn cilState.state
+        //TODO: exception handling
+        k [exc, {cilState with state = state; exceptionFlag = Some exc}]
+
     member private x.NpeOrInvokeStatement (cilState : cilState) (this : term option) statement k =
         match this with
         | None -> statement cilState k
         | Some this ->
              BranchOnNull cilState this
-                (fun cilState k ->
-                    let exc, state = x.NullReferenceException cilState.state
-                    //TODO: exception handling
-                    k [exc, {cilState with state = state; exceptionFlag = Some exc}])
+                (x.Raise x.NullReferenceException)
                 statement
                 k
     member private x.ReduceMethodBaseCall (methodBase : MethodBase) cilState this (args : term list symbolicValue) k =
@@ -386,58 +388,65 @@ and public ILInterpreter() as this =
                 (fun cilState k -> k [cilState])
                 id
         | _ -> __notImplemented__()
-    member private x.Unbox (cfg : cfgData) offset (cilState : cilState) = // TODO: add InvalidCastException when obj is not a boxed form of type token
-        let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox.Size)
+    member private x.UnboxCommon (op : OpCode) handleReferenceType handleRestResults (cfg : cfgData) offset (cilState : cilState) =
+        let t = resolveTypeFromMetadata cfg (offset + op.Size)
         let termType = Types.FromDotNetType cilState.state t
+        let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
         match cilState.opStack with
-        | obj :: stack when Nullable.GetUnderlyingType(t) <> null ->
+        | _ :: _ when t.IsGenericParameter -> __notImplemented__() //TODO: Nullable.GetUnderlyingType for generics
+        | obj :: stack ->
             assert(isReference obj)
-            let nullCase (cilState : cilState) k =
-                let ads = Memory.AllocateDefaultBlock cilState.state termType
-                let cilState = pushResultOnStack {cilState with opStack = stack} ads
-                k [cilState]
-            let nonNullCase (cilState : cilState) k =
-                let value, state = Memory.Dereference cilState.state obj
-                let address, state = Memory.AllocateDefaultBlock state termType
-                let nullableConstructor = t.GetConstructor([| Nullable.GetUnderlyingType(t) |])
-                let modifyResults results = mapAndPushFunctionResultsk (fun (_, state) -> address, state) results k
-                x.ReduceMethodBaseCall nullableConstructor {cilState with opStack = stack; state = state} (Some address) (Specified [value]) modifyResults
-            BranchOnNull cilState obj
-                nullCase
-                nonNullCase
-                id
-        | _ :: _ -> cilState :: [] // according to specs ``address'' to value should be computed
-        | _ -> __notImplemented__()
-    member private x.UnboxAny (cfg : cfgData) offset (cilState : cilState) = // TODO: add InvalidCastException when obj is not a boxed form of type token
-        match cilState.opStack with
-        | ref :: _ ->
-            assert(isReference ref)
-            let unboxBoxedFormOfValueType cilState k = x.Unbox cfg offset cilState |> List.collect (ldobj cfg offset) |> k
-            let nonNullCase (cilState : cilState) =
-                let valueType = Types.FromDotNetType cilState.state typedefof<System.ValueType>
-                StatedConditionalExecutionCIL cilState
-                    (fun state k -> k (Types.RefIsType ref valueType, state))
-                    unboxBoxedFormOfValueType
-                    (fun cilState k -> castclass cfg offset cilState |> k)
             let nullCase (cilState : cilState) =
-                let typeTok = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Unbox_Any.Size)
-                let nonNullableCase cilState =
-                    let throwNRE (cilState : cilState) k =
-                        let err, state = x.NullReferenceException cilState.state
-                        k [{cilState with state = state; exceptionFlag = Some err}]
-                    StatedConditionalExecutionCIL cilState
-                        (fun state k -> k (Types.IsValueType typeTok, state))
-                        throwNRE
-                        (fun cilState k -> castclass cfg offset cilState |> k)
                 StatedConditionalExecutionCIL cilState
-                    (fun state k -> k (Types.TypeIsNullable typeTok, state))
-                    unboxBoxedFormOfValueType
-                    nonNullableCase
-            BranchOnNull cilState ref
+                    (fun state k -> k (Types.TypeIsNullable termType, state))
+                    (fun cilState k ->
+                        let address, state = Memory.AllocateDefaultBlock cilState.state termType
+                        k [handleRestResults(address, {cilState with state = state})])
+                    (x.Raise x.NullReferenceException)
+            let canCastValueTypeToNullableTargetCase (cilState : cilState) =
+                let underlyingTypeOfNullableT = Nullable.GetUnderlyingType(t)
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.RefIsType obj (Types.FromDotNetType state underlyingTypeOfNullableT), state))
+                    (fun cilState k ->
+                        let value, _ = Memory.Dereference cilState.state obj
+                        let address, state = Memory.AllocateDefaultBlock cilState.state termType
+                        let nullableConstructor = t.GetConstructor([| underlyingTypeOfNullableT |])
+                        let modifyResults results = Cps.List.map (fun (_, cilState) -> handleRestResults (address, cilState)) results k
+                        x.ReduceMethodBaseCall nullableConstructor {cilState with state = state} (Some address) (Specified [value]) modifyResults)
+                    (x.Raise InvalidCastException)
+            let canCastValueTypeToTargetCase (cilState : cilState) =
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.TypeIsNullable termType, state))
+                    canCastValueTypeToNullableTargetCase
+                    (fun cilState k -> k [handleRestResults(castUnchecked termType obj cilState.state fst, cilState)])
+            let valueTypeCase (cilState : cilState) =
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.CanCast obj termType, state))
+                    canCastValueTypeToTargetCase
+                    (x.Raise InvalidCastException)
+            let nonNullCase (cilState : cilState) =
+                let SystemValueType = Types.FromDotNetType cilState.state typedefof<System.ValueType>
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.RefIsType obj SystemValueType, state))
+                    valueTypeCase
+                    (handleReferenceType obj termType)
+            BranchOnNull {cilState with opStack = stack} obj
                 nullCase
                 nonNullCase
-                id
-        | _ -> __notImplemented__() // TODO: add InvalidProgramException
+                pushFunctionResults
+        | _ -> __notImplemented__()
+    member private x.Unbox (cfg : cfgData) offset (cilState : cilState) =
+        let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
+        x.UnboxCommon OpCodes.Unbox (fun _ _ -> x.Raise InvalidCastException) id cfg offset cilState
+    member private x.UnboxAny (cfg : cfgData) offset (cilState : cilState) =
+        let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
+        let handleReferenceTypeResults obj termType cilState =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (Types.CanCast obj termType, state))
+                (fun cilState k -> k [castUnchecked termType obj cilState.state fst, cilState])
+                (x.Raise InvalidCastException)
+        let handleRestResults (address, cilState : cilState) = Memory.Dereference cilState.state address |> fst, cilState
+        x.UnboxCommon OpCodes.Unbox_Any handleReferenceTypeResults handleRestResults cfg offset cilState
 
     // -------------------------------- ExplorerBase operations -------------------------------------
     override x.Invoke codeLoc state this k =

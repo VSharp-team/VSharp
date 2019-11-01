@@ -17,7 +17,7 @@ module internal TypeCasting =
         | Struct _ -> term
         | _ -> __unreachable__()
 
-    let private canCast mtd term targetType =
+    let canCast mtd term targetType =
         let castCheck term =
             match term.term with
             | Ptr(_, _, typ, _) -> typeIsType mtd (Pointer typ) targetType

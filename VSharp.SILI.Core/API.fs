@@ -104,6 +104,7 @@ module API =
         let RefIsType ref typ = Common.refIsType m.Value ref typ
         let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
 
+        let CanCast term targetType = TypeCasting.canCast m.Value term targetType
         let IsCast state targetType term = TypeCasting.isCast m.Value state term targetType
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value isChecked state term targetType fail k
         let CastConcrete isChecked value typ = CastConcrete isChecked value typ m.Value
