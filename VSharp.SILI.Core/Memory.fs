@@ -135,7 +135,7 @@ module internal Memory =
         let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
         let addField heap (name, typ) =
-            let termType = typ |> fromDotNetType |> wrapReferenceType
+            let termType = typ |> fromDotNetType
             let fql' = BlockField(name, termType) |> addToOptionFQL fql
             let value = mkField metadata name termType fql'
             let key = makeKey name fql' termType
@@ -161,7 +161,7 @@ module internal Memory =
         | Bool -> makeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete true (System.Activator.CreateInstance t) t metadata
         | Numeric t -> CastConcrete true 0 t metadata
-        | Reference _
+        | ArrayType _
         | ClassType _
         | InterfaceType _ -> makeNullRef metadata
         | TypeVariable (Id t) ->
@@ -253,38 +253,57 @@ module internal Memory =
             Strings.makeStringOfFields mtd length array arrayFQL fql
         | _ -> __notImplemented__()
 
-    let rec makeSymbolicInstance metadata source name fql = function
-        | Pointer typ -> makeSymbolicHeapReference metadata source name typ (fun mtd tl bTyp sTyp path -> HeapPtr mtd tl bTyp sTyp path sTyp)
-        | Reference typ -> makeSymbolicHeapReference metadata source name typ HeapRef
+    let makeSymbolicReferenceType metadata blockBuilder source name typ fql =
+        match fql with
+        | Some(TopLevelHeap _, [])
+        | Some(TopLevelStatics _, []) -> blockBuilder ()
+        | _ -> makeSymbolicHeapReference metadata source name typ HeapRef
+
+    let makeSymbolicClass metadata source name typ fql =
+        let makeClass () = Class metadata Heap.empty
+        makeSymbolicReferenceType metadata makeClass source name typ fql
+
+    let rec makeSymbolicInstance metadata source name typ fql =
+        match typ with
         | Bool
-        | Numeric _ as t -> Constant metadata name source t
-        | StringType -> makeSymbolicString metadata source name fql
-        | TypeVariable _ as t ->
+        | Numeric _ -> Constant metadata name source typ
+        | StructType _ -> makeSymbolicStruct metadata source name typ fql
+        | TypeVariable _ ->
             Common.statelessConditionalExecutionWithMerge []
-                (fun k -> k <| Common.isValueType metadata t)
-                (fun k -> k <| Constant metadata name source t)
-                (fun k -> k <| makeSymbolicHeapReference metadata source name t HeapRef)
-        | ClassType _ -> Class metadata Heap.empty
-        | StructType _ as t -> makeSymbolicStruct metadata source name fql t
-        | ArrayType(e, d) -> makeSymbolicArray metadata source d e name fql
-        | Void -> Nop
+                (fun k -> k <| Common.isValueType metadata typ)
+                (fun k -> k <| Constant metadata name source typ)
+                (fun k -> k <| makeSymbolicClass metadata source name typ fql)
+        | StringType ->
+            let makeString () = makeSymbolicString metadata source name fql
+            makeSymbolicReferenceType metadata makeString source name typ fql
+        | ClassType _ -> makeSymbolicClass metadata source name typ fql
+        | InterfaceType _ -> makeSymbolicHeapReference metadata source name typ HeapRef // makes reference, because we will never have interface instance in heap
+        | ArrayType(e, d) ->
+            let makeArray () = makeSymbolicArray metadata source d e name fql
+            makeSymbolicReferenceType metadata makeArray source name typ fql
+        | Pointer typ' ->
+            let makePtr mtd tl bTyp sTyp path = HeapPtr mtd tl bTyp sTyp path sTyp
+            makeSymbolicHeapReference metadata source name typ' makePtr
         | Null -> makeNullRef metadata
-        | InterfaceType _
+        | Void -> Nop
         | Bottom -> __unreachable__()
 
-    and private makeSymbolicStruct metadata (source : IExtractingSymbolicConstantSource) structName fql typ =
-        match source with
-        | :? lazyInstantiation<obj> as liSource ->
+    and private makeSymbolicStruct metadata (source : IExtractingSymbolicConstantSource) structName typ fql =
+        let makeSymbolicStruct' (liSource : 'a lazyInstantiation) =
             let makeField mtd name typ fql =
                 let fieldName = sprintf "%s.%s" structName name
-                let fieldSource = {liSource with location = referenceBlockField liSource.location fieldName typ}
-                makeSymbolicInstance mtd fieldSource fieldName fql typ
+                let fieldSource = {liSource with location = referenceBlockField liSource.location name typ}
+                makeSymbolicInstance mtd fieldSource fieldName typ fql
             mkStruct metadata false makeField typ fql
+        match source with
+        | :? lazyInstantiation<obj> as liSource -> makeSymbolicStruct' liSource
+        | :? lazyInstantiation<term> as liSource -> makeSymbolicStruct' liSource
+        | :? lazyInstantiation<termType> as liSource -> makeSymbolicStruct' liSource
         | _ -> __notImplemented__()
 
     let private genericLazyInstantiator metadata heap fql typ () =
         let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        makeSymbolicInstance metadata source (nameOfLocation fql) (Some fql) typ
+        makeSymbolicInstance metadata source (nameOfLocation fql) typ (Some fql)
 
     let () =
         State.genericLazyInstantiator <- fun mtd -> genericLazyInstantiator mtd None
@@ -294,7 +313,7 @@ module internal Memory =
         | LazyInstantiator concreteType -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (nameOfLocation fql) (idx.term.IndicesToString())
             let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-            makeSymbolicInstance metadata source id (Some fql) concreteType
+            makeSymbolicInstance metadata source id concreteType (Some fql)
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap fql (idx : term) = function
         | DefaultInstantiator _-> fun () -> defaultOf metadata lengthType <| Some fql
         | LazyInstantiator _ -> instantiator |?? fun () ->
@@ -312,9 +331,11 @@ module internal Memory =
             let name = sprintf "%O.%s_Length" (nameOfLocation fql) (idx.term.IndicesToString())
             makeSymbolicArrayLength metadata name fql heap
 
-    let staticMemoryLazyInstantiator metadata typ () =
-        if concreteIsReferenceType typ then Class metadata Heap.empty
-        else Struct metadata Heap.empty typ
+    let staticMemoryLazyInstantiator metadata typ () = // TODO: need?
+        match typ with
+        | ReferenceType -> Class metadata Heap.empty
+        | StructureType -> Struct metadata Heap.empty typ
+        | _ -> __unreachable__()
 
     let private selectLazyInstantiator metadata heap fql typ =
         match fql with
@@ -734,12 +755,10 @@ module internal Memory =
     and referenceLocalVariable metadata location =
         StackRef metadata location []
 
-    let referenceField name typ parentRef =
-        let typ = Types.wrapReferenceType typ
+    let referenceField parentRef name typ =
         referenceBlockField parentRef name typ
 
     let referenceStaticField metadata targetType fieldName fieldType =
-        let fieldType = Types.wrapReferenceType fieldType
         StaticRef metadata targetType [BlockField(fieldName, fieldType)]
 
     let private checkIndices mtd state arrayRef (indices : term list) k =
@@ -792,7 +811,6 @@ module internal Memory =
     let allocateOnStack metadata s key typ term =
         let oldFrame = Stack.peek s.frames.f
         let newStack = pushToCurrentStackFrame s key term
-        let typ = wrapReferenceType typ
         let newEntries = { key = key; mtd = metadata; typ = typ }
         let stackFrames = Stack.updateHead s.frames.f { oldFrame with entries = newEntries :: oldFrame.entries }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
@@ -847,7 +865,7 @@ module internal Memory =
         let fql = TopLevelStack thisKey, []
         let thisStackRef = makeFQLRef metadata fql
         let liSource = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        let instance = makeSymbolicInstance metadata liSource "this" (Some fql) (wrapReferenceType typ)
+        let instance = makeSymbolicInstance metadata liSource "this" typ (Some fql)
         if isRef
             then instance, state, false
             else

@@ -316,7 +316,7 @@ module internal InstructionsSet =
         match TypeOf term with
         | Bool -> term
         | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
-        | Reference _ -> term !== MakeNullRef()
+        | _ when isReference term -> term !== MakeNullRef()
         | _ -> __notImplemented__()
     let ceq (cilState : cilState) =
         match cilState.opStack with

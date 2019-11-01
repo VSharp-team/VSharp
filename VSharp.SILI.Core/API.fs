@@ -83,7 +83,6 @@ module API =
     module Types =
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
         let ToDotNetType t = Types.toDotNetType t
-        let WrapReferenceType t = Types.wrapReferenceType t
 
         let SizeOf t = Types.sizeOf t
 
@@ -135,7 +134,7 @@ module API =
         let NewScope state frame = Memory.newScope m.Value state frame
         let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
-        let ReferenceField name typ parentRef = Memory.referenceField name typ parentRef
+        let ReferenceField parentRef name typ = Memory.referenceField parentRef name typ
         let ReferenceLocalVariable location = Memory.referenceLocalVariable m.Value location
         let ReferenceStaticField targetType fieldName fieldType = Memory.referenceStaticField m.Value targetType fieldName fieldType
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices

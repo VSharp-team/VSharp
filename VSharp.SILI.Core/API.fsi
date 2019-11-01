@@ -72,7 +72,6 @@ module API =
     module Types =
         val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
-        val WrapReferenceType : termType -> termType
 
         val SizeOf : termType -> int
 
@@ -125,7 +124,7 @@ module API =
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
         val NewTypeVariables : state -> (typeId * termType) list -> state
 
-        val ReferenceField : string -> termType -> term -> term
+        val ReferenceField : term -> string -> termType -> term
         val ReferenceLocalVariable : stackKey -> term
         val ReferenceStaticField : termType -> string -> termType -> term
         val ReferenceArrayIndex : state -> term -> term list -> term * state

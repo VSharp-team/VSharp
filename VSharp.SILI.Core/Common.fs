@@ -3,7 +3,7 @@
 #nowarn "69"
 
 open VSharp
-open VSharp.Core.Types.Constructor
+open VSharp.Core.Types
 
 type SolverResult = Sat | Unsat | Unknown
 type ISolver =
@@ -90,9 +90,9 @@ module internal Common =
         | ArrayType _ , ArrayType(_, SymbolicDimension) -> makeTrue mtd
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then typeIsType mtd t1 t2 else makeFalse mtd
-        | ComplexType _, ComplexType _ ->
-            let lt = Types.toDotNetType leftType
-            let rt = Types.toDotNetType rightType
+        | ComplexType, ComplexType ->
+            let lt = toDotNetType leftType
+            let rt = toDotNetType rightType
             if rt.IsAssignableFrom lt then makeTrue mtd
             elif TypeUtils.isGround lt && TypeUtils.isGround rt then makeFalse mtd
             else boolConst leftType rightType
@@ -143,7 +143,7 @@ module internal Common =
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeFalse metadata
         | TypeVariable _ -> makeIsValueTypeBoolConst termType
         | Null -> __unreachable__()
-        | t -> makeBool metadata (Types.toDotNetType t).IsValueType
+        | t -> makeBool metadata (toDotNetType t).IsValueType
 
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
@@ -175,7 +175,7 @@ module internal Common =
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeFalse metadata
         | TypeVariable _ -> makeIsNullableBoolConst termType
         | Null -> __unreachable__()
-        | _ -> makeBool metadata (System.Nullable.GetUnderlyingType(Types.toDotNetType termType) <> null)
+        | _ -> makeBool metadata (System.Nullable.GetUnderlyingType(toDotNetType termType) <> null)
 
     type isNullableConstantSource with
          interface IStatedSymbolicConstantSource with

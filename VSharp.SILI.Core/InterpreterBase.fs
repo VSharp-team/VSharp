@@ -187,14 +187,14 @@ type public ExplorerBase() =
 
     member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues k =
         let parameters = methodBase.GetParameters()
-        let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType |> Types.WrapReferenceType
+        let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType
         let values, areParametersSpecified =
             match paramValues with
             | Specified values -> values, true
             | Unspecified -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = TokenCreator.StackKeyOfLocalVariable lvi
-            (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType |> Types.WrapReferenceType)
+            (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
         let locals = methodBase.GetMethodBody().LocalVariables |> Seq.map localVarsDecl |> Seq.toList
         let valueOrFreshConst (param : ParameterInfo option) value =
             match param, value with

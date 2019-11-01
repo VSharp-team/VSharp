@@ -68,7 +68,6 @@ module internal Z3 =
             | ClassType _
             | InterfaceType _
             | TypeVariable _
-            | Reference _
             | Pointer _ -> __notImplemented__())
 
     let private encodeConcrete (obj : obj) typ =

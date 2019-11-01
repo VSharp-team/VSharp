@@ -227,7 +227,6 @@ module internal State =
             let ms = state.typeVariables |> fst
             if MappedStack.containsKey key ms then MappedStack.find key ms else typ
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
-        | Reference t -> Reference (substituteTypeVariables t)
         | Pointer t -> Pointer(substituteTypeVariables t)
 
 // ------------------------------- Memory layer -------------------------------

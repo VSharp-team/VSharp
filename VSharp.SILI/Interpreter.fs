@@ -335,8 +335,8 @@ and public ILInterpreter() as this =
                 let fullName = getFullNameOfField fieldInfo
                 match addressNeeded, isStruct target with
                 | false, true -> k1 (Memory.ReadBlockField target fullName fieldType, state)
-                | false, false -> Memory.ReferenceField fullName fieldType target |> Memory.Dereference state |> k1
-                | true, _ -> k1 (Memory.ReferenceField fullName fieldType target, state)
+                | false, false -> Memory.ReferenceField target fullName fieldType |> Memory.Dereference state |> k1
+                | true, _ -> k1 (Memory.ReferenceField target fullName fieldType, state)
             x.NpeOrInvokeStatement {cilState with opStack = stack} (Some target) loadWhenTargetIsNotNull pushFunctionResults
         | _ -> __notImplemented__()
     member private x.StFld (cfg : cfgData) offset (cilState : cilState) =
@@ -348,7 +348,7 @@ and public ILInterpreter() as this =
                 let state = cilState.state
                 let fieldType = fieldInfo.FieldType |> Types.FromDotNetType state
                 let fullName = getFullNameOfField fieldInfo
-                let address = Memory.ReferenceField fullName fieldType targetRef
+                let address = Memory.ReferenceField targetRef fullName fieldType
                 let value, state = castUnchecked fieldType value state id
                 let state = Memory.Mutate state address value |> snd
                 k [Nop, {cilState with state = state}]

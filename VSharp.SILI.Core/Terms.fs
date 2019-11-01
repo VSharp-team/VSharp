@@ -465,7 +465,7 @@ module internal Terms =
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.isReference nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
+                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 
@@ -502,7 +502,7 @@ module internal Terms =
             | Constant(_, _, t)
             | Expression(_, _, t)
             | Struct(_, t) -> t
-            | Ref _ -> sightTypeOfRef term |> Reference
+            | Ref _ -> sightTypeOfRef term
             | Ptr _ -> sightTypeOfPtr term |> Pointer
             | _ -> __unreachable__()
         commonTypeOf getType

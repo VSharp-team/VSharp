@@ -65,7 +65,7 @@ module internal Explorer =
             let typ = frame.typ
             let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
             let fql = makeTopLevelFQL TopLevelStack frame.key
-            let value = Memory.makeSymbolicInstance mtd source name fql typ
+            let value = Memory.makeSymbolicInstance mtd source name typ fql
             Memory.mutateStack mtd st frame.key [] value
         let frames =
             match codeLoc with
@@ -82,9 +82,8 @@ module internal Explorer =
             | _ -> internalfail "some new ICodeLocation"
             |> Types.Constructor.fromDotNetType
             |> State.substituteTypeVariables State.emptyCompositionContext state
-            |> Types.wrapReferenceType
         let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Memory.makeSymbolicInstance mtd source name None typ |> k
+        Memory.makeSymbolicInstance mtd source name typ None |> k
 
     let recursionApplication mtd codeLoc state addr k =
         let name = IdGenerator.startingWith <| sprintf "μ[%O]_" codeLoc
