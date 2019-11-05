@@ -31,7 +31,6 @@ module public TokenCreator =
 [<AbstractClass>]
 type public ExplorerBase() =
     static let CurrentlyBeingExploredLocations = new HashSet<ICodeLocation>()
-    static let CurrentlyCalledLocations = new HashSet<ICodeLocation>()
 
     static let DetectUnboundRecursion (codeLoc : ICodeLocation) (s : state) =
         match codeLoc with
@@ -42,7 +41,6 @@ type public ExplorerBase() =
                 | _ -> false
             s.frames.f |> Stack.pop |> Stack.exists isRecursiveFrame
         ///  TODO: add more logic
-        | :? ILCodePortion as ilcode when CurrentlyCalledLocations.Contains ilcode -> true
         | :? ILCodePortion as ilcode -> //alwaysUnrollValue
             let lastFrame = Stack.peek ilcode.Frames.f
             lastFrame.entries
@@ -146,31 +144,21 @@ type public ExplorerBase() =
             let state = Memory.composeStates ctx state summary.state
             k (result, state))
 
-    member private x.ReproduceEffectOrUnroll areWeStuck body id state setup teardown k =
+    member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
             x.ReproduceEffect id state k
         else
             /// explicitly unrolling
-            setup id
-            body state (fun (result, state) ->
-            teardown id
-            k (result, state))
+            body state k
 
     member x.EnterRecursiveRegion (codeLoc : IFunctionIdentifier) state body k =
         let shouldStopUnrolling = x.ShouldStopUnrolling codeLoc state
-        let setup, teardown =
-            match Options.RecursionUnrollingMode () with
-            | RecursionUnrollingModeType.NeverUnroll -> CurrentlyCalledLocations.Add >> ignore, CurrentlyCalledLocations.Remove >> ignore
-            | _ -> ignore, ignore
-        x.ReproduceEffectOrUnroll shouldStopUnrolling body codeLoc state setup teardown k
+        x.ReproduceEffectOrUnroll shouldStopUnrolling body codeLoc state k
 
     member x.ShouldStopUnrolling (codeLoc : ICodeLocation) state =
         match Options.RecursionUnrollingMode () with
         | RecursionUnrollingModeType.SmartUnrolling -> DetectUnboundRecursion codeLoc state
-        | RecursionUnrollingModeType.NeverUnroll ->
-            CurrentlyCalledLocations.Contains codeLoc ||
-            not <| CurrentlyBeingExploredLocations.Contains codeLoc ||
-            Database.reported codeLoc
+        | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
     member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
