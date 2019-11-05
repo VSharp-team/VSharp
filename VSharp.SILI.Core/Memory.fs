@@ -705,7 +705,13 @@ module internal Memory =
             Mutation(h, composeDefinedHeaps (writer ctx) (fillHoles ctx s) (fillHolesInKey ctx s) (fillHolesInPathSegment ctx s) (readHeap ctx.mtd) false s h' h'')
 
     and composeStacksOf ctx state state' =
-        (foldStackLocations (fillAndMutateStack ctx state) (fillHoles ctx state) (fillHolesInPathSegment ctx state) mergeStates state state'.stack).stack
+        let fillAndMutateStack state stackEffect =
+            foldStackLocations (fillAndMutateStack ctx state) (fillHoles ctx state) (fillHolesInPathSegment ctx state) mergeStates state stackEffect
+        let state'Bottom, state'RestStack, state'RestFrames = State.bottomAndRestFrames state'
+        let state2 = fillAndMutateStack state state'Bottom                                        // apply effect of bottom frame
+        let state3 = {state2 with frames = State.concatFrames state'RestFrames state2.frames}     // add rest frames
+        let state4 = fillAndMutateStack state3 state'RestStack                                    // fill and copy effect of rest frames
+        state4.stack
 
     and composeHeapsOf ctx state heap =
         composeGeneralizedHeaps (fillAndMutateCommon mutateHeap) fillHoles readHeap ctx heapOf withHeap state heap

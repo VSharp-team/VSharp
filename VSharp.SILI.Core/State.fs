@@ -139,6 +139,30 @@ module internal State =
             | None -> sh
         { s with stack = List.fold popOne s.stack locations; frames = { f = f'; sh = sh'} }
 
+    let inline private entriesOfFrame f = f.entries
+
+    let concatFrames frames frames' = { f = frames.f @ frames'.f; sh = frames.sh @ frames'.sh }
+
+    let bottomAndRestFrames (s : state) =
+        let bottomFrame, restFrames = Stack.bottomAndRest s.frames.f
+        let sh = s.frames.sh
+        let sh' =
+            match bottomFrame.func with
+            | Some _ ->
+                assert(not <| List.isEmpty sh)
+                List.lastAndRest sh |> snd
+            | None -> sh
+        let getStackFrame locations =
+            let pushOne stack (entry : entry) =
+                match MappedStack.tryFind entry.key s.stack with
+                | Some v -> MappedStack.push entry.key v stack
+                | None -> MappedStack.reserve entry.key stack
+            let stack = List.fold pushOne MappedStack.empty locations
+            stack
+        let bottom = bottomFrame |> entriesOfFrame |> getStackFrame
+        let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
+        bottom, rest, { f = restFrames; sh = sh' }
+
     let writeStackLocation (s : state) key value : state =
         { s with stack = MappedStack.add key value s.stack }
 
@@ -164,7 +188,6 @@ module internal State =
         let acc = generalizedHeapFold termFolder typeFolder termFolder acc state.heap
         generalizedHeapFold typeFolder typeFolder termFolder acc state.statics
 
-    let inline private entriesOfFrame f = f.entries
     let inline private keyOfEntry en = en.key
 
     let typeOfStackLocation (s : state) key =

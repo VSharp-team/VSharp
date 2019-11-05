@@ -45,11 +45,14 @@ module public MappedStack =
             else Map.add key (idx - 1ul) peaks
         contents', peaks'
 
-    let find key (contents, peaks) =
+    let tryFind key (contents, peaks) =
         let idx = peakIdx peaks key
         assert (idx > defaultPeak)
         let key' = makeExtendedKey key idx
-        match Map.tryFind key' contents with
+        Map.tryFind key' contents
+
+    let find key stack =
+        match tryFind key stack with
         | Some term -> term
         | None -> failwith "Attempt get value by key which is not presented in stack"
 

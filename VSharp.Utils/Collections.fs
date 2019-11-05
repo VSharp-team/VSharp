@@ -71,6 +71,15 @@ module public List =
 
     let public cartesianMap mapper = cartesian >> Seq.map mapper
 
+    let lastAndRest xs =
+        let rec lastAndRest x xs k =
+            match xs with
+            | [] -> k x []
+            | y::ys -> lastAndRest y ys (fun c cs -> k c (x::cs))
+        match xs with
+        | [] -> internalfail "List.last of empty list!"
+        | x::xs -> lastAndRest x xs makePair
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 
@@ -124,6 +133,8 @@ module public Stack =
     let peek = function
         | [] -> failwith "Attempt to peak head of an empty stack"
         | hd::_ -> hd
+
+    let bottomAndRest = List.lastAndRest
 
     let pop = function
         | [] -> failwith "Attempt to pop an empty stack"
