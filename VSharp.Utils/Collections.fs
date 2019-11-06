@@ -144,3 +144,5 @@ module public Stack =
     let size = List.length
 
     let tryFindBottom = List.tryFindBack
+
+    let exists = List.exists

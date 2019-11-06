@@ -124,7 +124,6 @@ module internal Z3 =
                 let decl =
                     match id with
                     | :? IMethodIdentifier -> __notImplemented__()
-                    | :? IDelegateIdentifier -> __notImplemented__()
                     | :? StandardFunctionIdentifier as sf -> (ctx()).MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
                     | _ -> __notImplemented__()
                 (ctx()).MkApp(decl, encodeTerms stopper args)

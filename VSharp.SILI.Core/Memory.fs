@@ -45,7 +45,7 @@ module internal Memory =
     let referenceArrayLength arrayRef (indices : term) =
         referenceSubLocations arrayRef [ArrayLength indices]
 
-    let private referenceBlockField structRef (name : string) typ =
+    let referenceBlockField structRef (name : string) typ =
         referenceSubLocations structRef [BlockField(name, typ)]
 
 // ------------------------------- Traversal -------------------------------
@@ -120,17 +120,6 @@ module internal Memory =
         | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
-    let (|LazyInstantiationEpsilon|_|) (src : ISymbolicConstantSource) = // for None case of ground heap
-        let getLocation (li : 'a lazyInstantiation) =
-            match li with
-            | { heap = None } -> Some(li.location)
-            | _ -> None
-        match src with
-        | :? lazyInstantiation<obj> as li -> getLocation li
-        | :? lazyInstantiation<termType> as li -> getLocation li
-        | :? lazyInstantiation<term> as li -> getLocation li // TODO: generic shape pattern matching doesn't work in F#!
-        | _ -> None                                          // TODO: there should be more cases
-
     let private mkFields metadata isStatic mkField fql typ =
         let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
@@ -156,7 +145,7 @@ module internal Memory =
             (fun k -> k <| mkStruct metadata isStatic mkField typ fql)
             (fun k -> k <| mkClass metadata isStatic mkField typ fql)
 
-    let rec private defaultOf metadata typ fql =
+    let rec defaultOf metadata typ fql =
         match typ with
         | Bool -> makeFalse metadata
         | Numeric t when t.IsEnum -> CastConcrete true (System.Activator.CreateInstance t) t metadata
@@ -173,9 +162,6 @@ module internal Memory =
             mkStruct metadata false (fun m _ t -> defaultOf m t) typ fql
         | Pointer typ -> makeNullPtr metadata typ
         | _ -> __notImplemented__()
-
-    let mkDefault metadata typ fql =
-        defaultOf metadata typ fql
 
     let mkDefaultBlock metadata targetType fql =
         mkBlock metadata false (fun m _ t -> defaultOf m t) targetType fql
@@ -412,8 +398,9 @@ module internal Memory =
             | None ->
                 let baseGuard = restGavs |> List.map (fst3 >> (!!)) |> conjunction metadata
                 let lazyValue =
-                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation && List.isEmpty contextList then Union metadata [] // TODO: incorrect deref during independent check (Test -- RecursiveAccess.G)
-                    else lazyInstantiator |?? genericLazyInstantiator metadata groundHeap ptr.fullyQualifiedLocation ptr.typ |> eval
+                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation && List.isEmpty contextList && List.isEmpty ptr.path
+                        then Union metadata [] // TODO: incorrect deref during independent check (Test -- RecursiveAccess.G)
+                        else lazyInstantiator |?? genericLazyInstantiator metadata groundHeap ptr.fullyQualifiedLocation ptr.typ |> eval
                 let gavs = if read then restGavs else (baseGuard, heapKey, lazyValue)::restGavs
                 let lv = if read then Some(baseGuard, lazyValue) else None
                 let h = if read then h else Heap.add heapKey lazyValue h
@@ -529,9 +516,8 @@ module internal Memory =
         match Database.querySummary codeLoc with
         | Some summary ->
             let t, _ = read exploredRecursiveIds summary.state
-            match t.term with
-            | Constant(_, LazyInstantiationEpsilon(location'), _) when location = location' -> true
-            |_ -> false
+            let li = genericLazyInstantiator Metadata.empty (None : 'a generalizedHeap option) (getFQLOfRef location) (typeOf location) ()
+            li = t
         | None -> false
 
     and private accessGeneralizedHeapRec<'a when 'a : equality> (exploredIds : ImmutableHashSet<ICodeLocation>) unlucky contextList lazyInstantiator read readHeap (getter : state -> 'a generalizedHeap) location accessDefined = function
@@ -755,9 +741,6 @@ module internal Memory =
     and referenceLocalVariable metadata location =
         StackRef metadata location []
 
-    let referenceField parentRef name typ =
-        referenceBlockField parentRef name typ
-
     let referenceStaticField metadata targetType fieldName fieldType =
         StaticRef metadata targetType [BlockField(fieldName, fieldType)]
 
@@ -776,7 +759,7 @@ module internal Memory =
                     bigEnough &&& smallEnough)))
                 indices lowerBoundsList lengthsList
             |> List.ofSeq
-        k (conjunction mtd bounds |> unguard |> merge , state'')))
+        k (conjunction mtd bounds |> unguard |> merge, state'')))
 
     let referenceArrayIndex metadata state arrayRef (indices : term list) =
         let reference state arrayRef =
@@ -801,9 +784,6 @@ module internal Memory =
         State.fillHoles <- fillHoles
 
 // ------------------------------- Allocation -------------------------------
-
-    let newStackFrame state metadata funcId frame = State.newStackFrame metadata state funcId frame
-    let newScope metadata state frame = State.newScope metadata state frame
 
     let freshHeapLocation metadata =
         Concrete metadata ([freshAddress()]) pointerType
@@ -869,7 +849,7 @@ module internal Memory =
         if isRef
             then instance, state, false
             else
-                let state = newStackFrame state metadata (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
+                let state = State.newStackFrame metadata state (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
                 referenceLocalVariable metadata thisKey, state, true
 
 // --------------------------------------- Is Location Initialized Check ---------------------------------------

@@ -38,17 +38,13 @@ type public ExplorerBase() =
         | :? IFunctionIdentifier as id ->
             let isRecursiveFrame (frame : stackFrame) =
                 match frame.func with
-                | Some(id', _) when id = id' -> true
+                | Some(id', pc') -> id = id' && s.pc = pc'
                 | _ -> false
-            let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
-            match bottomOccurence with
-            | None -> false
-            | Some { func = Some(_, p'); entries = _ } when s.pc = p' -> false
-            | _ -> true
+            s.frames.f |> Stack.pop |> Stack.exists isRecursiveFrame
         ///  TODO: add more logic
         | :? ILCodePortion as ilcode when CurrentlyCalledLocations.Contains ilcode -> true
         | :? ILCodePortion as ilcode -> //alwaysUnrollValue
-            let lastFrame = List.head ilcode.Frames.f
+            let lastFrame = Stack.peek ilcode.Frames.f
             lastFrame.entries
             |> List.exists (fun (entry : entry) ->
                 if TokenCreator.stackKeyIsLocalVariable entry.key then false else
@@ -122,13 +118,10 @@ type public ExplorerBase() =
                         else
                             Memory.makeSymbolicThis metadata initialState m.Token declaringType
                             |> (fun (f, s, flag) -> Some f, s, flag)
-                    | :? IDelegateIdentifier as dlgt ->
-                        // TODO: Create dummy frame
-                        (None, initClosure dlgt.ContextFrames, false)
                     | _ -> __notImplemented__()
                 let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull metadata (Option.get this)) else Nop
                 let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
-                let state = x.FormInitialState funcId state
+                let state = x.FormInitialState funcId state this
                 x.Invoke funcId state this (fun (res, state) ->
                     let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
                     let state = if isMethodOfStruct then State.popStack state else state
@@ -262,7 +255,7 @@ type public ExplorerBase() =
         HigherOrderApply funcId state k
 
     abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
-    abstract member FormInitialState : IFunctionIdentifier -> state -> state
+    abstract member FormInitialState : IFunctionIdentifier -> state -> term option -> state
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 
 
@@ -287,12 +280,13 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
             let st1 = x.InternalState
             let st2 = y.InternalState
             let cond1List, cond2List, commonPc = findCommonSuffix [] (List.rev st1.pc) (List.rev st2.pc)
-            let cond1 = List.fold (&&&) True cond1List
-            let cond2 = List.fold (&&&) True cond2List
+            let cond1 = conjunction cond1List
+            let cond2 = conjunction cond2List
+            let common = conjunction commonPc
             let result =
                 match x.ResultTerm, y.ResultTerm with
                 | None, None -> None
-                | Some t1, Some t2 -> Some <| Merging.merge2Terms cond1 cond2 t1 t2
+                | Some t1, Some t2 -> Some <| Merging.merge2Terms (cond1 &&& common) (cond2 &&& common) t1 t2
                 | _ -> internalfail "only one state has result"
             let mergedInternalState = Merging.merge2States cond1 cond2 {st1 with pc = commonPc} {st2 with pc = commonPc}
             let newSt = x.SetState mergedInternalState

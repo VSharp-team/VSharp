@@ -105,6 +105,8 @@ module API =
         val (|||) : term -> term -> term
         val (===) : term -> term -> term
         val (!==) : term -> term -> term
+        val conjunction : term seq -> term
+        val disjunction : term seq -> term
 
     module public Arithmetics =
         val (===) : term -> term -> term

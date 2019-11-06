@@ -11,9 +11,6 @@ type IMethodIdentifier =
     abstract DeclaringType : System.Type
     abstract DeclaringAssembly : Assembly
     abstract Token : string
-type IDelegateIdentifier =
-    inherit IFunctionIdentifier
-    abstract ContextFrames : frames
 
 type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IFunctionIdentifier, state : state) =
     member x.VertexNumber with get() = vertexNumber
@@ -69,8 +66,7 @@ module internal Explorer =
             Memory.mutateStack mtd st frame.key [] value
         let frames =
             match codeLoc with
-            | :? IDelegateIdentifier as di -> di.ContextFrames.f
-            | :? ILCodePortion as ilcode -> [List.head ilcode.Frames.f]
+            | :? ILCodePortion as ilcode -> [Stack.peek ilcode.Frames.f]
             | _ -> []
         frames |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
 
@@ -104,7 +100,7 @@ module internal Explorer =
             { mutateStackClosure mtd funcId state with
                 heap = HigherOrderApplication(res, addr);
                 statics = HigherOrderApplication(res, addr) }
-        k (res , higherOrderState))
+        k (res, higherOrderState))
 
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with

@@ -4,7 +4,7 @@ open VSharp
 
 module Substitution =
 
-    let substituteHeap keySubst valueSubst heap =
+    let private substituteHeap keySubst valueSubst heap =
         Heap.mapFold (fun errs k v ->
             let ges, v' = Merging.erroredUnguard v
             ((keySubst k, valueSubst v'), List.append errs ges)) [] heap
@@ -83,7 +83,7 @@ module Substitution =
     and private substitutePath subst typeSubst ctor path =
         path |> Merging.genericGuardedCartesianProduct (substituteSegment subst typeSubst) ctor
 
-    and substituteRef subst typeSubst path ctor topLevel = // TODO: add substitution of FQL
+    and private substituteRef subst typeSubst path ctor topLevel = // TODO: add substitution of FQL
         path |> substitutePath subst typeSubst (fun path' ->
             match topLevel with
             | TopLevelHeap(addr, bt, st) ->

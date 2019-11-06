@@ -87,7 +87,7 @@ module internal Common =
         | Void, _   | _, Void
         | Bottom, _ | _, Bottom -> makeFalse mtd
         | Pointer _, Pointer _ -> makeTrue mtd
-        | ArrayType _ , ArrayType(_, SymbolicDimension) -> makeTrue mtd
+        | ArrayType _, ArrayType(_, SymbolicDimension) -> makeTrue mtd
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then typeIsType mtd t1 t2 else makeFalse mtd
         | ComplexType, ComplexType ->
