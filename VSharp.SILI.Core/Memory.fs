@@ -635,7 +635,14 @@ module internal Memory =
     and private fillAndMutateStack (ctx : compositionContext) source (acc : foldSubLocationAccWrapper<_,stackKey,_>) _ segment value = // TODO: firstly fill all holes and then mutate
         let path' = fillAndPushSegment ctx source acc.path segment
         let v = fillHoles ctx source value
-        { acc with acc = mutateStack ctx.mtd acc.acc acc.loc path' v }
+        match acc.loc with
+        | (name, token) when Pointers.symbolicThisStackKey.Equals(name) ->
+            let loc = "this", token
+            let thisRef = stackDeref (stackLazyInstantiator acc.acc loc) acc.acc loc |> fst
+            let ref = referenceSubLocations thisRef path' //TODO: or (Option.toList segment) ?
+            let _, state = mutate ctx.mtd acc.acc ref v
+            { acc with acc = state }
+        | loc -> { acc with acc = mutateStack ctx.mtd acc.acc loc path' v }
 
     and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (acc : foldSubLocationAccWrapper<'a heap,'a,_>) typ segment value =
         let path' = fillAndPushSegment ctx source acc.path segment
@@ -711,7 +718,7 @@ module internal Memory =
         let state2 = fillAndMutateStack state state'Bottom                                        // apply effect of bottom frame
         let state3 = {state2 with frames = State.concatFrames state'RestFrames state2.frames}     // add rest frames
         let state4 = fillAndMutateStack state3 state'RestStack                                    // fill and copy effect of rest frames
-        state4.stack
+        state4
 
     and composeHeapsOf ctx state heap =
         composeGeneralizedHeaps (fillAndMutateCommon mutateHeap) fillHoles readHeap ctx heapOf withHeap state heap
@@ -720,12 +727,13 @@ module internal Memory =
         composeGeneralizedHeaps (fillAndMutateCommon mutateStatics) substituteTypeVariables readStatics ctx staticsOf withStatics state statics
 
     and composeStates ctx state state' =
-        let stack = composeStacksOf ctx state state'
-        let heap = composeHeapsOf ctx state state'.heap
-        let statics = composeStaticsOf ctx state state'.statics
+        let stateWithNewFrames = composeStacksOf ctx state state'
+        let stateWithOldFrames = {stateWithNewFrames with stack = state.stack; frames = state.frames}
+        let heap = composeHeapsOf ctx stateWithOldFrames state'.heap
+        let statics = composeStaticsOf ctx stateWithOldFrames state'.statics
         assert(state'.typeVariables |> snd |> Stack.isEmpty)
-        let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = pc; typeVariables = state.typeVariables }
+        let pc = List.map (fillHoles ctx stateWithOldFrames) state'.pc |> List.append stateWithOldFrames.pc
+        { stateWithNewFrames with heap = heap; statics = statics; pc = pc }
 
 // ------------------------------- High-level read/write -------------------------------
 
