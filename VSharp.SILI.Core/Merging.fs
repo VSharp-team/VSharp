@@ -241,6 +241,14 @@ module internal Merging =
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs [] |> mergeSame
 
+    and unguard = function
+        | {term = Union gvs} -> gvs
+        | t -> [(True, t)]
+
+    and conditionUnderState condition state =
+        Propositional.conjunction condition.metadata (condition :: State.pathConditionOf state)
+        |> unguard |> merge
+
 // ------------------------------------ Mapping non-term sequences ------------------------------------
 
     and guardedMapWithoutMerge f gvs =
@@ -272,9 +280,11 @@ module internal Merging =
 
     let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge mergeStates k =
         let foldFunc (gvs, egs, vgs, states) (g, v) k =
-            if isError v then k ((g, errorMapper v) :: gvs, g :: egs, vgs, states)
-            // TODO: do not map if (guard & pc) = false
-            else mapper (State.withPathCondition state g) v (fun (t, s) -> k ((g, t) :: gvs, egs, g :: vgs, State.popPathCondition s :: states))
+            let pc = conditionUnderState g state
+            match pc with
+            | False -> k (gvs, egs, vgs, states)
+            | _ when isError v -> k ((g, errorMapper v) :: gvs, g :: egs, vgs, states)
+            |_ -> mapper (State.withPathCondition state g) v (fun (t, s) -> k ((g, t) :: gvs, egs, g :: vgs, State.popPathCondition s :: states))
         Cps.List.foldlk foldFunc ([], [], [], []) gvs (fun (gvs, egs, vgs, states) ->
         let eg = disjunction Metadata.empty egs
         let state' = mergeStates (eg :: vgs) (state :: states)
@@ -289,10 +299,6 @@ module internal Merging =
     let guardedErroredStatedApply f state term = guardedErroredStatedApplyk (Cps.ret2 f) state term id
 
 // ----------------------------------------------------------------------------------------------------
-
-    let unguard = function
-        | {term = Union gvs} -> gvs
-        | t -> [(True, t)]
 
     let erroredUnguard term =
         let ges, gvs = term |> unguard |> List.partition (snd >> isError)

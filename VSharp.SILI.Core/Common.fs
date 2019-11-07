@@ -216,12 +216,8 @@ module internal Common =
             let state = merge2States condition !!condition (State.popPathCondition thenState) (State.popPathCondition elseState)
             k (result, state)))
         let chooseBranch conditionState condition k =
-            let thenCondition =
-                Propositional.conjunction condition.metadata (condition :: State.pathConditionOf conditionState)
-                |> Merging.unguard |> Merging.merge
-            let elseCondition =
-                Propositional.conjunction condition.metadata (!!condition :: State.pathConditionOf conditionState)
-                |> Merging.unguard |> Merging.merge
+            let thenCondition = Merging.conditionUnderState condition conditionState
+            let elseCondition = Merging.conditionUnderState !!condition conditionState
             match thenCondition, elseCondition with
             | False, _ -> elseBranch conditionState k
             | _, False -> thenBranch conditionState k
