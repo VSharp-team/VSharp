@@ -104,7 +104,9 @@ module internal Explorer =
 
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with
-            override x.Compose ctx state =
+            override x.ComposeWithoutExtractor ctx state =
                 let state' = Memory.composeStates ctx state x.state
                 let source' = {x with state = state'}
                 Constant ctx.mtd x.name.v source' x.typ
+            override x.Compose ctx state =
+                (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract

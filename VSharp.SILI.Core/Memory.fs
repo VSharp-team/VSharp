@@ -534,12 +534,15 @@ module internal Memory =
             let result, h'' = accessDefined contextList lazyInstantiator (Some h) false h'
             if read then
                 let accessH = lazy(accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined h |> fst)
-                let simplifyInstantiated term =
+                let simplifyInstantiatedOrApply apply term =
                     match term.term with
                     | Constant(_, LazyInstantiation(loc, Some heap, _), _) when loc = location && heap = h ->
                         accessH.Force()
-                    | _ -> term
-                Substitution.substitute simplifyInstantiated id result, m
+                    | _ -> apply term
+                let simplifyInstantiatedAddress address baseType sightType ctor path' =
+                    let apply address = ctor (TopLevelHeap (address, baseType, sightType)) path'
+                    simplifyInstantiatedOrApply apply address
+                Substitution.substitute (simplifyInstantiatedOrApply id) simplifyInstantiatedAddress id result, m
             else
                 result, Mutation(h, h'')
         | Composition(_, _, Defined _) ->
@@ -615,8 +618,29 @@ module internal Memory =
             referenceSubLocations reference path
         | _ -> term
 
+    and private fillHoleInHeapAddress (ctx : compositionContext) state address baseType sightType ctor path' =
+        let heapCtor addr bt = ctor (TopLevelHeap (addr, bt, sightType)) path'
+        match address.term with
+        | Constant(_, source, _) ->
+            match source with
+            | :? IExtractingSymbolicConstantSource as source ->
+                let composeAddresses reference =
+                    match reference.term with
+                    | Ref(TopLevelHeap (a, bt, _), [])
+                    | Ptr(TopLevelHeap (a, bt, _), [], _, _) -> heapCtor a bt
+                    | Ref(NullAddress, [])
+                    | Ptr(NullAddress, [], _, _) -> ctor NullAddress path'
+                    | _ -> __notImplemented__()
+                let reference = source.ComposeWithoutExtractor ctx state
+                Merging.guardedErroredApply composeAddresses reference
+            | _ -> __notImplemented__()
+        | Concrete(:? concreteHeapAddress as addr', t) ->
+            let addr = Concrete ctx.mtd (composeAddresses ctx.addr addr') t
+            heapCtor addr baseType
+        | _ -> __notImplemented__()
+
     and fillHoles ctx state term =
-        Substitution.substitute (fillHole ctx state) (substituteTypeVariables ctx state) term
+        Substitution.substitute (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) term
 
     and fillHolesInHeap fillHolesInKey ctx state heap =
         Heap.map (fun k value -> fillHolesInKey ctx state k, fillHoles ctx state value) heap
@@ -913,7 +937,7 @@ module internal Memory =
 
     type lazyInstantiation<'a when 'a : equality> with
         interface IExtractingSymbolicConstantSource with
-            override x.Compose ctx state =
+            override x.ComposeWithoutExtractor ctx state =
                 let state' =
                     match x.heap with
                     | Some heap ->
@@ -924,7 +948,10 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                derefWithoutValidation ctx.mtd state' loc |> x.extractor.Extract
+                let ref = derefWithoutValidation ctx.mtd state' loc
+                ref
+            override x.Compose ctx state =
+                (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract
 
     type keyInitializedSource<'a when 'a : equality> with
         interface IStatedSymbolicConstantSource with

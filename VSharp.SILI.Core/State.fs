@@ -61,6 +61,7 @@ type private IdTermExtractor() =
 type IExtractingSymbolicConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
+    abstract ComposeWithoutExtractor : compositionContext -> state -> term
 type IExtractingSymbolicTypeSource =
     inherit IStatedSymbolicTypeSource
     abstract WithTypeExtractor : TypeExtractor -> IExtractingSymbolicTypeSource
