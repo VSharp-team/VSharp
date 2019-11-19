@@ -115,6 +115,21 @@ module internal Memory =
                 match other with
                 | :? lazyInstantiation<'a> as li -> x.location = li.location
                 | _ -> false
+
+    let lazyInstantiationWithExtractor location heap extractor typeExtractor : IExtractingSymbolicConstantSource =
+        let gli heap = {location = location; heap = heap; extractor = extractor; typeExtractor = typeExtractor} :> IExtractingSymbolicConstantSource
+        match heap, location.term with
+        | None, Ref(TopLevelHeap _, _) -> gli (None : term generalizedHeap option)
+        | None, Ref(TopLevelStatics _, _) -> gli (None : termType generalizedHeap option)
+        | None, Ref(TopLevelStack _, _) -> gli (None : obj generalizedHeap option)
+        | Some _, _ -> gli heap
+        | _ -> __notImplemented__()
+
+    let lazyInstantiation location heap = lazyInstantiationWithExtractor location heap (IdTermExtractor()) (IdTypeExtractor())
+
+    type lazyInstantiation<'a when 'a : equality> with
+        member x.WithLocation loc = lazyInstantiationWithExtractor loc x.heap x.extractor x.typeExtractor
+
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
@@ -181,10 +196,12 @@ module internal Memory =
         match Options.ExplorationMode() with
         | TrustConventions -> defaultOf metadata lengthType <| Some fql
         | CompleteExploration ->
-            Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
+            let liSource = lazyInstantiation (makeFQLRef metadata fql) heap
+            Constant metadata name liSource lengthType
 
     let private makeSymbolicArrayLength metadata name fql heap =
-        Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
+        let liSource = lazyInstantiation (makeFQLRef metadata fql) heap
+        Constant metadata name liSource lengthType
 
     let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
@@ -193,7 +210,9 @@ module internal Memory =
             | TrustConventions -> Arrays.zeroLowerBounds metadata dimension fql
             | CompleteExploration ->
                 let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
-                let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber metadata i)} lengthType
+                let mkLowerBound i =
+                    let liSourceI = liSource.WithLocation(referenceArrayLowerBound liSource.location (makeNumber metadata i))
+                    Constant metadata (idOfBound i) liSourceI lengthType
                 Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLowerBound i fql lengthType) l h) Heap.empty (Seq.init dimension mkLowerBound)
         | _ -> __notImplemented__()
 
@@ -201,7 +220,9 @@ module internal Memory =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             let idOfLength i = sprintf "%s.%i_Length" arrayName i
-            let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber metadata i)} lengthType
+            let mkLength i =
+                let liSourceI = liSource.WithLocation(referenceArrayLength liSource.location (makeNumber metadata i))
+                Constant metadata (idOfLength i) liSourceI lengthType
             let lengths = Seq.init dimension mkLength
             let length = Seq.reduce (mul metadata) lengths
             Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLength i fql lengthType) l h) Heap.empty lengths, length
@@ -231,7 +252,7 @@ module internal Memory =
         | :? lazyInstantiation<term> as liSource ->
             let makeSymbolicStringField key t makeField =
                 let ref = referenceBlockField liSource.location key t
-                makeField {liSource with location = ref} t
+                makeField (liSource.WithLocation(ref)) t
             let lengthName = sprintf "%s.m_StringLength" strName
             let length = makeSymbolicStringField Strings.strLength lengthType (Constant mtd lengthName)
             let arrayFQL = Strings.makeArrayFQL fql
@@ -278,7 +299,7 @@ module internal Memory =
         let makeSymbolicStruct' (liSource : 'a lazyInstantiation) =
             let makeField mtd name typ fql =
                 let fieldName = sprintf "%s.%s" structName name
-                let fieldSource = {liSource with location = referenceBlockField liSource.location name typ}
+                let fieldSource = liSource.WithLocation(referenceBlockField liSource.location name typ)
                 makeSymbolicInstance mtd fieldSource fieldName typ fql
             mkStruct metadata false makeField typ fql
         match source with
@@ -288,7 +309,7 @@ module internal Memory =
         | _ -> __notImplemented__()
 
     let private genericLazyInstantiator metadata heap fql typ () =
-        let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+        let source = lazyInstantiation (makeFQLRef metadata fql) heap
         makeSymbolicInstance metadata source (nameOfLocation fql) typ (Some fql)
 
     let () =
@@ -298,7 +319,7 @@ module internal Memory =
         | DefaultInstantiator concreteType -> fun () -> defaultOf metadata (typ |?? concreteType) <| Some fql
         | LazyInstantiator concreteType -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (nameOfLocation fql) (idx.term.IndicesToString())
-            let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+            let source = lazyInstantiation (makeFQLRef metadata fql) heap
             makeSymbolicInstance metadata source id concreteType (Some fql)
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap fql (idx : term) = function
         | DefaultInstantiator _-> fun () -> defaultOf metadata lengthType <| Some fql
@@ -882,7 +903,7 @@ module internal Memory =
         let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
         let fql = TopLevelStack thisKey, []
         let thisStackRef = makeFQLRef metadata fql
-        let liSource = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+        let liSource = lazyInstantiation thisStackRef None
         let instance = makeSymbolicInstance metadata liSource "this" typ (Some fql)
         if isRef
             then instance, state, false
