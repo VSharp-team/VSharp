@@ -1,0 +1,29 @@
+METHOD: System.Void VSharp.Test.Tests.StackTests.TestBinTree2(VSharp.Test.Tests.StackTests+BinTree, System.Int32)
+RESULT: <VOID>
+HEAP:
+{ heap = merge[
+	(!(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left, h0),
+	(!(0 == tree) & !(0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) & !(0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left) & x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key, { heap = <empty>, statics = s1 } ⚪ recapp(Add2))], statics = merge[
+	(!(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left, s2),
+	(!(0 == tree) & !(0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) & !(0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left) & x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key, { heap = <empty>, statics = s1 } ⚪ recapp(Add2))] } where
+---------- h0 = ----------
+1.1.1 ==> VSharp.Test.Tests.StackTests+BinTreeNode CLASS [
+	| VSharp::Test::Tests::StackTests::BinTreeNode::Key ~> x
+	| VSharp::Test::Tests::StackTests::BinTreeNode::Left ~> UNION[
+		| !(1.1.1 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) ~> null
+		| 1.1.1 == tree.VSharp::Test::Tests::StackTests::BinTree::_root ~> (HeapRef 1.1.1)]
+	| VSharp::Test::Tests::StackTests::BinTreeNode::Right ~> null]
+tree.VSharp::Test::Tests::StackTests::BinTree::_root ==> UNION[
+	| !(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left ~> CLASS [
+		| VSharp::Test::Tests::StackTests::BinTreeNode::Left ~> UNION[
+			| !(0 == tree) & !(0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) & !(1.1.1 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) & 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left & x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key ~> (HeapRef 1.1.1)
+			| (!(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left) & ((!(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left & 1.1.1 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) & (!(x < tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Key) | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left) | 0 == tree.VSharp::Test::Tests::StackTests::BinTree::_root) | 0 == tree ~> (HeapRef tree.VSharp::Test::Tests::StackTests::BinTree::_root.VSharp::Test::Tests::StackTests::BinTreeNode::Left)]]]
+---------- s1 = ----------
+VSharp.Test.Tests.StackTests ==> CLASS []
+VSharp.Test.Tests.StackTests+BinTree ==> CLASS []
+VSharp.Test.Tests.StackTests+BinTreeNode ==> CLASS []
+---------- s2 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.StackTests ==> CLASS []
+VSharp.Test.Tests.StackTests+BinTree ==> CLASS []
+VSharp.Test.Tests.StackTests+BinTreeNode ==> CLASS []

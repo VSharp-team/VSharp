@@ -48,7 +48,7 @@ namespace VSharp.Test.Tests
             return **&p;
         }
 
-        [TestSvm]
+        [Ignore("topLevelLocation of StackRef")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
             var s = new IntPtr(&myFavouriteParameter);

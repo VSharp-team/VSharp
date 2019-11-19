@@ -1,0 +1,13 @@
+METHOD: System.Int32 VSharp.Test.Tests.StackTests.TestRecF(System.Int32)
+RESULT: UNION[
+	| !(-15 + n <= 0) & !(-16 + n <= 0) ~> μ[RecF]_1
+	| !(-15 + n <= 0) & -16 + n <= 0 ~> 56
+	| -15 + n <= 0 ~> 12]
+HEAP:
+{ heap = merge[
+	(-15 + n <= 0 | -16 + n <= 0, <empty>),
+	(!(-15 + n <= 0) & !(-16 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(RecF))], statics = merge[
+	(-15 + n <= 0 | -16 + n <= 0, s0),
+	(!(-15 + n <= 0) & !(-16 + n <= 0), { heap = <empty>, statics = s0 } ⚪ recapp(RecF))] } where
+---------- s0 = ----------
+VSharp.Test.Tests.StackTests ==> CLASS []

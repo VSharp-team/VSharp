@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using VSharp.CSharpUtils;
 
 namespace VSharp.Test
 {
@@ -106,6 +107,29 @@ namespace VSharp.Test
             Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[7]));
             Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[8]));
             Assert.AreEqual(false, TypeUtils.isValueTypeParameter(genericArguments[9]));
+        }
+
+        private class Program
+        {
+            public static T G<T>(T x)
+            {
+                return x;
+            }
+
+            public static T F<T>(T x)
+            {
+                return x;
+            }
+        }
+
+        [Test]
+        public void TestGenericHashes()
+        {
+            var ts = typeof(Program).GetMethods();
+            var f = ts[0].ReturnType;
+            var g = ts[1].ReturnType;
+            Assert.AreNotEqual(f, g);
+            Assert.AreNotEqual(f.GetDeterministicHashCode(), g.GetDeterministicHashCode());
         }
     }
 }

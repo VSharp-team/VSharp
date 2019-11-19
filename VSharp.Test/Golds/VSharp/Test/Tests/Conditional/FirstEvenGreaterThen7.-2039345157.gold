@@ -1,6 +1,10 @@
 METHOD: System.Int32 VSharp.Test.Tests.Conditional.FirstEvenGreaterThen7()
-RESULT: 8
+RESULT: UNION[
+	| !(μ[Vertex = 7, RV = [7], __loc__0] < 0) & !(μ[Vertex = 7, RV = [7], __loc__0] <= μ[Vertex = 7, RV = [7], n]) & 0 == μ[Vertex = 7, RV = [7], __loc__0] % 2 ~> μ[Vertex = 7, RV = [7], __loc__0]
+	| μ[Vertex = 7, RV = [7], __loc__0] < 0 ~> 100500]
 HEAP:
-{ heap = <empty>, statics = s0 } where
+{ heap = merge[
+	(!(μ[Vertex = 7, RV = [7], __loc__0] <= μ[Vertex = 7, RV = [7], n]) & 0 == μ[Vertex = 7, RV = [7], __loc__0] % 2 | μ[Vertex = 7, RV = [7], __loc__0] < 0, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 7, RV = [7]))], statics = merge[
+	(!(μ[Vertex = 7, RV = [7], __loc__0] <= μ[Vertex = 7, RV = [7], n]) & 0 == μ[Vertex = 7, RV = [7], __loc__0] % 2 | μ[Vertex = 7, RV = [7], __loc__0] < 0, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 7, RV = [7]))] } where
 ---------- s0 = ----------
 VSharp.Test.Tests.Conditional ==> CLASS []
