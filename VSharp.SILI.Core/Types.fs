@@ -1,8 +1,8 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.CSharpUtils
 open global.System
-open System.Reflection
 
 type ISymbolicTypeSource =
     abstract TypeEquals : ISymbolicTypeSource -> bool
@@ -19,10 +19,10 @@ type termType =
     | Bottom
     | Null // TODO: delete Null from termType
     | Bool
-    | Numeric of System.Type
-    | StructType of System.Type * termType list        // Value type with generic argument
-    | ClassType of System.Type * termType list         // Reference type with generic argument
-    | InterfaceType of System.Type * termType list     // Interface type with generic argument
+    | Numeric of typeId
+    | StructType of typeId * termType list        // Value type with generic argument
+    | ClassType of typeId * termType list         // Reference type with generic argument
+    | InterfaceType of typeId * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
     | Pointer of termType // C-style pointers like int*
@@ -33,10 +33,10 @@ type termType =
         | Bottom -> "exception"
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
-        | Numeric t -> t.FullName
-        | StructType(t, g)
-        | ClassType(t, g)
-        | InterfaceType(t, g) ->
+        | Numeric(Id t) -> t.FullName
+        | StructType(Id t, g)
+        | ClassType(Id t, g)
+        | InterfaceType(Id t, g) ->
             if t.IsGenericType
                 then
                     let args = String.Join(",", (Seq.map toString g))
@@ -54,7 +54,7 @@ and [<CustomEquality;CustomComparison>]
         | Id of System.Type
         override x.GetHashCode() =
             match x with
-            | Id h -> hash h
+            | Id h -> h.GetDeterministicHashCode()
         override x.Equals(o : obj) =
             match o with
             | :? typeId as other ->
@@ -71,8 +71,10 @@ and [<CustomEquality;CustomComparison>]
 
 module internal Types =
 
+    let Numeric t = Numeric (Id t)
+
     let (|Char|_|) = function
-        | Numeric t when t = typeof<char> -> Some()
+        | Numeric(Id t) when t = typeof<char> -> Some()
         | _ -> None
 
     let (|StructureType|_|) = function
@@ -125,7 +127,7 @@ module internal Types =
         | _ -> false
 
     let isObject = function
-        | ClassType(t, _) when t = typedefof<obj> -> true
+        | ClassType(Id t, _) when t = typedefof<obj> -> true
         | _ -> false
 
     let isVoid = function
@@ -155,10 +157,10 @@ module internal Types =
     let rec toDotNetType t =
         match t with
         | Bool -> typedefof<bool>
-        | Numeric t -> t
-        | StructType(t, args)
-        | InterfaceType(t, args)
-        | ClassType(t, args) ->
+        | Numeric(Id t) -> t
+        | StructType(Id t, args)
+        | InterfaceType(Id t, args)
+        | ClassType(Id t, args) ->
             if t.IsGenericType
                 then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
@@ -187,9 +189,9 @@ module internal Types =
 
 
     module internal Constructor =
-        let private StructType (t : Type) g = StructType t g
-        let private ClassType (t : Type) g = ClassType t g
-        let private InterfaceType (t : Type) g = InterfaceType t g
+        let private StructType (t : Type) g = StructType (Id t) g
+        let private ClassType (t : Type) g = ClassType (Id t) g
+        let private InterfaceType (t : Type) g = InterfaceType (Id t) g
 
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then

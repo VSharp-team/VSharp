@@ -4,6 +4,7 @@ open VSharp
 open System.Text
 open System.Collections.Generic
 open VSharp.Utils
+open VSharp.CSharpUtils
 
 type compositionContext =
     { mtd : termMetadata; addr : concreteHeapAddress }
@@ -40,7 +41,7 @@ type IStatedSymbolicTypeSource =
 type TypeExtractor() =
     abstract TypeExtract : termType -> termType
     override x.Equals other = x.GetType() = other.GetType()
-    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.GetHashCode() = x.GetType().GetDeterministicHashCode()
 type private IdTypeExtractor() =
     inherit TypeExtractor()
     override x.TypeExtract t = t
@@ -54,7 +55,7 @@ type private ArrayTypeExtractor() =
 type TermExtractor() =
     abstract Extract : term -> term
     override x.Equals other = x.GetType() = other.GetType()
-    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.GetHashCode() = x.GetType().GetDeterministicHashCode()
 type private IdTermExtractor() =
     inherit TermExtractor()
     override x.Extract t = t
@@ -324,7 +325,7 @@ module internal State =
             | Class _ -> sprintf "%O %O" typ v
             | _ -> toString v
         let sorter = term >> function
-            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> concreteHeapAddress
+            | Concrete(value, Numeric (Id t)) when t = typedefof<int> -> value :?> concreteHeapAddress
             | _ -> [System.Int32.MaxValue]
         let sh, n, concrete = dumpGeneralizedHeap toString heapValueToString sorter "h" n concrete ids s.heap
         let mh, n, concrete = dumpGeneralizedHeap toString (always toString) toString "s" n concrete ids s.statics

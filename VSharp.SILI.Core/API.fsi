@@ -70,6 +70,8 @@ module API =
         val InvalidProgramException : state -> (term -> 'a) -> 'a * state
 
     module Types =
+        val Numeric : System.Type -> termType
+
         val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
 

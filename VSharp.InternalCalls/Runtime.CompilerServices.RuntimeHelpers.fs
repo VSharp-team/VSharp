@@ -98,7 +98,7 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
                 assert (t.IsValueType) // TODO: be careful about type variables
 
                 let fieldValue : obj = fieldInfo.GetValue null
-                let size = ClassType (fieldInfo.FieldType, []) |> API.Types.SizeOf
+                let size = ClassType (Id fieldInfo.FieldType, []) |> API.Types.SizeOf
                 let rawData = reinterpretValueTypeAsByteArray fieldValue size
                 let state =
                     match t with

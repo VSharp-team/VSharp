@@ -1,9 +1,13 @@
 namespace VSharp
+open VSharp.CSharpUtils
 
 [<CustomEquality;NoComparison>]
 type public memoryCell<'a, 'fql, 'typ> when 'a : equality and 'fql : equality =
     { key : 'a; FQL : 'fql option; typ : 'typ }  // Key * Fully qualified location * termType
-    override x.GetHashCode() = x.key.GetHashCode()
+    override x.GetHashCode() =
+        match box x.key with
+        | :? string as key -> key.GetDeterministicHashCode()
+        | _ -> x.key.GetHashCode()
 
     // TODO: sometimes keys are equal, but FQLs are not
     override x.Equals(o) =

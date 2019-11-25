@@ -5,28 +5,8 @@
 open VSharp
 open System.Collections.Generic
 open System.Reflection
-open System.Text.RegularExpressions
 open System
 
-
-module public TokenCreator =
-    let private lvtokenPattern = "LocalVariable:"
-    let private lvtokenName = "__loc__"
-    let internal stackKeyIsLocalVariable (name, token) =
-        Regex.Match(name, lvtokenName + "-?\d+").Success
-        && Regex.Match(token, lvtokenPattern + "-?\d+").Success
-
-    let private getThisTokenBy (node : MethodBase) = node.ToString()
-    let private getTokenByLocalVariable (lvi : LocalVariableInfo) =
-        sprintf "%s%i" lvtokenPattern (lvi.ToString().GetHashCode())
-    let private getTokenByParameter (pi : ParameterInfo) =
-        sprintf "MethodParameter:%i" (Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(pi))
-
-    let private nameLocalVar (lvi : LocalVariableInfo) = lvtokenName + lvi.LocalIndex.ToString()
-
-    let StackKeyOfThis methodBase : stackKey = ("this", getThisTokenBy methodBase)
-    let StackKeyOfParameter (param : ParameterInfo) : stackKey = (param.Name, getTokenByParameter param)
-    let StackKeyOfLocalVariable lvi : stackKey = (nameLocalVar lvi, getTokenByLocalVariable lvi)
 
 [<AbstractClass>]
 type public ExplorerBase() =
@@ -45,12 +25,14 @@ type public ExplorerBase() =
             let lastFrame = Stack.peek ilcode.Frames.f
             lastFrame.entries
             |> List.exists (fun (entry : entry) ->
-                if TokenCreator.stackKeyIsLocalVariable entry.key then false else
-                let reference = Memory.ReferenceLocalVariable entry.key
-                let value, _ = Memory.Dereference s reference
-                match value.term with
-                | Concrete _ -> false
-                | _ -> true)
+                match entry.key with
+                | LocalVariableKey _ -> false
+                | _ ->
+                    let reference = Memory.ReferenceLocalVariable entry.key
+                    let value, _ = Memory.Dereference s reference
+                    match value.term with
+                    | Concrete _ -> false
+                    | _ -> true)
         | _ -> internalfail "Some new ICodeLocation"
 
     interface IActivator with
@@ -174,26 +156,26 @@ type public ExplorerBase() =
             | Specified values -> values, true
             | Unspecified -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
-            let stackKey = TokenCreator.StackKeyOfLocalVariable lvi
+            let stackKey = LocalVariableKey lvi
             (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
         let locals = methodBase.GetMethodBody().LocalVariables |> Seq.map localVarsDecl |> Seq.toList
         let valueOrFreshConst (param : ParameterInfo option) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
-                let stackKey = TokenCreator.StackKeyOfParameter param
+                let stackKey = ParameterKey param
                 match areParametersSpecified with
                 | true when param.HasDefaultValue ->
                     let typ = getParameterType param
                     (stackKey, Specified(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
                 | _ -> (stackKey, Unspecified, getParameterType param)
-            | Some param, Some value -> (TokenCreator.StackKeyOfParameter param, Specified value, getParameterType param)
+            | Some param, Some value -> (ParameterKey param, Specified value, getParameterType param)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
             match this with
             | Some thisValue ->
-                let thisKey = TokenCreator.StackKeyOfThis methodBase
+                let thisKey = ThisKey methodBase
                 (thisKey, Specified thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
         Memory.NewStackFrame state funcId (parametersAndThis @ locals) |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual

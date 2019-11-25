@@ -10,7 +10,7 @@ type IMethodIdentifier =
     abstract IsStatic : bool
     abstract DeclaringType : System.Type
     abstract DeclaringAssembly : Assembly
-    abstract Token : string
+    abstract Token : MethodBase
 
 type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IFunctionIdentifier, state : state) =
     member x.VertexNumber with get() = vertexNumber
@@ -35,7 +35,7 @@ module internal Explorer =
         Heap.add key staticMemoryEntry Heap.empty
 
     type private recursionOutcomeSource = // TODO: delete this and use LI (using new TopLevelAddress)
-        {id : ICodeLocation; state : state; name : string transparent; typ : termType;
+        {id : ICodeLocation; state : state; name : string; typ : termType;
             location : term option; extractor : TermExtractor; typeExtractor : TypeExtractor}
         interface IExtractingSymbolicConstantSource with
             override x.SubTerms = Seq.empty
@@ -58,9 +58,9 @@ module internal Explorer =
     let private mutateStackClosure mtd (codeLoc : ICodeLocation) state =
         let mutateLocation st (frame : entry) =
             let location = StackRef mtd frame.key []
-            let name = sprintf "μ[%O, %s]" codeLoc (fst frame.key)
+            let name = sprintf "μ[%O, %O]" codeLoc frame.key
             let typ = frame.typ
-            let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+            let source = {id = codeLoc; state = state; name = name; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
             let fql = makeTopLevelFQL TopLevelStack frame.key
             let value = Memory.makeSymbolicInstance mtd source name typ fql
             Memory.mutateStack mtd st frame.key [] value
@@ -78,7 +78,7 @@ module internal Explorer =
             | _ -> internalfail "some new ICodeLocation"
             |> Types.Constructor.fromDotNetType
             |> State.substituteTypeVariables State.emptyCompositionContext state
-        let source = {id = codeLoc; state = state; name = {v=name}; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+        let source = {id = codeLoc; state = state; name = name; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
         Memory.makeSymbolicInstance mtd source name typ None |> k
 
     let recursionApplication mtd codeLoc state addr k =
@@ -107,6 +107,6 @@ module internal Explorer =
             override x.ComposeWithoutExtractor ctx state =
                 let state' = Memory.composeStates ctx state x.state
                 let source' = {x with state = state'}
-                Constant ctx.mtd x.name.v source' x.typ
+                Constant ctx.mtd x.name source' x.typ
             override x.Compose ctx state =
                 (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract

@@ -81,6 +81,8 @@ module API =
         let AddConditionToState conditionState condition = State.withPathCondition conditionState condition
 
     module Types =
+        let Numeric t = Types.Numeric t
+
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
         let ToDotNetType t = Types.toDotNetType t
 

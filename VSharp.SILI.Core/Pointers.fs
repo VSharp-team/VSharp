@@ -217,7 +217,7 @@ module internal Pointers =
 
     let rec private simplifyPointerSubtractionGeneric mtd x y state k =
         let makeDiff p q =
-            let tp = Numeric typedefof<int64>
+            let tp = Numeric (Id typedefof<int64>)
             if p = q
             then makeNumber mtd 0L
             else
@@ -287,8 +287,6 @@ module internal Pointers =
         inherit TermExtractor()
         override x.Extract t = topLevelLocation t
 
-    let symbolicThisStackKey = "symbolic this on stack"
-
     let (|SymbolicThisOnStack|_|) = function
-       | Ref(TopLevelStack(name, token), path) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path))
+       | Ref(TopLevelStack(SymbolicThisKey token), path) -> Some(SymbolicThisOnStack(token, path))
        | _ -> None
