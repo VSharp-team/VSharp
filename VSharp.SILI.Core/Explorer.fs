@@ -56,19 +56,19 @@ module internal Explorer =
         | _ -> None
 
     let private mutateStackClosure mtd (codeLoc : ICodeLocation) state =
-        let mutateLocation st (frame : entry) =
-            let location = StackRef mtd frame.key []
-            let name = sprintf "μ[%O, %O]" codeLoc frame.key
-            let typ = frame.typ
+        let mutateLocation state (entry : entry) =
+            let location = StackRef mtd entry.key []
+            let name = sprintf "μ[%O, %O]" codeLoc entry.key
+            let typ = entry.typ
             let source = {id = codeLoc; state = state; name = name; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-            let fql = makeTopLevelFQL TopLevelStack frame.key
+            let fql = makeTopLevelFQL TopLevelStack entry.key
             let value = Memory.makeSymbolicInstance mtd source name typ fql
-            Memory.mutateStack mtd st frame.key [] value
-        let frames =
+            Memory.mutateStack mtd state entry.key [] value
+        let locations =
             match codeLoc with
-            | :? ILCodePortion as ilcode -> [Stack.peek ilcode.Frames.f]
+            | :? ILCodePortion as ilcode -> Stack.peek ilcode.Frames.f |> State.entriesOfFrame
             | _ -> []
-        frames |> List.fold (fun state frame -> List.fold mutateLocation state frame.entries) state
+        List.fold mutateLocation state locations
 
     let recursionApplicationResult mtd (codeLoc : ICodeLocation) name state k =
         let typ =

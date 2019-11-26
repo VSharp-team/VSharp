@@ -96,12 +96,8 @@ module internal State =
         x = [0]
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         if isZeroAddress a2 then a2 else List.append a1 a2
-    let decomposeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
-        List.minus a1 a2
     let composeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
         { mtd = Metadata.combine c1.mtd c2.mtd; addr = composeAddresses c1.addr c2.addr }
-    let decomposeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
-        { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr }
 
     let nameOfLocation (topLevel, path) = List.map toString path |> cons (toString topLevel) |> join "."
 
@@ -141,7 +137,10 @@ module internal State =
             | None -> sh
         { s with stack = List.fold popOne s.stack locations; frames = { f = f'; sh = sh'} }
 
-    let inline private entriesOfFrame f = f.entries
+    let writeStackLocation (s : state) key value : state =
+        { s with stack = MappedStack.add key value s.stack }
+
+    let inline entriesOfFrame f = f.entries
 
     let concatFrames frames frames' = { f = frames.f @ frames'.f; sh = frames.sh @ frames'.sh }
 
@@ -164,31 +163,6 @@ module internal State =
         let bottom = bottomFrame |> entriesOfFrame |> getStackFrame
         let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
         bottom, rest, { f = restFrames; sh = sh' }
-
-    let writeStackLocation (s : state) key value : state =
-        { s with stack = MappedStack.add key value s.stack }
-
-    let stackFold = MappedStack.fold
-
-    let private heapFold keyFolder termFolder acc h =
-        Heap.fold (fun acc k value -> let acc = keyFolder acc k in termFolder acc value) acc h
-
-    let rec private generalizedHeapFold<'a, 'b when 'b : equality> (keyFolder : 'a -> 'b -> 'a) (typeFolder : 'a -> termType -> 'a) (termFolder : 'a -> term -> 'a) (acc : 'a) = function
-        | Defined(_, h) -> heapFold keyFolder termFolder acc h
-        | Composition(h1, _, h2) ->
-            let acc = fold typeFolder termFolder acc h1
-            generalizedHeapFold keyFolder typeFolder termFolder acc h2
-        | Mutation(h1, h2) ->
-            let acc = generalizedHeapFold keyFolder typeFolder termFolder acc h1
-            heapFold keyFolder termFolder acc h2
-        | Merged ghs ->
-            List.fold (fun acc (g, h) -> let acc = termFolder acc g in generalizedHeapFold keyFolder typeFolder termFolder acc h) acc ghs
-        | _ -> acc
-
-    and fold typeFolder termFolder acc state =
-        let acc = stackFold (fun acc _ v -> termFolder acc v) acc state.stack
-        let acc = generalizedHeapFold termFolder typeFolder termFolder acc state.heap
-        generalizedHeapFold typeFolder typeFolder termFolder acc state.statics
 
     let inline private keyOfEntry en = en.key
 

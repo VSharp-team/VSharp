@@ -6,6 +6,7 @@ open Types
 open VSharp
 open VSharp.Core.Types.Constructor
 open System.Collections.Immutable
+open VSharp.Utils
 
 module internal Memory =
     open Terms
@@ -47,57 +48,6 @@ module internal Memory =
 
     let referenceBlockField structRef (name : string) typ =
         referenceSubLocations structRef [BlockField(FieldId name, typ)]
-
-// ------------------------------- Traversal -------------------------------
-
-    // TODO: path should NOT be accumulated, but taken from key metainfo
-    let inline private foldHeapLocationsRec folder =
-        Heap.foldFQL (fun acc subloc -> folder acc (getFQLOfKey subloc |> snd |> List.tryLast))
-
-    type private foldSubLocationAccWrapper<'acc, 'loc, 'pathSegment> =
-        { acc : 'acc; loc : 'loc; path : 'pathSegment list }
-
-    let private getAcc wrapper = wrapper.acc
-
-    let rec private foldSubLocations folder fillHoles fillPath mergeAcc acc segment v =
-        let foldHeap target acc =
-            foldHeapLocationsRec (foldSubLocations folder fillHoles fillPath mergeAcc) acc target
-        let acc' = lazy (
-            match segment with
-            | Some segment ->
-                { acc with path = fillPath segment :: acc.path }
-            | None -> acc)
-        let changePath acc' = { acc' with path = acc.path }
-        let apply term =
-            match term.term with
-            | Block(contents, _) ->
-                acc'.Force()
-             |> foldHeap contents
-             |> changePath
-            | Array(_, _, lower, _, contents, lengths) ->
-                acc'.Force()
-             |> foldHeap lower
-             |> foldHeap lengths
-             |> foldHeap contents
-             |> changePath
-            | _ -> folder acc segment v
-        commonGuardedErroredApply apply apply v (fun gvs ->
-            let gs, vs = List.unzip gvs
-            let gs' = List.map fillHoles gs
-            let acc' = List.head vs
-            { acc' with acc =  mergeAcc gs' (List.map (fun acc -> acc.acc) vs) })
-
-    and private foldHeapLocations folder fillHoles fillKey fillPath mergeAcc acc heap =
-        let foldInto heap k v =
-            let newAcc = { acc = heap; loc = fillKey k.key; path = [] }
-            foldSubLocations (fun acc -> folder acc (baseTypeOfKey k)) fillHoles fillPath mergeAcc newAcc None v |> getAcc
-        Heap.foldFQL foldInto acc heap
-
-    and private foldStackLocations folder fillHoles fillPath mergeAcc acc stack =
-        let foldInto heap k v =
-            let newAcc = { acc = heap; loc = k; path = [] }
-            foldSubLocations (fun acc -> folder acc (typeOf v)) fillHoles fillPath mergeAcc newAcc None v |> getAcc // TODO: use typeOfStackLocation for arrays when stackallock will be implemented
-        stackFold foldInto acc stack
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
@@ -260,13 +210,12 @@ module internal Memory =
             Strings.makeStringOfFields mtd length array arrayFQL fql
         | _ -> __notImplemented__()
 
-    let makeSymbolicReferenceType metadata blockBuilder source name typ fql =
-        match fql with
+    let private makeSymbolicReferenceType metadata blockBuilder source name typ = function
         | Some(TopLevelHeap _, [])
         | Some(TopLevelStatics _, []) -> blockBuilder ()
         | _ -> makeSymbolicHeapReference metadata source name typ HeapRef
 
-    let makeSymbolicClass metadata source name typ fql =
+    let private makeSymbolicClass metadata source name typ fql =
         let makeClass () = Class metadata Heap.empty
         makeSymbolicReferenceType metadata makeClass source name typ fql
 
@@ -338,7 +287,7 @@ module internal Memory =
             let name = sprintf "%O.%s_Length" (nameOfLocation fql) (idx.term.IndicesToString())
             makeSymbolicArrayLength metadata name fql heap
 
-    let staticMemoryLazyInstantiator metadata typ () = // TODO: need?
+    let staticMemoryLazyInstantiator metadata typ () =
         match typ with
         | ReferenceType -> Class metadata Heap.empty
         | StructureType -> Struct metadata Heap.empty typ
@@ -392,10 +341,6 @@ module internal Memory =
 
 // ------------------------------- Core -------------------------------
 
-    let private isTopLevelHeapConcreteAddr = function
-        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
-        | _ -> false
-
     let rec private accessHeap<'a, 'key when 'a : equality and 'key : equality> read restricted metadata (groundHeap : 'a generalizedHeap option) guard update (h : 'key heap) keyCompare contextList mapper lazyInstantiator ptr =
         let accessRec gvas lazyValue h =
             let accessLocation h (guard', key, value) =
@@ -408,7 +353,7 @@ module internal Memory =
             let gvs, h' = List.mapFold accessLocation h gvas
             merge (optCons gvs lazyValue), h'
         let heapKey = makeKey ptr.location (Some ptr.fullyQualifiedLocation) ptr.typ
-        if Heap.contains heapKey h then
+        if Heap.contains heapKey h then // TODO: only if heapKey is concreteHeapAddress!
             accessRec [(makeTrue metadata, heapKey, Heap.find heapKey h)] None h
         else
             let baseGav, restGavs = findSuitableLocations metadata h keyCompare contextList mapper ptr
@@ -428,14 +373,14 @@ module internal Memory =
                 accessRec gavs lv h
             | Some(k, v) -> accessRec ((makeTrue metadata, k, v)::restGavs) None h
 
-    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : term -> term) contextList lazyInstantiator ptrFql path value =
+    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : fql * term -> term) contextList lazyInstantiator ptrFql path value =
         let internalMerge gvs =
             let cells, newVs = List.fold (fun (cells, newVs) (g, (c, v)) -> (g, c)::cells, (g, v)::newVs) ([], []) gvs
             merge cells, merge newVs
         let doAccess term =
             match path with
             | [] ->
-                let newTerm = update term
+                let newTerm = update (ptrFql, term)
                 newTerm, newTerm
             | location :: path' ->
                 match term.term with
@@ -476,10 +421,10 @@ module internal Memory =
 
     and private compareStringKey mtd loc key = makeBool mtd (loc = key)
 
-    and private readTerm mtd (_ : bool) term fql typ =
-        let path = snd fql |> List.last |> List.singleton
+    and private readTerm mtd (_ : bool) term ((tl, path) as fql) typ =
+        let currentPath, path' = List.splitAt (List.length path - 1) path
         let lazyInstor = genericLazyInstantiator mtd None fql typ
-        accessTerm true mtd None (makeTrue mtd) id [] (Some lazyInstor) fql path term |> fst
+        accessTerm true mtd None (makeTrue mtd) snd [] (Some lazyInstor) (tl, currentPath) path' term |> fst
 
     and private accessBlockField read mtd update term fieldName fieldType =
         let lazyInstor = __unreachable__
@@ -506,7 +451,7 @@ module internal Memory =
         accessHeap<term, term> read restricted metadata groundHeap (makeTrue metadata) update heap fastNumericCompare contextList termKeyMapper lazyInstantiator ptr
 
     and readHeap metadata restricted heap key typ =
-        commonHierarchicalHeapAccess true restricted id metadata None heap [] None key typ [] |> fst
+        commonHierarchicalHeapAccess true restricted snd metadata None heap [] None key typ [] |> fst
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
         let typ' = if List.isEmpty path then typ else typeOfPath path
@@ -520,16 +465,22 @@ module internal Memory =
         accessHeap<termType, termType> read restricted metadata groundHeap (makeTrue metadata) update statics Common.typesEqual contextList mapper lazyInstantiator ptr
 
     and readStatics metadata restricted statics key _ =
-        commonHierarchicalStaticsAccess true restricted id metadata None statics [] None key [] |> fst
+        commonHierarchicalStaticsAccess true restricted snd metadata None statics [] None key [] |> fst
 
-    and mutateStack metadata state location path value =
-        commonHierarchicalStackAccess false (always value) metadata state location path |> snd
+    and updateStack update metadata state location path =
+        commonHierarchicalStackAccess false update metadata state location path |> snd
 
-    and private mutateHeap restricted metadata h loc typ path value =
-        commonHierarchicalHeapAccess false restricted (always value) metadata None h [] None loc typ path |> snd
+    and mutateStack metadata state location path value = updateStack (always value) metadata state location path
 
-    and private mutateStatics restricted metadata statics location _ path value =
-        commonHierarchicalStaticsAccess false restricted (always value) metadata None statics [] None location path |> snd
+    and private updateHeap restricted update metadata h loc typ path =
+        commonHierarchicalHeapAccess false restricted update metadata None h [] None loc typ path |> snd
+
+    and private mutateHeap restricted metadata h loc typ path value = updateHeap restricted (always value) metadata h loc typ path
+
+    and private updateStatics restricted update metadata statics location _ path =
+        commonHierarchicalStaticsAccess false restricted update metadata None statics [] None location path |> snd
+
+    and private mutateStatics restricted metadata statics location typ path value = updateStatics restricted (always value) metadata statics location typ path
 
     and private independent<'a when 'a : equality> (exploredRecursiveCodeLocs : ImmutableHashSet<ICodeLocation>) (read : ImmutableHashSet<ICodeLocation> -> state -> term * 'a generalizedHeap) codeLoc location : bool =
         exploredRecursiveCodeLocs.Contains codeLoc ||
@@ -555,15 +506,14 @@ module internal Memory =
             let result, h'' = accessDefined contextList lazyInstantiator (Some h) false h'
             if read then
                 let accessH = lazy(accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined h |> fst)
-                let simplifyInstantiatedOrApply apply term =
+                let simplifyInstantiated contextCase nonContextCase term =
                     match term.term with
                     | Constant(_, LazyInstantiation(loc, Some heap, _), _) when loc = location && heap = h ->
-                        accessH.Force()
-                    | _ -> apply term
-                let simplifyInstantiatedAddress address baseType sightType ctor path' =
-                    let apply address = ctor (TopLevelHeap (address, baseType, sightType)) path'
-                    simplifyInstantiatedOrApply apply address
-                Substitution.substitute (simplifyInstantiatedOrApply id) simplifyInstantiatedAddress id result, m
+                        accessH.Force() |> contextCase
+                    | _ -> nonContextCase term
+                let simplifyInstantiatedAddress address baseType sightType =
+                    simplifyInstantiated (topLevelOfFilledRef sightType) (fun a -> [True, TopLevelHeap(a, baseType, sightType)]) address
+                Substitution.substitute (simplifyInstantiated id id) simplifyInstantiatedAddress id result, m
             else
                 result, Mutation(h, h'')
         | Composition(_, _, Defined _) ->
@@ -622,7 +572,7 @@ module internal Memory =
             | t -> internalfailf "expected reference or pointer, but got %O" t
         guardedErroredStatedApply doAccess
 
-// ------------------------------- Composition -------------------------------
+// ---------------------------------------------------- Composition ----------------------------------------------------
 
     and private fillHole (ctx : compositionContext) state term =
         match term.term with
@@ -639,89 +589,98 @@ module internal Memory =
             referenceSubLocations reference path
         | _ -> term
 
-    and private fillHoleInHeapAddress (ctx : compositionContext) state address baseType sightType ctor path' =
-        let heapCtor addr bt = ctor (TopLevelHeap (addr, bt, sightType)) path'
+    and private topLevelOfFilledRef sightType reference =
+        let destruct reference =
+            match reference.term with
+            | Ref(TopLevelHeap (a, bt, _), [])
+            | Ptr(TopLevelHeap (a, bt, _), [], _, _) -> TopLevelHeap(a, bt, sightType)
+            | Ref(NullAddress, [])
+            | Ptr(NullAddress, [], _, _) -> NullAddress
+            | _ -> __notImplemented__()
+        unguard reference |> guardedMapWithoutMerge destruct
+
+    and private fillHoleInHeapAddress (ctx : compositionContext) state address baseType sightType = // TODO: find another solution someday..
         match address.term with
         | Constant(_, source, _) ->
             match source with
             | :? IExtractingSymbolicConstantSource as source ->
-                let composeAddresses reference =
-                    match reference.term with
-                    | Ref(TopLevelHeap (a, bt, _), [])
-                    | Ptr(TopLevelHeap (a, bt, _), [], _, _) -> heapCtor a bt
-                    | Ref(NullAddress, [])
-                    | Ptr(NullAddress, [], _, _) -> ctor NullAddress path'
-                    | _ -> __notImplemented__()
                 let reference = source.ComposeWithoutExtractor ctx state
-                Merging.guardedErroredApply composeAddresses reference
+                topLevelOfFilledRef sightType reference
             | _ -> __notImplemented__()
-        | Concrete(:? concreteHeapAddress as addr', t) ->
-            let addr = Concrete ctx.mtd (composeAddresses ctx.addr addr') t
-            heapCtor addr baseType
+        | Concrete(:? concreteHeapAddress as addr, t) ->
+            let addr' = Concrete ctx.mtd (composeAddresses ctx.addr addr) t
+            [True, TopLevelHeap(addr', baseType, sightType)]
         | _ -> __notImplemented__()
 
     and fillHoles ctx state term =
         Substitution.substitute (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) term
 
-    and fillHolesInHeap fillHolesInKey ctx state heap =
-        Heap.map (fun k value -> fillHolesInKey ctx state k, fillHoles ctx state value) heap
+    and private fillHolesInHeap keySubst ctx state heap =
+        Substitution.substituteHeap (keySubst ctx state) (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) heap
 
-    and fillHolesInPathSegment ctx source = function
-        | BlockField(addr, typ) -> BlockField(addr, substituteTypeVariables ctx source typ)
-        | ArrayIndex(addr, typ) -> ArrayIndex(fillHoles ctx source addr, substituteTypeVariables ctx source typ)
-        | ArrayLowerBound addr -> ArrayLowerBound(fillHoles ctx source addr)
-        | ArrayLength addr -> ArrayLength(fillHoles ctx source addr)
+    and private fillHolesInMemoryCell ctx keySubst state key =
+        Substitution.substituteHeapKey (keySubst ctx state) (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) key
 
-    and private fillAndPushSegment ctx source path =
-        Option.map (fillHolesInPathSegment ctx source)
-     >> optCons path
-     >> List.rev
+    and private updateLocation newValue (currentFQL, oldValue) = // TODO: support updating union with union
+        let mtd = newValue.metadata
+        let mutateOneKey old k v =
+            let path = getFQLOfKey k |> snd |> List.last |> List.singleton
+            accessTerm false mtd None True (updateLocation v) [] None currentFQL path old |> snd
+        let doMutate newValue =
+            match newValue.term with
+            | Block(fields, _) ->
+                Heap.fold mutateOneKey oldValue fields
+            | Array(_, _, lower, _, contents, lengths) ->
+                let oldValue = Heap.fold mutateOneKey oldValue lower
+                let oldValue = Heap.fold mutateOneKey oldValue contents
+                Heap.fold mutateOneKey oldValue lengths
+            | _ -> newValue
+        guardedErroredApply doMutate newValue
 
-    and private fillAndMutateStack (ctx : compositionContext) source (acc : foldSubLocationAccWrapper<_,stackKey,_>) _ segment value = // TODO: firstly fill all holes and then mutate
-        let path' = fillAndPushSegment ctx source acc.path segment
-        let v = fillHoles ctx source value
-        match acc.loc with
+    and private fillAndMutateHeapLocation updateHeap keySubst ctx restricted state h k v =
+        let k' = fillHolesInMemoryCell ctx keySubst state k
+        let v' = fillHoles ctx state v
+        let fql' = getFQLOfKey k'
+        if (isTopLevelHeapConcreteAddr fql' || isTopLevelStatics fql') && not (Heap.contains k' h)
+        then Heap.add k' v' h
+        else updateHeap restricted (updateLocation v') ctx.mtd h k'.key k'.typ []
+
+    and private fillAndMutateStackLocation (ctx : compositionContext) state memory k v =
+        let v' = fillHoles ctx state v
+        match k with
         | SymbolicThisKey token ->
             let loc = ThisKey token
-            let thisRef = stackDeref (stackLazyInstantiator acc.acc loc) acc.acc loc |> fst
-            let ref = referenceSubLocations thisRef path' //TODO: or (Option.toList segment) ?
-            let _, state = mutate ctx.mtd acc.acc ref v
-            { acc with acc = state }
-        | loc -> { acc with acc = mutateStack ctx.mtd acc.acc loc path' v }
+            let thisRef = stackDeref (stackLazyInstantiator state loc) state loc |> fst
+            update (updateLocation v') ctx.mtd memory thisRef |> snd
+        | loc -> updateStack (updateLocation v') ctx.mtd memory loc []
 
-    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (acc : foldSubLocationAccWrapper<'a heap,'a,_>) typ segment value =
-        let path' = fillAndPushSegment ctx source acc.path segment
-        let v = fillHoles ctx source value
-        let typ = substituteTypeVariables ctx source typ
-        { acc with acc = mutateHeap restricted ctx.mtd acc.acc acc.loc typ path' v }
+    and private composeDefinedHeaps updateHeap keySubst (ctx : compositionContext) restricted state h h' =
+        Heap.fold (fillAndMutateHeapLocation updateHeap keySubst ctx restricted state) h h'
 
-    and private composeDefinedHeaps writer fillHoles fillKey fillPath readHeap restricted s h h' = // TODO: fillHoles in fql
-        foldHeapLocations (writer restricted s) fillHoles fillKey fillPath (mergeDefinedHeaps false readHeap) h h'
-
-    and private composeGeneralizedHeaps<'key when 'key : equality> writer fillHolesInKey readHeap (ctx : compositionContext) getter setter s (h' : 'key generalizedHeap) =
+    and private composeGeneralizedHeaps<'key when 'key : equality> readHeap updateHeap keySubst (ctx : compositionContext) getter setter s (h' : 'key generalizedHeap) : 'key generalizedHeap =
         match getter s, h' with
         | Defined(r, h), Defined(r', h') ->
             assert(not r')
-            composeDefinedHeaps (writer ctx) (fillHoles ctx s) (fillHolesInKey ctx s) (fillHolesInPathSegment ctx s) (readHeap ctx.mtd) r s h h' |> Defined r
+            composeDefinedHeaps updateHeap keySubst ctx r s h h' |> Defined r
         | Merged ghs, _ ->
             let gs, hs = List.unzip ghs
-            hs |> List.map (fun h -> composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter (setter s h) h') |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs
+            hs |> List.map (fun h -> composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter (setter s h) h') |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs
         | _, Merged ghs' ->
             let gs, hs' = List.unzip ghs'
             let gs' = List.map (fillHoles ctx s) gs
-            hs' |> List.map (composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter s) |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs'
+            hs' |> List.map (composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s) |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs'
         | Defined _, Composition(s', ctx', h')
         | Mutation _, Composition(s', ctx', h')
         | Composition _, Composition(s', ctx', h') ->
             let s = composeStates ctx s s'
-            composeGeneralizedHeaps writer fillHolesInKey readHeap ctx' getter setter s h'
+            composeGeneralizedHeaps readHeap updateHeap keySubst ctx' getter setter s h'
         | Defined _, Mutation(h', h'')
         | RecursiveApplication _, Mutation(h', h'')
         | HigherOrderApplication _, Mutation(h', h'')
         | Composition _, Mutation(h', h'')
         | Mutation _, Mutation(h', h'') ->
-            let res = composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter s h'
-            let res' = fillHolesInHeap fillHolesInKey ctx s h''
+            let res = composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s h'
+            let res' = fillHolesInHeap keySubst ctx s h''
             Mutation(res, res')
         | Defined _, HigherOrderApplication _
         | Defined _, RecursiveApplication _
@@ -740,36 +699,32 @@ module internal Memory =
             assert(not r'')
             match h' with
             | Defined(r, h') ->
-                let ctx'' = decomposeContexts ctx ctx'
-                let h = composeDefinedHeaps (writer ctx'') (fillHoles ctx s) (fillHolesInKey ctx'' s) (fillHolesInPathSegment ctx'' s) (readHeap ctx.mtd) r s h' h'' |> Defined r
-                composeGeneralizedHeaps writer fillHolesInKey readHeap ctx' getter setter s' h
+                let h = composeDefinedHeaps updateHeap keySubst ctx' r s h' h'' |> Defined r
+                composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s' h
             | _ ->
-                let h'' = fillHolesInHeap fillHolesInKey ctx s h''
+                let h'' = fillHolesInHeap keySubst ctx s h''
                 Mutation(h, h'')
         | (HigherOrderApplication _ as h), Defined(r, h')
         | (RecursiveApplication _ as h), Defined(r, h') ->
             assert(not r)
-            let h' = fillHolesInHeap fillHolesInKey ctx s h'
+            let h' = fillHolesInHeap keySubst ctx s h'
             Mutation(h, h')
         | Mutation(h, h'), Defined(r, h'') ->
             // TODO: this is probably wrong!
             assert(not r)
-            Mutation(h, composeDefinedHeaps (writer ctx) (fillHoles ctx s) (fillHolesInKey ctx s) (fillHolesInPathSegment ctx s) (readHeap ctx.mtd) false s h' h'')
+            Mutation(h, composeDefinedHeaps updateHeap keySubst ctx false s h' h'')
 
     and composeStacksOf ctx state state' =
-        let fillAndMutateStack state stackEffect =
-            foldStackLocations (fillAndMutateStack ctx state) (fillHoles ctx state) (fillHolesInPathSegment ctx state) mergeStates state stackEffect
         let state'Bottom, state'RestStack, state'RestFrames = State.bottomAndRestFrames state'
-        let state2 = fillAndMutateStack state state'Bottom                                        // apply effect of bottom frame
-        let state3 = {state2 with frames = State.concatFrames state'RestFrames state2.frames}     // add rest frames
-        let state4 = fillAndMutateStack state3 state'RestStack                                    // fill and copy effect of rest frames
-        state4
+        let state2 = MappedStack.fold (fillAndMutateStackLocation ctx state) state state'Bottom  // apply effect of bottom frame
+        let state3 = {state2 with frames = State.concatFrames state'RestFrames state2.frames}    // add rest frames
+        MappedStack.fold (fillAndMutateStackLocation ctx state) state3 state'RestStack           // fill and copy effect of rest frames
 
     and composeHeapsOf ctx state heap =
-        composeGeneralizedHeaps (fillAndMutateCommon mutateHeap) fillHoles readHeap ctx heapOf withHeap state heap
+        composeGeneralizedHeaps readHeap updateHeap fillHole ctx heapOf withHeap state heap
 
     and composeStaticsOf ctx state statics =
-        composeGeneralizedHeaps (fillAndMutateCommon mutateStatics) substituteTypeVariables readStatics ctx staticsOf withStatics state statics
+        composeGeneralizedHeaps readStatics updateStatics substituteTypeVariables ctx staticsOf withStatics state statics
 
     and composeStates ctx state state' =
         let stateWithNewFrames = composeStacksOf ctx state state'
@@ -783,17 +738,19 @@ module internal Memory =
 // ------------------------------- High-level read/write -------------------------------
 
     and deref metadata state location =
-        hierarchicalAccess true true npeTerm id metadata state location
+        hierarchicalAccess true true npeTerm snd metadata state location
 
     and readBlockField metadata blockTerm fieldName fieldType =
-        accessBlockField true metadata id blockTerm fieldName fieldType
+        accessBlockField true metadata snd blockTerm fieldName fieldType
 
     and derefWithoutValidation metadata state location =
-        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) id metadata state location |> fst
+        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) snd metadata state location |> fst
+
+    and private update updateValue metadata state reference = hierarchicalAccess true false npeTerm updateValue metadata state reference
 
     and mutate metadata state reference value =
         assert(value <> Nop)
-        hierarchicalAccess true false npeTerm (always value) metadata state reference
+        update (always value) metadata state reference
 
 // ------------------------------- Referencing -------------------------------
 
@@ -969,8 +926,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                let ref = derefWithoutValidation ctx.mtd state' loc
-                ref
+                derefWithoutValidation ctx.mtd state' loc
             override x.Compose ctx state =
                 (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract
 

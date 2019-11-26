@@ -97,7 +97,6 @@ module API =
         val CanCast : term -> termType -> term
         val IsCast : state -> termType -> term -> term
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> term * state) -> (term * state -> 'b) -> 'b
-        val CastConcrete : bool -> 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]

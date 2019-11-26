@@ -263,7 +263,7 @@ type termNode =
 and topLevelAddress =
     | NullAddress
     | TopLevelStack of stackKey
-    | TopLevelHeap of term * termType * termType // Address * Base type * Sight type
+    | TopLevelHeap of term * termType * termType transparent // Address * Base type * Sight type
     | TopLevelStatics of termType
     override x.ToString() =
         match x with
@@ -326,6 +326,15 @@ type INonComposableSymbolicConstantSource =
 
 [<AutoOpen>]
 module internal Terms =
+
+    let TopLevelHeap(k, t1, t2) = TopLevelHeap(k, t1, {v=t2})
+
+    let (|NullAddress|TopLevelStack|TopLevelHeap|TopLevelStatics|) (addr : topLevelAddress) =
+        match addr with
+        | NullAddress -> NullAddress
+        | TopLevelStack k -> TopLevelStack k
+        | TopLevelHeap(k, t1, t2) -> TopLevelHeap(k, t1, t2.v)
+        | TopLevelStatics t -> TopLevelStatics t
 
     module internal Metadata =
         let empty<'a> = { origins = List.empty; misc = null }
@@ -434,6 +443,14 @@ module internal Terms =
 
     let isFalse = term >> function
         | Concrete(b, t) when Types.isBool t && not (b :?> bool) -> true
+        | _ -> false
+
+    let isTopLevelHeapConcreteAddr = function
+        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
+        | _ -> false
+
+    let isTopLevelStatics = function
+        | TopLevelStatics _, [] -> true
         | _ -> false
 
     let private isSymbolicTopLevel = function

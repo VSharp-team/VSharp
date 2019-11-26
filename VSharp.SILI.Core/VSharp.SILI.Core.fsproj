@@ -17,11 +17,11 @@
         <Compile Include="Arrays.fs" />
         <Compile Include="Strings.fs" />
         <Compile Include="Pointers.fs" />
+        <Compile Include="TypeCasting.fs" />
         <Compile Include="Operators.fs" />
         <Compile Include="Substitution.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="Memory.fs" />
-        <Compile Include="TypeCasting.fs" />
         <Compile Include="Explorer.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />

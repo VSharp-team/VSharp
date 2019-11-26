@@ -125,12 +125,12 @@ module internal Merging =
     and propagateGuard g v =
         match v.term with
         | Block(contents, typ) ->
-            let contents' = Heap.map' (fun _ v -> merge [(g, v)]) contents
+            let contents' = Heap.map (fun (k, v) -> (k, merge [(g, v)])) contents
             (Terms.True, Block v.metadata contents' typ)
         | Array(dimension, len, lower, init, contents, lengths) ->
-            let contents' = Heap.map' (fun _ v -> merge [(g, v)]) contents
-            let lower' = Heap.map' (fun _ v -> merge [(g, v)]) lower
-            let lengths' = Heap.map' (fun _ v -> merge [(g, v)]) lengths
+            let contents' = Heap.map (fun (k, v) -> (k, merge [(g, v)])) contents
+            let lower' = Heap.map (fun (k, v) -> (k, merge [(g, v)])) lower
+            let lengths' = Heap.map (fun (k, v) -> (k, merge [(g, v)])) lengths
             let init' = List.map (fun (gi, i) -> gi &&& g, i) init
             (Terms.True, Array v.metadata dimension len lower' init' contents' lengths')
         | _ -> (g, v)
@@ -152,7 +152,7 @@ module internal Merging =
         | [(g, v)] when Terms.isBool v -> g &&& v
         | gvs' -> Union Metadata.empty gvs'
 
-    and merge2Terms g h u v =
+    let merge2Terms g h u v =
         let g = guardOf u &&& g
         let h = guardOf v &&& h
         match g, h with
@@ -165,11 +165,13 @@ module internal Merging =
         | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
-    and mergeDefinedHeaps restricted read guards heaps =
+// ---------------------------------------- Merging heaps ----------------------------------------
+
+    let mergeDefinedHeaps restricted read guards heaps =
         let getter i = List.item i heaps
         Heap.merge guards heaps (keysResolver restricted read Heap.getKey getter)
 
-    and mergeGeneralizedHeaps<'a when 'a : equality> read guards (heaps : list<'a generalizedHeap>) =
+    let mergeGeneralizedHeaps<'a when 'a : equality> read guards (heaps : list<'a generalizedHeap>) =
         let (|MergedHeap|_|) = function Merged gvs -> Some gvs | _ -> None
         let guardsAndHeaps = List.zip guards heaps |> simplify (|MergedHeap|_|)
         let Merged = function
@@ -190,16 +192,16 @@ module internal Merging =
                 let definedGuard = disjunction Metadata.empty definedGuards
                 (definedGuard, definedHeap)::undefined |> mergeSame |> Merged
 
-    and private merge2GeneralizedHeaps g1 g2 h1 h2 read resolve =
+    let private merge2GeneralizedHeaps g1 g2 h1 h2 read resolve =
         match h1, h2 with
         | Defined(r1, h1), Defined(r2, h2) ->
             assert(r1 = r2)
             Heap.merge2 h1 h2 (keysResolver2 r1 h1 h2 read Heap.getKey resolve) |> State.Defined r1
         | _ -> mergeGeneralizedHeaps read [g1; g2] [h1; h2]
 
-    and private addToPathConditionIfNeed cond pc = if isTrue cond then pc else cond :: pc
+    let private addToPathConditionIfNeed cond pc = if isTrue cond then pc else cond :: pc
 
-    and merge2States condition1 condition2 state1 state2 =
+    let merge2States condition1 condition2 state1 state2 =
         assert(state1.pc = state2.pc)
         assert(state1.frames = state2.frames)
         let mergedConditions = condition1 ||| condition2
@@ -216,7 +218,7 @@ module internal Merging =
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
             { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; pc = mergedPC }
 
-    and mergeStates conditions states =
+    let mergeStates conditions states =
         assert(List.length states > 0)
         let first = List.head states
         let frames = first.frames
@@ -232,33 +234,23 @@ module internal Merging =
         let mergedPC = if isTrue mergedConditions then path else mergedConditions :: path
         { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = mergedPC; typeVariables = tv }
 
-    and genericSimplify gvs : (term * 'a) list =
-        let rec loop gvs out =
-            match gvs with
-            | [] -> out
-            | ((True, _) as gv)::_ -> [gv]
-            | (False, _)::gvs' -> loop gvs' out
-            | gv::gvs' -> loop gvs' (gv::out)
-        loop gvs [] |> mergeSame
-
-    and unguard = function
+    let unguard = function
         | {term = Union gvs} -> gvs
         | t -> [(True, t)]
 
-    and conditionUnderState condition state =
+    let conditionUnderState condition state =
         Propositional.conjunction condition.metadata (condition :: State.pathConditionOf state)
-        |> unguard |> merge
 
 // ------------------------------------ Mapping non-term sequences ------------------------------------
 
-    and guardedMapWithoutMerge f gvs =
+    let guardedMapWithoutMerge f gvs =
         List.map (fun (g, v) -> (g, f v)) gvs
 
-    and commonGuardedMapk mapper gvs merge k =
+    let commonGuardedMapk mapper gvs merge k =
         let foldFunc gvs (g, v) k =
             mapper v (fun v' -> k ((g, v') :: gvs))
         Cps.List.foldlk foldFunc [] gvs (merge >> k)
-    and guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
+    let guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
 
 // ---------------------- Applying functions to terms and mapping term sequences ----------------------
 
@@ -304,28 +296,24 @@ module internal Merging =
         let ges, gvs = term |> unguard |> List.partition (snd >> isError)
         ges, merge gvs
 
-    let productUnion f t1 t2 =
-        match t1.term, t2.term with
-        | Union gvs1, Union gvs2 ->
-            gvs1 |> List.collect (fun (g1, v1) ->
-            gvs2 |> List.map (fun (g2, v2) ->
-            (g1 &&& g2, f v1 v2)))
-            |> merge
-        | Union gvs1, _ ->
-            gvs1 |> List.map (fun (g1, v1) -> (g1, f v1 t2)) |> merge
-        | _, Union gvs2 ->
-            gvs2 |> List.map (fun (g2, v2) -> (g2, f t1 v2)) |> merge
-        | _ -> f t1 t2
+    let genericSimplify gvs : (term * 'a) list =
+        let rec loop gvs out =
+            match gvs with
+            | [] -> out
+            | ((True, _) as gv)::_ -> [gv]
+            | (False, _)::gvs' -> loop gvs' out
+            | gv::gvs' -> loop gvs' (gv::out)
+        loop gvs [] |> mergeSame
 
-    let rec private genericGuardedCartesianProductRec mapper ctor gacc xsacc = function
+    let rec private genericGuardedCartesianProductRec mapper gacc xsacc = function
         | x::xs ->
             mapper x
             |> List.collect (fun (g, v) ->
-                genericGuardedCartesianProductRec mapper ctor (gacc &&& g) (List.append xsacc [v]) xs)
+                genericGuardedCartesianProductRec mapper (gacc &&& g) (List.append xsacc [v]) xs)
             |> genericSimplify
-        | [] -> [(gacc, ctor xsacc)]
-    let genericGuardedCartesianProduct mapper ctor xs =
-        genericGuardedCartesianProductRec mapper ctor True [] xs
+        | [] -> [(gacc, xsacc)]
+    let genericGuardedCartesianProduct mapper xs =
+        genericGuardedCartesianProductRec mapper True [] xs
 
     let rec private guardedCartesianProductRec mapper ctor gacc xsacc = function
         | x::xs ->
@@ -338,38 +326,5 @@ module internal Merging =
             |> genericSimplify
         | [] -> [(gacc, ctor xsacc)]
 
-    let guardedCartesianProduct mapper ctor terms =
+    let guardedCartesianProduct mapper terms ctor =
         guardedCartesianProductRec mapper ctor True [] terms
-
-    let rec private guardedSequentialProductRec gacc terms k =
-        match terms with
-        | x::xs ->
-            let errorsOfX, x' = List.partition (snd >> isError) (unguard x)
-            let errorsOfX = List.map (mapfst ((&&&) gacc)) errorsOfX
-            match x' with
-            | [] -> k errorsOfX None False
-            | _ ->
-                let gacc' = gacc &&& disjunction Metadata.empty (List.map fst x')
-                guardedSequentialProductRec gacc' xs (fun errors results ->
-                let results =
-                    match results with
-                    | Some results ->
-                        let x' = List.map (mapfst ((&&&) gacc)) x'
-                        Some (x'::results)
-                    | None -> None
-                k (errorsOfX @ errors) results)
-        | [] -> k [(gacc, Nop)] (Some []) gacc
-
-    let guardedSequentialProduct terms =
-        let simplify = genericSimplify >> function
-            | [] -> None
-            | [(True, v)] -> Some v
-            | ts -> Some (Union Metadata.empty ts)
-        guardedSequentialProductRec True terms (fun errors results computationExistsGuard ->
-            let results =
-                match results with
-                | Some results ->
-                    Cps.List.mapk (fun r k -> Option.bind k (simplify r)) results Some
-                | None -> None
-            let errors = simplify errors |> Option.filter ((<>) Nop)
-            errors, Option.map (withFst computationExistsGuard) results)
