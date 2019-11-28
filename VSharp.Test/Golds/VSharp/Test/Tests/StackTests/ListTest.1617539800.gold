@@ -1,0 +1,28 @@
+METHOD: System.Void VSharp.Test.Tests.StackTests.ListTest(VSharp.Test.Tests.StackTests+List)
+RESULT: <VOID>
+HEAP:
+{ heap = merge[
+	(!(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list | 0 == list.VSharp::Test::Tests::StackTests::List::_root | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next, h0),
+	(!(0 == list) & !(0 == list.VSharp::Test::Tests::StackTests::List::_root) & !(0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next) & 0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key, { heap = <empty>, statics = s1 } ⚪ recapp(Add))], statics = merge[
+	(!(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list | 0 == list.VSharp::Test::Tests::StackTests::List::_root | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next, s2),
+	(!(0 == list) & !(0 == list.VSharp::Test::Tests::StackTests::List::_root) & !(0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next) & 0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key, { heap = <empty>, statics = s1 } ⚪ recapp(Add))] } where
+---------- h0 = ----------
+1.1.1 ==> VSharp.Test.Tests.StackTests+ListN CLASS [
+	| VSharp::Test::Tests::StackTests::ListN::Key ~> 0
+	| VSharp::Test::Tests::StackTests::ListN::Next ~> UNION[
+		| !(1.1.1 == list.VSharp::Test::Tests::StackTests::List::_root) ~> null
+		| 1.1.1 == list.VSharp::Test::Tests::StackTests::List::_root ~> (HeapRef 1.1.1)]]
+list.VSharp::Test::Tests::StackTests::List::_root ==> UNION[
+	| !(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list | 0 == list.VSharp::Test::Tests::StackTests::List::_root | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next ~> CLASS [
+		| VSharp::Test::Tests::StackTests::ListN::Next ~> UNION[
+			| !(0 == list) & !(0 == list.VSharp::Test::Tests::StackTests::List::_root) & !(1.1.1 == list.VSharp::Test::Tests::StackTests::List::_root) & 0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key & 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next ~> (HeapRef 1.1.1)
+			| (!(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list.VSharp::Test::Tests::StackTests::List::_root | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next) & ((!(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next & 1.1.1 == list.VSharp::Test::Tests::StackTests::List::_root) & (!(0 < list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Key) | 0 == list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next) | 0 == list.VSharp::Test::Tests::StackTests::List::_root) | 0 == list ~> (HeapRef list.VSharp::Test::Tests::StackTests::List::_root.VSharp::Test::Tests::StackTests::ListN::Next)]]]
+---------- s1 = ----------
+VSharp.Test.Tests.StackTests ==> CLASS []
+VSharp.Test.Tests.StackTests+List ==> CLASS []
+VSharp.Test.Tests.StackTests+ListN ==> CLASS []
+---------- s2 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.StackTests ==> CLASS []
+VSharp.Test.Tests.StackTests+List ==> CLASS []
+VSharp.Test.Tests.StackTests+ListN ==> CLASS []

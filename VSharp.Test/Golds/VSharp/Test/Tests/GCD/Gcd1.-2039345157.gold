@@ -1,6 +1,6 @@
 METHOD: System.Int32 VSharp.Test.Tests.GCD.Gcd1()
-RESULT: 1
+RESULT: μ[GcdRec]_1
 HEAP:
-{ heap = <empty>, statics = s0 } where
+{ heap = { heap = <empty>, statics = s0 } ⚪ recapp(GcdRec), statics = { heap = <empty>, statics = s0 } ⚪ recapp(GcdRec) } where
 ---------- s0 = ----------
 VSharp.Test.Tests.GCD ==> CLASS []

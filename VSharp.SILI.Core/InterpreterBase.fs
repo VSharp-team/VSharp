@@ -5,58 +5,34 @@
 open VSharp
 open System.Collections.Generic
 open System.Reflection
-open System.Text.RegularExpressions
 open System
 
-
-module public TokenCreator =
-    let private lvtokenPattern = "LocalVariable:"
-    let private lvtokenName = "__loc__"
-    let internal stackKeyIsLocalVariable (name, token) =
-        Regex.Match(name, lvtokenName + "-?\d+").Success
-        && Regex.Match(token, lvtokenPattern + "-?\d+").Success
-
-    let private getThisTokenBy (node : MethodBase) = node.ToString()
-    let private getTokenByLocalVariable (lvi : LocalVariableInfo) =
-        sprintf "%s%i" lvtokenPattern (lvi.ToString().GetHashCode())
-    let private getTokenByParameter (pi : ParameterInfo) =
-        sprintf "MethodParameter:%i" (Microsoft.FSharp.Core.LanguagePrimitives.PhysicalHash(pi))
-
-    let private nameLocalVar (lvi : LocalVariableInfo) = lvtokenName + lvi.LocalIndex.ToString()
-
-    let StackKeyOfThis methodBase : stackKey = ("this", getThisTokenBy methodBase)
-    let StackKeyOfParameter (param : ParameterInfo) : stackKey = (param.Name, getTokenByParameter param)
-    let StackKeyOfLocalVariable lvi : stackKey = (nameLocalVar lvi, getTokenByLocalVariable lvi)
 
 [<AbstractClass>]
 type public ExplorerBase() =
     static let CurrentlyBeingExploredLocations = new HashSet<ICodeLocation>()
-    static let CurrentlyCalledLocations = new HashSet<ICodeLocation>()
 
     static let DetectUnboundRecursion (codeLoc : ICodeLocation) (s : state) =
         match codeLoc with
         | :? IFunctionIdentifier as id ->
             let isRecursiveFrame (frame : stackFrame) =
                 match frame.func with
-                | Some(id', _) when id = id' -> true
+                | Some(id', pc') -> id = id' && s.pc = pc'
                 | _ -> false
-            let bottomOccurence = Stack.tryFindBottom isRecursiveFrame s.frames.f
-            match bottomOccurence with
-            | None -> false
-            | Some { func = Some(_, p'); entries = _ } when s.pc = p' -> false
-            | _ -> true
+            s.frames.f |> Stack.pop |> Stack.exists isRecursiveFrame
         ///  TODO: add more logic
-        | :? ILCodePortion as ilcode when CurrentlyCalledLocations.Contains ilcode -> true
         | :? ILCodePortion as ilcode -> //alwaysUnrollValue
-            let lastFrame = List.head ilcode.Frames.f
+            let lastFrame = Stack.peek ilcode.Frames.f
             lastFrame.entries
             |> List.exists (fun (entry : entry) ->
-                if TokenCreator.stackKeyIsLocalVariable entry.key then false else
-                let reference = Memory.ReferenceLocalVariable entry.key
-                let value, _ = Memory.Dereference s reference
-                match value.term with
-                | Concrete _ -> false
-                | _ -> true)
+                match entry.key with
+                | LocalVariableKey _ -> false
+                | _ ->
+                    let reference = Memory.ReferenceLocalVariable entry.key
+                    let value, _ = Memory.Dereference s reference
+                    match value.term with
+                    | Concrete _ -> false
+                    | _ -> true)
         | _ -> internalfail "Some new ICodeLocation"
 
     interface IActivator with
@@ -122,13 +98,10 @@ type public ExplorerBase() =
                         else
                             Memory.makeSymbolicThis metadata initialState m.Token declaringType
                             |> (fun (f, s, flag) -> Some f, s, flag)
-                    | :? IDelegateIdentifier as dlgt ->
-                        // TODO: Create dummy frame
-                        (None, initClosure dlgt.ContextFrames, false)
                     | _ -> __notImplemented__()
                 let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull metadata (Option.get this)) else Nop
                 let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
-                let state = x.FormInitialState funcId state
+                let state = x.FormInitialState funcId state this
                 x.Invoke funcId state this (fun (res, state) ->
                     let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
                     let state = if isMethodOfStruct then State.popStack state else state
@@ -153,31 +126,21 @@ type public ExplorerBase() =
             let state = Memory.composeStates ctx state summary.state
             k (result, state))
 
-    member private x.ReproduceEffectOrUnroll areWeStuck body id state setup teardown k =
+    member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
             x.ReproduceEffect id state k
         else
             /// explicitly unrolling
-            setup id
-            body state (fun (result, state) ->
-            teardown id
-            k (result, state))
+            body state k
 
     member x.EnterRecursiveRegion (codeLoc : IFunctionIdentifier) state body k =
         let shouldStopUnrolling = x.ShouldStopUnrolling codeLoc state
-        let setup, teardown =
-            match Options.RecursionUnrollingMode () with
-            | RecursionUnrollingModeType.NeverUnroll -> CurrentlyCalledLocations.Add >> ignore, CurrentlyCalledLocations.Remove >> ignore
-            | _ -> ignore, ignore
-        x.ReproduceEffectOrUnroll shouldStopUnrolling body codeLoc state setup teardown k
+        x.ReproduceEffectOrUnroll shouldStopUnrolling body codeLoc state k
 
     member x.ShouldStopUnrolling (codeLoc : ICodeLocation) state =
         match Options.RecursionUnrollingMode () with
         | RecursionUnrollingModeType.SmartUnrolling -> DetectUnboundRecursion codeLoc state
-        | RecursionUnrollingModeType.NeverUnroll ->
-            CurrentlyCalledLocations.Contains codeLoc ||
-            not <| CurrentlyBeingExploredLocations.Contains codeLoc ||
-            Database.reported codeLoc
+        | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
     member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
@@ -187,32 +150,32 @@ type public ExplorerBase() =
 
     member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues k =
         let parameters = methodBase.GetParameters()
-        let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType |> Types.WrapReferenceType
+        let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType
         let values, areParametersSpecified =
             match paramValues with
             | Specified values -> values, true
             | Unspecified -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
-            let stackKey = TokenCreator.StackKeyOfLocalVariable lvi
-            (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType |> Types.WrapReferenceType)
+            let stackKey = LocalVariableKey lvi
+            (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
         let locals = methodBase.GetMethodBody().LocalVariables |> Seq.map localVarsDecl |> Seq.toList
         let valueOrFreshConst (param : ParameterInfo option) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
             | Some param, None ->
-                let stackKey = TokenCreator.StackKeyOfParameter param
+                let stackKey = ParameterKey param
                 match areParametersSpecified with
                 | true when param.HasDefaultValue ->
                     let typ = getParameterType param
                     (stackKey, Specified(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
                 | _ -> (stackKey, Unspecified, getParameterType param)
-            | Some param, Some value -> (TokenCreator.StackKeyOfParameter param, Specified value, getParameterType param)
+            | Some param, Some value -> (ParameterKey param, Specified value, getParameterType param)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
             match this with
             | Some thisValue ->
-                let thisKey = TokenCreator.StackKeyOfThis methodBase
+                let thisKey = ThisKey methodBase
                 (thisKey, Specified thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
         Memory.NewStackFrame state funcId (parametersAndThis @ locals) |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual
@@ -262,7 +225,7 @@ type public ExplorerBase() =
         HigherOrderApply funcId state k
 
     abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
-    abstract member FormInitialState : IFunctionIdentifier -> state -> state
+    abstract member FormInitialState : IFunctionIdentifier -> state -> term option -> state
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 
 
@@ -287,12 +250,13 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
             let st1 = x.InternalState
             let st2 = y.InternalState
             let cond1List, cond2List, commonPc = findCommonSuffix [] (List.rev st1.pc) (List.rev st2.pc)
-            let cond1 = List.fold (&&&) True cond1List
-            let cond2 = List.fold (&&&) True cond2List
+            let cond1 = conjunction cond1List
+            let cond2 = conjunction cond2List
+            let common = conjunction commonPc
             let result =
                 match x.ResultTerm, y.ResultTerm with
                 | None, None -> None
-                | Some t1, Some t2 -> Some <| Merging.merge2Terms cond1 cond2 t1 t2
+                | Some t1, Some t2 -> Some <| Merging.merge2Terms (cond1 &&& common) (cond2 &&& common) t1 t2
                 | _ -> internalfail "only one state has result"
             let mergedInternalState = Merging.merge2States cond1 cond2 {st1 with pc = commonPc} {st2 with pc = commonPc}
             let newSt = x.SetState mergedInternalState

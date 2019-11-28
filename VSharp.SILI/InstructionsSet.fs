@@ -16,7 +16,7 @@ type public ILMethodMetadata =
         member x.IsStatic = x.methodBase.IsStatic
         member x.DeclaringType = x.methodBase.DeclaringType
         member x.DeclaringAssembly = x.methodBase.DeclaringType.Assembly
-        member x.Token = x.methodBase.ToString()
+        member x.Token = x.methodBase
         member x.ReturnType =
             match x.methodBase with
             | :? MethodInfo as mi -> mi.ReturnType
@@ -25,6 +25,7 @@ type public ILMethodMetadata =
         member x.Location = null // TODO: think about renaming ICodeLocation to smth more useful
 
 module internal TypeUtils =
+    open Types
 
     // TODO: get all this functions from Core
     let nativeintType   = Numeric typedefof<nativeint>
@@ -42,19 +43,19 @@ module internal TypeUtils =
 
     let signed2unsignedOrId = function
         | Bool -> uint32Type
-        | Numeric typ when typ = typedefof<int32> || typ = typedefof<uint32> -> uint32Type
-        | Numeric typ when typ = typedefof<int8> || typ = typedefof<uint8> -> uint8Type
-        | Numeric typ when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
-        | Numeric typ when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
-        | Numeric typ when typ = typedefof<double> -> float64TermType
+        | Numeric (Id typ) when typ = typedefof<int32> || typ = typedefof<uint32> -> uint32Type
+        | Numeric (Id typ) when typ = typedefof<int8> || typ = typedefof<uint8> -> uint8Type
+        | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
+        | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
+        | Numeric (Id typ) when typ = typedefof<double> -> float64TermType
         | _ -> __unreachable__()
     let unsigned2signedOrId = function
         | Bool -> int32Type
-        | Numeric typ when typ = typedefof<int32> || typ = typedefof<uint32> -> int32Type
-        | Numeric typ when typ = typedefof<int8>  || typ = typedefof<uint8> -> int8Type
-        | Numeric typ when typ = typedefof<int16> || typ = typedefof<uint16> -> int16Type
-        | Numeric typ when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
-        | Numeric typ when typ = typedefof<double> -> float64TermType
+        | Numeric (Id typ) when typ = typedefof<int32> || typ = typedefof<uint32> -> int32Type
+        | Numeric (Id typ) when typ = typedefof<int8>  || typ = typedefof<uint8> -> int8Type
+        | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> int16Type
+        | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
+        | Numeric (Id typ) when typ = typedefof<double> -> float64TermType
         | t -> t
     let integers = [int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
 
@@ -183,12 +184,12 @@ module internal InstructionsSet =
 
     let getVarTerm state index (methodBase : MethodBase) =
         let lvi = methodBase.GetMethodBody().LocalVariables.[index]
-        let stackKey = TokenCreator.StackKeyOfLocalVariable lvi
+        let stackKey = LocalVariableKey lvi
         let typ = Types.FromDotNetType state lvi.LocalType
         Memory.ReferenceLocalVariable stackKey, state, typ
     let getArgTerm state index (methodBase : MethodBase) =
         let pi = methodBase.GetParameters().[index]
-        Memory.ReferenceLocalVariable (TokenCreator.StackKeyOfParameter pi), state
+        Memory.ReferenceLocalVariable (ParameterKey pi), state
 
     let castToType isChecked typ term state k =
         if isReference term && Types.IsPointer typ then
@@ -316,7 +317,7 @@ module internal InstructionsSet =
         match TypeOf term with
         | Bool -> term
         | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
-        | Reference _ -> term !== MakeNullRef()
+        | _ when isReference term -> term !== MakeNullRef()
         | _ -> __notImplemented__()
     let ceq (cilState : cilState) =
         match cilState.opStack with

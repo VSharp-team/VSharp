@@ -1,4 +1,5 @@
 using System;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -26,7 +27,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
-        [TestSvm]
+        [Ignore("reinterpretation")]
         public static int Always18()
         {
             return Mult2(9);

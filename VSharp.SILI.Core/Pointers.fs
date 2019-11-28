@@ -217,7 +217,7 @@ module internal Pointers =
 
     let rec private simplifyPointerSubtractionGeneric mtd x y state k =
         let makeDiff p q =
-            let tp = Numeric typedefof<int64>
+            let tp = Numeric (Id typedefof<int64>)
             if p = q
             then makeNumber mtd 0L
             else
@@ -264,16 +264,13 @@ module internal Pointers =
         simplifyBinaryOperation mtd OperationType.Subtract State.empty x y fst
 
     let isPointerOperation op t1 t2 =
-        let isNull = (=) Types.pointerType
-        let isRefOrNull t = isNull t || Types.isReference t
-        let isPtrOrNull t = isNull t || Types.isPointer t
+        let isRefOrNull t = Types.concreteIsReferenceType t || Types.isNull t
+        let isPtrOrNull t = Types.isPointer t || Types.isNull t
 
         match op with
         | OperationType.Equal
         | OperationType.NotEqual ->
-            t1 = Reference Null || t2 = Reference Null
-            || isRefOrNull t1 && isRefOrNull t2
-            || isPtrOrNull t1 && isPtrOrNull t2
+            (isRefOrNull t1 && isRefOrNull t2) || (isPtrOrNull t1 && isPtrOrNull t2)
         | OperationType.Subtract -> Types.isPointer t1 && (Types.isPointer t2 || Types.isNumeric t2)
         | OperationType.Add ->
             (Types.isPointer t1 && Types.isNumeric t2) || (Types.isPointer t2 && Types.isNumeric t1)
@@ -290,8 +287,6 @@ module internal Pointers =
         inherit TermExtractor()
         override x.Extract t = topLevelLocation t
 
-    let symbolicThisStackKey = "symbolic this on stack"
-
     let (|SymbolicThisOnStack|_|) = function
-       | Ref(TopLevelStack(name, token), path) when symbolicThisStackKey.Equals(name) -> Some(SymbolicThisOnStack(token, path))
+       | Ref(TopLevelStack(SymbolicThisKey token), path) -> Some(SymbolicThisOnStack(token, path))
        | _ -> None

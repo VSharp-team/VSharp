@@ -31,7 +31,7 @@ module internal Operators =
     let simplifyUnaryOperation mtd op isChecked state t arg k =
         match t with
         | Bool -> Propositional.simplifyUnaryConnective mtd op arg (withSnd state >> k)
-        | Numeric t -> Arithmetics.simplifyUnaryOperation mtd op state arg isChecked t k
+        | Numeric(Id t) -> Arithmetics.simplifyUnaryOperation mtd op state arg isChecked t k
         | Types.StringType -> __notImplemented__()
         | _ -> __notImplemented__()
 

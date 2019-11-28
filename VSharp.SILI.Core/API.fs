@@ -57,7 +57,7 @@ module API =
         let False = False
 
         let MakeNullRef () = makeNullRef m.Value
-        let MakeDefault typ ref = Merging.guardedErroredApply (getFQLOfRef >> Some >> Memory.mkDefault m.Value typ) ref
+        let MakeDefault typ ref = Merging.guardedErroredApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
 
         let MakeNumber n = makeNumber m.Value n
 
@@ -81,9 +81,10 @@ module API =
         let AddConditionToState conditionState condition = State.withPathCondition conditionState condition
 
     module Types =
+        let Numeric t = Types.Numeric t
+
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
         let ToDotNetType t = Types.toDotNetType t
-        let WrapReferenceType t = Types.wrapReferenceType t
 
         let SizeOf t = Types.sizeOf t
 
@@ -105,9 +106,9 @@ module API =
         let RefIsType ref typ = Common.refIsType m.Value ref typ
         let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
 
+        let CanCast term targetType = TypeCasting.canCast m.Value term targetType
         let IsCast state targetType term = TypeCasting.isCast m.Value state term targetType
         let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value isChecked state term targetType fail k
-        let CastConcrete isChecked value typ = CastConcrete isChecked value typ m.Value
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer m.Value state reference
 
     module public Operators =
@@ -116,6 +117,8 @@ module API =
         let (|||) x y = Propositional.simplifyOr m.Value x y id
         let (===) x y = Operators.ksimplifyEquality m.Value x y id
         let (!==) x y = Operators.ksimplifyEquality m.Value x y (!!)
+        let conjunction xs = conjunction m.Value xs
+        let disjunction xs = disjunction m.Value xs
 
     module public Arithmetics =
         let (===) x y = Arithmetics.simplifyEqual m.Value x y id
@@ -131,11 +134,11 @@ module API =
 
         let PopStack state = State.popStack state
         let PopTypeVariables state = State.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state m.Value funcId parametersAndThis
-        let NewScope state frame = Memory.newScope m.Value state frame
+        let NewStackFrame state funcId parametersAndThis = State.newStackFrame m.Value state funcId parametersAndThis
+        let NewScope state frame = State.newScope m.Value state frame
         let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
-        let ReferenceField name typ parentRef = Memory.referenceField name typ parentRef
+        let ReferenceField parentRef name typ = Memory.referenceBlockField parentRef name typ
         let ReferenceLocalVariable location = Memory.referenceLocalVariable m.Value location
         let ReferenceStaticField targetType fieldName fieldType = Memory.referenceStaticField m.Value targetType fieldName fieldType
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices

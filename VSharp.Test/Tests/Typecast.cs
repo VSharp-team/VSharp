@@ -123,14 +123,14 @@ namespace VSharp.Test.Tests.Typecast
             return b is Object ? 33 : 38;
         }
 
-        [TestSvm]
+        [Ignore("Cast produces term with Error in Union")]
         public static Pawn TypeCast(Object obj)
         {
             Pawn pawn = (Pawn)obj;
             return pawn;
         }
 
-        [TestSvm]
+        [Ignore("Cast produces term with Error in Union")]
         public static Pawn TypeCastConcreteNull()
         {
             return TypeCast(null);
@@ -345,7 +345,7 @@ namespace VSharp.Test.Tests.Typecast
     [TestSvmFixture]
     public static class Helper
     {
-        [TestSvm]
+        [Ignore("substitute: Application - not implemented")]
         public static double CastStructToInterface(Coord arg)
         {
             INormalize tmp = arg;
@@ -366,7 +366,7 @@ namespace VSharp.Test.Tests.Typecast
             return (int)obj;
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

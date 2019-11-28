@@ -1,8 +1,8 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.CSharpUtils
 open global.System
-open System.Reflection
 
 type ISymbolicTypeSource =
     abstract TypeEquals : ISymbolicTypeSource -> bool
@@ -19,13 +19,12 @@ type termType =
     | Bottom
     | Null // TODO: delete Null from termType
     | Bool
-    | Numeric of System.Type
-    | StructType of System.Type * termType list        // Value type with generic argument
-    | ClassType of System.Type * termType list         // Reference type with generic argument
-    | InterfaceType of System.Type * termType list     // Interface type with generic argument
+    | Numeric of typeId
+    | StructType of typeId * termType list        // Value type with generic argument
+    | ClassType of typeId * termType list         // Reference type with generic argument
+    | InterfaceType of typeId * termType list     // Interface type with generic argument
     | TypeVariable of typeId
     | ArrayType of termType * arrayDimensionType
-    | Reference of termType
     | Pointer of termType // C-style pointers like int*
 
     override x.ToString() =
@@ -34,10 +33,10 @@ type termType =
         | Bottom -> "exception"
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
-        | Numeric t -> t.FullName
-        | StructType(t, g)
-        | ClassType(t, g)
-        | InterfaceType(t, g) ->
+        | Numeric(Id t) -> t.FullName
+        | StructType(Id t, g)
+        | ClassType(Id t, g)
+        | InterfaceType(Id t, g) ->
             if t.IsGenericType
                 then
                     let args = String.Join(",", (Seq.map toString g))
@@ -48,7 +47,6 @@ type termType =
         | ArrayType(t, ConcreteDimension 1) -> t.ToString() + "[*]"
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(_, SymbolicDimension) -> "System.Array"
-        | Reference t -> sprintf "<Reference to %O>" t
         | Pointer t -> sprintf "<Pointer to %O>" t
 
 and [<CustomEquality;CustomComparison>]
@@ -56,7 +54,7 @@ and [<CustomEquality;CustomComparison>]
         | Id of System.Type
         override x.GetHashCode() =
             match x with
-            | Id h -> hash h
+            | Id h -> h.GetDeterministicHashCode()
         override x.Equals(o : obj) =
             match o with
             | :? typeId as other ->
@@ -72,9 +70,33 @@ and [<CustomEquality;CustomComparison>]
                 | _ -> -1
 
 module internal Types =
+
+    let Numeric t = Numeric (Id t)
+
     let (|Char|_|) = function
-        | Numeric t when t = typeof<char> -> Some()
+        | Numeric(Id t) when t = typeof<char> -> Some()
         | _ -> None
+
+    let (|StructureType|_|) = function
+        | StructType _
+        | Numeric _
+        | Bool -> Some(StructureType)
+        | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> Some(StructureType)
+        | _ -> None
+
+    let (|ReferenceType|_|) = function
+        | ClassType _
+        | InterfaceType _
+        | ArrayType _ -> Some(ReferenceType)
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> Some(ReferenceType)
+        | _ -> None
+
+    let (|ComplexType|_|) = function
+        | StructureType
+        | ReferenceType
+        | TypeVariable _ -> Some(ComplexType)
+        | _ -> None
+
 
     let StructType t g = StructType(t, g)
     let ClassType t g = ClassType(t, g)
@@ -105,7 +127,7 @@ module internal Types =
         | _ -> false
 
     let isObject = function
-        | ClassType(t, _) when t = typedefof<obj> -> true
+        | ClassType(Id t, _) when t = typedefof<obj> -> true
         | _ -> false
 
     let isVoid = function
@@ -120,8 +142,8 @@ module internal Types =
         | Null -> true
         | _ -> false
 
-    let isReference = function
-        | Reference _ -> true
+    let concreteIsReferenceType = function
+        | ReferenceType -> true
         | _ -> false
 
     let isPointer = function
@@ -132,25 +154,13 @@ module internal Types =
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
 
-    let concreteIsReferenceType = function
-        | ClassType _
-        | InterfaceType _
-        | ArrayType _ -> true
-        | TypeVariable _ -> __unreachable__()
-        | _ -> false
-
-    let wrapReferenceType = function
-        | TypeVariable _ as t -> t
-        | t when concreteIsReferenceType t -> Reference t
-        | t -> t
-
     let rec toDotNetType t =
         match t with
         | Bool -> typedefof<bool>
-        | Numeric t -> t
-        | StructType(t, args)
-        | InterfaceType(t, args)
-        | ClassType(t, args) ->
+        | Numeric(Id t) -> t
+        | StructType(Id t, args)
+        | InterfaceType(Id t, args)
+        | ClassType(Id t, args) ->
             if t.IsGenericType
                 then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
@@ -158,7 +168,6 @@ module internal Types =
         | ArrayType(_, SymbolicDimension) -> typedefof<System.Array>
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
-        | Reference t -> toDotNetType t
         | Pointer t -> (toDotNetType t).MakePointerType()
         | Null -> __unreachable__()
         | _ -> typedefof<obj>
@@ -180,9 +189,9 @@ module internal Types =
 
 
     module internal Constructor =
-        let private StructType (t : Type) g = StructType t g
-        let private ClassType (t : Type) g = ClassType t g
-        let private InterfaceType (t : Type) g = InterfaceType t g
+        let private StructType (t : Type) g = StructType (Id t) g
+        let private ClassType (t : Type) g = ClassType (Id t) g
+        let private InterfaceType (t : Type) g = InterfaceType (Id t) g
 
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
@@ -200,41 +209,19 @@ module internal Types =
             | null -> Null
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
-            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj> |> wrapReferenceType, SymbolicDimension)
+            | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
-                    fromDotNetType (a.GetElementType()) |> wrapReferenceType,
+                    fromDotNetType (a.GetElementType()),
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
             | p when p.IsGenericParameter -> TypeVariable(Id p)
             | c when c.IsClass -> ClassType c (getGenericArguments c)
             | i when i.IsInterface -> makeInterfaceType i
             | _ -> __notImplemented__()
-
-        let (|StructureType|_|) = function
-            | termType.StructType(t, genArg) -> Some(StructureType(t, genArg))
-            | Numeric t -> Some(StructureType(t, []))
-            | Bool -> Some(StructureType(typedefof<bool>, []))
-            | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> Some(StructureType(t, []))
-            | _ -> None
-
-        let (|ReferenceType|_|) = function
-            | termType.ClassType(t, genArg) -> Some(ReferenceType(t, genArg))
-            | termType.InterfaceType(t, genArg) -> Some(ReferenceType(t, genArg))
-            | termType.ArrayType _ as arr ->
-                let t = toDotNetType arr
-                Some(ReferenceType(t, []))
-            | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> Some(ReferenceType(t, []))
-            | _ -> None
-
-        let (|ComplexType|_|) = function
-            | StructureType(t, genArg)
-            | ReferenceType(t, genArg) -> Some(ComplexType(t, genArg))
-            | TypeVariable(Id t) -> Some(ComplexType(t, []))
-            | _ -> None
 
     open Constructor
 
@@ -251,7 +238,3 @@ module internal Types =
     let isInteger = toDotNetType >> TypeUtils.isIntegral
 
     let isReal = toDotNetType >> TypeUtils.isReal
-
-    let unwrapReferenceType = function
-        | Reference t -> t
-        | t -> t

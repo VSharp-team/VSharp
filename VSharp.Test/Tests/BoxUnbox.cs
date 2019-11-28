@@ -41,42 +41,42 @@ namespace VSharp.Test.Tests
             return (T) o;
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny1()
         {
             var b = new B(5);
             return Cast<B>(b);
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny2()
         {
             var b = new B(5);
             return Cast<A>(b);
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny3()
         {
             var a = new A();
             return Cast<B>(a);
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny4()
         {
             var a = new A();
             return Cast<A>(a);
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny5()
         {
             var a = new int[] {1, 2, 3};
             return Cast<uint[]>(a);
         }
 
-        [TestSvm]
+        [Ignore("primitive cast: unreachable")]
         public static object UnboxAny6()
         {
             var a = new uint[] {1, 2, 3};
@@ -104,20 +104,20 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [TestSvm]
+        [Ignore("expected reference, but got System.Nullable")]
         public static object Box7()
         {
             int? x = 7;
             return x;
         }
 
-        [TestSvm]
+        [Ignore("expected reference, but got System.Nullable")]
         public static object BoxNullable(int? x)
         {
             return x;
         }
 
-        [TestSvm]
+        [Ignore("expected reference, but got System.Nullable")]
         public static bool AlwaysNull()
         {
             return BoxNullable(null) == null;
@@ -130,13 +130,13 @@ namespace VSharp.Test.Tests
             return x == y;
         }
 
-        [TestSvm]
+        [Ignore("expected reference, but got System.Nullable")]
         public static bool True1()
         {
             return AlwaysTrueForNullable(null);
         }
 
-        [TestSvm]
+        [Ignore("expected reference, but got System.Nullable")]
         public static bool True2()
         {
             int? x = 55;

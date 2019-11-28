@@ -105,4 +105,41 @@ namespace VSharp.Test.Tests
             }
         }
     }
+
+    [TestSvmFixture]
+    public static class RecMutation
+    {
+        public class SmallClass
+        {
+            public int Field0;
+        }
+
+        public class BigClass
+        {
+            public SmallClass Small;
+        }
+
+        private static int F(int x) // always 0
+        {
+            if (x <= 0)
+                return 0;
+            return F(x - 1);
+        }
+
+        private static BigClass MutateAfterRecursion(BigClass s, int n)
+        {
+            int zero = F(n);
+            if (s != null && s.Small != null)
+                s.Small.Field0 = 53 + zero;
+            return s;
+        }
+
+        [TestSvm]
+        public static SmallClass MutationAfterRecursionTest(int n)
+        {
+            var s1 = new BigClass {Small = new SmallClass()};
+            var s2 = MutateAfterRecursion(s1, n);
+            return s2.Small;
+        }
+    }
 }

@@ -4,6 +4,7 @@ open VSharp
 open System.Text
 open System.Collections.Generic
 open VSharp.Utils
+open VSharp.CSharpUtils
 
 type compositionContext =
     { mtd : termMetadata; addr : concreteHeapAddress }
@@ -40,7 +41,7 @@ type IStatedSymbolicTypeSource =
 type TypeExtractor() =
     abstract TypeExtract : termType -> termType
     override x.Equals other = x.GetType() = other.GetType()
-    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.GetHashCode() = x.GetType().GetDeterministicHashCode()
 type private IdTypeExtractor() =
     inherit TypeExtractor()
     override x.TypeExtract t = t
@@ -54,13 +55,14 @@ type private ArrayTypeExtractor() =
 type TermExtractor() =
     abstract Extract : term -> term
     override x.Equals other = x.GetType() = other.GetType()
-    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.GetHashCode() = x.GetType().GetDeterministicHashCode()
 type private IdTermExtractor() =
     inherit TermExtractor()
     override x.Extract t = t
 type IExtractingSymbolicConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract WithExtractor : TermExtractor -> IExtractingSymbolicConstantSource
+    abstract ComposeWithoutExtractor : compositionContext -> state -> term
 type IExtractingSymbolicTypeSource =
     inherit IStatedSymbolicTypeSource
     abstract WithTypeExtractor : TypeExtractor -> IExtractingSymbolicTypeSource
@@ -94,12 +96,8 @@ module internal State =
         x = [0]
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         if isZeroAddress a2 then a2 else List.append a1 a2
-    let decomposeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
-        List.minus a1 a2
     let composeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
         { mtd = Metadata.combine c1.mtd c2.mtd; addr = composeAddresses c1.addr c2.addr }
-    let decomposeContexts (c1 : compositionContext) (c2 : compositionContext) : compositionContext =
-        { mtd = c1.mtd; addr = decomposeAddresses c1.addr c2.addr }
 
     let nameOfLocation (topLevel, path) = List.map toString path |> cons (toString topLevel) |> join "."
 
@@ -142,29 +140,30 @@ module internal State =
     let writeStackLocation (s : state) key value : state =
         { s with stack = MappedStack.add key value s.stack }
 
-    let stackFold = MappedStack.fold
+    let inline entriesOfFrame f = f.entries
 
-    let private heapFold keyFolder termFolder acc h =
-        Heap.fold (fun acc k value -> let acc = keyFolder acc k in termFolder acc value) acc h
+    let concatFrames frames frames' = { f = frames.f @ frames'.f; sh = frames.sh @ frames'.sh }
 
-    let rec private generalizedHeapFold<'a, 'b when 'b : equality> (keyFolder : 'a -> 'b -> 'a) (typeFolder : 'a -> termType -> 'a) (termFolder : 'a -> term -> 'a) (acc : 'a) = function
-        | Defined(_, h) -> heapFold keyFolder termFolder acc h
-        | Composition(h1, _, h2) ->
-            let acc = fold typeFolder termFolder acc h1
-            generalizedHeapFold keyFolder typeFolder termFolder acc h2
-        | Mutation(h1, h2) ->
-            let acc = generalizedHeapFold keyFolder typeFolder termFolder acc h1
-            heapFold keyFolder termFolder acc h2
-        | Merged ghs ->
-            List.fold (fun acc (g, h) -> let acc = termFolder acc g in generalizedHeapFold keyFolder typeFolder termFolder acc h) acc ghs
-        | _ -> acc
+    let bottomAndRestFrames (s : state) =
+        let bottomFrame, restFrames = Stack.bottomAndRest s.frames.f
+        let sh = s.frames.sh
+        let sh' =
+            match bottomFrame.func with
+            | Some _ ->
+                assert(not <| List.isEmpty sh)
+                List.lastAndRest sh |> snd
+            | None -> sh
+        let getStackFrame locations =
+            let pushOne stack (entry : entry) =
+                match MappedStack.tryFind entry.key s.stack with
+                | Some v -> MappedStack.push entry.key v stack
+                | None -> MappedStack.reserve entry.key stack
+            let stack = List.fold pushOne MappedStack.empty locations
+            stack
+        let bottom = bottomFrame |> entriesOfFrame |> getStackFrame
+        let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
+        bottom, rest, { f = restFrames; sh = sh' }
 
-    and fold typeFolder termFolder acc state =
-        let acc = stackFold (fun acc _ v -> termFolder acc v) acc state.stack
-        let acc = generalizedHeapFold termFolder typeFolder termFolder acc state.heap
-        generalizedHeapFold typeFolder typeFolder termFolder acc state.statics
-
-    let inline private entriesOfFrame f = f.entries
     let inline private keyOfEntry en = en.key
 
     let typeOfStackLocation (s : state) key =
@@ -227,7 +226,6 @@ module internal State =
             let ms = state.typeVariables |> fst
             if MappedStack.containsKey key ms then MappedStack.find key ms else typ
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
-        | Reference t -> Reference (substituteTypeVariables t)
         | Pointer t -> Pointer(substituteTypeVariables t)
 
 // ------------------------------- Memory layer -------------------------------
@@ -301,7 +299,7 @@ module internal State =
             | Class _ -> sprintf "%O %O" typ v
             | _ -> toString v
         let sorter = term >> function
-            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> concreteHeapAddress
+            | Concrete(value, Numeric (Id t)) when t = typedefof<int> -> value :?> concreteHeapAddress
             | _ -> [System.Int32.MaxValue]
         let sh, n, concrete = dumpGeneralizedHeap toString heapValueToString sorter "h" n concrete ids s.heap
         let mh, n, concrete = dumpGeneralizedHeap toString (always toString) toString "s" n concrete ids s.statics

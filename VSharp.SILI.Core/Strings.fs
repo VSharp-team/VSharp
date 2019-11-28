@@ -11,8 +11,8 @@ module internal Strings =
 
     let stringArrayType = ArrayType(Char, Vector)
 
-    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(strArray, stringArrayType)
-    let makeLengthFQL fql = addToOptionFQL fql <| BlockField(strLength, lengthType)
+    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(FieldId strArray, stringArrayType)
+    let makeLengthFQL fql = addToOptionFQL fql <| BlockField(FieldId strLength, lengthType)
 
     let makeArrayFieldKey fql = makeKey strArray (makeArrayFQL fql) stringArrayType
     let makeLengthFieldKey fql = makeKey strLength (makeLengthFQL fql) lengthType

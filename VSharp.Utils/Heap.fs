@@ -48,27 +48,15 @@ module public Heap =
 
     let public size (h : heap<'a, 'b, 'fql, 'typ>) = h.Length
 
-    let private mapKeyValue mapper (key, value) =
-        let k, v = mapper key.key value
-        ({key with key = k}, v)
-
     let public map mapper (h : heap<'a, 'b, 'fql, 'typ>) : heap<'a, 'c, 'fql, 'typ> =
-        h |> toSeq |> Seq.map (mapKeyValue mapper) |> ofSeq
-    let public map' mapper (h : heap<'a, 'b, 'fql, 'typ>) : heap<'a, 'c, 'fql, 'typ> =
-        h |> toSeq |> Seq.map (fun (k, v) -> k, mapper k.key v) |> ofSeq
-    let public foldFQL folder state (h : heap<'a, 'b, 'fql, 'typ>) =
-        h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
+        h |> toSeq |> Seq.map mapper |> ofSeq
     let public fold folder state (h : heap<'a, 'b, 'fql, 'typ>) =
-        h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k.key v) state
+        h |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public forall predicate (h : heap<'a, 'b, 'fql, 'typ>) =
         h |> toSeq |> Seq.forall predicate
 
-    let private mapFoldKeyValue folder state (key, value) =
-        let (k, v), state = folder state key.key value
-        ({key with key = k}, v), state
-
     let public mapFold folder state (h : heap<'a, 'b, 'fql, 'typ>) =
-        h |> toSeq |> Seq.mapFold (mapFoldKeyValue folder) state |> mapfst ofSeq
+        h |> toSeq |> Seq.mapFold folder state |> mapfst ofSeq
 
     let private fqlLocations (h : heap<'a, 'b, 'fql, 'typ>) = h |> toSeq |> Seq.map fst
     let public locations (h : heap<'a, 'b, 'fql, 'typ>) = h |> toSeq |> Seq.map (getKey << fst)

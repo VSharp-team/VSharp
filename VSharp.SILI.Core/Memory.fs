@@ -6,6 +6,7 @@ open Types
 open VSharp
 open VSharp.Core.Types.Constructor
 open System.Collections.Immutable
+open VSharp.Utils
 
 module internal Memory =
     open Terms
@@ -45,59 +46,8 @@ module internal Memory =
     let referenceArrayLength arrayRef (indices : term) =
         referenceSubLocations arrayRef [ArrayLength indices]
 
-    let private referenceBlockField structRef (name : string) typ =
-        referenceSubLocations structRef [BlockField(name, typ)]
-
-// ------------------------------- Traversal -------------------------------
-
-    // TODO: path should NOT be accumulated, but taken from key metainfo
-    let inline private foldHeapLocationsRec folder =
-        Heap.foldFQL (fun acc subloc -> folder acc (getFQLOfKey subloc |> snd |> List.tryLast))
-
-    type private foldSubLocationAccWrapper<'acc, 'loc, 'pathSegment> =
-        { acc : 'acc; loc : 'loc; path : 'pathSegment list }
-
-    let private getAcc wrapper = wrapper.acc
-
-    let rec private foldSubLocations folder fillHoles fillPath mergeAcc acc segment v =
-        let foldHeap target acc =
-            foldHeapLocationsRec (foldSubLocations folder fillHoles fillPath mergeAcc) acc target
-        let acc' = lazy (
-            match segment with
-            | Some segment ->
-                { acc with path = fillPath segment :: acc.path }
-            | None -> acc)
-        let changePath acc' = { acc' with path = acc.path }
-        let apply term =
-            match term.term with
-            | Block(contents, _) ->
-                acc'.Force()
-             |> foldHeap contents
-             |> changePath
-            | Array(_, _, lower, _, contents, lengths) ->
-                acc'.Force()
-             |> foldHeap lower
-             |> foldHeap lengths
-             |> foldHeap contents
-             |> changePath
-            | _ -> folder acc segment v
-        commonGuardedErroredApply apply apply v (fun gvs ->
-            let gs, vs = List.unzip gvs
-            let gs' = List.map fillHoles gs
-            let acc' = List.head vs
-            { acc' with acc =  mergeAcc gs' (List.map (fun acc -> acc.acc) vs) })
-
-    and private foldHeapLocations folder fillHoles fillKey fillPath mergeAcc acc heap =
-        let foldInto heap k v =
-            let newAcc = { acc = heap; loc = fillKey k.key; path = [] }
-            foldSubLocations (fun acc -> folder acc (baseTypeOfKey k)) fillHoles fillPath mergeAcc newAcc None v |> getAcc
-        Heap.foldFQL foldInto acc heap
-
-    and private foldStackLocations folder fillHoles fillPath mergeAcc acc stack =
-        let foldInto heap k v =
-            let newAcc = { acc = heap; loc = k; path = [] }
-            foldSubLocations (fun acc -> folder acc (typeOf v)) fillHoles fillPath mergeAcc newAcc None v |> getAcc // TODO: use typeOfStackLocation for arrays when stackallock will be implemented
-        stackFold foldInto acc stack
+    let referenceBlockField structRef (name : string) typ =
+        referenceSubLocations structRef [BlockField(FieldId name, typ)]
 
 // ------------------------------- Instantiation (lazy & default) -------------------------------
 
@@ -115,28 +65,32 @@ module internal Memory =
                 match other with
                 | :? lazyInstantiation<'a> as li -> x.location = li.location
                 | _ -> false
+
+    let lazyInstantiationWithExtractor location heap extractor typeExtractor : IExtractingSymbolicConstantSource =
+        let gli heap = {location = location; heap = heap; extractor = extractor; typeExtractor = typeExtractor} :> IExtractingSymbolicConstantSource
+        match heap, location.term with
+        | None, Ref(TopLevelHeap _, _) -> gli (None : term generalizedHeap option)
+        | None, Ref(TopLevelStatics _, _) -> gli (None : termType generalizedHeap option)
+        | None, Ref(TopLevelStack _, _) -> gli (None : obj generalizedHeap option)
+        | Some _, _ -> gli heap
+        | _ -> __notImplemented__()
+
+    let lazyInstantiation location heap = lazyInstantiationWithExtractor location heap (IdTermExtractor()) (IdTypeExtractor())
+
+    type lazyInstantiation<'a when 'a : equality> with
+        member x.WithLocation loc = lazyInstantiationWithExtractor loc x.heap x.extractor x.typeExtractor
+
     let (|LazyInstantiation|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
-    let (|LazyInstantiationEpsilon|_|) (src : ISymbolicConstantSource) = // for None case of ground heap
-        let getLocation (li : 'a lazyInstantiation) =
-            match li with
-            | { heap = None } -> Some(li.location)
-            | _ -> None
-        match src with
-        | :? lazyInstantiation<obj> as li -> getLocation li
-        | :? lazyInstantiation<termType> as li -> getLocation li
-        | :? lazyInstantiation<term> as li -> getLocation li // TODO: generic shape pattern matching doesn't work in F#!
-        | _ -> None                                          // TODO: there should be more cases
-
     let private mkFields metadata isStatic mkField fql typ =
         let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
         let addField heap (name, typ) =
-            let termType = typ |> fromDotNetType |> wrapReferenceType
-            let fql' = BlockField(name, termType) |> addToOptionFQL fql
+            let termType = typ |> fromDotNetType
+            let fql' = BlockField(FieldId name, termType) |> addToOptionFQL fql
             let value = mkField metadata name termType fql'
             let key = makeKey name fql' termType
             Heap.add key value heap
@@ -156,12 +110,12 @@ module internal Memory =
             (fun k -> k <| mkStruct metadata isStatic mkField typ fql)
             (fun k -> k <| mkClass metadata isStatic mkField typ fql)
 
-    let rec private defaultOf metadata typ fql =
+    let rec defaultOf metadata typ fql =
         match typ with
         | Bool -> makeFalse metadata
-        | Numeric t when t.IsEnum -> CastConcrete true (System.Activator.CreateInstance t) t metadata
-        | Numeric t -> CastConcrete true 0 t metadata
-        | Reference _
+        | Numeric(Id t) when t.IsEnum -> CastConcrete true (System.Activator.CreateInstance t) t metadata
+        | Numeric(Id t) -> CastConcrete true 0 t metadata
+        | ArrayType _
         | ClassType _
         | InterfaceType _ -> makeNullRef metadata
         | TypeVariable (Id t) ->
@@ -173,9 +127,6 @@ module internal Memory =
             mkStruct metadata false (fun m _ t -> defaultOf m t) typ fql
         | Pointer typ -> makeNullPtr metadata typ
         | _ -> __notImplemented__()
-
-    let mkDefault metadata typ fql =
-        defaultOf metadata typ fql
 
     let mkDefaultBlock metadata targetType fql =
         mkBlock metadata false (fun m _ t -> defaultOf m t) targetType fql
@@ -195,10 +146,12 @@ module internal Memory =
         match Options.ExplorationMode() with
         | TrustConventions -> defaultOf metadata lengthType <| Some fql
         | CompleteExploration ->
-            Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
+            let liSource = lazyInstantiation (makeFQLRef metadata fql) heap
+            Constant metadata name liSource lengthType
 
     let private makeSymbolicArrayLength metadata name fql heap =
-        Constant metadata name {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()} lengthType
+        let liSource = lazyInstantiation (makeFQLRef metadata fql) heap
+        Constant metadata name liSource lengthType
 
     let private makeSymbolicArrayLowerBounds metadata (source : IExtractingSymbolicConstantSource) arrayName dimension fql =
         match source with
@@ -207,7 +160,9 @@ module internal Memory =
             | TrustConventions -> Arrays.zeroLowerBounds metadata dimension fql
             | CompleteExploration ->
                 let idOfBound i = sprintf "%s.%i_LowerBound" arrayName i
-                let mkLowerBound i = Constant metadata (idOfBound i) {liSource with location = referenceArrayLowerBound liSource.location (makeNumber metadata i)} lengthType
+                let mkLowerBound i =
+                    let liSourceI = liSource.WithLocation(referenceArrayLowerBound liSource.location (makeNumber metadata i))
+                    Constant metadata (idOfBound i) liSourceI lengthType
                 Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLowerBound i fql lengthType) l h) Heap.empty (Seq.init dimension mkLowerBound)
         | _ -> __notImplemented__()
 
@@ -215,7 +170,9 @@ module internal Memory =
         match source with
         | :? lazyInstantiation<term> as liSource ->
             let idOfLength i = sprintf "%s.%i_Length" arrayName i
-            let mkLength i = Constant metadata (idOfLength i) {liSource with location = referenceArrayLength liSource.location (makeNumber metadata i)} lengthType
+            let mkLength i =
+                let liSourceI = liSource.WithLocation(referenceArrayLength liSource.location (makeNumber metadata i))
+                Constant metadata (idOfLength i) liSourceI lengthType
             let lengths = Seq.init dimension mkLength
             let length = Seq.reduce (mul metadata) lengths
             Seq.foldi (fun h i l -> Heap.add (makePathIndexKey metadata ArrayLength i fql lengthType) l h) Heap.empty lengths, length
@@ -245,7 +202,7 @@ module internal Memory =
         | :? lazyInstantiation<term> as liSource ->
             let makeSymbolicStringField key t makeField =
                 let ref = referenceBlockField liSource.location key t
-                makeField {liSource with location = ref} t
+                makeField (liSource.WithLocation(ref)) t
             let lengthName = sprintf "%s.m_StringLength" strName
             let length = makeSymbolicStringField Strings.strLength lengthType (Constant mtd lengthName)
             let arrayFQL = Strings.makeArrayFQL fql
@@ -253,38 +210,56 @@ module internal Memory =
             Strings.makeStringOfFields mtd length array arrayFQL fql
         | _ -> __notImplemented__()
 
-    let rec makeSymbolicInstance metadata source name fql = function
-        | Pointer typ -> makeSymbolicHeapReference metadata source name typ (fun mtd tl bTyp sTyp path -> HeapPtr mtd tl bTyp sTyp path sTyp)
-        | Reference typ -> makeSymbolicHeapReference metadata source name typ HeapRef
+    let private makeSymbolicReferenceType metadata blockBuilder source name typ = function
+        | Some(TopLevelHeap _, [])
+        | Some(TopLevelStatics _, []) -> blockBuilder ()
+        | _ -> makeSymbolicHeapReference metadata source name typ HeapRef
+
+    let private makeSymbolicClass metadata source name typ fql =
+        let makeClass () = Class metadata Heap.empty
+        makeSymbolicReferenceType metadata makeClass source name typ fql
+
+    let rec makeSymbolicInstance metadata source name typ fql =
+        match typ with
         | Bool
-        | Numeric _ as t -> Constant metadata name source t
-        | StringType -> makeSymbolicString metadata source name fql
-        | TypeVariable _ as t ->
+        | Numeric _ -> Constant metadata name source typ
+        | StructType _ -> makeSymbolicStruct metadata source name typ fql
+        | TypeVariable _ ->
             Common.statelessConditionalExecutionWithMerge []
-                (fun k -> k <| Common.isValueType metadata t)
-                (fun k -> k <| Constant metadata name source t)
-                (fun k -> k <| makeSymbolicHeapReference metadata source name t HeapRef)
-        | ClassType _ -> Class metadata Heap.empty
-        | StructType _ as t -> makeSymbolicStruct metadata source name fql t
-        | ArrayType(e, d) -> makeSymbolicArray metadata source d e name fql
-        | Void -> Nop
+                (fun k -> k <| Common.isValueType metadata typ)
+                (fun k -> k <| Constant metadata name source typ)
+                (fun k -> k <| makeSymbolicClass metadata source name typ fql)
+        | StringType ->
+            let makeString () = makeSymbolicString metadata source name fql
+            makeSymbolicReferenceType metadata makeString source name typ fql
+        | ClassType _ -> makeSymbolicClass metadata source name typ fql
+        | InterfaceType _ -> makeSymbolicHeapReference metadata source name typ HeapRef // makes reference, because we will never have interface instance in heap
+        | ArrayType(e, d) ->
+            let makeArray () = makeSymbolicArray metadata source d e name fql
+            makeSymbolicReferenceType metadata makeArray source name typ fql
+        | Pointer typ' ->
+            let makePtr mtd tl bTyp sTyp path = HeapPtr mtd tl bTyp sTyp path sTyp
+            makeSymbolicHeapReference metadata source name typ' makePtr
         | Null -> makeNullRef metadata
-        | InterfaceType _
+        | Void -> Nop
         | Bottom -> __unreachable__()
 
-    and private makeSymbolicStruct metadata (source : IExtractingSymbolicConstantSource) structName fql typ =
-        match source with
-        | :? lazyInstantiation<obj> as liSource ->
+    and private makeSymbolicStruct metadata (source : IExtractingSymbolicConstantSource) structName typ fql =
+        let makeSymbolicStruct' (liSource : 'a lazyInstantiation) =
             let makeField mtd name typ fql =
                 let fieldName = sprintf "%s.%s" structName name
-                let fieldSource = {liSource with location = referenceBlockField liSource.location fieldName typ}
-                makeSymbolicInstance mtd fieldSource fieldName fql typ
+                let fieldSource = liSource.WithLocation(referenceBlockField liSource.location name typ)
+                makeSymbolicInstance mtd fieldSource fieldName typ fql
             mkStruct metadata false makeField typ fql
+        match source with
+        | :? lazyInstantiation<obj> as liSource -> makeSymbolicStruct' liSource
+        | :? lazyInstantiation<term> as liSource -> makeSymbolicStruct' liSource
+        | :? lazyInstantiation<termType> as liSource -> makeSymbolicStruct' liSource
         | _ -> __notImplemented__()
 
     let private genericLazyInstantiator metadata heap fql typ () =
-        let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        makeSymbolicInstance metadata source (nameOfLocation fql) (Some fql) typ
+        let source = lazyInstantiation (makeFQLRef metadata fql) heap
+        makeSymbolicInstance metadata source (nameOfLocation fql) typ (Some fql)
 
     let () =
         State.genericLazyInstantiator <- fun mtd -> genericLazyInstantiator mtd None
@@ -293,8 +268,8 @@ module internal Memory =
         | DefaultInstantiator concreteType -> fun () -> defaultOf metadata (typ |?? concreteType) <| Some fql
         | LazyInstantiator concreteType -> instantiator |?? fun () ->
             let id = sprintf "%s[%s]" (nameOfLocation fql) (idx.term.IndicesToString())
-            let source = {location = makeFQLRef metadata fql; heap = heap; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-            makeSymbolicInstance metadata source id (Some fql) concreteType
+            let source = lazyInstantiation (makeFQLRef metadata fql) heap
+            makeSymbolicInstance metadata source id concreteType (Some fql)
     let private arrayLowerBoundLazyInstantiator metadata instantiator _ heap fql (idx : term) = function
         | DefaultInstantiator _-> fun () -> defaultOf metadata lengthType <| Some fql
         | LazyInstantiator _ -> instantiator |?? fun () ->
@@ -313,8 +288,10 @@ module internal Memory =
             makeSymbolicArrayLength metadata name fql heap
 
     let staticMemoryLazyInstantiator metadata typ () =
-        if concreteIsReferenceType typ then Class metadata Heap.empty
-        else Struct metadata Heap.empty typ
+        match typ with
+        | ReferenceType -> Class metadata Heap.empty
+        | StructureType -> Struct metadata Heap.empty typ
+        | _ -> __unreachable__()
 
     let private selectLazyInstantiator metadata heap fql typ =
         match fql with
@@ -364,10 +341,6 @@ module internal Memory =
 
 // ------------------------------- Core -------------------------------
 
-    let private isTopLevelHeapConcreteAddr = function
-        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
-        | _ -> false
-
     let rec private accessHeap<'a, 'key when 'a : equality and 'key : equality> read restricted metadata (groundHeap : 'a generalizedHeap option) guard update (h : 'key heap) keyCompare contextList mapper lazyInstantiator ptr =
         let accessRec gvas lazyValue h =
             let accessLocation h (guard', key, value) =
@@ -380,7 +353,7 @@ module internal Memory =
             let gvs, h' = List.mapFold accessLocation h gvas
             merge (optCons gvs lazyValue), h'
         let heapKey = makeKey ptr.location (Some ptr.fullyQualifiedLocation) ptr.typ
-        if Heap.contains heapKey h then
+        if Heap.contains heapKey h then // TODO: only if heapKey is concreteHeapAddress!
             accessRec [(makeTrue metadata, heapKey, Heap.find heapKey h)] None h
         else
             let baseGav, restGavs = findSuitableLocations metadata h keyCompare contextList mapper ptr
@@ -391,29 +364,30 @@ module internal Memory =
             | None ->
                 let baseGuard = restGavs |> List.map (fst3 >> (!!)) |> conjunction metadata
                 let lazyValue =
-                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation && List.isEmpty contextList then Union metadata [] // TODO: incorrect deref during independent check (Test -- RecursiveAccess.G)
-                    else lazyInstantiator |?? genericLazyInstantiator metadata groundHeap ptr.fullyQualifiedLocation ptr.typ |> eval
+                    if read && isTopLevelHeapConcreteAddr ptr.fullyQualifiedLocation && List.isEmpty contextList && List.isEmpty ptr.path
+                        then Union metadata [] // TODO: incorrect deref during independent check (Test -- RecursiveAccess.G)
+                        else lazyInstantiator |?? genericLazyInstantiator metadata groundHeap ptr.fullyQualifiedLocation ptr.typ |> eval
                 let gavs = if read then restGavs else (baseGuard, heapKey, lazyValue)::restGavs
                 let lv = if read then Some(baseGuard, lazyValue) else None
                 let h = if read then h else Heap.add heapKey lazyValue h
                 accessRec gavs lv h
             | Some(k, v) -> accessRec ((makeTrue metadata, k, v)::restGavs) None h
 
-    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : term -> term) contextList lazyInstantiator ptrFql path value =
+    and private accessTerm read metadata (groundHeap: 'a generalizedHeap option) guard (update : fql * term -> term) contextList lazyInstantiator ptrFql path value =
         let internalMerge gvs =
             let cells, newVs = List.fold (fun (cells, newVs) (g, (c, v)) -> (g, c)::cells, (g, v)::newVs) ([], []) gvs
             merge cells, merge newVs
         let doAccess term =
             match path with
             | [] ->
-                let newTerm = update term
+                let newTerm = update (ptrFql, term)
                 newTerm, newTerm
             | location :: path' ->
                 match term.term with
                 | Block(fields, blockType) ->
                     let fql' = addToFQL location ptrFql
                     match location with
-                    | BlockField(name, typ) ->
+                    | BlockField(FieldId name, typ) ->
                         let instantiator = if read then lazyInstantiator else Some <| genericLazyInstantiator term.metadata groundHeap fql' typ
                         let ptr' = { location = name; fullyQualifiedLocation = fql'; typ = typ; path = path' }
                         let mapper (k, term) (ctx, s) = k, fillHoles ctx s term
@@ -447,14 +421,14 @@ module internal Memory =
 
     and private compareStringKey mtd loc key = makeBool mtd (loc = key)
 
-    and private readTerm mtd (_ : bool) term fql typ =
-        let path = snd fql |> List.last |> List.singleton
+    and private readTerm mtd (_ : bool) term ((tl, path) as fql) typ =
+        let currentPath, path' = List.splitAt (List.length path - 1) path
         let lazyInstor = genericLazyInstantiator mtd None fql typ
-        accessTerm true mtd None (makeTrue mtd) id [] (Some lazyInstor) fql path term |> fst
+        accessTerm true mtd None (makeTrue mtd) snd [] (Some lazyInstor) (tl, currentPath) path' term |> fst
 
     and private accessBlockField read mtd update term fieldName fieldType =
         let lazyInstor = __unreachable__
-        let path = [BlockField(fieldName, fieldType)]
+        let path = [BlockField(FieldId fieldName, fieldType)]
         let fakeFql = (NullAddress, []) // TODO: fix and never use fake fql
         accessTerm read mtd None (makeTrue mtd) update [] (Some lazyInstor) fakeFql path term |> fst
 
@@ -477,7 +451,7 @@ module internal Memory =
         accessHeap<term, term> read restricted metadata groundHeap (makeTrue metadata) update heap fastNumericCompare contextList termKeyMapper lazyInstantiator ptr
 
     and readHeap metadata restricted heap key typ =
-        commonHierarchicalHeapAccess true restricted id metadata None heap [] None key typ [] |> fst
+        commonHierarchicalHeapAccess true restricted snd metadata None heap [] None key typ [] |> fst
 
     and private commonHierarchicalStaticsAccess read restricted update metadata groundHeap statics contextList lazyInstantiator typ path =
         let typ' = if List.isEmpty path then typ else typeOfPath path
@@ -491,16 +465,22 @@ module internal Memory =
         accessHeap<termType, termType> read restricted metadata groundHeap (makeTrue metadata) update statics Common.typesEqual contextList mapper lazyInstantiator ptr
 
     and readStatics metadata restricted statics key _ =
-        commonHierarchicalStaticsAccess true restricted id metadata None statics [] None key [] |> fst
+        commonHierarchicalStaticsAccess true restricted snd metadata None statics [] None key [] |> fst
 
-    and mutateStack metadata state location path value =
-        commonHierarchicalStackAccess false (always value) metadata state location path |> snd
+    and updateStack update metadata state location path =
+        commonHierarchicalStackAccess false update metadata state location path |> snd
 
-    and private mutateHeap restricted metadata h loc typ path value =
-        commonHierarchicalHeapAccess false restricted (always value) metadata None h [] None loc typ path |> snd
+    and mutateStack metadata state location path value = updateStack (always value) metadata state location path
 
-    and private mutateStatics restricted metadata statics location _ path value =
-        commonHierarchicalStaticsAccess false restricted (always value) metadata None statics [] None location path |> snd
+    and private updateHeap restricted update metadata h loc typ path =
+        commonHierarchicalHeapAccess false restricted update metadata None h [] None loc typ path |> snd
+
+    and private mutateHeap restricted metadata h loc typ path value = updateHeap restricted (always value) metadata h loc typ path
+
+    and private updateStatics restricted update metadata statics location _ path =
+        commonHierarchicalStaticsAccess false restricted update metadata None statics [] None location path |> snd
+
+    and private mutateStatics restricted metadata statics location typ path value = updateStatics restricted (always value) metadata statics location typ path
 
     and private independent<'a when 'a : equality> (exploredRecursiveCodeLocs : ImmutableHashSet<ICodeLocation>) (read : ImmutableHashSet<ICodeLocation> -> state -> term * 'a generalizedHeap) codeLoc location : bool =
         exploredRecursiveCodeLocs.Contains codeLoc ||
@@ -508,9 +488,8 @@ module internal Memory =
         match Database.querySummary codeLoc with
         | Some summary ->
             let t, _ = read exploredRecursiveIds summary.state
-            match t.term with
-            | Constant(_, LazyInstantiationEpsilon(location'), _) when location = location' -> true
-            |_ -> false
+            let li = genericLazyInstantiator Metadata.empty (None : 'a generalizedHeap option) (getFQLOfRef location) (typeOf location) ()
+            li = t
         | None -> false
 
     and private accessGeneralizedHeapRec<'a when 'a : equality> (exploredIds : ImmutableHashSet<ICodeLocation>) unlucky contextList lazyInstantiator read readHeap (getter : state -> 'a generalizedHeap) location accessDefined = function
@@ -527,12 +506,14 @@ module internal Memory =
             let result, h'' = accessDefined contextList lazyInstantiator (Some h) false h'
             if read then
                 let accessH = lazy(accessGeneralizedHeapRec exploredIds unlucky contextList lazyInstantiator read readHeap getter location accessDefined h |> fst)
-                let simplifyInstantiated term =
+                let simplifyInstantiated contextCase nonContextCase term =
                     match term.term with
                     | Constant(_, LazyInstantiation(loc, Some heap, _), _) when loc = location && heap = h ->
-                        accessH.Force()
-                    | _ -> term
-                Substitution.substitute simplifyInstantiated id result, m
+                        accessH.Force() |> contextCase
+                    | _ -> nonContextCase term
+                let simplifyInstantiatedAddress address baseType sightType =
+                    simplifyInstantiated (topLevelOfFilledRef sightType) (fun a -> [True, TopLevelHeap(a, baseType, sightType)]) address
+                Substitution.substitute (simplifyInstantiated id id) simplifyInstantiatedAddress id result, m
             else
                 result, Mutation(h, h'')
         | Composition(_, _, Defined _) ->
@@ -591,7 +572,7 @@ module internal Memory =
             | t -> internalfailf "expected reference or pointer, but got %O" t
         guardedErroredStatedApply doAccess
 
-// ------------------------------- Composition -------------------------------
+// ---------------------------------------------------- Composition ----------------------------------------------------
 
     and private fillHole (ctx : compositionContext) state term =
         match term.term with
@@ -603,66 +584,103 @@ module internal Memory =
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
         | Pointers.SymbolicThisOnStack(token, path) ->
-            let id = ("this", token)
+            let id = ThisKey token
             let reference = referenceLocalVariable term.metadata id |> deref term.metadata state |> fst
             referenceSubLocations reference path
         | _ -> term
 
+    and private topLevelOfFilledRef sightType reference =
+        let destruct reference =
+            match reference.term with
+            | Ref(TopLevelHeap (a, bt, _), [])
+            | Ptr(TopLevelHeap (a, bt, _), [], _, _) -> TopLevelHeap(a, bt, sightType)
+            | Ref(NullAddress, [])
+            | Ptr(NullAddress, [], _, _) -> NullAddress
+            | _ -> __notImplemented__()
+        unguard reference |> guardedMapWithoutMerge destruct
+
+    and private fillHoleInHeapAddress (ctx : compositionContext) state address baseType sightType = // TODO: find another solution someday..
+        match address.term with
+        | Constant(_, source, _) ->
+            match source with
+            | :? IExtractingSymbolicConstantSource as source ->
+                let reference = source.ComposeWithoutExtractor ctx state
+                topLevelOfFilledRef sightType reference
+            | _ -> __notImplemented__()
+        | Concrete(:? concreteHeapAddress as addr, t) ->
+            let addr' = Concrete ctx.mtd (composeAddresses ctx.addr addr) t
+            [True, TopLevelHeap(addr', baseType, sightType)]
+        | _ -> __notImplemented__()
+
     and fillHoles ctx state term =
-        Substitution.substitute (fillHole ctx state) (substituteTypeVariables ctx state) term
+        Substitution.substitute (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) term
 
-    and fillHolesInHeap fillHolesInKey ctx state heap =
-        Heap.map (fun k value -> fillHolesInKey ctx state k, fillHoles ctx state value) heap
+    and private fillHolesInHeap keySubst ctx state heap =
+        Substitution.substituteHeap (keySubst ctx state) (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) heap
 
-    and fillHolesInPathSegment ctx source = function
-        | BlockField(addr, typ) -> BlockField(addr, substituteTypeVariables ctx source typ)
-        | ArrayIndex(addr, typ) -> ArrayIndex(fillHoles ctx source addr, substituteTypeVariables ctx source typ)
-        | ArrayLowerBound addr -> ArrayLowerBound(fillHoles ctx source addr)
-        | ArrayLength addr -> ArrayLength(fillHoles ctx source addr)
+    and private fillHolesInMemoryCell ctx keySubst state key =
+        Substitution.substituteHeapKey (keySubst ctx state) (fillHole ctx state) (fillHoleInHeapAddress ctx state) (substituteTypeVariables ctx state) key
 
-    and private fillAndPushSegment ctx source path =
-        Option.map (fillHolesInPathSegment ctx source)
-     >> optCons path
-     >> List.rev
+    and private updateLocation newValue (currentFQL, oldValue) = // TODO: support updating union with union
+        let mtd = newValue.metadata
+        let mutateOneKey old k v =
+            let path = getFQLOfKey k |> snd |> List.last |> List.singleton
+            accessTerm false mtd None True (updateLocation v) [] None currentFQL path old |> snd
+        let doMutate newValue =
+            match newValue.term with
+            | Block(fields, _) ->
+                Heap.fold mutateOneKey oldValue fields
+            | Array(_, _, lower, _, contents, lengths) ->
+                let oldValue = Heap.fold mutateOneKey oldValue lower
+                let oldValue = Heap.fold mutateOneKey oldValue contents
+                Heap.fold mutateOneKey oldValue lengths
+            | _ -> newValue
+        guardedErroredApply doMutate newValue
 
-    and private fillAndMutateStack (ctx : compositionContext) source (acc : foldSubLocationAccWrapper<_,stackKey,_>) _ segment value = // TODO: firstly fill all holes and then mutate
-        let path' = fillAndPushSegment ctx source acc.path segment
-        let v = fillHoles ctx source value
-        { acc with acc = mutateStack ctx.mtd acc.acc acc.loc path' v }
+    and private fillAndMutateHeapLocation updateHeap keySubst ctx restricted state h k v =
+        let k' = fillHolesInMemoryCell ctx keySubst state k
+        let v' = fillHoles ctx state v
+        let fql' = getFQLOfKey k'
+        if (isTopLevelHeapConcreteAddr fql' || isTopLevelStatics fql') && not (Heap.contains k' h)
+        then Heap.add k' v' h
+        else updateHeap restricted (updateLocation v') ctx.mtd h k'.key k'.typ []
 
-    and private fillAndMutateCommon<'a when 'a : equality> mutateHeap (ctx : compositionContext) restricted source (acc : foldSubLocationAccWrapper<'a heap,'a,_>) typ segment value =
-        let path' = fillAndPushSegment ctx source acc.path segment
-        let v = fillHoles ctx source value
-        let typ = substituteTypeVariables ctx source typ
-        { acc with acc = mutateHeap restricted ctx.mtd acc.acc acc.loc typ path' v }
+    and private fillAndMutateStackLocation (ctx : compositionContext) state memory k v =
+        let v' = fillHoles ctx state v
+        match k with
+        | SymbolicThisKey token ->
+            let loc = ThisKey token
+            let thisRef = stackDeref (stackLazyInstantiator state loc) state loc |> fst
+            update (updateLocation v') ctx.mtd memory thisRef |> snd
+        | loc -> updateStack (updateLocation v') ctx.mtd memory loc []
 
-    and private composeDefinedHeaps writer fillHoles fillKey fillPath readHeap restricted s h h' = // TODO: fillHoles in fql
-        foldHeapLocations (writer restricted s) fillHoles fillKey fillPath (mergeDefinedHeaps false readHeap) h h'
+    and private composeDefinedHeaps updateHeap keySubst (ctx : compositionContext) restricted state h h' =
+        Heap.fold (fillAndMutateHeapLocation updateHeap keySubst ctx restricted state) h h'
 
-    and private composeGeneralizedHeaps<'key when 'key : equality> writer fillHolesInKey readHeap (ctx : compositionContext) getter setter s (h' : 'key generalizedHeap) =
+    and private composeGeneralizedHeaps<'key when 'key : equality> readHeap updateHeap keySubst (ctx : compositionContext) getter setter s (h' : 'key generalizedHeap) : 'key generalizedHeap =
         match getter s, h' with
         | Defined(r, h), Defined(r', h') ->
             assert(not r')
-            composeDefinedHeaps (writer ctx) (fillHoles ctx s) (fillHolesInKey ctx s) (fillHolesInPathSegment ctx s) (readHeap ctx.mtd) r s h h' |> Defined r
+            composeDefinedHeaps updateHeap keySubst ctx r s h h' |> Defined r
         | Merged ghs, _ ->
             let gs, hs = List.unzip ghs
-            hs |> List.map (fun h -> composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter (setter s h) h') |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs
+            hs |> List.map (fun h -> composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter (setter s h) h') |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs
         | _, Merged ghs' ->
             let gs, hs' = List.unzip ghs'
             let gs' = List.map (fillHoles ctx s) gs
-            hs' |> List.map (composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter s) |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs'
+            hs' |> List.map (composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s) |> mergeGeneralizedHeaps (readHeap ctx.mtd) gs'
         | Defined _, Composition(s', ctx', h')
         | Mutation _, Composition(s', ctx', h')
         | Composition _, Composition(s', ctx', h') ->
             let s = composeStates ctx s s'
-            composeGeneralizedHeaps writer fillHolesInKey readHeap ctx' getter setter s h'
+            composeGeneralizedHeaps readHeap updateHeap keySubst ctx' getter setter s h'
         | Defined _, Mutation(h', h'')
         | RecursiveApplication _, Mutation(h', h'')
         | HigherOrderApplication _, Mutation(h', h'')
         | Composition _, Mutation(h', h'')
         | Mutation _, Mutation(h', h'') ->
-            let res = composeGeneralizedHeaps writer fillHolesInKey readHeap ctx getter setter s h'
-            let res' = fillHolesInHeap fillHolesInKey ctx s h''
+            let res = composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s h'
+            let res' = fillHolesInHeap keySubst ctx s h''
             Mutation(res, res')
         | Defined _, HigherOrderApplication _
         | Defined _, RecursiveApplication _
@@ -681,66 +699,66 @@ module internal Memory =
             assert(not r'')
             match h' with
             | Defined(r, h') ->
-                let ctx'' = decomposeContexts ctx ctx'
-                let h = composeDefinedHeaps (writer ctx'') (fillHoles ctx s) (fillHolesInKey ctx'' s) (fillHolesInPathSegment ctx'' s) (readHeap ctx.mtd) r s h' h'' |> Defined r
-                composeGeneralizedHeaps writer fillHolesInKey readHeap ctx' getter setter s' h
+                let h = composeDefinedHeaps updateHeap keySubst ctx' r s h' h'' |> Defined r
+                composeGeneralizedHeaps readHeap updateHeap keySubst ctx getter setter s' h
             | _ ->
-                let h'' = fillHolesInHeap fillHolesInKey ctx s h''
+                let h'' = fillHolesInHeap keySubst ctx s h''
                 Mutation(h, h'')
         | (HigherOrderApplication _ as h), Defined(r, h')
         | (RecursiveApplication _ as h), Defined(r, h') ->
             assert(not r)
-            let h' = fillHolesInHeap fillHolesInKey ctx s h'
+            let h' = fillHolesInHeap keySubst ctx s h'
             Mutation(h, h')
         | Mutation(h, h'), Defined(r, h'') ->
             // TODO: this is probably wrong!
             assert(not r)
-            Mutation(h, composeDefinedHeaps (writer ctx) (fillHoles ctx s) (fillHolesInKey ctx s) (fillHolesInPathSegment ctx s) (readHeap ctx.mtd) false s h' h'')
+            Mutation(h, composeDefinedHeaps updateHeap keySubst ctx false s h' h'')
 
     and composeStacksOf ctx state state' =
-        (foldStackLocations (fillAndMutateStack ctx state) (fillHoles ctx state) (fillHolesInPathSegment ctx state) mergeStates state state'.stack).stack
+        let state'Bottom, state'RestStack, state'RestFrames = State.bottomAndRestFrames state'
+        let state2 = MappedStack.fold (fillAndMutateStackLocation ctx state) state state'Bottom  // apply effect of bottom frame
+        let state3 = {state2 with frames = State.concatFrames state'RestFrames state2.frames}    // add rest frames
+        MappedStack.fold (fillAndMutateStackLocation ctx state) state3 state'RestStack           // fill and copy effect of rest frames
 
     and composeHeapsOf ctx state heap =
-        composeGeneralizedHeaps (fillAndMutateCommon mutateHeap) fillHoles readHeap ctx heapOf withHeap state heap
+        composeGeneralizedHeaps readHeap updateHeap fillHole ctx heapOf withHeap state heap
 
     and composeStaticsOf ctx state statics =
-        composeGeneralizedHeaps (fillAndMutateCommon mutateStatics) substituteTypeVariables readStatics ctx staticsOf withStatics state statics
+        composeGeneralizedHeaps readStatics updateStatics substituteTypeVariables ctx staticsOf withStatics state statics
 
     and composeStates ctx state state' =
-        let stack = composeStacksOf ctx state state'
-        let heap = composeHeapsOf ctx state state'.heap
-        let statics = composeStaticsOf ctx state state'.statics
+        let stateWithNewFrames = composeStacksOf ctx state state'
+        let stateWithOldFrames = {stateWithNewFrames with stack = state.stack; frames = state.frames}
+        let heap = composeHeapsOf ctx stateWithOldFrames state'.heap
+        let statics = composeStaticsOf ctx stateWithOldFrames state'.statics
         assert(state'.typeVariables |> snd |> Stack.isEmpty)
-        let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
-        { stack = stack; heap = heap; statics = statics; frames = state.frames; pc = pc; typeVariables = state.typeVariables }
+        let pc = List.map (fillHoles ctx stateWithOldFrames) state'.pc |> List.append stateWithOldFrames.pc
+        { stateWithNewFrames with heap = heap; statics = statics; pc = pc }
 
 // ------------------------------- High-level read/write -------------------------------
 
     and deref metadata state location =
-        hierarchicalAccess true true npeTerm id metadata state location
+        hierarchicalAccess true true npeTerm snd metadata state location
 
     and readBlockField metadata blockTerm fieldName fieldType =
-        accessBlockField true metadata id blockTerm fieldName fieldType
+        accessBlockField true metadata snd blockTerm fieldName fieldType
 
     and derefWithoutValidation metadata state location =
-        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) id metadata state location |> fst
+        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) snd metadata state location |> fst
+
+    and private update updateValue metadata state reference = hierarchicalAccess true false npeTerm updateValue metadata state reference
 
     and mutate metadata state reference value =
         assert(value <> Nop)
-        hierarchicalAccess true false npeTerm (always value) metadata state reference
+        update (always value) metadata state reference
 
 // ------------------------------- Referencing -------------------------------
 
     and referenceLocalVariable metadata location =
         StackRef metadata location []
 
-    let referenceField name typ parentRef =
-        let typ = Types.wrapReferenceType typ
-        referenceBlockField parentRef name typ
-
     let referenceStaticField metadata targetType fieldName fieldType =
-        let fieldType = Types.wrapReferenceType fieldType
-        StaticRef metadata targetType [BlockField(fieldName, fieldType)]
+        StaticRef metadata targetType [BlockField(FieldId fieldName, fieldType)]
 
     let private checkIndices mtd state arrayRef (indices : term list) k =
         let intToTerm i = makeNumber mtd i
@@ -757,7 +775,7 @@ module internal Memory =
                     bigEnough &&& smallEnough)))
                 indices lowerBoundsList lengthsList
             |> List.ofSeq
-        k (conjunction mtd bounds |> unguard |> merge , state'')))
+        k (conjunction mtd bounds |> unguard |> merge, state'')))
 
     let referenceArrayIndex metadata state arrayRef (indices : term list) =
         let reference state arrayRef =
@@ -783,16 +801,12 @@ module internal Memory =
 
 // ------------------------------- Allocation -------------------------------
 
-    let newStackFrame state metadata funcId frame = State.newStackFrame metadata state funcId frame
-    let newScope metadata state frame = State.newScope metadata state frame
-
     let freshHeapLocation metadata =
         Concrete metadata ([freshAddress()]) pointerType
 
     let allocateOnStack metadata s key typ term =
         let oldFrame = Stack.peek s.frames.f
         let newStack = pushToCurrentStackFrame s key term
-        let typ = wrapReferenceType typ
         let newEntries = { key = key; mtd = metadata; typ = typ }
         let stackFrames = Stack.updateHead s.frames.f { oldFrame with entries = newEntries :: oldFrame.entries }
         { s with stack = newStack; frames = { s.frames with f = stackFrames } }
@@ -843,15 +857,15 @@ module internal Memory =
 
     let makeSymbolicThis metadata state token typ =
         let isRef = concreteIsReferenceType typ // TODO: "this" can be type variable, so we need to branch by "isValueType" condition
-        let thisKey = ((if isRef then "this" else Pointers.symbolicThisStackKey), token)
+        let thisKey = if isRef then ThisKey token else SymbolicThisKey token
         let fql = TopLevelStack thisKey, []
         let thisStackRef = makeFQLRef metadata fql
-        let liSource = {location = thisStackRef; heap = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        let instance = makeSymbolicInstance metadata liSource "this" (Some fql) (wrapReferenceType typ)
+        let liSource = lazyInstantiation thisStackRef None
+        let instance = makeSymbolicInstance metadata liSource "this" typ (Some fql)
         if isRef
             then instance, state, false
             else
-                let state = newStackFrame state metadata (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
+                let state = State.newStackFrame metadata state (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
                 referenceLocalVariable metadata thisKey, state, true
 
 // --------------------------------------- Is Location Initialized Check ---------------------------------------
@@ -901,7 +915,7 @@ module internal Memory =
 
     type lazyInstantiation<'a when 'a : equality> with
         interface IExtractingSymbolicConstantSource with
-            override x.Compose ctx state =
+            override x.ComposeWithoutExtractor ctx state =
                 let state' =
                     match x.heap with
                     | Some heap ->
@@ -912,7 +926,9 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                derefWithoutValidation ctx.mtd state' loc |> x.extractor.Extract
+                derefWithoutValidation ctx.mtd state' loc
+            override x.Compose ctx state =
+                (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract
 
     type keyInitializedSource<'a when 'a : equality> with
         interface IStatedSymbolicConstantSource with

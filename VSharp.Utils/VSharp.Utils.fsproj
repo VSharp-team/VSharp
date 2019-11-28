@@ -22,4 +22,8 @@
       <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" />
+    </ItemGroup>
+
 </Project>

@@ -1,4 +1,5 @@
 ﻿namespace VSharp
+open VSharp.CSharpUtils
 
 [<AutoOpen>]
 module public Prelude =
@@ -45,7 +46,7 @@ module public Prelude =
 type 'a transparent =
     { v : 'a }
     override x.ToString() = x.v.ToString()
-    override x.GetHashCode() = x.GetType().GetHashCode()
+    override x.GetHashCode() = x.GetType().GetDeterministicHashCode()
     override x.Equals(o : obj) =
         o :? 'a transparent
 

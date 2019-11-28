@@ -70,9 +70,10 @@ module API =
         val InvalidProgramException : state -> (term -> 'a) -> 'a * state
 
     module Types =
+        val Numeric : System.Type -> termType
+
         val FromDotNetType : state -> System.Type -> termType
         val ToDotNetType : termType -> System.Type
-        val WrapReferenceType : termType -> termType
 
         val SizeOf : termType -> int
 
@@ -93,9 +94,9 @@ module API =
         val TypeIsRef : termType -> term -> term
         val RefIsType : term -> termType -> term
         val RefIsRef : term -> term -> term
+        val CanCast : term -> termType -> term
         val IsCast : state -> termType -> term -> term
         val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> term * state) -> (term * state -> 'b) -> 'b
-        val CastConcrete : bool -> 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]
@@ -105,6 +106,8 @@ module API =
         val (|||) : term -> term -> term
         val (===) : term -> term -> term
         val (!==) : term -> term -> term
+        val conjunction : term seq -> term
+        val disjunction : term seq -> term
 
     module public Arithmetics =
         val (===) : term -> term -> term
@@ -125,7 +128,7 @@ module API =
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
         val NewTypeVariables : state -> (typeId * termType) list -> state
 
-        val ReferenceField : string -> termType -> term -> term
+        val ReferenceField : term -> string -> termType -> term
         val ReferenceLocalVariable : stackKey -> term
         val ReferenceStaticField : termType -> string -> termType -> term
         val ReferenceArrayIndex : state -> term -> term list -> term * state

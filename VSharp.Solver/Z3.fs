@@ -59,7 +59,7 @@ module internal Z3 =
             | Bool -> (ctx()).MkBoolSort() :> Sort
             | Numeric _ as t when Types.IsInteger t -> (ctx()).MkIntSort() :> Sort
             | Numeric _ as t when Types.IsReal t -> (ctx()).MkRealSort() :> Sort
-            | Numeric t -> (ctx()).MkEnumSort(t.FullName, t.GetEnumNames()) :> Sort
+            | Numeric(Id t) -> (ctx()).MkEnumSort(t.FullName, t.GetEnumNames()) :> Sort
             | ArrayType _
             | Void
             | Bottom
@@ -68,14 +68,13 @@ module internal Z3 =
             | ClassType _
             | InterfaceType _
             | TypeVariable _
-            | Reference _
             | Pointer _ -> __notImplemented__())
 
     let private encodeConcrete (obj : obj) typ =
         match typ with
         | Bool -> (ctx()).MkBool(obj :?> bool) :> Expr
-        | Numeric t when t = typeof<char> -> (ctx()).MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, type2Sort typ)
-        | Numeric t when t.IsEnum ->
+        | Numeric(Id t) when t = typeof<char> -> (ctx()).MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, type2Sort typ)
+        | Numeric(Id t) when t.IsEnum ->
             let sort = type2Sort typ :?> EnumSort in
             let name = obj.ToString() in
             FSharp.Collections.Array.find (toString >> ((=) name)) sort.Consts
@@ -125,7 +124,6 @@ module internal Z3 =
                 let decl =
                     match id with
                     | :? IMethodIdentifier -> __notImplemented__()
-                    | :? IDelegateIdentifier -> __notImplemented__()
                     | :? StandardFunctionIdentifier as sf -> (ctx()).MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
                     | _ -> __notImplemented__()
                 (ctx()).MkApp(decl, encodeTerms stopper args)
@@ -202,8 +200,8 @@ module internal Z3 =
         if (ctx()).Cache.e2t.ContainsKey(expr) then (ctx()).Cache.e2t.[expr]
         else
             match expr with
-            | :? IntNum as i -> Concrete i.Int (Numeric typeof<int>)
-            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric typeof<int>)
+            | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
+            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
             | _ ->
                 if expr.IsTrue then True
                 elif expr.IsFalse then False

@@ -1,11 +1,48 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.CSharpUtils
 open global.System
 open System.Collections.Generic
 open Types.Constructor
 
-type stackKey = string * string // Name and token
+[<CustomEquality;CustomComparison>]
+type stackKey =
+    | SymbolicThisKey of Reflection.MethodBase
+    | ThisKey of Reflection.MethodBase
+    | ParameterKey of Reflection.ParameterInfo
+    | LocalVariableKey of Reflection.LocalVariableInfo
+    override x.ToString() =
+        match x with
+        | SymbolicThisKey _ -> "symbolic this on stack"
+        | ThisKey _ -> "this"
+        | ParameterKey pi -> pi.Name
+        | LocalVariableKey lvi -> "__loc__" + lvi.LocalIndex.ToString()
+    override x.GetHashCode() =
+        let fullname =
+            match x with
+            | SymbolicThisKey m -> sprintf "%s##symbolic this on stack" (Reflection.GetFullMethodName m)
+            | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
+            | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
+            | LocalVariableKey lvi -> lvi.ToString()
+        fullname.GetDeterministicHashCode()
+    interface IComparable with
+        override x.CompareTo(other: obj) =
+            match other with
+            | :? stackKey as other ->
+                match x, other with
+                | SymbolicThisKey _, SymbolicThisKey _
+                | ThisKey _, ThisKey _
+                | ParameterKey _, ParameterKey _
+                | LocalVariableKey _, LocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
+                | SymbolicThisKey _, _ -> -1
+                | _, SymbolicThisKey _ -> 1
+                | ThisKey _, _ -> -1
+                | _, ThisKey _ -> 1
+                | LocalVariableKey _, _ -> -1
+                | _, LocalVariableKey _ -> 1
+            | _ -> -1
+    override x.Equals(other) = (x :> IComparable).CompareTo(other) = 0
 
 type locationBinding = obj
 type stackHash = int list
@@ -64,7 +101,7 @@ type termNode =
 
     member x.IndicesToString() =
         let sortKeyFromTerm = (fun t -> t.term) >> function
-            | Concrete(value, t) when t = Numeric typedefof<int> -> value :?> int
+            | Concrete(value, Numeric (Id t)) when t = typedefof<int> -> value :?> int
             | _ -> Int32.MaxValue
         let arrayOfIndicesConcreteContentsToString contents =
             let separator = ", "
@@ -108,11 +145,11 @@ type termNode =
             | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name.v
-            | Concrete(_, ClassType(t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+            | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
                 sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
-            | Concrete(c, Numeric t) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
-            | Concrete(c, Numeric t) when t = typedefof<char> -> sprintf "'%O'" c
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
             | Concrete(value, _) -> value.ToString()
             | Expression(operation, operands, _) ->
@@ -226,23 +263,34 @@ type termNode =
 and topLevelAddress =
     | NullAddress
     | TopLevelStack of stackKey
-    | TopLevelHeap of term * termType * termType // Address * Base type * Sight type
+    | TopLevelHeap of term * termType * termType transparent // Address * Base type * Sight type
     | TopLevelStatics of termType
     override x.ToString() =
         match x with
-        | TopLevelStack(name, _) -> name
+        | TopLevelStack key -> toString key
         | TopLevelStatics typ -> toString typ
         | TopLevelHeap(key, _, _) -> toString key
         | NullAddress -> "null"
 
+and [<CustomEquality;NoComparison>] FieldId =
+    | FieldId of string
+    override x.GetHashCode() =
+        match x with
+        | FieldId s -> s.GetDeterministicHashCode()
+    override x.Equals(other) =
+        match other with
+        | :? FieldId as other -> hash x = hash other
+        | _ -> false
+    override x.ToString() = match x with FieldId s -> s
+
 and pathSegment =
-    | BlockField of string * termType
+    | BlockField of FieldId * termType
     | ArrayIndex of term * termType
     | ArrayLowerBound of term
     | ArrayLength of term
     override x.ToString() =
         match x with
-        | BlockField(field, _) -> field
+        | BlockField(field, _) -> toString field
         | ArrayIndex(idx, _) -> idx.term.IndicesToString() |> sprintf "[%s]"
         | ArrayLowerBound idx
         | ArrayLength idx -> toString idx
@@ -278,6 +326,15 @@ type INonComposableSymbolicConstantSource =
 
 [<AutoOpen>]
 module internal Terms =
+
+    let TopLevelHeap(k, t1, t2) = TopLevelHeap(k, t1, {v=t2})
+
+    let (|NullAddress|TopLevelStack|TopLevelHeap|TopLevelStatics|) (addr : topLevelAddress) =
+        match addr with
+        | NullAddress -> NullAddress
+        | TopLevelStack k -> TopLevelStack k
+        | TopLevelHeap(k, t1, t2) -> TopLevelHeap(k, t1, t2.v)
+        | TopLevelStatics t -> TopLevelStatics t
 
     module internal Metadata =
         let empty<'a> = { origins = List.empty; misc = null }
@@ -388,6 +445,14 @@ module internal Terms =
         | Concrete(b, t) when Types.isBool t && not (b :?> bool) -> true
         | _ -> false
 
+    let isTopLevelHeapConcreteAddr = function
+        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
+        | _ -> false
+
+    let isTopLevelStatics = function
+        | TopLevelStatics _, [] -> true
+        | _ -> false
+
     let private isSymbolicTopLevel = function
         | TopLevelHeap(a, _, _) -> isConcrete a |> not
         | NullAddress -> false
@@ -465,7 +530,7 @@ module internal Terms =
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.isReference nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
+                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 
@@ -502,7 +567,7 @@ module internal Terms =
             | Constant(_, _, t)
             | Expression(_, _, t)
             | Struct(_, t) -> t
-            | Ref _ -> sightTypeOfRef term |> Reference
+            | Ref _ -> sightTypeOfRef term
             | Ptr _ -> sightTypeOfPtr term |> Pointer
             | _ -> __unreachable__()
         commonTypeOf getType
@@ -578,7 +643,7 @@ module internal Terms =
         Concrete metadata [0] Types.pointerType
 
     let makeNumber metadata n =
-        Concrete metadata n (Numeric(n.GetType()))
+        Concrete metadata n (Numeric(Id(n.GetType())))
 
     let makeBinary operation x y isChecked t metadata =
         assert(Operations.isBinary operation)

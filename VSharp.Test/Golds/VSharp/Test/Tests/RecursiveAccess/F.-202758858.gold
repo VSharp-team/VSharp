@@ -1,7 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.F(System.Int32)
 RESULT: UNION[
 	| !(x <= 10) ~> x
-	| x <= 10 ~> 1.VSharp::Test::Tests::Bag::X + μ[F]_1]
+	| x <= 10 ~> 3.VSharp::Test::Tests::Bag::X + μ[F]_1]
 HEAP:
 { heap = merge[
 	(!(x <= 10), <empty>),
@@ -9,7 +9,7 @@ HEAP:
 	(!(x <= 10), s2),
 	(x <= 10, write({ heap = h0, statics = s1 } ⚪ recapp(F), s3))] } where
 ---------- h0 = ----------
-1 ==> VSharp.Test.Tests.Bag CLASS [
+3 ==> VSharp.Test.Tests.Bag CLASS [
 	| VSharp::Test::Tests::Bag::X ~> UNION[
 		| !hasKey#2 ~> 0
 		| hasKey#2 ~> VSharp.Test.Tests.Container.X]]

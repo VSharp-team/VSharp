@@ -17,7 +17,7 @@ module internal TypeCasting =
         | Struct _ -> term
         | _ -> __unreachable__()
 
-    let private canCast mtd term targetType =
+    let canCast mtd term targetType =
         let castCheck term =
             match term.term with
             | Ptr(_, _, typ, _) -> typeIsType mtd (Pointer typ) targetType
@@ -44,7 +44,6 @@ module internal TypeCasting =
             | Concrete(value, _) -> k (CastConcrete isChecked value (Types.toDotNetType targetType) term.metadata, state)
             | Constant(_, _, t)
             | Expression(_, _, t) -> k (makeCast t targetType term isChecked mtd, state)
-            | Ref _ when sightTypeOfRef term = targetType -> k (term, state) // TODO: delete this hack, when Reference type constructor will be deleted
             | Ref _ ->
                 statedConditionalExecutionWithMergek state
                     (fun state k -> k (Pointers.isNull mtd term, state))
