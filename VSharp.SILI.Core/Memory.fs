@@ -113,7 +113,6 @@ module internal Memory =
     let rec defaultOf metadata typ fql =
         match typ with
         | Bool -> makeFalse metadata
-        | Numeric(Id t) when t.IsEnum -> CastConcrete true (System.Activator.CreateInstance t) t metadata
         | Numeric(Id t) -> CastConcrete true 0 t metadata
         | ArrayType _
         | ClassType _
