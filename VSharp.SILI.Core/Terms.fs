@@ -637,6 +637,8 @@ module internal Terms =
         try
             if actualType = t then
                 Concrete metadata value (fromDotNetType t)
+            elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
+                Concrete metadata value (fromDotNetType t)
             elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
                 let casted =
                     if t.IsPointer then

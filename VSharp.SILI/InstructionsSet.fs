@@ -317,6 +317,8 @@ module internal InstructionsSet =
         match TypeOf term with
         | Bool -> term
         | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
+        | Numeric(Id t) when t.IsEnum ->
+            term !== MakeNumber (t.GetEnumValues().GetValue(0))
         | _ when isReference term -> term !== MakeNullRef()
         | _ -> __notImplemented__()
     let ceq (cilState : cilState) =
@@ -392,7 +394,11 @@ module internal InstructionsSet =
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = List.splitAt paramsNumber cilState.opStack
-        List.rev parameters, {cilState with opStack = opStack}
+        let castParameter parameter (parInfo : ParameterInfo) =
+            let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
+            castUnchecked typ parameter cilState.state fst
+        let parameters = Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
+        parameters, {cilState with opStack = opStack}
 
     let reduceArrayCreation (arrayType : Type) (methodBase : MethodBase) (cilState : cilState) k =
         let parameters, cilState = retrieveActualParameters methodBase cilState

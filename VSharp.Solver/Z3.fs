@@ -57,9 +57,10 @@ module internal Z3 =
         Dict.getValueOrUpdate (ctx()).Cache.sorts typ (fun () ->
             match typ with
             | Bool -> (ctx()).MkBoolSort() :> Sort
+            | Numeric(Id t) when t.IsEnum -> (ctx()).MkIntSort() :> Sort
             | Numeric _ as t when Types.IsInteger t -> (ctx()).MkIntSort() :> Sort
             | Numeric _ as t when Types.IsReal t -> (ctx()).MkRealSort() :> Sort
-            | Numeric(Id t) -> (ctx()).MkEnumSort(t.FullName, t.GetEnumNames()) :> Sort
+            | Numeric _
             | ArrayType _
             | Void
             | Bottom
@@ -74,17 +75,14 @@ module internal Z3 =
         match typ with
         | Bool -> (ctx()).MkBool(obj :?> bool) :> Expr
         | Numeric(Id t) when t = typeof<char> -> (ctx()).MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, type2Sort typ)
-        | Numeric(Id t) when t.IsEnum ->
-            let sort = type2Sort typ :?> EnumSort in
-            let name = obj.ToString() in
-            FSharp.Collections.Array.find (toString >> ((=) name)) sort.Consts
-        | Numeric _ ->
+        | Numeric(Id t) ->
             match obj with
             | :? concreteHeapAddress as addr ->
                 match addr with
                 | [addr] -> (ctx()).MkNumeral(addr.ToString(), type2Sort typ)
                 | _ -> __notImplemented__()
             | _ when TypeUtils.isIntegral (obj.GetType()) -> (ctx()).MkInt(obj.ToString()) :> Expr
+            | _ when t.IsEnum -> (ctx()).MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
             | _ -> (ctx()).MkNumeral(obj.ToString(), type2Sort typ)
         | _ -> __notImplemented__()
 
