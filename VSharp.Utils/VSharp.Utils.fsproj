@@ -5,7 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="logger.fs" />
+        <Compile Include="Logger.fs" />
         <Compile Include="MemoryCell.fs" />
         <Compile Include="Prelude.fs" />
         <Compile Include="TypeUtils.fs" />

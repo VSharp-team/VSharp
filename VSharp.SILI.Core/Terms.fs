@@ -525,12 +525,14 @@ module internal Terms =
         let folder types (_, v) =
             if isError v || isVoid v then types else getType v :: types
         let nonEmptyTypes = List.fold folder [] gvs
-        match nonEmptyTypes with
-        | [] -> termType.Bottom
+        let notNullTypes = List.filter (Types.isNull >> not) nonEmptyTypes
+        match notNullTypes with
+        | [] when List.isEmpty nonEmptyTypes -> Bottom
+        | [] -> Null
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
+                || List.forall Types.concreteIsReferenceType notNullTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 

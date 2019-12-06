@@ -156,6 +156,7 @@ module internal Types =
 
     let rec toDotNetType t =
         match t with
+        | Void -> typedefof<Void>
         | Bool -> typedefof<bool>
         | Numeric(Id t) -> t
         | StructType(Id t, args)
@@ -170,7 +171,7 @@ module internal Types =
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Pointer t -> (toDotNetType t).MakePointerType()
         | Null -> __unreachable__()
-        | _ -> typedefof<obj>
+        | _ -> __notImplemented__()
 
     let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =

@@ -93,7 +93,7 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
             match handleTerm.term with
             | Concrete (:? RuntimeFieldHandle as rfh, _) ->
                 let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-                let elemType = SightTypeOfRef arrayRef |> Types.elementType
+                let elemType = BaseTypeOfRef arrayRef |> Types.elementType
                 let t = Types.ToDotNetType elemType
                 assert (t.IsValueType) // TODO: be careful about type variables
 

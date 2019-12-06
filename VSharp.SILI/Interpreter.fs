@@ -178,7 +178,6 @@ and public ILInterpreter() as this =
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | t1 when t1.IsInterface ->
-                let mapping = t.GetInterfaceMap(t1)
                 let createSignature (m : MethodInfo) =
                     m.GetParameters() |> Seq.map (fun p -> (p.ParameterType |> safeGenericTypeDefinition).FullName)
                     |> join ","
@@ -186,8 +185,13 @@ and public ILInterpreter() as this =
                     match m.Name.LastIndexOf('.') with
                     | i when i < 0 -> m.Name
                     | i -> m.Name.Substring(i + 1)
-                mapping.TargetMethods |> Seq.find (fun (mi : MethodInfo) ->
-                    createSignature(mi) = createSignature(genericCalledMethod) && onlyLastName(mi) = onlyLastName(genericCalledMethod))
+                let sign = createSignature genericCalledMethod
+                let lastName = onlyLastName genericCalledMethod
+                let methods =
+                    match t with
+                    | _ when t.IsArray -> t.GetMethods()
+                    | _ -> t.GetInterfaceMap(t1).TargetMethods
+                methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
             | _ ->
                 let (|||) = Microsoft.FSharp.Core.Operators.(|||)
                 let allMethods = t.GetMethods(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic)
@@ -469,6 +473,7 @@ and public ILInterpreter() as this =
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
     member x.ExecuteInstruction (cfg : cfgData) (offset : int) (cilState : cilState) =
         let opcode = Instruction.parseInstruction cfg.ilBytes offset
+        Logger.printLog Logger.Trace "Executing instruction %O of %O [%O]" opcode cfg.methodBase cfg.methodBase.DeclaringType
         let nextTargets = Instruction.findNextInstructionOffsetAndEdges opcode cfg.ilBytes offset
         let newOffsets =
             match nextTargets with
