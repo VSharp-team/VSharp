@@ -1,0 +1,11 @@
+METHOD: System.Int32 VSharp.Test.Tests.Marshaling.Test1()
+RESULT: 42
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Marshaling+A STRUCT [
+	| VSharp::Test::Tests::Marshaling::A::_x ~> 32
+	| VSharp::Test::Tests::Marshaling::A::_y ~> 10]
+---------- s1 = ----------
+VSharp.Test.Tests.Marshaling ==> CLASS []
+VSharp.Test.Tests.Marshaling+A ==> CLASS []

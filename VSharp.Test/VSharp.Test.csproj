@@ -26,4 +26,10 @@
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="ChessDotNet, Version=0.9.4.0, Culture=neutral, PublicKeyToken=95fb3ccd1157343b">
+        <HintPath>Tests\Chess.NET\ChessDotNet.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

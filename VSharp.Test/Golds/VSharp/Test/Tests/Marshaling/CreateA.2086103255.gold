@@ -1,0 +1,11 @@
+METHOD: VSharp.Test.Tests.Marshaling+A VSharp.Test.Tests.Marshaling.CreateA()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Marshaling+A CLASS [
+	| VSharp::Test::Tests::Marshaling::A::_x ~> 5
+	| VSharp::Test::Tests::Marshaling::A::_y ~> 10]
+---------- s1 = ----------
+VSharp.Test.Tests.Marshaling ==> CLASS []
+VSharp.Test.Tests.Marshaling+A ==> CLASS []

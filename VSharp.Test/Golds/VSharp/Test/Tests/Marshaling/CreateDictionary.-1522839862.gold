@@ -1,0 +1,194 @@
+METHOD: System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] VSharp.Test.Tests.Marshaling.CreateDictionary()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] CLASS [
+	| System::Collections::Generic::Dictionary`2::_buckets ~> (HeapRef 14)
+	| System::Collections::Generic::Dictionary`2::_comparer ~> null
+	| System::Collections::Generic::Dictionary`2::_count ~> 12
+	| System::Collections::Generic::Dictionary`2::_entries ~> (HeapRef 15)
+	| System::Collections::Generic::Dictionary`2::_freeCount ~> 0
+	| System::Collections::Generic::Dictionary`2::_freeList ~> -1
+	| System::Collections::Generic::Dictionary`2::_keys ~> null
+	| System::Collections::Generic::Dictionary`2::_values ~> null
+	| System::Collections::Generic::Dictionary`2::_version ~> 12]
+2 ==> ChessDotNet.Pieces.King CLASS [
+	| ChessDotNet::Pieces::King::<HasCastlingAbility>k__BackingField ~> True
+	| ChessDotNet::Pieces::King::<Owner>k__BackingField ~> White]
+3 ==> [| 0 ~> 3; 1 ~> 2; 2 ~> 0 ... 3 ... |]
+4 ==> [|
+	0 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 4915275
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'K'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 2)];
+	1 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7012459
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'k'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 5)];
+	2 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5308497
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'Q'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 6)]
+	... 3 ... |]
+5 ==> ChessDotNet.Pieces.King CLASS [
+	| ChessDotNet::Pieces::King::<HasCastlingAbility>k__BackingField ~> True
+	| ChessDotNet::Pieces::King::<Owner>k__BackingField ~> Black]
+6 ==> ChessDotNet.Pieces.Queen CLASS [
+	| ChessDotNet::Pieces::Queen::<Owner>k__BackingField ~> White]
+7 ==> ChessDotNet.Pieces.Queen CLASS [
+	| ChessDotNet::Pieces::Queen::<Owner>k__BackingField ~> Black]
+8 ==> [| 0 ~> 0; 1 ~> 5; 2 ~> 7; 3 ~> 4; 4 ~> 0; 5 ~> 3; 6 ~> 6 ... 7 ... |]
+9 ==> [|
+	0 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 4915275
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'K'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 2)];
+	1 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7012459
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'k'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 5)];
+	2 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5308497
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'Q'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 6)];
+	3 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7405681
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'q'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 7)];
+	4 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5374034
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'R'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 10)];
+	5 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7471218
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'r'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 11)];
+	6 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 4325442
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'B'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 12)]
+	... 7 ... |]
+10 ==> ChessDotNet.Pieces.Rook CLASS [
+	| ChessDotNet::Pieces::Rook::<Owner>k__BackingField ~> White]
+11 ==> ChessDotNet.Pieces.Rook CLASS [
+	| ChessDotNet::Pieces::Rook::<Owner>k__BackingField ~> Black]
+12 ==> ChessDotNet.Pieces.Bishop CLASS [
+	| ChessDotNet::Pieces::Bishop::<Owner>k__BackingField ~> White]
+13 ==> ChessDotNet.Pieces.Bishop CLASS [
+	| ChessDotNet::Pieces::Bishop::<Owner>k__BackingField ~> Black]
+14 ==> [| 0 ~> 0; 1 ~> 0; 2 ~> 0; 3 ~> 12; 4 ~> 0; 5 ~> 4; 6 ~> 0; 7 ~> 11; 8 ~> 0; 9 ~> 8; 10 ~> 2; 11 ~> 5; 12 ~> 0; 13 ~> 7; 14 ~> 1; 15 ~> 0; 16 ~> 10 ... 17 ... |]
+15 ==> [|
+	0 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 4915275
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'K'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 2)];
+	1 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7012459
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'k'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 5)];
+	2 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5308497
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'Q'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 6)];
+	3 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7405681
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'q'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 7)];
+	4 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5374034
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'R'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 10)];
+	5 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7471218
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'r'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 11)];
+	6 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 4325442
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'B'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 12)];
+	7 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 6422626
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'b'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 2
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 13)];
+	8 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5111886
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'N'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 16)];
+	9 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7209070
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'n'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> -1
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 17)];
+	10 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 5242960
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'P'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 5
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 18)];
+	11 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 7340144
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> 'p'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 8
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> (HeapRef 19)];
+	12 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> '\000'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> null];
+	13 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> '\000'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> null];
+	14 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> '\000'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> null];
+	15 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> '\000'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> null];
+	16 ~> System.Collections.Generic.Dictionary`2+Entry[System.Char,ChessDotNet.Piece] STRUCT [
+		| System::Collections::Generic::Dictionary`2::Entry::hashCode ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::key ~> '\000'
+		| System::Collections::Generic::Dictionary`2::Entry::next ~> 0
+		| System::Collections::Generic::Dictionary`2::Entry::value ~> null]
+	... 17 ... |]
+16 ==> ChessDotNet.Pieces.Knight CLASS [
+	| ChessDotNet::Pieces::Knight::<Owner>k__BackingField ~> White]
+17 ==> ChessDotNet.Pieces.Knight CLASS [
+	| ChessDotNet::Pieces::Knight::<Owner>k__BackingField ~> Black]
+18 ==> ChessDotNet.Pieces.Pawn CLASS [
+	| ChessDotNet::Pieces::Pawn::<Owner>k__BackingField ~> White]
+19 ==> ChessDotNet.Pieces.Pawn CLASS [
+	| ChessDotNet::Pieces::Pawn::<Owner>k__BackingField ~> 0]
+---------- s1 = ----------
+ChessDotNet.Pieces.Bishop ==> CLASS []
+ChessDotNet.Pieces.King ==> CLASS []
+ChessDotNet.Pieces.Knight ==> CLASS []
+ChessDotNet.Pieces.Pawn ==> CLASS []
+ChessDotNet.Pieces.Queen ==> CLASS []
+ChessDotNet.Pieces.Rook ==> CLASS []
+System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] ==> CLASS []
+VSharp.Test.Tests.Marshaling ==> CLASS []

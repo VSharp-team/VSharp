@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.Enums.Color2Int(VSharp.Test.Tests.Enums+Color)
+RESULT: UNION[
+	| !(1 == c) & !(Red == c) ~> 42
+	| !(Red == c) & 1 == c ~> 500
+	| Red == c ~> 10]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Enums ==> CLASS []

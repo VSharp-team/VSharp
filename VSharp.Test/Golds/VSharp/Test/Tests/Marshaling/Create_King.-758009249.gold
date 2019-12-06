@@ -1,0 +1,11 @@
+METHOD: ChessDotNet.Pieces.King VSharp.Test.Tests.Marshaling.Create_King()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> ChessDotNet.Pieces.King CLASS [
+	| ChessDotNet::Pieces::King::<HasCastlingAbility>k__BackingField ~> True
+	| ChessDotNet::Pieces::King::<Owner>k__BackingField ~> White]
+---------- s1 = ----------
+ChessDotNet.Pieces.King ==> CLASS []
+VSharp.Test.Tests.Marshaling ==> CLASS []

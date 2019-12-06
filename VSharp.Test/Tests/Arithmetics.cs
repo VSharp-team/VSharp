@@ -571,7 +571,7 @@ namespace VSharp.Test.Tests
         }
 
         // 5.9
-        [TestSvm]
+        [Ignore("Type tokens change from run to run")]
         public static float AbsSingleMethod()
         {
             return Math.Abs(Convert.ToSingle(-5.9));
