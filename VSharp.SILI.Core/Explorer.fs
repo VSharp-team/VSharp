@@ -31,7 +31,7 @@ type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IF
 module internal Explorer =
     let formInitialStatics metadata typ =
         let staticMemoryEntry = Memory.staticMemoryLazyInstantiator metadata typ ()
-        let key = makeTopLevelKey TopLevelStatics typ typ
+        let key = makeTopLevelKey HeapTopLevelStatics typ typ
         Heap.add key staticMemoryEntry Heap.empty
 
     type private recursionOutcomeSource = // TODO: delete this and use LI (using new TopLevelAddress)
@@ -61,7 +61,7 @@ module internal Explorer =
             let name = sprintf "μ[%O, %O]" codeLoc entry.key
             let typ = entry.typ
             let source = {id = codeLoc; state = state; name = name; typ = typ; location = Some location; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-            let fql = makeTopLevelFQL TopLevelStack entry.key
+            let fql = makeTopLevelFQL HeapTopLevelStack entry.key
             let value = Memory.makeSymbolicInstance mtd source name typ fql
             Memory.mutateStack mtd state entry.key [] value
         let locations =

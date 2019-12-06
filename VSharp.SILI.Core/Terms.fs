@@ -93,10 +93,10 @@ type termNode =
                * term heap                                // Contents
                * term heap                                // Lengths by dimensions
     | Expression of operation * term list * termType
-    | Struct of string heap * termType
-    | Class of string heap
-    | Ref of topLevelAddress * pathSegment list
-    | Ptr of topLevelAddress * pathSegment list * termType * term option // contents * type sight * indent
+    | Struct of fieldId heap * termType
+    | Class of fieldId heap
+    | Ref of refTopLevelAddress * pathSegment list
+    | Ptr of refTopLevelAddress * pathSegment list * termType * term option // contents * type sight * indent
     | Union of (term * term) list
 
     member x.IndicesToString() =
@@ -221,12 +221,12 @@ type termNode =
                 | Some typ -> sprintf "(%sPtr %s as %O)" sort fqlStr typ
                 | None -> sprintf "(%sRef %s)" sort fqlStr
             match topLevel with
-            | NullAddress ->
+            | RefNullAddress ->
                 assert(List.isEmpty path)
                 fqlStr
-            | TopLevelHeap _ -> makeRef "Heap"
-            | TopLevelStack _ -> makeRef "Stack"
-            | TopLevelStatics _ -> makeRef "Static"
+            | RefTopLevelHeap _ -> makeRef "Heap"
+            | RefTopLevelStack _ -> makeRef "Stack"
+            | RefTopLevelStatics _ -> makeRef "Static"
 
         and toStringWithIndent indent term = toStr -1 false indent term.term
 
@@ -260,31 +260,64 @@ type termNode =
 
         toStr -1 false "\t" x
 
-and topLevelAddress =
-    | NullAddress
-    | TopLevelStack of stackKey
-    | TopLevelHeap of term * termType * termType transparent // Address * Base type * Sight type
-    | TopLevelStatics of termType
+and ITopLevelAddress =
+    abstract BaseType : termType
+
+and heapTopLevelAddress =
+    | HeapNullAddress
+    | HeapTopLevelStack of stackKey
+    | HeapTopLevelHeap of term * termType // Address * Base type
+    | HeapTopLevelStatics of termType
+    interface ITopLevelAddress with
+        override x.BaseType with get() =
+            match x with
+            | HeapNullAddress -> Null
+            | HeapTopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
+            | HeapTopLevelHeap(_, baseType) -> baseType
+            | HeapTopLevelStatics termType -> termType
+    member x.ConvertToRefTopLevel() =
+        match x with
+        | HeapNullAddress -> RefNullAddress
+        | HeapTopLevelStack stackKey -> RefTopLevelStack stackKey
+        | HeapTopLevelHeap(address, baseType) -> RefTopLevelHeap(address, baseType, baseType)
+        | HeapTopLevelStatics termType -> RefTopLevelStatics termType
     override x.ToString() =
         match x with
-        | TopLevelStack key -> toString key
-        | TopLevelStatics typ -> toString typ
-        | TopLevelHeap(key, _, _) -> toString key
-        | NullAddress -> "null"
+        | HeapTopLevelStack key -> toString key
+        | HeapTopLevelStatics typ -> toString typ
+        | HeapTopLevelHeap(key, _) -> toString key
+        | HeapNullAddress -> "null"
 
-and [<CustomEquality;NoComparison>] FieldId =
-    | FieldId of string
-    override x.GetHashCode() =
+and refTopLevelAddress =
+    | RefNullAddress
+    | RefTopLevelStack of stackKey
+    | RefTopLevelHeap of term * termType * termType // Address * Base type * Sight type
+    | RefTopLevelStatics of termType
+    member private x.Type(needBaseType) =
         match x with
-        | FieldId s -> s.GetDeterministicHashCode()
-    override x.Equals(other) =
-        match other with
-        | :? FieldId as other -> hash x = hash other
-        | _ -> false
-    override x.ToString() = match x with FieldId s -> s
+        | RefNullAddress -> Null
+        | RefTopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
+        | RefTopLevelHeap(_, baseType, _) when needBaseType -> baseType
+        | RefTopLevelHeap(_, _, sightType) -> sightType
+        | RefTopLevelStatics termType -> termType
+    interface ITopLevelAddress with
+        override x.BaseType with get() = x.Type(true)
+    member x.SightType with get() = x.Type(false)
+    member x.ConvertToHeapTopLevel() =
+        match x with
+        | RefNullAddress -> HeapNullAddress
+        | RefTopLevelStack stackKey -> HeapTopLevelStack stackKey
+        | RefTopLevelHeap(address, baseType, _) -> HeapTopLevelHeap(address, baseType)
+        | RefTopLevelStatics termType -> HeapTopLevelStatics termType
+    override x.ToString() =
+        match x with
+        | RefTopLevelStack key -> toString key
+        | RefTopLevelStatics typ -> toString typ
+        | RefTopLevelHeap(key, _, _) -> toString key
+        | RefNullAddress -> "null"
 
 and pathSegment =
-    | BlockField of FieldId * termType
+    | BlockField of fieldId * termType
     | ArrayIndex of term * termType
     | ArrayLowerBound of term
     | ArrayLength of term
@@ -295,7 +328,8 @@ and pathSegment =
         | ArrayLowerBound idx
         | ArrayLength idx -> toString idx
 
-and fql = topLevelAddress * pathSegment list // TODO: change fql and create ToString() for it
+and refFQL = refTopLevelAddress * pathSegment list // TODO: change fql and create ToString() for it
+and heapFQL = heapTopLevelAddress * pathSegment list // TODO: change fql and create ToString() for it
 
 and
     [<StructuralEquality;NoComparison>]
@@ -318,23 +352,14 @@ and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
 
-and 'key heap when 'key : equality = heap<'key, term, fql, termType>
-and 'key memoryCell when 'key : equality = memoryCell<'key, fql, termType>
+and 'key heap when 'key : equality = heap<'key, term, heapFQL, termType>
+and 'key memoryCell when 'key : equality = memoryCell<'key, heapFQL, termType>
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
 
 [<AutoOpen>]
 module internal Terms =
-
-    let TopLevelHeap(k, t1, t2) = TopLevelHeap(k, t1, {v=t2})
-
-    let (|NullAddress|TopLevelStack|TopLevelHeap|TopLevelStatics|) (addr : topLevelAddress) =
-        match addr with
-        | NullAddress -> NullAddress
-        | TopLevelStack k -> TopLevelStack k
-        | TopLevelHeap(k, t1, t2) -> TopLevelHeap(k, t1, t2.v)
-        | TopLevelStatics t -> TopLevelStatics t
 
     module internal Metadata =
         let empty<'a> = { origins = List.empty; misc = null }
@@ -367,11 +392,11 @@ module internal Terms =
     let Struct metadata fields typ = { term = Struct(fields, typ); metadata = metadata }
     let Class metadata fields = { term = Class fields; metadata = metadata }
     let Block metadata fields typ = Option.fold (Struct metadata fields |> always) (Class metadata fields) typ
-    let StackRef metadata key path = { term = Ref(TopLevelStack key, path); metadata = metadata }
-    let HeapRef metadata addr baseType sightType path = { term = Ref(TopLevelHeap(addr, baseType, sightType), path); metadata = metadata }
-    let StaticRef metadata typ path = { term = Ref(TopLevelStatics typ, path); metadata = metadata }
-    let StackPtr metadata key path typ = { term = Ptr(TopLevelStack key, path, typ, None); metadata = metadata }
-    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(TopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata }
+    let StackRef metadata key path = { term = Ref(RefTopLevelStack key, path); metadata = metadata }
+    let HeapRef metadata addr baseType sightType path = { term = Ref(RefTopLevelHeap(addr, baseType, sightType), path); metadata = metadata }
+    let StaticRef metadata typ path = { term = Ref(RefTopLevelStatics typ, path); metadata = metadata }
+    let StackPtr metadata key path typ = { term = Ptr(RefTopLevelStack key, path, typ, None); metadata = metadata }
+    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(RefTopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata }
     let AnyPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, shift); metadata = metadata }
     let IndentedPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, Some shift); metadata = metadata }
     let Ref metadata topLevel path = { term = Ref(topLevel, path); metadata = metadata }
@@ -394,10 +419,10 @@ module internal Terms =
         | {FQL = Some fql} -> fql
         | {FQL = None} as k -> internalfailf "requested fql from unexpected key %O" k
     let getFQLOfRef = term >> function
-        | Ref(tl, path) -> (tl, List.rev path)
+        | Ref(tl, path) -> (tl.ConvertToHeapTopLevel(), List.rev path)
         | t -> internalfailf "Expected reference, got %O" t
 
-    let makeFQLRef metadata (tl, path) = Ref metadata tl path
+    let makeFQLRef metadata (tl : heapTopLevelAddress, path) = Ref metadata (tl.ConvertToRefTopLevel()) path
 
     let castReferenceToPointer mtd targetType = term >> function
         | Ref(topLevel, path)
@@ -446,16 +471,16 @@ module internal Terms =
         | _ -> false
 
     let isTopLevelHeapConcreteAddr = function
-        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
+        | HeapTopLevelHeap(addr, _), [] when isConcrete addr -> true
         | _ -> false
 
     let isTopLevelStatics = function
-        | TopLevelStatics _, [] -> true
+        | HeapTopLevelStatics _, [] -> true
         | _ -> false
 
     let private isSymbolicTopLevel = function
-        | TopLevelHeap(a, _, _) -> isConcrete a |> not
-        | NullAddress -> false
+        | RefTopLevelHeap(a, _, _) -> isConcrete a |> not
+        | RefNullAddress -> false
         | _ -> __notImplemented__()
 
     let isSymbolicRef = term >> function
@@ -499,27 +524,23 @@ module internal Terms =
         | Block(fields, _) -> fields
         | term -> internalfailf "struct or class expected, %O recieved" term
 
-    let private typeOfTopLevel needBaseType = function
-        | TopLevelHeap(_, baseType, _) when needBaseType -> baseType
-        | TopLevelHeap(_, _, sightType) -> sightType
-        | TopLevelStatics typ -> typ
-        | TopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
-        | NullAddress -> Null
-
     let typeOfPath = List.last >> function
         | BlockField(_, t)
         | ArrayIndex(_, t) -> t
         | ArrayLowerBound _
         | ArrayLength _ -> Types.lengthType
 
-    let private commonTypeOfFQL needBaseType = function
-        | tl, [] -> typeOfTopLevel needBaseType tl
-        | _, path -> typeOfPath path
-
-    let sightTypeOfFQL = commonTypeOfFQL false
-    let baseTypeOfFQL = commonTypeOfFQL true
+    let baseTypeOfFQL (tl : ITopLevelAddress, path) =
+        match path with
+        | [] -> tl.BaseType
+        | path -> typeOfPath path
 
     let baseTypeOfKey k = k |> getFQLOfKey |> baseTypeOfFQL
+
+    let sightTypeOfFQL (tl : refTopLevelAddress, path) =
+        match path with
+        | [] -> tl.SightType
+        | path -> typeOfPath path
 
     let private typeOfUnion getType gvs =
         let folder types (_, v) =
@@ -543,9 +564,10 @@ module internal Terms =
         | Union gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
-    let private commonTypeOfRef needBaseType =
+    let private commonTypeOfRef needBaseType = // TODO: unfold? #do
         let getTypeOfRef = term >> function
-            | Ref(tl, path) -> commonTypeOfFQL needBaseType (tl, path)
+            | Ref(tl, path) when needBaseType -> baseTypeOfFQL (tl, path)
+            | Ref(tl, path) -> sightTypeOfFQL (tl, path)
             | term -> internalfailf "expected reference, but got %O" term
         commonTypeOf getTypeOfRef
 
@@ -633,10 +655,10 @@ module internal Terms =
         if predicate then makeTrue metadata else makeFalse metadata
 
     let makeNullRef metadata =
-        Ref metadata NullAddress []
+        Ref metadata RefNullAddress []
 
     let makeNullPtr metadata typ =
-        Ptr metadata NullAddress [] typ
+        Ptr metadata RefNullAddress [] typ
 
     let makeIndex metadata i =
         Concrete metadata i Types.indexType
@@ -780,10 +802,10 @@ module internal Terms =
         folder state term
 
     and foldTopLevel folder visited state = function
-        | TopLevelHeap(addr, _, _) -> doFold folder visited state addr
-        | NullAddress
-        | TopLevelStack _
-        | TopLevelStatics _ -> state
+        | RefTopLevelHeap(addr, _, _) -> doFold folder visited state addr
+        | RefNullAddress
+        | RefTopLevelStack _
+        | RefTopLevelStatics _ -> state
 
     and foldPathSegment folder visited state = function
         | BlockField _ -> state

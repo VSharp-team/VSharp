@@ -5,7 +5,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 
 [<CustomEquality;NoComparison>]
-type public heap<'key, 'term, 'fql, 'typ> when 'key : equality and 'term : equality and 'fql : equality =
+type public heap<'key, 'term, 'fql, 'typ> when 'key : equality and 'term : equality and 'fql : equality and 'typ : equality =
     {heap : PersistentHashMap<memoryCell<'key, 'fql, 'typ>, 'term>}
     static member Empty() = {heap = PersistentHashMap<memoryCell<'a, 'fql, 'typ>, 'b>.Empty()}
     member x.Length = x.heap.Length
@@ -36,7 +36,7 @@ module public Heap =
 
     let public getKey key = key.key
 
-    let public empty<'a, 'b, 'fql, 'typ when 'a : equality and 'b : equality and 'fql : equality> : heap<'a, 'b, 'fql, 'typ> = heap<'a, 'b, 'fql, 'typ>.Empty()
+    let public empty<'a, 'b, 'fql, 'typ when 'a : equality and 'b : equality and 'fql : equality and 'typ : equality> : heap<'a, 'b, 'fql, 'typ> = heap<'a, 'b, 'fql, 'typ>.Empty()
     let public isEmpty h = PersistentHashMap.length h.heap = 0
 
     let public ofSeq = heap<'a, 'b, 'fql, 'typ>.ofSeq

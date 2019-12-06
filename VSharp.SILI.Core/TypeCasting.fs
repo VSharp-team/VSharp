@@ -13,7 +13,7 @@ module internal TypeCasting =
 
         match term.term with
         | Ptr(_, _, typ, _) -> castPointer term typ
-        | Ref(TopLevelHeap(addr, baseType, _), []) -> HeapRef term.metadata addr baseType targetType []
+        | Ref(RefTopLevelHeap(addr, baseType, _), []) -> HeapRef term.metadata addr baseType targetType []
         | Struct _ -> term
         | _ -> __unreachable__()
 
@@ -59,7 +59,7 @@ module internal TypeCasting =
     let castReferenceToPointer mtd state reference =
         let getType ref =
             match ref.term with
-            | Ref(TopLevelStack key, []) -> State.typeOfStackLocation state key
+            | Ref(RefTopLevelStack key, []) -> State.typeOfStackLocation state key
             | _ -> baseTypeOfRef ref
         let doCast reference =
             let typ = commonTypeOf getType reference

@@ -238,13 +238,13 @@ module internal State =
     let configure act = activator <- act
     let createInstance mtd typ args state = activator.CreateInstance (Metadata.firstOrigin mtd) typ args state
 
-    let mutable genericLazyInstantiator : termMetadata -> fql -> termType -> unit -> term =
+    let mutable genericLazyInstantiator : termMetadata -> heapFQL -> termType -> unit -> term =
         fun _ _ _ () -> internalfailf "generic lazy instantiator is not ready"
 
     let stackLazyInstantiator state key =
         let t = typeOfStackLocation state key
         let metadata = metadataOfStackLocation state key
-        let fql = TopLevelStack key, []
+        let fql = HeapTopLevelStack key, []
         genericLazyInstantiator metadata fql t
 
     let mutable readHeap : termMetadata -> bool -> term heap -> term -> termType -> term =
@@ -253,7 +253,7 @@ module internal State =
     let mutable readStatics : termMetadata -> bool -> termType heap -> termType -> termType -> term =
         fun _ _ _ -> internalfail "read for statics is not ready"
 
-    let mutable readTerm : termMetadata -> bool -> term -> fql -> termType -> term =
+    let mutable readTerm : termMetadata -> bool -> term -> heapFQL -> termType -> term =
         fun _ _ _ -> internalfail "read for term is not ready"
 
     let mutable fillHoles : compositionContext -> state -> term -> term =

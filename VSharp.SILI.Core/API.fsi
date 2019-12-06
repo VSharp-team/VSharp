@@ -33,8 +33,8 @@ module API =
         val Concrete : 'a -> termType -> term
         val Constant : string -> ISymbolicConstantSource -> termType -> term
         val Expression : operation -> term list -> termType -> term
-        val Struct : string heap -> termType -> term
-        val Class : string heap -> term
+        val Struct : fieldId heap -> termType -> term
+        val Class : fieldId heap -> term
         val Union : (term * term) list -> term
 
         val True : term
@@ -128,21 +128,21 @@ module API =
         val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
         val NewTypeVariables : state -> (typeId * termType) list -> state
 
-        val ReferenceField : term -> string -> termType -> term
+        val ReferenceField : term -> fieldId -> termType -> term
         val ReferenceLocalVariable : stackKey -> term
-        val ReferenceStaticField : termType -> string -> termType -> term
+        val ReferenceStaticField : termType -> fieldId -> termType -> term
         val ReferenceArrayIndex : state -> term -> term list -> term * state
 
         val Dereference : state -> term -> term * state
         val DereferenceWithoutValidation : state -> term -> term
         val DereferenceLocalVariable : state -> stackKey -> term * state
         val Mutate : state -> term -> term -> term * state
-        val ReadBlockField : term -> string -> termType -> term
+        val ReadBlockField : term -> fieldId -> termType -> term
 
         val AllocateOnStack : state -> stackKey -> termType -> term -> state
         val AllocateInHeap : state -> termType -> term -> term * state
         val AllocateDefaultStatic : state -> termType -> state
-        val MakeDefaultBlock : termType -> fql -> term
+        val MakeDefaultBlock : termType -> heapFQL -> term
         val AllocateDefaultBlock : state -> termType -> term * state
         val AllocateDefaultArray : state -> term list -> termType -> term * state
         val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state

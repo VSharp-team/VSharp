@@ -56,7 +56,7 @@ module internal Merging =
         let gs, vs = List.unzip gvs
         let fss = vs |> List.map fieldsOf
         let getter i = List.item i vs
-        let mergedFields = keysResolver<term, fql, string> false readTerm getFQLOfKey getter |> Heap.merge gs fss
+        let mergedFields = keysResolver<term, heapFQL, fieldId> false readTerm getFQLOfKey getter |> Heap.merge gs fss
         [(Propositional.disjunction Metadata.empty gs, Block mtd mergedFields typ)]
 
     and private arrayMerge mtd gvs =
@@ -71,7 +71,7 @@ module internal Merging =
         let d = List.unique ds
         let l = merge <| List.zip gs lens
         let getter i = List.item i vs
-        let resolveKeys = keysResolver<term, fql, term> false readTerm getFQLOfKey getter
+        let resolveKeys = keysResolver<term, heapFQL, term> false readTerm getFQLOfKey getter
         let mergedLower =  Heap.merge gs lows resolveKeys
         let mergedContents = Heap.merge gs contents resolveKeys
         let mergedLengths = Heap.merge gs lengths resolveKeys
