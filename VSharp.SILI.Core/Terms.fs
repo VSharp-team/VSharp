@@ -47,6 +47,7 @@ type stackKey =
 type locationBinding = obj
 type stackHash = int list
 type concreteHeapAddress = int list
+type concreteTypeAddress = System.Type
 type termOrigin = { location : locationBinding; stack : stackHash }
 type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
 
