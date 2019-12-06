@@ -18,15 +18,15 @@ HEAP:
 System.Array ==> CLASS []
 System.Array+EmptyArray`1[System.Type] ==> CLASS [
 	| Value ~> UNION[
-		| !hasKey#1 & !hasKey#28 & !hasKey#29 ~> (HeapRef 1.2.1.1.1)
-		| hasKey#1 | hasKey#30 | hasKey#31 ~> (HeapRef System.Array+EmptyArray`1[System.Type].Value)]]
+		| !hasKey#1 & !hasKey#13 & !hasKey#2 ~> (HeapRef 1.2.1.1.1)
+		| hasKey#1 | hasKey#13 | hasKey#2 ~> (HeapRef System.Array+EmptyArray`1[System.Type].Value)]]
 System.Convert ==> CLASS [
 	| ConvertTypes ~> UNION[
 		| !hasKey#1 ~> (HeapRef 1.1)
 		| hasKey#1 ~> (HeapRef System.Convert.ConvertTypes)]
 	| DBNull ~> UNION[
 		| !hasKey#1 & !hasKey#6 ~> (HeapRef 1.4.1)
-		| !hasKey#1 & hasKey#7 ~> (HeapRef System.DBNull.Value)
+		| !hasKey#1 & hasKey#6 ~> (HeapRef System.DBNull.Value)
 		| hasKey#1 ~> (HeapRef System.Convert.DBNull)]
 	| EnumType ~> UNION[
 		| !hasKey#1 ~> System.Enum
@@ -39,8 +39,8 @@ System.Convert ==> CLASS [
 		| hasKey#1 ~> (HeapRef System.Convert.s_decodingMap)]]
 System.DBNull ==> CLASS [
 	| Value ~> UNION[
-		| !hasKey#1 & !hasKey#37 ~> (HeapRef 1.4.1)
-		| hasKey#1 | hasKey#36 ~> (HeapRef System.DBNull.Value)]]
+		| !hasKey#1 & !hasKey#6 ~> (HeapRef 1.4.1)
+		| hasKey#1 | hasKey#6 ~> (HeapRef System.DBNull.Value)]]
 System.Math ==> CLASS [
 	| E ~> UNION[
 		| !hasKey#38 ~> 2.718281828459045
@@ -54,35 +54,35 @@ System.Math ==> CLASS [
 System.Object ==> CLASS []
 System.Reflection.Missing ==> CLASS [
 	| Value ~> UNION[
-		| !hasKey#1 & !hasKey#32 & !hasKey#33 ~> (HeapRef 1.2.2.1)
-		| hasKey#1 | hasKey#34 | hasKey#35 ~> (HeapRef System.Reflection.Missing.Value)]]
+		| !hasKey#1 & !hasKey#2 & !hasKey#9 ~> (HeapRef 1.2.2.1)
+		| hasKey#1 | hasKey#2 | hasKey#9 ~> (HeapRef System.Reflection.Missing.Value)]]
 System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
 System.Type ==> CLASS [
 	| Delimiter ~> UNION[
-		| !hasKey#1 & !hasKey#27 ~> 46
-		| hasKey#1 | hasKey#26 ~> System.Type.Delimiter]
+		| !hasKey#1 & !hasKey#2 ~> 46
+		| hasKey#1 | hasKey#2 ~> System.Type.Delimiter]
 	| EmptyTypes ~> UNION[
-		| !hasKey#1 & !hasKey#15 & !hasKey#16 ~> (HeapRef 1.2.1.1.1)
-		| !hasKey#1 & !hasKey#17 & hasKey#18 ~> (HeapRef System.Array+EmptyArray`1[System.Type].Value)
-		| hasKey#1 | hasKey#19 ~> (HeapRef System.Type.EmptyTypes)]
+		| !hasKey#1 & !hasKey#13 & !hasKey#2 ~> (HeapRef 1.2.1.1.1)
+		| !hasKey#1 & !hasKey#2 & hasKey#13 ~> (HeapRef System.Array+EmptyArray`1[System.Type].Value)
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.EmptyTypes)]
 	| FilterAttribute ~> UNION[
-		| !hasKey#1 & !hasKey#9 ~> (HeapRef 1.2.3)
-		| hasKey#1 | hasKey#8 ~> (HeapRef System.Type.FilterAttribute)]
+		| !hasKey#1 & !hasKey#2 ~> (HeapRef 1.2.3)
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.FilterAttribute)]
 	| FilterName ~> UNION[
-		| !hasKey#1 & !hasKey#23 ~> (HeapRef 1.2.5)
-		| hasKey#1 | hasKey#22 ~> (HeapRef System.Type.FilterName)]
+		| !hasKey#1 & !hasKey#2 ~> (HeapRef 1.2.5)
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.FilterName)]
 	| FilterNameIgnoreCase ~> UNION[
-		| !hasKey#1 & !hasKey#21 ~> (HeapRef 1.2.6)
-		| hasKey#1 | hasKey#20 ~> (HeapRef System.Type.FilterNameIgnoreCase)]
+		| !hasKey#1 & !hasKey#2 ~> (HeapRef 1.2.6)
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.FilterNameIgnoreCase)]
 	| Missing ~> UNION[
-		| !hasKey#1 & !hasKey#10 & hasKey#11 ~> (HeapRef System.Reflection.Missing.Value)
-		| !hasKey#1 & !hasKey#12 & !hasKey#13 ~> (HeapRef 1.2.2.1)
-		| hasKey#1 | hasKey#14 ~> (HeapRef System.Type.Missing)]
+		| !hasKey#1 & !hasKey#2 & !hasKey#9 ~> (HeapRef 1.2.2.1)
+		| !hasKey#1 & !hasKey#2 & hasKey#9 ~> (HeapRef System.Reflection.Missing.Value)
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.Missing)]
 	| s_defaultBinder ~> UNION[
-		| !hasKey#1 & !hasKey#25 ~> null
-		| hasKey#1 | hasKey#24 ~> (HeapRef System.Type.s_defaultBinder)]]
+		| !hasKey#1 & !hasKey#2 ~> null
+		| hasKey#1 | hasKey#2 ~> (HeapRef System.Type.s_defaultBinder)]]
 System.Type+<>c ==> CLASS [
 	| <>9 ~> UNION[
 		| !hasKey#1 & !hasKey#2 & !hasKey#3 ~> (HeapRef 1.2.4.1)
-		| hasKey#1 | hasKey#4 | hasKey#5 ~> (HeapRef System.Type+<>c.<>9)]]
+		| hasKey#1 | hasKey#2 | hasKey#3 ~> (HeapRef System.Type+<>c.<>9)]]
 VSharp.Test.Tests.Arithmetics ==> CLASS []
