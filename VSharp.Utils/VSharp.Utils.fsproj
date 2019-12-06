@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <Compile Include="Logger.fs" />
+        <Compile Include="WeakDictionary.fs" />
         <Compile Include="MemoryCell.fs" />
         <Compile Include="Prelude.fs" />
         <Compile Include="TypeUtils.fs" />
