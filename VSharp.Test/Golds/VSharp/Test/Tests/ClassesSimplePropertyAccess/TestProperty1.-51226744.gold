@@ -10,15 +10,15 @@ HEAP:
 2.2.1 ==> [|... 0 ... |]
 2.3 ==> System.Collections.Generic.List`1[System.Boolean] CLASS [
 	| System::Collections::Generic::List`1::_items ~> UNION[
-		| !hasKey#2 ~> (HeapRef 2.2.1)
+		| !hasKey#1 ~> (HeapRef 2.2.1)
 		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Boolean].s_emptyArray)]
 	| System::Collections::Generic::List`1::_size ~> 0
 	| System::Collections::Generic::List`1::_version ~> 0]
 ---------- s1 = ----------
 System.Collections.Generic.List`1[System.Boolean] ==> CLASS [
 	| s_emptyArray ~> UNION[
-		| !hasKey#4 ~> (HeapRef 2.2.1)
-		| hasKey#3 ~> (HeapRef System.Collections.Generic.List`1[System.Boolean].s_emptyArray)]]
+		| !hasKey#1 ~> (HeapRef 2.2.1)
+		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Boolean].s_emptyArray)]]
 System.Object ==> CLASS []
 VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
 VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
