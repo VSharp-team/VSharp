@@ -594,6 +594,7 @@ module internal Memory =
             | _ -> __notImplemented__()
         | Concrete(:? concreteHeapAddress as addr', t) ->
             Concrete ctx.mtd (composeAddresses ctx.addr addr') t
+        | Concrete(:? concreteTypeAddress, _) -> term
         | Pointers.SymbolicThisOnStack(token, path) ->
             let id = ThisKey token
             let reference = referenceLocalVariable term.metadata id |> deref term.metadata state |> fst
@@ -621,6 +622,8 @@ module internal Memory =
         | Concrete(:? concreteHeapAddress as addr, t) ->
             let addr' = Concrete ctx.mtd (composeAddresses ctx.addr addr) t
             [True, RefTopLevelHeap(addr', baseType, sightType)]
+        | Concrete(:? concreteTypeAddress, _) ->
+            [True, RefTopLevelHeap(address, baseType, sightType)]
         | _ -> __notImplemented__()
 
     and fillHoles ctx state term =

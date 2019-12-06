@@ -45,6 +45,8 @@ module API =
         val MakeNumber : 'a -> term
 
         val TypeOf : term -> termType
+        val GetTypeMethod : state -> term -> term * state
+        val TypeOfMethod : state -> termType -> term * state
         val BaseTypeOfRef : term -> termType
         val SightTypeOfRef : term -> termType
 

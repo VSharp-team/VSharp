@@ -62,6 +62,8 @@ module API =
         let MakeNumber n = makeNumber m.Value n
 
         let TypeOf term = typeOf term
+        let GetTypeMethod (state : state) term = Marshalling.getTypeMethod m.Value state term
+        let TypeOfMethod (state : state) typ = Marshalling.typeOfMethod m.Value state typ
         let BaseTypeOfRef ref = baseTypeOfRef ref
         let SightTypeOfRef ref = sightTypeOfRef ref
 
