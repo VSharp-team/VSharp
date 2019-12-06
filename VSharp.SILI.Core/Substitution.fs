@@ -4,22 +4,21 @@ open VSharp
 
 module Substitution =
 
-    let private substituteTopLevel addressSubst typeSubst = function
-        | TopLevelHeap(addr, bt, st) -> addressSubst addr bt st
-        | TopLevelStatics typ -> [True, typ |> typeSubst |> TopLevelStatics]
-        | NullAddress
-        | TopLevelStack _ as tl -> [True, tl]
+    let private substituteRefTopLevel addressSubst typeSubst = function
+        | RefTopLevelHeap(addr, bt, st) -> addressSubst addr bt st
+        | RefTopLevelStatics typ -> [True, typ |> typeSubst |> RefTopLevelStatics]
+        | RefNullAddress
+        | RefTopLevelStack _ as tl -> [True, tl]
 
     let rec substituteHeap<'a when 'a : equality> keySubst subst addressSubst typeSubst (heap : 'a heap) : 'a heap =
         Heap.map (fun (k, v) -> substituteHeapKey keySubst subst addressSubst typeSubst k, substitute subst addressSubst typeSubst v) heap
 
-    and substituteHeapKey<'a when 'a : equality> (keySubst : 'a -> 'a) (subst : term -> term) (addressSubst : term -> termType -> termType -> (term * topLevelAddress) list) (typeSubst : termType -> termType) (key : 'a memoryCell) : 'a memoryCell =
+    and substituteHeapKey<'a when 'a : equality> (keySubst : 'a -> 'a) (subst : term -> term) (addressSubst : term -> termType -> termType -> (term * refTopLevelAddress) list) (typeSubst : termType -> termType) (key : 'a memoryCell) : 'a memoryCell =
         let key' = keySubst key.key // TODO: key substitution works twice (in key.key and in key.FQL)
-        let typ' = typeSubst key.typ
-        let FQL' = Option.map (substituteFQL subst addressSubst typeSubst) key.FQL
+        let FQL' = Option.map (substituteHeapFQL subst addressSubst typeSubst) key.FQL
         match FQL' with
-        | None -> {key = key'; FQL = None; typ = typ'}
-        | Some [True, fql] -> {key = key'; FQL = Some fql; typ = typ'} // we should never have union in heap key after substitution, so it shouldn't happen in fql
+        | None -> {key = key'; FQL = None; typ = typeSubst key.typ}
+        | Some [True, fql] -> {key = key'; FQL = Some fql; typ = baseTypeOfFQL fql} // we should never have union in heap key after substitution, so it shouldn't happen in fql
         | _ -> internalfail "substitution of heap key has failed"
 
     and substitute subst addressSubst typeSubst term =
@@ -97,12 +96,15 @@ module Substitution =
     and private substitutePath subst addressSubst typeSubst path =
         Merging.genericGuardedCartesianProduct (substituteSegment subst addressSubst typeSubst) path
 
-    and private substituteFQL subst addressSubst typeSubst (topLevel, path) =
-        let tls = substituteTopLevel addressSubst typeSubst topLevel
+    and private substituteRefFQL subst (addressSubst : term -> termType -> termType -> (term * refTopLevelAddress) list) typeSubst (topLevel, path) =
+        let tls = substituteRefTopLevel addressSubst typeSubst topLevel
         let paths = substitutePath subst addressSubst typeSubst path
         let createFQL (g, tl) = List.map (fun (g', path) -> g &&& g', (tl, path)) paths
         List.collect createFQL tls
 
+    and private substituteHeapFQL subst (addressSubst : term -> termType -> termType -> (term * refTopLevelAddress) list) typeSubst (topLevel, path) =
+        substituteRefFQL subst addressSubst typeSubst (topLevel.ConvertToRefTopLevel(), path) |> List.map (fun (g, (tl, path)) -> (g, (tl.ConvertToHeapTopLevel(), path)))
+
     and private substituteRef subst addressSubst typeSubst topLevel path ctor =
-        let FQL' = substituteFQL subst addressSubst typeSubst (topLevel, path)
+        let FQL' = substituteRefFQL subst addressSubst typeSubst (topLevel, path)
         List.map (fun (g, (tl, path)) -> g, ctor tl path) FQL'

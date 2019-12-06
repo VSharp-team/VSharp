@@ -50,6 +50,17 @@ type 'a transparent =
     override x.Equals(o : obj) =
         o :? 'a transparent
 
+type [<CustomEquality;NoComparison>] fieldId =
+    | FieldId of string
+    override x.GetHashCode() =
+        match x with
+        | FieldId s -> s.GetDeterministicHashCode()
+    override x.Equals(other) =
+        match other with
+        | :? fieldId as other -> hash x = hash other
+        | _ -> false
+    override x.ToString() = match x with FieldId s -> s
+
 type 'a symbolicValue =
     | Specified of 'a
     | Unspecified

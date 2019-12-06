@@ -6,13 +6,13 @@ open Types
 
 module internal Strings =
 
-    let strLength = "System::String::m_StringLength"
-    let strArray = "System::String::m_FirstChar"
+    let strLength = FieldId "System::String::m_StringLength"
+    let strArray = FieldId "System::String::m_FirstChar"
 
     let stringArrayType = ArrayType(Char, Vector)
 
-    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(FieldId strArray, stringArrayType)
-    let makeLengthFQL fql = addToOptionFQL fql <| BlockField(FieldId strLength, lengthType)
+    let makeArrayFQL fql = addToOptionFQL fql <| BlockField(strArray, stringArrayType)
+    let makeLengthFQL fql = addToOptionFQL fql <| BlockField(strLength, lengthType)
 
     let makeArrayFieldKey fql = makeKey strArray (makeArrayFQL fql) stringArrayType
     let makeLengthFieldKey fql = makeKey strLength (makeLengthFQL fql) lengthType
@@ -38,11 +38,11 @@ module internal Strings =
         let contentsWithZero = Heap.add indexLengthKey (makeNumber metadata '\000') contents
         makeArray metadata arrLength contentsWithZero instor arrayFQL
 
-    let ctorOfCharArray metadata fql = Merging.guardedErroredApply (function
-        | VectorT(length, instor, contents) ->
-            let arrayFQL = makeArrayFQL fql
-            let stringArray = makeStringArray metadata length instor contents arrayFQL
-            makeStringOfFields metadata length stringArray arrayFQL fql
+    let ctorOfCharArray metadata stringFQL arrayFQL = Merging.guardedErroredApply (term >> function
+        | Array(ConcreteT(d, _), len, lb, i, contents, _) when d :?> int = 1 && lb = zeroLowerBounds Metadata.empty 1 arrayFQL ->
+            let arrayFQL = makeArrayFQL stringFQL
+            let stringArray = makeStringArray metadata len i contents arrayFQL
+            makeStringOfFields metadata len stringArray arrayFQL stringFQL
         | t -> internalfailf "expected char array, but got %O" t)
 
     let length fql = Merging.guardedErroredApply (term >> function

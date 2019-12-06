@@ -2,6 +2,7 @@ namespace VSharp
 
 open System
 open System.Reflection
+open VSharp.CSharpUtils
 
 module public Reflection =
 
@@ -66,8 +67,10 @@ module public Reflection =
     let getFullNameOfField (field : FieldInfo) =
         let getBlockName (field : FieldInfo) =
             (safeGenericTypeDefinition field.DeclaringType).FullName.Replace(".", "::").Replace("+", "::")
-        if field.IsStatic then field.Name
-        else sprintf "%s::%s" (getBlockName field) field.Name
+        let fieldName =
+            if field.IsStatic then field.Name
+            else sprintf "%s::%s" (getBlockName field) field.Name
+        FieldId fieldName
 
     let rec fieldsOf isStatic (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance

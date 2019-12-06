@@ -97,12 +97,12 @@ module internal Pointers =
     let isZeroAddress mtd x = fastNumericCompare mtd x (makeZeroAddress mtd)
 
     let private compareTopLevel mtd = function
-        | NullAddress, NullAddress -> makeTrue mtd
-        | TopLevelHeap(addr, _, _), NullAddress
-        | NullAddress, TopLevelHeap(addr, _, _) -> isZeroAddress mtd addr
-        | TopLevelHeap(addr1, _, _), TopLevelHeap(addr2, _, _) -> fastNumericCompare mtd addr1 addr2
-        | TopLevelStatics typ1, TopLevelStatics typ2 -> typesEqual mtd typ1 typ2
-        | TopLevelStack key1, TopLevelStack key2 -> makeBool mtd (key1 = key2)
+        | RefNullAddress, RefNullAddress -> makeTrue mtd
+        | RefTopLevelHeap(addr, _, _), RefNullAddress
+        | RefNullAddress, RefTopLevelHeap(addr, _, _) -> isZeroAddress mtd addr
+        | RefTopLevelHeap(addr1, _, _), RefTopLevelHeap(addr2, _, _) -> fastNumericCompare mtd addr1 addr2
+        | RefTopLevelStatics typ1, RefTopLevelStatics typ2 -> typesEqual mtd typ1 typ2
+        | RefTopLevelStack key1, RefTopLevelStack key2 -> makeBool mtd (key1 = key2)
         | _ -> makeFalse mtd
 
     let private equalPathSegment mtd x y =
@@ -277,10 +277,10 @@ module internal Pointers =
         | _ -> false
 
     let topLevelLocation = Merging.guardedErroredApply (term >> function
-        | Ref(TopLevelHeap (a, _, _), [])
-        | Ptr(TopLevelHeap (a, _, _), [], _, _) -> a
-        | Ref(NullAddress, _)
-        | Ptr(NullAddress, _, _, _) -> makeZeroAddress Metadata.empty
+        | Ref(RefTopLevelHeap (a, _, _), [])
+        | Ptr(RefTopLevelHeap (a, _, _), [], _, _) -> a
+        | Ref(RefNullAddress, _)
+        | Ptr(RefNullAddress, _, _, _) -> makeZeroAddress Metadata.empty
         | _ -> __notImplemented__())
 
     type HeapAddressExtractor() =
@@ -288,5 +288,5 @@ module internal Pointers =
         override x.Extract t = topLevelLocation t
 
     let (|SymbolicThisOnStack|_|) = function
-       | Ref(TopLevelStack(SymbolicThisKey token), path) -> Some(SymbolicThisOnStack(token, path))
+       | Ref(RefTopLevelStack(SymbolicThisKey token), path) -> Some(SymbolicThisOnStack(token, path))
        | _ -> None

@@ -156,7 +156,7 @@ module API =
             Memory.allocateInHeap m.Value state address typ term
 
         let AllocateDefaultStatic state targetType =
-            let fql = makeTopLevelFQL TopLevelStatics targetType
+            let fql = makeTopLevelFQL HeapTopLevelStatics targetType
             let staticStruct, state = Memory.mkDefaultStatic m.Value state targetType fql
             Memory.allocateInStaticMemory m.Value state targetType staticStruct
 
@@ -164,17 +164,17 @@ module API =
 
         let AllocateDefaultBlock state typ =
             let address = Memory.freshHeapLocation m.Value
-            let fql = TopLevelHeap(address, typ, typ), []
+            let fql = HeapTopLevelHeap(address, typ), []
             MakeDefaultBlock typ fql |> Memory.allocateInHeap m.Value state address typ
 
         let AllocateDefaultArray state dimensions typ =
             let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
+            let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
             Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
 
         let AllocateInitializedArray state dimensions rank typ initializer =
             let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL TopLevelHeap (address, typ, typ)
+            let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
             let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
             let state = Arrays.fromInitializer m.Value rank typ initializer fql |> Mutate state ref |> snd
             ref, state
@@ -195,10 +195,11 @@ module API =
             Strings.length fql strStruct, state
 
         let StringCtorOfCharArray state this arrayRef =
-            let fql = getFQLOfRef this |> Some
+            let stringFQL = getFQLOfRef this |> Some
+            let arrayFQL = getFQLOfRef arrayRef |> Some
             BranchStatementsOnNull state arrayRef
-                (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" fql, state))
-                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value fql) |> k)
+                (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" stringFQL, state))
+                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value stringFQL arrayFQL) |> k)
                 id
 
     module Database =
