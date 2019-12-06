@@ -1,0 +1,12 @@
+METHOD: System.Boolean VSharp.Test.Tests.Typecast.Knight.ReferenceIdentity()
+RESULT: True
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Typecast.Knight CLASS [
+	| VSharp::Test::Tests::Typecast::Piece::Rate ~> 0
+	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> 0
+	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> 0]
+---------- s1 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Typecast.Knight ==> CLASS []

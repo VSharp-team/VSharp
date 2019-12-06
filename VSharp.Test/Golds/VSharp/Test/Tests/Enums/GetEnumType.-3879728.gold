@@ -1,0 +1,13 @@
+METHOD: System.Type VSharp.Test.Tests.Enums.GetEnumType(VSharp.Test.Tests.Enums+Color)
+RESULT: (HeapRef VSharp.Test.Tests.Enums+Color)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> c
+VSharp.Test.Tests.Enums+Color ==> System.RuntimeType CLASS [
+	| System::RuntimeType::m_cache ~> 1811397881712
+	| System::RuntimeType::m_handle ~> 140722715906776
+	| System::RuntimeType::m_keepalive ~> null]
+---------- s1 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Enums ==> CLASS []

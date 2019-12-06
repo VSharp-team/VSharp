@@ -1,0 +1,8 @@
+METHOD: System.Int32[] VSharp.Test.Tests.Marshaling.Create_SimpleArray()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [| 0 ~> 0; 1 ~> 42; 2 ~> 0; 3 ~> 0; 4 ~> -200; 5 ~> 12; 6 ~> 0 ... 7 ... |]
+---------- s1 = ----------
+VSharp.Test.Tests.Marshaling ==> CLASS []

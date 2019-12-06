@@ -1,0 +1,17 @@
+METHOD: ChessDotNet.Piece[][] VSharp.Test.Tests.Marshaling.Create_ArrayOfArray()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> [| 0 ~> null; 1 ~> (HeapRef 2); 2 ~> null; 3 ~> (HeapRef 5) ... 4 ... |]
+2 ==> [| 0 ~> (HeapRef 3); 1 ~> null; 2 ~> null; 3 ~> null; 4 ~> null; 5 ~> null; 6 ~> null; 7 ~> null; 8 ~> null; 9 ~> (HeapRef 4) ... 10 ... |]
+3 ==> ChessDotNet.Pieces.King CLASS [
+	| ChessDotNet::Pieces::King::<HasCastlingAbility>k__BackingField ~> True
+	| ChessDotNet::Pieces::King::<Owner>k__BackingField ~> White]
+4 ==> ChessDotNet.Pieces.Bishop CLASS [
+	| ChessDotNet::Pieces::Bishop::<Owner>k__BackingField ~> None]
+5 ==> [| 0 ~> null; 1 ~> null; 2 ~> null; 3 ~> (HeapRef 6); 4 ~> null ... 5 ... |]
+6 ==> ChessDotNet.Pieces.Knight CLASS [
+	| ChessDotNet::Pieces::Knight::<Owner>k__BackingField ~> Black]
+---------- s1 = ----------
+VSharp.Test.Tests.Marshaling ==> CLASS []

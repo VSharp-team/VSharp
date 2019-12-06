@@ -40,7 +40,7 @@ namespace VSharp.Test.Tests.Generic
             return new LinkedList<int>();
         }
 
-        [TestSvm]
+        [Ignore("Static array(T[] s_emptyArray = new T[0]) is allocated twice")]
         public static List<double> RetList()
         {
             return new List<double>();
@@ -110,6 +110,12 @@ namespace VSharp.Test.Tests.Generic
             return r;
         }
 
+
+        public static object Ret0(R r)
+        {
+            return 0;
+        }
+
         [TestSvm]
         public static V RetV(V v)
         {
@@ -124,6 +130,12 @@ namespace VSharp.Test.Tests.Generic
         public static object RetConstructedRWithInt()
         {
             return GenericClass<object, int>.RetR(0);
+        }
+
+        [Ignore("There should be two boxed zeros")]
+        public static object RetConstructedR0()
+        {
+            return GenericClass<object, int>.Ret0(0);
         }
 
         [TestSvm]

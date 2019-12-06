@@ -1,0 +1,11 @@
+METHOD: VSharp.Test.Tests.Marshaling+RecursiveClass VSharp.Test.Tests.Marshaling.CreateRecursiveObject()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Marshaling+RecursiveClass CLASS [
+	| VSharp::Test::Tests::Marshaling::RecursiveClass::_value ~> 42
+	| VSharp::Test::Tests::Marshaling::RecursiveClass::next ~> (HeapRef 1)]
+---------- s1 = ----------
+VSharp.Test.Tests.Marshaling ==> CLASS []
+VSharp.Test.Tests.Marshaling+RecursiveClass ==> CLASS []

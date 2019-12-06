@@ -1,6 +1,6 @@
 METHOD: System.Int32 VSharp.Test.Tests.Conditional.Always18()
-RESULT: μ[Vertex = 3, RV = [3], __loc__0]
+RESULT: 18
 HEAP:
-{ heap = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]), statics = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 3, RV = [3]) } where
+{ heap = <empty>, statics = s0 } where
 ---------- s0 = ----------
 VSharp.Test.Tests.Conditional ==> CLASS []

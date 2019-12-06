@@ -6,8 +6,8 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> System.String CLASS [
-	| System::String::m_FirstChar ~> [| 0 ~> '\000' ... 1 ... |]
-	| System::String::m_StringLength ~> 0]
+	| System::String::_firstChar ~> [| 0 ~> '\000' ... 1 ... |]
+	| System::String::_stringLength ~> 0]
 ---------- s1 = ----------
 System.String ==> CLASS [
 	| Empty ~> UNION[

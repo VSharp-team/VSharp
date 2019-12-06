@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
- using System;
+using System;
 using VSharp.Test.Tests.Typecast;
 
 namespace VSharp.Test.Tests.Typecast
@@ -302,6 +302,62 @@ namespace VSharp.Test.Tests.Typecast
             _xCoord = c.X + c.Y;
             _yCoord = c.X - c.Y;
             return this;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj.GetType() != this.GetType())
+                return false;
+            return true;
+        }
+
+        [TestSvm]
+        public static bool ReferenceIdentity()
+        {
+            var knight = new Knight();
+            return knight.Equals(knight);
+        }
+
+        [TestSvm]
+        public static bool KnightIsKnight()
+        {
+            var knight = new Knight();
+            var knight2 = new Knight();
+            return knight.Equals(knight2);
+        }
+
+        [TestSvm]
+        public static bool KnightIsNotPawn()
+        {
+            var knight = new Knight();
+            var blackPawn = new BlackPawn(1, 1, 1);
+            return knight.Equals(blackPawn);
+        }
+
+        [TestSvm]
+        public static Type UnionGetTypeSymbolic(bool f, object o1, object o2)
+        {
+            if (o1 == null || o2 == null)
+                return null;
+            if (f)
+            {
+                return o1.GetType();
+            }
+
+            return o2.GetType();
+        }
+
+        [TestSvm]
+        public static Type UnionGetType(bool f, object o1, object o2)
+        {
+            if (o1 == null || o2 == null)
+                return null;
+            if (f)
+            {
+                return o1.GetType();
+            }
+
+            return o2.GetType();
         }
     }
 

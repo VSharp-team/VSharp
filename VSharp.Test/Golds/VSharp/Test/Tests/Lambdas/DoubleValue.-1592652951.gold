@@ -11,10 +11,9 @@ HEAP:
 	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass2_0::c ~> UNION[
 		| !flag ~> n
 		| flag ~> 0]]
+2 ==> <Lambda Expression System.Action`1[System.Int32]>
 3 ==> <Lambda Expression System.Action`1[System.Int32]>
-4 ==> <Lambda Expression System.Action`1[System.Int32]>
 ---------- s1 = ----------
 System.Action`1[System.Int32] ==> CLASS []
-System.Object ==> CLASS []
 VSharp.Test.Tests.Lambdas ==> CLASS []
 VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0 ==> CLASS []

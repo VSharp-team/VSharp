@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Enums.SymbolicColor2Int(VSharp.Test.Tests.Enums+Color, System.Int32)
+RESULT: UNION[
+	| !((VSharp.Test.Tests.Enums+Color)v == c) ~> 100
+	| (VSharp.Test.Tests.Enums+Color)v == c ~> 42]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Enums ==> CLASS []

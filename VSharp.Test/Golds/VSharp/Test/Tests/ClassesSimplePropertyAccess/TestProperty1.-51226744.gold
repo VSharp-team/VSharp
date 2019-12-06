@@ -4,21 +4,14 @@ HEAP:
 { heap = h0, statics = s1 } where
 ---------- h0 = ----------
 1 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess CLASS [
-	| VSharp::Test::Tests::ClassesSimplePropertyAccess::<SecretProperty>k__BackingField ~> (HeapRef 2.3)
+	| VSharp::Test::Tests::ClassesSimplePropertyAccess::<SecretProperty>k__BackingField ~> (HeapRef 2)
 	| VSharp::Test::Tests::ClassesSimplePropertyAccess::_structProperty ~> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
 		| VSharp::Test::Tests::ClassesSimplePropertyAccess::SimpleStruct::X ~> 0]]
-2.2.1 ==> [|... 0 ... |]
-2.3 ==> System.Collections.Generic.List`1[System.Boolean] CLASS [
-	| System::Collections::Generic::List`1::_items ~> UNION[
-		| !hasKey#1 ~> (HeapRef 2.2.1)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Boolean].s_emptyArray)]
+2 ==> System.Collections.Generic.List`1[System.Boolean] CLASS [
+	| System::Collections::Generic::List`1::_items ~> (HeapRef 3)
 	| System::Collections::Generic::List`1::_size ~> 0
 	| System::Collections::Generic::List`1::_version ~> 0]
+3 ==> [|... 0 ... |]
 ---------- s1 = ----------
-System.Collections.Generic.List`1[System.Boolean] ==> CLASS [
-	| s_emptyArray ~> UNION[
-		| !hasKey#1 ~> (HeapRef 2.2.1)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Boolean].s_emptyArray)]]
-System.Object ==> CLASS []
 VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
 VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
