@@ -22,6 +22,7 @@
         <Compile Include="Substitution.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="Memory.fs" />
+        <Compile Include="Marshalling.fs" />
         <Compile Include="Explorer.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />

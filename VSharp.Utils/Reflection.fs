@@ -72,14 +72,19 @@ module public Reflection =
             else sprintf "%s::%s" (getBlockName field) field.Name
         FieldId fieldName
 
-    let rec fieldsOf isStatic (t : System.Type) =
+    let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)
+        let ourFields = f fields
+        if isStatic || t.BaseType = null then ourFields
+        else Array.append (retrieveFields false f t.BaseType) ourFields
+
+    let retrieveNonStaticFields t = retrieveFields false id t
+
+    let fieldsOf isStatic (t : System.Type) =
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
             else Some (getFullNameOfField field, field.FieldType)
-        let ourFields = fields |> FSharp.Collections.Array.choose extractFieldInfo
-        if isStatic || t.BaseType = null then ourFields
-        else Array.append (fieldsOf false t.BaseType) ourFields
+        retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t

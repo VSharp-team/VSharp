@@ -144,9 +144,13 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
     member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
-        x.ReduceFunctionSignature funcId state methodBase this parameters (fun state ->
-        x.EnterRecursiveRegion funcId state invoke (fun (result, state) ->
-        k (result, Memory.PopStack state)))
+        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
+        if Options.InvokeConcrete () && canUseReflection then
+            API.Marshalling.CallViaReflection state funcId this parameters k
+        else
+            x.ReduceFunctionSignature funcId state methodBase this parameters (fun state ->
+            x.EnterRecursiveRegion funcId state invoke (fun (result, state) ->
+            k (result, Memory.PopStack state)))
 
     member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues k =
         let parameters = methodBase.GetParameters()

@@ -146,6 +146,28 @@ module internal Arrays =
         let contents = Seq.zip indices linearContent |> Heap.ofSeq
         Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator elemTyp] contents lengths
 
+    let fromMkContents mtd state rank typ dimensions mkContents fql =
+        let elemTyp = Types.elementType typ
+        let len = List.reduce (*) dimensions
+        let intToTerm i = Concrete mtd i Types.lengthType
+        let dimensionList = dimensions |> List.map intToTerm
+        let length = makeNumber mtd len
+        let lengths = Seq.foldi (fun h i l -> Heap.add (makePathIndexKey mtd ArrayLength i fql Types.lengthType) l h) Heap.empty dimensionList
+        let mkIndex = makeIndex mtd
+        let indices =
+            List.foldBack (fun i s ->
+                let indicesInDim = Seq.init i id
+                Seq.collect (fun x -> Seq.map (cons x) s) indicesInDim
+                ) dimensions (Seq.init 1 (always List.empty))
+        let contents, state =
+            Seq.fold (fun (h, s) index ->
+                let termIndex = List.map mkIndex index
+                let key = makePathKey fql (mkArrayIndex elemTyp) (makeIndexArray mtd (fun i -> termIndex.[i]) termIndex.Length) elemTyp
+                let term, state = mkContents s index
+                Heap.add key term h, state
+            ) (Heap.empty, state) indices
+        Array mtd (makeNumber mtd rank) length (zeroLowerBounds mtd rank fql) [Terms.True, DefaultInstantiator elemTyp] contents lengths, state
+
     let (|VectorT|_|) = term >> function
         | Array(ConcreteT(one, _), length, lower, instor, contents, _)
             when one :?> int = 1 && lower = zeroLowerBounds Metadata.empty 1 None -> Some(VectorT (length, instor, contents))

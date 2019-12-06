@@ -85,16 +85,28 @@ module internal Memory =
         | :? lazyInstantiation<_> as li -> Some(li.location, li.heap, li.extractor :? IdTermExtractor)
         | _ -> None
 
-    let private mkFields metadata isStatic mkField fql typ =
+    let internal bypassFields metadata isStatic f heap fql typ =
         let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
         let addField heap (field, typ) =
             let termType = typ |> fromDotNetType
             let fql' = BlockField(field, termType) |> addToOptionFQL fql
-            let value = mkField metadata field termType fql'
-            let key = makeKey field fql' termType
+            f heap metadata field termType fql'
+        FSharp.Collections.Array.fold addField heap fields
+
+    let private mkFields metadata isStatic mkField fql typ =
+        let f heap metadata  name termType fql' =
+            let value = mkField metadata name termType fql'
+            let key = makeKey name fql' termType
             Heap.add key value heap
-        FSharp.Collections.Array.fold addField Heap.empty fields
+        bypassFields metadata isStatic f Heap.empty fql typ
+
+    let internal mkFieldsForUnmarshaling metadata state mkField fql typ =
+        let f (heap, state) metadata name termType fql' =
+            let value, state = mkField metadata state name termType fql'
+            let key = makeKey name fql' termType
+            Heap.add key value heap, state
+        bypassFields metadata false f (Heap.empty, state) fql typ
 
     let private mkStruct metadata isStatic mkField typ fql =
         let contents = mkFields metadata isStatic mkField fql typ
@@ -827,16 +839,16 @@ module internal Memory =
                     let g, h = List.unzip gvh
                     mergeGeneralizedHeaps (fun _ _ _ _ -> __unreachable__()) g h) id
 
-    let allocateInHeap metadata s address typ term : term * state =
-        let ref = HeapRef metadata address typ typ []
-        let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
-        let memoryCell = makeKey address fql typ
-        (ref, { s with heap = allocateInGeneralizedHeap memoryCell term s.heap } )
+    let allocateInHeap metadata s address baseType sightType term : term * state =
+        let ref = HeapRef metadata address baseType sightType []
+        let fql = makeTopLevelFQL HeapTopLevelHeap (address, baseType)
+        let memoryCell = makeKey address fql baseType
+        ref, { s with heap = allocateInGeneralizedHeap memoryCell term s.heap }
 
     let allocateString metadata state string =
         let address = freshHeapLocation metadata
         let fql = makeTopLevelFQL HeapTopLevelHeap (address, String)
-        Strings.makeConcreteStringStruct metadata string fql |> allocateInHeap metadata state address String
+        Strings.makeConcreteStringStruct metadata string fql |> allocateInHeap metadata state address String String
 
     let mkDefaultStatic metadata state targetType fql =
         let defaultValue metadata _ typ fql' = defaultOf metadata typ fql'

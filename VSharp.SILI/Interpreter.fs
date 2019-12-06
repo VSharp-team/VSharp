@@ -264,7 +264,7 @@ and public ILInterpreter() as this =
                     k
             let explicitLambda : cilState list symbolicLambda = invoke
             let lambda = Lambdas.make explicitLambda typ
-            let lambdaRefAndState = Memory.AllocateInHeap cilState.state typ lambda
+            let lambdaRefAndState = Memory.AllocateReferenceTypeInHeap cilState.state typ lambda
             pushResultOnStack {cilState with opStack = stack} lambdaRefAndState :: []
         | _ -> __notImplemented__()
     member private x.NewObj (cfg : cfgData) offset (cilState : cilState) =
@@ -365,7 +365,7 @@ and public ILInterpreter() as this =
         let hasValueCase (cilState : cilState) k =
             let valueMethodInfo = t.GetMethod("get_Value")
             let underlyingTermType = Nullable.GetUnderlyingType(t) |> Types.FromDotNetType cilState.state
-            let allocateResults results = mapAndPushFunctionResultsk (fun (res, state) -> Memory.AllocateInHeap state underlyingTermType res) results k
+            let allocateResults results = mapAndPushFunctionResultsk (fun (res, state) -> Memory.AllocateValueTypeInHeap state underlyingTermType res) results k
             x.ReduceMethodBaseCall valueMethodInfo cilState (Some v) (Specified []) allocateResults
         let boxNullable (hasValue, cilState) =
             StatedConditionalExecutionCIL cilState

@@ -140,7 +140,8 @@ module API =
         val ReadBlockField : term -> fieldId -> termType -> term
 
         val AllocateOnStack : state -> stackKey -> termType -> term -> state
-        val AllocateInHeap : state -> termType -> term -> term * state
+        val AllocateReferenceTypeInHeap : state -> termType -> term -> term * state
+        val AllocateValueTypeInHeap : state -> termType -> term -> term * state
         val AllocateDefaultStatic : state -> termType -> state
         val MakeDefaultBlock : termType -> heapFQL -> term
         val AllocateDefaultBlock : state -> termType -> term * state
@@ -158,6 +159,11 @@ module API =
 
         val StringLength : state -> term -> term * state
         val StringCtorOfCharArray : state -> term -> term -> term * state
+
+    module Marshalling =
+        val Unmarshal : state -> obj -> term * state
+        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
+        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a
 
     module Database =
         val QuerySummary : ICodeLocation -> codeLocationSummary
