@@ -866,7 +866,7 @@ module internal Memory =
             then instance, state, false
             else
                 let state = State.newStackFrame metadata state (EmptyIdentifier()) [(thisKey, Specified instance, typ)]
-                referenceLocalVariable metadata thisKey, state, true
+                thisStackRef, state, true
 
 // --------------------------------------- Is Location Initialized Check ---------------------------------------
 

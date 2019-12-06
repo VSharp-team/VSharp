@@ -221,7 +221,8 @@ module internal Z3 =
         let context = new EncodingContext()
         ctxs.Push(context)
         try
-            printLog Trace "SOLVER: got CHC system:\n%O" (system |> List.map toString |> join "\n")
+            printLog Info "SOLVER: trying to solve CHC system..."
+            printLogLazy Trace "%O" (lazy(system |> List.map toString |> join "\n"))
             let failRel = encodeSystem system
             let result = (ctx()).FP.Query(failRel)
             printLog Trace "SOLVER: got %O" result
