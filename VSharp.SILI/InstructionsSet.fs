@@ -14,6 +14,8 @@ type public ILMethodMetadata =
     override x.ToString () = x.methodBase.Name
     interface IMethodIdentifier with
         member x.IsStatic = x.methodBase.IsStatic
+        member x.IsConstructor = x.methodBase.IsConstructor
+        member x.Method = x.methodBase
         member x.DeclaringType = x.methodBase.DeclaringType
         member x.DeclaringAssembly = x.methodBase.DeclaringType.Assembly
         member x.Token = x.methodBase
@@ -426,7 +428,7 @@ module internal InstructionsSet =
         let referenceAndState = Memory.AllocateString string state
         pushResultOnStack cilState referenceAndState :: []
     let allocateValueTypeInHeap v (cilState : cilState) =
-        let address, state = Memory.AllocateInHeap cilState.state (TypeOf v) v
+        let address, state = Memory.AllocateValueTypeInHeap cilState.state (TypeOf v) v
         {cilState with opStack = address :: cilState.opStack; state = state} :: []
     let ldnull (cilState : cilState) =
         pushResultOnStack cilState (MakeNullRef (), cilState.state) :: []

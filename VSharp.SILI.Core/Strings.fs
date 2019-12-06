@@ -6,8 +6,8 @@ open Types
 
 module internal Strings =
 
-    let strLength = FieldId "System::String::m_StringLength"
-    let strArray = FieldId "System::String::m_FirstChar"
+    let strLength = FieldId "System::String::_stringLength"
+    let strArray = FieldId "System::String::_firstChar"
 
     let stringArrayType = ArrayType(Char, Vector)
 

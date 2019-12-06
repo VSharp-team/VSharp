@@ -56,11 +56,15 @@ type ICodeLocation =
 type IFunctionIdentifier =
     inherit ICodeLocation
     abstract ReturnType : Type
+    abstract IsConstructor : bool
+    abstract Method : System.Reflection.MethodBase
 
 type StandardFunctionIdentifier(id : StandardFunction) =
     interface IFunctionIdentifier with
         override x.Location = id :> obj
         override x.ReturnType = typeof<double>
+        override x.IsConstructor = false
+        override x.Method = null
     member x.Function = id
     override x.ToString() = id.ToString()
 
@@ -68,6 +72,8 @@ type EmptyIdentifier() =
     interface IFunctionIdentifier with
         override x.Location = null
         override x.ReturnType = typeof<Void>
+        override x.IsConstructor = false
+        override x.Method = null
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -777,6 +783,12 @@ module internal Terms =
     let (|ShiftRight|_|) = term >> function
         | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
         | _ -> None
+
+    let isObject = term >> function
+        | Ref(RefTopLevelHeap(address, t1, t2), _) ->
+            let objectTyp = typedefof<obj>
+            Types.toDotNetType t1 = objectTyp && Types.toDotNetType t2 = objectTyp && not <| isConcrete address
+        | _ -> false
 
     // TODO: can we already get rid of visited?
     let rec private foldChildren folder (visited : HashSet<term>) state term =

@@ -151,9 +151,14 @@ module API =
 
         let AllocateOnStack state key typ term = Memory.allocateOnStack m.Value state key typ term
 
-        let AllocateInHeap state typ term =
+        let AllocateReferenceTypeInHeap state typ term =
             let address = Memory.freshHeapLocation m.Value
-            Memory.allocateInHeap m.Value state address typ term
+            Memory.allocateInHeap m.Value state address typ typ term
+
+        let AllocateValueTypeInHeap state typ term =
+            let address = Memory.freshHeapLocation m.Value
+            let objType = Types.FromDotNetType state typeof<obj>
+            Memory.allocateInHeap m.Value state address typ objType term
 
         let AllocateDefaultStatic state targetType =
             let fql = makeTopLevelFQL HeapTopLevelStatics targetType
@@ -165,17 +170,17 @@ module API =
         let AllocateDefaultBlock state typ =
             let address = Memory.freshHeapLocation m.Value
             let fql = HeapTopLevelHeap(address, typ), []
-            MakeDefaultBlock typ fql |> Memory.allocateInHeap m.Value state address typ
+            MakeDefaultBlock typ fql |> Memory.allocateInHeap m.Value state address typ typ
 
         let AllocateDefaultArray state dimensions typ =
             let address = Memory.freshHeapLocation m.Value
             let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
-            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
+            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ typ
 
         let AllocateInitializedArray state dimensions rank typ initializer =
             let address = Memory.freshHeapLocation m.Value
             let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
-            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ
+            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ typ
             let state = Arrays.fromInitializer m.Value rank typ initializer fql |> Mutate state ref |> snd
             ref, state
 
@@ -201,6 +206,11 @@ module API =
                 (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" stringFQL, state))
                 (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value stringFQL arrayFQL) |> k)
                 id
+
+    module Marshalling =
+        let Unmarshal state (obj : obj) = Marshalling.unmarshalUnknownLocation m.Value state obj
+        let CanBeCalledViaReflection state funcId this args = Marshalling.canBeCalledViaReflection m.Value state funcId this args
+        let CallViaReflection state funcId this args k = Marshalling.callViaReflection m.Value state funcId this args k
 
     module Database =
         let QuerySummary codeLoc =
