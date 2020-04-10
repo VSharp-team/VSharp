@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open System.Reflection
 
 [<AutoOpen>]
 module API =
@@ -40,6 +41,7 @@ module API =
         val True : term
         val False : term
 
+        val MakeFunctionResultConstant : ICodeLocation -> MethodBase -> term
         val MakeNullRef : unit -> term
         val MakeDefault : termType -> term -> term
         val MakeNumber : 'a -> term

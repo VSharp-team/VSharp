@@ -1,5 +1,7 @@
 ﻿namespace VSharp.Core
 
+open Types
+
 #nowarn "69"
 
 open VSharp
@@ -10,7 +12,6 @@ type IMethodIdentifier =
     abstract IsStatic : bool
     abstract DeclaringType : System.Type
     abstract DeclaringAssembly : Assembly
-    abstract Token : MethodBase
 
 type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IFunctionIdentifier, state : state) =
     member x.VertexNumber with get() = vertexNumber
@@ -102,6 +103,16 @@ module internal Explorer =
                 statics = HigherOrderApplication(res, addr) }
         k (res, higherOrderState))
 
+    let makeFunctionResultConstant mtd methodId (m : MethodBase) =
+        let typ =
+            match m with
+            | :? MethodInfo as mi -> mi.ReturnType |> Constructor.fromDotNetType
+            | :? ConstructorInfo -> __unreachable__() // nothing should be placed on operational stack
+            | _ -> __notImplemented__()
+
+        let name = "functionResult for " + m.Name
+        let source = {id = methodId; state = State.empty; name = name; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
+        Constant mtd name source typ
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with
             override x.ComposeWithoutExtractor ctx state =

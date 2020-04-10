@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Reflection
 open VSharp
 
 module API =
@@ -59,6 +60,7 @@ module API =
         let MakeNullRef () = makeNullRef m.Value
         let MakeDefault typ ref = Merging.guardedErroredApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
 
+        let MakeFunctionResultConstant methodId (mb : MethodBase) = Explorer.makeFunctionResultConstant m.Value methodId mb
         let MakeNumber n = makeNumber m.Value n
 
         let TypeOf term = typeOf term

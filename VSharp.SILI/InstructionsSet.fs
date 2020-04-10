@@ -18,7 +18,6 @@ type public ILMethodMetadata =
         member x.Method = x.methodBase
         member x.DeclaringType = x.methodBase.DeclaringType
         member x.DeclaringAssembly = x.methodBase.DeclaringType.Assembly
-        member x.Token = x.methodBase
         member x.ReturnType =
             match x.methodBase with
             | :? MethodInfo as mi -> mi.ReturnType
