@@ -11,6 +11,7 @@
         <Compile Include="Lambdas.fs" />
         <Compile Include="Interpreter.fs" />
         <Compile Include="Engine.fs" />
+        <Compile Include="StepInterpreter.fs" />
     </ItemGroup>
 
     <ItemGroup>
