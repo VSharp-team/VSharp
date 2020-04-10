@@ -10,6 +10,7 @@
         <Compile Include="InstructionsSet.fs" />
         <Compile Include="Lambdas.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="Engine.fs" />
     </ItemGroup>
 
     <ItemGroup>

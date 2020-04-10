@@ -76,7 +76,6 @@ type public ExplorerBase() =
         | Some r -> k r
         | None ->
             let k = API.Reset(); fun x -> API.Restore(); k x
-            let metadata = Metadata.empty
             CurrentlyBeingExploredLocations.Add codeLoc |> ignore
             let initClosure frames =
                 let state = List.foldBack (fun frame state ->
@@ -89,19 +88,7 @@ type public ExplorerBase() =
                 { state with pc = List.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
-                let this, state, isMethodOfStruct =
-                    match funcId with
-                    | :? IMethodIdentifier as m ->
-                        let declaringType = m.DeclaringType |> Types.Constructor.fromDotNetType
-                        let initialState = { State.empty with statics = State.Defined false (Explorer.formInitialStatics metadata declaringType) }
-                        if m.IsStatic then (None, initialState, false)
-                        else
-                            Memory.makeSymbolicThis metadata initialState m.Token declaringType
-                            |> (fun (f, s, flag) -> Some f, s, flag)
-                    | _ -> __notImplemented__()
-                let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull metadata (Option.get this)) else Nop
-                let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
-                let state = x.FormInitialState funcId state this
+                let state, this, thisIsNotNull, isMethodOfStruct = x.FormInitialState funcId
                 x.Invoke funcId state this (fun (res, state) ->
                     let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
                     let state = if isMethodOfStruct then State.popStack state else state
@@ -227,9 +214,23 @@ type public ExplorerBase() =
     member x.CallAbstractMethod (caller : locationBinding) (funcId : IFunctionIdentifier) state k =
         let k = Enter caller state k
         HigherOrderApply funcId state k
-
+    member x.FormInitialState (funcId : IFunctionIdentifier) =
+        let metadata = Metadata.empty
+        let this, state, isMethodOfStruct =
+            match funcId with
+            | :? IMethodIdentifier as m ->
+                let declaringType = m.DeclaringType |> Types.Constructor.fromDotNetType
+                let initialState = { State.empty with statics = State.Defined false (Explorer.formInitialStatics metadata declaringType) }
+                if m.IsStatic then (None, initialState, false)
+                else
+                    Memory.makeSymbolicThis metadata initialState m.Method declaringType
+                    |> (fun (f, s, flag) -> Some f, s, flag)
+            | _ -> __notImplemented__()
+        let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull metadata (Option.get this)) else Nop
+        let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
+        x.InitEntryPoint state funcId.Method.DeclaringType (fun state ->
+        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull, isMethodOfStruct))
     abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
-    abstract member FormInitialState : IFunctionIdentifier -> state -> term option -> state
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 
 
