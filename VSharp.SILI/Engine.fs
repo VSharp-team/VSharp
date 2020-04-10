@@ -113,10 +113,11 @@ module public rec Engine =
             repr.vertices.[v].OutgoingEdges.Add edge
             repr.vertices.[w].IncomingEdges.Add edge
         let private computeAction (repr: MethodRepresentation) (cfg: cfgData) v outgoingEdges (cilState: cilState) =
-            match cfg.IsCallOffset v with
+            let offset = cfg.sortedOffsets.[v]
+            match cfg.IsCallOffset offset with
             | true ->
-                let opcode = Instruction.parseInstruction cfg.ilBytes cfg.sortedOffsets.[v]
-                let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (cfg.sortedOffsets.[v] + opcode.Size)
+                let opcode = Instruction.parseInstruction cfg.ilBytes offset
+                let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (offset + opcode.Size)
                 let actualArgs, stackAfterCall =
                     let rec pick n acc stack =
                         if n = 0 then acc, stack else pick (n - 1) (List.head stack :: acc) (List.tail stack)
@@ -141,11 +142,10 @@ module public rec Engine =
                         let action = ReturnResultAction(repr.method, st.functionResult)
                         addEdge repr action v Properties.exitVertexOffset
                         st.currentVertex, []
-                    | Intermediate i ->
-                        let w = Seq.find (fun w -> cfg.sortedOffsets.[w] = i) outgoingEdges
+                    | Intermediate w ->
                         let action = SimpleAction(st.state)
                         addEdge repr action v w
-                        st.currentVertex, cilState.opStack
+                        Intermediate w, st.opStack
                     | destination.AnyWhere -> __unreachable__()
                 )
 
@@ -186,10 +186,10 @@ module public rec Engine =
                          |> List.iter (fun (w, opStack) ->
                              match w with
                              | Return -> ()
-                             | Intermediate offset ->
-                                 if not <| used.[offset] then
-                                     used.[offset] <- true
-                                     q.Enqueue (offset, opStack)
+                             | Intermediate w ->
+                                 if not <| used.[w] then
+                                     used.[w] <- true
+                                     q.Enqueue (w, opStack)
                              | _ -> __unreachable__()
                          )
                          bfs ()

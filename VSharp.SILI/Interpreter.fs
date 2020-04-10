@@ -130,12 +130,12 @@ and public ILInterpreter() as this =
     let findCfg (ilmm : ILMethodMetadata) =
         Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.methodBase)
 
-    member private x.Raise exptn (cilState : cilState) k =
+    member x.Raise exptn (cilState : cilState) k =
         let exc, state = exptn cilState.state
         //TODO: exception handling
         k [exc, {cilState with state = state; exceptionFlag = Some exc}]
 
-    member private x.NpeOrInvokeStatement (cilState : cilState) (this : term option) statement k =
+    member x.NpeOrInvokeStatement (cilState : cilState) (this : term option) statement k =
         match this with
         | None -> statement cilState k
         | Some this ->
@@ -143,7 +143,7 @@ and public ILInterpreter() as this =
                 (x.Raise x.NullReferenceException)
                 statement
                 k
-    member private x.ReduceMethodBaseCall (methodBase : MethodBase) cilState this (args : term list symbolicValue) k =
+    member x.ReduceMethodBaseCall (methodBase : MethodBase) cilState this (args : term list symbolicValue) k =
         let callMethodWithoutNRE (cilState : cilState) k =
             let state = cilState.state
             let k1 (term, state) = k [term, {cilState with state = state}]
@@ -172,7 +172,7 @@ and public ILInterpreter() as this =
                 internalfail "nonextern method without body!"
         x.NpeOrInvokeStatement cilState this callMethodWithoutNRE k
 
-    member private x.CallMethodFromTermType (caller : locationBinding) (funcId : IFunctionIdentifier) (cilState : cilState) this parameters termType (calledMethod : MethodInfo) k =
+    member x.CallMethodFromTermType (caller : locationBinding) (funcId : IFunctionIdentifier) (cilState : cilState) this parameters termType (calledMethod : MethodInfo) k =
         let t = termType |> Types.ToDotNetType
         let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod
         let genericMethodInfo =
@@ -222,16 +222,16 @@ and public ILInterpreter() as this =
             then x.CallAbstract caller funcId cilState k
             else tryToCallForSightType cilState k
 
-    member private x.CallAbstract caller funcId (cilState : cilState) k =
+    member x.CallAbstract caller funcId (cilState : cilState) k =
         x.CallAbstractMethod caller funcId cilState.state (fun (result, state) -> k [result, {cilState with state = state}])
 
-    member private x.Call (cfg : cfgData) offset (cilState : cilState) =
+    member x.Call (cfg : cfgData) offset (cilState : cilState) =
         let calledMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
         let args, cilState = retrieveActualParameters calledMethodBase cilState
         let this, cilState = if not calledMethodBase.IsStatic then popStack cilState else None, cilState
         x.InitEntryPoint cilState.state calledMethodBase.DeclaringType (fun state ->
         x.ReduceMethodBaseCall calledMethodBase {cilState with state = state} this (Specified args) pushFunctionResults)
-    member private x.CallVirt (cfg : cfgData) offset (cilState : cilState) =
+    member x.CallVirt (cfg : cfgData) offset (cilState : cilState) =
         let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
         x.InitEntryPoint cilState.state ancestorMethodBase.DeclaringType (fun state ->
         let args, cilState = retrieveActualParameters ancestorMethodBase cilState
@@ -245,7 +245,7 @@ and public ILInterpreter() as this =
             x.CallVirtualMethod "callvirt" ilmm cilState this (Specified args) methodInfo pushFunctionResults
         else
             x.ReduceMethodBaseCall ancestorMethodBase cilState (Some this) (Specified args) pushFunctionResults)
-    member private x.CreateDelegate typ (cilState : cilState) =
+    member x.CreateDelegate typ (cilState : cilState) =
         match cilState.opStack with
         | methodPtr :: target :: stack ->
             let getMethodInfo methodPtr =
@@ -267,7 +267,7 @@ and public ILInterpreter() as this =
             let lambdaRefAndState = Memory.AllocateReferenceTypeInHeap cilState.state typ lambda
             pushResultOnStack {cilState with opStack = stack} lambdaRefAndState :: []
         | _ -> __notImplemented__()
-    member private x.NewObj (cfg : cfgData) offset (cilState : cilState) =
+    member x.NewObj (cfg : cfgData) offset (cilState : cilState) =
         let constructorInfo = resolveMethodFromMetadata cfg (offset + OpCodes.Newobj.Size) :?> ConstructorInfo
         assert (constructorInfo.IsConstructor)
         let typ = constructorInfo.DeclaringType
@@ -303,7 +303,7 @@ and public ILInterpreter() as this =
         if constructorInfo.DeclaringType.IsSubclassOf typedefof<System.Delegate>
             then x.CreateDelegate constructedTermType cilState
             else nonDelegateCase cilState
-    member private x.LdsFld addressNeeded (cfg : cfgData) offset (cilState : cilState) =
+    member x.LdsFld addressNeeded (cfg : cfgData) offset (cilState : cilState) =
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldsfld.Size)
         assert (fieldInfo.IsStatic)
         x.InitEntryPoint cilState.state fieldInfo.DeclaringType (fun state ->
@@ -315,7 +315,7 @@ and public ILInterpreter() as this =
             if addressNeeded then address, state
             else Memory.Dereference state address
         pushResultOnStack cilState valueAndState :: [])
-    member private x.StsFld (cfg : cfgData) offset (cilState : cilState) =
+    member x.StsFld (cfg : cfgData) offset (cilState : cilState) =
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stsfld.Size)
         let state = cilState.state
         assert (fieldInfo.IsStatic)
@@ -329,7 +329,7 @@ and public ILInterpreter() as this =
             let _, state = Memory.Mutate state address value
             {cilState with state = state; opStack = stack} :: [])
         | _ -> __notImplemented__()
-    member private x.LdFld addressNeeded (cfg : cfgData) offset (cilState : cilState) =
+    member x.LdFld addressNeeded (cfg : cfgData) offset (cilState : cilState) =
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldfld.Size)
         assert (not fieldInfo.IsStatic)
         match cilState.opStack with
@@ -345,7 +345,7 @@ and public ILInterpreter() as this =
                 | true, _ -> k1 (Memory.ReferenceField target fullName fieldType, state)
             x.NpeOrInvokeStatement {cilState with opStack = stack} (Some target) loadWhenTargetIsNotNull pushFunctionResults
         | _ -> __notImplemented__()
-    member private x.StFld (cfg : cfgData) offset (cilState : cilState) =
+    member x.StFld (cfg : cfgData) offset (cilState : cilState) =
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stfld.Size)
         assert (not fieldInfo.IsStatic)
         match cilState.opStack with
@@ -360,7 +360,7 @@ and public ILInterpreter() as this =
                 k [Nop, {cilState with state = state}]
             x.NpeOrInvokeStatement {cilState with opStack = stack} (Some targetRef) storeWhenTargetIsNotNull getCilStateFromResult
         | _ -> __notImplemented__()
-    member private x.BoxNullable (t : Type) v (cilState : cilState) =
+    member x.BoxNullable (t : Type) v (cilState : cilState) =
         let hasValueMethodInfo = t.GetMethod("get_HasValue")
         let hasValueCase (cilState : cilState) k =
             let valueMethodInfo = t.GetMethod("get_Value")
@@ -375,7 +375,7 @@ and public ILInterpreter() as this =
         x.ReduceMethodBaseCall hasValueMethodInfo cilState (Some v) (Specified []) (fun hasValueResults ->
         Cps.List.mapk boxNullable hasValueResults List.concat)
 
-    member private x.Box (cfg : cfgData) offset (cilState : cilState) =
+    member x.Box (cfg : cfgData) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Box.Size)
         let termType = Types.FromDotNetType cilState.state t
         match cilState.opStack with
@@ -392,7 +392,7 @@ and public ILInterpreter() as this =
                 (fun cilState k -> k [cilState])
                 id
         | _ -> __notImplemented__()
-    member private x.UnboxCommon (op : OpCode) handleReferenceType handleRestResults (cfg : cfgData) offset (cilState : cilState) =
+    member x.UnboxCommon (op : OpCode) handleReferenceType handleRestResults (cfg : cfgData) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + op.Size)
         let termType = Types.FromDotNetType cilState.state t
         let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
@@ -439,10 +439,10 @@ and public ILInterpreter() as this =
                 nonNullCase
                 pushFunctionResults
         | _ -> __notImplemented__()
-    member private x.Unbox (cfg : cfgData) offset (cilState : cilState) =
+    member x.Unbox (cfg : cfgData) offset (cilState : cilState) =
         let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
         x.UnboxCommon OpCodes.Unbox (fun _ _ -> x.Raise InvalidCastException) id cfg offset cilState
-    member private x.UnboxAny (cfg : cfgData) offset (cilState : cilState) =
+    member x.UnboxAny (cfg : cfgData) offset (cilState : cilState) =
         let InvalidCastException state = RuntimeExceptions.InvalidCastException state id
         let handleReferenceTypeResults obj termType cilState =
             StatedConditionalExecutionCIL cilState

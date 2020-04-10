@@ -94,7 +94,7 @@ module public CFG =
             let nextTargets = Instruction.findNextInstructionOffsetAndEdges opcode ilBytes v
             match nextTargets with
             | Choice1Of2 ins when Instruction.isCallOpcode opcode ->
-                cfg.callOffsets.Add ins
+                cfg.callOffsets.Add v
                 markVertex data v
                 markVertex data ins
                 if not data.visitedOffsets.[ins] then
