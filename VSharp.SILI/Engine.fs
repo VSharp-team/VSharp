@@ -12,6 +12,8 @@ open VSharp.Core
 
 module Properties =
     let internal exitVertexOffset    = -1
+    let internal exitVertexNumber    = -1
+
     let internal initialVertexOffset = 0
 
 module public rec Engine =
@@ -30,7 +32,7 @@ module public rec Engine =
           level: int }
 
     [<AllowNullLiteral>]
-    type Vertex(offset) =
+    type Vertex(number, offset) =
         let sigma: Dictionary<int, HashSet<Lemma>> = Dictionary<_, _>()
         let rho: Dictionary<int, HashSet<state>> = Dictionary<_, _>()
         let queries: Dictionary<int, HashSet<Query>> = Dictionary<_, _>()
@@ -42,7 +44,11 @@ module public rec Engine =
         member x.IncomingEdges = incomingEdges
         member x.OutgoingEdges = outgoingEdges
         member x.Offset = offset
+        member x.Number = number
         member x.IsStartVertex () = offset = 0
+        override x.ToString() =
+            sprintf "Number = %d Offset = %d\n" number offset +
+            "Edges: \n" + Seq.fold (fun acc edge -> acc + edge.ToString()) "" x.OutgoingEdges
 
     type SMTResult =
         { isUnSat: bool
@@ -62,6 +68,9 @@ module public rec Engine =
         override x.IsCall() = false
         member x.State = state
         member x.VisibleVariables() = __notImplemented__()
+        override x.ToString() =
+            "Simple Action \nstate = "
+            + API.Memory.Dump state + "\n"
 
     type CallAction(emptyStateForMethod : state, methodBase: MethodBase, actualArgs : term list) =
         inherit Action()
@@ -76,15 +85,27 @@ module public rec Engine =
         override x.IsCall() = true
         member x.ExitNodeForCall() = lazy (computeExitNodeForMethod())
         member x.CallVariables() = __notImplemented__()
+        member x.ActualArgs () = actualArgs
+        override x.ToString() =
+            "Call Action \n method = " + methodBase.ToString() + "\n"
+            + (List.fold (fun acc arg -> acc + arg.ToString() + " ") "args = " actualArgs) + "\n"
 
     type ReturnResultAction(methodBase: MethodBase, result : term option) =
         inherit Action()
         override x.IsCall() = false
+        override x.ToString() =
+            "ReturnResultAction \n result = "
+            + (if Option.isSome result then (result |> Option.get).ToString() else "void")
+            + "\n"
 
     type Edge =
         { action: Action
           src: Vertex
           dst: Vertex }
+    with
+        override x.ToString() =
+            x.src.Number.ToString() + " -> " + x.dst.Number.ToString() + "\n"
+            + "action = " + x.action.ToString() + "\n"
 
     module SolverInteraction =
         let checkSat (vertices: List<Vertex>) (phi: Formula) (q: Query): SMTResult =
@@ -96,6 +117,10 @@ module public rec Engine =
               vertices: Dictionary<offset, Vertex>
               initialVertex: Vertex
               exitVertex: Vertex }
+        with
+            override x.ToString() =
+                "Method: " + x.method.ToString() +
+                Seq.fold (fun acc (pair : KeyValuePair<_,Vertex>) -> acc + "\n" + pair.Value.ToString()) "" x.vertices
 
         let private alreadyComputedReprs = Dictionary<MethodBase, MethodRepresentation>()
 
@@ -158,11 +183,11 @@ module public rec Engine =
                 let repr = { emptyRepresentation with method = methodBase }
 
                 let addVertices repr =
-                    cfg.sortedOffsets |> Seq.iteri (fun i offset -> repr.vertices.Add(i, Vertex(offset)))
+                    cfg.sortedOffsets |> Seq.iteri (fun i offset -> repr.vertices.Add(i, Vertex(i, offset)))
                     { repr with initialVertex = repr.vertices.[Properties.initialVertexOffset] }
 
                 let addExitVertex repr =
-                    let exit = Vertex(Properties.exitVertexOffset)
+                    let exit = Vertex(Properties.exitVertexNumber, Properties.exitVertexOffset)
                     repr.vertices.Add(Properties.exitVertexOffset, exit)
                     { repr with exitVertex = exit }
 
