@@ -7,6 +7,7 @@ using VSharp.Core;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
+using VSharp.Interpreter.IL;
 
 
 namespace VSharp.Test
@@ -21,23 +22,46 @@ namespace VSharp.Test
             API.Configure(explorer);
         }
 
-        private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m, Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
+        private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m,
+            Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
         {
-            IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
-            if (methodIdentifier == null)
+            try
             {
-                var format = new PrintfFormat<string, Unit, string, Unit>($"WARNING: metadata method for {m.Name} not found!");
-                Logger.printLog(Logger.Warning, format);
-                return null;
+                IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
+                if (methodIdentifier == null)
+                {
+                    var format =
+                        new PrintfFormat<string, Unit, string, Unit>(
+                            $"WARNING: metadata method for {m.Name} not found!");
+                    Logger.printLog(Logger.Warning, format);
+                    return null;
+                }
+
+                dict?.Add(m, null);
+                var id = FSharpFunc<codeLocationSummary, codeLocationSummary>.FromConverter(x => x);
+                var summary = invoke(methodIdentifier, id);
+                if (dict != null)
+                {
+                    dict[m] = summary;
+                }
+
+                return summary;
             }
-            dict?.Add(m, null);
-            var id = FSharpFunc<codeLocationSummary,codeLocationSummary>.FromConverter(x => x);
-            var summary = invoke(methodIdentifier, id);
-            if (dict != null)
+            catch (PdrNotImplementedException _)
             {
-                dict[m] = summary;
+                Console.WriteLine("DONE: {0}", m);
             }
-            return summary;
+            catch (NotImplementedException e)
+            {
+                Console.WriteLine("NotImplementedException in {0} occured: {1}", m, e.Message);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unhandled Exception in {0} occured: {1}", m, e.Message);
+                // throw;
+            }
+
+            return null;
         }
 
         private void InterpretEntryPoint(IDictionary<MethodInfo, codeLocationSummary> dictionary, MethodInfo m)
@@ -75,6 +99,8 @@ namespace VSharp.Test
 
         private static string ResultToString(codeLocationSummary summary)
         {
+            if (summary == null)
+                return "summary is null";
             return $"{summary.result}\nHEAP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.state))}";
         }
 

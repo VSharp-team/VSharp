@@ -124,7 +124,7 @@ module public rec Engine =
 
         let private alreadyComputedReprs = Dictionary<MethodBase, MethodRepresentation>()
 
-        let private emptyRepresentation =
+        let private createEmptyRepresentation () =
             { method = null
               vertices = Dictionary<offset, Vertex>()
               initialVertex = null
@@ -180,10 +180,14 @@ module public rec Engine =
             | _ ->
                 let cfg = CFG.build methodBase
                 let size = cfg.graph.Count
-                let repr = { emptyRepresentation with method = methodBase }
+                let repr = { createEmptyRepresentation () with method = methodBase }
 
                 let addVertices repr =
-                    cfg.sortedOffsets |> Seq.iteri (fun i offset -> repr.vertices.Add(i, Vertex(i, offset)))
+                    cfg.sortedOffsets |> Seq.iteri (fun i offset ->
+                        if repr.vertices.TryAdd(i, Vertex(i, offset)) then ()
+                        else ()
+                    )
+//                        repr.vertices.Add(i, Vertex(i, offset)))
                     { repr with initialVertex = repr.vertices.[Properties.initialVertexOffset] }
 
                 let addExitVertex repr =

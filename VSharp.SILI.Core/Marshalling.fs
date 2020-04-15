@@ -307,17 +307,19 @@ module internal Marshalling =
                     typeOfMethod ctx.mtd state typ' |> fst // TODO: check it
 
 
-    let canBeCalledViaReflection mtd state (funcId : IFunctionIdentifier) this parameters =
-        let canBeMarshalled = canBeMarshalled mtd state
-        match this, parameters with
-        | _, Unspecified -> false
-        | None, _ when (funcId.Method :? ConstructorInfo) -> false
-        | None, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) true args
-        | Some this, Specified args when funcId.IsConstructor ->
-            let t = typeOf this |> toDotNetType
-            List.fold (fun acc arg -> acc && canBeMarshalled arg) (t = funcId.Method.DeclaringType) args
-        | Some this, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) (canBeMarshalled this) args
-        | _ -> false
+    let canBeCalledViaReflection (mtd : termMetadata) (state : state) (funcId : IFunctionIdentifier)
+        (this : term option) (parameters : term list symbolicValue) =
+            false
+//        let canBeMarshalled = canBeMarshalled mtd state
+//        match this, parameters with
+//        | _, Unspecified -> false
+//        | None, _ when (funcId.Method :? ConstructorInfo) -> false
+//        | None, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) true args
+//        | Some this, Specified args when funcId.IsConstructor ->
+//            let t = typeOf this |> toDotNetType
+//            List.fold (fun acc arg -> acc && canBeMarshalled arg) (t = funcId.Method.DeclaringType) args
+//        | Some this, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) (canBeMarshalled this) args
+//        | _ -> false
 
     let callViaReflection mtd state (funcId : IFunctionIdentifier) (this : term option) (parameters : term list symbolicValue) k =
         let k x =
