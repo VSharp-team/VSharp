@@ -4,7 +4,7 @@ open System.Reflection
 open System.Collections.Generic
 
 open System.Collections
-open System.Reflection
+open System.Reflection.Emit
 open CFG
 open FSharpx.Collections
 open VSharp
@@ -16,7 +16,27 @@ module Properties =
 
     let internal initialVertexOffset = 0
 
-module public rec Engine =
+module public Engine =
+    let mutable stepItp : ILInterpreter option = None
+    let configureInterpreter itp = stepItp <- Some itp
+
+    let private formInitialState (m : MethodBase) =
+         match stepItp with
+         | None -> __unreachable__()
+         | Some itp ->
+            let ilmm = itp.MakeMethodIdentifier m
+            let state, this, thisIsNotNull, _ = itp.FormInitialState ilmm
+            let initialState =
+                match this with
+                | None -> state
+                | Some _ -> AddConditionToState state thisIsNotNull
+            initialState, this
+    let private makeFunctionResultConstant (m : MethodBase) =
+        match stepItp with
+        | None -> __unreachable__()
+        | Some itp ->
+            let ilmm = itp.MakeMethodIdentifier m
+            API.Terms.MakeFunctionResultConstant ilmm m
     type Guard = term
 
     type Lemma = Guard
@@ -49,6 +69,31 @@ module public rec Engine =
         override x.ToString() =
             sprintf "Number = %d Offset = %d\n" number offset +
             "Edges: \n" + Seq.fold (fun acc edge -> acc + edge.ToString()) "" x.OutgoingEdges
+    and Edge =
+        { action: Action
+          src: Vertex
+          dst: Vertex }
+        with
+            override x.ToString() =
+                x.src.Number.ToString() + " -> " + x.dst.Number.ToString() + "\n"
+                + "action = " + x.action.ToString() + "\n"
+    and
+        [<AbstractClass>]
+        Action() =
+            let lemmaCandidates: Dictionary<Query, Lemma> = Dictionary<_, _>()
+            member x.AlreadyAnswered = lemmaCandidates.ContainsKey
+            member x.AddLemmaCandidate = lemmaCandidates.Add
+            abstract IsCall: unit -> bool
+    and
+        MethodRepresentation =
+            { method: MethodBase
+              vertices: Dictionary<offset, Vertex>
+              initialVertex: Vertex
+              exitVertex: Vertex }
+        with
+            override x.ToString() =
+                "Method: " + x.method.ToString() +
+                Seq.fold (fun acc (pair : KeyValuePair<_,Vertex>) -> acc + "\n" + pair.Value.ToString()) "" x.vertices
 
     type SMTResult =
         { isUnSat: bool
@@ -56,12 +101,7 @@ module public rec Engine =
           rhoUsed: Dictionary<Vertex, state>
           sigmaUsed: Dictionary<Vertex, Lemma> }
 
-    [<AbstractClass>]
-    type Action() =
-        let lemmaCandidates: Dictionary<Query, Lemma> = Dictionary<_, _>()
-        member x.AlreadyAnswered = lemmaCandidates.ContainsKey
-        member x.AddLemmaCandidate = lemmaCandidates.Add
-        abstract IsCall: unit -> bool
+
 
     type SimpleAction(state: state) =
         inherit Action()
@@ -72,18 +112,25 @@ module public rec Engine =
             "Simple Action \nstate = "
             + API.Memory.Dump state + "\n"
 
-    type CallAction(emptyStateForMethod : state, methodBase: MethodBase, actualArgs : term list) =
+    type CallAction(methodBase: MethodBase, actualArgs : term list, computeRepr) =
         inherit Action()
 
         let computeExitNodeForMethod() =
             if methodBase.IsAbstract then
                 None
             else
-                let repr = MethodRepresentationBuilder.computeRepresentation emptyStateForMethod methodBase
-                Some repr
+                match stepItp with
+                | None -> __unreachable__()
+                | Some itp ->
+                    let state, this = formInitialState methodBase
+                    let repr = computeRepr state this methodBase
+                    Some repr
 
         override x.IsCall() = true
-        member x.ExitNodeForCall() = lazy (computeExitNodeForMethod())
+        member x.ExitNodeForCall() = lazy (
+            let repr = computeExitNodeForMethod()
+            repr.Value.exitVertex
+                                          )
         member x.CallVariables() = __notImplemented__()
         member x.ActualArgs () = actualArgs
         override x.ToString() =
@@ -98,30 +145,11 @@ module public rec Engine =
             + (if Option.isSome result then (result |> Option.get).ToString() else "void")
             + "\n"
 
-    type Edge =
-        { action: Action
-          src: Vertex
-          dst: Vertex }
-    with
-        override x.ToString() =
-            x.src.Number.ToString() + " -> " + x.dst.Number.ToString() + "\n"
-            + "action = " + x.action.ToString() + "\n"
-
     module SolverInteraction =
         let checkSat (vertices: List<Vertex>) (phi: Formula) (q: Query): SMTResult =
             __notImplemented__()
 
     module MethodRepresentationBuilder =
-        type MethodRepresentation =
-            { method: MethodBase
-              vertices: Dictionary<offset, Vertex>
-              initialVertex: Vertex
-              exitVertex: Vertex }
-        with
-            override x.ToString() =
-                "Method: " + x.method.ToString() +
-                Seq.fold (fun acc (pair : KeyValuePair<_,Vertex>) -> acc + "\n" + pair.Value.ToString()) "" x.vertices
-
         let private alreadyComputedReprs = Dictionary<MethodBase, MethodRepresentation>()
 
         let private createEmptyRepresentation () =
@@ -137,30 +165,53 @@ module public rec Engine =
                   dst = repr.vertices.[w] }
             repr.vertices.[v].OutgoingEdges.Add edge
             repr.vertices.[w].IncomingEdges.Add edge
-        let private computeAction (repr: MethodRepresentation) (cfg: cfgData) v outgoingEdges (cilState: cilState) =
+        let private executeInstructions (ilintpr : ILInterpreter) cfg cilState =
+            assert (cilState.currentVertex <> destination.Return)
+            let lastOffset = Seq.last cfg.sortedOffsets
+            let u = cilState.currentVertex.Vertex ()
+            let startingOffset = cfg.sortedOffsets.[u]
+            let endOffset =
+                if startingOffset = lastOffset then lastOffset + 1
+                else cfg.sortedOffsets.[u + 1]
+            let isOffsetOfCurrentVertex (offset : destination) = startingOffset <= offset.Vertex() && offset.Vertex() < endOffset
+            let rec executeAllInstructions (offset : destination) cilState =
+                let cilStates =
+                    ilintpr.ExecuteInstruction cfg (offset.Vertex()) cilState
+                    |> List.filter (fun (_, cilState : cilState) -> not cilState.HasException) //TODO: implement exceptions
+                match cilStates with
+                | list when List.forall (fst >> (=) destination.Return) list -> List.map (fun (_, state) -> { state with currentVertex = destination.Return}) list
+                | (nextOffset, _)::xs as list when isOffsetOfCurrentVertex nextOffset
+                                                   && List.forall (fun (offset, _) -> offset = nextOffset && isOffsetOfCurrentVertex offset) xs ->
+                    List.collect ((<||) executeAllInstructions) list
+                | list -> list |> List.map (fun (offset, cilSt) -> {cilSt with currentVertex = Intermediate (cfg.sortedOffsets.BinarySearch (offset.Vertex()))})
+            executeAllInstructions (Intermediate startingOffset) cilState
+        let rec private computeAction (ilintpr : ILInterpreter) (repr: MethodRepresentation) (cfg: cfgData) v outgoingEdges (cilState: cilState) =
             let offset = cfg.sortedOffsets.[v]
-            match cfg.IsCallOffset offset with
+            match cfg.IsCallOrNewObjOffset offset with
             | true ->
                 let opcode = Instruction.parseInstruction cfg.ilBytes offset
                 let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (offset + opcode.Size)
                 let actualArgs, stackAfterCall =
+                    let argumentsNumber =
+                        if not calledMethod.IsStatic || opcode = OpCodes.Callvirt then 1 else 0
+                        + calledMethod.GetParameters().Length
+                        - if opcode = OpCodes.Newobj then 1 else 0
                     let rec pick n acc stack =
                         if n = 0 then acc, stack else pick (n - 1) (List.head stack :: acc) (List.tail stack)
-                    pick (calledMethod.GetParameters().Length) [] cilState.opStack
-                let ilintpr = ILInterpreter()
-                let methodId = ilintpr.MakeMethodIdentifier calledMethod
-                let state, _, _, _ = ilintpr.FormInitialState methodId
-                let action = CallAction(state, calledMethod, actualArgs)
+                    pick argumentsNumber [] cilState.opStack
+//                let ilintpr = ILInterpreter()
+//                let methodId = ilintpr.MakeMethodIdentifier calledMethod
+//                let state, _, _, _ = ilintpr.FormInitialState methodId
+                let action = CallAction(calledMethod, actualArgs, (computeRepresentation ilintpr))
                 assert (Seq.length outgoingEdges = 1)
                 let w = Seq.head outgoingEdges
                 addEdge repr action v w
-                let functionResult = API.Terms.MakeFunctionResultConstant methodId calledMethod
+                let functionResult = makeFunctionResultConstant calledMethod
                 (Intermediate w, functionResult :: stackAfterCall) :: []
             | _ ->
-                let ilintpr = ILInterpreter()
-                let methodId = ilintpr.MakeMethodIdentifier (repr.method)
-                let cpIntpr = CodePortionInterpreter(ilintpr, methodId, cfg, [])
-                let newStates = cpIntpr.EvaluateOneStep cilState
+//                let methodId = ilintpr.MakeMethodIdentifier (repr.method)
+//                let cpIntpr = CodePortionInterpreter(ilintpr, methodId, cfg, [])
+                let newStates = executeInstructions ilintpr cfg cilState
                 newStates |> List.map (fun (st : cilState) ->
                     match st.currentVertex with
                     | Return ->
@@ -174,7 +225,7 @@ module public rec Engine =
                     | destination.AnyWhere -> __unreachable__()
                 )
 
-        let computeRepresentation (emptyStateForMethod : state) (methodBase: MethodBase) : MethodRepresentation =
+        and computeRepresentation (ilintptr : ILInterpreter) (emptyStateForMethod : state) (this : term option) (methodBase: MethodBase) : MethodRepresentation =
             match alreadyComputedReprs.ContainsKey methodBase with
             | true -> alreadyComputedReprs.[methodBase]
             | _ ->
@@ -210,8 +261,8 @@ module public rec Engine =
                     if q.Count = 0 then ()
                     else let v, opStack = q.Dequeue()
                          let cilState = InstructionsSet.makeEmptyState (Intermediate v) destination.AnyWhere emptyStateForMethod
-                         let cilState = { cilState with opStack = opStack }
-                         computeAction repr cfg v cfg.graph.[v] cilState
+                         let cilState = { cilState with opStack = opStack; this = this }
+                         computeAction ilintptr repr cfg v cfg.graph.[v] cilState
                          |> List.iter (fun (w, opStack) ->
                              match w with
                              | Return -> ()

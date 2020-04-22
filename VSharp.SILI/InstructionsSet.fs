@@ -192,13 +192,30 @@ module internal InstructionsSet =
         let pi = methodBase.GetParameters().[index]
         Memory.ReferenceLocalVariable (ParameterKey pi), state
 
-    let castToType isChecked typ term state k =
-        if isReference term && Types.IsPointer typ then
-            let ptr = Types.CastReferenceToPointer state term // TODO: casting to pointer is weird
-            Types.Cast state ptr typ isChecked (fun st _ _ -> RuntimeExceptions.InvalidCastException st Error) k
-        else
-            Types.Cast state term typ isChecked (fun st _ _ -> RuntimeExceptions.InvalidCastException st Error) k
-    let castUnchecked typ = castToType false typ
+    let castToType (cilState : cilState) isChecked typ term state  =
+        let term =
+            if isReference term && Types.IsPointer typ then Types.CastReferenceToPointer state term
+            else term
+        let canCast = Types.CanCast term typ
+        let goodCilState = Types.Cast (AddConditionToState state canCast) term typ isChecked (fun _ -> __unreachable__()) (fun (res, state) ->
+            {cilState with opStack = res :: cilState.opStack; state = state})
+//        let error, state = RuntimeExceptions.InvalidCastException (AddConditionToState state !!canCast) id
+//        let exceptionState = {cilState with exceptionFlag = Some error; opStack = []; state = state}
+//        goodCilState :: exceptionState :: []
+        goodCilState :: []
+//    let castToTypeK isChecked typ term state k =
+//        if isReference term && Types.IsPointer typ then
+//            let ptr = Types.CastReferenceToPointer state term // TODO: casting to pointer is weird
+//            Types.Cast state ptr typ isChecked (fun st _ _ -> RuntimeExceptions.InvalidCastException st Error) k
+//        else
+//            Types.Cast state term typ isChecked (fun st _ _ -> RuntimeExceptions.InvalidCastException st Error) k
+    let castToTypeK isChecked typ term state k =
+        let term =
+            if isReference term && Types.IsPointer typ then Types.CastReferenceToPointer state term
+            else term
+        let canCast = Types.CanCast term typ
+        Types.Cast (AddConditionToState state canCast) term typ isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state id) k
+    let castUnchecked typ = castToTypeK false typ
     let popStack (cilState : cilState) =
         match cilState.opStack with
         | t :: ts -> Some t, {cilState with opStack = ts}
@@ -267,7 +284,7 @@ module internal InstructionsSet =
         let signedTyp = TypeUtils.unsigned2signedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> signedTyp then
             let isChecked = false // no specs found about overflows
-            castToType isChecked signedTyp term state k
+            castToTypeK isChecked signedTyp term state k
         else k (term, state)
     let standardPerformBinaryOperation op isChecked =
         performCILBinaryOperation op isChecked makeSignedInteger makeSignedInteger idTransformation
@@ -318,6 +335,8 @@ module internal InstructionsSet =
         match TypeOf term with
         | Bool -> term
         | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
+        | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
+        | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
         | Numeric(Id t) when t.IsEnum ->
             term !== MakeNumber (t.GetEnumValues().GetValue(0))
         | _ when isReference term -> term !== MakeNullRef()
@@ -412,7 +431,7 @@ module internal InstructionsSet =
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
             let isChecked = false // no specs found about overflows
-            castToType isChecked unsignedTyp term state k
+            castToTypeK isChecked unsignedTyp term state k
         else k (term, state)
     let performUnsignedIntegerOperation op isChecked (cilState : cilState) =
         match cilState.opStack with
@@ -435,7 +454,7 @@ module internal InstructionsSet =
     let castTopOfOperationalStack isChecked targetType typeForStack (cilState : cilState) k =
         match cilState.opStack with
         | t :: stack ->
-            castToType isChecked targetType t cilState.state (fun (term, state) ->
+            castToTypeK isChecked targetType t cilState.state (fun (term, state) ->
             castUnchecked typeForStack term state (pushResultOnStack {cilState with opStack = stack} >> k))
         | _ -> __notImplemented__()
     let convu (cilState : cilState) = cilState :: []
@@ -530,7 +549,8 @@ module internal InstructionsSet =
         match cilState.opStack with
         | term :: stack ->
             let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Castclass.Size)
-            castUnchecked typ term cilState.state (pushResultOnStack {cilState with opStack = stack} >> List.singleton)
+            castToType {cilState with opStack = stack} false typ term cilState.state
+//            castUnchecked typ term cilState.state (pushResultOnStack {cilState with opStack = stack} >> List.singleton)
         | _ -> __notImplemented__()
     let initobj (cfg : cfgData) offset (cilState : cilState) =
         match cilState.opStack with
@@ -600,6 +620,11 @@ module internal InstructionsSet =
         let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
         { cilState with opStack = MakeNumber size :: cilState.opStack } :: []
+    let throw cfg offset (cilState : cilState) =
+        match cilState.opStack with
+        | error :: _ ->
+            { cilState with opStack = []; exceptionFlag = Some error } :: []
+        | _ -> __notImplemented__()
     let zipWithOneOffset op cfgData offset newOffsets cilState =
         assert (List.length newOffsets = 1)
         let newOffset = List.head newOffsets
@@ -802,6 +827,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float64TermType
     opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Sizeof]             <- zipWithOneOffset <| sizeofInstruction
+    opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| throw
     // TODO: notImplemented instructions
     opcode2Function.[hashFunction OpCodes.Arglist]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Jmp]                <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
@@ -832,7 +858,6 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Refanyval]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Rethrow]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Tailcall]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Unaligned]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Volatile]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Initblk]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())

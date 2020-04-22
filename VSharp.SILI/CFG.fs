@@ -18,11 +18,11 @@ module public CFG =
         graph : graph
         reverseGraph : graph
         clauses : ExceptionHandlingClause list
-        callOffsets : List<offset>
+        offsetsDemandingCall : List<offset>
     }
     with
-        member x.IsCallOffset offset =
-            Seq.tryFind ((=) offset) x.callOffsets |> Option.isSome
+        member x.IsCallOrNewObjOffset offset =
+            Seq.tryFind ((=) offset) x.offsetsDemandingCall |> Option.isSome
 
     type private interimData = {
         verticesOffsets : bool []
@@ -49,7 +49,7 @@ module public CFG =
             graph = List<_>()
             reverseGraph = List<_>()
             clauses = []
-            callOffsets = List<_>()
+            offsetsDemandingCall = List<_>()
         }
         interim, cfg
 
@@ -93,8 +93,8 @@ module public CFG =
             let opcode = Instruction.parseInstruction ilBytes v
             let nextTargets = Instruction.findNextInstructionOffsetAndEdges opcode ilBytes v
             match nextTargets with
-            | Choice1Of2 ins when Instruction.isCallOpcode opcode ->
-                cfg.callOffsets.Add v
+            | Choice1Of2 ins when Instruction.shouldSeparateOpcode opcode ->
+                cfg.offsetsDemandingCall.Add v
                 markVertex data v
                 markVertex data ins
                 if not data.visitedOffsets.[ins] then

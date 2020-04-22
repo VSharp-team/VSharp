@@ -80,6 +80,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         | _ -> false
     override x.Add cilState = if cilState.currentVertex <> destination.Return then workingSet.Add cilState
     override x.ExploreInIsolation cilState =
+        __notImplemented__()
         let u = cilState.currentVertex.Vertex()
         let rv = cilState.recursiveVertices
         let methodId = ilInterpreter.MakeMethodIdentifier cfg.methodBase

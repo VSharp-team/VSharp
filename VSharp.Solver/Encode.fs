@@ -100,7 +100,7 @@ module internal Encode =
         match constant.term with
         | Constant(_, source, _) ->
             match source with
-            | RecursionOutcome(id, state, location, _) ->
+            | RecursionOutcome(_, id, state, location, _) ->
                 CodeLocationSummaries.encode constant id state location |> Some
             | LazyInstantiation(_, None, _) -> None
             | LazyInstantiation(_, Some _, _) -> __notImplemented__()

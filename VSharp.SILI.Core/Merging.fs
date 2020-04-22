@@ -203,7 +203,8 @@ module internal Merging =
 
     let merge2States condition1 condition2 state1 state2 =
         assert(state1.pc = state2.pc)
-        assert(state1.frames = state2.frames)
+//        assert(state1.frames = state2.frames)
+        if state1.frames <> state2.frames then __unreachable__()
         let mergedConditions = condition1 ||| condition2
         let mergedPC = addToPathConditionIfNeed mergedConditions state1.pc
         match condition1, condition2 with

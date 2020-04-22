@@ -18,15 +18,28 @@ type public Z3Solver() =
         | Concrete _ -> false
         | Constant(_, source, _) ->
             match source with
-            | RecursionOutcome(_, _, Some _, _) -> true
+            | RecursionOutcome(_, _, _, Some _, _) -> true
             | _ -> false
         | Expression(_, ts, _) -> haveRecursiveCall ts
         | _ -> internalfailf "%O" t
     and haveRecursiveCall = List.exists hasRecursiveCall
 
+    let rec hasLazyFunctionResult t = // TODO: [encoding] temporary hack
+        match t.term with
+        | Ref(RefTopLevelHeap(addr, _, _), _) -> hasLazyFunctionResult addr
+        | Concrete _ -> false
+        | Constant(_, source, _) ->
+            match source with
+            | RecursionOutcome(name, _, _, _, _) when name.Contains "functionResult for" -> true
+            | _ -> false
+        | Expression(_, ts, _) -> haveLazyFunctionResult ts
+        | _ -> internalfailf "%O" t
+    and haveLazyFunctionResult = List.exists hasLazyFunctionResult
+
     interface IZ3Solver with
         member x.Solve terms =
             if haveRecursiveCall terms then SmtUnknown null
+            elif haveLazyFunctionResult terms then SmtUnknown null
             else
                 let hochcs = Encode.encodeQuery terms
                 let chcs = CHCs.toFirstOrder hochcs
