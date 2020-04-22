@@ -59,7 +59,7 @@ module API =
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
         val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * 'a generalizedHeap option * bool) option
-        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (ICodeLocation * state * term option * bool) option
+        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (string * ICodeLocation * state * term option * bool) option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
 

@@ -53,7 +53,7 @@ module internal Explorer =
 
     let (|RecursionOutcome|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? recursionOutcomeSource as ro -> Some(ro.id, ro.state, ro.location, ro.extractor :? IdTermExtractor)
+        | :? recursionOutcomeSource as ro -> Some(ro.name, ro.id, ro.state, ro.location, ro.extractor :? IdTermExtractor)
         | _ -> None
 
     let private mutateStackClosure mtd (codeLoc : ICodeLocation) state =
@@ -104,15 +104,17 @@ module internal Explorer =
         k (res, higherOrderState))
 
     let makeFunctionResultConstant mtd methodId (m : MethodBase) =
-        let typ =
+        let typ, isRef =
             match m with
-            | :? MethodInfo as mi -> mi.ReturnType |> Constructor.fromDotNetType
-            | :? ConstructorInfo -> __unreachable__() // nothing should be placed on operational stack
+            | :? MethodInfo as mi -> mi.ReturnType |> Constructor.fromDotNetType, not mi.ReturnType.IsValueType
+            | :? ConstructorInfo -> m.DeclaringType |> Constructor.fromDotNetType, not m.DeclaringType.IsValueType
             | _ -> __notImplemented__()
-
         let name = "functionResult for " + m.Name
         let source = {id = methodId; state = State.empty; name = name; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        Constant mtd name source typ
+        if isRef then
+            let address = Constant mtd name source typ
+            Ref mtd (RefTopLevelHeap(address, typ, typ)) []
+        else Constant mtd name source typ
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with
             override x.ComposeWithoutExtractor ctx state =

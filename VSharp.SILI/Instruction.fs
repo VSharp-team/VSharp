@@ -128,11 +128,16 @@ module internal Instruction =
        | _ -> __notImplemented__()
        <| opcode
 
-   let isCallOpcode (opcode : OpCode) =
+   let private isCallOpcode (opcode : OpCode) =
         opcode = OpCodes.Call
         || opcode = OpCodes.Calli
         || opcode = OpCodes.Callvirt
         || opcode = OpCodes.Tailcall
+   let private isNewobjOpCode (opcode : OpCode) =
+       opcode = OpCodes.Newobj
+   let shouldSeparateOpcode (opcode : OpCode) =
+       isCallOpcode opcode
+       || isNewobjOpCode opcode
    let parseInstruction (ilBytes : byte []) pos =
        let b1 = ilBytes.[pos]
        if isSingleByteOpcode b1 then singleByteOpcodes.[int b1]

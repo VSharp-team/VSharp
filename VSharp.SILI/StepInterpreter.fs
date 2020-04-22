@@ -1,6 +1,8 @@
 namespace VSharp.Interpreter.IL
 
 open VSharp
+open VSharp.Core.API
+open VSharp.Interpreter.IL.CFG
 
 exception PdrNotImplementedException
 type StepInterpreter() =
@@ -8,10 +10,15 @@ type StepInterpreter() =
     override x.Invoke codeLoc state this k =
         match codeLoc with
         | :? ILMethodMetadata as ilmm ->
-            let initialState, _, _, _ = x.FormInitialState ilmm
-            let methodRepr = Engine.MethodRepresentationBuilder.computeRepresentation initialState ilmm.methodBase
+            Engine.configureInterpreter x
+            let state, this, thisIsNotNull, _ = x.FormInitialState ilmm
+            let initialState =
+                match this with
+                | None -> state
+                | Some _ -> AddConditionToState state thisIsNotNull
+            let methodRepr = Engine.MethodRepresentationBuilder.computeRepresentation x initialState this ilmm.methodBase
             Logger.printLog Logger.Trace "Computed Method Representation: %s" (methodRepr.ToString())
-            raise PdrNotImplementedException
+            k (Terms.Nop, state)
 
 //            let interpreter = new CodePortionInterpreter(x, ilmm, findCfg ilmm, [])
 //            interpreter.Invoke state this k
