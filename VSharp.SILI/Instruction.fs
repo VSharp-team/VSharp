@@ -3,6 +3,8 @@ namespace VSharp.Interpreter.IL
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
+open System.Reflection.Emit
+open System.Reflection.Emit
 
 exception IncorrectCIL of string
 
