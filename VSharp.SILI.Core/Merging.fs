@@ -271,6 +271,21 @@ module internal Merging =
     let guardedErroredApplyk f term k = commonGuardedErroredApplyk f id term merge k
     let guardedErroredApply f term = guardedErroredApplyk (Cps.ret f) term id
 
+    let commonGuardedErroredMapkWithPC pc mapper errorMapper gvs merge k =
+        let foldFunc gvs (g, v) k =
+            let pc' = Propositional.conjunction g.metadata (g :: pc)
+            match pc' with
+            | False -> k gvs
+            | _ when isError v -> k ((g, errorMapper v) :: gvs)
+            | _ -> mapper v (fun t -> k ((g, t) :: gvs))
+        Cps.List.foldlk foldFunc [] gvs (merge >> k)
+    let commonGuardedErroredApplykWithPC pc f errorHandler term merge k =
+        match term.term with
+        | Error _ -> errorHandler term |> k
+        | Union gvs -> commonGuardedErroredMapkWithPC pc f errorHandler gvs merge k
+        | _ -> f term k
+    let guardedErroredApplykWithPC pc f term k = commonGuardedErroredApplykWithPC pc f id term merge k
+    let guardedErroredApplyWithPC pc f term = guardedErroredApplykWithPC pc (Cps.ret f) term id
     let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge mergeStates k =
         let foldFunc (gvs, egs, vgs, states) (g, v) k =
             let pc = conditionUnderState g state

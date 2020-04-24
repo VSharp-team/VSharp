@@ -36,6 +36,7 @@ module API =
     let StatedConditionalExecution = Common.commonStatedConditionalExecutionk
 
     let GuardedApplyExpression term f = Merging.guardedErroredApply f term
+    let GuardedApplyExpressionWithPC pc term f = Merging.guardedErroredApplyWithPC pc f term
     let GuardedStatedApplyStatementK state term f k = Merging.guardedErroredStatedApplyk f state term k
     let GuardedErroredStatedApplyk f errorHandler state term merge mergeStates k =
         Merging.commonGuardedErroredStatedApplyk f errorHandler state term merge mergeStates k

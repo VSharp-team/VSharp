@@ -1,12 +1,16 @@
 ﻿namespace VSharp
 open VSharp.CSharpUtils
 
+exception UnreachableException of string
+exception InternalException of string
+
 [<AutoOpen>]
 module public Prelude =
-    let public internalfail message = "Internal error: " + message |> failwith
+//    let public internalfail message = "Internal error: " + message |> failwith
+    let public internalfail message = raise (InternalException <| "Internal error: " + message)
     let public internalfailf format = Printf.ksprintf internalfail format
     let inline public __notImplemented__() = raise (new System.NotImplementedException())
-    let inline public __unreachable__() = internalfail "unreachable branch hit!"
+    let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!") //internalfail "unreachable branch hit!"
 
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)

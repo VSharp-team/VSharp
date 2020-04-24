@@ -214,7 +214,8 @@ module internal InstructionsSet =
             if isReference term && Types.IsPointer typ then Types.CastReferenceToPointer state term
             else term
         let canCast = Types.CanCast term typ
-        Types.Cast (AddConditionToState state canCast) term typ isChecked (fun state _ _ -> RuntimeExceptions.InvalidCastException state id) k
+        Types.Cast (AddConditionToState state canCast) term typ isChecked (fun state _ _ ->
+            internalfail "cast should always succeed!") k
     let castUnchecked typ = castToTypeK false typ
     let popStack (cilState : cilState) =
         match cilState.opStack with
@@ -331,22 +332,31 @@ module internal InstructionsSet =
             castUnchecked resultTyp t state
                 (fun (t, state) -> {cilState with functionResult = Some t; state = state} :: [])
          | _ -> __unreachable__()
-    let ConcreteTerm2BooleanTerm (term : term) =
-        match TypeOf term with
-        | Bool -> term
-        | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
-        | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
-        | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
-        | Numeric(Id t) when t.IsEnum ->
-            term !== MakeNumber (t.GetEnumValues().GetValue(0))
-        | _ when isReference term -> term !== MakeNullRef()
-        | _ -> __notImplemented__()
+    let Transform2BooleanTerm pc (term : term) =
+        let check term =
+            match TypeOf term with
+            | Bool -> term
+            | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero // TODO: add int64 case #do
+            | _ when isReference term -> term !== MakeNullRef()
+            | _ -> __notImplemented__()
+        GuardedApplyExpressionWithPC pc term check
+
+//    let Transform2BooleanTerm (term : term) =
+//        match TypeOf term with
+//        | Bool -> term
+//        | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
+//        | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
+//        | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
+//        | Numeric(Id t) when t.IsEnum ->
+//            term !== MakeNumber (t.GetEnumValues().GetValue(0))
+//        | _ when isReference term -> term !== MakeNullRef()
+//        | _ -> __notImplemented__()
     let ceq (cilState : cilState) =
         match cilState.opStack with
         | y :: x :: _ ->
             let transform =
                 if TypeUtils.isBool x || TypeUtils.isBool y
-                then fun t state k -> k (ConcreteTerm2BooleanTerm t, state)
+                then fun t state k -> k (Transform2BooleanTerm state.pc t, state)
                 else idTransformation
             performCILBinaryOperation OperationType.Equal false transform transform idTransformation cilState
         | _ -> __notImplemented__()
@@ -371,7 +381,7 @@ module internal InstructionsSet =
                | _ -> __unreachable__()
            let cilState = {cilState with opStack = stack}
            StatedConditionalExecutionCIL cilState
-               (fun state k -> k (condTransform <| ConcreteTerm2BooleanTerm cond, state))
+               (fun state k -> k (condTransform <| Transform2BooleanTerm state.pc cond, state))
                (fun cilState k -> k [offsetThen, cilState])
                (fun cilState k -> k [offsetElse, cilState])
                id
@@ -625,6 +635,7 @@ module internal InstructionsSet =
         | error :: _ ->
             { cilState with opStack = []; exceptionFlag = Some error } :: []
         | _ -> __notImplemented__()
+    let leave cfg offset (cilState : cilState) = cilState :: []
     let zipWithOneOffset op cfgData offset newOffsets cilState =
         assert (List.length newOffsets = 1)
         let newOffset = List.head newOffsets
@@ -828,6 +839,8 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Sizeof]             <- zipWithOneOffset <| sizeofInstruction
     opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| throw
+    opcode2Function.[hashFunction OpCodes.Leave]              <- zipWithOneOffset <| leave
+    opcode2Function.[hashFunction OpCodes.Leave_S]            <- zipWithOneOffset <| leave
     // TODO: notImplemented instructions
     opcode2Function.[hashFunction OpCodes.Arglist]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Jmp]                <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
@@ -842,8 +855,6 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Localloc]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ldelema]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ldelem_I]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Leave]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Leave_S]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Mkrefany]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefix1]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefix2]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
