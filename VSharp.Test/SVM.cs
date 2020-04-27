@@ -6,24 +6,14 @@ using System.Reflection;
 using VSharp.Core;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
-using System.Timers;
 using Microsoft.FSharp.Core;
-using VSharp.Interpreter.IL;
-
 
 namespace VSharp.Test
 {
     public class SVM
     {
         private ExplorerBase _explorer;
-        private int _methodsNumber = 0;
-        private MethodBase _currentlyExplored;
-        private Dictionary<Type, List<Exception>> _exceptions = new Dictionary<Type, List<Exception>>();
-
-        private Dictionary<string, List<Exception>> _notImplementedExceptions = new Dictionary<string, List<Exception>>();
-        private Dictionary<string, List<Exception>> _unreachableExceptions = new Dictionary<string, List<Exception>>();
-        private Dictionary<string, List<Exception>> _internalfailExceptions = new Dictionary<string, List<Exception>>();
-        private Dictionary<string, List<Exception>> _unhandledExceptions = new Dictionary<string, List<Exception>>();
+        private Statistics _statistics = new Statistics();
 
         public SVM(ExplorerBase explorer)
         {
@@ -31,40 +21,12 @@ namespace VSharp.Test
             API.Configure(explorer);
         }
 
-        private void AddException(Dictionary<string, List<Exception>> exceptions, Exception e)
-        {
-            Type t = e.GetType();
-            if (!_exceptions.ContainsKey(t))
-            {
-                _exceptions[t] = new List<Exception>();
-            }
-
-            _exceptions[t].Add(e);
-            string stackTrace = e.StackTrace;
-            if (!exceptions.ContainsKey(stackTrace))
-            {
-                exceptions[stackTrace] = new List<Exception>();
-            }
-            exceptions[stackTrace].Add(e);
-        }
-
         private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m,
             Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
         {
-            // throw new Exception("Create set with exceptions and export them to DOC");
-            // throw new Exception("все что __notImplemented__ должно быть __notImplemented__, а не захакано");
             try
             {
-                // if (_methodsNumber > 2520)
-                // {
-                //     return null;
-                // }
-
-                // if (_methodsNumber == 2519)
-                // {
-                //     Console.WriteLine($@"Got it: {m.Name}");
-                // }
-                _methodsNumber++;
+                _statistics.SetupBeforeMethod(m);
                 IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
                 if (methodIdentifier == null)
                 {
@@ -78,7 +40,7 @@ namespace VSharp.Test
                 dict?.Add(m, null);
                 var id = FSharpFunc<codeLocationSummary, codeLocationSummary>.FromConverter(x => x);
                 var summary = invoke(methodIdentifier, id);
-                Console.WriteLine("DONE: {0}", m);
+                _statistics.AddSucceededMethod(m);
                 if (dict != null)
                 {
                     dict[m] = summary;
@@ -86,28 +48,9 @@ namespace VSharp.Test
 
                 return summary;
             }
-            catch (NotImplementedException e)
-            {
-                Console.WriteLine("NotImplementedException in {0} occured: {1}", m, e.StackTrace);
-                AddException(_notImplementedExceptions, e);
-            }
-            catch (UnreachableException e)
-            {
-                Console.WriteLine("Unreachable Exception in {0} occured: {1}", m, e.Message);
-                AddException(_unreachableExceptions, e);
-            }
-            catch (InternalException e)
-            {
-                Console.WriteLine("InternalFail Exception in {0} occured: {1}", m, e.Message);
-                AddException(_internalfailExceptions, e);
-            }
             catch (Exception e)
             {
-                Console.WriteLine($@"Unhandled Exception occured:
-                                     \n method = {m.Name}
-                                     \n message = {e.Message}
-                                     \n StackTrace: {e.StackTrace}");
-                AddException(_unhandledExceptions, e);
+                _statistics.AddException(e, m);
             }
 
             return null;
@@ -136,6 +79,7 @@ namespace VSharp.Test
             {
                 foreach (var m in t.GetMethods(bindingFlags))
                 {
+                    // FOR DEBUGGING SPECIFIED METHOD
                     // if (m != ep && !m.IsAbstract)
                     if (m != ep && !m.IsAbstract && m.Name != "op_Division")
                     {
@@ -169,49 +113,6 @@ namespace VSharp.Test
             // API.ConfigureSolver(solver);
         }
 
-        private void Print(Type type, string exceptionName, Dictionary<string, List<Exception>> exceptions)
-        {
-            if (_exceptions.ContainsKey(type))
-            {
-                Console.WriteLine(exceptionName + "Exceptions");
-                Console.WriteLine($"INFO: {exceptionName} number: {_exceptions[type].Count.ToString()}");
-                Console.WriteLine($"INFO: {exceptionName} Types: {exceptions.Keys.Count.ToString()}");
-                foreach (var message in exceptions.Keys)
-                {
-                    Console.WriteLine(message);
-                    Console.WriteLine("CNT = " + exceptions[message].Count + "\n");
-                }
-
-                Console.WriteLine("END");
-            }
-            else
-            {
-                Console.WriteLine("No " + exceptionName + " exceptions found");
-            }
-        }
-
-        private void PrintExceptionsStats()
-        {
-            // var format1 =
-            //     new PrintfFormat<string, Unit, string, Unit>(
-            //         $"INFO: exceptions types number: {_exceptions.Keys.Count.ToString()}");
-            // var format2 =
-            //     new PrintfFormat<string, Unit, string, Unit>(
-            //         $"INFO: notImplemented number: {_exceptions[notImplType].Count.ToString()}");
-            // var format3 =
-            //     new PrintfFormat<string, Unit, string, Unit>(
-            //         $"INFO: methods number: {_methodsNumber.ToString()}");
-            //
-            // Logger.printLog(Logger.Trace, format1);
-            // Logger.printLog(Logger.Trace, format2);
-            // Logger.printLog(Logger.Trace, format3);
-            Console.WriteLine($"INFO: exceptions types number: {_exceptions.Keys.Count.ToString()}");
-            Console.WriteLine($"INFO: methods number: {_methodsNumber.ToString()}");
-            Print(typeof(NotImplementedException), "NOT_IMPL_EXCEPTIONS", _notImplementedExceptions);
-            Print(typeof(UnreachableException), "UNREACHABLE_EXCEPTIONS",_unreachableExceptions);
-            Print(typeof(InternalException), "Internal_EXCEPTIONS",_internalfailExceptions);
-        }
-
         public IDictionary<MethodInfo, string> Run(Assembly assembly, List<string> ignoredList)
         {
             IDictionary<MethodInfo, codeLocationSummary> dictionary = new Dictionary<MethodInfo, codeLocationSummary>();
@@ -227,7 +128,7 @@ namespace VSharp.Test
                 InterpretEntryPoint(dictionary, ep);
             }
 
-            PrintExceptionsStats();
+            _statistics.PrintExceptionsStats();
 
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
         }
