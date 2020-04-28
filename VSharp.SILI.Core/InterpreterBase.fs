@@ -75,7 +75,6 @@ type public ExplorerBase() =
             | _ -> __notImplemented__()
 
     member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-        __notImplemented__()
         let mtd = Metadata.empty
         let addr = [Memory.freshAddress()]
         if CurrentlyBeingExploredLocations.Contains codeLoc then
@@ -95,7 +94,7 @@ type public ExplorerBase() =
             body state k
 
     member x.EnterRecursiveRegion (codeLoc : IFunctionIdentifier) state body k =
-        let shouldStopUnrolling = false //x.ShouldStopUnrolling codeLoc state
+        let shouldStopUnrolling = x.ShouldStopUnrolling codeLoc state
         x.ReproduceEffectOrUnroll shouldStopUnrolling body codeLoc state k
 
     member x.ShouldStopUnrolling (codeLoc : ICodeLocation) state =
@@ -305,7 +304,6 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
                 interpret' newSt
             else
                 x.GetResultState ()
-//        __unreachable__()
         let res = interpret' start
         match res with
         | Some st when x.IsRecursiveState start ->
