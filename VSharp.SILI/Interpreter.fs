@@ -68,7 +68,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
                 List.collect ((<||) executeAllInstructions) list
             | list -> list |> List.map (fun (offset, cilSt) -> {cilSt with currentVertex = Intermediate (cfg.sortedOffsets.BinarySearch (offset.Vertex()))})
         executeAllInstructions (Intermediate startingOffset) cilState
-//        |> List.filter (fun st -> st.IsFinished || not (st.currentVertex.HasVertex() && List.contains (st.currentVertex.Vertex()) st.recursiveVertices))
+        |> List.filter (fun st -> st.IsFinished || not (st.currentVertex.HasVertex() && List.contains (st.currentVertex.Vertex()) st.recursiveVertices))
     override x.IsRecursiveState cilState =
         let isHeadOfLoop (cfg : cfgData) v =
             let vTime = cfg.topologicalTimes.[v]
@@ -83,7 +83,6 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         | _ -> false
     override x.Add cilState = if cilState.currentVertex <> destination.Return then workingSet.Add cilState
     override x.ExploreInIsolation cilState =
-        __notImplemented__()
         let u = cilState.currentVertex.Vertex()
         let rv = cilState.recursiveVertices
         let methodId = ilInterpreter.MakeMethodIdentifier cfg.methodBase
