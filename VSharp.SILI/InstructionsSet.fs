@@ -39,6 +39,7 @@ module internal TypeUtils =
     let uint16Type      = Numeric typedefof<uint16>
     let uint32Type      = Numeric typedefof<uint32>
     let uint64Type      = Numeric typedefof<uint64>
+    let charType        = Numeric typedefof<char>
 
     let signed2unsignedOrId = function
         | Bool -> uint32Type
@@ -55,8 +56,9 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> int16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
         | Numeric (Id typ) when typ = typedefof<double> -> float64TermType
+        | Pointer _ as t -> t
         | _ -> __unreachable__()
-    let integers = [int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
+    let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
 
     let isIntegerTermType typ = integers |> List.contains typ
     let isFloatTermType typ = typ = float32TermType || typ = float64TermType
@@ -75,6 +77,16 @@ module internal TypeUtils =
     let (|Float64|_|) t = if Terms.TypeOf t = float64TermType then Some(t) else None
     let (|Float|_|) t = if Terms.TypeOf t |> isFloatTermType then Some(t) else None
 
+    module Char =
+        let Zero = MakeNumber '\000'
+    module Int8 =
+        let Zero = MakeNumber 0y
+    module UInt8 =
+        let Zero = MakeNumber 0uy
+    module Int16 =
+        let Zero = MakeNumber 0s
+    module UInt16 =
+        let Zero = MakeNumber 0us
     module Int32 =
         let Zero = MakeNumber 0
         let One = MakeNumber 1
@@ -310,7 +322,13 @@ module internal InstructionsSet =
         let check term =
             match TypeOf term with
             | Bool -> term
+            | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero
+            | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero
+            | t when t = TypeUtils.uint8Type -> term !== TypeUtils.UInt8.Zero
+            | t when t = TypeUtils.int16Type -> term !== TypeUtils.Int16.Zero
+            | t when t = TypeUtils.uint16Type -> term !== TypeUtils.UInt16.Zero
             | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
+            | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
