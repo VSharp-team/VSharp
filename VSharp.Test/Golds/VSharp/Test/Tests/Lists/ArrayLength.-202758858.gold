@@ -1,6 +1,6 @@
 METHOD: System.Int32 VSharp.Test.Tests.Lists.ArrayLength(System.Int32)
 RESULT: UNION[
-	| !(0 == f) & !(0 == this) & !(1 == f) ~> 1 + f
+	| !(0 == f) & !(0 == this) & !(1 + f < 0) & !(1 == f) ~> 1 + f
 	| !(0 == f) & !(0 == this) & 1 == f ~> 3
 	| !(0 == this) & 0 == f ~> 10]
 HEAP:
