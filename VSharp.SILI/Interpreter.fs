@@ -189,6 +189,7 @@ and public ILInterpreter() as this =
         Map.ofList [
             "System.Int32 System.Array.GetLength(this, System.Int32)", this.GetArrayLength
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.InitializeArray
         ]
 
     member private x.Raise createException (cilState : cilState) k =
@@ -206,8 +207,7 @@ and public ILInterpreter() as this =
             (fun state k -> k (checkArrayBounds upperBound index, state))
             (accessor arrayRef index)
             (x.Raise x.IndexOutOfRangeException)
-    member private x.AccessArrayDimension accessor (cilState : cilState) =
-        function
+    member private x.AccessArrayDimension accessor (cilState : cilState) = function
         | [this; dimension] ->
             let array = Memory.Dereference cilState.state this
             let upperBound = Memory.ArrayRank array
@@ -227,6 +227,15 @@ and public ILInterpreter() as this =
             (x.Raise x.NullReferenceException)
             statement
             k
+
+    member private x.InitializeArray (cilState : cilState) = function
+        | arrayRef :: handleTerm :: [] ->
+            x.NpeOrInvokeStatement cilState arrayRef (fun cilState ->
+            x.NpeOrInvokeStatement cilState handleTerm (fun cilState k ->
+            let result, state = VSharp.System.Runtime_CompilerServices_RuntimeHelpers.InitializeArray cilState.state arrayRef handleTerm
+            k [result, {cilState with state = state}])) id
+        | _ -> __unreachable__()
+
     member private x.ReduceMethodBaseCall (methodBase : MethodBase) (cilState : cilState) this (args : term list symbolicValue) k =
         let state = cilState.state
         let k1 (term, state) = k [term, {cilState with state = state}]
@@ -542,7 +551,7 @@ and public ILInterpreter() as this =
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (castUnchecked typ) cilState
     member private x.LdElem (cfg : cfgData) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Ldelem.Size)
-        x.LdElemTyp typ cilState
+        x.LdElemTyp typ cilState //TODO: ldelem has never been obtained in real IL. It's behaviour MUST (spec?) differ from ldElemTyp, which raises IOoRE if index < 0
     member private x.LdElemRef = x.LdElemWithCast always
     member private x.StElemWithCast cast (cilState : cilState) =
         match cilState.opStack with

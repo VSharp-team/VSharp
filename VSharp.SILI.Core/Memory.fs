@@ -779,18 +779,11 @@ module internal Memory =
         k (conjunction mtd bounds |> unguard |> merge)))
 
     let referenceArrayIndex metadata state arrayRef (indices : term list) =
-        let reference state arrayRef =
+        let reference arrayRef =
             let elemType = baseTypeOfRef arrayRef |> elementType // TODO: add getting type of StackRef when stackalloc will be implemented
-            Common.statedConditionalExecutionWithMerge state
-                (fun state k -> checkIndices metadata state arrayRef indices (fun t -> k (t, state)))
-                (fun state k ->
-                    let location = Arrays.makeIndexArray metadata (fun i -> indices.[i]) indices.Length
-                    let result = referenceSubLocations arrayRef [ArrayIndex(location, elemType)]
-                    k (result, state))
-                (fun state k -> __notImplemented__())
-//                    let exn, state = State.createInstance metadata typeof<System.IndexOutOfRangeException> [] state
-//                    k (Error metadata exn, state)
-        guardedStatedApply reference state arrayRef |> fst
+            let location = Arrays.makeIndexArray metadata (fun i -> indices.[i]) indices.Length
+            referenceSubLocations arrayRef [ArrayIndex(location, elemType)]
+        guardedApplyWithPC state.pc reference arrayRef
 
 // ------------------------------- State layer -------------------------------
 
