@@ -182,7 +182,7 @@ HEAP:
 18 ==> ChessDotNet.Pieces.Pawn CLASS [
 	| ChessDotNet::Pieces::Pawn::<Owner>k__BackingField ~> White]
 19 ==> ChessDotNet.Pieces.Pawn CLASS [
-	| ChessDotNet::Pieces::Pawn::<Owner>k__BackingField ~> 0]
+	| ChessDotNet::Pieces::Pawn::<Owner>k__BackingField ~> Black]
 ---------- s1 = ----------
 ChessDotNet.Pieces.Bishop ==> CLASS []
 ChessDotNet.Pieces.King ==> CLASS []
