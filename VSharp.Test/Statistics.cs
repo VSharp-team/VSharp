@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace VSharp.Test
@@ -66,9 +67,9 @@ namespace VSharp.Test
             else
             {
                 Console.WriteLine($@"Unhandled Exception occured:
-                                     \n method = {m.Name}
-                                     \n message = {e.Message}
-                                     \n StackTrace: {e.StackTrace}");
+                                      method = {m.Name}
+                                      message = {e.Message}
+                                      StackTrace: {e.StackTrace}");
                 AddException(_unhandledExceptions, e, m);
             }
         }
@@ -80,7 +81,7 @@ namespace VSharp.Test
                 Console.WriteLine(exceptionName + "Exceptions");
                 Console.WriteLine($"INFO: {exceptionName} number: {_allExceptions[type].Count.ToString()}");
                 Console.WriteLine($"INFO: {exceptionName} Types: {exceptions.Keys.Count.ToString()}");
-                foreach (var message in exceptions.Keys)
+                foreach (var message in exceptions.Keys.OrderByDescending(message => exceptions[message].Count))
                 {
                     Console.WriteLine(message);
                     Console.WriteLine("CNT = " + exceptions[message].Count);
