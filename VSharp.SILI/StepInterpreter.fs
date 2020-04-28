@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System.Reflection
 open VSharp
 open VSharp.Core.API
 open VSharp.Interpreter.IL.CFG

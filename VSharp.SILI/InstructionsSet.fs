@@ -103,7 +103,7 @@ module internal InstructionsSet =
           functionResult = None; exceptionFlag = None;
           state = state; this = None }
 
-    let idTransformation term k = k term
+    let idTransformation pc term k = k term
 
     let pushResultOnStack (cilState : cilState) (res, state) =
         if res <> Nop then
@@ -192,7 +192,7 @@ module internal InstructionsSet =
         else term
     let castUnchecked typ term (state : state) : term =
         let term = castReferenceToPointerIfNeeded term typ state
-        Types.Cast term typ
+        Types.Cast state.pc term typ
     let popStack (cilState : cilState) =
         match cilState.opStack with
         | t :: ts -> Some t, {cilState with opStack = ts}
@@ -248,23 +248,24 @@ module internal InstructionsSet =
             { cilState with opStack = term :: stack } :: [])
         | _ -> __notImplemented__()
     let performCILBinaryOperation op operand1Transform operand2Transform resultTransform (cilState : cilState) =
+        let pc = cilState.state.pc
         match cilState.opStack with
         | arg2 :: arg1 :: stack ->
-            operand1Transform arg1 (fun arg1 ->
-            operand2Transform arg2 (fun arg2 ->
+            operand1Transform pc arg1 (fun arg1 ->
+            operand2Transform pc arg2 (fun arg2 ->
             API.PerformBinaryOperation op arg1 arg2 (fun interimRes ->
-            resultTransform interimRes (fun res -> {cilState with opStack = res :: stack } :: []))))
+            resultTransform pc interimRes (fun res -> {cilState with opStack = res :: stack } :: []))))
         | _ -> __notImplemented__()
-    let makeSignedInteger term k =
+    let makeSignedInteger pc term k =
         let typ = Terms.TypeOf term
         let signedTyp = TypeUtils.unsigned2signedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> signedTyp then
-            k <| Types.Cast term signedTyp // no specs found about overflows
+            k <| Types.Cast pc term signedTyp // no specs found about overflows
         else k term
     let standardPerformBinaryOperation op =
         performCILBinaryOperation op makeSignedInteger makeSignedInteger idTransformation
     let shiftOperation op (cilState : cilState) =
-        let reinterpret termType term k = k <| Types.Cast term termType
+        let reinterpret termType pc term k = k <| Types.Cast pc term termType
         match cilState.opStack with
         | _ :: value :: _ ->
             let op1trans, resTrans =
@@ -323,7 +324,7 @@ module internal InstructionsSet =
         | y :: x :: _ ->
             let transform =
                 if TypeUtils.isBool x || TypeUtils.isBool y
-                then fun t k -> k (Transform2BooleanTerm cilState.state.pc t)
+                then fun pc t k -> k (Transform2BooleanTerm pc t)
                 else idTransformation
             performCILBinaryOperation OperationType.Equal transform transform idTransformation cilState
         | _ -> __notImplemented__()
@@ -360,6 +361,7 @@ module internal InstructionsSet =
         | [_, st] -> brtrueFunction newOffsets st
         | _ -> internalfail errorStr
     let compare op operand1Transformation operand2Transformation (cilState : cilState) =
+        let pc = cilState.state.pc
         match cilState.opStack with
         | _ :: arg1 :: _ ->
             let typ = TypeOf arg1
@@ -382,10 +384,10 @@ module internal InstructionsSet =
                 standardPerformBinaryOperation op cilState
             | Bool, typ2 when TypeUtils.isIntegerTermType typ2 ->
                 let newArg1 = boolToInt cilState arg1
-                performCILBinaryOperation op (fun _ k -> k newArg1) idTransformation idTransformation cilState
+                performCILBinaryOperation op (fun _ _ k -> k newArg1) idTransformation idTransformation cilState
             | typ1, Bool when TypeUtils.isIntegerTermType typ1 ->
                 let newArg2 = boolToInt cilState arg2
-                performCILBinaryOperation op idTransformation (fun _ k -> k newArg2) idTransformation cilState
+                performCILBinaryOperation op idTransformation (fun _ _ k -> k newArg2) idTransformation cilState
             | typ1, typ2 -> internalfailf "unhandled case for Bitwise operation %O and types: %O %O" op typ1 typ2
         | _ -> __notImplemented__()
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
@@ -403,11 +405,11 @@ module internal InstructionsSet =
         let arrayTyp = Types.FromDotNetType state arrayType
         let referenceAndState = Memory.AllocateDefaultArray state parameters arrayTyp
         k <| pushResultOnStack cilState referenceAndState
-    let makeUnsignedInteger term k =
+    let makeUnsignedInteger pc term k =
         let typ = Terms.TypeOf term
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
-            k <| Types.Cast term unsignedTyp // no specs found about overflows
+            k <| Types.Cast pc term unsignedTyp // no specs found about overflows
         else k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
         match cilState.opStack with

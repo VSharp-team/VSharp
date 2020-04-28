@@ -32,7 +32,7 @@ module internal TypeCasting =
             (fun k -> makeFalse mtd |> k)
             (fun k -> canCast mtd term targetType |> k)
 
-    let cast mtd term targetType k =
+    let cast mtd pc term targetType k =
         let primitiveCast term k =
             match term.term with
             | _ when typeOf term = targetType -> k term
@@ -41,7 +41,7 @@ module internal TypeCasting =
             | Constant(_, _, t)
             | Expression(_, _, t) -> k <| makeCast t targetType term mtd
             | Ref _ ->
-                statelessConditionalExecutionWithMergek []
+                statelessConditionalExecutionWithMergek pc
                     (fun k -> k <| Pointers.isNull mtd term)
                     (fun k -> k <| makeNullRef mtd)
                     (fun k -> k <| doCast mtd term targetType)
