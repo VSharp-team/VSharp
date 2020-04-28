@@ -309,21 +309,15 @@ module internal InstructionsSet =
         let check term =
             match TypeOf term with
             | Bool -> term
-            | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero // TODO: add int64 case #do
+            | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
+            | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
+            | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
+            | Numeric(Id t) when t.IsEnum ->
+                term !== MakeNumber (t.GetEnumValues().GetValue(0))
             | _ when isReference term -> term !== MakeNullRef()
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
 
-//    let Transform2BooleanTerm (term : term) =
-//        match TypeOf term with
-//        | Bool -> term
-//        | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
-//        | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
-//        | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
-//        | Numeric(Id t) when t.IsEnum ->
-//            term !== MakeNumber (t.GetEnumValues().GetValue(0))
-//        | _ when isReference term -> term !== MakeNullRef()
-//        | _ -> __notImplemented__()
     let ceq (cilState : cilState) =
         match cilState.opStack with
         | y :: x :: _ ->
