@@ -45,7 +45,7 @@ module Substitution =
                 | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'
-                    TypeCasting.cast term.metadata arg targetType id
+                    TypeCasting.cast term.metadata [] arg targetType id // #TODO: check pc [] correctness!
                 | Application _ -> __notImplemented__())
             |> Merging.merge
         | Union gvs ->

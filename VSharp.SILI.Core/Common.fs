@@ -188,10 +188,12 @@ module internal Common =
             elseBranch (fun elseResult ->
             k <| merge2 condition !!condition thenResult elseResult))
         let chooseBranch condition k =
-            match condition with
-            | Terms.True ->  thenBranch k
-            | Terms.False -> elseBranch k
-            | condition ->
+            let thenCondition = Propositional.conjunction condition.metadata (condition :: pc)
+            let elseCondition = Propositional.conjunction condition.metadata (!!condition :: pc)
+            match thenCondition, elseCondition with
+            | False, _ -> elseBranch k
+            | _, False -> thenBranch  k
+            | condition, _ ->
                 match solvePC condition pc with
                 | Unsat -> elseBranch k
                 | _ ->

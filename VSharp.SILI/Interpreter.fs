@@ -370,7 +370,7 @@ and public ILInterpreter() as this =
                 mapAndPushFunctionResultsk (fun (term, state) -> castUnchecked typeForStack term state, state) results id
             StatedConditionalExecutionCIL {cilState with opStack = stack}
                 (fun state k -> k (canCastWithoutOverflow t targetType, state))
-                (fun cilState k -> k [Types.Cast t targetType, cilState])
+                (fun cilState k -> k [Types.Cast cilState.state.pc t targetType, cilState])
                 (x.Raise x.OverflowException)
                 castForStack
         | _ -> __notImplemented__()
@@ -387,7 +387,7 @@ and public ILInterpreter() as this =
             let term = castReferenceToPointerIfNeeded term typ cilState.state
             StatedConditionalExecutionCIL {cilState with opStack = stack}
                 (fun state k -> k (IsNullReference term ||| Types.IsCast typ term, state))
-                (fun cilState k -> k [Types.Cast term typ, cilState])
+                (fun cilState k -> k [Types.Cast cilState.state.pc term typ, cilState])
                 (x.Raise x.InvalidCastException)
                 pushFunctionResults
         | _ -> __notImplemented__()
@@ -647,7 +647,7 @@ and public ILInterpreter() as this =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.TypeIsNullable termType, state))
                     canCastValueTypeToNullableTargetCase
-                    (fun cilState k -> k [handleRestResults(Types.Cast obj termType, cilState)])
+                    (fun cilState k -> k [handleRestResults(Types.Cast cilState.state.pc obj termType, cilState)])
             let valueTypeCase (cilState : cilState) =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.IsCast termType obj, state))
@@ -670,7 +670,7 @@ and public ILInterpreter() as this =
         let handleReferenceTypeResults obj termType cilState =
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.IsCast termType obj, state))
-                (fun cilState k -> k [Types.Cast obj termType, cilState])
+                (fun cilState k -> k [Types.Cast cilState.state.pc obj termType, cilState])
                 (x.Raise x.InvalidCastException)
         let handleRestResults (address, cilState : cilState) = Memory.Dereference cilState.state address, cilState
         x.UnboxCommon OpCodes.Unbox_Any handleReferenceTypeResults handleRestResults cfg offset cilState
@@ -707,10 +707,11 @@ and public ILInterpreter() as this =
         this.CommonDivRem rem cilState
 
     member private this.CommonUnsignedDivRem isRem performAction (cilState : cilState) =
+        let pc = cilState.state.pc
         match cilState.opStack with
         | y :: x :: stack when TypeUtils.isInteger x && TypeUtils.isInteger y ->
-            let x = makeUnsignedInteger x id
-            let y = makeUnsignedInteger y id
+            let x = makeUnsignedInteger pc x id
+            let y = makeUnsignedInteger pc y id
             StatedConditionalExecutionCIL {cilState with opStack = stack}
                 (fun state k -> k (Arithmetics.IsZero y, state))
                 (this.Raise this.DivideByZeroException)
@@ -727,19 +728,20 @@ and public ILInterpreter() as this =
         let rem x y = API.PerformBinaryOperation OperationType.Remainder x y id
         this.CommonUnsignedDivRem true rem cilState
 
-    member private this.UnsignedCheckOverflow checkOverflowForUnsigned cilState =
+    member private this.UnsignedCheckOverflow checkOverflowForUnsigned (cilState : cilState) =
+        let pc = cilState.state.pc
         match cilState.opStack with
         | TypeUtils.Int64 y :: x :: stack
         | y :: TypeUtils.Int64 x :: stack
         | TypeUtils.UInt64 y :: x :: stack
         | y :: TypeUtils.UInt64 x :: stack ->
-            let x = makeUnsignedInteger x id
-            let y = makeUnsignedInteger y id
+            let x = makeUnsignedInteger pc x id
+            let y = makeUnsignedInteger pc y id
             let max = TypeUtils.UInt64.MaxValue
             let zero = TypeUtils.UInt64.Zero
             checkOverflowForUnsigned zero max x y {cilState with opStack = stack} // TODO: maybe rearrange x and y if y is concrete and x is symbolic
         | y :: x :: stack when TypeUtils.isInteger x && TypeUtils.isInteger y ->
-            let x, y = makeUnsignedInteger x id, makeUnsignedInteger y id
+            let x, y = makeUnsignedInteger pc x id, makeUnsignedInteger pc y id
             let max = TypeUtils.UInt32.MaxValue
             let zero = TypeUtils.UInt32.Zero
             checkOverflowForUnsigned zero max x y {cilState with opStack = stack} // TODO: maybe rearrange x and y if y is concrete and x is symbolic
