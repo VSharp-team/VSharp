@@ -551,7 +551,7 @@ and public ILInterpreter() as this =
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (castUnchecked typ) cilState
     member private x.LdElem (cfg : cfgData) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Ldelem.Size)
-        x.LdElemTyp typ cilState //TODO: ldelem has never been obtained in real IL. It's behaviour MUST (spec?) differ from ldElemTyp, which raises IOoRE if index < 0
+        x.LdElemTyp typ cilState
     member private x.LdElemRef = x.LdElemWithCast always
     member private x.StElemWithCast cast (cilState : cilState) =
         match cilState.opStack with

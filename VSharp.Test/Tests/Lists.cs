@@ -214,6 +214,17 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
+        public struct EmptyStruct
+        {
+        }
+
+        [TestSvm]
+        public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
+        {
+            var array = new EmptyStruct[3];
+            return array[i];
+        }
+
         [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray3(Array arr)
         {
