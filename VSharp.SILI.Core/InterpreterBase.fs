@@ -224,7 +224,7 @@ type public ExplorerBase() =
         let reference, state = Memory.AllocateDefaultBlock state (Types.FromDotNetType state exceptionType)
         let invoke state k = x.Invoke methodId state (Some reference) k
         x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun (res, state) ->
-        assert (res = Nop)
+        assert (res = reference)
         reference, state))
 
     member x.InvalidProgramException state =

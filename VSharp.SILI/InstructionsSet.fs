@@ -563,7 +563,7 @@ module internal InstructionsSet =
         | error :: _ ->
             { cilState with opStack = []; exceptionFlag = Some error } :: []
         | _ -> __notImplemented__()
-    let leave cfg offset (cilState : cilState) = cilState :: []
+    let leave _ _ (cilState : cilState) = cilState :: []
     let zipWithOneOffset op cfgData offset newOffsets cilState =
         assert (List.length newOffsets = 1)
         let newOffset = List.head newOffsets
