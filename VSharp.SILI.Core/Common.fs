@@ -81,7 +81,8 @@ module internal Common =
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue mtd
         | Null, _
-        | Void, _ | _, Void -> makeFalse mtd
+        | Void, _   | _, Void -> makeFalse mtd
+        | ArrayType _, ClassType(Id obj, _) when obj <> typedefof<obj> -> makeFalse mtd // TODO: use more common heuristics
         | Numeric _, Numeric _ -> makeTrue mtd
         | Pointer _, Pointer _ -> makeTrue mtd
         | ArrayType _, ArrayType(_, SymbolicDimension) -> makeTrue mtd
