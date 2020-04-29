@@ -225,6 +225,54 @@ namespace VSharp.Test.Tests
             return array[i];
         }
 
+        class A
+        {
+        }
+        class B
+        {
+        }
+        public static int AccessLinearArray(object[] b, object x, int i)
+        {
+            b[i] = x;
+            return i;
+        }
+        [TestSvm]
+        public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
+        {
+            var arr = new A[10];
+            object[] brr = arr;
+            var a = new A();
+            var b = new B();
+            switch (f)
+            {
+                case 0:
+                    AccessLinearArray(brr, a, 0); // ok
+                    break;
+                case 1:
+                    AccessLinearArray(brr, b, 0); // pure: arr typ mis
+                    break;
+                case 2:
+                    AccessLinearArray(brr, a, -1); // pure: index
+                    break;
+                case 3:
+                    AccessLinearArray(null, a, 0); // pure: npe
+                    break;
+                case 4:
+                    AccessLinearArray(null, a, -1); // npe < index
+                    break;
+                case 5:
+                    AccessLinearArray(null, b, 0); // npe < arr typ mis
+                    break;
+                case 6:
+                    AccessLinearArray(brr, b, -1); // index < arr typ mis
+                    break;
+                default:
+                    AccessLinearArray(crr, c, i);
+                    break;
+            }
+            return f;
+        }
+
         [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray3(Array arr)
         {

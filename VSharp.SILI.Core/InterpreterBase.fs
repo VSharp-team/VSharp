@@ -233,6 +233,8 @@ type public ExplorerBase() =
         x.CreateInstance typeof<System.NullReferenceException> [] state
     member x.IndexOutOfRangeException state =
         x.CreateInstance typeof<System.IndexOutOfRangeException> [] state
+    member x.ArrayTypeMismatchException state =
+        x.CreateInstance typeof<System.ArrayTypeMismatchException> [] state
     member x.DivideByZeroException state =
         x.CreateInstance typeof<System.DivideByZeroException> [] state
     member x.OverflowException state =

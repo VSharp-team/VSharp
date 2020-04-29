@@ -197,7 +197,7 @@ and public ILInterpreter() as this =
         //TODO: exception handling
         k [exc, {cilState with state = state; exceptionFlag = Some exc}]
 
-    member private x.AccessArray accessor cilState arrayRef upperBound index =
+    member private x.AccessArray accessor cilState upperBound index =
         let checkArrayBounds upperBound x =
             let lowerBound = Concrete 0 Types.TLength
             let notTooSmall = Arithmetics.(>>=) x lowerBound
@@ -205,13 +205,13 @@ and public ILInterpreter() as this =
             notTooSmall &&& notTooLarge
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (checkArrayBounds upperBound index, state))
-            (accessor arrayRef index)
+            accessor
             (x.Raise x.IndexOutOfRangeException)
     member private x.AccessArrayDimension accessor (cilState : cilState) = function
         | [this; dimension] ->
             let array = Memory.Dereference cilState.state this
             let upperBound = Memory.ArrayRank array
-            x.AccessArray accessor cilState this upperBound dimension id
+            x.AccessArray (accessor this dimension) cilState upperBound dimension id
         | _ -> __unreachable__()
     member private x.GetArrayLength (cilState : cilState) args =
         let arrayLengthByDimension arrayRef index (cilState : cilState) k =
@@ -538,14 +538,14 @@ and public ILInterpreter() as this =
     member private x.LdElemWithCast cast (cilState : cilState) : cilState list =
         match cilState.opStack with
         | index :: arrayRef :: stack ->
-            let uncheckedLdElem arrayRef index (cilState : cilState) k =
+            let uncheckedLdElem (cilState : cilState) k =
                 let reference = Memory.ReferenceArrayIndex cilState.state arrayRef [index]
                 let value = Memory.Dereference cilState.state reference
                 k [cast value cilState.state, cilState]
             let checkedLdElem (cilState : cilState) k =
                 let array = Memory.Dereference cilState.state arrayRef
                 let length = Memory.ArrayLength array
-                x.AccessArray uncheckedLdElem cilState arrayRef length index k
+                x.AccessArray uncheckedLdElem cilState length index k
             x.NpeOrInvokeStatement {cilState with opStack = stack} arrayRef checkedLdElem pushFunctionResults
         | _ -> __notImplemented__()
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (castUnchecked typ) cilState
@@ -556,15 +556,27 @@ and public ILInterpreter() as this =
     member private x.StElemWithCast cast (cilState : cilState) =
         match cilState.opStack with
         | value :: index :: arrayRef :: stack ->
-            let uncheckedStElem arrayRef index (cilState : cilState) k =
-                let reference = Memory.ReferenceArrayIndex cilState.state arrayRef [index]
-                let typedValue = cast value cilState.state
-                let t, state = Memory.Mutate cilState.state reference typedValue
-                k [t, {cilState with state = state}]
             let checkedStElem (cilState : cilState) k =
+                let reference = Memory.ReferenceArrayIndex cilState.state arrayRef [index]
+                let typeOfValue = TypeOf value
+                let isTypeOfValueValueType = Types.IsValueType typeOfValue
+                let uncheckedStElem (cilState : cilState) k =
+                    let typedValue = cast value cilState.state
+                    let t, state = Memory.Mutate cilState.state reference typedValue
+                    k [t, {cilState with state = state}]
+                let checkTypeMismatchBasedOnTypeOfValue cond (cilState : cilState) =
+                    StatedConditionalExecutionCIL cilState
+                        (fun state k -> k (cond, state))
+                        uncheckedStElem
+                        (x.Raise x.ArrayTypeMismatchException)
+                let checkTypeMismatch (cilState : cilState) =
+                    StatedConditionalExecutionCIL cilState
+                        (fun state k -> k (isTypeOfValueValueType, state))
+                        (checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsRef typeOfValue reference))
+                        (checkTypeMismatchBasedOnTypeOfValue (Types.RefIsRef value reference))
                 let array = Memory.Dereference cilState.state arrayRef
                 let length = Memory.ArrayLength array
-                x.AccessArray uncheckedStElem cilState arrayRef length index k
+                x.AccessArray checkTypeMismatch cilState length index k
             x.NpeOrInvokeStatement {cilState with opStack = stack} arrayRef checkedStElem getCilStateFromResult
         | _ -> __notImplemented__()
     member private x.StElemTyp typ (cilState : cilState) =
