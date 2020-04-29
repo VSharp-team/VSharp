@@ -204,7 +204,8 @@ type public ExplorerBase() =
         x.InitEntryPoint state funcId.Method.DeclaringType (fun state ->
         x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull, isMethodOfStruct))
 
-    member private x.CreateInstance exceptionType arguments state =
+    abstract CreateInstance : System.Type -> term list -> state -> term * state
+    default x.CreateInstance exceptionType arguments state =
         x.InitEntryPoint state exceptionType (fun state ->
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
