@@ -100,7 +100,7 @@ module API =
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
-        let elementType arrayType = Types.elementType arrayType
+        let ElementType arrayType = Types.elementType arrayType
 
         let TypeIsType leftType rightType = Common.typeIsType m.Value leftType rightType
         let TypeIsNullable typ = Common.isNullable m.Value typ

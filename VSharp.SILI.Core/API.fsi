@@ -84,7 +84,7 @@ module API =
         val String : termType
         val (|StringType|_|) : termType -> unit option
 
-        val elementType : termType -> termType
+        val ElementType : termType -> termType
 
         val TypeIsType : termType -> termType -> term
         val TypeIsNullable : termType -> term
