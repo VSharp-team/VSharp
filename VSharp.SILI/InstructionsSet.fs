@@ -194,9 +194,9 @@ module internal InstructionsSet =
         let stackKey = LocalVariableKey lvi
         let typ = Types.FromDotNetType state lvi.LocalType
         Memory.ReferenceLocalVariable stackKey, state, typ
-    let getArgTerm state index (methodBase : MethodBase) =
+    let getArgTerm index (methodBase : MethodBase) =
         let pi = methodBase.GetParameters().[index]
-        Memory.ReferenceLocalVariable (ParameterKey pi), state
+        Memory.ReferenceLocalVariable (ParameterKey pi)
 
     let castReferenceToPointerIfNeeded term typ state =
         if isReference term && Types.IsPointer typ
@@ -227,21 +227,21 @@ module internal InstructionsSet =
             match cilState.this, cfg.methodBase.IsStatic with
             | None, _
             | Some _, true ->
-                let term, state = getArgTerm state argumentIndex cfg.methodBase
+                let term = getArgTerm argumentIndex cfg.methodBase
                 Memory.Dereference state term, state
             | Some this, _ when argumentIndex = 0 -> this, state
             | Some _, false ->
-                let term, state = getArgTerm state (argumentIndex - 1) cfg.methodBase
+                let term = getArgTerm (argumentIndex - 1) cfg.methodBase
                 Memory.Dereference state term, state
         pushResultOnStack cilState (arg, state) :: []
     let ldarga numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
-        let address, state =
+        let address =
             match cilState.this with
-            | None -> getArgTerm state argumentIndex cfg.methodBase
+            | None -> getArgTerm argumentIndex cfg.methodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
-            | Some _ -> getArgTerm state (argumentIndex - 1) cfg.methodBase
+            | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
         pushResultOnStack cilState (address, state) :: []
     let stloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let variableIndex = numberCreator cfg.ilBytes shiftedOffset
@@ -272,6 +272,7 @@ module internal InstructionsSet =
         let typ = Terms.TypeOf term
         let signedTyp = TypeUtils.unsigned2signedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> signedTyp then
+            // TODO: check whether term is not pointer
             k <| Types.Cast pc term signedTyp // no specs found about overflows
         else k term
     let standardPerformBinaryOperation op =
@@ -348,14 +349,14 @@ module internal InstructionsSet =
         | _ -> __notImplemented__()
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
-        let argTerm, state =
+        let argTerm =
            match cilState.this with
-           | None -> getArgTerm cilState.state argumentIndex cfg.methodBase
-           | Some this when argumentIndex = 0 -> this, cilState.state
-           | Some _ -> getArgTerm cilState.state (argumentIndex - 1) cfg.methodBase
+           | None -> getArgTerm argumentIndex cfg.methodBase
+           | Some this when argumentIndex = 0 -> this
+           | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
         match cilState.opStack with
         | value :: stack ->
-            let _, state = Memory.Mutate state argTerm value
+            let _, state = Memory.Mutate cilState.state argTerm value
             { cilState with opStack = stack; state = state} :: []
         | _ -> __notImplemented__()
     let brcommon condTransform offsets (cilState : cilState) =
@@ -427,6 +428,7 @@ module internal InstructionsSet =
         let typ = Terms.TypeOf term
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
+            // TODO: check whether term is not pointer
             k <| Types.Cast pc term unsignedTyp // no specs found about overflows
         else k term
     let performUnsignedIntegerOperation op (cilState : cilState) =

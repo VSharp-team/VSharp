@@ -47,7 +47,6 @@ module internal TypeCasting =
                     (fun k -> k <| doCast mtd term targetType)
                     k
             | Ptr _
-            | Array _
             | Struct _ -> k <| doCast mtd term targetType
             | _ -> __unreachable__()
         Merging.guardedApplyk primitiveCast term k
