@@ -6,6 +6,54 @@ open System.Collections.Generic
 open VSharp.Utils
 open VSharp.CSharpUtils
 
+type offset = int
+
+// last fields are determined by above fields
+[<CustomEquality;CustomComparison>]
+type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
+                  calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
+    with
+    override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
+    override x.Equals(o : obj) =
+        match o with
+        | :? callSite as other -> x.offset = other.offset && x.sourceMethod = other.sourceMethod
+        | _ -> false
+    interface System.IComparable with
+        override x.CompareTo(other) =
+            match other with
+            | :? callSite as other when x.sourceMethod.Equals(other.sourceMethod) -> x.offset.CompareTo(other.offset)
+            | :? callSite as other -> x.sourceMethod.MetadataToken.CompareTo(other.sourceMethod.MetadataToken)
+            | _ -> -1
+
+type callSiteResults = Map<callSite, term option>
+
+type exceptionRegister =
+    | Unhandled of term
+    | Caught of term
+    | NoException
+    with
+    member x.TransformToCaught () =
+        match x with
+        | Unhandled e -> Caught e
+        | _ -> internalfail "unable TransformToCaught"
+    member x.TransformToUnhandled () =
+        match x with
+        | Caught e -> Unhandled e
+        | _ -> internalfail "unable TransformToUnhandled"
+    member x.UnhandledError =
+        match x with
+        | Unhandled _ -> true
+        | _ -> false
+    member x.ExceptionTerm =
+        match x with
+        | Unhandled error
+        | Caught error -> Some error
+        | _ -> None
+    static member map f x =
+        match x with
+        | Unhandled e -> Unhandled <| f e
+        | Caught e -> Caught <| f e
+        | _ -> NoException
 type compositionContext =
     { mtd : termMetadata; addr : concreteHeapAddress }
     static member Empty = { mtd = Metadata.empty; addr = [] }
@@ -13,7 +61,7 @@ type compositionContext =
 type stack = mappedStack<stackKey, term>
 type pathCondition = term list
 type entry = { key : stackKey; mtd : termMetadata; typ : termType }
-type stackFrame = { func : (IFunctionIdentifier * pathCondition) option; entries : entry list }
+type stackFrame = { func : IFunctionIdentifier * pathCondition; entries : entry list }
 type frames = { f : stackFrame stack; sh : stackHash }
 type 'key generalizedHeap when 'key : equality =
     | Defined of bool * 'key heap // bool = restricted
@@ -24,7 +72,16 @@ type 'key generalizedHeap when 'key : equality =
     | Merged of (term * 'key generalizedHeap) list
 and staticMemory = termType generalizedHeap
 and typeVariables = mappedStack<typeId, termType> * typeId list stack
-and state = { stack : stack; heap : term generalizedHeap; statics : staticMemory; frames : frames; pc : pathCondition; typeVariables : typeVariables }
+and state = { stack : stack
+              heap : term generalizedHeap
+              statics : staticMemory
+              frames : frames
+              pc : pathCondition
+              typeVariables : typeVariables
+              exceptionRegister : exceptionRegister // heap-address of exception object
+              returnRegister : term option // result of function call
+              callSiteResults : callSiteResults
+            }
 
 type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
@@ -76,16 +133,15 @@ module internal State =
         statics = Defined false Heap.empty;
         frames = { f = Stack.empty; sh = List.empty };
         pc = List.empty;
-        typeVariables = (MappedStack.empty, Stack.empty)
+        typeVariables = (MappedStack.empty, Stack.empty);
+        exceptionRegister = NoException;
+        returnRegister = None;
+        callSiteResults = Map.empty<_,_>
     }
 
     let emptyRestricted : state = {
-        stack = MappedStack.empty;
-        heap = Defined true Heap.empty;
-        statics = Defined true Heap.empty;
-        frames = { f = Stack.empty; sh = List.empty };
-        pc = List.empty;
-        typeVariables = (MappedStack.empty, Stack.empty)
+        empty with heap = Defined true Heap.empty;
+                   statics = Defined true Heap.empty
     }
 
     let emptyCompositionContext : compositionContext = compositionContext.Empty
@@ -113,12 +169,9 @@ module internal State =
         { s with stack = newStack; frames = {f = f'; sh = sh} }
 
     let newStackFrame metadata (s : state) funcId frame : state =
-        let frameMetadata = Some(funcId, s.pc)
+        let frameMetadata = (funcId, s.pc)
         let sh' = frameMetadata.GetHashCode()::s.frames.sh
         newStackRegion metadata s frame frameMetadata sh'
-
-    let newScope metadata (s : state) frame : state =
-        newStackRegion metadata s frame None s.frames.sh
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popStack (s : state) : state =
@@ -127,11 +180,8 @@ module internal State =
         let f' = Stack.pop s.frames.f
         let sh = s.frames.sh
         let sh' =
-            match metadata with
-            | Some _ ->
-                assert(not <| List.isEmpty sh)
-                List.tail sh
-            | None -> sh
+            assert(not <| List.isEmpty sh)
+            List.tail sh
         { s with stack = List.fold popOne s.stack locations; frames = { f = f'; sh = sh'} }
 
     let writeStackLocation (s : state) key value : state =
@@ -145,11 +195,8 @@ module internal State =
         let bottomFrame, restFrames = Stack.bottomAndRest s.frames.f
         let sh = s.frames.sh
         let sh' =
-            match bottomFrame.func with
-            | Some _ ->
-                assert(not <| List.isEmpty sh)
-                List.lastAndRest sh |> snd
-            | None -> sh
+            assert(not <| List.isEmpty sh)
+            List.lastAndRest sh |> snd
         let getStackFrame locations =
             let pushOne stack (entry : entry) =
                 match MappedStack.tryFind entry.key s.stack with
@@ -186,6 +233,8 @@ module internal State =
     let framesOf (s : state) = s.frames
     let framesHashOf (s : state) = s.frames.sh
     let pathConditionOf (s : state) = s.pc
+    let returnRegisterOf (s : state) = s.returnRegister
+    let callSiteResultOf (s : state) = s.callSiteResults
 
     let withHeap (s : state) h' = { s with heap = h' }
     let withStatics (s : state) m' = { s with statics = m' }
@@ -294,5 +343,9 @@ module internal State =
         sprintf "{ heap = %s, statics = %s }" sh mh, n, concrete
 
     let dumpMemory (s : state) =
+        let sb = StringBuilder()
+//            match s.returnRegister with
+//            | None -> StringBuilder()
+//            | Some res -> StringBuilder(sprintf "{result = %O},\n" res)
         let dump, _, concrete = dumpMemoryRec s 0 (new StringBuilder()) (new Dictionary<int, string>())
-        if concrete.Length = 0 then dump else sprintf "%s where%O" dump concrete
+        sb.ToString() + (if concrete.Length = 0 then dump else sprintf "%s where%O" dump concrete)

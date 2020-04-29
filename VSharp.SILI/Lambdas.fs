@@ -5,7 +5,7 @@ open VSharp.Core
 type public 'a symbolicLambda = locationBinding -> cilState -> term list symbolicValue -> ((term * cilState) list -> 'a) -> 'a
 
 module internal Lambdas =
-    let make (body : 'a symbolicLambda) typ = Concrete body typ
+    let make (body : 'a symbolicLambda) typ (k : term -> 'a) = Concrete body typ |> k
 
     let private (|Lambda|_|) = function
         | Concrete(lambda, _) when (lambda :? 'a symbolicLambda) ->

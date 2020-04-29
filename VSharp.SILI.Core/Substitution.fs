@@ -7,6 +7,7 @@ module Substitution =
     let private substituteRefTopLevel addressSubst typeSubst = function
         | RefTopLevelHeap(addr, bt, st) -> addressSubst addr bt st
         | RefTopLevelStatics typ -> [True, typ |> typeSubst |> RefTopLevelStatics]
+        | RefRaisedException
         | RefNullAddress
         | RefTopLevelStack _ as tl -> [True, tl]
 

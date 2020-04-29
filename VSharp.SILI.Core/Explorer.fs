@@ -103,18 +103,6 @@ module internal Explorer =
                 statics = HigherOrderApplication(res, addr) }
         k (res, higherOrderState))
 
-    let makeFunctionResultConstant mtd methodId (m : MethodBase) =
-        let typ, isRef =
-            match m with
-            | :? MethodInfo as mi -> mi.ReturnType |> Constructor.fromDotNetType, not mi.ReturnType.IsValueType
-            | :? ConstructorInfo -> m.DeclaringType |> Constructor.fromDotNetType, not m.DeclaringType.IsValueType
-            | _ -> __notImplemented__()
-        let name = "functionResult for " + m.Name
-        let source = {id = methodId; state = State.empty; name = name; typ = typ; location = None; extractor = IdTermExtractor(); typeExtractor = IdTypeExtractor()}
-        if isRef then
-            let address = Constant mtd name source typ
-            Ref mtd (RefTopLevelHeap(address, typ, typ)) []
-        else Constant mtd name source typ
     type recursionOutcomeSource with
         interface IExtractingSymbolicConstantSource with
             override x.ComposeWithoutExtractor ctx state =

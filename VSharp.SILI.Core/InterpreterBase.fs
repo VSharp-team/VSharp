@@ -17,8 +17,7 @@ type public ExplorerBase() =
         | :? IFunctionIdentifier as id ->
             let isRecursiveFrame (frame : stackFrame) =
                 match frame.func with
-                | Some(id', pc') -> id = id' && s.pc = pc'
-                | _ -> false
+                | id', pc' -> id = id' && s.pc = pc'
             s.frames.f |> Stack.pop |> Stack.exists isRecursiveFrame
         ///  TODO: add more logic
         | :? ILCodePortion as ilcode -> //alwaysUnrollValue
@@ -45,7 +44,7 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) k =
-        match Database.querySummary codeLoc with
+        match LegacyDatabase.querySummary codeLoc with
         | Some r -> k r
         | None ->
             let k = API.Reset(); fun x -> API.Restore(); k x
@@ -53,11 +52,9 @@ type public ExplorerBase() =
             let initClosure frames =
                 let state = List.foldBack (fun frame state ->
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
-                    match frame.func with
-                    | Some(f, p) ->
-                        let state = {state with pc = p}
-                        Memory.NewStackFrame state f fr
-                    | None -> Memory.NewScope state fr) frames.f State.empty
+                    let (f, p) = frame.func
+                    let state = {state with pc = p}
+                    Memory.NewStackFrame state f fr) frames.f State.empty
                 { state with pc = List.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
@@ -66,25 +63,13 @@ type public ExplorerBase() =
                     let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
                     let state = if isMethodOfStruct then State.popStack state else state
                     CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                    Database.report funcId res state |> k)
+                    LegacyDatabase.report funcId res state |> k)
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state None (fun (res, state) ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    Database.report ilcode res state |> k)
+                    LegacyDatabase.report ilcode res state |> k)
             | _ -> __notImplemented__()
-
-    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-        let mtd = Metadata.empty
-        let addr = [Memory.freshAddress()]
-        if CurrentlyBeingExploredLocations.Contains codeLoc then
-            Explorer.recursionApplication mtd codeLoc state addr k
-        else
-            let ctx : compositionContext = { mtd = mtd; addr = addr }
-            x.Explore codeLoc (fun summary ->
-            let result = Memory.fillHoles ctx state summary.result
-            let state = Memory.composeStates ctx state summary.state
-            k (result, state))
 
     member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
@@ -104,10 +89,10 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
     member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
-        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
-        if Options.InvokeConcrete () && canUseReflection then
-            API.Marshalling.CallViaReflection state funcId this parameters k
-        else
+//        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
+//        if Options.InvokeConcrete () && canUseReflection then
+//            API.Marshalling.CallViaReflection state funcId this parameters k
+//        else
             x.ReduceFunctionSignature funcId state methodBase this parameters (fun state ->
             x.EnterRecursiveRegion funcId state invoke (fun (result, state) ->
             k (result, Memory.PopStack state)))
@@ -122,7 +107,10 @@ type public ExplorerBase() =
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey lvi
             (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
-        let locals = methodBase.GetMethodBody().LocalVariables |> Seq.map localVarsDecl |> Seq.toList
+        let locals =
+            match methodBase.GetMethodBody() with
+            | null -> []
+            | body -> body.LocalVariables |> Seq.map localVarsDecl |> Seq.toList
         let valueOrFreshConst (param : ParameterInfo option) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
@@ -180,7 +168,12 @@ type public ExplorerBase() =
                     let state = Memory.AllocateDefaultStatic state termType
                     let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
                     match staticConstructor with
-                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) k
+                    | Some cctor ->
+                        let k (term, stateAfterCallingCCtor : state) =
+                            let state = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
+//                            Logger.printLog Logger.Trace "State after static %O constructor call:\n%O" t state
+                            k (term,state)
+                        x.ReduceConcreteCall cctor state None (Specified []) k
                     | None -> k (Nop, state))
                 (snd >> k)
 
@@ -204,7 +197,8 @@ type public ExplorerBase() =
         x.InitEntryPoint state funcId.Method.DeclaringType (fun state ->
         x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull, isMethodOfStruct))
 
-    member private x.CreateInstance exceptionType arguments state =
+    abstract CreateInstance : System.Type -> term list -> state -> term * state
+    default x.CreateInstance exceptionType arguments state =
         x.InitEntryPoint state exceptionType (fun state ->
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
@@ -249,8 +243,25 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
+    member x.ExploreAndCompose codeLoc state k =
+        let mtd = Metadata.empty
+        let addr = [Memory.freshAddress()]
+        let ctx : compositionContext = { mtd = mtd; addr = addr }
+        x.Explore codeLoc (fun summary ->
+        let result = Memory.fillHoles ctx state summary.result
+        let state = Memory.composeStates ctx state summary.state
+        k (result, state))
+    abstract member Invoke : ICodeLocation -> (state -> term option -> (term * state -> 'a) -> 'a)
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
+
+    abstract member ReproduceEffect : ICodeLocation -> state -> (term * state -> 'a) -> 'a
+    default x.ReproduceEffect codeLoc state k =
+        if CurrentlyBeingExploredLocations.Contains codeLoc then
+            let mtd = Metadata.empty
+            let addr = [Memory.freshAddress()]
+            Explorer.recursionApplication mtd codeLoc state addr k
+        else
+            x.ExploreAndCompose codeLoc state k
 
 
 type public IInterpreterState<'InterpreterState when 'InterpreterState :> IInterpreterState<'InterpreterState>> =

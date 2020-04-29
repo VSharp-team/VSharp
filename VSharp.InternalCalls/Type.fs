@@ -15,12 +15,14 @@ module Type =
             match handle.term with
             |  Concrete(:? System.RuntimeTypeHandle as handle, _) -> System.Type.GetTypeFromHandle handle
             | _ -> __notImplemented__()
-        TypeOfMethod state (Types.FromDotNetType state t)
+        __notImplemented__() : term * state
+        //TypeOfMethod state (Types.FromDotNetType state t)
 
     let internal GetType (state : state) (args : term list) =
         assert(List.length args = 1)
         let ref = List.head args
-        GetTypeMethod state ref
+        __notImplemented__() : term * state
+//        GetTypeMethod state ref
 
     let private equality transform (state : state) (args : term list) =
         assert(List.length args = 2)

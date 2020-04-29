@@ -40,14 +40,14 @@ module API =
         val True : term
         val False : term
 
-        val MakeFunctionResultConstant : ICodeLocation -> MethodBase -> term
+        val MakeFunctionResultConstant : callSite -> term
         val MakeNullRef : unit -> term
         val MakeDefault : termType -> term -> term
         val MakeNumber : 'a -> term
 
         val TypeOf : term -> termType
-        val GetTypeMethod : state -> term -> term * state
-        val TypeOfMethod : state -> termType -> term * state
+//        val GetTypeMethod : state -> term -> term * state
+//        val TypeOfMethod : state -> termType -> term * state
         val BaseTypeOfRef : term -> termType
         val SightTypeOfRef : term -> termType
 
@@ -122,7 +122,6 @@ module API =
         val PopStack : state -> state
         val PopTypeVariables : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
-        val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
         val NewTypeVariables : state -> (typeId * termType) list -> state
 
         val ReferenceField : term -> fieldId -> termType -> term
@@ -144,6 +143,7 @@ module API =
         val AllocateDefaultArray : state -> term list -> termType -> term * state
         val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state
         val AllocateString : string -> state -> term * state
+        val AllocateException : state -> termType -> term * state
 
         val IsTypeNameInitialized : termType -> state -> term
         val Dump : state -> string
@@ -156,13 +156,17 @@ module API =
         val StringLength : state -> term -> term * state
         val StringCtorOfCharArray : state -> term -> term -> term * state
 
+        val ComposeStates : state -> state -> (state -> 'a) -> 'a
+
+        val Merge2States : state -> state -> state
+        val FillHoles : state -> term -> (term * state -> 'a) -> 'a
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a
 
-    module Marshalling =
-        val Unmarshal : state -> obj -> term * state
-        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
-        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a
+//    module Marshalling =
+//        val Unmarshal : state -> obj -> term * state
+//        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
+//        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a
 
     module Database =
         val QuerySummary : ICodeLocation -> codeLocationSummary

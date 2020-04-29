@@ -199,9 +199,36 @@ module internal Merging =
 
     let private addToPathConditionIfNeed cond pc = if isTrue cond then pc else cond :: pc
 
+    let mergeReturnRegisters conditions results =
+        let first = List.head results
+        match first with
+        | None -> Prelude.releaseAssert(List.forall Option.isNone results)
+                  None
+        | Some _ -> results |> List.map Option.get |> List.zip conditions |> merge |> Some
+
+    let mergeCallSiteResults conditions (callSiteResults : callSiteResults list) =
+        let acc = List.head conditions, List.head callSiteResults
+        let mergeMaps (accGuard, accMap) g map =
+            Map.fold (fun (accMap : callSiteResults) key value ->
+                match accMap.ContainsKey key, value with
+                | false, _ -> Map.add key value accMap
+                | true, None ->
+                    Prelude.releaseAssert (Map.find key accMap = None)
+                    accMap
+                | _, Some value ->
+                    let accValue = accMap |> Map.find key |> Option.get
+                    let mergedResult = merge2Terms accGuard g accValue value |> Some
+                    Map.add key mergedResult accMap
+                ) accMap map
+            |> withFst (merge2Terms accGuard g accGuard g)
+        let res = List.fold2 mergeMaps acc (List.tail conditions) (List.tail callSiteResults)
+        snd res
     let merge2States condition1 condition2 state1 state2 =
+        let states = [state1; state2]
+        let conditions = [condition1; condition2]
         assert(state1.pc = state2.pc)
 //        assert(state1.frames = state2.frames)
+        assert(List.forall (fun (state : state) -> state.exceptionRegister = exceptionRegister.NoException) states)
         if state1.frames <> state2.frames then __unreachable__()
         let mergedConditions = condition1 ||| condition2
         let mergedPC = addToPathConditionIfNeed mergedConditions state1.pc
@@ -215,11 +242,16 @@ module internal Merging =
             let mergedStack = Utils.MappedStack.merge2 state1.stack state2.stack resolve (State.stackLazyInstantiator state1)
             let mergedHeap = merge2GeneralizedHeaps condition1 condition2 state1.heap state2.heap readHeap resolve
             let mergedStatics = merge2GeneralizedHeaps condition1 condition2 state1.statics state2.statics readStatics resolve
-            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; pc = mergedPC }
+            let mergedReturnRegister = mergeReturnRegisters conditions (List.map State.returnRegisterOf states)
+            let mergedCallSiteResults = mergeCallSiteResults conditions (List.map State.callSiteResultOf states)
+            { state1 with stack = mergedStack; heap = mergedHeap; statics = mergedStatics; pc = mergedPC
+                          exceptionRegister = NoException; returnRegister = mergedReturnRegister; callSiteResults = mergedCallSiteResults }
+
 
     let mergeStates conditions states =
         assert(List.length states > 0)
-        let first = List.head states
+        assert(List.forall (fun (state : state) -> state.exceptionRegister = exceptionRegister.NoException) states)
+        let first : state = List.head states
         let frames = first.frames
         let path = first.pc
         let tv = first.typeVariables
@@ -229,9 +261,12 @@ module internal Merging =
         let mergedStack = Utils.MappedStack.merge conditions (List.map State.stackOf states) merge (State.stackLazyInstantiator first)
         let mergedHeap = mergeGeneralizedHeaps readHeap conditions (List.map State.heapOf states)
         let mergedStatics = mergeGeneralizedHeaps readStatics conditions (List.map State.staticsOf states)
+        let mergedReturnRegister = mergeReturnRegisters conditions (List.map State.returnRegisterOf states)
+        let mergedCallSiteResults = mergeCallSiteResults conditions (List.map State.callSiteResultOf states)
         let mergedConditions = disjunction Metadata.empty conditions
         let mergedPC = if isTrue mergedConditions then path else mergedConditions :: path
-        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = mergedPC; typeVariables = tv }
+        { stack = mergedStack; heap = mergedHeap; statics = mergedStatics; frames = frames; pc = mergedPC; typeVariables = tv;
+          exceptionRegister = NoException; returnRegister = mergedReturnRegister; callSiteResults = mergedCallSiteResults }
 
     let unguard = function
         | {term = Union gvs} -> gvs

@@ -23,6 +23,13 @@ module Logger =
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()
 
+    let public debugPrintLog (vLevel : int) (format : Printf.StringFormat<'a, unit>) =
+        #if DEBUG
+            Printf.ksprintf (fun message -> if current_log_level >= vLevel then writeLineString vLevel message) format
+        #else
+            Printf.ksprintf ignore format
+        #endif
+
     let public printLog vLevel format =
         Printf.ksprintf (fun message -> if current_log_level >= vLevel then writeLineString vLevel message) format
 

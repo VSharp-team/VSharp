@@ -60,9 +60,16 @@ module internal Memory =
                 | :? lazyInstantiation<'a> as li -> x.location = li.location
                 | _ -> false
 
+    [<StructuralEquality;NoComparison>]
+    type private functionResultConstantSource =
+        {callSite : callSite; extractor : TermExtractor}
+        interface IExtractingSymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.WithExtractor e = {x with extractor = e} :> IExtractingSymbolicConstantSource
     let lazyInstantiationWithExtractor location heap extractor typeExtractor : IExtractingSymbolicConstantSource =
         let gli heap = {location = location; heap = heap; extractor = extractor; typeExtractor = typeExtractor} :> IExtractingSymbolicConstantSource
         match heap, location.term with
+        | None, Ref(RefRaisedException, _)
         | None, Ref(RefTopLevelHeap _, _) -> gli (None : term generalizedHeap option)
         | None, Ref(RefTopLevelStatics _, _) -> gli (None : termType generalizedHeap option)
         | None, Ref(RefTopLevelStack _, _) -> gli (None : obj generalizedHeap option)
@@ -261,6 +268,12 @@ module internal Memory =
         | :? lazyInstantiation<obj> as liSource -> makeSymbolicStruct' liSource
         | :? lazyInstantiation<term> as liSource -> makeSymbolicStruct' liSource
         | :? lazyInstantiation<termType> as liSource -> makeSymbolicStruct' liSource
+        | :? functionResultConstantSource ->
+            // TODO: get rid of this shit!
+            let makeField mtd name typ fql =
+                let fieldName = sprintf "%s.%O" structName name
+                makeSymbolicInstance mtd source fieldName typ fql
+            mkStruct metadata false makeField typ fql
         | _ -> __notImplemented__()
 
     let private genericLazyInstantiator metadata heap fql typ () =
@@ -491,7 +504,7 @@ module internal Memory =
     and private independent<'a when 'a : equality> (exploredRecursiveCodeLocs : ImmutableHashSet<ICodeLocation>) (read : ImmutableHashSet<ICodeLocation> -> state -> term * 'a generalizedHeap) codeLoc location : bool =
         exploredRecursiveCodeLocs.Contains codeLoc ||
         let exploredRecursiveIds = exploredRecursiveCodeLocs.Add codeLoc
-        match Database.querySummary codeLoc with
+        match LegacyDatabase.querySummary codeLoc with
         | Some summary ->
             let t, _ = read exploredRecursiveIds summary.state
             let li = genericLazyInstantiator Metadata.empty (None : 'a generalizedHeap option) (getFQLOfRef location) (typeOf location) ()
@@ -562,6 +575,10 @@ module internal Memory =
                     commonHierarchicalStaticsAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator location path
                 let result, m' = accessGeneralizedHeap read (readStatics metadata) staticsOf term accessDefined (staticsOf state)
                 result, withStatics state m'
+            | Ref(RefRaisedException, path) ->
+                assert (List.isEmpty path)
+                assert (state.exceptionRegister.UnhandledError)
+                Option.get state.exceptionRegister.ExceptionTerm, state
             | Ptr(_, _, viewType, shift) ->
                 let ref = getReferenceFromPointer metadata term
                 let term, state = hierarchicalAccess read updateDefined metadata state ref
@@ -728,6 +745,16 @@ module internal Memory =
     and composeStaticsOf ctx state statics =
         composeGeneralizedHeaps readStatics updateStatics substituteTypeVariables ctx staticsOf withStatics state statics
 
+    and composeRaisedExceptionsOf ctx (state : state) (error : exceptionRegister) =
+        error |> exceptionRegister.map (fillHoles ctx state)
+
+    and composeCallSiteResultsOf ctx (state : state) (callSiteResults : callSiteResults) =
+        Map.fold (fun (acc : callSiteResults) key value ->
+            Prelude.releaseAssert(not <| Map.exists (fun k _ -> k = key) acc)
+            match value with
+            | None -> acc
+            | Some v -> Map.add key (fillHoles ctx state v |> Some) acc
+        ) state.callSiteResults callSiteResults
     and composeStates ctx state state' =
         let stateWithNewFrames = composeStacksOf ctx state state'
         let stateWithOldFrames = {stateWithNewFrames with stack = state.stack; frames = state.frames}
@@ -735,7 +762,11 @@ module internal Memory =
         let statics = composeStaticsOf ctx stateWithOldFrames state'.statics
         assert(state'.typeVariables |> snd |> Stack.isEmpty)
         let pc = List.map (fillHoles ctx stateWithOldFrames) state'.pc |> List.append stateWithOldFrames.pc
-        { stateWithNewFrames with heap = heap; statics = statics; pc = pc }
+        let exceptionRegister = composeRaisedExceptionsOf ctx stateWithOldFrames state'.exceptionRegister
+        let returnRegister = Option.map (fillHoles ctx stateWithOldFrames) state'.returnRegister
+        let callSiteResult = composeCallSiteResultsOf ctx stateWithOldFrames state'.callSiteResults
+        { stateWithNewFrames with heap = heap; statics = statics; pc = pc; exceptionRegister = exceptionRegister
+                                  returnRegister = returnRegister; callSiteResults = callSiteResult }
 
 // ------------------------------- High-level read/write -------------------------------
 
@@ -849,6 +880,11 @@ module internal Memory =
         let memoryCell = makeTopLevelKey HeapTopLevelStatics typ typ
         { s with statics = allocateInGeneralizedHeap memoryCell term s.statics }
 
+    let allocateException metadata (s : state) typ =
+        let fql = HeapRaisedException, []
+        let symbolicReference = genericLazyInstantiator metadata None fql typ ()
+        symbolicReference, { s with exceptionRegister = Unhandled symbolicReference }
+
     let makeSymbolicThis metadata state token typ =
         let isRef = concreteIsReferenceType typ // TODO: "this" can be type variable, so we need to branch by "isValueType" condition
         let thisKey = if isRef then ThisKey token else SymbolicThisKey token
@@ -888,7 +924,7 @@ module internal Memory =
             guardOfHeap exploredRecursiveCodeLocs mtd fillHolesInKey getter key (getter s) ||| guardOfHeap exploredRecursiveCodeLocs mtd fillHolesInKey getter filledKey h
         | RecursiveApplication(codeLoc, _) when exploredRecursiveCodeLocs.Contains codeLoc -> False
         | RecursiveApplication(codeLoc, _) ->
-            match Database.querySummary codeLoc with
+            match LegacyDatabase.querySummary codeLoc with
             | Some summary ->
                 guardOfHeap (exploredRecursiveCodeLocs.Add codeLoc) mtd fillHolesInKey getter key <| getter summary.state
             | None -> True
@@ -928,3 +964,27 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.Compose ctx state =
                 keyInitialized ctx.mtd x.key x.fillHolesInKey.v x.getter.v (x.getter.v state)
+
+
+
+
+    let makeFunctionResultConstant mtd (callSite : callSite) =
+        // TODO: what if typ is generic (symbolic) ?
+        let typ =
+            match callSite.calledMethod with
+            | :? System.Reflection.MethodInfo as methodInfo -> methodInfo.ReturnType |> Constructor.fromDotNetType
+            | :? System.Reflection.ConstructorInfo as constructorInfo -> constructorInfo.DeclaringType |> Constructor.fromDotNetType
+            | methodBase -> internalfailf "unknown MethodBase %O" methodBase
+        let name = sprintf "FunctionResult(%O)" callSite
+        let source = {callSite = callSite; extractor = IdTermExtractor()}
+        let fql = (HeapRaisedException, [])|> Some // TODO: remove it. This is a hack before New Memory Model is introduced.
+        makeSymbolicInstance mtd source name typ fql
+    type functionResultConstantSource with
+        interface IExtractingSymbolicConstantSource with
+            override x.ComposeWithoutExtractor ctx state =
+                if Map.containsKey x.callSite state.callSiteResults then
+                    let value = state.callSiteResults.[x.callSite]
+                    Prelude.releaseAssert(Option.isSome value)
+                    Option.get value
+                else makeFunctionResultConstant ctx.mtd x.callSite
+            override x.Compose ctx (state : state) = (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract

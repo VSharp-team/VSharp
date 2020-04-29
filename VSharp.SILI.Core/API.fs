@@ -58,12 +58,12 @@ module API =
         let MakeNullRef () = makeNullRef m.Value
         let MakeDefault typ ref = Merging.guardedApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
 
-        let MakeFunctionResultConstant methodId (mb : MethodBase) = Explorer.makeFunctionResultConstant m.Value methodId mb
+        let MakeFunctionResultConstant (callSite : callSite) = Memory.makeFunctionResultConstant m.Value callSite
         let MakeNumber n = makeNumber m.Value n
 
         let TypeOf term = typeOf term
-        let GetTypeMethod (state : state) term = Marshalling.getTypeMethod m.Value state term
-        let TypeOfMethod (state : state) typ = Marshalling.typeOfMethod m.Value state typ
+//        let GetTypeMethod (state : state) term = Marshalling.getTypeMethod m.Value state term
+//        let TypeOfMethod (state : state) typ = Marshalling.typeOfMethod m.Value state typ
         let BaseTypeOfRef ref = baseTypeOfRef ref
         let SightTypeOfRef ref = sightTypeOfRef ref
 
@@ -140,8 +140,7 @@ module API =
 
         let PopStack state = State.popStack state
         let PopTypeVariables state = State.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis = State.newStackFrame m.Value state funcId parametersAndThis
-        let NewScope state frame = State.newScope m.Value state frame
+        let NewStackFrame state (funcId : IFunctionIdentifier) parametersAndThis = State.newStackFrame m.Value state funcId parametersAndThis
         let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
 
         let ReferenceField parentRef name typ = Memory.referenceBlockField parentRef name typ
@@ -191,6 +190,8 @@ module API =
 
         let AllocateString string state = Memory.allocateString m.Value state string
 
+        let AllocateException state typ = Memory.allocateException m.Value state typ
+
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state
 
@@ -211,14 +212,27 @@ module API =
                 (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" stringFQL, state))
                 (fun state k -> Dereference state arrayRef |> Strings.ctorOfCharArray m.Value stringFQL arrayFQL |> withSnd state |> k)
                 id
+        let ComposeStates state state1 k =
+            Memory.composeStates compositionContext.Empty state state1 |> k
+
+        let Merge2States (state1 : state) (state2 : state) =
+            let pc1 = List.fold (fun pc cond -> pc &&& cond) Terms.True state1.pc
+            let pc2 = List.fold (fun pc cond -> pc &&& cond) Terms.True state2.pc
+            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
+            Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
+
+        let FillHoles (state : state) (term : term) k =
+            let result = Memory.fillHoles compositionContext.Empty state term
+            k (result, state)
+
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g
 
-    module Marshalling =
-        let Unmarshal state (obj : obj) = Marshalling.unmarshalUnknownLocation m.Value state obj
-        let CanBeCalledViaReflection state funcId this args = Marshalling.canBeCalledViaReflection m.Value state funcId this args
-        let CallViaReflection state funcId this args k = Marshalling.callViaReflection m.Value state funcId this args k
+//    module Marshalling =
+//        let Unmarshal state (obj : obj) = Marshalling.unmarshalUnknownLocation m.Value state obj
+//        let CanBeCalledViaReflection state funcId this args = Marshalling.canBeCalledViaReflection m.Value state funcId this args
+//        let CallViaReflection state funcId this args k = Marshalling.callViaReflection m.Value state funcId this args k
 
     module Database =
         let QuerySummary codeLoc =
-            Database.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)
+            LegacyDatabase.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)

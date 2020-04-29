@@ -222,7 +222,8 @@ type termNode =
                 | Some typ -> sprintf "(%sPtr %s as %O)" sort fqlStr typ
                 | None -> sprintf "(%sRef %s)" sort fqlStr
             match topLevel with
-            | RefNullAddress ->
+            | RefNullAddress
+            | RefRaisedException ->
                 assert(List.isEmpty path)
                 fqlStr
             | RefTopLevelHeap _ -> makeRef "Heap"
@@ -269,6 +270,7 @@ and heapTopLevelAddress =
     | HeapTopLevelStack of stackKey
     | HeapTopLevelHeap of term * termType // Address * Base type
     | HeapTopLevelStatics of termType
+    | HeapRaisedException
     interface ITopLevelAddress with
         override x.BaseType with get() =
             match x with
@@ -276,24 +278,29 @@ and heapTopLevelAddress =
             | HeapTopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
             | HeapTopLevelHeap(_, baseType) -> baseType
             | HeapTopLevelStatics termType -> termType
+            | HeapRaisedException -> typeof<System.Exception> |> Types.Constructor.fromDotNetType
     member x.ConvertToRefTopLevel() =
         match x with
         | HeapNullAddress -> RefNullAddress
         | HeapTopLevelStack stackKey -> RefTopLevelStack stackKey
         | HeapTopLevelHeap(address, baseType) -> RefTopLevelHeap(address, baseType, baseType)
         | HeapTopLevelStatics termType -> RefTopLevelStatics termType
+        | HeapRaisedException -> RefRaisedException
+
     override x.ToString() =
         match x with
         | HeapTopLevelStack key -> toString key
         | HeapTopLevelStatics typ -> toString typ
         | HeapTopLevelHeap(key, _) -> toString key
         | HeapNullAddress -> "null"
+        | HeapRaisedException -> "raised exception"
 
 and refTopLevelAddress =
     | RefNullAddress
     | RefTopLevelStack of stackKey
     | RefTopLevelHeap of term * termType * termType // Address * Base type * Sight type
     | RefTopLevelStatics of termType
+    | RefRaisedException
     member private x.Type(needBaseType) =
         match x with
         | RefNullAddress -> Null
@@ -301,6 +308,7 @@ and refTopLevelAddress =
         | RefTopLevelHeap(_, baseType, _) when needBaseType -> baseType
         | RefTopLevelHeap(_, _, sightType) -> sightType
         | RefTopLevelStatics termType -> termType
+        | RefRaisedException -> typeof<System.Exception> |> Types.Constructor.fromDotNetType
     interface ITopLevelAddress with
         override x.BaseType with get() = x.Type(true)
     member x.SightType with get() = x.Type(false)
@@ -310,12 +318,14 @@ and refTopLevelAddress =
         | RefTopLevelStack stackKey -> HeapTopLevelStack stackKey
         | RefTopLevelHeap(address, baseType, _) -> HeapTopLevelHeap(address, baseType)
         | RefTopLevelStatics termType -> HeapTopLevelStatics termType
+        | RefRaisedException -> HeapRaisedException
     override x.ToString() =
         match x with
         | RefTopLevelStack key -> toString key
         | RefTopLevelStatics typ -> toString typ
         | RefTopLevelHeap(key, _, _) -> toString key
         | RefNullAddress -> "null"
+        | RefRaisedException -> "raisedException"
 
 and pathSegment =
     | BlockField of fieldId * termType
@@ -632,6 +642,8 @@ module internal Terms =
 
     let CastConcrete (value : obj) (t : System.Type) metadata =
         let actualType = if box value = null then t else value.GetType()
+        let functionIsCastedToMethodPointer () =
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<System.IntPtr>.IsAssignableFrom(t)
         try
             if actualType = t then
                 Concrete metadata value (fromDotNetType t)
@@ -648,6 +660,8 @@ module internal Terms =
                 Concrete metadata casted (fromDotNetType t)
             elif t.IsAssignableFrom(actualType) then
                 Concrete metadata value (fromDotNetType t)
+            elif functionIsCastedToMethodPointer() then
+                Concrete metadata value (fromDotNetType actualType)
             else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->
@@ -817,6 +831,7 @@ module internal Terms =
         | RefTopLevelHeap(addr, _, _) -> doFold folder visited state addr
         | RefNullAddress
         | RefTopLevelStack _
+        | RefRaisedException
         | RefTopLevelStatics _ -> state
 
     and foldPathSegment folder visited state = function

@@ -11,7 +11,8 @@ module public Prelude =
     let public internalfailf format = Printf.ksprintf internalfail format
     let inline public __notImplemented__() = raise (new System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!") //internalfail "unreachable branch hit!"
-
+    let inline public releaseAssert2(value, message) = if not value then internalfail message
+    let inline public releaseAssert value = releaseAssert2(value, "release assert")
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 

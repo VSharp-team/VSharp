@@ -4,11 +4,11 @@ open System.Reflection
 open System.Collections.Generic
 
 open System.Reflection.Emit
+open System.Runtime.InteropServices
 open VSharp
 
 module public CFG =
-    type internal offset = int
-    type internal graph = List<List<int>>
+    type internal graph = Dictionary<offset, List<offset>>
 
     type public cfgData = {
         methodBase : MethodBase
@@ -18,133 +18,146 @@ module public CFG =
         graph : graph
         reverseGraph : graph
         clauses : ExceptionHandlingClause list
-        offsetsDemandingCall : List<offset>
+        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
     }
-    with
-        member x.IsCallOrNewObjOffset offset =
-            Seq.tryFind ((=) offset) x.offsetsDemandingCall |> Option.isSome
+//    with
+//        member x.IsCallOrNewObjOffset offset =
+//            Seq.tryFind ((=) offset) x.offsetsDemandingCall |> Option.isSome
 
     type private interimData = {
-        verticesOffsets : bool []
-        previousVertexOffset : offset []
-        nextVertexOffset : offset []
-        visitedOffsets : bool []
-        edges : (int * int) List
+        opCodes : OpCode [] //  for debug
+        verticesOffsets : int HashSet
+//        possibleOffsets : int HashSet
+        fallThroughOffset : offset option []
+//        visitedOffsetsOperationalStackBalance : int []
+        edges : Dictionary<offset, List<offset>>
+        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
     }
+    with
+        member x.AddEdge src dst =
+            if not <| x.edges.ContainsKey src then
+                x.edges.Add (src, List<_>())
+            x.edges.[src].Add dst
+
     let private createData (methodBase : MethodBase) =
         let mb = methodBase.GetMethodBody()
         let size = mb.GetILAsByteArray().Length
         let interim = {
-            previousVertexOffset = Array.init size id
-            nextVertexOffset = Array.init size id
-            visitedOffsets = Array.zeroCreate size
-            verticesOffsets = Array.zeroCreate size
-            edges = List<_>()
+            fallThroughOffset = Array.init size (fun _ -> None)
+//            visitedOffsetsOperationalStackBalance = Array.init size (always -1)
+            verticesOffsets = HashSet<_>()
+//            possibleOffsets = HashSet<_>()
+            edges = Dictionary<_, _>()
+            opCodes = Array.init size (fun _ -> OpCodes.Prefix1)
+            offsetsDemandingCall = Dictionary<_,_>()
         }
         let cfg = {
             methodBase = methodBase
             ilBytes = mb.GetILAsByteArray()
             sortedOffsets = List<_>()
             topologicalTimes = null
-            graph = List<_>()
-            reverseGraph = List<_>()
-            clauses = []
-            offsetsDemandingCall = List<_>()
+            graph = Dictionary<_, _>()
+            reverseGraph = Dictionary<_,_>()
+            clauses = List.ofSeq mb.ExceptionHandlingClauses
+            offsetsDemandingCall = Dictionary<_,_>()
         }
         interim, cfg
 
-    let private add (data : cfgData) (s, d) =
-        let sIndex = data.sortedOffsets.BinarySearch(s)
-        let dIndex = data.sortedOffsets.BinarySearch(d)
-        data.graph.[sIndex].Add(dIndex)
-        data.reverseGraph.[dIndex].Add(sIndex)
+    let createVertex (cfgData : cfgData) offset =
+        cfgData.sortedOffsets.Add offset
+        cfgData.graph.Add <| (offset, List<_>())
+        cfgData.reverseGraph.Add <| (offset, List<_>())
 
     let private addVerticesAndEdges (cfgData : cfgData) (interimData : interimData) =
-        List.init (interimData.verticesOffsets.Length) id
-        |> List.iter (fun offset -> if interimData.verticesOffsets.[offset] then cfgData.sortedOffsets.Add offset
-                                                                                 cfgData.graph.Add (List<_>())
-                                                                                 cfgData.reverseGraph.Add (List<_>()))
-        interimData.edges |> Seq.iter (add cfgData)
-        cfgData.sortedOffsets |> Seq.iter (fun v ->
-            let u = interimData.nextVertexOffset.[v]
-            if u <> v then add cfgData (v, u)
-        )
-        cfgData
+        interimData.verticesOffsets
+//        |> Seq.filter (fun offset -> interimData.visitedOffsetsOperationalStackBalance.[offset] = 0)
+//        |> Seq.append interimData.verticesOffsets
+//        |> Seq.distinct
+        |> Seq.sort
+        |> Seq.iter (createVertex cfgData)
 
-    let private markVertex (data : interimData) vOffset =
-        if not data.verticesOffsets.[vOffset] then
-            data.verticesOffsets.[vOffset] <- true
+        let addEdge src dst =
+            cfgData.graph.[src].Add dst
+            cfgData.reverseGraph.[dst].Add src
 
-            let mutable up = data.previousVertexOffset.[vOffset]
-            let mutable down = data.nextVertexOffset.[up]
+        let used = HashSet<offset>()
+        let rec addEdges currentVertex src =
+            if used.Contains src then ()
+            else
+                let wasAdded = used.Add src
+                Prelude.releaseAssert2 (wasAdded, "offset %d couldn't be added")
+                match interimData.fallThroughOffset.[src] with
+                | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
+                    addEdge currentVertex dst
+                    addEdges dst dst
+                | Some dst when cfgData.sortedOffsets.Contains dst ->
+                    addEdge currentVertex dst
+                    addEdges dst dst
+                | Some dst -> addEdges currentVertex dst
+                | None when interimData.edges.ContainsKey src ->
+                    interimData.edges.[src] |> Seq.iter (fun dst ->
+                        if cfgData.sortedOffsets.Contains dst then
+                            addEdge currentVertex dst
+                            addEdges dst dst
+                        else
+                            addEdges currentVertex dst
+                    )
+                | None -> ()
+        cfgData.sortedOffsets |> Seq.iter (fun offset -> addEdges offset offset)
+        { cfgData with offsetsDemandingCall = interimData.offsetsDemandingCall }
 
-            while down < vOffset do
-                up <- down
-                down <- data.nextVertexOffset.[up]
+    let private markVertex (set : HashSet<offset>) vOffset =
+        set.Add vOffset |> ignore
 
-            data.nextVertexOffset.[up] <- vOffset
-            data.previousVertexOffset.[vOffset] <- up
-            data.nextVertexOffset.[vOffset] <- down
-            data.previousVertexOffset.[down] <- vOffset
+    let private dfs methodBase (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
+        let rec dfs'  (v : offset) = //(v : offset, balance)  =
+            if used.Contains v
+            then () // Prelude.releaseAssert(balance = data.visitedOffsetsOperationalStackBalance.[v])
+            else
+                used.Add(v) |> ignore
+//                data.visitedOffsetsOperationalStackBalance.[v] <- balance
+                let opCode = Instruction.parseInstruction ilBytes v
+                data.opCodes.[v] <- opCode
 
-    let private dfs (cfg : cfgData) (data : interimData) (ilBytes : byte []) (v : offset) (lastOffset : offset) =
-        let rec dfsHelper (v : offset)  =
-            data.visitedOffsets.[v] <- true
-            let opcode = Instruction.parseInstruction ilBytes v
-            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opcode ilBytes v
-            match nextTargets with
-            | Choice1Of2 ins when Instruction.shouldSeparateOpcode opcode ->
-                cfg.offsetsDemandingCall.Add v
-                markVertex data v
-                markVertex data ins
-                if not data.visitedOffsets.[ins] then
-                    dfsHelper ins
-                data.edges.Add(v, ins)
-            | Choice1Of2 ins ->
-                if ins > lastOffset
-                then markVertex data v // marking leave.s going to next instruction as terminal
-                else
-                    let niV = data.previousVertexOffset.[v]
-                    data.previousVertexOffset.[ins] <- niV
-                    data.nextVertexOffset.[niV] <- ins
-                    if not data.visitedOffsets.[ins] then
-                        dfsHelper ins
-            | Choice2Of2 restTargets ->
-                // marking terminal vertices
-                markVertex data v
-                for x in restTargets do
-                    if x <= lastOffset then
-                        markVertex data x
-                        if not data.visitedOffsets.[x] then
-                            dfsHelper x
-                        data.edges.Add(v, x)
-        dfsHelper v
-    let private dfsComponent cfg (data : interimData) (ilBytes : byte []) startOffset lastOffset =
-        markVertex data startOffset
-        dfs cfg data ilBytes startOffset lastOffset
+                let dealWithJump src dst =
+                    markVertex data.verticesOffsets src
+                    markVertex data.verticesOffsets dst
+                    data.AddEdge src dst
+//                    let newBalance = Instruction.countOperationalStackBalance opCode None balance
+                    dfs' dst
 
-    let private dfsExceptionHandlingClause cfg (data : interimData) (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
+                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
+                match ipTransition with
+                | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
+                    let calledMethod = Instruction.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
+                    data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
+                    markVertex data.verticesOffsets v
+                    markVertex data.verticesOffsets offset
+                    data.fallThroughOffset.[v] <- Some offset
+//                    let newBalance = Instruction.countOperationalStackBalance opCode (Some calledMethod) balance
+                    dfs' offset
+                | FallThrough offset ->
+                    data.fallThroughOffset.[v] <- Some offset
+//                    let newBalance = Instruction.countOperationalStackBalance opCode None balance
+                    dfs' offset
+                | ExceptionMechanism
+                | Return -> ()
+                | UnconditionalBranch target -> dealWithJump v target
+                | ConditionalBranch offsets -> offsets |> List.iter (dealWithJump v)
+        dfs' v
+    let private dfsComponent methodBase (data : interimData) (ilBytes : byte []) startOffset =
+        markVertex data.verticesOffsets startOffset
+        dfs methodBase data (new HashSet<int>()) ilBytes startOffset
+
+    let private dfsExceptionHandlingClause methodBase (data : interimData) (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
         if ehc.Flags = ExceptionHandlingClauseOptions.Filter
-        then dfsComponent cfg data ilBytes ehc.FilterOffset (ilBytes.Length - 1)
-        dfsComponent cfg data ilBytes ehc.HandlerOffset (ilBytes.Length - 1) // some catch handlers may be nested
-    let topDfs cnt (gr : graph) =
-        let mutable t = cnt
-        let topTm = Array.create cnt -1
-        let rec helperH v =
-            topTm.[v] <- 0
-            gr.[v] |> Seq.iter (fun u -> if topTm.[u] = -1 then helperH u)
-            topTm.[v] <- t
-            t <- t - 1
-        for i in [0 .. cnt - 1] do
-            if topTm.[i] = -1 then helperH i
-        topTm
+        then dfsComponent methodBase data ilBytes ehc.FilterOffset
+        dfsComponent methodBase data ilBytes ehc.HandlerOffset // some catch handlers may be nested
 
     let build (methodBase : MethodBase) =
-        let methodBody = methodBase.GetMethodBody()
         let interimData, cfgData = createData methodBase
+        let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()
-        dfsComponent cfgData interimData ilBytes 0 (ilBytes.Length - 1)
-        Seq.iter (dfsExceptionHandlingClause cfgData interimData ilBytes) methodBody.ExceptionHandlingClauses
-        let cfgData = { cfgData with clauses = List.ofSeq methodBody.ExceptionHandlingClauses }
-        let cfgData = addVerticesAndEdges cfgData interimData
-        { cfgData with topologicalTimes = topDfs cfgData.sortedOffsets.Count cfgData.graph }
+        dfsComponent methodBase interimData ilBytes 0
+        Seq.iter (dfsExceptionHandlingClause methodBase interimData ilBytes) methodBody.ExceptionHandlingClauses
+        addVerticesAndEdges cfgData interimData
