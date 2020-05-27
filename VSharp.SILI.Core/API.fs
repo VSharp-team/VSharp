@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System
 open System.Reflection
 open VSharp
 
@@ -12,8 +13,8 @@ module API =
 
     let Configure activator =
         State.configure activator
-    let ConfigureSolver solver =
-        Common.configureSolver solver
+//    let ConfigureSolver solver =
+//        Common.configureSolver solver
     let ConfigureSimplifier simplifier =
         Propositional.configureSimplifier simplifier
     let Reset() =
@@ -82,6 +83,7 @@ module API =
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
         let ConstantsOf terms = discoverConstants terms
+        let Substitute subst term = Substitution.substitute subst (fun addr bt st -> [True, RefTopLevelHeap(addr, bt, st)]) id term
 
         let AddConditionToState conditionState condition = State.withPathCondition conditionState condition
 
@@ -191,6 +193,7 @@ module API =
 
         let AllocateString string state = Memory.allocateString m.Value state string
 
+        let HasEffectOnAddress state address = Memory.hasAddress address state
         let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
         let Dump state = State.dumpMemory state
 
@@ -217,9 +220,9 @@ module API =
         let CanBeCalledViaReflection state funcId this args = Marshalling.canBeCalledViaReflection m.Value state funcId this args
         let CallViaReflection state funcId this args k = Marshalling.callViaReflection m.Value state funcId this args k
 
-    module Database =
+    module LegacyDatabase =
         let QuerySummary codeLoc =
-            Database.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)
+            LegacyDatabase.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)
 
     module RuntimeExceptions =
         let InvalidCastException state thrower =

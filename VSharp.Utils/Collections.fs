@@ -1,5 +1,6 @@
 namespace VSharp
 
+open System.Collections
 open System.Collections.Generic
 
 module public Seq =
@@ -106,7 +107,7 @@ module public Dict =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
 
-    let public tryGetValue2 (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+    let public tryGetValue2 (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue()
 
@@ -118,6 +119,13 @@ module public Dict =
     let public equals (dict1 : IDictionary<'a,'b>) (dict2 : IDictionary<'a, 'b>) =
         dict1.Keys.Count = dict2.Keys.Count &&
         dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
+
+    let public toString format separator keyMapper valueMapper sorter (d : IDictionary<'a, 'b>) =
+        d
+        |> Seq.sortBy (fun kv -> sorter kv.Key)
+        |> Seq.map (fun kv -> sprintf format (keyMapper kv.Key) (valueMapper kv.Value))
+        |> join separator
+
 
 type 'a stack = 'a list
 

@@ -10,13 +10,15 @@
         <Compile Include="InstructionsSet.fs" />
         <Compile Include="Lambdas.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="Variables.fs" />
+        <Compile Include="CFA.fs" />
         <Compile Include="Engine.fs" />
-        <Compile Include="StepInterpreter.fs" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+      <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
 </Project>

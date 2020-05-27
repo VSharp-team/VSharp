@@ -72,7 +72,7 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) k =
-        match Database.querySummary codeLoc with
+        match LegacyDatabase.querySummary codeLoc with
         | Some r -> k r
         | None ->
             let k = API.Reset(); fun x -> API.Restore(); k x
@@ -93,12 +93,12 @@ type public ExplorerBase() =
                     let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
                     let state = if isMethodOfStruct then State.popStack state else state
                     CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                    Database.report funcId res state |> k)
+                    LegacyDatabase.report funcId res state |> k)
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state None (fun (res, state) ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    Database.report ilcode res state |> k)
+                    LegacyDatabase.report ilcode res state |> k)
             | _ -> __notImplemented__()
 
     member x.ReproduceEffect (codeLoc : ICodeLocation) state k =

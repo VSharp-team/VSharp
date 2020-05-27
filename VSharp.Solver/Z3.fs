@@ -1,7 +1,8 @@
-namespace VSharp
+namespace VSharp.Solver
 
 open Microsoft.Z3
 open System.Collections.Generic
+open VSharp
 open VSharp.Core
 open Logger
 
@@ -13,9 +14,6 @@ module internal Z3 =
         sorts : IDictionary<termType, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, Expr>
-        relationSymbols : IDictionary<relation, FuncDecl>
-        rules : IDictionary<IFunctionIdentifier, BoolExpr seq>
-        mutable boundVarId : uint32
     } with
         member x.Get term encoder =
             Dict.tryGetValue2 x.t2e term (fun () ->
@@ -28,229 +26,247 @@ module internal Z3 =
         sorts = new Dictionary<termType, Sort>()
         e2t = new Dictionary<Expr, term>()
         t2e = new Dictionary<term, Expr>()
-        relationSymbols = new Dictionary<relation, FuncDecl>()
-        rules = new Dictionary<IFunctionIdentifier, BoolExpr seq>()
-        boundVarId = 0u
     }
-
-    type private EncodingContext() as this =
-        inherit Context()
-        let cache = freshCache()
-        let fp = this.MkFixedpoint()
-        member x.Cache = cache
-        member x.FP = fp
-
-    let private ctxs = new System.Collections.Generic.Stack<EncodingContext>()
-    let private ctx() = ctxs.Peek()
-
-    let private freshBoundVar sort =
-        (ctx()).Cache.boundVarId <- (ctx()).Cache.boundVarId + 1u
-        (ctx()).MkBound((ctx()).Cache.boundVarId, sort)
 
 // ------------------------------- Encoding: primitives -------------------------------
 
-    let private validateId id =
-        assert(not <| System.String.IsNullOrWhiteSpace id)
-        if System.Char.IsDigit id.[0] then "_" + id else id
+    type private Z3Builder(ctx : Context) =
+        let cache = freshCache()
 
-    let private type2Sort typ =
-        Dict.getValueOrUpdate (ctx()).Cache.sorts typ (fun () ->
+        member private x.ValidateId id =
+            assert(not <| System.String.IsNullOrWhiteSpace id)
+            if System.Char.IsDigit id.[0] then "_" + id else id
+
+        member private x.Type2Sort typ =
+            Dict.getValueOrUpdate cache.sorts typ (fun () ->
+                match typ with
+                | Bool -> ctx.MkBoolSort() :> Sort
+                | Numeric(Id t) when t.IsEnum -> ctx.MkIntSort() :> Sort
+                | Numeric _ as t when Types.IsInteger t -> ctx.MkIntSort() :> Sort
+                | Numeric _ as t when Types.IsReal t -> ctx.MkRealSort() :> Sort
+                | Numeric _
+                | ArrayType _
+                | Void
+                | Bottom
+                | Null
+                | StructType _
+                | ClassType _
+                | InterfaceType _
+                | TypeVariable _
+                | Pointer _ -> __notImplemented__())
+
+        member private x.EncodeConcrete (obj : obj) typ =
             match typ with
-            | Bool -> (ctx()).MkBoolSort() :> Sort
-            | Numeric(Id t) when t.IsEnum -> (ctx()).MkIntSort() :> Sort
-            | Numeric _ as t when Types.IsInteger t -> (ctx()).MkIntSort() :> Sort
-            | Numeric _ as t when Types.IsReal t -> (ctx()).MkRealSort() :> Sort
-            | Numeric _
-            | ArrayType _
-            | Void
-            | Bottom
-            | Null
-            | StructType _
-            | ClassType _
-            | InterfaceType _
-            | TypeVariable _
-            | Pointer _ -> __notImplemented__())
-
-    let private encodeConcrete (obj : obj) typ =
-        match typ with
-        | Bool -> (ctx()).MkBool(obj :?> bool) :> Expr
-        | Numeric(Id t) when t = typeof<char> -> (ctx()).MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, type2Sort typ)
-        | Numeric(Id t) ->
-            match obj with
-            | :? concreteHeapAddress as addr ->
-                match addr with
-                | [addr] -> (ctx()).MkNumeral(addr.ToString(), type2Sort typ)
-                | _ -> __notImplemented__()
-            | _ when TypeUtils.isIntegral (obj.GetType()) -> (ctx()).MkInt(obj.ToString()) :> Expr
-            | _ when t.IsEnum -> (ctx()).MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
-            | _ -> (ctx()).MkNumeral(obj.ToString(), type2Sort typ)
-        | _ -> __notImplemented__()
-
-    let private encodeConstant name typ term =
-        ignore name
-        (ctx()).Cache.Get term (fun () -> freshBoundVar(type2Sort typ))
-//        cache.Get term (fun () -> (ctx()).MkConst(validateId name, type2Sort typ))
-
-    let rec private encodeExpression stopper term op args typ =
-        (ctx()).Cache.Get term (fun () ->
-            match op with
-            | Operator(operator, _) ->
-                if stopper operator args then
-                    let name = IdGenerator.startingWith "%tmp"
-                    encodeConstant name typ term
-                else
-                    match operator with
-                    | OperationType.LogicalNeg -> makeUnary stopper (ctx()).MkNot args :> Expr
-                    | OperationType.LogicalAnd -> (ctx()).MkAnd(encodeTerms stopper args) :> Expr
-                    | OperationType.LogicalOr -> (ctx()).MkOr(encodeTerms stopper args) :> Expr
-                    | OperationType.Equal -> makeBinary stopper (ctx()).MkEq args :> Expr
-                    | OperationType.Greater -> makeBinary stopper (ctx()).MkGt args :> Expr
-                    | OperationType.GreaterOrEqual -> makeBinary stopper (ctx()).MkGe args :> Expr
-                    | OperationType.Less -> makeBinary stopper (ctx()).MkLt args :> Expr
-                    | OperationType.LessOrEqual -> makeBinary stopper (ctx()).MkLe args :> Expr
-                    | OperationType.Add -> (ctx()).MkAdd(encodeTerms stopper args) :> Expr
-                    | OperationType.Multiply -> (ctx()).MkMul(encodeTerms stopper args) :> Expr
-                    | OperationType.Subtract -> (ctx()).MkSub(encodeTerms stopper args) :> Expr
-                    | OperationType.Divide -> makeBinary stopper (ctx()).MkDiv args :> Expr
-                    | OperationType.Remainder -> makeBinary stopper (ctx()).MkRem args :> Expr
-                    | OperationType.UnaryMinus -> makeUnary stopper (ctx()).MkUnaryMinus args :> Expr
-                    | OperationType.Not -> makeUnary stopper (ctx()).MkNot args :> Expr
-                    | OperationType.ShiftLeft
-                    | OperationType.ShiftRight -> __notImplemented__()
+            | Bool -> ctx.MkBool(obj :?> bool) :> Expr
+            | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
+            | Numeric(Id t) ->
+                match obj with
+                | :? concreteHeapAddress as addr ->
+                    match addr with
+                    | [addr] -> ctx.MkNumeral(addr.ToString(), x.Type2Sort typ)
                     | _ -> __notImplemented__()
-            | Application id ->
-                let decl =
-                    match id with
-                    | :? IMethodIdentifier -> __notImplemented__()
-                    | :? StandardFunctionIdentifier as sf -> (ctx()).MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, type2Sort typ)
-                    | _ -> __notImplemented__()
-                (ctx()).MkApp(decl, encodeTerms stopper args)
-            | Cast(Numeric _, Numeric _, false) -> encodeTermExt stopper (List.head args)
-            | Cast _ ->
-                __notImplemented__())
+                | _ when TypeUtils.isIntegral (obj.GetType()) -> ctx.MkInt(obj.ToString()) :> Expr
+                | _ when t.IsEnum -> ctx.MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
+                | _ -> ctx.MkNumeral(obj.ToString(), x.Type2Sort typ)
+            | _ -> __notImplemented__()
 
-    and private makeUnary<'a, 'b when 'a :> Expr and 'b :> Expr>
-            (stopper : OperationType -> term list -> bool)
-            (constructor : 'a -> 'b)
-            (args : term list) : 'b =
-        match args with
-        | [x] -> constructor (encodeTermExt<'a> stopper x)
-        | _ -> internalfail "unary operation should have exactly one argument"
+        member private x.EncodeConstant name typ term =
+            cache.Get term (fun () -> ctx.MkConst(x.ValidateId name, x.Type2Sort typ))
 
-    and private makeBinary<'a, 'b, 'c when 'a :> Expr and 'b :> Expr and 'c :> Expr>
-            (stopper : OperationType -> term list -> bool)
-            (constructor : 'a * 'b -> 'c)
-            (args : term list) : 'c =
-        match args with
-        | [x; y] -> constructor(encodeTermExt<'a> stopper x, encodeTermExt<'b> stopper y)
-        | _ -> internalfail "binary operation should have exactly two arguments"
+        member private x.EncodeExpression stopper term op args typ =
+            cache.Get term (fun () ->
+                match op with
+                | Operator(operator, _) ->
+                    if stopper operator args then
+                        let name = IdGenerator.startingWith "%tmp"
+                        x.EncodeConstant name typ term
+                    else
+                        match operator with
+                        | OperationType.LogicalNeg -> x.MakeUnary stopper ctx.MkNot args :> Expr
+                        | OperationType.LogicalAnd -> ctx.MkAnd(x.EncodeTerms stopper args) :> Expr
+                        | OperationType.LogicalOr -> ctx.MkOr(x.EncodeTerms stopper args) :> Expr
+                        | OperationType.Equal -> x.MakeBinary stopper ctx.MkEq args :> Expr
+                        | OperationType.Greater -> x.MakeBinary stopper ctx.MkGt args :> Expr
+                        | OperationType.GreaterOrEqual -> x.MakeBinary stopper ctx.MkGe args :> Expr
+                        | OperationType.Less -> x.MakeBinary stopper ctx.MkLt args :> Expr
+                        | OperationType.LessOrEqual -> x.MakeBinary stopper ctx.MkLe args :> Expr
+                        | OperationType.Add -> ctx.MkAdd(x.EncodeTerms stopper args) :> Expr
+                        | OperationType.Multiply -> ctx.MkMul(x.EncodeTerms stopper args) :> Expr
+                        | OperationType.Subtract -> ctx.MkSub(x.EncodeTerms stopper args) :> Expr
+                        | OperationType.Divide -> x.MakeBinary stopper ctx.MkDiv args :> Expr
+                        | OperationType.Remainder -> x.MakeBinary stopper ctx.MkRem args :> Expr
+                        | OperationType.UnaryMinus -> x.MakeUnary stopper ctx.MkUnaryMinus args :> Expr
+                        | OperationType.Not -> x.MakeUnary stopper ctx.MkNot args :> Expr
+                        | OperationType.ShiftLeft
+                        | OperationType.ShiftRight -> __notImplemented__()
+                        | _ -> __notImplemented__()
+                | Application id ->
+                    let decl =
+                        match id with
+                        | :? IMethodIdentifier -> __notImplemented__()
+                        | :? StandardFunctionIdentifier as sf -> ctx.MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
+                        | _ -> __notImplemented__()
+                    ctx.MkApp(decl, x.EncodeTerms stopper args)
+                | Cast(Numeric _, Numeric _, false) -> x.EncodeTermExt stopper (List.head args)
+                | Cast _ ->
+                    __notImplemented__())
 
-    and private encodeTerms<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (ts : term seq) : 'a array =
-        ts |> Seq.map (encodeTermExt<'a> stopper) |> FSharp.Collections.Array.ofSeq
+        member private this.MakeUnary<'a, 'b when 'a :> Expr and 'b :> Expr>
+                (stopper : OperationType -> term list -> bool)
+                (constructor : 'a -> 'b)
+                (args : term list) : 'b =
+            match args with
+            | [x] -> constructor (this.EncodeTermExt<'a> stopper x)
+            | _ -> internalfail "unary operation should have exactly one argument"
 
-    and private encodeTermExt<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (t : term) : 'a =
-        match t.term with
-        | Concrete(obj, typ) -> encodeConcrete obj typ :?> 'a
-        | Constant(name, _, typ) -> encodeConstant name.v typ t :?> 'a
-        | Expression(op, args, typ) -> encodeExpression stopper t op args typ :?> 'a
-        | _ -> __notImplemented__()
+        member private this.MakeBinary<'a, 'b, 'c when 'a :> Expr and 'b :> Expr and 'c :> Expr>
+                (stopper : OperationType -> term list -> bool)
+                (constructor : 'a * 'b -> 'c)
+                (args : term list) : 'c =
+            match args with
+            | [x; y] -> constructor(this.EncodeTermExt<'a> stopper x, this.EncodeTermExt<'b> stopper y)
+            | _ -> internalfail "binary operation should have exactly two arguments"
 
-    let private encodeTerm<'a when 'a :> Expr> (t : term) : 'a =
-        encodeTermExt<'a> (fun _ _ -> false) t
+        member private x.EncodeTerms<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (ts : term seq) : 'a array =
+            ts |> Seq.map (x.EncodeTermExt<'a> stopper) |> FSharp.Collections.Array.ofSeq
 
-// ------------------------------- Encoding: clauses -------------------------------
+        member private x.EncodeTermExt<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (t : term) : 'a =
+            match t.term with
+            | Concrete(obj, typ) -> x.EncodeConcrete obj typ :?> 'a
+            | Constant(name, _, typ) -> x.EncodeConstant name.v typ t :?> 'a
+            | Expression(op, args, typ) -> x.EncodeExpression stopper t op args typ :?> 'a
+            | _ -> __notImplemented__()
 
-    let private encodeApp (app : relationalApplication) =
-        let decl = Dict.getValueOrUpdate ((ctx()).Cache.relationSymbols) app.symbol (fun () ->
-            let domain = List.map type2Sort app.symbol.signature
-            let decl = (ctx()).MkFuncDecl(app.symbol.id, Array.ofList domain, (ctx()).MkBoolSort())
-            (ctx()).FP.RegisterRelation decl
-            decl)
-        let args = List.map encodeTerm app.args
-        (ctx()).MkApp(decl, args) :?> BoolExpr
+        member public x.EncodeTerm<'a when 'a :> Expr> (t : term) : 'a =
+            x.EncodeTermExt<'a> (fun _ _ -> false) t
 
-    let private encodeClause failRel (chc : CHC) =
-        let constraints = List.map encodeTerm chc.constraints
-        let body = List.map encodeApp chc.body
-        let head =
-            match chc.head with
-            | Some head -> encodeApp head
-            | None -> failRel
-        (ctx()).MkImplies(List.append constraints body |> Array.ofList |> (ctx()).MkAnd, head)
+    // ------------------------------- Decoding -------------------------------
 
-    let private encodeSystem (chcs : CHCSystem) =
-        let failRel =
-            let decl = (ctx()).MkFuncDecl(IdGenerator.startingWith "fail", [||], (ctx()).MkBoolSort())
-            (ctx()).FP.RegisterRelation decl
-            (ctx()).MkApp(decl, [||]) :?> BoolExpr
-        chcs |> List.iter (encodeClause failRel >> (ctx()).FP.AddRule)
-        failRel
+        member private x.DecodeExpr op t (expr : Expr) =
+            Expression (Operator(op, false)) (expr.Args |> Seq.map x.Decode |> List.ofSeq) t
 
-// ------------------------------- Decoding -------------------------------
+        member private x.DecodeBoolExpr op (expr : Expr) =
+            x.DecodeExpr op Bool expr
 
-    let rec private decodeExpr op t (expr : Expr) =
-        Expression (Operator(op, false)) (expr.Args |> Seq.map decode |> List.ofSeq) t
+        member public x.Decode (expr : Expr) =
+            if cache.e2t.ContainsKey(expr) then cache.e2t.[expr]
+            else
+                match expr with
+                | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
+                | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
+                | _ ->
+                    if expr.IsTrue then True
+                    elif expr.IsFalse then False
+                    elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNeg expr
+                    elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
+                    elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
+                    elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
+                    elif expr.IsGT then x.DecodeBoolExpr OperationType.Greater expr
+                    elif expr.IsGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
+                    elif expr.IsLT then x.DecodeBoolExpr OperationType.Less expr
+                    elif expr.IsLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
+                    else __notImplemented__()
 
-    and private decodeBoolExpr op (expr : Expr) =
-        decodeExpr op Bool expr
+    let private ctx = new Context()
+    let private builder = new Z3Builder(ctx)
 
-    and decode (expr : Expr) =
-        if (ctx()).Cache.e2t.ContainsKey(expr) then (ctx()).Cache.e2t.[expr]
-        else
-            match expr with
-            | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
-            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
-            | _ ->
-                if expr.IsTrue then True
-                elif expr.IsFalse then False
-                elif expr.IsNot then decodeBoolExpr OperationType.LogicalNeg expr
-                elif expr.IsAnd then decodeBoolExpr OperationType.LogicalAnd expr
-                elif expr.IsOr then decodeBoolExpr OperationType.LogicalOr expr
-                elif expr.IsEq then decodeBoolExpr OperationType.Equal expr
-                elif expr.IsGT then decodeBoolExpr OperationType.Greater expr
-                elif expr.IsGE then decodeBoolExpr OperationType.GreaterOrEqual expr
-                elif expr.IsLT then decodeBoolExpr OperationType.Less expr
-                elif expr.IsLE then decodeBoolExpr OperationType.LessOrEqual expr
-                else __notImplemented__()
+    type internal Z3Solver() =
+        let optCtx = ctx.MkOptimize()
+        let levelAtoms = List<BoolExpr>()
+        let mutable pathsCount = 0u
+        let pathAtoms = Dictionary<level, List<BoolExpr>>()
+        let paths = Dictionary<BoolExpr, path>()
 
-// ------------------------------- Solving, etc. -------------------------------
+        let getLevelAtom (lvl : level) =
+            assert (not <| Level.isInf lvl)
+            let idx = Level.toInt lvl
+            if levelAtoms.Count > idx then
+                levelAtoms.[idx]
+            else
+                let atom = ctx.MkBoolConst(sprintf "lvl!%O" lvl)
+                levelAtoms.Insert(idx, atom)
+                atom
 
-    let solve (system : CHCSystem) =
-        let context = new EncodingContext()
-        ctxs.Push(context)
-        try
-            printLog Info "SOLVER: trying to solve CHC system..."
-            printLogLazy Trace "%O" (lazy(system |> List.map toString |> join "\n"))
-            let failRel = encodeSystem system
-            let result = (ctx()).FP.Query(failRel)
-            printLog Trace "SOLVER: got %O" result
-            match result with
-            | Status.SATISFIABLE -> SmtSat null
-            | Status.UNSATISFIABLE -> SmtUnsat
-            | Status.UNKNOWN -> printLog Trace "SOLVER: reason: %O" <| (ctx()).FP.GetReasonUnknown(); SmtUnknown ((ctx()).FP.GetReasonUnknown())
-            | _ -> __unreachable__()
-        finally
-            ctxs.Pop() |> ignore
-            context.Dispose()
+        let addPath (p : path) =
+            let idx = pathsCount
+            pathsCount <- pathsCount + 1u
+            let atom = ctx.MkBoolConst(sprintf "path!%O!%O" p.lvl idx)
+            (Dict.tryGetValue2 pathAtoms p.lvl (fun () -> new List<BoolExpr>())).Add atom
+            paths.Add(atom, p)
+            atom
 
-    let simplifyPropositional t =
-        let stopper op args =
-            match op with
-            | OperationType.LogicalNeg
-            | OperationType.LogicalAnd
-            | OperationType.LogicalOr
-            | OperationType.Equal when List.forall (TypeOf >> Types.IsBool) args ->
-                false
-            | _ -> true
-        let context = new EncodingContext()
-        ctxs.Push(context)
-        try
-            let encoded = encodeTermExt stopper t
-            let simple = encoded.Simplify()
-            let result = decode simple
-            printLog Trace "SOLVER: simplification of %O   gave   %O" t result
-            printLog Trace "SOLVER: on SMT level encodings are %O    and     %O" encoded simple
-            result
-        finally
-            ctxs.Pop() |> ignore
-            context.Dispose()
+        let addSoftConstraints lvl =
+            let pathAtoms =
+                seq {
+                    for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
+                        if levelAtoms.[i] <> null then
+                            yield! pathAtoms.[uint32(i)]
+                }
+            optCtx.Push()
+            let weight = 1u
+            let group = null
+            pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
+            pathAtoms
+
+        let convertZ3Model m =
+            // TODO: implement model conversion!
+            ignore m
+            model()
+
+        interface ISolver with
+            member x.CheckSat (q : query) : smtResult =
+                printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
+                printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
+                let query = builder.EncodeTerm q.queryFml
+                let assumptions =
+                    seq {
+                        for i in 0 .. levelAtoms.Count - 1 do
+                            let atom = levelAtoms.[i]
+                            if atom <> null then
+                                let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
+                                yield lit :> Expr
+                        yield query :> Expr
+                    } |> Array.ofSeq
+                let pathAtoms = addSoftConstraints q.lvl
+                try
+                    try
+                        let result = optCtx.Check assumptions
+                        printLog Info "SOLVER: got %O" result
+                        match result with
+                        | Status.SATISFIABLE ->
+                            let z3Model = optCtx.Model
+                            let model = convertZ3Model z3Model
+                            let usedPaths =
+                                pathAtoms
+                                |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
+                                |> Seq.map (fun atom -> paths.[atom])
+                            SmtSat { mdl = model; usedPaths = usedPaths }
+                        | Status.UNSATISFIABLE -> SmtUnsat { core = unsatCore() }
+                        | Status.UNKNOWN ->
+                            printLog Trace "SOLVER: reason: %O" <| optCtx.ReasonUnknown
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? Z3Exception as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    optCtx.Pop()
+
+            member x.Assert (lvl : level) (fml : formula) =
+                printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl
+                printLogLazy Trace "%s" (lazy(fml.ToString()))
+                let encoded = builder.EncodeTerm(fml)
+                let leveled =
+                    if Level.isInf lvl then encoded
+                    else
+                        let levelAtom = getLevelAtom lvl
+                        ctx.MkImplies(levelAtom, encoded)
+                optCtx.Assert(leveled)
+
+            member x.AddPath (p : path) =
+                printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
+                printLogLazy Trace "    %s" (lazy(p.state.pc |> List.map toString |> join " /\\ \n     "))
+                let pathAtom = addPath p
+                let encoded = List.map builder.EncodeTerm p.state.pc |> ctx.MkAnd
+                optCtx.Assert(ctx.MkImplies(pathAtom, encoded))

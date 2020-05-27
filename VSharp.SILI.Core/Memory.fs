@@ -496,7 +496,7 @@ module internal Memory =
     and private independent<'a when 'a : equality> (exploredRecursiveCodeLocs : ImmutableHashSet<ICodeLocation>) (read : ImmutableHashSet<ICodeLocation> -> state -> term * 'a generalizedHeap) codeLoc location : bool =
         exploredRecursiveCodeLocs.Contains codeLoc ||
         let exploredRecursiveIds = exploredRecursiveCodeLocs.Add codeLoc
-        match Database.querySummary codeLoc with
+        match LegacyDatabase.querySummary codeLoc with
         | Some summary ->
             let t, _ = read exploredRecursiveIds summary.state
             let li = genericLazyInstantiator Metadata.empty (None : 'a generalizedHeap option) (getFQLOfRef location) (typeOf location) ()
@@ -908,7 +908,7 @@ module internal Memory =
             guardOfHeap exploredRecursiveCodeLocs mtd fillHolesInKey getter key (getter s) ||| guardOfHeap exploredRecursiveCodeLocs mtd fillHolesInKey getter filledKey h
         | RecursiveApplication(codeLoc, _) when exploredRecursiveCodeLocs.Contains codeLoc -> False
         | RecursiveApplication(codeLoc, _) ->
-            match Database.querySummary codeLoc with
+            match LegacyDatabase.querySummary codeLoc with
             | Some summary ->
                 guardOfHeap (exploredRecursiveCodeLocs.Add codeLoc) mtd fillHolesInKey getter key <| getter summary.state
             | None -> True
@@ -924,6 +924,44 @@ module internal Memory =
 
     let internal termLocInitialized mtd loc state =
         keyInitialized mtd loc fillHoles heapOf state.heap
+
+
+    let rec private heapHasPath (heap : 'a heap) (cell : 'a memoryCell) (path : pathSegment list) =
+        // TODO: optimize this by removing extra heap scan (something like tryFind should make things better)
+        Heap.contains cell heap && termHasPath cell.FQL heap.[cell] path
+
+    and private termHasPath prevFQL term = function
+        | [] -> true
+        | seg::path ->
+            match term, seg with
+            | {term=Struct(heap, _)}, BlockField(field, typ)
+            | {term=Class heap}, BlockField(field, typ) ->
+                heapHasPath heap {key = field; FQL = addToOptionFQL prevFQL seg; typ=typ} path
+            | {term=Array(_, _, _, _, heap, _)}, ArrayIndex(idx, typ) ->
+                heapHasPath heap {key = idx; FQL = addToOptionFQL prevFQL seg; typ=typ} path
+            | {term=Array(_, _, heap, _, _,  _)}, ArrayLowerBound(idx)
+            | {term=Array(_, _, _, _, _, heap)}, ArrayLength(idx) ->
+                heapHasPath heap {key = idx; FQL = addToOptionFQL prevFQL seg; typ=lengthType} path
+            | UnionT gvs, _ ->
+                gvs |> List.exists (fun (_, term) -> termHasPath prevFQL term path)
+            | _ -> false
+
+    let internal hasAddress loc state =
+        match loc with
+        | {term = Ref(tl, path)} ->
+            match tl with
+            | RefNullAddress -> false
+            | RefTopLevelStack key -> isAllocatedOnStack state key
+            | RefTopLevelHeap(addr, typ, _) ->
+                match state.heap with  // TODO: get rid of this pattern match after throwing out generalized heaps
+                | Defined(_, heap) -> heapHasPath heap (makeTopLevelKey (fun key -> HeapTopLevelHeap(key, typ)) addr typ) path
+                | _ -> __unreachable__()
+            | RefTopLevelStatics typ ->
+                match state.statics with  // TODO: get rid of this pattern match after throwing out generalized heaps
+                | Defined(_, heap) -> heapHasPath heap (makeTopLevelKey HeapTopLevelStatics typ typ) path
+                | _ -> __unreachable__()
+        | {term = Ptr _} -> __notImplemented__()
+        | _ -> internalfailf "Checking effect of address expected reference or pointer but got %O" loc
 
 // ------------------------------- Compositions of constants -------------------------------
 

@@ -3,7 +3,6 @@ namespace VSharp.Interpreter.IL
 open System.Reflection
 open System.Collections.Generic
 
-open System.Reflection.Emit
 open VSharp
 
 module public CFG =

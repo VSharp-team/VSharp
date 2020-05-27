@@ -12,8 +12,8 @@ namespace VSharp.Test
 {
     public class SVM
     {
-        private ExplorerBase _explorer;
-        private Statistics _statistics = new Statistics();
+        private readonly ExplorerBase _explorer;
+        private readonly Statistics _statistics = new Statistics();
 
         public SVM(ExplorerBase explorer)
         {
@@ -106,11 +106,6 @@ namespace VSharp.Test
         {
             var summary = PrepareAndInvoke(null, m, _explorer.Explore);
             return ResultToString(summary);
-        }
-
-        public void ConfigureSolver(ISolver solver)
-        {
-            // API.ConfigureSolver(solver);
         }
 
         public IDictionary<MethodInfo, string> Run(Assembly assembly, List<string> ignoredList)

@@ -8,7 +8,7 @@ module API =
     val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
 
     val Configure : IActivator -> unit
-    val ConfigureSolver : ISolver -> unit
+//    val ConfigureSolver : ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
@@ -65,6 +65,7 @@ module API =
         val (|Disjunction|_|) : term -> term list option
 
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
+        val Substitute : (term -> term) -> term -> term
 
         val AddConditionToState : state -> term -> state
 
@@ -154,6 +155,7 @@ module API =
         val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state
         val AllocateString : string -> state -> term * state
 
+        val HasEffectOnAddress : state -> term -> bool
         val IsTypeNameInitialized : termType -> state -> term
         val Dump : state -> string
 
@@ -170,5 +172,5 @@ module API =
         val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
         val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a
 
-    module Database =
+    module LegacyDatabase =
         val QuerySummary : ICodeLocation -> codeLocationSummary

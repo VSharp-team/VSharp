@@ -597,5 +597,21 @@ namespace VSharp.Test.Tests
         {
             return Math.Atan2(1, Double.PositiveInfinity);
         }
+
+        [TestSvm]
+        public static void Mult(int x, int y)
+        {
+            int z = 0;
+            while (x > 0)
+            {
+                z += y;
+                x --;
+            }
+
+            if (x >= 0 && y >= 0 && z <= 0)
+            {
+                throw new Exception();
+            }
+        }
     }
 }

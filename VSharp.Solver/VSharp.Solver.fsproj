@@ -5,11 +5,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Result.fs" />
-        <Compile Include="CHC.fs" />
-        <Compile Include="Encode.fs" />
-        <Compile Include="Z3.fs" />
         <Compile Include="Solver.fs" />
+        <Compile Include="Z3.fs" />
+        <Compile Include="SolverPool.fs" />
     </ItemGroup>
 
     <ItemGroup>
