@@ -26,34 +26,31 @@ module internal Common =
 
     let simplifyPairwiseCombinations = Propositional.simplifyPairwiseCombinations
 
-    let simplifyConcreteBinary simplify mtd isChecked t x y xval yval _ _ state =
-        simplify (Metadata.combine3 mtd x.metadata y.metadata) isChecked state t xval yval
+    let simplifyConcreteBinary simplify mtd t x y xval yval _ _ =
+        simplify (Metadata.combine3 mtd x.metadata y.metadata) t xval yval
 
-    let rec simplifyGenericUnary name state x matched concrete unmatched =
+    let rec simplifyGenericUnary name x matched concrete unmatched =
         match x.term with
-        | Error _ -> matched (x, state)
-        | Concrete(xval, typeofX) -> concrete x xval typeofX state |> matched
+        | Concrete(xval, typeofX) -> concrete x xval typeofX |> matched
         | GuardedValues(guards, values) ->
-            Cps.List.mapFoldk (fun state term matched -> simplifyGenericUnary name state term matched concrete unmatched) state values (fun (values', state) ->
-                (Merging.merge (List.zip guards values'), state) |> matched)
-        | _ -> unmatched x state matched
+            Cps.List.mapk (fun term matched -> simplifyGenericUnary name term matched concrete unmatched) values (fun values' ->
+                Merging.merge (List.zip guards values') |> matched)
+        | _ -> unmatched x matched
 
-    let rec simplifyGenericBinary _ state x y matched concrete unmatched repeat =
+    let rec simplifyGenericBinary _ x y matched concrete unmatched repeat =
         match x.term, y.term with
-        | Error _, _ -> matched (x, state)
-        | _, Error _ -> matched (y, state)
-        | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY state |> matched
+        | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY |> matched
         | Union(gvsx), Union(gvsy) ->
-            let compose (gx, vx) state (gy, vy) matched = repeat vx vy state (fun (xy, state) -> ((gx &&& gy, xy), state) |> matched)
-            let join state (gx, vx) k = Cps.List.mapFoldk (compose (gx, vx)) state gvsy k
-            Cps.List.mapFoldk join state gvsx (fun (gvss, state) -> (Merging.merge (List.concat gvss), state) |> matched)
+            let compose (gx, vx) (gy, vy) matched = repeat vx vy (fun xy -> (gx &&& gy, xy) |> matched)
+            let join (gx, vx) k = Cps.List.mapk (compose (gx, vx)) gvsy k
+            Cps.List.mapk join gvsx (fun gvss -> Merging.merge (List.concat gvss) |> matched)
         | GuardedValues(guardsX, valuesX), _ ->
-            Cps.List.mapFoldk (fun state x matched -> repeat x y state matched) state valuesX (fun (values', state) ->
-            (Merging.merge (List.zip guardsX values'), state) |> matched)
+            Cps.List.mapk (fun x matched -> repeat x y matched) valuesX (fun values' ->
+            Merging.merge (List.zip guardsX values') |> matched)
         | _, GuardedValues(guardsY, valuesY) ->
-            Cps.List.mapFoldk (fun state y matched -> repeat x y state matched) state valuesY (fun (values', state) ->
-            (Merging.merge (List.zip guardsY values'), state) |> matched)
-        | _ -> unmatched x y state matched
+            Cps.List.mapk (fun y matched -> repeat x y matched) valuesY (fun values' ->
+            Merging.merge (List.zip guardsY values') |> matched)
+        | _ -> unmatched x y matched
 
 // ------------------------------- Type casting -------------------------------
 
@@ -84,8 +81,9 @@ module internal Common =
         match leftType, rightType with
         | _ when leftType = rightType -> makeTrue mtd
         | Null, _
-        | Void, _   | _, Void
-        | Bottom, _ | _, Bottom -> makeFalse mtd
+        | Void, _   | _, Void -> makeFalse mtd
+        | ArrayType _, ClassType(Id obj, _) when obj <> typedefof<obj> -> makeFalse mtd // TODO: use more common heuristics
+        | Numeric _, Numeric _ -> makeTrue mtd
         | Pointer _, Pointer _ -> makeTrue mtd
         | ArrayType _, ArrayType(_, SymbolicDimension) -> makeTrue mtd
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
@@ -103,7 +101,7 @@ module internal Common =
             let boolConst ref = if isSymbolicRef ref then makeSubtypeBoolConst mtd (Term ref) (Type typ) else False
             let refType = baseTypeOfRef ref
             typeIsType mtd refType typ ||| boolConst ref
-        Merging.guardedErroredApply typeCheck ref
+        Merging.guardedApply typeCheck ref
 
     let typeIsRef mtd typ ref =
         let typeCheck ref =
@@ -112,7 +110,7 @@ module internal Common =
             match typ with
             | InterfaceType _ -> makeFalse mtd
             | _ -> typeIsType mtd typ refType &&& boolConst ref
-        Merging.guardedErroredApply typeCheck ref
+        Merging.guardedApply typeCheck ref
 
     let refIsRef mtd leftRef rightRef =
         let typeCheck left right =
@@ -124,8 +122,8 @@ module internal Common =
             | ConcreteRef, SymbolicRef -> typeIsRef mtd leftType right
             | ConcreteRef, ConcreteRef -> typeIsType mtd leftType rightType
             | _ -> __unreachable__()
-        let guardedApplyToRightRef left = Merging.guardedErroredApply (typeCheck left) rightRef
-        Merging.guardedErroredApply guardedApplyToRightRef leftRef
+        let guardedApplyToRightRef left = Merging.guardedApply (typeCheck left) rightRef
+        Merging.guardedApply guardedApplyToRightRef leftRef
 
     let typesEqual mtd x y = typeIsType mtd x y &&& typeIsType mtd y x
 
@@ -203,7 +201,7 @@ module internal Common =
 //                    | _ -> execution condition k
 //        conditionInvocation (fun condition ->
 //        Merging.commonGuardedErroredApplyk chooseBranch errorHandler condition merge k)
-    let commonStatelessConditionalExecutionk pc conditionInvocation thenBranch elseBranch merge merge2 errorHandler k =
+    let commonStatelessConditionalExecutionk (pc : term list) conditionInvocation thenBranch elseBranch merge merge2 k =
         let chooseBranch condition k =
             match condition with
             | Terms.True ->  thenBranch k
@@ -212,9 +210,9 @@ module internal Common =
                    elseBranch (fun elseResult ->
                    k <| merge2 condition !!condition thenResult elseResult))
         conditionInvocation (fun condition ->
-        Merging.commonGuardedErroredApplyk chooseBranch errorHandler condition merge k)
+        Merging.commonGuardedApplyk chooseBranch condition merge k)
 
-    let statelessConditionalExecutionWithMergek pc conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecutionk pc conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms id k
+    let statelessConditionalExecutionWithMergek pc conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecutionk pc conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms k
     let statelessConditionalExecutionWithMerge pc conditionInvocation thenBranch elseBranch = statelessConditionalExecutionWithMergek pc conditionInvocation thenBranch elseBranch id
 
 //    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch mergeResults mergeStates merge2Results merge2States errorHandler k =
@@ -240,7 +238,7 @@ module internal Common =
 //                    | _ -> execution conditionState condition k
 //        conditionInvocation state (fun (condition, conditionState) ->
 //        Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition mergeResults mergeStates k)
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch mergeResults mergeStates merge2Results merge2States errorHandler k =
+    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch mergeResults mergeStates merge2Results merge2States k =
         let execution conditionState condition k =
             assert (condition <> True && condition <> False)
             thenBranch (State.withPathCondition conditionState condition) (fun (thenResult, thenState) ->
@@ -256,8 +254,8 @@ module internal Common =
             | _, False -> thenBranch conditionState k
             | _ -> execution conditionState condition k
         conditionInvocation state (fun (condition, conditionState) ->
-        Merging.commonGuardedErroredStatedApplyk chooseBranch errorHandler conditionState condition mergeResults mergeStates k)
+        Merging.commonGuardedStatedApplyk chooseBranch conditionState condition mergeResults mergeStates k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch Merging.merge Merging.mergeStates Merging.merge2Terms Merging.merge2States id k
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch Merging.merge Merging.mergeStates Merging.merge2Terms Merging.merge2States k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch = statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id

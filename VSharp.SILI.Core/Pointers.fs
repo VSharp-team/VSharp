@@ -120,10 +120,9 @@ module internal Pointers =
             List.map2 (equalPathSegment mtd) path1 path2 |> conjunction mtd
 
     let rec simplifyReferenceEqualityk mtd x y k =
-        simplifyGenericBinary "reference comparison" State.empty x y (fst >> k)
-            (fun _ _ _ _ -> __unreachable__())
-            (fun x y s k ->
-                let k = withSnd s >> k
+        simplifyGenericBinary "reference comparison" x y k
+            (fun _ _ _ -> __unreachable__())
+            (fun x y k ->
                 match x.term, y.term with
                 | _ when x = y -> makeTrue mtd |> k
                 | Ref(topLevel1, path1), Ref(topLevel2, path2) -> compareTopLevel mtd (topLevel1, topLevel2) &&& comparePath mtd path1 path2 |> k
@@ -135,45 +134,43 @@ module internal Pointers =
                     | None, Some shift -> refeq &&& isZero mtd shift |> k
                     | Some shift1, Some shift2 -> refeq &&& Arithmetics.simplifyEqual mtd shift1 shift2 id |> k
                 | _ -> makeFalse mtd |> k)
-            (fun x y state k -> simplifyReferenceEqualityk mtd x y (withSnd state >> k))
+            (fun x y k -> simplifyReferenceEqualityk mtd x y k)
 
     let isNull mtd ptr =
         simplifyReferenceEqualityk mtd ptr (makeNullRef mtd) id
 
-    let rec private simplifySPDUnaryMinus mtd y ischk tp s k =
-        simplifySPDExpression mtd y s k (fun y s k ->
-        let k = withSnd s >> k
+    let rec private simplifySPDUnaryMinus mtd y tp k =
+        simplifySPDExpression mtd y k (fun y k ->
         match y with
         | ConstantPtrT(spd, tp) -> k <| makeSPDConst tp mtd (-. spd)
-        | _ -> k <| makeUnary OperationType.UnaryMinus y ischk (tp |?? typeOf y) mtd)
+        | _ -> k <| makeUnary OperationType.UnaryMinus y (tp |?? typeOf y) mtd)
 
-    and private simplifySPDAddition mtd l r ischk tp s k =
-        simplifySPDExpression mtd l s k (fun l s k ->
-        simplifySPDExpression mtd r s k (fun r s k ->
-            let k1 = withSnd s >> k
+    and private simplifySPDAddition mtd l r tp k =
+        simplifySPDExpression mtd l k (fun l k ->
+        simplifySPDExpression mtd r k (fun r k ->
             match l, r with
             | ConstantPtrT(spdX, _), ConstantPtrT(spdY, _) ->
-                spdX +. spdY |> makeSPDConst tp mtd |> k1
-            | _ -> k1 <| makeBinary OperationType.Add l r ischk tp mtd))
+                spdX +. spdY |> makeSPDConst tp mtd |> k
+            | _ -> k <| makeBinary OperationType.Add l r tp mtd))
 
-    and private simplifySPDExpression mtd y s k repeat =
-        let k (y, s) = repeat y s k
+    and private simplifySPDExpression mtd y k repeat =
+        let k y = repeat y k
         match y with
-        | Add(left, right, ischk, tp) ->
-            simplifySPDAddition mtd left right ischk tp s k
-        | UnaryMinusT(arg, ischk, tp) ->
-            simplifySPDUnaryMinus mtd arg ischk (Some tp) s k
-        | Sub(left, right, ischk, tp) ->
-            simplifySPDUnaryMinus mtd right ischk None s (fun (right, s) ->
-            simplifySPDAddition mtd left right ischk tp s k)
-        | _ -> k (y, s)
+        | Add(left, right, tp) ->
+            simplifySPDAddition mtd left right tp k
+        | UnaryMinusT(arg, tp) ->
+            simplifySPDUnaryMinus mtd arg (Some tp) k
+        | Sub(left, right, tp) ->
+            simplifySPDUnaryMinus mtd right None (fun right ->
+            simplifySPDAddition mtd left right tp k)
+        | _ -> k y
 
     let rec private simplifyPointerExpressionAddition mtd x y k =
         let shiftTyp = typeOf y
-        let mkAdd l r = makeBinary OperationType.Add l r false shiftTyp mtd
+        let mkAdd l r = makeBinary OperationType.Add l r shiftTyp mtd
         let rec collectSPDs expr summands spd k =
             match expr with
-            | Add(left, right, _, _) ->
+            | Add(left, right, _) ->
                 collectSPDs left summands spd (fun (summands, spd) ->
                 collectSPDs right summands spd k)
             | ConstantPtrT(spd', _) -> k (summands, spd +. spd')
@@ -183,39 +180,38 @@ module internal Pointers =
         addPtrToSymbolicPointerDifference x spd shiftTyp mtd (fun x ->
         shift mtd x y k)))
 
-    let rec private simplifyPointerAdditionGeneric mtd x y state k = // y must be normalized by Arithmetics!
-        let simplifyIndentedPointerAddition x y s k =
+    let rec private simplifyPointerAdditionGeneric mtd x y k = // y must be normalized by Arithmetics!
+        let simplifyIndentedPointerAddition x y k =
             let multWithSizeOf t = Arithmetics.mul mtd t <| underlyingPointerTypeSizeof mtd x
 
-            let simplifyRawPointerAddition x y s k = // x is not Indented Ptr
-                let k1 = withSnd s >> k
+            let simplifyRawPointerAddition x y k = // x is not Indented Ptr
                 match y with
-                | ConcreteT(zero, _) when CSharpUtils.Calculator.IsZero zero -> k1 x
-                | ConstantPtrT(spd, tp) -> addPtrToSymbolicPointerDifference x spd tp mtd k1
-                | Add _ -> simplifyPointerExpressionAddition mtd x y k1
+                | ConcreteT(zero, _) when CSharpUtils.Calculator.IsZero zero -> k x
+                | ConstantPtrT(spd, tp) -> addPtrToSymbolicPointerDifference x spd tp mtd k
+                | Add _ -> simplifyPointerExpressionAddition mtd x y k
                 | _ ->
                     match term y with
                     | Expression _
                     | Concrete _
-                    | Constant _ -> shift mtd x y k1
+                    | Constant _ -> shift mtd x y k
                     | _ -> internalfailf "expected primitive value but got: %O" y
 
             match term x with
             | Ptr(tla, psl, typ, Some shift) ->
                 // TODO: [2columpio]: you construct Ptr and immediately deconstruct it in pattern matching!
-                simplifySPDExpression mtd (Arithmetics.add mtd shift <| multWithSizeOf y) s k (simplifyRawPointerAddition <| Ptr mtd tla psl typ)
-            | _ -> simplifySPDExpression mtd (multWithSizeOf y) s k (simplifyRawPointerAddition x)
+                simplifySPDExpression mtd (Arithmetics.add mtd shift <| multWithSizeOf y) k (simplifyRawPointerAddition <| Ptr mtd tla psl typ)
+            | _ -> simplifySPDExpression mtd (multWithSizeOf y) k (simplifyRawPointerAddition x)
 
-        simplifyGenericBinary "add shift to pointer" state x y k
-            (fun _ _ _ _ -> __unreachable__())
+        simplifyGenericBinary "add shift to pointer" x y k
+            (fun _ _ _ -> __unreachable__())
             simplifyIndentedPointerAddition
             (simplifyPointerAdditionGeneric mtd)
 
-    let private simplifyIndentedReferenceAddition mtd state x y k =
+    let private simplifyIndentedReferenceAddition mtd x y k =
         let x', y' = if Terms.isNumeric y then x, y else y, x
-        simplifyPointerAdditionGeneric mtd x' y' state k
+        simplifyPointerAdditionGeneric mtd x' y' k
 
-    let rec private simplifyPointerSubtractionGeneric mtd x y state k =
+    let rec private simplifyPointerSubtractionGeneric mtd x y k =
         let makeDiff p q =
             let tp = Numeric (Id typedefof<int64>)
             if p = q
@@ -224,44 +220,44 @@ module internal Pointers =
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp mtd
         let divideBySizeof diff = Arithmetics.div mtd diff <| underlyingPointerTypeSizeof mtd x
-        let simplifyPointerDiffWithOffset p q offset s =
-            simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff p q) offset) s k (fun diff s k -> k (divideBySizeof diff, s))
-        let simplifyIndentedPointerSubtraction x y s k =
+        let simplifyPointerDiffWithOffset p q offset =
+            simplifySPDExpression mtd (Arithmetics.add mtd (makeDiff p q) offset) k (fun diff k -> k (divideBySizeof diff))
+        let simplifyIndentedPointerSubtraction x y k =
             match term x, term y with
             // TODO: [columpio]: rewrite it in a more efficient way!
-            | Ptr(tl1, path1, t1, Some a), Ptr(tl2, path2, t2, Some b) -> simplifyPointerDiffWithOffset (Ptr mtd tl1 path1 t1) (Ptr mtd tl2 path2 t2) (Arithmetics.sub mtd a b) s
-            | Ptr(tl, path, t, Some a), _ -> simplifyPointerDiffWithOffset (Ptr mtd tl path t) y a s
-            | _, Ptr(tl, path, t, Some b) -> simplifyPointerDiffWithOffset x (Ptr mtd tl path t) (Arithmetics.neg mtd b) s
-            | _ -> k (divideBySizeof <| makeDiff x y, s)
+            | Ptr(tl1, path1, t1, Some a), Ptr(tl2, path2, t2, Some b) -> simplifyPointerDiffWithOffset (Ptr mtd tl1 path1 t1) (Ptr mtd tl2 path2 t2) (Arithmetics.sub mtd a b)
+            | Ptr(tl, path, t, Some a), _ -> simplifyPointerDiffWithOffset (Ptr mtd tl path t) y a
+            | _, Ptr(tl, path, t, Some b) -> simplifyPointerDiffWithOffset x (Ptr mtd tl path t) (Arithmetics.neg mtd b)
+            | _ -> k (divideBySizeof <| makeDiff x y)
 
-        simplifyGenericBinary "pointer1 - pointer2" state x y k
-            (fun _ _ _ _ -> __unreachable__())
+        simplifyGenericBinary "pointer1 - pointer2" x y k
+            (fun _ _ _ -> __unreachable__())
             simplifyIndentedPointerSubtraction
             (simplifyPointerSubtractionGeneric mtd)
 
-    let private simplifyIndentedReferenceSubtraction mtd state x y k =
+    let private simplifyIndentedReferenceSubtraction mtd x y k =
         if isNumeric y
-        then simplifyPointerAdditionGeneric mtd x (Arithmetics.neg mtd y) state k
-        else simplifyPointerSubtractionGeneric mtd x y state k
+        then simplifyPointerAdditionGeneric mtd x (Arithmetics.neg mtd y) k
+        else simplifyPointerSubtractionGeneric mtd x y k
 
-    let simplifyBinaryOperation metadata op state x y k =
+    let simplifyBinaryOperation metadata op x y k =
 
         match op with
         | OperationType.Subtract ->
-            simplifyIndentedReferenceSubtraction metadata state x y k
+            simplifyIndentedReferenceSubtraction metadata x y k
         | OperationType.Add ->
-            simplifyIndentedReferenceAddition metadata state x y k
-        | OperationType.Equal -> simplifyReferenceEqualityk metadata x y (withSnd state >> k)
+            simplifyIndentedReferenceAddition metadata x y k
+        | OperationType.Equal -> simplifyReferenceEqualityk metadata x y k
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk metadata x y (fun e ->
-            Propositional.simplifyNegation metadata e (withSnd state >> k))
+            Propositional.simplifyNegation metadata e k)
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let add mtd x y =
-        simplifyBinaryOperation mtd OperationType.Add State.empty x y fst
+        simplifyBinaryOperation mtd OperationType.Add x y id
 
     let sub mtd x y =
-        simplifyBinaryOperation mtd OperationType.Subtract State.empty x y fst
+        simplifyBinaryOperation mtd OperationType.Subtract x y id
 
     let isPointerOperation op t1 t2 =
         let isRefOrNull t = Types.concreteIsReferenceType t || Types.isNull t
@@ -276,7 +272,7 @@ module internal Pointers =
             (Types.isPointer t1 && Types.isNumeric t2) || (Types.isPointer t2 && Types.isNumeric t1)
         | _ -> false
 
-    let topLevelLocation = Merging.guardedErroredApply (term >> function
+    let topLevelLocation = Merging.guardedApply (term >> function
         | Ref(RefTopLevelHeap (a, _, _), [])
         | Ptr(RefTopLevelHeap (a, _, _), [], _, _) -> a
         | Ref(RefNullAddress, _)

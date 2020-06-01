@@ -1,0 +1,6 @@
+METHOD: System.Int16 VSharp.Test.Tests.Conversions.Conv_Ovf_int_short(System.Int32)
+RESULT: (System.Int16)(System.Int32)(System.Int16)a
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []

@@ -241,6 +241,7 @@ module public CFA =
 
 type StepInterpreter() =
     inherit ILInterpreter()
+    override x.CreateInstance exceptionType arguments state = Nop, state
     override x.Invoke codeLoc oldState this k =
         match codeLoc with
         | :? ILMethodMetadata as ilmm ->

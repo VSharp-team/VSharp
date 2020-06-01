@@ -1,0 +1,6 @@
+METHOD: System.Double VSharp.Test.Tests.Arithmetics_CIL.Rem_Concrete_Double_Nan1()
+RESULT: NaN
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []

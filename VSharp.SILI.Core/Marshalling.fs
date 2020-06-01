@@ -106,7 +106,7 @@ module internal Marshalling =
                             connect term obj
                             obj
                         else
-                            let value = Memory.derefWithoutValidation mtd state term
+                            let value = Memory.deref mtd state term
                             bypass false (Some term) (Some typ) value
                     | Array(d, _, bounds, _, contents, lengths) ->
                         let elementTyp = (Option.get typ) |> Types.elementType |> toDotNetType
@@ -166,8 +166,7 @@ module internal Marshalling =
                     true
                 | Nop
                 | Constant _
-                | Expression _
-                | Error _ ->
+                | Expression _ ->
                     false
                 | Union gvs ->
                     List.forall (fun (_, v) -> bypass reference v) gvs
@@ -181,7 +180,7 @@ module internal Marshalling =
                     let t = toDotNetType typ
                     if isTypeInstance t then true
                     else
-                        let value = Memory.derefWithoutValidation mtd state term
+                        let value = Memory.deref mtd state term
                         bypass (Some term) value
                 | Array(d, l, bs, insts, contents, lengths) ->
                     let acc0 = bypass None d
@@ -309,17 +308,17 @@ module internal Marshalling =
 
     let canBeCalledViaReflection (mtd : termMetadata) (state : state) (funcId : IFunctionIdentifier)
         (this : term option) (parameters : term list symbolicValue) =
-            false
-//        let canBeMarshalled = canBeMarshalled mtd state
-//        match this, parameters with
-//        | _, Unspecified -> false
-//        | None, _ when (funcId.Method :? ConstructorInfo) -> false
-//        | None, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) true args
-//        | Some this, Specified args when funcId.IsConstructor ->
-//            let t = typeOf this |> toDotNetType
-//            List.fold (fun acc arg -> acc && canBeMarshalled arg) (t = funcId.Method.DeclaringType) args
-//        | Some this, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) (canBeMarshalled this) args
-//        | _ -> false
+//            false
+        let canBeMarshalled = canBeMarshalled mtd state
+        match this, parameters with
+        | _, Unspecified -> false
+        | None, _ when (funcId.Method :? ConstructorInfo) -> false
+        | None, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) true args
+        | Some this, Specified args when funcId.IsConstructor ->
+            let t = typeOf this |> toDotNetType
+            List.fold (fun acc arg -> acc && canBeMarshalled arg) (t = funcId.Method.DeclaringType) args
+        | Some this, Specified args -> List.fold (fun acc arg -> acc && canBeMarshalled arg) (canBeMarshalled this) args
+        | _ -> false
 
     let callViaReflection mtd state (funcId : IFunctionIdentifier) (this : term option) (parameters : term list symbolicValue) k =
         let k x =

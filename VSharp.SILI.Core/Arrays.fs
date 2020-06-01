@@ -87,11 +87,11 @@ module internal Arrays =
         let bound = Concrete metadata 0 Types.lengthType
         Seq.fold (fun h l -> Heap.add l bound h) Heap.empty (Seq.init dimension (fun i -> makePathIndexKey metadata ArrayLowerBound i fql Types.lengthType))
 
-    let length = Merging.guardedErroredApply (function
+    let length = Merging.guardedApply (function
         | {term = Array(_, l, _, _, _, _)} -> l
         | t -> internalfailf "extracting length of non-array object %O" t)
 
-    let rank = Merging.guardedErroredApply (function
+    let rank = Merging.guardedApply (function
         | {term = Array(d, _, _, _, _, _)} -> d
         | t -> internalfailf "extracting rank of non-array object %O" t)
 

@@ -145,6 +145,13 @@ namespace VSharp.Test.Tests.Methods
             return p.MakeMove(c);
         }
 
+        [Ignore("Exceptions handling")]
+        public static IMovable MakeNullMove(Coord c)
+        {
+            IMovable p = null;
+            return p.MakeMove(c);
+        }
+
         [TestSvm]
         public static int VirtualCall(IVirtual a)
         {

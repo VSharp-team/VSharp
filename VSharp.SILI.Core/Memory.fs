@@ -26,19 +26,13 @@ module internal Memory =
     let restore() =
         pointer.Restore()
 
-    let npe mtd state = State.createInstance mtd typeof<System.NullReferenceException> [] state
-
-    let private npeTerm mtd state _ =
-        let exn, state = npe mtd state
-        Error mtd exn, state
-
     let private referenceSubLocations term locations =
         let addLocationsToPath ref =
             match ref.term with
             | Ref(tl, path) -> Ref ref.metadata tl (List.append path locations)
             | Ptr(tl, path, typ, shift) -> AnyPtr ref.metadata tl (List.append path locations) typ shift
             | _ -> internalfailf "expected reference, but got %O" ref
-        guardedErroredApply addLocationsToPath term
+        guardedApply addLocationsToPath term
 
     let referenceArrayLowerBound arrayRef (indices : term) =
         referenceSubLocations arrayRef [ArrayLowerBound indices]
@@ -125,14 +119,15 @@ module internal Memory =
     let rec defaultOf metadata typ fql =
         match typ with
         | Bool -> makeFalse metadata
-        | Numeric(Id t) -> CastConcrete true 0 t metadata
+        | Numeric(Id t) when t.IsEnum -> CastConcrete (System.Activator.CreateInstance t) t metadata
+        | Numeric(Id t) -> CastConcrete 0 t metadata
         | ArrayType _
         | ClassType _
         | InterfaceType _ -> makeNullRef metadata
         | TypeVariable (Id t) ->
             Common.statelessConditionalExecutionWithMerge []
                 (fun k -> k <| Common.isValueType metadata typ)
-                (fun k -> k <| CastConcrete false 0 t metadata) // TODO: add "default" symbolic constant source
+                (fun k -> k <| CastConcrete 0 t metadata) // TODO: add "default" symbolic constant source
                 (fun k -> k <| makeNullRef metadata)
         | StructType _ ->
             mkStruct metadata false (fun m _ t -> defaultOf m t) typ fql
@@ -253,7 +248,7 @@ module internal Memory =
             makeSymbolicHeapReference metadata source name typ' makePtr
         | Null -> makeNullRef metadata
         | Void -> Nop
-        | Bottom -> __unreachable__()
+        | InterfaceType _ -> __unreachable__()
 
     and private makeSymbolicStruct metadata (source : IExtractingSymbolicConstantSource) structName typ fql =
         let makeSymbolicStruct' (liSource : 'a lazyInstantiation) =
@@ -428,7 +423,7 @@ module internal Memory =
                         resultCell, Array term.metadata dimension length newLower constant contents lengths
                     | _ -> __unreachable__()
                 | t -> internalfailf "expected complex type, but got %O" t
-        commonGuardedErroredApply doAccess (withFst value) value internalMerge
+        commonGuardedApply doAccess value internalMerge
 
     and private compareStringKey mtd loc key = makeBool mtd (loc = key)
 
@@ -551,24 +546,17 @@ module internal Memory =
 
     and private accessGeneralizedHeap read = accessGeneralizedHeapWithIDs ImmutableHashSet.Empty read
 
-    and private hierarchicalAccess validate read actionNull updateDefined metadata =
+    and private hierarchicalAccess read updateDefined metadata =
         let doAccess state term = // TODO: track current heap address inside Ref (need for RecursiveAccess.MemoryTest)
             match term.term with
-            | Ref(RefNullAddress, _) -> actionNull metadata state Null
+            | Ref(RefNullAddress, _) -> __unreachable__()
             | Ref(RefTopLevelStack location, path) ->
                 commonHierarchicalStackAccess read updateDefined metadata state location path
             | Ref(RefTopLevelHeap(addr, bT, _), path) ->
-                let doRead state k =
-                    let accessDefined contextList lazyInstantiator groundHeap r h =
-                        commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path
-                    let result, h' = accessGeneralizedHeap read (readHeap metadata) heapOf term accessDefined (heapOf state)
-                    k (result, withHeap state h')
-                if validate then
-                    Common.statedConditionalExecutionWithMerge state
-                        (fun state k -> k (Pointers.isZeroAddress metadata addr, state))
-                        (fun state k -> k (actionNull metadata state bT))
-                        doRead
-                else doRead state id
+                let accessDefined contextList lazyInstantiator groundHeap r h =
+                    commonHierarchicalHeapAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator addr bT path
+                let result, h' = accessGeneralizedHeap read (readHeap metadata) heapOf term accessDefined (heapOf state)
+                (result, withHeap state h')
             | Ref(RefTopLevelStatics location, path) ->
                 let accessDefined contextList lazyInstantiator groundHeap r h =
                     commonHierarchicalStaticsAccess read r updateDefined metadata groundHeap h contextList lazyInstantiator location path
@@ -576,12 +564,12 @@ module internal Memory =
                 result, withStatics state m'
             | Ptr(_, _, viewType, shift) ->
                 let ref = getReferenceFromPointer metadata term
-                let term, state = hierarchicalAccess validate read actionNull updateDefined metadata state ref
+                let term, state = hierarchicalAccess read updateDefined metadata state ref
                 match shift with
                 | None when typeOf term = viewType -> term, state
                 | _ -> __notImplemented__() // TODO: [columpio] [Reinterpretation]
             | t -> internalfailf "expected reference or pointer, but got %O" t
-        guardedErroredStatedApply doAccess
+        guardedStatedApply doAccess
 
 // ---------------------------------------------------- Composition ----------------------------------------------------
 
@@ -597,7 +585,7 @@ module internal Memory =
         | Concrete(:? concreteTypeAddress, _) -> term
         | Pointers.SymbolicThisOnStack(token, path) ->
             let id = ThisKey token
-            let reference = referenceLocalVariable term.metadata id |> deref term.metadata state |> fst
+            let reference = referenceLocalVariable term.metadata id |> deref term.metadata state
             referenceSubLocations reference path
         | _ -> term
 
@@ -649,7 +637,7 @@ module internal Memory =
                 let oldValue = Heap.fold mutateOneKey oldValue contents
                 Heap.fold mutateOneKey oldValue lengths
             | _ -> newValue
-        guardedErroredApply doMutate newValue
+        guardedApply doMutate newValue
 
     and private fillAndMutateHeapLocation updateHeap keySubst ctx restricted state h k v =
         let k' = fillHolesInMemoryCell ctx keySubst state k
@@ -752,15 +740,14 @@ module internal Memory =
 // ------------------------------- High-level read/write -------------------------------
 
     and deref metadata state location =
-        hierarchicalAccess true true npeTerm snd metadata state location
+        let term, state' = hierarchicalAccess true snd metadata state location
+        assert (state = state')
+        term
 
     and readBlockField metadata blockTerm fieldName fieldType =
         accessBlockField true metadata snd blockTerm fieldName fieldType
 
-    and derefWithoutValidation metadata state location =
-        hierarchicalAccess false true (fun _ _ _ -> __unreachable__()) snd metadata state location |> fst
-
-    and private update updateValue metadata state reference = hierarchicalAccess true false npeTerm updateValue metadata state reference
+    and private update updateValue metadata state reference = hierarchicalAccess false updateValue metadata state reference
 
     and mutate metadata state reference value =
         assert(value <> Nop)
@@ -778,8 +765,8 @@ module internal Memory =
         let intToTerm i = makeNumber mtd i
         let idOfDimensionsForLowerBounds = Seq.init indices.Length (intToTerm >> referenceArrayLowerBound arrayRef)
         let idOfDimensionsForLengths = Seq.init indices.Length (intToTerm >> referenceArrayLength arrayRef)
-        Cps.Seq.mapFold (deref mtd) state idOfDimensionsForLowerBounds (fun (lowerBoundsList, state') ->
-        Cps.Seq.mapFold (deref mtd) state' idOfDimensionsForLengths (fun (lengthsList, state'') ->
+        Cps.Seq.map (deref mtd state) idOfDimensionsForLowerBounds (fun lowerBoundsList ->
+        Cps.Seq.map (deref mtd state) idOfDimensionsForLengths (fun lengthsList ->
         let bounds =
             Seq.map3
                 (fun idx low len ->
@@ -789,21 +776,14 @@ module internal Memory =
                     bigEnough &&& smallEnough)))
                 indices lowerBoundsList lengthsList
             |> List.ofSeq
-        k (conjunction mtd bounds |> unguard |> merge, state'')))
+        k (conjunction mtd bounds |> unguard |> merge)))
 
     let referenceArrayIndex metadata state arrayRef (indices : term list) =
-        let reference state arrayRef =
+        let reference arrayRef =
             let elemType = baseTypeOfRef arrayRef |> elementType // TODO: add getting type of StackRef when stackalloc will be implemented
-            Common.statedConditionalExecutionWithMerge state
-                (fun state k -> checkIndices metadata state arrayRef indices k)
-                (fun state k ->
-                    let location = Arrays.makeIndexArray metadata (fun i -> indices.[i]) indices.Length
-                    let result = referenceSubLocations arrayRef [ArrayIndex(location, elemType)]
-                    k (result, state))
-                (fun state k ->
-                    let exn, state = State.createInstance metadata typeof<System.IndexOutOfRangeException> [] state
-                    k (Error metadata exn, state))
-        guardedErroredStatedApply reference state arrayRef
+            let location = Arrays.makeIndexArray metadata (fun i -> indices.[i]) indices.Length
+            referenceSubLocations arrayRef [ArrayIndex(location, elemType)]
+        guardedApplyWithPC state.pc reference arrayRef
 
 // ------------------------------- State layer -------------------------------
 
@@ -978,7 +958,7 @@ module internal Memory =
                         | _ -> __notImplemented__()
                     | None -> state
                 let loc = fillHoles ctx state x.location
-                derefWithoutValidation ctx.mtd state' loc
+                deref ctx.mtd state' loc
             override x.Compose ctx state =
                 (x :> IExtractingSymbolicConstantSource).ComposeWithoutExtractor ctx state |> x.extractor.Extract
 

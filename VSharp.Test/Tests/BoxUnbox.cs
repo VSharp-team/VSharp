@@ -48,14 +48,14 @@ namespace VSharp.Test.Tests
             return Cast<B>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny2()
         {
             var b = new B(5);
             return Cast<A>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny3()
         {
             var a = new A();
@@ -155,6 +155,16 @@ namespace VSharp.Test.Tests
     }
 
     [TestSvmFixture]
+    public class UnboxGeneric<T>
+    {
+        [Ignore("Unbox.any for generics is not implemented: no way to do `Nullable.GetUnderlyingType` for generic type")]
+        public static T Cast(object o)
+        {
+            return (T) o;
+        }
+    }
+
+    [TestSvmFixture]
     public class BoxUnboxWithGeneric<G, T, U, V>
         where G : IVirtual
         where T : class, IVirtual
@@ -181,7 +191,7 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [Ignore("There's no way to introduce new Generic Parameter for Nullable'")]
+        [Ignore("There's no way to introduce new Generic Parameter for Nullable'")] // TODO: check this now
         public static object BoxValue(V t)
         {
             object o = t;

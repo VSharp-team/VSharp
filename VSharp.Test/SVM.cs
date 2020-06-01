@@ -18,7 +18,33 @@ namespace VSharp.Test
         public SVM(ExplorerBase explorer)
         {
             _explorer = explorer;
-            API.Configure(explorer);
+        }
+
+        private codeLocationSummary PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, codeLocationSummary> dict,
+            MethodInfo m,
+            Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
+        {
+            _statistics.SetupBeforeMethod(m);
+            IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
+            if (methodIdentifier == null)
+            {
+                var format =
+                    new PrintfFormat<string, Unit, string, Unit>(
+                        $"WARNING: metadata method for {m.Name} not found!");
+                Logger.printLog(Logger.Warning, format);
+                return null;
+            }
+
+            dict?.Add(m, null);
+            var id = FSharpFunc<codeLocationSummary, codeLocationSummary>.FromConverter(x => x);
+            var summary = invoke(methodIdentifier, id);
+            _statistics.AddSucceededMethod(m);
+            if (dict != null)
+            {
+                dict[m] = summary;
+            }
+
+            return summary;
         }
 
         private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m,
@@ -26,27 +52,7 @@ namespace VSharp.Test
         {
             try
             {
-                _statistics.SetupBeforeMethod(m);
-                IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
-                if (methodIdentifier == null)
-                {
-                    var format =
-                        new PrintfFormat<string, Unit, string, Unit>(
-                            $"WARNING: metadata method for {m.Name} not found!");
-                    Logger.printLog(Logger.Warning, format);
-                    return null;
-                }
-
-                dict?.Add(m, null);
-                var id = FSharpFunc<codeLocationSummary, codeLocationSummary>.FromConverter(x => x);
-                var summary = invoke(methodIdentifier, id);
-                _statistics.AddSucceededMethod(m);
-                if (dict != null)
-                {
-                    dict[m] = summary;
-                }
-
-                return summary;
+                return PrepareAndInvokeWithoutStatistics(dict, m, invoke);
             }
             catch (Exception e)
             {
@@ -105,6 +111,12 @@ namespace VSharp.Test
         public string ExploreOne(MethodInfo m)
         {
             var summary = PrepareAndInvoke(null, m, _explorer.Explore);
+            return ResultToString(summary);
+        }
+
+        public string ExploreOneWithoutStatistics(MethodInfo m)
+        {
+            var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.Explore);
             return ResultToString(summary);
         }
 

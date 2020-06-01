@@ -73,7 +73,8 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            var svm = new SVM(new StepInterpreter());
+            var svm = new SVM(new ILInterpreter());
+            // var svm = new SVM(new StepInterpreter());
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             TestSvmAttribute.SetUpSVM(svm);
         }

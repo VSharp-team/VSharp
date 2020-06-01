@@ -1,6 +1,5 @@
 namespace VSharp.Core
 
-open System
 open System.Reflection
 open VSharp
 
@@ -11,10 +10,6 @@ module API =
         m.Mutate(State.mkMetadata location state)
         fun x -> m.Restore(); k x
 
-    let Configure activator =
-        State.configure activator
-//    let ConfigureSolver solver =
-//        Common.configureSolver solver
     let ConfigureSimplifier simplifier =
         Propositional.configureSimplifier simplifier
     let Reset() =
@@ -36,19 +31,18 @@ module API =
         Common.statelessConditionalExecutionWithMergek state.pc condition thenBranch elseExpression k
     let StatedConditionalExecution = Common.commonStatedConditionalExecutionk
 
-    let GuardedApplyExpression term f = Merging.guardedErroredApply f term
-    let GuardedApplyExpressionWithPC pc term f = Merging.guardedErroredApplyWithPC pc f term
-    let GuardedStatedApplyStatementK state term f k = Merging.guardedErroredStatedApplyk f state term k
-    let GuardedErroredStatedApplyk f errorHandler state term merge mergeStates k =
-        Merging.commonGuardedErroredStatedApplyk f errorHandler state term merge mergeStates k
+    let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term
+    let GuardedApplyExpression term f = Merging.guardedApply f term
+    let GuardedStatedApplyStatementK state term f k = Merging.guardedStatedApplyk f state term k
+    let GuardedStatedApplyk f state term merge mergeStates k =
+        Merging.commonGuardedStatedApplyk f state term merge mergeStates k
 
-    let PerformBinaryOperation op isChecked state left right k = Operators.simplifyBinaryOperation m.Value op isChecked state left right k
-    let PerformUnaryOperation op isChecked state t arg k = Operators.simplifyUnaryOperation m.Value op isChecked state t arg k
+    let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation m.Value op left right k
+    let PerformUnaryOperation op t arg k = Operators.simplifyUnaryOperation m.Value op t arg k
 
     [<AutoOpen>]
     module public Terms =
         let Nop = Nop
-        let Error term = Error m.Value term
         let Concrete obj typ = Concrete m.Value obj typ
         let Constant name source typ = Constant m.Value name source typ
         let Expression op args typ = Expression m.Value op args typ
@@ -60,7 +54,7 @@ module API =
         let False = False
 
         let MakeNullRef () = makeNullRef m.Value
-        let MakeDefault typ ref = Merging.guardedErroredApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
+        let MakeDefault typ ref = Merging.guardedApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
 
         let MakeFunctionResultConstant methodId (mb : MethodBase) = Explorer.makeFunctionResultConstant m.Value methodId mb
         let MakeNumber n = makeNumber m.Value n
@@ -105,7 +99,7 @@ module API =
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
-        let elementType arrayType = Types.elementType arrayType
+        let ElementType arrayType = Types.elementType arrayType
 
         let TypeIsType leftType rightType = Common.typeIsType m.Value leftType rightType
         let TypeIsNullable typ = Common.isNullable m.Value typ
@@ -113,9 +107,9 @@ module API =
         let RefIsType ref typ = Common.refIsType m.Value ref typ
         let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
 
-        let CanCast term targetType = TypeCasting.canCast m.Value term targetType
-        let IsCast state targetType term = TypeCasting.isCast m.Value state term targetType
-        let Cast state term targetType isChecked fail k = TypeCasting.cast m.Value isChecked state term targetType fail k
+        let IsCast targetType term = TypeCasting.canCast m.Value term targetType
+        let Cast pc term targetType = TypeCasting.cast m.Value pc term targetType id
+        let CastConcrete value typ = CastConcrete value typ m.Value
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer m.Value state reference
 
     module public Operators =
@@ -134,10 +128,14 @@ module API =
         let (<<=) x y = Arithmetics.simplifyLessOrEqual m.Value x y id
         let (>>) x y = Arithmetics.simplifyGreater m.Value x y id
         let (>>=) x y = Arithmetics.simplifyGreaterOrEqual m.Value x y id
-        let (%%%) x y = Arithmetics.simplifyRemainder m.Value false State.empty (x |> TypeOf |> Types.ToDotNetType) x y fst
+        let (%%%) x y = Arithmetics.simplifyRemainder m.Value (x |> TypeOf |> Types.ToDotNetType) x y id
+
+        let IsZero term = Arithmetics.checkEqualZero m.Value term id
 
     module public Memory =
         let EmptyState = State.empty
+
+        let IsNullReference term = Merging.guardedApply (Pointers.isNull m.Value) term
 
         let PopStack state = State.popStack state
         let PopTypeVariables state = State.popTypeVariablesSubstitution state
@@ -151,7 +149,6 @@ module API =
         let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
 
         let Dereference state reference = Memory.deref m.Value state reference
-        let DereferenceWithoutValidation state reference = Memory.derefWithoutValidation m.Value state reference
         let DereferenceLocalVariable state location = Memory.referenceLocalVariable m.Value location |> Memory.deref m.Value state
         let Mutate state reference value = Memory.mutate m.Value state reference value
         let ReadBlockField blockTerm fieldName fieldType = Memory.readBlockField m.Value blockTerm fieldName fieldType
@@ -204,7 +201,7 @@ module API =
 
         let StringLength state strRef =
             let fql = getFQLOfRef strRef |> Some
-            let strStruct, state = Dereference state strRef
+            let strStruct = Dereference state strRef
             Strings.length fql strStruct, state
 
         let StringCtorOfCharArray state this arrayRef =
@@ -212,8 +209,10 @@ module API =
             let arrayFQL = getFQLOfRef arrayRef |> Some
             BranchStatementsOnNull state arrayRef
                 (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" stringFQL, state))
-                (fun state k -> Dereference state arrayRef |> mapfst (Strings.ctorOfCharArray m.Value stringFQL arrayFQL) |> k)
+                (fun state k -> Dereference state arrayRef |> Strings.ctorOfCharArray m.Value stringFQL arrayFQL |> withSnd state |> k)
                 id
+    module Options =
+        let HandleNativeInt f g = Options.HandleNativeInt f g
 
     module Marshalling =
         let Unmarshal state (obj : obj) = Marshalling.unmarshalUnknownLocation m.Value state obj
@@ -223,20 +222,3 @@ module API =
     module LegacyDatabase =
         let QuerySummary codeLoc =
             LegacyDatabase.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)
-
-    module RuntimeExceptions =
-        let InvalidCastException state thrower =
-            let message, state = Memory.AllocateString "Specified cast is not valid." state
-            let term, state = State.createInstance m.Value typeof<System.InvalidCastException> [message] state
-            thrower term, state
-        let TypeInitializerException qualifiedTypeName innerException state thrower =
-            let typeName, state = Memory.AllocateString qualifiedTypeName state
-            let args = [typeName; innerException]
-            let term, state = State.createInstance m.Value typeof<System.TypeInitializationException> args state
-            thrower term, state
-        let IndexOutOfRangeException state thrower =
-            let term, state = State.createInstance m.Value typeof<System.IndexOutOfRangeException> [] state
-            thrower term, state
-        let InvalidProgramException state thrower =
-            let term, state = State.createInstance m.Value typeof<System.InvalidProgramException> [] state
-            thrower term, state

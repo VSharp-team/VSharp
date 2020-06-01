@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 
-module internal Runtime_CompilerServices_RuntimeHelpers =
+module Runtime_CompilerServices_RuntimeHelpers =
     open System.Runtime.InteropServices
     open System.Reflection
 
@@ -66,18 +66,18 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-        let array, state = Memory.Dereference state arrayRef
+        let array = Memory.Dereference state arrayRef
         let dimensionsNumberTerm = Memory.ArrayRank array
         let dimensionsNumber = extractIntFromTerm dimensionsNumberTerm
         let rec helper currentDimension (multiIndex : term list) (state, j) =
             if currentDimension = dimensionsNumber then
                 let valueTerm = termCreator rawData (j * size)
-                let ref, state = Memory.ReferenceArrayIndex state arrayRef multiIndex
+                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
                 let _, state = Memory.Mutate state ref valueTerm
                 (state, j + 1)
             else
                 let currentDimensionTerm = MakeNumber currentDimension
-                let currentLengthTerm, state = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
+                let currentLengthTerm = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
                 let currentLength = extractIntFromTerm currentLengthTerm
                 let res =
                     List.init currentLength id |>
@@ -87,47 +87,48 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
                 res
         helper 0 [] (state, 0) |> fst
 
-    let internal InitializeArray (state : state) (args : term list) =
-        match args with
-        | arrayRef :: handleTerm :: [] ->
-            match handleTerm.term with
-            | Concrete (:? RuntimeFieldHandle as rfh, _) ->
-                let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-                let elemType = BaseTypeOfRef arrayRef |> Types.elementType
-                let t = Types.ToDotNetType elemType
-                assert (t.IsValueType) // TODO: be careful about type variables
+    let initializeArray state arrayRef handleTerm =
+        match handleTerm.term with
+        | Concrete (:? RuntimeFieldHandle as rfh, _) ->
+            let fieldInfo = FieldInfo.GetFieldFromHandle rfh
+            let elemType = BaseTypeOfRef arrayRef |> Types.ElementType
+            let t = Types.ToDotNetType elemType
+            assert (t.IsValueType) // TODO: be careful about type variables
 
-                let fieldValue : obj = fieldInfo.GetValue null
-                let size = ClassType (Id fieldInfo.FieldType, []) |> API.Types.SizeOf
-                let rawData = reinterpretValueTypeAsByteArray fieldValue size
-                let state =
-                    match t with
-                    | _ when t = typedefof<byte> ->
-                        fillInArray byteTermCreator state arrayRef sizeof<byte> rawData
-                    | _ when t = typedefof<sbyte> ->
-                        fillInArray signedByteTermCreator state arrayRef sizeof<sbyte> rawData
-                    | _ when t = typedefof<int16> ->
-                        fillInArray int16TermCreator state arrayRef sizeof<int16> rawData
-                    | _ when t = typedefof<uint16> ->
-                        fillInArray unsignedInt16TermCreator state arrayRef sizeof<uint16> rawData
-                    | _ when t = typedefof<int> ->
-                        fillInArray int32TermCreator state arrayRef sizeof<int> rawData
-                    | _ when t = typedefof<uint32> ->
-                        fillInArray int32TermCreator state arrayRef sizeof<uint32> rawData
-                    | _ when t = typedefof<int64> ->
-                        fillInArray int64TermCreator state arrayRef sizeof<int64> rawData
-                    | _ when t = typedefof<uint64> ->
-                        fillInArray unsignedInt64TermCreator state arrayRef sizeof<uint64> rawData
-                    | _ when t = typedefof<float32> ->
-                        fillInArray float32TermCreator state arrayRef sizeof<float32> rawData
-                    | _ when t = typedefof<double> ->
-                        fillInArray doubleTermCreator state arrayRef sizeof<double> rawData
-                    | _ when t = typedefof<bool> ->
-                        fillInArray boolTermCreator state arrayRef sizeof<bool> rawData
-                    | _ when t = typedefof<char> ->
-                        fillInArray charTermCreator state arrayRef sizeof<char> rawData
-                    | _ -> __notImplemented__()
-                Nop, state
-            | _ -> __notImplemented__(), state
-        | _ ->
-            __notImplemented__(), state
+            let fieldValue : obj = fieldInfo.GetValue null
+            let size = ClassType (Id fieldInfo.FieldType, []) |> API.Types.SizeOf
+            let rawData = reinterpretValueTypeAsByteArray fieldValue size
+            let state =
+                match t with
+                | _ when t = typedefof<byte> ->
+                    fillInArray byteTermCreator state arrayRef sizeof<byte> rawData
+                | _ when t = typedefof<sbyte> ->
+                    fillInArray signedByteTermCreator state arrayRef sizeof<sbyte> rawData
+                | _ when t = typedefof<int16> ->
+                    fillInArray int16TermCreator state arrayRef sizeof<int16> rawData
+                | _ when t = typedefof<uint16> ->
+                    fillInArray unsignedInt16TermCreator state arrayRef sizeof<uint16> rawData
+                | _ when t = typedefof<int> ->
+                    fillInArray int32TermCreator state arrayRef sizeof<int> rawData
+                | _ when t = typedefof<uint32> ->
+                    fillInArray int32TermCreator state arrayRef sizeof<uint32> rawData
+                | _ when t = typedefof<int64> ->
+                    fillInArray int64TermCreator state arrayRef sizeof<int64> rawData
+                | _ when t = typedefof<uint64> ->
+                    fillInArray unsignedInt64TermCreator state arrayRef sizeof<uint64> rawData
+                | _ when t = typedefof<float32> ->
+                    fillInArray float32TermCreator state arrayRef sizeof<float32> rawData
+                | _ when t = typedefof<double> ->
+                    fillInArray doubleTermCreator state arrayRef sizeof<double> rawData
+                | _ when t = typedefof<bool> ->
+                    fillInArray boolTermCreator state arrayRef sizeof<bool> rawData
+                | _ when t = typedefof<char> ->
+                    fillInArray charTermCreator state arrayRef sizeof<char> rawData
+                | _ -> __notImplemented__()
+            Nop, state
+        | _ -> __notImplemented__(), state
+
+    let InitializeArray (state : state) arrayRef handleTerm =
+        GuardedStatedApplyStatementK state arrayRef (fun state arrayRef ->
+        GuardedStatedApplyStatementK state handleTerm (fun state handleTerm k ->
+        initializeArray state arrayRef handleTerm |> k)) id

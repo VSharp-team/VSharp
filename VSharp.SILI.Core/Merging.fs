@@ -161,8 +161,6 @@ module internal Merging =
         | _, False -> u
         | False, _
         | _, True -> v
-        | ErrorT _, _ -> g
-        | _, ErrorT _ -> h
         | _ -> merge [(g, u); (h, v)]
 
 // ---------------------------------------- Merging heaps ----------------------------------------
@@ -239,6 +237,8 @@ module internal Merging =
         | {term = Union gvs} -> gvs
         | t -> [(True, t)]
 
+    let unguardMerge = unguard >> merge
+
     let conditionUnderState condition state =
         Propositional.conjunction condition.metadata (condition :: State.pathConditionOf state)
 
@@ -248,69 +248,51 @@ module internal Merging =
         List.map (fun (g, v) -> (g, f v)) gvs
 
     let commonGuardedMapk mapper gvs merge k =
-        let foldFunc gvs (g, v) k =
-            mapper v (fun v' -> k ((g, v') :: gvs))
-        Cps.List.foldlk foldFunc [] gvs (merge >> k)
+        Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) gvs (merge >> k)
     let guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
 
 // ---------------------- Applying functions to terms and mapping term sequences ----------------------
 
-    let commonGuardedErroredMapk mapper errorMapper gvs merge k =
-        let foldFunc gvs (g, v) k =
-            if isError v then k ((g, errorMapper v) :: gvs)
-            else mapper v (fun t -> k ((g, t) :: gvs))
-        Cps.List.foldlk foldFunc [] gvs (merge >> k)
-
-    let commonGuardedErroredApplyk f errorHandler term merge k =
+    let commonGuardedApplyk f term merge k =
         match term.term with
-        | Error _ -> errorHandler term |> k
-        | Union gvs -> commonGuardedErroredMapk f errorHandler gvs merge k
+        | Union gvs -> commonGuardedMapk f gvs merge k
         | _ -> f term k
-    let commonGuardedErroredApply f errorHandler term merge = commonGuardedErroredApplyk (Cps.ret f) errorHandler term merge id
+    let commonGuardedApply f term merge = commonGuardedApplyk (Cps.ret f) term merge id
 
-    let guardedErroredApplyk f term k = commonGuardedErroredApplyk f id term merge k
-    let guardedErroredApply f term = guardedErroredApplyk (Cps.ret f) term id
+    let guardedApplyk f term k = commonGuardedApplyk f term merge k
+    let guardedApply f term = guardedApplyk (Cps.ret f) term id
 
-    let commonGuardedErroredMapkWithPC pc mapper errorMapper gvs merge k =
+    let commonGuardedMapkWithPC pc mapper gvs merge k =
         let foldFunc gvs (g, v) k =
             let pc' = Propositional.conjunction g.metadata (g :: pc)
             match pc' with
             | False -> k gvs
-            | _ when isError v -> k ((g, errorMapper v) :: gvs)
             | _ -> mapper v (fun t -> k ((g, t) :: gvs))
         Cps.List.foldlk foldFunc [] gvs (merge >> k)
-    let commonGuardedErroredApplykWithPC pc f errorHandler term merge k =
+    let commonGuardedApplykWithPC pc f term merge k =
         match term.term with
-        | Error _ -> errorHandler term |> k
-        | Union gvs -> commonGuardedErroredMapkWithPC pc f errorHandler gvs merge k
+        | Union gvs -> commonGuardedMapkWithPC pc f gvs merge k
         | _ -> f term k
-    let guardedErroredApplykWithPC pc f term k = commonGuardedErroredApplykWithPC pc f id term merge k
-    let guardedErroredApplyWithPC pc f term = guardedErroredApplykWithPC pc (Cps.ret f) term id
-    let commonGuardedErroredStatedMapk mapper errorMapper gvs state merge mergeStates k =
-        let foldFunc (gvs, egs, vgs, states) (g, v) k =
+    let guardedApplykWithPC pc f term k = commonGuardedApplykWithPC pc f term merge k
+    let guardedApplyWithPC pc f term = guardedApplykWithPC pc (Cps.ret f) term id
+    let commonGuardedStatedMapk mapper gvs state merge mergeStates k =
+        let foldFunc (g, v) k =
             let pc = conditionUnderState g state
             match pc with
-            | False -> k (gvs, egs, vgs, states)
-            | _ when isError v -> k ((g, errorMapper v) :: gvs, g :: egs, vgs, states)
-            |_ -> mapper (State.withPathCondition state g) v (fun (t, s) -> k ((g, t) :: gvs, egs, g :: vgs, State.popPathCondition s :: states))
-        Cps.List.foldlk foldFunc ([], [], [], []) gvs (fun (gvs, egs, vgs, states) ->
-        let eg = disjunction Metadata.empty egs
-        let state' = mergeStates (eg :: vgs) (state :: states)
+            | False -> k None
+            | _ -> mapper (State.withPathCondition state g) v (fun (t, s) -> k <| Some((g, t), g, State.popPathCondition s))
+        Cps.List.choosek foldFunc gvs (List.unzip3 >> fun (gvs, vgs, states) ->
+        let state' = mergeStates vgs states
         k (merge gvs, state'))
 
-    let commonGuardedErroredStatedApplyk f errorHandler state term merge mergeStates k =
+    let commonGuardedStatedApplyk f state term merge mergeStates k =
         match term.term with
-        | Error _ -> k (errorHandler term, state)
-        | Union gvs -> commonGuardedErroredStatedMapk f errorHandler gvs state merge mergeStates k
+        | Union gvs -> commonGuardedStatedMapk f gvs state merge mergeStates k
         | _ -> f state term k
-    let guardedErroredStatedApplyk f state term k = commonGuardedErroredStatedApplyk f id state term merge mergeStates k
-    let guardedErroredStatedApply f state term = guardedErroredStatedApplyk (Cps.ret2 f) state term id
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term merge mergeStates k
+    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
 
 // ----------------------------------------------------------------------------------------------------
-
-    let erroredUnguard term =
-        let ges, gvs = term |> unguard |> List.partition (snd >> isError)
-        ges, merge gvs
 
     let genericSimplify gvs : (term * 'a) list =
         let rec loop gvs out =
@@ -336,9 +318,7 @@ module internal Merging =
             mapper x
             |> List.collect (fun (g, v) ->
                 let g' = gacc &&& g
-                if isError v then [(g', v)]
-                else
-                    guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
+                guardedCartesianProductRec mapper ctor g' (List.append xsacc [v]) xs)
             |> genericSimplify
         | [] -> [(gacc, ctor xsacc)]
 
