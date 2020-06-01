@@ -10,41 +10,36 @@ open System
 
 [<AbstractClass>]
 type public ExplorerBase() =
-    static let CurrentlyBeingExploredLocations = new HashSet<ICodeLocation>()
+    static let CurrentlyBeingExploredLocations = HashSet<ICodeLocation>()
 
     static let DetectUnboundRecursion (codeLoc : ICodeLocation) (s : state) =
         match codeLoc with
         | :? IFunctionIdentifier as id ->
-            let isRecursiveFrame (frame : stackFrame) =
-                match frame.func with
-                | Some(id', pc') -> id = id' && s.pc = pc'
-                | _ -> false
-            s.frames.f |> Stack.pop |> Stack.exists isRecursiveFrame
+            let isRecursiveFrame (frame : stackFrame) = id = frame.func
+            s.frames |> Stack.pop |> Stack.exists isRecursiveFrame
         ///  TODO: add more logic
         | :? ILCodePortion as ilcode -> //alwaysUnrollValue
-            let lastFrame = Stack.peek ilcode.Frames.f
+            let lastFrame = Stack.peek ilcode.Frames
             lastFrame.entries
             |> List.exists (fun (entry : entry) ->
                 match entry.key with
                 | LocalVariableKey _ -> false
                 | _ ->
-                    let reference = Memory.ReferenceLocalVariable entry.key
-                    let value = Memory.Dereference s reference
+                    let value = Memory.ReadLocalVariable s entry.key
                     match value.term with
                     | Concrete _ -> false
                     | _ -> true)
         | _ -> internalfail "Some new ICodeLocation"
 
     member x.InterpretEntryPoint (id : IFunctionIdentifier) k =
-        let initialState = State.emptyRestricted
         match id with
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
-            x.InitEntryPoint initialState m.DeclaringType (fun state ->
-            x.Invoke id state None (fun (result, state) -> k { result = result; state = state }))
+            let state = Memory.initializeStaticMembers Memory.empty (Types.Constructor.fromDotNetType m.DeclaringType)
+            x.Invoke id state None (List.map (fun (result, state) -> { result = result; state = state }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
-    member x.Explore (codeLoc : ICodeLocation) k =
+    member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
         match LegacyDatabase.querySummary codeLoc with
         | Some r -> k r
         | None ->
@@ -53,38 +48,36 @@ type public ExplorerBase() =
             let initClosure frames =
                 let state = List.foldBack (fun frame state ->
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
-                    match frame.func with
-                    | Some(f, p) ->
-                        let state = {state with pc = p}
-                        Memory.NewStackFrame state f fr
-                    | None -> Memory.NewScope state fr) frames.f State.empty
+//                        let state = {state with pc = p}
+                    Memory.NewStackFrame state frame.func fr) frames Memory.empty
                 { state with pc = List.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
-                let state, this, thisIsNotNull, isMethodOfStruct = x.FormInitialState funcId
-                x.Invoke funcId state this (fun (res, state) ->
-                    let state = if Option.isSome this && thisIsNotNull <> True then State.popPathCondition state else state
-                    let state = if isMethodOfStruct then State.popStack state else state
-                    CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                    LegacyDatabase.report funcId res state |> k)
+//                let state, this, thisIsNotNull(*, isMethodOfStruct*) = x.FormInitialState funcId
+                let initialStates = x.FormInitialState funcId
+                let resultsAndStates =
+                    initialStates
+                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state this (List.map (fun (res, state) ->
+                            res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
+                    |> List.concat
+//                    let state = if isMethodOfStruct then Memory.popStack state else state
+                CurrentlyBeingExploredLocations.Remove funcId |> ignore
+                LegacyDatabase.report funcId resultsAndStates |> k
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
-                x.Invoke ilcode state None (fun (res, state) ->
+                x.Invoke ilcode state None (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    LegacyDatabase.report ilcode res state |> k)
+                    LegacyDatabase.report ilcode resultsAndStates |> k)
             | _ -> __notImplemented__()
 
     member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-        let mtd = Metadata.empty
         let addr = [Memory.freshAddress()]
         if CurrentlyBeingExploredLocations.Contains codeLoc then
-            Explorer.recursionApplication mtd codeLoc state addr k
+            __notImplemented__()
+//            Explorer.recursionApplication codeLoc state addr k
         else
-            let ctx : compositionContext = { mtd = mtd; addr = addr }
-            x.Explore codeLoc (fun summary ->
-            let result = Memory.fillHoles ctx state summary.result
-            let state = Memory.composeStates ctx state summary.state
-            k (result, state))
+            let ctx : compositionContext = { addr = addr }
+            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
 
     member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
@@ -104,13 +97,13 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
     member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
-        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
-        if Options.InvokeConcrete () && canUseReflection then
-            API.Marshalling.CallViaReflection state funcId this parameters k
-        else
+        // TODO: do concrete invocation if possible!
+//        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
+//        if Options.InvokeConcrete () && canUseReflection then
+//            API.Marshalling.CallViaReflection state funcId this parameters k
+//        else
             x.ReduceFunctionSignature funcId state methodBase this parameters (fun state ->
-            x.EnterRecursiveRegion funcId state invoke (fun (result, state) ->
-            k (result, Memory.PopStack state)))
+            x.EnterRecursiveRegion funcId state invoke (List.map (fun (result, state) -> result, Memory.PopStack state) >> k))
 
     member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues k =
         let parameters = methodBase.GetParameters()
@@ -161,52 +154,60 @@ type public ExplorerBase() =
                     | :? string as str -> Memory.AllocateString str state
                     | v -> Terms.Concrete v fieldType, state
                 let targetType = Types.FromDotNetType state f.DeclaringType
-                let fullName = Reflection.getFullNameOfField f
-                let address = Memory.ReferenceStaticField targetType fullName fieldType
-                Memory.Mutate state address value |> snd
+                let fieldId = Reflection.wrapField f
+                Memory.writeStaticField state targetType fieldId value
         else state
 
-    member x.InitEntryPoint state (t : Type) k =
+    member x.InitializeStatics (state : state) (t : Type) (k : state list -> 'a) =
         let fields = t.GetFields(Reflection.staticBindingFlags)
         let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
         match t with
-        | _ when t.IsGenericParameter -> k state
+        | _ when t.IsGenericParameter -> k (List.singleton state)
         | _ ->
             let termType = t |> Types.FromDotNetType state
-            BranchStatements state
-                (fun state k -> k (Memory.IsTypeNameInitialized termType state, state))
-                (fun state k -> k (Nop, state))
-                (fun state k ->
-                    let state = Memory.AllocateDefaultStatic state termType
-                    let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
+// TODO: synchronize this with kbatoev's code!
+//            BranchStatements state
+//                (fun state k -> k (Memory.IsTypeInitialized state termType, state))
+//                (fun state k -> k (Nop, state))
+//                (fun state k ->
+//                    let state = Memory.AllocateDefaultStatic state termType
+//                    let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
+//                    match staticConstructor with
+//                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) k
+//                    | None -> k (Nop, state))
+//                (function
+//                 | [(_, state)] -> k state
+//                 | _ -> __notImplemented__())
+            let typeInitialized = Memory.IsTypeInitialized state termType
+            match typeInitialized with
+            | True -> k (List.singleton state)
+            | _ ->
+                let state = Memory.AllocateDefaultStatic state termType
+                let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
+                let states =
                     match staticConstructor with
-                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) k
-                    | None -> k (Nop, state))
-                (snd >> k)
+                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) (List.map snd)
+                    | None -> state |> List.singleton
+                k (states |> List.map (fun state -> Memory.withPathCondition state (!!typeInitialized)))
 
-    member x.CallAbstractMethod (caller : locationBinding) (funcId : IFunctionIdentifier) state k =
-        let k = Enter caller state k
-        HigherOrderApply funcId state k
-    member x.FormInitialState (funcId : IFunctionIdentifier) =
-        let metadata = Metadata.empty
-        let this, state, isMethodOfStruct =
+    member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
+        __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
+    member x.FormInitialState (funcId : IFunctionIdentifier) : (state * term option * term) list =
+        let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
                 let declaringType = m.DeclaringType |> Types.Constructor.fromDotNetType
-                let initialState = { State.empty with statics = State.Defined false (Explorer.formInitialStatics metadata declaringType) }
-                if m.IsStatic then (None, initialState, false)
-                else
-                    Memory.makeSymbolicThis metadata initialState m.Method declaringType
-                    |> (fun (f, s, flag) -> Some f, s, flag)
+                let initialState = Memory.initializeStaticMembers Memory.empty declaringType
+                (if m.IsStatic then None else Memory.makeSymbolicThis m.Method |> Some), initialState
             | _ -> __notImplemented__()
-        let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull metadata (Option.get this)) else Nop
-        let state = if Option.isSome this && thisIsNotNull <> True then State.withPathCondition state thisIsNotNull else state
-        x.InitEntryPoint state funcId.Method.DeclaringType (fun state ->
-        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull, isMethodOfStruct))
+        let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull (Option.get this)) else Nop
+        let state = if Option.isSome this && thisIsNotNull <> True then Memory.withPathCondition state thisIsNotNull else state
+        x.InitializeStatics state funcId.Method.DeclaringType (List.map (fun state ->
+        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull(*, isMethodOfStruct*))))
 
-    abstract CreateInstance : System.Type -> term list -> state -> term * state
+    abstract CreateInstance : System.Type -> term list -> state -> (term * state) list
     default x.CreateInstance exceptionType arguments state =
-        x.InitEntryPoint state exceptionType (fun state ->
+        x.InitializeStatics state exceptionType (List.map (fun state ->
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
         let argumentsTypes =
@@ -222,11 +223,11 @@ type public ExplorerBase() =
         let ctor = List.head ctors
         let methodId = x.MakeMethodIdentifier ctor
         assert (not <| exceptionType.IsValueType)
-        let reference, state = Memory.AllocateDefaultBlock state (Types.FromDotNetType state exceptionType)
+        let reference, state = Memory.AllocateDefaultClass state (Types.FromDotNetType state exceptionType)
         let invoke state k = x.Invoke methodId state (Some reference) k
-        x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun (res, state) ->
-        assert (res = reference)
-        reference, state))
+        x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun resultsAndStates ->
+        resultsAndStates |> List.iter (fun (res, _) -> assert (res = Nop))
+        resultsAndStates |> List.map (snd >> withFst reference))) >> List.concat)
 
     member x.InvalidProgramException state =
         x.CreateInstance typeof<System.InvalidProgramException> [] state
@@ -250,7 +251,7 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    abstract member Invoke : ICodeLocation -> state -> term option -> (term * state -> 'a) -> 'a
+    abstract member Invoke : ICodeLocation -> state -> term option -> ((term * state) list -> 'a) -> 'a
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 
 
@@ -263,66 +264,49 @@ type public IInterpreterState<'InterpreterState when 'InterpreterState :> IInter
 [<AbstractClass>]
 type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpreterState<'InterpreterState>>() =
 
-    member x.Interpret start =
-        let merge (x : #IInterpreterState<'a>) (y : #IInterpreterState<'a>) : 'a =
-            let rec findCommonSuffix common pc1 pc2 =
-                match pc1, pc2 with
-                | [], [] -> [], [], common
-                | [], rest2 -> [], rest2, common
-                | rest1, [] -> rest1, [], common
-                | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
-                | _ -> pc1, pc2, common
-            let st1 = x.InternalState
-            let st2 = y.InternalState
-            let cond1List, cond2List, commonPc = findCommonSuffix [] (List.rev st1.pc) (List.rev st2.pc)
-            let cond1 = conjunction cond1List
-            let cond2 = conjunction cond2List
-            let common = conjunction commonPc
-            let result =
-                match x.ResultTerm, y.ResultTerm with
-                | None, None -> None
-                | Some t1, Some t2 -> Some <| Merging.merge2Terms (cond1 &&& common) (cond2 &&& common) t1 t2
-                | _ -> internalfail "only one state has result"
-            let mergedInternalState = Merging.merge2States cond1 cond2 {st1 with pc = commonPc} {st2 with pc = commonPc}
-            let newSt = x.SetState mergedInternalState
-            newSt.SetResultTerm(result)
-        let rec interpret' current =
+    member x.Interpret start : 'InterpreterState list =
+        let merge (x : #IInterpreterState<'a>) (y : #IInterpreterState<'a>) =
+            match x.ResultTerm, y.ResultTerm with
+            | None, None -> Memory.merge2States x.InternalState y.InternalState |> List.map (withFst None)
+            | Some t1, Some t2 -> Memory.merge2Results (t1, x.InternalState) (t2, y.InternalState) |> List.map (fun (r, s) -> (Some r, s))
+            | _ -> internalfail "only one state has result"
+            |> List.map (fun (r, s) -> (x.SetState s).SetResultTerm r)
+        let rec interpret' current : 'InterpreterState list =
             let states = x.EvaluateOneStep current
             states |> List.iter (fun state ->
-                if x.IsResultState state then
-                    match x.GetResultState() with
-                    | None -> x.SetResultState state
-                    | Some res -> x.SetResultState (merge res state)
+                if x.IsResultState state then x.SetResultState state
                 else
-                    let newState =
+                    let newStates =
                         if x.IsRecursiveState state then
                             x.ExploreInIsolation state
-                        else state
+                        else state :: []
+                    newStates |> List.iter (fun newState ->
                     match x.FindSimilar newState with
                     | None -> x.Add newState
-                    | Some similar -> x.Add (merge newState similar)
+                    | Some similar -> merge newState similar |> List.iter x.Add)
                 )
             if x.HasNextState () then
                 let newSt = x.PickNext ()
                 interpret' newSt
             else
-                x.GetResultState ()
-        let res = interpret' start
-        match res with
-        | Some st when x.IsRecursiveState start ->
-            let ist = x.MakeRecursiveState st
+                x.GetResultStates ()
+        let results = interpret' start
+        match results with
+        | [(*st*)_] when x.IsRecursiveState start ->
+            (*let ist = x.MakeRecursiveState st
             x.MakeEpsilonState ist |> merge ist |> Some
-        | _ -> res
+            |> ignore;*) __notImplemented__()
+        | _ -> results
 
     abstract member EvaluateOneStep : 'InterpreterState -> 'InterpreterState list
-    abstract member ExploreInIsolation : 'InterpreterState -> 'InterpreterState
+    abstract member ExploreInIsolation : 'InterpreterState -> 'InterpreterState list
     abstract member HasNextState : unit -> bool
     abstract member FindSimilar : 'InterpreterState -> 'InterpreterState option
     abstract member Add : 'InterpreterState -> unit
-    abstract member GetResultState : unit -> 'InterpreterState option
+    abstract member GetResultStates : unit -> 'InterpreterState list
     abstract member PickNext : unit -> 'InterpreterState
     abstract member IsRecursiveState : 'InterpreterState -> bool
     abstract member MakeEpsilonState : 'InterpreterState -> 'InterpreterState
     abstract member IsResultState : 'InterpreterState -> bool
     abstract member SetResultState : 'InterpreterState -> unit
-    abstract member MakeRecursiveState : 'InterpreterState -> 'InterpreterState
+    abstract member MakeRecursiveState : 'InterpreterState -> 'InterpreterState list

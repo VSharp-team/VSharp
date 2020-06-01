@@ -107,6 +107,8 @@ module internal TypeUtils =
 
 module internal InstructionsSet =
 
+    let __corruptedStack__() = raise (InvalidProgramException())
+
     // ------------------------------- Helper functions for cilState -------------------------------
 
     let makeEmptyState curV targetV state =
@@ -115,7 +117,7 @@ module internal InstructionsSet =
           functionResult = None; exceptionFlag = None;
           state = state; this = None }
 
-    let idTransformation pc term k = k term
+    let idTransformation term k = k term
 
     let pushResultOnStack (cilState : cilState) (res, state) =
         if res <> Nop then
@@ -138,23 +140,17 @@ module internal InstructionsSet =
 
     // --------------------------------------- Primitives ----------------------------------------
 
-    let StatedConditionalExecutionCIL (cilState : cilState) condition thenBranch elseBranch k =
+    let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
         StatedConditionalExecution cilState.state condition
-            (fun state k -> thenBranch {cilState with state = state} (fun cilState -> k (cilState, state)))
-            (fun state k -> elseBranch {cilState with state = state} (fun cilState -> k (cilState, state)))
-            (List.collect snd)
-            (fun _ _ -> Memory.EmptyState)
-            (fun _ _ -> List.append)
-            (fun _ _ _ _ -> Memory.EmptyState)
-            (fst >> k)
-    let GuardedApply (cilState : cilState) term f k =
+            (fun state k -> thenBranch {cilState with state = state} k)
+            (fun state k -> elseBranch {cilState with state = state} k)
+            (fun x y -> List.append x y |> List.singleton)
+            (List.head >> k)
+//    let GuardedApply (cilState : cilState) term f k =
+    let GuardedApply (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
         GuardedStatedApplyk
-            (fun state term k -> f {cilState with state = state} term (fun cilState -> k (cilState, state)))
-            cilState.state
-            term
-            (List.collect snd)
-            (fun _ _ -> Memory.EmptyState)
-            (fst >> k)
+            (fun state term k -> f {cilState with state = state} term k)
+            cilState.state term id (List.concat >> k)
     let BranchOnNull cilState term =
         StatedConditionalExecutionCIL cilState (fun state k -> k (IsNullReference term, state))
 
@@ -179,11 +175,13 @@ module internal InstructionsSet =
             // Sometimes F# compiler merges tuple with the rest arguments!
             match methodInfo.GetParameters().Length with
             | 2 -> [| s; argsAndThis |]
-            | 6 -> [| s.stack; s.heap; s.statics; s.frames; s.pc; argsAndThis |]
+// TODO: this should be now broken!
+//            | 6 -> [| s.stack; s.heap; s.statics; s.frames; s.pc; argsAndThis |]
             | _ -> __notImplemented__()
         let result = methodInfo.Invoke(null, parameters)
         match result with
-        | :? (term * state) as r -> k r
+        | :? (term * state) as r -> k [r]
+        | :? ((term * state) list) as r -> k r
         | _ -> internalfail "internal call should return tuple term * state!"
 
 
@@ -193,10 +191,10 @@ module internal InstructionsSet =
         let lvi = methodBase.GetMethodBody().LocalVariables.[index]
         let stackKey = LocalVariableKey lvi
         let typ = Types.FromDotNetType state lvi.LocalType
-        Memory.ReferenceLocalVariable stackKey, state, typ
+        Ref (PrimitiveStackLocation stackKey), state, typ
     let getArgTerm index (methodBase : MethodBase) =
         let pi = methodBase.GetParameters().[index]
-        Memory.ReferenceLocalVariable (ParameterKey pi)
+        PrimitiveStackLocation (ParameterKey pi) |> Ref
 
     let castReferenceToPointerIfNeeded term typ state =
         if isReference term && Types.IsPointer typ
@@ -204,7 +202,7 @@ module internal InstructionsSet =
         else term
     let castUnchecked typ term (state : state) : term =
         let term = castReferenceToPointerIfNeeded term typ state
-        Types.Cast state.pc term typ
+        Types.Cast term typ
     let popStack (cilState : cilState) =
         match cilState.opStack with
         | t :: ts -> Some t, {cilState with opStack = ts}
@@ -217,7 +215,7 @@ module internal InstructionsSet =
     let ldloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let reference, state, _ = getVarTerm cilState.state index cfg.methodBase
-        let term = Memory.Dereference state reference
+        let term = Memory.ReadSafe state reference
         pushResultOnStack cilState (term, state) :: []
 
     let ldarg numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
@@ -228,11 +226,11 @@ module internal InstructionsSet =
             | None, _
             | Some _, true ->
                 let term = getArgTerm argumentIndex cfg.methodBase
-                Memory.Dereference state term, state
+                Memory.ReadSafe state term, state
             | Some this, _ when argumentIndex = 0 -> this, state
             | Some _, false ->
                 let term = getArgTerm (argumentIndex - 1) cfg.methodBase
-                Memory.Dereference state term, state
+                Memory.ReadSafe state term, state
         pushResultOnStack cilState (arg, state) :: []
     let ldarga numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
@@ -250,35 +248,35 @@ module internal InstructionsSet =
         match cilState.opStack with
          | right :: stack ->
             let value = castUnchecked typ right state
-            let _, state = Memory.Mutate state left value
-            {cilState with opStack = stack; state = state} :: []
-         | _ -> __notImplemented__()
+            let states = Memory.WriteSafe state left value
+            states |> List.map (fun state -> {cilState with opStack = stack; state = state})
+         | _ -> __corruptedStack__()
     let performCILUnaryOperation op isChecked (cilState : cilState) =
+        // TODO: why isChecked is unused?
         match cilState.opStack with
         | x :: stack ->
             API.PerformUnaryOperation op (Terms.TypeOf x) x (fun term ->
             { cilState with opStack = term :: stack } :: [])
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let performCILBinaryOperation op operand1Transform operand2Transform resultTransform (cilState : cilState) =
-        let pc = cilState.state.pc
         match cilState.opStack with
         | arg2 :: arg1 :: stack ->
-            operand1Transform pc arg1 (fun arg1 ->
-            operand2Transform pc arg2 (fun arg2 ->
+            operand1Transform arg1 (fun arg1 ->
+            operand2Transform arg2 (fun arg2 ->
             API.PerformBinaryOperation op arg1 arg2 (fun interimRes ->
-            resultTransform pc interimRes (fun res -> {cilState with opStack = res :: stack } :: []))))
-        | _ -> __notImplemented__()
-    let makeSignedInteger pc term k =
+            resultTransform interimRes (fun res -> {cilState with opStack = res :: stack } :: []))))
+        | _ -> __corruptedStack__()
+    let makeSignedInteger term k =
         let typ = Terms.TypeOf term
         let signedTyp = TypeUtils.unsigned2signedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> signedTyp then
             // TODO: check whether term is not pointer
-            k <| Types.Cast pc term signedTyp // no specs found about overflows
+            k <| Types.Cast term signedTyp // no specs found about overflows
         else k term
     let standardPerformBinaryOperation op =
         performCILBinaryOperation op makeSignedInteger makeSignedInteger idTransformation
     let shiftOperation op (cilState : cilState) =
-        let reinterpret termType pc term k = k <| Types.Cast pc term termType
+        let reinterpret termType term k = k <| Types.Cast term termType
         match cilState.opStack with
         | _ :: value :: _ ->
             let op1trans, resTrans =
@@ -294,11 +292,11 @@ module internal InstructionsSet =
                 | TypeUtils.Int64 _ -> idTransformation, reinterpret TypeUtils.int64Type
                 | _ -> __notImplemented__()
             performCILBinaryOperation op op1trans idTransformation resTrans cilState
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let dup (cilState : cilState) =
         match cilState.opStack with
         | t :: _ -> [{ cilState with opStack = t :: cilState.opStack }]
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
 
     let ret (cfg : cfgData) _ (cilState : cilState) =
         let state = cilState.state
@@ -334,7 +332,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
                 term !== MakeNumber (t.GetEnumValues().GetValue(0))
-            | _ when isReference term -> term !== MakeNullRef()
+            | _ when isReference term -> !!(IsNullReference term)//  term !== NullRef
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
 
@@ -343,10 +341,10 @@ module internal InstructionsSet =
         | y :: x :: _ ->
             let transform =
                 if TypeUtils.isBool x || TypeUtils.isBool y
-                then fun pc t k -> k (Transform2BooleanTerm pc t)
+                then fun t k -> k (Transform2BooleanTerm cilState.state.pc t)
                 else idTransformation
             performCILBinaryOperation OperationType.Equal transform transform idTransformation cilState
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
         let argTerm =
@@ -356,9 +354,9 @@ module internal InstructionsSet =
            | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
         match cilState.opStack with
         | value :: stack ->
-            let _, state = Memory.Mutate cilState.state argTerm value
-            { cilState with opStack = stack; state = state} :: []
-        | _ -> __notImplemented__()
+            let states = Memory.WriteSafe cilState.state argTerm value
+            states |> List.map (fun state -> { cilState with opStack = stack; state = state})
+        | _ -> __corruptedStack__()
     let brcommon condTransform offsets (cilState : cilState) =
         match cilState.opStack with
         | cond :: stack ->
@@ -372,7 +370,7 @@ module internal InstructionsSet =
                (fun cilState k -> k [offsetThen, cilState])
                (fun cilState k -> k [offsetElse, cilState])
                id
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let brfalse = brcommon id
     let brtrue = brcommon (!!)
     let applyAndBranch errorStr additionalFunction brtrueFunction (cfg : cfgData) offset newOffsets (cilState : cilState) =
@@ -380,7 +378,6 @@ module internal InstructionsSet =
         | [_, st] -> brtrueFunction newOffsets st
         | _ -> internalfail errorStr
     let compare op operand1Transformation operand2Transformation (cilState : cilState) =
-        let pc = cilState.state.pc
         match cilState.opStack with
         | _ :: arg1 :: _ ->
             let typ = TypeOf arg1
@@ -389,9 +386,9 @@ module internal InstructionsSet =
                 performCILBinaryOperation op idTransformation idTransformation idTransformation cilState
             else
                 performCILBinaryOperation op operand1Transformation operand2Transformation idTransformation cilState
-        | _ -> __notImplemented__()
-    let boolToInt (cilState : cilState) b =
-        BranchExpressions cilState.state (fun k -> k b) (fun k -> k TypeUtils.Int32.One) (fun k -> k TypeUtils.Int32.Zero) id
+        | _ -> __corruptedStack__()
+    let boolToInt b =
+        BranchExpressions (fun k -> k b) (fun k -> k TypeUtils.Int32.One) (fun k -> k TypeUtils.Int32.Zero) id
     let bitwiseOperation op (cilState : cilState) =
         match cilState.opStack with
         | arg2 :: arg1 :: _ ->
@@ -402,13 +399,13 @@ module internal InstructionsSet =
             | _ when TypeUtils.isIntegerTermType typ1 && TypeUtils.isIntegerTermType typ2 ->
                 standardPerformBinaryOperation op cilState
             | Bool, typ2 when TypeUtils.isIntegerTermType typ2 ->
-                let newArg1 = boolToInt cilState arg1
-                performCILBinaryOperation op (fun _ _ k -> k newArg1) idTransformation idTransformation cilState
+                let newArg1 = boolToInt arg1
+                performCILBinaryOperation op (fun _ k -> k newArg1) idTransformation idTransformation cilState
             | typ1, Bool when TypeUtils.isIntegerTermType typ1 ->
-                let newArg2 = boolToInt cilState arg2
-                performCILBinaryOperation op idTransformation (fun _ _ k -> k newArg2) idTransformation cilState
+                let newArg2 = boolToInt arg2
+                performCILBinaryOperation op idTransformation (fun _ k -> k newArg2) idTransformation cilState
             | typ1, typ2 -> internalfailf "unhandled case for Bitwise operation %O and types: %O %O" op typ1 typ2
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = List.splitAt paramsNumber cilState.opStack
@@ -424,19 +421,19 @@ module internal InstructionsSet =
         let arrayTyp = Types.FromDotNetType state arrayType
         let referenceAndState = Memory.AllocateDefaultArray state parameters arrayTyp
         k <| pushResultOnStack cilState referenceAndState
-    let makeUnsignedInteger pc term k =
+    let makeUnsignedInteger term k =
         let typ = Terms.TypeOf term
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
             // TODO: check whether term is not pointer
-            k <| Types.Cast pc term unsignedTyp // no specs found about overflows
+            k <| Types.Cast term unsignedTyp // no specs found about overflows
         else k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
         match cilState.opStack with
         | arg2 :: arg1 :: _ when TypeUtils.isInteger arg1 && TypeUtils.isInteger arg2 ->
             performCILBinaryOperation op makeUnsignedInteger makeUnsignedInteger idTransformation cilState
         | _ :: _ :: _ -> internalfailf "arguments for %O are not Integers!" op
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let ldstr (cfg : cfgData) offset (cilState : cilState) =
         let stringToken = NumberCreator.extractInt32 cfg.ilBytes (offset + OpCodes.Ldstr.Size)
         let string = cfg.methodBase.Module.ResolveString stringToken
@@ -444,10 +441,10 @@ module internal InstructionsSet =
         let referenceAndState = Memory.AllocateString string state
         pushResultOnStack cilState referenceAndState :: []
     let allocateValueTypeInHeap v (cilState : cilState) =
-        let address, state = Memory.AllocateValueTypeInHeap cilState.state (TypeOf v) v
+        let address, state = Memory.BoxValueType cilState.state v
         {cilState with opStack = address :: cilState.opStack; state = state} :: []
     let ldnull (cilState : cilState) =
-        pushResultOnStack cilState (MakeNullRef (), cilState.state) :: []
+        pushResultOnStack cilState (MakeNullRef Types.ObjectType, cilState.state) :: []
 
     let convu (cilState : cilState) = cilState :: []
     let convi (cilState : cilState) = cilState :: []
@@ -457,7 +454,7 @@ module internal InstructionsSet =
             let term = castUnchecked targetType t cilState.state
             let termForStack =castUnchecked typeForStack term cilState.state
             {cilState with opStack = termForStack::stack} :: []
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let ldloca numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let term, state, _ = getVarTerm cilState.state index cfg.methodBase
@@ -478,7 +475,7 @@ module internal InstructionsSet =
                 let cond2 = Arithmetics.(<<) value TypeUtils.Int32.Zero // TODO: so no need to check this
                 cond1 ||| cond2
             Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughOffset)::casesAndOffsets) (fun _ k -> k []) id
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let ldtoken (cfg : cfgData) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
         let state = cilState.state
@@ -497,16 +494,16 @@ module internal InstructionsSet =
         match cilState.opStack with
         | targetAddress :: stack ->
             let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Initobj.Size)
-            let _, state = Memory.Mutate cilState.state targetAddress (MakeDefault typ targetAddress)
-            {cilState with state = state; opStack = stack} :: []
-        | _ -> __notImplemented__()
+            let states = Memory.WriteSafe cilState.state targetAddress (Memory.DefaultOf typ)
+            states |> List.map (fun state -> {cilState with state = state; opStack = stack})
+        | _ -> __corruptedStack__()
     let ldind addressCast (cilState : cilState) =
         match cilState.opStack with
         | address :: stack ->
             let address = addressCast address cilState.state
-            let index = Memory.Dereference cilState.state address
+            let index = Memory.ReadSafe cilState.state address
             {cilState with opStack = index::stack} :: []
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let ldindref = ldind always
     let clt = compare OperationType.Less idTransformation idTransformation
     let cltun = compare OperationType.Less makeUnsignedInteger makeUnsignedInteger
@@ -517,7 +514,7 @@ module internal InstructionsSet =
             if Types.IsInteger typ1 && Types.IsInteger typ2 then clt cilState
             elif Types.IsReal typ1 && Types.IsReal typ2 then cltun cilState
             else __notImplemented__()
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let isinst (cfg : cfgData) offset (cilState : cilState) =
         match cilState.opStack with
         | object :: stack ->
@@ -525,9 +522,9 @@ module internal InstructionsSet =
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (IsNullReference object ||| Types.IsCast typ object, state))
                 (fun cilState k -> k [cilState])
-                (fun cilState k -> k [{cilState with opStack = MakeNullRef() :: stack}])
+                (fun cilState k -> k [{cilState with opStack = MakeNullRef typ :: stack}])
                 id
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let cgtun (cilState : cilState) =
         match cilState.opStack with
         | arg2 :: arg1 :: _ when isReference arg2 && isReference arg1 ->
@@ -537,25 +534,25 @@ module internal InstructionsSet =
         match cilState.opStack with
         | address :: stack ->
             let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Ldobj.Size)
-            let value = Memory.Dereference cilState.state address
+            let value = Memory.ReadSafe cilState.state address
             let typedValue = castUnchecked typ value cilState.state
             {cilState with opStack = typedValue::stack} :: []
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let stobj (cfg : cfgData) offset (cilState : cilState) =
         match cilState.opStack with
         | src :: dest :: stack ->
             let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Stobj.Size)
             let value = castUnchecked typ src cilState.state
-            let _, state = Memory.Mutate cilState.state dest value
-            {cilState with opStack = stack; state = state} :: []
-        | _ -> __notImplemented__()
+            let states = Memory.WriteSafe cilState.state dest value
+            states |> List.map (fun state -> {cilState with opStack = stack; state = state})
+        | _ -> __corruptedStack__()
     let stind typ (cilState : cilState) =
         match cilState.opStack with
         | value :: address :: stack ->
             let value = castUnchecked typ value cilState.state
-            let _, state = Memory.Mutate cilState.state address value
-            {cilState with opStack = stack; state = state} :: []
-        | _ -> __notImplemented__()
+            let states = Memory.WriteSafe cilState.state address value
+            states |> List.map (fun state -> {cilState with opStack = stack; state = state})
+        | _ -> __corruptedStack__()
     let sizeofInstruction (cfg : cfgData) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
@@ -564,7 +561,7 @@ module internal InstructionsSet =
         match cilState.opStack with
         | error :: _ ->
             { cilState with opStack = []; exceptionFlag = Some error } :: []
-        | _ -> __notImplemented__()
+        | _ -> __corruptedStack__()
     let leave _ _ (cilState : cilState) = cilState :: []
     let zipWithOneOffset op cfgData offset newOffsets cilState =
         assert (List.length newOffsets = 1)

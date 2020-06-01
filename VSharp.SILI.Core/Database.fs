@@ -7,17 +7,19 @@ open VSharp
 open VSharp.Logger
 
 type codeLocationSummary = { result : term; state : state }
+type codeLocationSummaries = codeLocationSummary list
 
 module internal LegacyDatabase =
-    let private summaries = new Dictionary<ICodeLocation, codeLocationSummary>()
+    let private summaries = Dictionary<ICodeLocation, codeLocationSummaries>()
 
     let reported codeLoc = summaries.ContainsKey codeLoc
 
-    let report codeLoc result state =
-        assert (List.length state.frames.f = 1)
+    let report codeLoc resultsAndStates =
+        assert (List.forall (fun (_,state) -> List.length state.frames = 1) resultsAndStates)
         assert(not (summaries.ContainsKey codeLoc))
-        let summary = { result = result; state = state}
-        printLog Info "For %O got %O\n%O\n\n" codeLoc result (State.dumpMemory state)
+        let summary = List.map (fun (result, state) -> { result = result; state = Memory.popStack state}) resultsAndStates
+        printLog Info "For %O got %O state%s\n%O\n\n" codeLoc resultsAndStates.Length (if resultsAndStates.Length > 1 then "s" else "")
+            (summary |> List.map (fun summary -> sprintf "Result: %O; %O" summary.result (Memory.dump summary.state)) |> join "\n")
         summaries.Add(codeLoc, summary) |> ignore
         summary
 

@@ -20,12 +20,12 @@ module private MathImpl =
                 MakeNumber (concrete a)
             | Constant(_, _, t)
             | Expression(_, _, t) ->
-                Expression (Application(StandardFunctionIdentifier standFunc)) [term] t
+                Expression (Application standFunc) [term] t
             | term -> internalfailf "expected number, but %O got!" term)
         result, state
 
     let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete (state : state) args =
-        let mkPowExpr args typ = Expression (Application(StandardFunctionIdentifier StandardFunction.Power)) args typ
+        let mkPowExpr args typ = Expression (Application StandardFunction.Power) args typ
         let zero = convert 0.0
         let one = convert 1.0
         let minusInf = convert -infinity
@@ -105,7 +105,7 @@ module private MathImpl =
         result, state
 
     let atan2<'a when 'a : comparison> convert isNan isInf concrete (state : state) args =
-        let atanOp = Application(StandardFunctionIdentifier StandardFunction.Arctangent2)
+        let atanOp = Application StandardFunction.Arctangent2
         let y, x = List.item 0 args, List.item 1 args
         let inf, Nan = convert infinity, convert nan
         let result = GuardedApplyExpression y (fun term ->

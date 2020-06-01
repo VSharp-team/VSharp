@@ -7,6 +7,7 @@ using VSharp.Core;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
+using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Core.codeLocationSummary>;
 
 namespace VSharp.Test
 {
@@ -20,9 +21,9 @@ namespace VSharp.Test
             _explorer = explorer;
         }
 
-        private codeLocationSummary PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, codeLocationSummary> dict,
+        private CodeLocationSummaries PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, CodeLocationSummaries> dict,
             MethodInfo m,
-            Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
+            Func<IMethodIdentifier, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
             _statistics.SetupBeforeMethod(m);
             IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
@@ -36,7 +37,7 @@ namespace VSharp.Test
             }
 
             dict?.Add(m, null);
-            var id = FSharpFunc<codeLocationSummary, codeLocationSummary>.FromConverter(x => x);
+            var id = FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>.FromConverter(x => x);
             var summary = invoke(methodIdentifier, id);
             _statistics.AddSucceededMethod(m);
             if (dict != null)
@@ -47,8 +48,8 @@ namespace VSharp.Test
             return summary;
         }
 
-        private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m,
-            Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
+        private CodeLocationSummaries PrepareAndInvoke(IDictionary<MethodInfo, CodeLocationSummaries> dict, MethodInfo m,
+            Func<IMethodIdentifier, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
             try
             {
@@ -62,20 +63,20 @@ namespace VSharp.Test
             return null;
         }
 
-        private void InterpretEntryPoint(IDictionary<MethodInfo, codeLocationSummary> dictionary, MethodInfo m)
+        private void InterpretEntryPoint(IDictionary<MethodInfo, CodeLocationSummaries> dictionary, MethodInfo m)
         {
             Assert.IsTrue(m.IsStatic);
             PrepareAndInvoke(dictionary, m, _explorer.InterpretEntryPoint);
         }
 
-        private void Explore(IDictionary<MethodInfo, codeLocationSummary> dictionary, MethodInfo m)
+        private void Explore(IDictionary<MethodInfo, CodeLocationSummaries> dictionary, MethodInfo m)
         {
             if (m.GetMethodBody() != null)
                 PrepareAndInvoke(dictionary, m, _explorer.Explore);
         }
 
         private void ExploreType(List<string> ignoreList, MethodInfo ep,
-            IDictionary<MethodInfo, codeLocationSummary> dictionary, Type t)
+            IDictionary<MethodInfo, CodeLocationSummaries> dictionary, Type t)
         {
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
@@ -101,11 +102,20 @@ namespace VSharp.Test
             return Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");
         }
 
-        private static string ResultToString(codeLocationSummary summary)
+        private static string SummaryToString(codeLocationSummary summary)
         {
             if (summary == null)
-                return "summary is null";
-            return $"{summary.result}\nHEAP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.state))}";
+                return "Summary is empty";
+            return $"{summary.result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.state))}";
+        }
+
+        private static string ResultToString(CodeLocationSummaries summary)
+        {
+            int count = 0;
+            if (summary == null || (count = summary.Count()) == 0)
+                return "No states were obtained!";
+            var suffix = count > 1 ? "s" : "";
+            return $"Totally {count} state{suffix}:\n{String.Join("\n", summary.Select(SummaryToString))}";
         }
 
         public string ExploreOne(MethodInfo m)
@@ -122,7 +132,7 @@ namespace VSharp.Test
 
         public IDictionary<MethodInfo, string> Run(Assembly assembly, List<string> ignoredList)
         {
-            IDictionary<MethodInfo, codeLocationSummary> dictionary = new Dictionary<MethodInfo, codeLocationSummary>();
+            IDictionary<MethodInfo, CodeLocationSummaries> dictionary = new Dictionary<MethodInfo, CodeLocationSummaries>();
             var ep = assembly.EntryPoint;
 
             foreach (var t in assembly.GetTypes())

@@ -1,6 +1,5 @@
 namespace VSharp
 
-open System.Collections
 open System.Collections.Generic
 
 module public Seq =

@@ -11,7 +11,7 @@ module internal Z3 =
 // ------------------------------- Cache -------------------------------
 
     type private encodingCache = {
-        sorts : IDictionary<termType, Sort>
+        sorts : IDictionary<symbolicType, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, Expr>
     } with
@@ -23,9 +23,9 @@ module internal Z3 =
                 result)
 
     let private freshCache () = {
-        sorts = new Dictionary<termType, Sort>()
-        e2t = new Dictionary<Expr, term>()
-        t2e = new Dictionary<term, Expr>()
+        sorts = Dictionary<symbolicType, Sort>()
+        e2t = Dictionary<Expr, term>()
+        t2e = Dictionary<term, Expr>()
     }
 
 // ------------------------------- Encoding: primitives -------------------------------
@@ -52,6 +52,7 @@ module internal Z3 =
                 | ClassType _
                 | InterfaceType _
                 | TypeVariable _
+                | AddressType
                 | Pointer _ -> __notImplemented__())
 
         member private x.EncodeConcrete (obj : obj) typ =
@@ -99,12 +100,8 @@ module internal Z3 =
                         | OperationType.ShiftLeft
                         | OperationType.ShiftRight -> __notImplemented__()
                         | _ -> __notImplemented__()
-                | Application id ->
-                    let decl =
-                        match id with
-                        | :? IMethodIdentifier -> __notImplemented__()
-                        | :? StandardFunctionIdentifier as sf -> ctx.MkConstDecl(sf.Function |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
-                        | _ -> __notImplemented__()
+                | Application sf ->
+                    let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     ctx.MkApp(decl, x.EncodeTerms stopper args)
                 | Cast(Numeric _, Numeric _) -> x.EncodeTermExt stopper (List.head args)
                 | Cast _ ->
@@ -167,7 +164,7 @@ module internal Z3 =
                     else __notImplemented__()
 
     let private ctx = new Context()
-    let private builder = new Z3Builder(ctx)
+    let private builder = Z3Builder(ctx)
 
     type internal Z3Solver() =
         let optCtx = ctx.MkOptimize()
@@ -190,7 +187,7 @@ module internal Z3 =
             let idx = pathsCount
             pathsCount <- pathsCount + 1u
             let atom = ctx.MkBoolConst(sprintf "path!%O!%O" p.lvl idx)
-            (Dict.tryGetValue2 pathAtoms p.lvl (fun () -> new List<BoolExpr>())).Add atom
+            (Dict.tryGetValue2 pathAtoms p.lvl (fun () -> List<BoolExpr>())).Add atom
             paths.Add(atom, p)
             atom
 

@@ -13,24 +13,24 @@ module internal Propositional =
 
 // ------------------------------- Utilities -------------------------------
 
-    let makeBin metadata operation x y =
+    let makeBin operation x y =
         match x.term, y.term with
         | Expression(Operator op', list', _), Expression(Operator op'', list'', _) when op' = operation && op'' = operation ->
-            makeNAry operation (List.append list' list'') Bool metadata
+            makeNAry operation (List.append list' list'') Bool
         | Expression(Operator _, [], _), _ -> y
         | _, Expression(Operator _, [], _) -> y
         | Expression(Operator op', list', _), _ when op' = operation ->
-            makeNAry operation (y::list') Bool metadata
+            makeNAry operation (y::list') Bool
         | _, Expression(Operator op', list', _) when op' = operation ->
-            makeNAry operation (x::list') Bool metadata
-        | _ -> makeNAry operation [x; y] Bool metadata
+            makeNAry operation (x::list') Bool
+        | _ -> makeNAry operation [x; y] Bool
 
 
-    let private makeCoOpBinaryTerm metadata listMetadata x list listOp op =
+    let private makeCoOpBinaryTerm x list listOp op =
         match list with
         | [] -> x
-        | [y] -> makeBin metadata op x y
-        | _ -> makeBin metadata op (Expression listMetadata (Operator listOp) list Bool) x
+        | [y] -> makeBin op x y
+        | _ -> makeBin op (Expression (Operator listOp) list Bool) x
 
 
     let private (|IntersectionExceptOneNegation|_|) (list1 : term list) (list2 : term list) =
@@ -84,10 +84,10 @@ module internal Propositional =
 
         combine xs ys []
 
-    let rec private simplifyConnective mtd operation opposite stopValue ignoreValue x y k =
-        let defaultCase () = makeBin mtd operation x y |> k in
+    let rec private simplifyConnective operation opposite stopValue ignoreValue x y k =
+        let defaultCase () = makeBin operation x y |> k in
         match simplifier with
-        | Some simplifier -> simplifier.Simplify(makeBin mtd operation x y) |> k
+        | Some simplifier -> simplifier.Simplify(makeBin operation x y) |> k
         | None ->
             match x.term, y.term with
             | Nop, _ -> internalfailf "Invalid left operand of %O!" operation
@@ -97,20 +97,20 @@ module internal Propositional =
                     (fun (g1, v1) k ->
                         Cps.List.mapk
                             (fun (g2, v2) k ->
-                                simplifyAnd mtd g1 g2 (fun g ->
-                                simplifyConnective mtd operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
+                                simplifyAnd g1 g2 (fun g ->
+                                simplifyConnective operation opposite stopValue ignoreValue v1 v2 (withFst g >> k)))
                             gvs2 k)
                     gvs1
-                    (List.concat >> Union mtd >> k)
+                    (List.concat >> Union >> k)
             | GuardedValues(gs, vs), _ ->
-                Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue y) vs (fun xys ->
-                List.zip gs xys |> Union mtd |> k)
+                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue y) vs (fun xys ->
+                List.zip gs xys |> Union |> k)
             | _, GuardedValues(gs, vs) ->
-                Cps.List.mapk (simplifyConnective mtd operation opposite stopValue ignoreValue x) vs (fun xys ->
-                List.zip gs xys |> Union mtd |> k)
-            | _ -> simplifyExt mtd operation opposite stopValue ignoreValue x y k defaultCase
+                Cps.List.mapk (simplifyConnective operation opposite stopValue ignoreValue x) vs (fun xys ->
+                List.zip gs xys |> Union |> k)
+            | _ -> simplifyExt operation opposite stopValue ignoreValue x y k defaultCase
 
-    and private simplifyExt mtd op co stopValue ignoreValue x y matched unmatched =
+    and private simplifyExt op co stopValue ignoreValue x y matched unmatched =
         match x.term, y.term with
         | _ when y = ignoreValue -> matched x
         | _ when x = ignoreValue -> matched y
@@ -120,158 +120,156 @@ module internal Propositional =
         | Negation x, _ when x = y -> matched stopValue
         | _, Negation y when x = y -> matched stopValue
         | Expression _, Expression _ ->
-            simplifyExpression mtd op co stopValue ignoreValue x y matched (fun () ->
-            simplifyExpression mtd op co stopValue ignoreValue y x matched unmatched)
-        | Expression _, _ -> simplifyOpToExpr mtd x y op co stopValue ignoreValue matched unmatched
-        | _, Expression _ -> simplifyOpToExpr mtd y x op co stopValue ignoreValue matched unmatched
+            simplifyExpression op co stopValue ignoreValue x y matched (fun () ->
+            simplifyExpression op co stopValue ignoreValue y x matched unmatched)
+        | Expression _, _ -> simplifyOpToExpr x y op co stopValue ignoreValue matched unmatched
+        | _, Expression _ -> simplifyOpToExpr y x op co stopValue ignoreValue matched unmatched
         | _ -> unmatched ()
 
-    and private simplifyExpression mtd op co stopValue ignoreValue x y matched unmatched =
+    and private simplifyExpression op co stopValue ignoreValue x y matched unmatched =
         match x.term with
         | Expression(Operator op', list, _) when op = op'->
-            simplifyOpOp mtd op co stopValue ignoreValue x.metadata list y matched unmatched
+            simplifyOpOp op co stopValue ignoreValue list y matched unmatched
         | Expression(Operator co', list, _) when co = co'->
-            simplifyCoOp mtd op co stopValue ignoreValue x list y matched unmatched
+            simplifyCoOp op co stopValue ignoreValue x list y matched unmatched
         | _ -> unmatched ()
 
-    and simplifyOpOp mtd op co stopValue ignoreValue xmtd xargs y matched unmatched =
+    and simplifyOpOp op co stopValue ignoreValue xargs y matched unmatched =
         // simplifying (OP list) op y at this step
         match xargs, y with
-        | [x], y -> simplifyExt mtd op co stopValue ignoreValue x y matched unmatched
+        | [x], y -> simplifyExt op co stopValue ignoreValue x y matched unmatched
         | _ ->
             // Trying to simplify pairwise combinations of x- and y-summands
-            let yargs, mtd' =
+            let yargs =
                 match y.term with
-                | Expression(Operator op', y', _) when op = op'-> y', Metadata.combine3 mtd xmtd y.metadata
-                | _ -> [y], Metadata.combine xmtd mtd
-            simplifyPairwiseCombinations xargs yargs Bool id (simplifyExtWithType mtd' op co stopValue ignoreValue) (simplifyConnective mtd' op co stopValue ignoreValue) matched unmatched
+                | Expression(Operator op', y', _) when op = op'-> y'
+                | _ -> [y]
+            simplifyPairwiseCombinations xargs yargs Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
 
-    and simplifyCoOp mtd op co stopValue ignoreValue x list y matched unmatched =
+    and simplifyCoOp op co stopValue ignoreValue x list y matched unmatched =
         match list, y.term with
-        | [x], _ -> simplifyExt mtd op co stopValue ignoreValue x y matched unmatched
+        | [x], _ -> simplifyExt op co stopValue ignoreValue x y matched unmatched
         // Co(... y ...) op y = y
         | _ when List.contains y list -> matched y
         // Co(... y ...) op !y = Co(... ...) op !y
-        | _, Negation y' when List.contains y' list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [y'] list) co op)
+        | _, Negation y' when List.contains y' list -> matched (makeCoOpBinaryTerm y (List.except [y'] list) co op)
         // Co(... !y ...) op y = Co(... ...) op y
-        | _ when List.contains (negate y Metadata.empty) list -> matched (makeCoOpBinaryTerm mtd y.metadata y (List.except [negate y Metadata.empty] list) co op)
+        | _ when List.contains (negate y) list -> matched (makeCoOpBinaryTerm y (List.except [negate y] list) co op)
         // Co(!a ys) op Co(a ys) = ys
         // Co(a ys) op Co(!a ys zs) = ys co (a op Co(zs)) if (a op Co(zs)) simplifies
         // Co(a ys) op Co(!a ys zs) = Co(a ys) op Co(ys zs)
         | _, Expression(Operator co', IntersectionExceptOneNegation list (a, ys, zs), _) when co' = co ->
-            if zs.IsEmpty then makeNAry co ys Bool (Metadata.combine3 mtd x.metadata y.metadata) |> matched
+            if zs.IsEmpty then makeNAry co ys Bool |> matched
             else
-                let xymtd = Metadata.combine x.metadata y.metadata
-                let coZs = makeNAry co zs Bool xymtd
-                simplifyExt mtd op co stopValue ignoreValue a coZs
-                    (fun aOpZs -> makeNAry co (aOpZs::ys) Bool xymtd |> matched)
+                let coZs = makeNAry co zs Bool
+                simplifyExt op co stopValue ignoreValue a coZs
+                    (fun aOpZs -> makeNAry co (aOpZs::ys) Bool |> matched)
                     (fun () ->
-                        let y' = makeNAry co (List.append ys zs) Bool y.metadata
-                        simplifyCoOp mtd op co stopValue ignoreValue x list y' matched (fun () ->
-                        makeNAry op [x; y'] Bool mtd |> matched))
+                        let y' = makeNAry co (List.append ys zs) Bool
+                        simplifyCoOp op co stopValue ignoreValue x list y' matched (fun () ->
+                        makeNAry op [x; y'] Bool |> matched))
         // Co(list) op Co(permutation of list) -> Co(list)
         // TODO: sort terms to avoid permutation checking
         | _, Expression(Operator co', ys, _)  when co' = co && isPermutationOf list ys -> matched x
         // Co(...) op OP(...) -> pairwise
         | _, Expression(Operator op', y', _) when op = op' ->
-            let mtd' = Metadata.combine3 mtd x.metadata y.metadata
             // Trying to simplify pairwise combinations of x- and y-summands
-            simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType mtd' op co stopValue ignoreValue) (simplifyConnective mtd' op co stopValue ignoreValue) matched unmatched
+            simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
         | _ -> unmatched ()
 
-    and private simplifyOpToExpr mtd x y op co stopValue ignoreValue matched unmatched =
+    and private simplifyOpToExpr x y op co stopValue ignoreValue matched unmatched =
         match x.term with
         | Expression(Operator op', xs, _) when op = op'->
-            simplifyOpOp mtd op co stopValue ignoreValue x.metadata xs y matched unmatched
+            simplifyOpOp op co stopValue ignoreValue xs y matched unmatched
         | Expression(Operator op', xs, _) when co = op'->
-            simplifyCoOp mtd op co stopValue ignoreValue x xs y matched unmatched
+            simplifyCoOp op co stopValue ignoreValue x xs y matched unmatched
         | _ -> unmatched ()
 
-    and simplifyAnd mtd x y k =
-        simplifyConnective mtd OperationType.LogicalAnd OperationType.LogicalOr False True x y k
+    and simplifyAnd x y k =
+        simplifyConnective OperationType.LogicalAnd OperationType.LogicalOr False True x y k
 
-    and simplifyOr mtd x y k =
-        simplifyConnective mtd OperationType.LogicalOr OperationType.LogicalAnd True False x y k
+    and simplifyOr x y k =
+        simplifyConnective OperationType.LogicalOr OperationType.LogicalAnd True False x y k
 
-    and internal simplifyNegation mtd x k =
+    and internal simplifyNegation x k =
         match simplifier with
-        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNeg x Bool mtd) |> k
+        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNeg x Bool) |> k
         | None ->
             match x.term with
-            | Concrete(b, t) -> Concrete (Metadata.combine x.metadata mtd) (not (b :?> bool)) t |> k
+            | Concrete(b, t) -> Concrete (not (b :?> bool)) t |> k
             | Negation x -> k x
-            | Conjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalOr l Bool x.metadata |> k)
-            | Disjunction xs -> Cps.List.mapk (simplifyNegation mtd) xs (fun l -> makeNAry OperationType.LogicalAnd l Bool x.metadata |> k)
+            | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l Bool |> k)
+            | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l Bool |> k)
             | Terms.GuardedValues(gs, vs) ->
-                Cps.List.mapk (simplifyNegation mtd) vs (List.zip gs >> Union mtd >> k)
-            | _ -> makeUnary OperationType.LogicalNeg x Bool mtd |> k
+                Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
+            | _ -> makeUnary OperationType.LogicalNeg x Bool |> k
 
-    and private simplifyExtWithType mtd op co stopValue ignoreValue _ x y matched unmatched =
-        simplifyExt mtd op co stopValue ignoreValue x y matched unmatched
+    and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =
+        simplifyExt op co stopValue ignoreValue x y matched unmatched
 
 // ------------------------------- General functions -------------------------------
 
     let (!!) x =
-        simplifyNegation Metadata.empty x id
+        simplifyNegation x id
 
     let (&&&) x y =
-        simplifyAnd Metadata.empty x y id
+        simplifyAnd x y id
 
     let (|||) x y =
-        simplifyOr Metadata.empty x y id
+        simplifyOr x y id
 
     let eq x y =
-        simplifyOr Metadata.empty !!x y (fun x' -> simplifyOr Metadata.empty x !!y (fun y' -> simplifyAnd Metadata.empty x' y' id))
+        simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' id))
 
     let neq x y =
         !! (eq x y)
 
-    let implies x y mtd =
-        simplifyNegation mtd x (fun notX ->
-        simplifyOr mtd notX y id)
+    let implies x y =
+        simplifyNegation x (fun notX ->
+        simplifyOr notX y id)
 
-    let lazyAnd mtd x y k =
+    let lazyAnd x y k =
         match x with
         | False -> x
-        | _ -> simplifyAnd mtd x (y()) k
+        | _ -> simplifyAnd x (y()) k
 
-    let lazyOr mtd x y k =
+    let lazyOr x y k =
         match x with
         | False -> x
-        | _ -> simplifyOr mtd x (y()) k
+        | _ -> simplifyOr x (y()) k
 
-    let conjunction mtd = function
+    let conjunction = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
-        | _ -> makeTrue mtd
+        | _ -> True
 
-    let disjunction mtd = function
+    let disjunction = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
-        | _ -> makeFalse mtd
+        | _ -> False
 
-    let lazyConjunction mtd xs =
-        Cps.Seq.foldlk (lazyAnd mtd) (makeTrue mtd) xs id
+    let lazyConjunction xs =
+        Cps.Seq.foldlk lazyAnd True xs id
 
-    let lazyDisjunction mtd xs k =
-        Cps.Seq.foldlk (lazyOr mtd) (makeFalse mtd) xs k
+    let lazyDisjunction xs k =
+        Cps.Seq.foldlk lazyOr False xs k
 
-    let simplifyBinaryConnective mtd op x y k =
+    let simplifyBinaryConnective op x y k =
         match op with
-        | OperationType.LogicalAnd -> simplifyAnd mtd x y k
-        | OperationType.LogicalOr -> simplifyOr mtd x y k
+        | OperationType.LogicalAnd -> simplifyAnd x y k
+        | OperationType.LogicalOr -> simplifyOr x y k
         | OperationType.LogicalXor ->
-            simplifyNegation mtd x (fun x' -> simplifyNegation mtd y (fun y' ->
-            simplifyOr mtd x' y' (fun x' -> simplifyOr mtd x y (fun y' -> simplifyAnd mtd x' y' k))))
-        | OperationType.Equal -> simplifyOr mtd !!x y (fun x' -> simplifyOr mtd x !!y (fun y' -> simplifyAnd mtd x' y' k))
-        | OperationType.NotEqual -> simplifyOr mtd !!x y (fun x' -> simplifyOr mtd x !!y (fun y' -> simplifyAnd mtd x' y' (fun res -> simplifyNegation mtd res k)))
+            simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
+            simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
+        | OperationType.Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
+        | OperationType.NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
         | _ -> internalfailf "%O is not a binary logical operator" op
 
-    let simplifyUnaryConnective mtd op x k =
+    let simplifyUnaryConnective op x k =
         match op with
-        | OperationType.LogicalNeg -> simplifyNegation mtd x k
+        | OperationType.LogicalNeg -> simplifyNegation x k
         | _ -> internalfailf "%O is not an unary logical operator" op
 
     let isLogicalOperation op t1 t2 =

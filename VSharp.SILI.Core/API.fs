@@ -1,15 +1,9 @@
 namespace VSharp.Core
 
-open System.Reflection
+open FSharpx.Collections
 open VSharp
 
 module API =
-    let private m = let r = new persistent<_>(always Metadata.empty, id) in r.Reset(); r
-    let Enter (location : locationBinding) state k =
-        m.Save()
-        m.Mutate(State.mkMetadata location state)
-        fun x -> m.Restore(); k x
-
     let ConfigureSimplifier simplifier =
         Propositional.configureSimplifier simplifier
     let Reset() =
@@ -22,202 +16,257 @@ module API =
         Memory.restore()
         IdGenerator.restore()
 
-    let HigherOrderApply codeLoc state k = Explorer.higherOrderApplication m.Value codeLoc state k
     let BranchStatements state condition thenStatement elseStatement k =
-        Common.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
+        Memory.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
     let BranchStatementsOnNull state reference thenStatement elseStatement k =
-        BranchStatements state (fun state k -> k (Pointers.isNull m.Value reference, state)) thenStatement elseStatement k
-    let BranchExpressions state condition thenBranch elseExpression k =
-        Common.statelessConditionalExecutionWithMergek state.pc condition thenBranch elseExpression k
-    let StatedConditionalExecution = Common.commonStatedConditionalExecutionk
+        BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
+    let BranchExpressions condition thenBranch elseExpression k =
+        Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
+    let StatedConditionalExecution = Memory.commonStatedConditionalExecutionk
 
     let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term
     let GuardedApplyExpression term f = Merging.guardedApply f term
-    let GuardedStatedApplyStatementK state term f k = Merging.guardedStatedApplyk f state term k
-    let GuardedStatedApplyk f state term merge mergeStates k =
-        Merging.commonGuardedStatedApplyk f state term merge mergeStates k
+    let GuardedStatedApplyStatementK state term f k = Memory.guardedStatedApplyk f state term k
+    let GuardedStatedApplyk f state term mergeStates k =
+        Memory.commonGuardedStatedApplyk f state term mergeStates k
 
-    let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation m.Value op left right k
-    let PerformUnaryOperation op t arg k = Operators.simplifyUnaryOperation m.Value op t arg k
+    let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
+    let PerformUnaryOperation op t arg k = Operators.simplifyUnaryOperation op t arg k
 
     [<AutoOpen>]
     module public Terms =
         let Nop = Nop
-        let Concrete obj typ = Concrete m.Value obj typ
-        let Constant name source typ = Constant m.Value name source typ
-        let Expression op args typ = Expression m.Value op args typ
-        let Struct fields typ = Struct m.Value fields typ
-        let Class fields = Class m.Value fields
-        let Union gvs = Union m.Value gvs
+        let Concrete obj typ = Concrete obj typ
+        let Constant name source typ = Constant name source typ
+        let Expression op args typ = Expression op args typ
+        let Struct fields typ = Struct fields typ
+        let Ref address = Ref address
+        let Ptr baseAddress typ offset = Ptr baseAddress typ offset
+        let HeapRef address baseType = HeapRef address baseType
+        let Union gvs = Union gvs
 
         let True = True
         let False = False
 
-        let MakeNullRef () = makeNullRef m.Value
-        let MakeDefault typ ref = Merging.guardedApply (getFQLOfRef >> Some >> Memory.defaultOf m.Value typ) ref
-
-        let MakeFunctionResultConstant methodId (mb : MethodBase) = Explorer.makeFunctionResultConstant m.Value methodId mb
-        let MakeNumber n = makeNumber m.Value n
+        let MakeBool b = makeBool b
+        let MakeNumber n = makeNumber n
+        let MakeNullRef typ = makeNullRef typ
 
         let TypeOf term = typeOf term
-        let GetTypeMethod (state : state) term = Marshalling.getTypeMethod m.Value state term
-        let TypeOfMethod (state : state) typ = Marshalling.typeOfMethod m.Value state typ
-        let BaseTypeOfRef ref = baseTypeOfRef ref
-        let SightTypeOfRef ref = sightTypeOfRef ref
+        let rec BaseTypeOfHeapRef state ref =
+            match ref.term with
+            | HeapRef(addr, _) -> Memory.typeOfHeapLocation state addr
+            | Union gvs ->
+                let ts = List.map (fun (_, v) -> BaseTypeOfHeapRef state v) gvs
+                match ts with
+                | [] -> __unreachable__()
+                | t::ts ->
+                    assert(List.forall ((=)t) ts)
+                    t
+            | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
+
 
         let isStruct term = isStruct term
         let isReference term = isReference term
-        let IsNullReference term = Pointers.isNull m.Value term
+        let IsNullReference term = Pointers.isNull term
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
-        let (|LazyInstantiation|_|) s = Memory.(|LazyInstantiation|_|) s
-        let (|RecursionOutcome|_|) s = Explorer.(|RecursionOutcome|_|) s
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
 
         let ConstantsOf terms = discoverConstants terms
-        let Substitute subst term = Substitution.substitute subst (fun addr bt st -> [True, RefTopLevelHeap(addr, bt, st)]) id term
 
-        let AddConditionToState conditionState condition = State.withPathCondition conditionState condition
+        let rec HeapReferenceToBoxReference reference =
+            match reference.term with
+            | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
+            | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
+
+        let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
 
     module Types =
         let Numeric t = Types.Numeric t
+        let ObjectType = Types.objectType
 
-        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> State.substituteTypeVariables State.emptyCompositionContext state
+        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> Memory.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t
 
         let SizeOf t = Types.sizeOf t
+        let RankOf t = Types.rankOf t
 
         let TLength = Types.lengthType
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
         let IsPointer t = Types.isPointer t
-        let IsValueType t = Common.isValueType m.Value t
+        let IsValueType t = Types.isValueType t
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
         let ElementType arrayType = Types.elementType arrayType
 
-        let TypeIsType leftType rightType = Common.typeIsType m.Value leftType rightType
-        let TypeIsNullable typ = Common.isNullable m.Value typ
-        let TypeIsRef typ ref = Common.typeIsRef m.Value typ ref
-        let RefIsType ref typ = Common.refIsType m.Value ref typ
-        let RefIsRef leftRef rightRef = Common.refIsRef m.Value leftRef rightRef
+        let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
+        let TypeIsNullable typ = TypeCasting.isNullable typ
+        let rec TypeIsRef typ ref = TypeCasting.typeIsRef typ ref
+        let RefIsType ref typ = TypeCasting.refIsType ref typ
+        let RefIsRef leftRef rightRef = TypeCasting.refIsRef leftRef rightRef
 
-        let IsCast targetType term = TypeCasting.canCast m.Value term targetType
-        let Cast pc term targetType = TypeCasting.cast m.Value pc term targetType id
-        let CastConcrete value typ = CastConcrete value typ m.Value
-        let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer m.Value state reference
+        let IsCast targetType term = TypeCasting.canCast term targetType
+        let Cast term targetType = TypeCasting.cast term targetType id
+        let CastConcrete value typ = castConcrete value typ
+        let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 
     module public Operators =
-        let (!!) x = Propositional.simplifyNegation m.Value x id
-        let (&&&) x y = Propositional.simplifyAnd m.Value x y id
-        let (|||) x y = Propositional.simplifyOr m.Value x y id
-        let (===) x y = Operators.ksimplifyEquality m.Value x y id
-        let (!==) x y = Operators.ksimplifyEquality m.Value x y (!!)
-        let conjunction xs = conjunction m.Value xs
-        let disjunction xs = disjunction m.Value xs
+        let (!!) x = Propositional.simplifyNegation x id
+        let (&&&) x y = Propositional.simplifyAnd x y id
+        let (|||) x y = Propositional.simplifyOr x y id
+        let (===) x y = Operators.ksimplifyEquality x y id
+        let (!==) x y = Operators.ksimplifyEquality x y (!!)
+        let conjunction xs = conjunction xs
+        let disjunction xs = disjunction xs
 
     module public Arithmetics =
-        let (===) x y = Arithmetics.simplifyEqual m.Value x y id
-        let (!==) x y = Arithmetics.simplifyNotEqual m.Value x y id
-        let (<<) x y = Arithmetics.simplifyLess m.Value x y id
-        let (<<=) x y = Arithmetics.simplifyLessOrEqual m.Value x y id
-        let (>>) x y = Arithmetics.simplifyGreater m.Value x y id
-        let (>>=) x y = Arithmetics.simplifyGreaterOrEqual m.Value x y id
-        let (%%%) x y = Arithmetics.simplifyRemainder m.Value (x |> TypeOf |> Types.ToDotNetType) x y id
+        let (===) x y = Arithmetics.simplifyEqual x y id
+        let (!==) x y = Arithmetics.simplifyNotEqual x y id
+        let (<<) x y = Arithmetics.simplifyLess x y id
+        let (<<=) x y = Arithmetics.simplifyLessOrEqual x y id
+        let (>>) x y = Arithmetics.simplifyGreater x y id
+        let (>>=) x y = Arithmetics.simplifyGreaterOrEqual x y id
+        let (%%%) x y = Arithmetics.simplifyRemainder (x |> TypeOf |> Types.ToDotNetType) x y id
 
-        let IsZero term = Arithmetics.checkEqualZero m.Value term id
+        let Mul x y = Arithmetics.mul x y
+        let IsZero term = Arithmetics.checkEqualZero term id
 
     module public Memory =
-        let EmptyState = State.empty
+        let EmptyState = Memory.empty
 
-        let IsNullReference term = Merging.guardedApply (Pointers.isNull m.Value) term
+        let IsNullReference term = Merging.guardedApply Pointers.isNull term
 
-        let PopStack state = State.popStack state
-        let PopTypeVariables state = State.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis = State.newStackFrame m.Value state funcId parametersAndThis
-        let NewScope state frame = State.newScope m.Value state frame
-        let NewTypeVariables state subst = State.pushTypeVariablesSubstitution state subst
+        let PopStack state = Memory.popStack state
+        let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
+        let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state funcId parametersAndThis
+        let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
-        let ReferenceField parentRef name typ = Memory.referenceBlockField parentRef name typ
-        let ReferenceLocalVariable location = Memory.referenceLocalVariable m.Value location
-        let ReferenceStaticField targetType fieldName fieldType = Memory.referenceStaticField m.Value targetType fieldName fieldType
-        let ReferenceArrayIndex state arrayRef indices = Memory.referenceArrayIndex m.Value state arrayRef indices
+        let rec ReferenceArrayIndex arrayRef indices =
+            match arrayRef.term with
+            | HeapRef(addr, typ) -> ArrayIndex(addr, indices, symbolicTypeToArrayType typ) |> Ref
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex v indices)) |> Merging.merge
+            | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
+        let rec ReferenceField reference fieldId =
+            match reference.term with
+            | HeapRef(address, typ) ->
+                let dnt = Types.ToDotNetType typ
+                let dnt = if dnt.IsGenericType then dnt.GetGenericTypeDefinition() else dnt
+                assert(fieldId.declaringType.IsAssignableFrom dnt)
+                ClassField(address, fieldId) |> Ref
+            | Ref addr ->
+                assert(typeOfAddress addr |> Types.isStruct)
+                StructField(addr, fieldId) |> Ref
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField v fieldId)) |> Merging.merge
+            | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
-        let Dereference state reference = Memory.deref m.Value state reference
-        let DereferenceLocalVariable state location = Memory.referenceLocalVariable m.Value location |> Memory.deref m.Value state
-        let Mutate state reference value = Memory.mutate m.Value state reference value
-        let ReadBlockField blockTerm fieldName fieldType = Memory.readBlockField m.Value blockTerm fieldName fieldType
+        let ReadSafe state reference = Memory.readSafe state reference
+        let ReadLocalVariable state location = Memory.readStackLocation state location
+        let ReadStructField structure field = Memory.readStruct structure field
+        let rec ReadClassField state reference field =
+            match reference.term with
+            | HeapRef(addr, _) -> Memory.readClassField state addr field
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadClassField state v field)) |> Merging.merge
+            | _ -> internalfailf "Reading field of class: expected reference, but got %O" reference
+        let rec ReadArrayIndex state reference indices =
+            match reference.term with
+            | HeapRef(addr, typ) ->
+                let (_, dim, _) as arrayType = symbolicTypeToArrayType typ
+                assert(dim = List.length indices)
+                Memory.readArrayIndex state addr indices arrayType
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadArrayIndex state v indices)) |> Merging.merge
+            | _ -> internalfailf "Reading field of class: expected reference, but got %O" reference
+        let ReadStaticField state typ field = Memory.readStaticField state typ field
+        let ReadDelegate state reference = Memory.readDelegate state reference
 
-        let AllocateOnStack state key typ term = Memory.allocateOnStack m.Value state key typ term
+        let WriteLocalVariable state location value = Memory.writeStackLocation state location value
+        let WriteSafe state reference value = Memory.writeSafe state reference value
+        let WriteStructField structure field value = Memory.writeStruct structure field value
+        let rec WriteClassField state reference field value =
+            Memory.guardedStatedMap
+                (fun state reference ->
+                    match reference.term with
+                    | HeapRef(addr, _) -> Memory.writeClassField state addr field value
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                state reference
+        let rec WriteArrayIndex state reference indices value =
+            Memory.guardedStatedMap
+                (fun state reference ->
+                    match reference.term with
+                    | HeapRef(addr, typ) ->
+                        let (_, dim, _) as arrayType = symbolicTypeToArrayType typ
+                        assert(dim = List.length indices)
+                        Memory.writeArrayIndex state addr indices arrayType value
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                state reference
+        let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
-        let AllocateReferenceTypeInHeap state typ term =
-            let address = Memory.freshHeapLocation m.Value
-            Memory.allocateInHeap m.Value state address typ typ term
+        let DefaultOf typ = makeDefaultValue typ
+        let AllocateOnStack state key term = Memory.allocateOnStack state key term
+        let MakeSymbolicThis m = Memory.makeSymbolicThis m
 
-        let AllocateValueTypeInHeap state typ term =
-            let address = Memory.freshHeapLocation m.Value
-            let objType = Types.FromDotNetType state typeof<obj>
-            Memory.allocateInHeap m.Value state address typ objType term
+        let BoxValueType state term =
+            let address : concreteHeapAddress = [Memory.freshAddress()]
+            let reference = HeapRef (Concrete address AddressType) (typeOf term)
+            reference, Memory.writeBoxedLocation state address term
 
         let AllocateDefaultStatic state targetType =
-            let fql = makeTopLevelFQL HeapTopLevelStatics targetType
-            let staticStruct, state = Memory.mkDefaultStatic m.Value state targetType fql
-            Memory.allocateInStaticMemory m.Value state targetType staticStruct
+            Memory.initializeStaticMembers state targetType
 
-        let MakeDefaultBlock termType fql = Memory.mkDefaultBlock m.Value termType (Some fql)
-
-        let AllocateDefaultBlock state typ =
-            let address = Memory.freshHeapLocation m.Value
-            let fql = HeapTopLevelHeap(address, typ), []
-            MakeDefaultBlock typ fql |> Memory.allocateInHeap m.Value state address typ typ
+        let AllocateDefaultClass state typ =
+            Memory.allocateClass state typ
 
         let AllocateDefaultArray state dimensions typ =
-            let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
-            Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ typ
+            let address, state = Memory.allocateArray state typ None dimensions
+            HeapRef address typ, state
 
-        let AllocateInitializedArray state dimensions rank typ initializer =
-            let address = Memory.freshHeapLocation m.Value
-            let fql = makeTopLevelFQL HeapTopLevelHeap (address, typ)
-            let ref, state = Arrays.makeDefault m.Value dimensions typ fql |> Memory.allocateInHeap m.Value state address typ typ
-            let state = Arrays.fromInitializer m.Value rank typ initializer fql |> Mutate state ref |> snd
-            ref, state
+        let AllocateDelegate state delegateTerm =
+            Memory.allocateDelegate state delegateTerm
 
-        let AllocateString string state = Memory.allocateString m.Value state string
+        let AllocateString string state = Memory.allocateString state string
 
-        let HasEffectOnAddress state address = Memory.hasAddress address state
-        let IsTypeNameInitialized termType state = Memory.termTypeInitialized m.Value termType state
-        let Dump state = State.dumpMemory state
+        let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
+        let Dump state = Memory.dump state
 
-        let ArrayRank arrayTerm = Arrays.rank arrayTerm
-        let ArrayLength arrayTerm = Arrays.length arrayTerm
-        let ArrayLengthByDimension state arrayRef index = Memory.referenceArrayLength arrayRef index |> Memory.deref m.Value state
-        let ArrayLowerBoundByDimension state arrayRef index = Memory.referenceArrayLowerBound arrayRef index |> Memory.deref m.Value state
+        let rec ArrayRank state arrayRef =
+            match arrayRef.term with
+            | HeapRef(addr, _) -> Memory.typeOfHeapLocation state addr |> Types.rankOf |> makeNumber
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayRank state v)) |> Merging.merge
+            | _ -> internalfailf "Getting rank of array: expected ref, but got %O" arrayRef
+        let rec ArrayLengthByDimension state arrayRef index =
+            match arrayRef.term with
+            | HeapRef(addr, _) -> Memory.readLength state addr index (symbolicTypeToArrayType (Memory.typeOfHeapLocation state addr))
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLengthByDimension state v index)) |> Merging.merge
+            | _ -> internalfailf "reading array length: expected heap reference, but got %O" arrayRef
+        let rec ArrayLowerBoundByDimension state arrayRef index =
+            match arrayRef.term with
+            | HeapRef(addr, _) -> Memory.readLowerBound state addr index (symbolicTypeToArrayType (Memory.typeOfHeapLocation state addr))
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLowerBoundByDimension state v index)) |> Merging.merge
+            | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
 
-        let StringLength state strRef =
-            let fql = getFQLOfRef strRef |> Some
-            let strStruct = Dereference state strRef
-            Strings.length fql strStruct, state
-
-        let StringCtorOfCharArray state this arrayRef =
-            let stringFQL = getFQLOfRef this |> Some
-            let arrayFQL = getFQLOfRef arrayRef |> Some
-            BranchStatementsOnNull state arrayRef
-                (fun state k -> k (Strings.makeConcreteStringStruct m.Value "" stringFQL, state))
-                (fun state k -> Dereference state arrayRef |> Strings.ctorOfCharArray m.Value stringFQL arrayFQL |> withSnd state |> k)
-                id
+        let StringLength state strRef = Memory.lengthOfString state strRef
+        let rec StringCtorOfCharArray state arrayRef dstRef =
+            match dstRef.term with
+            | HeapRef({term = ConcreteHeapAddress dstAddr}, typ) ->
+                assert(typ = Types.String)
+                Memory.guardedStatedMap (fun state arrayRef ->
+                    match arrayRef.term with
+                    | HeapRef(arrayAddr, typ) ->
+                        assert(typ = ArrayType(Types.Char, Vector))
+                        Memory.copyCharArrayToString state arrayAddr dstAddr
+                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef) state arrayRef
+            | HeapRef _
+            | Union _ -> __notImplemented__()
+            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g
-
-    module Marshalling =
-        let Unmarshal state (obj : obj) = Marshalling.unmarshalUnknownLocation m.Value state obj
-        let CanBeCalledViaReflection state funcId this args = Marshalling.canBeCalledViaReflection m.Value state funcId this args
-        let CallViaReflection state funcId this args k = Marshalling.callViaReflection m.Value state funcId this args k
 
     module LegacyDatabase =
         let QuerySummary codeLoc =

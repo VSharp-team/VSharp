@@ -69,6 +69,11 @@ module public MappedStack =
         Map.fold (fun s k v ->
             Option.map (f s k) (Map.tryFind (makeExtendedKey k v) contents) |?? s) state peaks
 
+    let concat (bottomContents, bottomPeaks) (topContents, topPeaks) =
+        let peaks = topPeaks |> Map.fold (fun peaks k idx -> Map.add k (peakIdx bottomPeaks k + idx) peaks) bottomPeaks
+        let contents = topContents |> Map.fold (fun contents (k, idx) v -> Map.add (k, peakIdx bottomPeaks k + idx) v contents) bottomContents
+        (contents, peaks) : mappedStack<_, _>
+
     let compare keyMapper valueMapper (contents1, peaks1) (contents2, peaks2) =
         assert(peaks1 = peaks2)
         peaks1 |> Map.toList |> List.choose
@@ -85,7 +90,7 @@ module public MappedStack =
         assert(not <| List.isEmpty stacks)
         let peaks = List.head stacks |> snd
         assert(List.forall (snd >> ((=) peaks)) (List.tail stacks))
-        let keys = new System.Collections.Generic.HashSet<_>()
+        let keys = System.Collections.Generic.HashSet<_>()
         List.iter (fst >> Map.toSeq >> Seq.map fst >> keys.UnionWith) stacks
         let mergeOneKey k =
             let vals = List.map2 (fun g (s, _) -> (g, Map.tryFind k s |?? lazyInstantiate (fst k) ())) guards stacks
@@ -98,7 +103,7 @@ module public MappedStack =
         let modifiedEntries =
             contents1 |> Map.toSeq |> Seq.choose (fun (k, v) ->
                 if not <| Map.containsKey k contents2 || contents2.[k] <> v then Some k else None)
-        let relevantEntries = new System.Collections.Generic.HashSet<_>(newEntries)
+        let relevantEntries = System.Collections.Generic.HashSet<_>(newEntries)
         relevantEntries.UnionWith(modifiedEntries)
         let mergeOneKey result k =
             let val1 = lazyInstantiate (fst k) |> Map.findOrDefaultWith k contents1

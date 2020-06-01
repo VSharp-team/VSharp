@@ -10,12 +10,17 @@ module internal String =
 
     let CtorOfCharArray state args =
         assert (List.length args = 2)
-        let this, array = List.item 0 args, List.item 1 args
-        let string, state = Memory.StringCtorOfCharArray state this array
-        let state = Memory.Mutate state this string |> snd
-        this, state
+        let this, arrayRef = List.item 0 args, List.item 1 args
+        BranchStatementsOnNull state arrayRef
+            (fun state k -> k (this, state))
+            (fun state k ->
+                let states = Memory.StringCtorOfCharArray state arrayRef this
+                match states with
+                | [state] -> k (this, state)
+                | _ -> __notImplemented__())
+            id
 
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)
-        let length, state = Memory.StringLength state (List.head args)
-        length, state
+        let length = Memory.StringLength state (List.head args)
+        [length, state]

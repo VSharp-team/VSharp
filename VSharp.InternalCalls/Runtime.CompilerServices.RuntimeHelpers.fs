@@ -66,15 +66,17 @@ module Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-        let array = Memory.Dereference state arrayRef
-        let dimensionsNumberTerm = Memory.ArrayRank array
+//        let array = Memory.ReadSafe state arrayRef
+        let dimensionsNumberTerm = Memory.ArrayRank state arrayRef
         let dimensionsNumber = extractIntFromTerm dimensionsNumberTerm
         let rec helper currentDimension (multiIndex : term list) (state, j) =
             if currentDimension = dimensionsNumber then
                 let valueTerm = termCreator rawData (j * size)
-                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
-                let _, state = Memory.Mutate state ref valueTerm
-                (state, j + 1)
+//                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
+                let states = Memory.WriteArrayIndex state arrayRef multiIndex valueTerm
+                match states with
+                | [state] -> (state, j + 1)
+                | _ -> __notImplemented__()
             else
                 let currentDimensionTerm = MakeNumber currentDimension
                 let currentLengthTerm = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
@@ -91,7 +93,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
         match handleTerm.term with
         | Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-            let elemType = BaseTypeOfRef arrayRef |> Types.ElementType
+            let elemType = BaseTypeOfHeapRef state arrayRef |> Types.ElementType
             let t = Types.ToDotNetType elemType
             assert (t.IsValueType) // TODO: be careful about type variables
 
@@ -129,6 +131,6 @@ module Runtime_CompilerServices_RuntimeHelpers =
         | _ -> __notImplemented__(), state
 
     let InitializeArray (state : state) arrayRef handleTerm =
-        GuardedStatedApplyStatementK state arrayRef (fun state arrayRef ->
+        GuardedStatedApplyStatementK state arrayRef (fun state arrayRef k ->
         GuardedStatedApplyStatementK state handleTerm (fun state handleTerm k ->
-        initializeArray state arrayRef handleTerm |> k)) id
+        initializeArray state arrayRef handleTerm |> k) (List.map k >> List.concat)) id

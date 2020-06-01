@@ -9,7 +9,7 @@ open VSharp.Core
 module internal String =
 
     [<Implements("System.Void System.String..ctor(this, System.Char[])")>]
-    val CtorOfCharArray : state -> term list -> term * state
+    val CtorOfCharArray : state -> term list -> (term * state) list
 
     [<Implements("System.Int32 System.String.get_Length(this)")>]
-    val GetLength : state -> term list -> term * state
+    val GetLength : state -> term list -> (term * state) list

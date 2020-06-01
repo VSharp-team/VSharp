@@ -1,30 +1,30 @@
 namespace VSharp.Core
 
+#nowarn "69"
+
 open VSharp
 open VSharp.CSharpUtils
 open global.System
 
-type ISymbolicTypeSource =
-    abstract TypeEquals : ISymbolicTypeSource -> bool
-
-[<StructuralEquality;NoComparison>]
+[<StructuralEquality;StructuralComparison>]
 type arrayDimensionType =
     | Vector
     | ConcreteDimension of int
     | SymbolicDimension
 
-[<StructuralEquality;NoComparison>]
-type termType =
-    | Void
-    | Null // TODO: delete Null from termType
+[<StructuralEquality;StructuralComparison>]
+type symbolicType =
+    | Void   // TODO: delete Void from termType
+    | Null   // TODO: delete Null from termType
     | Bool
     | Numeric of typeId
-    | StructType of typeId * termType list        // Value type with generic argument
-    | ClassType of typeId * termType list         // Reference type with generic argument
-    | InterfaceType of typeId * termType list     // Interface type with generic argument
+    | AddressType
+    | StructType of typeId * symbolicType list        // Value type with generic argument
+    | ClassType of typeId * symbolicType list         // Reference type with generic argument
+    | InterfaceType of typeId * symbolicType list     // Interface type with generic argument
     | TypeVariable of typeId
-    | ArrayType of termType * arrayDimensionType
-    | Pointer of termType // C-style pointers like int*
+    | ArrayType of symbolicType * arrayDimensionType
+    | Pointer of symbolicType // C-style pointers like int*
 
     override x.ToString() =
         match x with
@@ -32,6 +32,7 @@ type termType =
         | Null -> "<nullType>"
         | Bool -> typedefof<bool>.FullName
         | Numeric(Id t) -> t.FullName
+        | AddressType -> "<heapAddressType>"
         | StructType(Id t, g)
         | ClassType(Id t, g)
         | InterfaceType(Id t, g) ->
@@ -46,6 +47,7 @@ type termType =
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(_, SymbolicDimension) -> "System.Array"
         | Pointer t -> sprintf "<Pointer to %O>" t
+    interface IAtomicRegion<symbolicType>
 
 and [<CustomEquality;CustomComparison>]
     typeId =
@@ -69,17 +71,22 @@ and [<CustomEquality;CustomComparison>]
 
 module internal Types =
 
-    let Numeric t = Numeric (Id t)
+    type AddressTypeAgent = class end
+
+    let Numeric t =
+        match t with
+        | _ when t = typeof<AddressTypeAgent> -> AddressType
+        | _ -> Numeric (Id t)
 
     let (|Char|_|) = function
         | Numeric(Id t) when t = typeof<char> -> Some()
         | _ -> None
 
-    let (|StructureType|_|) = function
+    let (|ValueType|_|) = function
         | StructType _
         | Numeric _
-        | Bool -> Some(StructureType)
-        | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> Some(StructureType)
+        | Bool -> Some(ValueType)
+        | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> Some(ValueType)
         | _ -> None
 
     let (|ReferenceType|_|) = function
@@ -90,7 +97,7 @@ module internal Types =
         | _ -> None
 
     let (|ComplexType|_|) = function
-        | StructureType
+        | ValueType
         | ReferenceType
         | TypeVariable _ -> Some(ComplexType)
         | _ -> None
@@ -100,9 +107,9 @@ module internal Types =
     let ClassType t g = ClassType(t, g)
     let InterfaceType t g = InterfaceType(t, g)
 
-    let pointerType = Numeric typedefof<int>
-    let indexType = Numeric typedefof<int>
-    let lengthType = Numeric typedefof<int>
+    let indexType = Numeric typeof<int>
+    let lengthType = Numeric typeof<int>
+    let objectType = ClassType (Id typeof<obj>) []
 
     let isNumeric = function
         | Numeric _ -> true
@@ -148,6 +155,14 @@ module internal Types =
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
 
+    let rec isOpenType = function
+        | TypeVariable _ -> true
+        | StructType(_, parameters) when List.exists isOpenType parameters -> true
+        | ClassType(_, parameters) when List.exists isOpenType parameters -> true
+        | InterfaceType(_, parameters) when List.exists isOpenType parameters -> true
+        | ArrayType(t, _) when isOpenType t -> true
+        | _ -> false
+
     let rec toDotNetType t =
         match t with
         | Void -> typedefof<Void>
@@ -164,11 +179,12 @@ module internal Types =
         | ArrayType(t, Vector) -> (toDotNetType t).MakeArrayType()
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Pointer t -> (toDotNetType t).MakePointerType()
+        | AddressType -> typeof<AddressTypeAgent>
         | Null -> __unreachable__()
 
     let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let internalSizeOf (typ: Type) : uint32 =
-            let meth = new Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+            let meth = Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
 
             let gen = meth.GetILGenerator()
             gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
@@ -181,6 +197,29 @@ module internal Types =
 
     let bitSizeOfType t (resultingType : System.Type) = System.Convert.ChangeType(sizeOf(t) * 8, resultingType)
 
+    let rankOf = function
+        | ArrayType(_, dim) ->
+            match dim with
+            | Vector -> 1
+            | ConcreteDimension d -> d
+            | SymbolicDimension -> __insufficientInformation__ "Can't get precise array rank of System.Array object!"
+        | t -> internalfailf "Getting rank of an array: expected array type, but got %O" t
+
+    // Performs syntactical unification of types, returns the infimum of x and y (where x < y iff x is more generic).
+    let rec structuralInfimum (x : System.Type) (y : System.Type) =
+        if x = y then Some x
+        else
+            if x.IsGenericParameter then Some y
+            elif y.IsGenericParameter then Some x
+            elif not x.IsGenericType || not y.IsGenericType then None
+            elif x.GetGenericTypeDefinition() <> y.GetGenericTypeDefinition() then None
+            else
+                let xargs = x.GetGenericArguments()
+                let yargs = y.GetGenericArguments()
+                assert(xargs.Length = yargs.Length)
+                let infs = Array.map2 structuralInfimum xargs yargs
+                if Array.forall Option.isSome infs then Some (x.GetGenericTypeDefinition().MakeGenericType(Array.map Option.get infs))
+                else None
 
     module internal Constructor =
         let private StructType (t : Type) g = StructType (Id t) g
@@ -206,6 +245,7 @@ module internal Types =
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
+            | a when a.Equals(typedefof<AddressTypeAgent>) -> AddressType
             | n when TypeUtils.isNumeric n -> Numeric n
             | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
@@ -233,3 +273,20 @@ module internal Types =
     let isInteger = toDotNetType >> TypeUtils.isIntegral
 
     let isReal = toDotNetType >> TypeUtils.isReal
+
+    let isValueType = function
+        | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> true
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
+        | TypeVariable _ as t -> __insufficientInformation__ "Can't determine if %O is a value type or not!" t
+        | Null -> __unreachable__()
+        | t -> (toDotNetType t).IsValueType
+
+    let isConcreteSubtype t1 t2 =
+        (toDotNetType t2).IsAssignableFrom (toDotNetType t1)
+
+type symbolicType with
+    interface IAtomicRegion<symbolicType> with
+        override x.Intersect y =
+            let x = Types.toDotNetType x
+            let y = Types.toDotNetType y
+            Types.structuralInfimum x y |> Option.map Types.Constructor.fromDotNetType

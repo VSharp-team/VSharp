@@ -154,7 +154,7 @@ namespace VSharp.Test.Tests.Generic
     [TestSvmFixture]
     public class Foo<T, U>
     {
-        private T _filed;
+        private T _field;
 
         public Foo()
         {
@@ -163,13 +163,13 @@ namespace VSharp.Test.Tests.Generic
         [TestSvm]
         public T GetFields()
         {
-            return _filed;
+            return _field;
         }
 
         [TestSvm]
         public void SetField(T f)
         {
-            _filed = f;
+            _field = f;
         }
     }
 

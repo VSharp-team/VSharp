@@ -2,7 +2,6 @@ namespace VSharp
 
 open System
 open System.Reflection
-open VSharp.CSharpUtils
 
 module public Reflection =
 
@@ -64,13 +63,8 @@ module public Reflection =
 
     // --------------------------------- Fields ---------------------------------
 
-    let getFullNameOfField (field : FieldInfo) =
-        let getBlockName (field : FieldInfo) =
-            (safeGenericTypeDefinition field.DeclaringType).FullName.Replace(".", "::").Replace("+", "::")
-        let fieldName =
-            if field.IsStatic then field.Name
-            else sprintf "%s::%s" (getBlockName field) field.Name
-        FieldId fieldName
+    let wrapField (field : FieldInfo) =
+        {declaringType = safeGenericTypeDefinition field.DeclaringType; name = field.Name; typ = field.FieldType}
 
     let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
@@ -86,5 +80,26 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
-            else Some (getFullNameOfField field, field.FieldType)
+            else Some (wrapField field, field.FieldType)
         retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
+
+    // Returns pair (valueFieldInfo, hasValueFieldInfo)
+    let fieldsOfNullable typ =
+        let fs = fieldsOf false typ
+        match fs with
+        | [|(f1, _); (f2, _)|] when f1.name.Contains("value", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("hasValue", StringComparison.OrdinalIgnoreCase) -> f1, f2
+        | [|(f1, _); (f2, _)|] when f1.name.Contains("hasValue", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("value", StringComparison.OrdinalIgnoreCase) -> f2, f1
+        | _ -> internalfailf "%O has unexpected fields {%O}! Probably your .NET implementation is not supported :(" typ.FullName (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let stringLengthField, stringFirstCharField =
+        let fs = fieldsOf false typeof<string>
+        match fs with
+        | [|(f1, _); (f2, _)|] when f1.name.Contains("length", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) -> f1, f2
+        | [|(f1, _); (f2, _)|] when f1.name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("length", StringComparison.OrdinalIgnoreCase) -> f2, f1
+        | _ -> internalfailf "System.String has unexpected fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let emptyStringField =
+        let fs = fieldsOf true typeof<string>
+        match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
+        | Some(f, _) -> f
+        | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")

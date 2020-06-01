@@ -8,19 +8,23 @@ open VSharp.Core
 
 module Type =
 
-    let internal GetTypeFromHandle (state : state) (args : term list) =
+    let internal GetTypeFromHandle (state : state) (args : term list) : term * state =
         assert (List.length args = 1)
         let handle = List.head args
         let t =
             match handle.term with
             |  Concrete(:? System.RuntimeTypeHandle as handle, _) -> System.Type.GetTypeFromHandle handle
             | _ -> __notImplemented__()
-        TypeOfMethod state (Types.FromDotNetType state t)
+//        TypeOfMethod state (Types.FromDotNetType state t)
+        // TODO: restore it after rewriting marshaling/unmarshaling
+        __notImplemented__()
 
-    let internal GetType (state : state) (args : term list) =
+    let internal GetType (state : state) (args : term list) : term * state =
         assert(List.length args = 1)
         let ref = List.head args
-        GetTypeMethod state ref
+//        GetTypeMethod state ref
+        // TODO: restore it after rewriting marshaling/unmarshaling
+        __notImplemented__()
 
     let private equality transform (state : state) (args : term list) =
         assert(List.length args = 2)
