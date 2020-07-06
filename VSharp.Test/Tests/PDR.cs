@@ -7,10 +7,9 @@ using NUnit.Framework.Internal;
 
 namespace VSharp.Test.Tests
 {
-    [TestSvmFixture]
+    // [TestSvmFixture]
     public static class PDR
     {
-
         private static int ReturnConstant() => 17;
 
         [TestSvm]
@@ -19,6 +18,21 @@ namespace VSharp.Test.Tests
             int[] array = new int[10];
             ReturnConstant();
             array[5] = 42;
+        }
+        private class ClassWithOneField
+        {
+            public int x;
+        }
+
+        private static int ReadFieldOfCLass(ClassWithOneField classWithOneField)
+        {
+            return classWithOneField.x;
+        }
+
+        [TestSvm]
+        public static void AlwaysNullReferenceException()
+        {
+            ReadFieldOfCLass(null);
         }
 
         private static int Abs(int x)

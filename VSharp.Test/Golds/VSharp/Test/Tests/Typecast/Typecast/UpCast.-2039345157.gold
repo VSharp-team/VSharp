@@ -9,5 +9,7 @@ HEAP:
 	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> 1
 	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> 1]
 ---------- s1 = ----------
+System.Object ==> CLASS []
 VSharp.Test.Tests.Typecast.Pawn ==> CLASS []
+VSharp.Test.Tests.Typecast.Piece ==> CLASS []
 VSharp.Test.Tests.Typecast.Typecast ==> CLASS []

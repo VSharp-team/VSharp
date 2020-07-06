@@ -10,4 +10,5 @@ HEAP:
 	| System::Collections::Generic::LinkedList`1::version ~> 0]
 ---------- s1 = ----------
 System.Collections.Generic.LinkedList`1[System.Int32] ==> CLASS []
+System.Object ==> CLASS []
 VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> CLASS []
