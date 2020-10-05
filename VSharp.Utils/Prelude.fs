@@ -13,6 +13,8 @@ module public Prelude =
     let inline public __notImplemented__() = raise (System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
+    let inline public releaseAssert2(value, message) = if not value then internalfail message
+    let inline public releaseAssert value = releaseAssert2(value, "release assert")
 
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
@@ -77,6 +79,17 @@ type fieldId =
             | _ -> -1
     override x.ToString() = x.name
 
+
+//type [<CustomEquality;NoComparison>] fieldId =
+//    | FieldId of string
+//    override x.GetHashCode() =
+//        match x with
+//        | FieldId s -> s.GetDeterministicHashCode()
+//    override x.Equals(other) =
+//        match other with
+//        | :? fieldId as other -> hash x = hash other
+//        | _ -> false
+//    override x.ToString() = match x with FieldId s -> s
 
 type 'a symbolicValue =
     | Specified of 'a

@@ -18,12 +18,62 @@ type pathCondition = term list
 
 type stack = mappedStack<stackKey, term>
 type entry = { key : stackKey; typ : symbolicType }
-type stackFrame = { func : IFunctionIdentifier; entries : entry list }
+type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
 type frames = stackFrame stack
 
 type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
 
 type stackBufferKey = concreteHeapAddress
+
+type offset = int
+
+// last fields are determined by above fields
+[<CustomEquality;CustomComparison>]
+type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
+                  calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
+    with
+    member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
+    override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
+    override x.Equals(o : obj) =
+        match o with
+        | :? callSite as other -> x.offset = other.offset && x.sourceMethod = other.sourceMethod
+        | _ -> false
+    interface System.IComparable with
+        override x.CompareTo(other) =
+            match other with
+            | :? callSite as other when x.sourceMethod.Equals(other.sourceMethod) -> x.offset.CompareTo(other.offset)
+            | :? callSite as other -> x.sourceMethod.MetadataToken.CompareTo(other.sourceMethod.MetadataToken)
+            | _ -> -1
+
+type exceptionRegister =
+    | Unhandled of term
+    | Caught of term
+    | NoException
+    with
+    member x.TransformToCaught () =
+        match x with
+        | Unhandled e -> Caught e
+        | _ -> internalfail "unable TransformToCaught"
+    member x.TransformToUnhandled () =
+        match x with
+        | Caught e -> Unhandled e
+        | _ -> internalfail "unable TransformToUnhandled"
+    member x.UnhandledError =
+        match x with
+        | Unhandled _ -> true
+        | _ -> false
+    member x.ExceptionTerm =
+        match x with
+        | Unhandled error
+        | Caught error -> Some error
+        | _ -> None
+    static member map f x =
+        match x with
+        | Unhandled e -> Unhandled <| f e
+        | Caught e -> Caught <| f e
+        | _ -> NoException
+
+type callSiteResults = Map<callSite, term option>
 
 type arrayCopyInfo =
     {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; dstType : symbolicType} with
@@ -32,6 +82,9 @@ type arrayCopyInfo =
 
 and state = {
     pc : pathCondition
+    returnRegister : term option
+    exceptionsRegister : exceptionRegister                    // Heap-address of exception object
+    callSiteResults : callSiteResults                         // Computed results of delayed calls
     stack : stack                                             // Arguments and local variables
     stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
     frames : frames                                           // Meta-information about stack frames
@@ -64,6 +117,9 @@ module internal Memory =
     // TODO: add initialized types in static memory
     let empty : state = {
         pc = List.empty
+        returnRegister = None
+        exceptionsRegister = NoException
+        callSiteResults = Map.empty
         stack = MappedStack.empty
         stackBuffers = PersistentDict.empty
         frames = Stack.empty
@@ -97,13 +153,13 @@ module internal Memory =
 
 // ------------------------------- Stack -------------------------------
 
-    let newStackFrame (s : state) funcId frame : state =
+    let newStackFrame (s : state) funcId frame isEffect : state =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> { key = key; typ = typ }, MappedStack.push key term map
             | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
-        let frames' = Stack.push s.frames { func = funcId; entries = locations }
+        let frames' = Stack.push s.frames { func = funcId; entries = locations; isEffect = isEffect }
         { s with stack = newStack; frames = frames' }
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
@@ -237,6 +293,14 @@ module internal Memory =
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
 
+    [<StructuralEquality;NoComparison>]
+    type private functionResultConstantSource =
+        { callSite : callSite; calledTime : vectorTime }
+        interface IMemoryAccessConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.TypeOfLocation = x.callSite.SymbolicType
+            override x.Time = x.calledTime
+
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
@@ -255,7 +319,7 @@ module internal Memory =
         let fields = makeFields isStatic makeField typ
         Struct fields typ
 
-    let rec makeSymbolicValue (source : IMemoryAccessConstantSource) time name typ =
+    let rec makeSymbolicValue (source : IMemoryAccessConstantSource) name typ =
         match typ with
         | Bool
         | AddressType
@@ -263,11 +327,11 @@ module internal Memory =
         | StructType _ ->
             let makeField field typ =
                 let fieldSource = {baseSource = source; field = field}
-                makeSymbolicValue fieldSource time (toString field) typ
+                makeSymbolicValue fieldSource (toString field) typ
             makeStruct false makeField typ
         | Types.ReferenceType ->
             let addressSource : heapAddressSource = {baseSource = source}
-            let address = makeSymbolicValue addressSource time name AddressType
+            let address = makeSymbolicValue addressSource name AddressType
             HeapRef address typ
         | Types.ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
         | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
@@ -275,14 +339,12 @@ module internal Memory =
     let private makeSymbolicStackRead key typ =
         let source = {key = key}
         let name = toString key
-        let time = VectorTime.zero
-        makeSymbolicValue source time name typ
+        makeSymbolicValue source name typ
 
     let private makeSymbolicHeapRead picker key typ memoryObject =
         let source = {picker = picker; key = key; memoryObject = memoryObject}
         let name = picker.mkname key
-        let time = VectorTime.zero
-        makeSymbolicValue source time name typ
+        makeSymbolicValue source name typ
 
     let makeSymbolicThis (m : System.Reflection.MethodBase) =
         let declaringType = m.DeclaringType |> fromDotNetType
@@ -667,6 +729,11 @@ module internal Memory =
             else state
         { state with initializedTypes = SymbolicSet.add {typ=typ} state.initializedTypes }
 
+    let makeFunctionResultConstant time (callSite : callSite) =
+        let name = sprintf "FunctionResult(%O)" callSite
+        let typ = callSite.SymbolicType
+        makeSymbolicValue {callSite = callSite; calledTime = time} name typ
+
 // ------------------------------- Copying -------------------------------
 
     let copyArray state srcAddress dstAddress =
@@ -738,6 +805,17 @@ module internal Memory =
         let v' = fillHoles ctx state v
         writeStackLocation stack k v'
 
+    let composeRaisedExceptionsOf ctx (state : state) (error : exceptionRegister) =
+        error |> exceptionRegister.map (fillHoles ctx state)
+
+    let composeCallSiteResultsOf ctx (state : state) (callSiteResults : callSiteResults) =
+        Map.fold (fun (acc : callSiteResults) key value ->
+            Prelude.releaseAssert(not <| Map.exists (fun k _ -> k = key) acc)
+            match value with
+            | None -> acc
+            | Some v -> Map.add key (fillHoles ctx state v |> Some) acc
+        ) state.callSiteResults callSiteResults
+
     let private composeFramesOf state state' : frames =
         // TODO: do we really need to substitute type variables?
         let frames' = state'.frames |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
@@ -805,6 +883,9 @@ module internal Memory =
 
     let composeStates ctx state state' =
         let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
+        let returnRegister = Option.map (fillHoles ctx state) state'.returnRegister
+        let exceptionRegister = composeRaisedExceptionsOf ctx state state.exceptionsRegister
+        let callSiteResults = composeCallSiteResultsOf ctx state state'.callSiteResults
         let frames = composeFramesOf state state'
         let stack = composeStacksOf ctx state state'
         let stackBuffers = composeMemoryRegions ctx state state.stackBuffers state'.stackBuffers
@@ -822,6 +903,9 @@ module internal Memory =
         let delegates = composeConcreteDictionaries ctx state.delegates state'.delegates id
         {
             pc = pc
+            returnRegister = returnRegister
+            exceptionsRegister = exceptionRegister
+            callSiteResults = callSiteResults
             stack = stack
             frames = frames
             stackBuffers = stackBuffers
@@ -845,6 +929,15 @@ module internal Memory =
                 let typ = substituteTypeVariables state x.typ
                 let newTypes = composeInitializedTypes state x.matchingTypes
                 isTypeInitialized {state with initializedTypes = newTypes} typ
+
+    type functionResultConstantSource with
+        interface IMemoryAccessConstantSource with
+            override x.Compose ctx state =
+                if Map.containsKey x.callSite state.callSiteResults then
+                    let value = state.callSiteResults.[x.callSite]
+                    Prelude.releaseAssert (Option.isSome value)
+                    Option.get value
+                else makeFunctionResultConstant x.calledTime x.callSite
 
 // ------------------------------- Pretty-printing -------------------------------
 

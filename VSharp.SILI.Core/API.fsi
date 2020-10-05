@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open System.Reflection
 
 [<AutoOpen>]
 module API =
@@ -38,6 +39,8 @@ module API =
         val False : term
 
         val MakeBool : bool -> term
+
+        val MakeFunctionResultConstant : callSite -> term
         val MakeNumber : 'a -> term
         val MakeNullRef : symbolicType -> term
 
@@ -117,7 +120,7 @@ module API =
 
         val PopStack : state -> state
         val PopTypeVariables : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> state
+        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
         val ReferenceField : term -> fieldId -> term
@@ -147,6 +150,7 @@ module API =
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
+//        val ThrowException : state -> symbolicType -> term * state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
@@ -158,8 +162,19 @@ module API =
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list
 
+        // TODO: get rid of all unnecessary stuff below!
+        val ComposeStates : state -> state -> (state -> 'a) -> 'a
+
+        val Merge2States : state -> state -> state
+        val FillHoles : state -> term -> (term * state -> 'a) -> 'a
+
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a
 
     module LegacyDatabase =
         val QuerySummary : ICodeLocation -> codeLocationSummary list
+
+//    module Marshalling =
+//        val Unmarshal : state -> obj -> term * state
+//        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
+//        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a

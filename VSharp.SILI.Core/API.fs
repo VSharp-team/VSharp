@@ -65,6 +65,8 @@ module API =
                     t
             | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
 
+        // TODO: maybe transfer time from interpreter?
+        let MakeFunctionResultConstant (callSite : callSite) = Memory.makeFunctionResultConstant [Memory.freshAddress()] callSite
 
         let isStruct term = isStruct term
         let isReference term = isReference term
@@ -146,7 +148,7 @@ module API =
 
         let PopStack state = Memory.popStack state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state funcId parametersAndThis
+        let NewStackFrame state funcId parametersAndThis isEffect = Memory.newStackFrame state funcId parametersAndThis isEffect
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
         let rec ReferenceArrayIndex arrayRef indices =
@@ -265,6 +267,23 @@ module API =
             | HeapRef _
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
+
+//        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
+        let ComposeStates state state1 k =
+            Memory.composeStates compositionContext.Empty state state1 |> k
+
+        let Merge2States (state1 : state) (state2 : state) =
+            let pc1 = List.fold (fun pc cond -> pc &&& cond) Terms.True state1.pc
+            let pc2 = List.fold (fun pc cond -> pc &&& cond) Terms.True state2.pc
+            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
+            __notImplemented__() : state
+            //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
+
+        let FillHoles (state : state) (term : term) k =
+            let result = Memory.fillHoles compositionContext.Empty state term
+            k (result, state)
+
+
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g
 

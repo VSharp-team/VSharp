@@ -40,6 +40,7 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
+
         match LegacyDatabase.querySummary codeLoc with
         | Some r -> k r
         | None ->
@@ -49,7 +50,7 @@ type public ExplorerBase() =
                 let state = List.foldBack (fun frame state ->
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
 //                        let state = {state with pc = p}
-                    Memory.NewStackFrame state frame.func fr) frames Memory.empty
+                    Memory.NewStackFrame state frame.func fr true) frames Memory.empty
                 { state with pc = List.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
@@ -70,14 +71,14 @@ type public ExplorerBase() =
                     LegacyDatabase.report ilcode resultsAndStates |> k)
             | _ -> __notImplemented__()
 
-    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-        let addr = [Memory.freshAddress()]
-        if CurrentlyBeingExploredLocations.Contains codeLoc then
-            __notImplemented__()
-//            Explorer.recursionApplication codeLoc state addr k
-        else
-            let ctx : compositionContext = { addr = addr }
-            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
+//    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
+//        let addr = [Memory.freshAddress()]
+//        if CurrentlyBeingExploredLocations.Contains codeLoc then
+//            __notImplemented__()
+//        else
+//            let ctx : compositionContext = { addr = addr }
+//            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
+
 
     member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
@@ -102,10 +103,11 @@ type public ExplorerBase() =
 //        if Options.InvokeConcrete () && canUseReflection then
 //            API.Marshalling.CallViaReflection state funcId this parameters k
 //        else
-            x.ReduceFunctionSignature funcId state methodBase this parameters (fun state ->
+            x.ReduceFunctionSignature funcId state methodBase this parameters false (fun state ->
             x.EnterRecursiveRegion funcId state invoke (List.map (fun (result, state) -> result, Memory.PopStack state) >> k))
 
-    member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues k =
+
+    member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues isEffect k =
         let parameters = methodBase.GetParameters()
         let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType
         let values, areParametersSpecified =
@@ -115,7 +117,10 @@ type public ExplorerBase() =
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey lvi
             (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
-        let locals = methodBase.GetMethodBody().LocalVariables |> Seq.map localVarsDecl |> Seq.toList
+        let locals =
+            match methodBase.GetMethodBody() with
+            | null -> []
+            | body -> body.LocalVariables |> Seq.map localVarsDecl |> Seq.toList
         let valueOrFreshConst (param : ParameterInfo option) value =
             match param, value with
             | None, _ -> internalfail "parameters list is longer than expected!"
@@ -135,7 +140,7 @@ type public ExplorerBase() =
                 let thisKey = ThisKey methodBase
                 (thisKey, Specified thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
-        Memory.NewStackFrame state funcId (parametersAndThis @ locals) |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual
+        Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual
 
     member x.ReduceConcreteCall (methodBase : MethodBase) state this (args : term list symbolicValue) k =
         let methodId = x.MakeMethodIdentifier methodBase
@@ -165,19 +170,6 @@ type public ExplorerBase() =
         | _ when t.IsGenericParameter -> k (List.singleton state)
         | _ ->
             let termType = t |> Types.FromDotNetType state
-// TODO: synchronize this with kbatoev's code!
-//            BranchStatements state
-//                (fun state k -> k (Memory.IsTypeInitialized state termType, state))
-//                (fun state k -> k (Nop, state))
-//                (fun state k ->
-//                    let state = Memory.AllocateDefaultStatic state termType
-//                    let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
-//                    match staticConstructor with
-//                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) k
-//                    | None -> k (Nop, state))
-//                (function
-//                 | [(_, state)] -> k state
-//                 | _ -> __notImplemented__())
             let typeInitialized = Memory.IsTypeInitialized state termType
             match typeInitialized with
             | True -> k (List.singleton state)
@@ -186,13 +178,16 @@ type public ExplorerBase() =
                 let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
                 let states =
                     match staticConstructor with
-                    | Some cctor -> x.ReduceConcreteCall cctor state None (Specified []) (List.map snd)
+                    | Some cctor ->
+                        let removeCallSiteResult (stateAfterCallingCCtor : state) =
+                            {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
+                        x.ReduceConcreteCall cctor state None (Specified []) (List.map (snd >> removeCallSiteResult))
                     | None -> state |> List.singleton
                 k (states |> List.map (fun state -> Memory.withPathCondition state (!!typeInitialized)))
 
     member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
         __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
-    member x.FormInitialState (funcId : IFunctionIdentifier) : (state * term option * term) list =
+    member x.FormInitialStateWithoutStatics (funcId : IFunctionIdentifier) isEffect =
         let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
@@ -202,8 +197,10 @@ type public ExplorerBase() =
             | _ -> __notImplemented__()
         let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull (Option.get this)) else Nop
         let state = if Option.isSome this && thisIsNotNull <> True then Memory.withPathCondition state thisIsNotNull else state
-        x.InitializeStatics state funcId.Method.DeclaringType (List.map (fun state ->
-        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified (fun state -> state, this, thisIsNotNull(*, isMethodOfStruct*))))
+        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified isEffect (fun state ->  state, this, thisIsNotNull)
+    member x.FormInitialState (funcId : IFunctionIdentifier) : (state * term option * term) list =
+        let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId false
+        x.InitializeStatics state funcId.Method.DeclaringType (List.map (fun state -> state, this, thisIsNotNull(*, isMethodOfStruct*)))
 
     abstract CreateInstance : System.Type -> term list -> state -> (term * state) list
     default x.CreateInstance exceptionType arguments state =
@@ -251,8 +248,22 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    abstract member Invoke : ICodeLocation -> state -> term option -> ((term * state) list -> 'a) -> 'a
+    member x.ExploreAndCompose codeLoc state k =
+        let addr = [Memory.freshAddress()]
+        let ctx : compositionContext = { addr = addr }
+        x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
+
+    abstract member Invoke : ICodeLocation -> (state -> term option -> ((term * state) list -> 'a) -> 'a)
+
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
+
+    abstract member ReproduceEffect : ICodeLocation -> state -> ((term * state) list -> 'a) -> 'a
+    default x.ReproduceEffect codeLoc state k =
+        if CurrentlyBeingExploredLocations.Contains codeLoc then
+            __notImplemented__()
+//            Explorer.recursionApplication codeLoc state addr k
+        else
+            x.ExploreAndCompose codeLoc state k
 
 
 type public IInterpreterState<'InterpreterState when 'InterpreterState :> IInterpreterState<'InterpreterState>> =

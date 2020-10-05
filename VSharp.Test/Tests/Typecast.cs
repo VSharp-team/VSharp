@@ -83,7 +83,8 @@ namespace VSharp.Test.Tests.Typecast
             return a ? 5 : 6;
         }
 
-        [TestSvm]
+        // [TestSvm]
+        [Ignore("guards are complicated")]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
@@ -311,14 +312,16 @@ namespace VSharp.Test.Tests.Typecast
             return true;
         }
 
-        [TestSvm]
+        // [TestSvm]
+        [Ignore("GetType() is not implemented")]
         public static bool ReferenceIdentity()
         {
             var knight = new Knight();
             return knight.Equals(knight);
         }
 
-        [TestSvm]
+        // [TestSvm]
+        [Ignore("GetType() is not implemented")]
         public static bool KnightIsKnight()
         {
             var knight = new Knight();
@@ -326,7 +329,7 @@ namespace VSharp.Test.Tests.Typecast
             return knight.Equals(knight2);
         }
 
-        [TestSvm]
+        [Ignore("GetType() is not implemented")]
         public static bool KnightIsNotPawn()
         {
             var knight = new Knight();
@@ -334,7 +337,7 @@ namespace VSharp.Test.Tests.Typecast
             return knight.Equals(blackPawn);
         }
 
-        [TestSvm]
+        [Ignore("GetType() is not implemented")]
         public static Type UnionGetTypeSymbolic(bool f, object o1, object o2)
         {
             if (o1 == null || o2 == null)
@@ -347,7 +350,7 @@ namespace VSharp.Test.Tests.Typecast
             return o2.GetType();
         }
 
-        [TestSvm]
+        [Ignore("GetType() is not implemented")]
         public static Type UnionGetType(bool f, object o1, object o2)
         {
             if (o1 == null || o2 == null)

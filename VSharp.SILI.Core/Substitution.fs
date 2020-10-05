@@ -24,7 +24,7 @@ module Substitution =
             if args = args' then term
             else
                 match op with
-                | Operator(op) -> Operators.simplifyOperation op t args' id
+                | Operator op -> Operators.simplifyOperation op t args' id
                 | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'

@@ -76,6 +76,7 @@ type operation =
 
 
 // TODO: symbolic type -> primitive type
+// TODO: get rid of Nop!
 [<StructuralEquality;NoComparison>]
 type termNode =
     | Nop
@@ -299,6 +300,11 @@ module internal Terms =
         | Struct(fields, _) -> fields
         | term -> internalfailf "struct or class expected, %O received" term
 
+//    let sightTypeOfFQL (tl : refTopLevelAddress, path) =
+//        match path with
+//        | [] -> tl.SightType
+//        | path -> typeOfPath path
+
     let private typeOfUnion getType gvs =
         let nonEmptyTypes = List.choose (fun (_, v) -> if isVoid v then None else Some (getType v)) gvs
         match nonEmptyTypes with
@@ -394,6 +400,8 @@ module internal Terms =
 
     let castConcrete (value : obj) (t : System.Type) =
         let actualType = if box value = null then t else value.GetType()
+        let functionIsCastedToMethodPointer () =
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<System.IntPtr>.IsAssignableFrom(t)
         try
             if actualType = t then
                 Concrete value (fromDotNetType t)
@@ -410,6 +418,8 @@ module internal Terms =
                 Concrete casted (fromDotNetType t)
             elif t.IsAssignableFrom(actualType) then
                 Concrete value (fromDotNetType t)
+            elif functionIsCastedToMethodPointer() then
+                Concrete value (fromDotNetType actualType)
             else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
         with
         | _ ->

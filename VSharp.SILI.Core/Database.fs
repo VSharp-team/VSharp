@@ -110,10 +110,18 @@ type Lemmas(m : MethodBase, offset : int) =
 type Paths(m : MethodBase, offset : int) =
     let id = Database.idOfVertex m offset
     let parsed = new Dictionary<level, HashSet<path>>()
+    let used = HashSet<path>()
     member x.Add (path : path) =
         Database.addPath id path
-        let paths = Dict.tryGetValue2 parsed path.lvl (fun () -> new HashSet<_>())
+        let paths = Dict.getValueOrUpdate parsed path.lvl (fun () -> new HashSet<_>())
         paths.Add path |> ignore
+    member x.OfLevel all lvl =
+        let paths  = Dict.tryGetValue2 parsed lvl (fun () -> new HashSet<_>()) |> List.ofSeq
+        if all then paths
+        else
+            let paths = List.filter (used.Contains >> not) paths
+            List.iter (fun (path : path) -> Prelude.releaseAssert(used.Add(path))) paths
+            paths
 
 
 type Queries(m : MethodBase, offset : int) =

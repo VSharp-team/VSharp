@@ -2,6 +2,7 @@ namespace VSharp
 
 open System
 open System.Reflection
+open VSharp.CSharpUtils
 
 module public Reflection =
 
@@ -49,17 +50,19 @@ module public Reflection =
 
     // --------------------------------- Methods --------------------------------
 
+    // TODO: what if return type is generic?
+    let public GetMethodReturnType : MethodBase -> Type = function
+        | :? ConstructorInfo -> typeof<System.Void>
+        | :? MethodInfo as m -> m.ReturnType
+        | _ -> internalfail "unknown MethodBase"
+
     let public GetFullMethodName (methodBase : MethodBase) =
-        let returnType =
-            match methodBase with
-            | :? ConstructorInfo -> typedefof<System.Void>.FullName
-            | :? MethodInfo as mi -> mi.ReturnType.FullName
-            | _ -> internalfail "unknown MethodBase"
+        let returnType = GetMethodReturnType methodBase
         methodBase.GetParameters()
         |> Seq.map (fun param -> param.ParameterType.FullName)
         |> if methodBase.IsStatic then id else Seq.cons "this"
         |> join ", "
-        |> sprintf "%s %s.%s(%s)" returnType methodBase.DeclaringType.FullName methodBase.Name
+        |> sprintf "%s %s.%s(%s)" returnType.FullName methodBase.DeclaringType.FullName methodBase.Name
 
     // --------------------------------- Fields ---------------------------------
 

@@ -55,7 +55,8 @@ namespace VSharp.Test.Tests
             return *(int*) s.ToPointer();
         }
 
-        [TestSvm]
+        // [TestSvm]
+        [Ignore("Field term extractor for functionResultConstantSource needed")]
         public static void* CompilerHackLikePtrReturn(void* ptr) // TODO: keys of MemoryCell are equal, but FQLs are not (because of equality of concrete "this" and "constructed instance")
         {
             var x = (IntPtr) ptr;
