@@ -177,9 +177,8 @@ module internal InstructionsSet =
             | Nop -> term, state
             | _ -> term, {state with returnRegister = Some term}
         match result with
-//        | :? (term * state) as r //-> k [r]
-        | :? ((term * state) list) as r ->
-            r |> List.map appendResultToState |> k
+        | :? (term * state) as r -> r |> appendResultToState |> List.singleton |> k
+        | :? ((term * state) list) as r -> r |> List.map appendResultToState |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
 
@@ -187,7 +186,7 @@ module internal InstructionsSet =
 
     let getVarTerm state index (methodBase : MethodBase) =
         let lvi = methodBase.GetMethodBody().LocalVariables.[index]
-        let stackKey = LocalVariableKey lvi
+        let stackKey = LocalVariableKey(lvi, methodBase)
         let typ = Types.FromDotNetType state lvi.LocalType
         Ref (PrimitiveStackLocation stackKey), state, typ
     let getArgTerm index (methodBase : MethodBase) =

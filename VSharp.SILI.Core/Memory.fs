@@ -19,7 +19,7 @@ type pathCondition = term list
 type stack = mappedStack<stackKey, term>
 type entry = { key : stackKey; typ : symbolicType }
 type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
-type frames = stackFrame stack
+type frames = stackFrame stack // TODO: is it invariant ``there could not be two sequential stackFrames that are effects'' ?
 
 type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
 
@@ -816,15 +816,37 @@ module internal Memory =
             | Some v -> Map.add key (fillHoles ctx state v |> Some) acc
         ) state.callSiteResults callSiteResults
 
-    let private composeFramesOf state state' : frames =
-        // TODO: do we really need to substitute type variables?
-        let frames' = state'.frames |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
-        List.append frames' state.frames
+    let private composeStacksAndFramesOf ctx state state' : stack * frames =
+        let composeFramesOf state frames' : frames =
+            // TODO: do we really need to substitute type variables?
+            let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
+            List.append frames' state.frames
 
-    let private composeStacksOf ctx state state' =
-        // TODO: still, for artificial frames we should mutate it? For instance, consider composition of a state with the effect of a function in the middle of some branch
-        let stack' = MappedStack.map (fun _ -> fillHoles ctx state) state'.stack
-        MappedStack.concat state.stack stack'
+        let bottomAndRestFrames (s : state) : (stack option * stack * frames) =
+            let bottomFrame, restFrames =
+                let bottomFrame, restFrames = Stack.bottomAndRest s.frames
+                if bottomFrame.isEffect then (Some bottomFrame), restFrames
+                else None, s.frames
+            let getStackFrame locations =
+                let pushOne stack (entry : entry) =
+                    match MappedStack.tryFind entry.key s.stack with
+                    | Some v -> MappedStack.push entry.key v stack
+                    | None -> MappedStack.reserve entry.key stack
+                let stack = List.fold pushOne MappedStack.empty locations
+                stack
+            let bottom = bottomFrame |> Option.map (entriesOfFrame >> getStackFrame)
+            let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
+            bottom, rest, restFrames
+
+
+        let state'Bottom, state'RestStack, state'RestFrames = bottomAndRestFrames state'
+        let state2 = Option.fold (MappedStack.fold (fillAndMutateStackLocation ctx state)) state state'Bottom  // apply effect of bottom frame
+        let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}                            // add rest frames
+        let finalState = MappedStack.fold (fillAndMutateStackLocation ctx state) state3 state'RestStack                         // fill and copy effect of rest frames
+        finalState.stack, finalState.frames
+//        // TODO: still, for artificial frames we should mutate it? For instance, consider composition of a state with the effect of a function in the middle of some branch
+//        let stack' = MappedStack.map (fun _ -> fillHoles ctx state) state'.stack
+//        MappedStack.concat state.stack stack'
 
     let private fillHolesInMemoryRegion ctx state mr =
         let substTerm = fillHoles ctx state
@@ -886,8 +908,7 @@ module internal Memory =
         let returnRegister = Option.map (fillHoles ctx state) state'.returnRegister
         let exceptionRegister = composeRaisedExceptionsOf ctx state state.exceptionsRegister
         let callSiteResults = composeCallSiteResultsOf ctx state state'.callSiteResults
-        let frames = composeFramesOf state state'
-        let stack = composeStacksOf ctx state state'
+        let stack, frames = composeStacksAndFramesOf ctx state state'
         let stackBuffers = composeMemoryRegions ctx state state.stackBuffers state'.stackBuffers
         let classFields = composeMemoryRegions ctx state state.classFields state'.classFields
         let arrays = composeMemoryRegions ctx state state.arrays state'.arrays

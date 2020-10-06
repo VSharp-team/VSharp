@@ -40,7 +40,6 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
-
         match LegacyDatabase.querySummary codeLoc with
         | Some r -> k r
         | None ->
@@ -115,7 +114,7 @@ type public ExplorerBase() =
             | Specified values -> values, true
             | Unspecified -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
-            let stackKey = LocalVariableKey lvi
+            let stackKey = LocalVariableKey(lvi, methodBase)
             (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
         let locals =
             match methodBase.GetMethodBody() with
@@ -187,7 +186,7 @@ type public ExplorerBase() =
 
     member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
         __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
-    member x.FormInitialStateWithoutStatics (funcId : IFunctionIdentifier) isEffect =
+    member x.FormInitialStateWithoutStatics (funcId : IFunctionIdentifier) =
         let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
@@ -197,9 +196,9 @@ type public ExplorerBase() =
             | _ -> __notImplemented__()
         let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull (Option.get this)) else Nop
         let state = if Option.isSome this && thisIsNotNull <> True then Memory.withPathCondition state thisIsNotNull else state
-        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified isEffect (fun state ->  state, this, thisIsNotNull)
+        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified true (fun state ->  state, this, thisIsNotNull)
     member x.FormInitialState (funcId : IFunctionIdentifier) : (state * term option * term) list =
-        let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId false
+        let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId
         x.InitializeStatics state funcId.Method.DeclaringType (List.map (fun state -> state, this, thisIsNotNull(*, isMethodOfStruct*)))
 
     abstract CreateInstance : System.Type -> term list -> state -> (term * state) list

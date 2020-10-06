@@ -177,6 +177,7 @@ module public CFA =
 //                x.PrintLog "composition left" path.state
 //                x.PrintLog "composition right" effect
 //                x.PrintLog "composition result" state
+                assert(path.state.frames = state.frames)
                 x.CommonPropagatePath (path.lvl + 1u) state)
 
         member x.Effect = effect
@@ -360,7 +361,7 @@ module public CFA =
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
-                let initialState, this, _ = ilintptr.FormInitialStateWithoutStatics ilmm true
+                let initialState, this, _ = ilintptr.FormInitialStateWithoutStatics ilmm
                 Prelude.releaseAssert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
 
 //                Logger.printLog Logger.Trace "emptyState for method %O = %O" methodBase emptyState

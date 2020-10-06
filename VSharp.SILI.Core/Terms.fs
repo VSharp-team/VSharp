@@ -10,18 +10,18 @@ open Types.Constructor
 type stackKey =
     | ThisKey of Reflection.MethodBase
     | ParameterKey of Reflection.ParameterInfo
-    | LocalVariableKey of Reflection.LocalVariableInfo
+    | LocalVariableKey of Reflection.LocalVariableInfo * Reflection.MethodBase
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
         | ParameterKey pi -> pi.Name
-        | LocalVariableKey lvi -> "__loc__" + lvi.LocalIndex.ToString()
+        | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
     override x.GetHashCode() =
         let fullname =
             match x with
             | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey lvi -> lvi.ToString()
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%O" m (lvi.ToString())
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -41,7 +41,7 @@ type stackKey =
         match x with
         | ThisKey m -> m.DeclaringType
         | ParameterKey p -> p.ParameterType
-        | LocalVariableKey l -> l.LocalType
+        | LocalVariableKey(l, _) -> l.LocalType
         |> fromDotNetType
 
 type concreteHeapAddress = vectorTime
