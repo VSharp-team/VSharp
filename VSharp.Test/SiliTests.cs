@@ -322,7 +322,7 @@ namespace VSharp.Test
             {
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var idealValue = new IdealValuesHandler(methodInfo);
-                var gotValue = _svm.ExploreOne(methodInfo);
+                var gotValue = _svm.ExploreOne(methodInfo).Trim();
 
                 if (string.Equals(idealValue.ExpectedValue, gotValue))
                 {
