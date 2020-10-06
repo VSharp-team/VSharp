@@ -7,9 +7,53 @@ using NUnit.Framework.Internal;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture]
+    [TestSvmFixture]
     public static class PDR
     {
+        [TestSvmFixture]
+        public static class WithStaticMembersUsedInCFA
+        {
+            public static int x = 100;
+
+            [TestSvm]
+            public static int Increment()
+            {
+                ++x;
+                return x;
+            }
+
+            [TestSvm]
+            public static int Mutate(int y)
+            {
+                x = y;
+                return x;
+            }
+
+            [TestSvm]
+            public static int MutateAndIncrement()
+            {
+                Mutate(100);
+                Increment();
+                return x;
+            }
+
+            [TestSvm]
+            public static int IncrementAndMutate()
+            {
+                Increment();
+                Mutate(100);
+                return x;
+            }
+
+        }
+
+        [TestSvm]
+        public static int CallIncrementOutside()
+        {
+            return WithStaticMembersUsedInCFA.Increment();
+        }
+
+
         private static int ReturnConstant() => 17;
 
         [TestSvm]
@@ -19,6 +63,24 @@ namespace VSharp.Test.Tests
             ReturnConstant();
             array[5] = 42;
         }
+
+        [TestSvm]
+        public static int NewarrAllocatesArrayWithConcreteAddress2()
+        {
+            int[] array = new int[10];
+            ReturnConstant();
+            array[5] = 42;
+            return array[5];
+        }
+
+        [TestSvm]
+        public static int NewarrAllocatesArrayWithConcreteAddress3()
+        {
+            int[] array = new int[10] {0, 1, 2, 3, 4, 42, 6, 7, 8, 9};
+            ReturnConstant();
+            return array[5];
+        }
+
         private class ClassWithOneField
         {
             public int x;
@@ -47,7 +109,7 @@ namespace VSharp.Test.Tests
             return 0;
         }
 
-        // [TestSvm]
+        [TestSvm]
         public static bool AbsPpEqualsAbs(int x)
         {
             int y = Abs(x);
@@ -60,7 +122,7 @@ namespace VSharp.Test.Tests
             return x * 2;
         }
 
-        // [TestSvm]
+        [TestSvm]
         public static int FunctionsComposition(int x)
         {
             return F(F(x) + F(F(F(F(x)))));
