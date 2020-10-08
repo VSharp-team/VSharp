@@ -17,6 +17,7 @@ module Substitution =
 
     // TODO: get rid of union unnesting to avoid the exponential blow-up!
     let rec substitute termSubst typeSubst timeSubst term =
+        let recur = substitute termSubst typeSubst timeSubst
         match term.term with
         | Expression(op, args, t) ->
             let t = typeSubst t
@@ -33,17 +34,17 @@ module Substitution =
             |> Merging.merge
         | Union gvs ->
             let gvs' = gvs |> List.choose (fun (g, v) ->
-                let ggs = substitute termSubst typeSubst timeSubst g |> Merging.unguardMerge
-                if isFalse ggs then None else Some (ggs, substitute termSubst typeSubst timeSubst v))
+                let ggs = recur g |> Merging.unguardMerge
+                if isFalse ggs then None else Some (ggs, recur v))
             if gvs' = gvs then term else Merging.merge gvs'
-        | HeapRef(address, typ) -> HeapRef (termSubst address) (typeSubst typ)
+        | HeapRef(address, typ) -> HeapRef (recur address) (typeSubst typ)
         | Struct(contents, typ) ->
-            let contents' = PersistentDict.map id termSubst contents
+            let contents' = PersistentDict.map id recur contents
             let typ' = typeSubst typ
             Struct contents' typ'
         | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
-        | Ref address -> substituteAddress termSubst typeSubst timeSubst address |> Ref
-        | Ptr(address, typ, shift) -> Ptr (Option.map (substituteAddress termSubst typeSubst timeSubst) address) (typeSubst typ) (Option.map termSubst shift)
+        | Ref address -> substituteAddress recur typeSubst timeSubst address |> Ref
+        | Ptr(address, typ, shift) -> Ptr (Option.map (substituteAddress recur typeSubst timeSubst) address) (typeSubst typ) (Option.map recur shift)
         | _ -> termSubst term
 
     and private substituteMany termSubst typeSubst timeSubst terms ctor =

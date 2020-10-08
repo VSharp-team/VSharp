@@ -209,6 +209,7 @@ module public CFA =
             let interpreter = stepItp |> Option.get
             let fillTerm term = Memory.FillHoles path.state term fst
             let concreteArgs = List.map fillTerm args
+            let concreteArgs = List.map fillTerm args
             let concreteThis = Option.map fillTerm thisOption
             let concreteCilState = cilState.MakeEmpty (Instruction src.Offset) (Instruction dst.Offset) path.state
 
@@ -412,7 +413,7 @@ type StepInterpreter() =
                 let newDsts = edges |> Seq.fold (fun acc (edge : CFA.Edge) ->
                     let propagated = Seq.map edge.PropagatePath paths |> Seq.fold (||) false
                     if propagated then (edge.Dst :: acc) else acc) []
-                List.iter (fun dst -> dfs (lvl + 1u) dst) newDsts
+                List.iter (dfs (lvl + 1u)) newDsts
         cfa.body.entryPoint.Paths.Add {lvl = 0u; state = initialState}
         dfs 0u cfa.body.entryPoint
         let resultStates = List.init (maxBorder |> int) (fun lvl -> cfa.body.exitVertex.Paths.OfLevel true (lvl |> uint32) |> List.ofSeq)
