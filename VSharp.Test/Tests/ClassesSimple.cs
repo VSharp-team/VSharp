@@ -224,8 +224,8 @@ namespace VSharp.Test.Tests
             return x.MyValue;
         }
 
-        // [TestSvm] //TODO: uncomment for new Memory Model
-        [Ignore("This of ValueType requires fake stackFrame")]
+        [TestSvm] //TODO: uncomment for new Memory Model
+        // [Ignore("This of ValueType requires fake stackFrame")]
         public static int ValueTypeMethod(int x, int y)
         {
             return x.CompareTo(y);

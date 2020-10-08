@@ -125,8 +125,7 @@ namespace VSharp.Test.Tests.Methods
     [TestSvmFixture]
     public static class VirtualMethod
     {
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap")]
+        [TestSvm]
         public static IMovable MakeVirtualMove(Pawn p, Coord c)
         {
             p?.MakeMove(c);
@@ -183,8 +182,7 @@ namespace VSharp.Test.Tests.Methods
             }
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [TestSvm]
         public static int VirtualCall1(VirtualC a, int n)
         {
             if (a == null) return 0;

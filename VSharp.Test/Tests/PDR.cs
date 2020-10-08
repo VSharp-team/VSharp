@@ -57,6 +57,19 @@ namespace VSharp.Test.Tests
         private static int ReturnConstant() => 17;
 
         [TestSvm]
+        public static int CasualFactorial(int x)
+        {
+            if (x <= 0) return 1;
+            return x * CasualFactorial(x - 1);
+        }
+
+        [TestSvm]
+        public static int CasualFactorial1()
+        {
+            return CasualFactorial(1);
+        }
+
+        [TestSvm]
         public static void NewarrAllocatesArrayWithConcreteAddress()
         {
             int[] array = new int[10];
@@ -81,13 +94,50 @@ namespace VSharp.Test.Tests
             return array[5];
         }
 
-        private class ClassWithOneField
+        [TestSvm]
+        public static ClassWithOneField NewObjWithBranching(bool f)
+        {
+            ClassWithOneField classWithOneField = new ClassWithOneField();
+            if (f)
+            {
+                classWithOneField.x = 42;
+            } else
+            {
+                classWithOneField.x = 456;
+            }
+            return classWithOneField;
+        }
+
+        [TestSvm]
+        public static int NewarrWithBranching(bool f)
+        {
+            int[] array = new int[10];
+            if (f)
+            {
+                array[0] = 42;
+            } else
+            {
+                array[0] = 456;
+            }
+            return array[0];
+        }
+
+        public class ClassWithOneField
         {
             public int x;
         }
 
         private static int ReadFieldOfCLass(ClassWithOneField classWithOneField)
         {
+            return classWithOneField.x;
+        }
+
+        [TestSvm]
+        public static int NewObjAndDup()
+        {
+            ClassWithOneField classWithOneField = new ClassWithOneField();
+            classWithOneField.x = 42;
+            ReturnConstant();
             return classWithOneField.x;
         }
 

@@ -5,7 +5,7 @@ using System.Runtime.InteropServices.ComTypes;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture]
+    [TestSvmFixture]
     // unrolling recursion cycles
     public class ControlFlow
     {

@@ -5,10 +5,10 @@ using VSharp.Interpreter.IL;
 
 namespace VSharp.Test
 {
-    [TestFixture]
+    // [TestFixture]
     public class MSCoreLibTest
     {
-        [Test]
+        // [Test]
         public static void Test()
         {
             var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
