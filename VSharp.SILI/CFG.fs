@@ -14,7 +14,7 @@ module public CFG =
         methodBase : MethodBase
         ilBytes : byte []
         sortedOffsets : List<offset>
-        topologicalTimes : int []
+        topologicalTimes : Dictionary<offset, int>
         graph : graph
         reverseGraph : graph
         clauses : ExceptionHandlingClause list
@@ -154,10 +154,23 @@ module public CFG =
         then dfsComponent methodBase data ilBytes ehc.FilterOffset
         dfsComponent methodBase data ilBytes ehc.HandlerOffset // some catch handlers may be nested
 
+    // TODO: rewrite this code in functional style!
+    let topDfs cnt (gr : graph) =
+        let mutable t = cnt
+        let topTm = Dictionary<offset, int>()
+        let rec helperH v =
+            topTm.Add(v, 0)
+            gr.[v] |> Seq.iter (fun u -> if not <| topTm.ContainsKey u then helperH u)
+            topTm.[v] <- t
+            t <- t - 1
+        gr |> Seq.iter (fun kvp -> if not <| topTm.ContainsKey kvp.Key then helperH kvp.Key)
+        topTm
+
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()
         dfsComponent methodBase interimData ilBytes 0
         Seq.iter (dfsExceptionHandlingClause methodBase interimData ilBytes) methodBody.ExceptionHandlingClauses
-        addVerticesAndEdges cfgData interimData
+        let cfg = addVerticesAndEdges cfgData interimData
+        {cfg with topologicalTimes = topDfs cfg.sortedOffsets.Count cfg.graph}

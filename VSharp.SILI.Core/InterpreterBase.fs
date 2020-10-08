@@ -81,7 +81,10 @@ type public ExplorerBase() =
 
     member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
         if areWeStuck then
-            x.ReproduceEffect id state k
+            try
+                x.ReproduceEffect id state k
+            with
+            | :? InsufficientInformationException -> body state k
         else
             /// explicitly unrolling
             body state k

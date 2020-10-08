@@ -495,11 +495,11 @@ module internal InstructionsSet =
             let states = Memory.WriteSafe cilState.state targetAddress (Memory.DefaultOf typ)
             states |> List.map (fun state -> {cilState with state = state; opStack = stack})
         | _ -> __corruptedStack__()
-    let ldind addressCast (cilState : cilState) =
+    let ldind valueCast (cilState : cilState) =
         match cilState.opStack with
         | address :: stack ->
-            let address = addressCast address cilState.state // TODO: remove this hack for new MemoryModel
             let value = Memory.ReadSafe cilState.state address
+            let value = valueCast value cilState.state
             {cilState with opStack = value::stack} :: []
         | _ -> __corruptedStack__()
     let ldindref = ldind always
@@ -692,15 +692,15 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Initobj]            <- zipWithOneOffset <| initobj
     opcode2Function.[hashFunction OpCodes.Ldarga]             <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Ldarga_S]           <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int)
-    opcode2Function.[hashFunction OpCodes.Ldind_I4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.int32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.int8Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.int16Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.int64Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.uint8Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.uint16Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.uint32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.float32TermType)
-    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| Pointer TypeUtils.float64TermType)
+    opcode2Function.[hashFunction OpCodes.Ldind_I4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int8Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int16Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int64Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint8Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint16Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float32TermType)
+    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float64TermType)
     opcode2Function.[hashFunction OpCodes.Ldind_Ref]          <- zipWithOneOffset <| fun _ _ -> ldindref
     opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind always
     opcode2Function.[hashFunction OpCodes.Isinst]             <- zipWithOneOffset isinst

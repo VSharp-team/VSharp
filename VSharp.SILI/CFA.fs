@@ -429,16 +429,17 @@ type StepInterpreter() =
         k resultStates
 
     override x.Invoke codeLoc =
-        let (|StaticConstructorMethodMetadata|_|) (codeLoc : ICodeLocation) =
-            match codeLoc with
-            | :? ILMethodMetadata as ilmm when ilmm.methodBase.IsStatic && (ilmm.methodBase :? ConstructorInfo) -> Some ilmm
-            | _ -> None
+
 
         match codeLoc with
-//        | StaticConstructorMethodMetadata _ -> base.Invoke codeLoc
         | :? ILMethodMetadata as ilmm ->
             CFA.configureInterpreter x
-            let cfa = CFA.cfaBuilder.computeCFA x ilmm
-            x.ForwardExploration cfa codeLoc
+
+            try
+                let cfa = CFA.cfaBuilder.computeCFA x ilmm
+                x.ForwardExploration cfa codeLoc
+            with
+            | :? InsufficientInformationException -> base.Invoke codeLoc
+
         | _ -> internalfail "unhandled ICodeLocation instance"
 

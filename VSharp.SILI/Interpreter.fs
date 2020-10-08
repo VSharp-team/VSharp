@@ -56,7 +56,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         let startingOffset = cilState.ip.Vertex ()
         let endOffset =
             let u = cfg.sortedOffsets.BinarySearch(startingOffset)
-            if startingOffset = lastOffset then lastOffset + 1
+            if startingOffset = lastOffset then cfg.ilBytes.Length
             else cfg.sortedOffsets.[u + 1]
         let isOffsetOfCurrentVertex (offset : ip) = startingOffset <= offset.Vertex() && offset.Vertex() < endOffset
         let rec executeAllInstructions (offset : ip) cilState =
