@@ -32,7 +32,10 @@ type offset = int
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
     with
-    member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
+    member x.SymbolicType =
+        // TODO: this is a temporary hack, remove it when heapAddressKey.isAllocated would use vectorTime!
+        if x.calledMethod.IsConstructor then x.calledMethod.DeclaringType |> fromDotNetType
+        else x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
     override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
     override x.Equals(o : obj) =
         match o with

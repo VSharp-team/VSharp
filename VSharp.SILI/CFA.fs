@@ -85,9 +85,10 @@ module public CFA =
         Edge(src : Vertex, dst : Vertex) =
         abstract member Type : string
         abstract member PropagatePath : path -> bool
-        member x.PrintLog msg obj = Logger.printLog Logger.Trace "[%s] %s: %O" (x.commonToString()) msg obj
+        member x.PrintLog msg obj = Logger.printLog Logger.Trace "[%s]\n%s: %O" (x.commonToString()) msg obj
         member x.Src = src
         member x.Dst = dst
+        member x.Method = x.Src.Method
         member x.CommonPropagatePath lvl state =
             let pc = List.filter (fun cond -> cond <> Terms.True) state.pc
             let state = {state with pc = pc}
@@ -98,7 +99,7 @@ module public CFA =
                 true
             else false
         override x.ToString() = x.commonToString()
-        member x.commonToString() = sprintf "%s ID:[%d --> %d] Offset:[%x --> %x]" x.Type x.Src.Id x.Dst.Id x.Src.Offset x.Dst.Offset
+        member x.commonToString() = sprintf "%s ID:[%d --> %d] Offset:[%x --> %x] Method:%O" x.Type x.Src.Id x.Dst.Id x.Src.Offset x.Dst.Offset x.Method
 
 
     type 'a unitBlock =
@@ -174,9 +175,9 @@ module public CFA =
         override x.PropagatePath (path : path) =
 
             Memory.ComposeStates path.state effect (fun state ->
-//                x.PrintLog "composition left" path.state
-//                x.PrintLog "composition right" effect
-//                x.PrintLog "composition result" state
+                x.PrintLog "composition left"  <| Memory.Dump path.state
+                x.PrintLog "composition right" <| Memory.Dump effect
+                x.PrintLog "composition result" <| Memory.Dump state
                 assert(path.state.frames = state.frames)
                 x.CommonPropagatePath (path.lvl + 1u) state)
 
@@ -294,6 +295,7 @@ module public CFA =
                     | FallThrough nextOffset -> nextOffset
                     | _ -> __unreachable__()
                 let stackAfterCall =
+                    // TODO: this is a temporary hack for newobj opcode, replace it with [HeapRef concreteAddress] when heapAddressKey.isAllocated would use vectorTime!
                     if neededResult then Terms.MakeFunctionResultConstant callSite :: stackWithoutCallArgs
                     else stackWithoutCallArgs
                 // TODO: why no exceptions?
@@ -409,7 +411,8 @@ type StepInterpreter() =
             else
                 visit vertex
                 let edges = vertex.OutgoingEdges
-                let paths : path list = vertex.Paths.OfLevel false lvl
+                let shouldGetAllPaths = true // TODO: resolve this problem: when set to ``true'' recursion works but very long, when set to ``false'' method recursion doesn't work at all
+                let paths : path list = vertex.Paths.OfLevel shouldGetAllPaths lvl
                 let newDsts = edges |> Seq.fold (fun acc (edge : CFA.Edge) ->
                     let propagated = Seq.map edge.PropagatePath paths |> Seq.fold (||) false
                     if propagated then (edge.Dst :: acc) else acc) []
