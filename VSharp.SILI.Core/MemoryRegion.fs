@@ -8,7 +8,7 @@ open VSharp
 #nowarn "342"
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
-    abstract IsAllocated : bool
+//    abstract IsAllocated : bool
     abstract Region : 'reg
     abstract Map : (term -> term) -> (symbolicType -> symbolicType) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
 
@@ -28,10 +28,10 @@ module private MemoryKeyUtils =
 type heapAddressKey =
     {address : heapAddress}
     interface IMemoryKey<heapAddressKey, vectorTime intervals> with
-        override x.IsAllocated =
-            match x.address.term with
-            | ConcreteHeapAddress _ -> true
-            | _ -> false
+//        override x.IsAllocated =
+//            match x.address.term with
+//            | ConcreteHeapAddress _ -> true
+//            | _ -> false
         override x.Region = MemoryKeyUtils.regionOfHeapAddress x.address
         override x.Map mapTerm _ mapTime reg =
             let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
@@ -56,10 +56,10 @@ type heapAddressKey =
 type heapArrayIndexKey =
     {address : heapAddress; indices : term list}
     interface IMemoryKey<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> with
-        override x.IsAllocated =
-            match x.address.term with
-            | ConcreteHeapAddress _ -> true
-            | _ -> false
+//        override x.IsAllocated =
+//            match x.address.term with
+//            | ConcreteHeapAddress _ -> true
+//            | _ -> false
         override x.Region =
             productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionsOfIntegerTerms x.indices)
         override x.Map mapTerm _ mapTime reg =
@@ -78,10 +78,10 @@ type heapArrayIndexKey =
 type heapVectorIndexKey =
     {address : heapAddress; index : term}
     interface IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> with
-        override x.IsAllocated =
-            match x.address.term with
-            | ConcreteHeapAddress _ -> true
-            | _ -> false
+//        override x.IsAllocated =
+//            match x.address.term with
+//            | ConcreteHeapAddress _ -> true
+//            | _ -> false
         override x.Region =
             productRegion<vectorTime intervals, int points>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionOfIntegerTerm x.index)
         override x.Map mapTerm _ mapTime reg =
@@ -100,7 +100,7 @@ type heapVectorIndexKey =
 type stackBufferIndexKey =
     {index : term}
     interface IMemoryKey<stackBufferIndexKey, int points> with
-        override x.IsAllocated = true
+//        override x.IsAllocated = true
         override x.Region = MemoryKeyUtils.regionOfIntegerTerm x.index
         override x.Map mapTerm _ _ reg =
             reg, {index = mapTerm x.index}
@@ -115,7 +115,7 @@ type stackBufferIndexKey =
 type symbolicTypeKey =
     {typ : symbolicType}
     interface IMemoryKey<symbolicTypeKey, freeRegion<symbolicType>> with
-        override x.IsAllocated = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
+//        override x.IsAllocated = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
         override x.Region = freeRegion<symbolicType>.Singleton x.typ
         override x.Map _ mapper _ reg =
             reg.Map mapper, {typ = mapper x.typ}
@@ -135,11 +135,11 @@ module private UpdateTree =
 
     let isEmpty tree = RegionTree.isEmpty tree
 
-    let read (key : 'key) makeSymbolic makeDefault (tree : updateTree<'key, 'value, 'reg>) =
+    let read (key : 'key) isDefault makeSymbolic makeDefault (tree : updateTree<'key, 'value, 'reg>) =
         let reg = key.Region
         let d = RegionTree.localize reg tree
         if PersistentDict.isEmpty d then
-            if key.IsAllocated then makeDefault() else makeSymbolic (Node d)
+            if isDefault key then makeDefault() else makeSymbolic (Node d)
         elif PersistentDict.size d = 1 then
             match PersistentDict.tryFind d reg with
             | Some({key=key'; value=v}, _) when key = key' -> v
@@ -179,10 +179,10 @@ module MemoryRegion =
     let empty typ =
         {typ = typ; updates = UpdateTree.empty}
 
-    let read mr key instantiate =
+    let read mr key isDefault instantiate =
         let makeSymbolic tree = instantiate mr.typ <| {typ=mr.typ; updates=tree}
         let makeDefault () = makeDefaultValue mr.typ
-        UpdateTree.read key makeSymbolic makeDefault mr.updates
+        UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
     let write mr key value =
         if not (typeOf value = mr.typ) then

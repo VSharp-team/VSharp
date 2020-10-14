@@ -103,8 +103,8 @@ module internal TypeCasting =
 
     type symbolicSubtypeSource with
         interface IStatedSymbolicConstantSource with
-            override x.Compose ctx state =
-                let fillTerm = Memory.fillHoles ctx state
+            override x.Compose state =
+                let fillTerm = Memory.fillHoles state
                 let fillType = Memory.substituteTypeVariables state
                 match x.left, x.right with
                 | SymbolicType l, SymbolicType r ->

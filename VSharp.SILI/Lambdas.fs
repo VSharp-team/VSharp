@@ -2,7 +2,7 @@ namespace VSharp.Interpreter.IL
 open VSharp
 open VSharp.Core
 
-type public 'a symbolicLambda = cilState -> term list symbolicValue -> ((term * cilState) list -> 'a) -> 'a
+type public 'a symbolicLambda = cilState -> term list symbolicValue -> (cilState list -> 'a) -> 'a
 
 module internal Lambdas =
     let make (body : 'a symbolicLambda) typ (k : term -> 'a) = Concrete body typ |> k

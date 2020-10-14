@@ -122,6 +122,30 @@ namespace VSharp.Test.Tests
             return array[0];
         }
 
+        [TestSvm]
+        public static void NewObj1()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 2; i++)
+                new object();
+            //new object();
+        }
+
+        [TestSvm]
+        public static void NewObjInLoop()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 5; ++i)
+            {
+                new object();
+            }
+
+            if (c is string)
+            {
+                new object();
+            }
+        }
+
         public class ClassWithOneField
         {
             public int x;

@@ -40,7 +40,7 @@ module API =
 
         val MakeBool : bool -> term
 
-        val MakeFunctionResultConstant : callSite -> term
+        val MakeFunctionResultConstant : state -> callSite -> term
         val MakeNumber : 'a -> term
         val MakeNullRef : symbolicType -> term
 
@@ -115,6 +115,7 @@ module API =
         val (%%%) : term -> term -> term
         val Mul : term -> term -> term
         val IsZero : term -> term
+
     module public Memory =
         val EmptyState : state
 
@@ -162,11 +163,12 @@ module API =
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list
 
+        val AdvanceTime : state -> state
+
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> (state -> 'a) -> 'a
 
         val Merge2States : state -> state -> state
-        val FillHoles : state -> term -> (term * state -> 'a) -> 'a
 
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a

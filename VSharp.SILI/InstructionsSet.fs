@@ -132,6 +132,15 @@ module internal InstructionsSet =
             else mapAndPushResult result
         Cps.List.map exceptionCheck
     let pushFunctionResults results = mapAndPushFunctionResultsk id results id
+    let pushResultFromStateToCilState (cilState : cilState) (states : state list) =
+        states |> List.map (fun (state : state) ->
+            let opStack =
+                match state.returnRegister with
+                | None -> cilState.opStack
+                | Some r -> r :: cilState.opStack
+            let state = {state with returnRegister = None}
+            {cilState with state = state; opStack = opStack})
+
     let withResult (s : state) res' = {s with returnRegister = res'}
     // --------------------------------------- Primitives ----------------------------------------
 
@@ -146,9 +155,13 @@ module internal InstructionsSet =
         GuardedStatedApplyk
             (fun state term k -> f {cilState with state = state} term k)
             cilState.state term id (List.concat >> k)
-    let BranchOnNull cilState term =
-        StatedConditionalExecutionCIL cilState (fun state k -> k (IsNullReference term, state))
-
+    let BranchOnNull (state : state) term thenBranch elseBranch k =
+        StatedConditionalExecution state
+            (fun state k -> k (IsNullReference term, state))
+            thenBranch
+            elseBranch
+            (fun res1 res2 -> [res1; res2])
+            (List.concat >> k)
     let resolveFieldFromMetadata (cfg : cfgData) = Instruction.resolveFieldFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTypeFromMetadata (cfg : cfgData) = Instruction.resolveTypeFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTermTypeFromMetadata state (cfg : cfgData) = resolveTypeFromMetadata cfg >> Types.FromDotNetType state
@@ -163,7 +176,7 @@ module internal InstructionsSet =
 
     // ------------------------------- Environment interaction -------------------------------
 
-    let rec internalCall (methodInfo : MethodInfo) (argsAndThis : term list) (s : state) k =
+    let rec internalCall (methodInfo : MethodInfo) (argsAndThis : term list) (s : state) (k : state list -> 'a) =
         let parameters : obj [] =
             // Sometimes F# compiler merges tuple with the rest arguments!
             match methodInfo.GetParameters().Length with
@@ -174,8 +187,8 @@ module internal InstructionsSet =
         let result = methodInfo.Invoke(null, parameters)
         let appendResultToState (term : term, state : state) =
             match term.term with
-            | Nop -> term, state
-            | _ -> term, {state with returnRegister = Some term}
+            | Nop -> {state with returnRegister = None}
+            | _ -> {state with returnRegister = Some term}
         match result with
         | :? (term * state) as r -> r |> appendResultToState |> List.singleton |> k
         | :? ((term * state) list) as r -> r |> List.map appendResultToState |> k
