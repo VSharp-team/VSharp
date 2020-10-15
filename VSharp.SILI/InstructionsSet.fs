@@ -132,14 +132,16 @@ module internal InstructionsSet =
             else mapAndPushResult result
         Cps.List.map exceptionCheck
     let pushFunctionResults results = mapAndPushFunctionResultsk id results id
-    let pushResultFromStateToCilState (cilState : cilState) (states : state list) =
+    let pushResultFromStateToCilState (cilState : cilState) (states : state list) : cilState list =
         states |> List.map (fun (state : state) ->
-            let opStack =
-                match state.returnRegister with
-                | None -> cilState.opStack
-                | Some r -> r :: cilState.opStack
-            let state = {state with returnRegister = None}
-            {cilState with state = state; opStack = opStack})
+            if state.exceptionsRegister.UnhandledError then {cilState with state = state} // TODO: check whether opStack = [] is needed
+            else
+                let opStack =
+                    match state.returnRegister with
+                    | None -> cilState.opStack
+                    | Some r -> r :: cilState.opStack
+                let state = {state with returnRegister = None}
+                {cilState with state = state; opStack = opStack})
 
     let withResult (s : state) res' = {s with returnRegister = res'}
     // --------------------------------------- Primitives ----------------------------------------
@@ -232,7 +234,8 @@ module internal InstructionsSet =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
         let arg, state =
-            match cilState.this, cfg.methodBase.IsStatic with
+            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable state (ThisKey cfg.methodBase)
+            match this, cfg.methodBase.IsStatic with
             | None, _
             | Some _, true ->
                 let term = getArgTerm argumentIndex cfg.methodBase
@@ -246,7 +249,8 @@ module internal InstructionsSet =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
         let address =
-            match cilState.this with
+            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable state (ThisKey cfg.methodBase)
+            match this with
             | None -> getArgTerm argumentIndex cfg.methodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
             | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
@@ -358,7 +362,8 @@ module internal InstructionsSet =
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
         let argTerm =
-           match cilState.this with
+           let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable cilState.state (ThisKey cfg.methodBase)
+           match this with
            | None -> getArgTerm argumentIndex cfg.methodBase
            | Some this when argumentIndex = 0 -> this
            | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase

@@ -36,7 +36,7 @@ type public ExplorerBase() =
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             let state = Memory.initializeStaticMembers Memory.empty (Types.Constructor.fromDotNetType m.DeclaringType)
-            x.Invoke id state None (List.map (fun (result, state) -> { result = result; state = state }) >> List.toSeq >> k)
+            x.Invoke id state (List.map (fun (result, state) -> { result = result; state = state }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
@@ -57,7 +57,7 @@ type public ExplorerBase() =
                 let initialStates = x.FormInitialState funcId
                 let resultsAndStates =
                     initialStates
-                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state this (List.map (fun (res, state) ->
+                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state (List.map (fun (res, state) ->
                             res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
                     |> List.concat
 //                    let state = if isMethodOfStruct then Memory.popStack state else state
@@ -65,7 +65,7 @@ type public ExplorerBase() =
                 LegacyDatabase.report funcId resultsAndStates |> k
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
-                x.Invoke ilcode state None (fun resultsAndStates ->
+                x.Invoke ilcode state (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
                     LegacyDatabase.report ilcode resultsAndStates |> k)
             | _ -> __notImplemented__()

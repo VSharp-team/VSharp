@@ -19,6 +19,8 @@ module API =
         BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
     let BranchExpressions condition thenBranch elseExpression k =
         Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
+    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : (state -> (state list -> 'a) -> 'a)) elseBranch k =
+        Memory.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
     let StatedConditionalExecution = Memory.commonStatedConditionalExecutionk
 
     let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term

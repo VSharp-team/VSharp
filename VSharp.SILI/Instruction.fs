@@ -39,7 +39,6 @@ type cilState =
       recursiveVertices : int list
       opStack : operationalStack
       state : state
-      this : term option
       leaveInstructionExecuted : bool
       filterResult : term option
     }
@@ -52,13 +51,22 @@ type cilState =
     member x.IsFinished = x.isFinished x.ip
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
 
+    static member Empty =
+        {
+            ip = Exit
+            isFinished = fun ip -> ip = Exit
+            recursiveVertices = []
+            opStack = []
+            state = VSharp.Core.API.Memory.EmptyState
+            leaveInstructionExecuted = false
+            filterResult = None
+        }
     static member MakeEmpty curV targetV state =
         { ip = curV
           isFinished = fun x -> x = targetV
           recursiveVertices = []
           opStack = [];
           state = state
-          this = None
           leaveInstructionExecuted = false
           filterResult = None
         }
