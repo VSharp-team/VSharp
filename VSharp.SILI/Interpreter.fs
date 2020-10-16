@@ -270,8 +270,8 @@ and public ILInterpreter() as this =
 //
 //        let k2 = List.map (toCilState >> appendResultToCilState) >> k
         let dealWithResult (term : term, state : state) =
-            if term <> Nop then {state with returnRegister = None}
-            else {state with returnRegister = Some term}
+            if term <> Nop then {state with returnRegister = Some term}
+            else {state with returnRegister = None}
         let thisKeyOption = if methodBase.IsStatic then None else Some <| ThisKey methodBase
         let argKeys = methodBase.GetParameters() |> Seq.map ParameterKey |> List.ofSeq
         let fullMethodName = Reflection.GetFullMethodName methodBase

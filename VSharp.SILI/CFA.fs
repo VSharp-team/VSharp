@@ -192,8 +192,10 @@ module public CFA =
         override x.Type = "Call"
         override x.PropagatePath (path : path) =
 //            let path = {path with state = Memory.AdvanceTime path.state}
-            let addCallSiteResult callSiteResults (callSite : callSite) res =
-                if callSite.HasNonVoidResult then Map.add callSite res callSiteResults
+            let addCallSiteResult callSiteResults (callSite : callSite) (res : term option) =
+                if callSite.HasNonVoidResult then
+                    assert(Option.isSome res)
+                    Map.add callSite res callSiteResults
                 else callSiteResults
             let k states =
                 let propagateStateAfterCall acc state =
