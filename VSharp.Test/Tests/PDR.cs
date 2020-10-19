@@ -48,6 +48,26 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static Action<int> CreateLambda(bool flag)
+        {
+            int a = 0, b = 0, c = 0;
+            Action<int> assign;
+            if (flag)
+                assign = m =>
+                {
+                    a = m;
+                    b = m;
+                };
+            else
+                assign = m =>
+                {
+                    a = m;
+                    c = m;
+                };
+            return assign;
+        }
+
+        [TestSvm]
         public static int CallIncrementOutside()
         {
             return WithStaticMembersUsedInCFA.Increment();

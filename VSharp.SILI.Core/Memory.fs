@@ -28,7 +28,7 @@ type offset = int
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
     with
-    member x.HasNonVoidResult = x.calledMethod.DeclaringType <> typeof<System.Void>
+    member x.HasNonVoidResult = Reflection.GetMethodReturnType x.calledMethod <> typeof<System.Void>
     member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
     override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
     override x.Equals(o : obj) =
@@ -1004,5 +1004,7 @@ module internal Memory =
         let sb = dumpDict "Static fields" id toString (MemoryRegion.toString "    ") sb s.staticFields
         let sb = dumpDict "Array copies" id VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
         let sb = dumpDict "Array copies (ext)" id VectorTime.print toString sb s.extendedCopies
+        let sb = dumpDict "Delegates" id VectorTime.print toString sb s.delegates
         let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> sb.AppendLine
+//        let sb = if Option.isNone s.returnRegister then sb else sprintf "Return register = %O" (Option.get s.returnRegister) |> sb.AppendLine
         if sb.Length = 0 then "<Empty>" else sb.ToString()

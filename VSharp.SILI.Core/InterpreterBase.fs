@@ -99,13 +99,13 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
-    member x.ReduceFunction state funcId (methodBase : MethodBase) invoke k =
+    member x.ReduceFunction state funcId invoke k =
         // TODO: do concrete invocation if possible!
 //        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
 //        if Options.InvokeConcrete () && canUseReflection then
 //            API.Marshalling.CallViaReflection state funcId this parameters k
 //        else
-            x.EnterRecursiveRegion funcId state invoke (List.map (fun (result, state) -> result, Memory.PopStack state) >> k)
+            x.EnterRecursiveRegion funcId state invoke k
 
 
     member x.ReduceFunctionSignature state (methodBase : MethodBase) this paramValues isEffect k =
@@ -147,7 +147,7 @@ type public ExplorerBase() =
     member x.ReduceConcreteCall (methodBase : MethodBase) state k =
         let methodId = x.MakeMethodIdentifier methodBase
         let invoke state k = x.Invoke methodId state k
-        x.ReduceFunction state methodId methodBase invoke k
+        x.ReduceFunction state methodId invoke k
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert(f.IsStatic)
@@ -181,10 +181,11 @@ type public ExplorerBase() =
                 let states =
                     match staticConstructor with
                     | Some cctor ->
-                        let removeCallSiteResult (stateAfterCallingCCtor : state) =
+                        let removeCallSiteResultAndPopStack (stateAfterCallingCCtor : state) =
+                            let stateAfterCallingCCtor = Memory.PopStack stateAfterCallingCCtor
                             {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
-                        x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResult)))
+                        x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton
                 k (states |> List.map (fun state -> Memory.withPathCondition state (!!typeInitialized)))
 
@@ -227,7 +228,7 @@ type public ExplorerBase() =
         let invoke= x.Invoke methodId
         let withResult result (state : state) = {state with returnRegister = Some result}
         x.ReduceFunctionSignature state ctor (Some reference) (Specified arguments) false (fun state ->
-        x.ReduceFunction state methodId ctor invoke (fun resultsAndStates ->
+        x.ReduceFunction state methodId invoke (fun resultsAndStates ->
         resultsAndStates |> List.iter (fun (res, _) -> assert (res = Nop))
         resultsAndStates |> List.map (snd >> withResult reference)))) >> List.concat)
 
@@ -256,8 +257,9 @@ type public ExplorerBase() =
     member x.ExploreAndCompose codeLoc state k =
         let _, state = Memory.freshAddress state
         x.Explore codeLoc (Seq.map (fun summary ->
-            let state = Memory.composeStates state summary.state
-            Memory.fillHoles state summary.result, state) >> List.ofSeq >> k)
+            let newState = Memory.composeStates state summary.state
+            let result = Memory.fillHoles state summary.result
+            result, newState) >> List.ofSeq >> k)
 
     abstract member Invoke : ICodeLocation -> (state -> ((term * state) list -> 'a) -> 'a)
 

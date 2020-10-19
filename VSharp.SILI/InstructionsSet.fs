@@ -143,7 +143,7 @@ module internal InstructionsSet =
                 let state = {state with returnRegister = None}
                 {cilState with state = state; opStack = opStack})
 
-    let withResult (s : state) res' = {s with returnRegister = res'}
+    let withResult res' (s : state) = {s with returnRegister = Some res'}
     // --------------------------------------- Primitives ----------------------------------------
 
     let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
@@ -157,6 +157,7 @@ module internal InstructionsSet =
         GuardedStatedApplyk
             (fun state term k -> f {cilState with state = state} term k)
             cilState.state term id (List.concat >> k)
+    let GuardedApplyForState state term f k = GuardedStatedApplyk f state term id (List.concat >> k)
     let BranchOnNull (state : state) term thenBranch elseBranch k =
         StatedConditionalExecution state
             (fun state k -> k (IsNullReference term, state))
@@ -215,7 +216,7 @@ module internal InstructionsSet =
     let castUnchecked typ term (state : state) : term =
         let term = castReferenceToPointerIfNeeded term typ state
         Types.Cast term typ
-    let popStack (cilState : cilState) =
+    let popOperationalStack (cilState : cilState) =
         match cilState.opStack with
         | t :: ts -> Some t, {cilState with opStack = ts}
         | [] -> None, cilState
@@ -234,7 +235,7 @@ module internal InstructionsSet =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
         let arg, state =
-            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable state (ThisKey cfg.methodBase)
+            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis state cfg.methodBase
             match this, cfg.methodBase.IsStatic with
             | None, _
             | Some _, true ->
@@ -249,7 +250,7 @@ module internal InstructionsSet =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
         let address =
-            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable state (ThisKey cfg.methodBase)
+            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis state cfg.methodBase
             match this with
             | None -> getArgTerm argumentIndex cfg.methodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
@@ -319,17 +320,17 @@ module internal InstructionsSet =
             | :? ConstructorInfo -> Void
             | :? MethodInfo as mi -> mi.ReturnType |> Types.FromDotNetType state
             | _ -> __notImplemented__()
-        let term, cilState = popStack cilState
+        let term, cilState = popOperationalStack cilState
         let typ =
             match term with
             | Some t -> TypeOf t
             | None -> Void
         match term, resultTyp with
         | None, Void -> cilState :: []
-        | Some t, _ when typ = resultTyp -> { cilState with state = withResult state (Some t) } :: [] // TODO: [simplification] remove this heuristics
+        | Some t, _ when typ = resultTyp -> { cilState with state = withResult t state } :: [] // TODO: [simplification] remove this heuristics
         | Some t, _ ->
             let t = castUnchecked resultTyp t state
-            {cilState with state = withResult state (Some t)} :: []
+            {cilState with state = withResult t state } :: []
          | _ -> __unreachable__()
     let Transform2BooleanTerm pc (term : term) =
         let check term =
@@ -362,7 +363,7 @@ module internal InstructionsSet =
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
         let argTerm =
-           let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadLocalVariable cilState.state (ThisKey cfg.methodBase)
+           let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.methodBase
            match this with
            | None -> getArgTerm argumentIndex cfg.methodBase
            | Some this when argumentIndex = 0 -> this
@@ -426,17 +427,13 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = List.splitAt paramsNumber cilState.opStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
-            castUnchecked typ parameter cilState.state
+            if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
+            else
+                let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
+                castUnchecked typ parameter cilState.state
         let parameters = Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
         parameters, {cilState with opStack = opStack}
 
-    let reduceArrayCreation (arrayType : Type) (methodBase : MethodBase) (cilState : cilState) k =
-        let parameters, cilState = retrieveActualParameters methodBase cilState
-        let state = cilState.state
-        let arrayTyp = Types.FromDotNetType state arrayType
-        let referenceAndState = Memory.AllocateDefaultArray state parameters arrayTyp
-        k <| pushResultOnStack cilState referenceAndState
     let makeUnsignedInteger term k =
         let typ = Terms.TypeOf term
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
@@ -706,7 +703,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Switch]             <- fun _ _ -> switch
     opcode2Function.[hashFunction OpCodes.Ldtoken]            <- zipWithOneOffset <| ldtoken
     opcode2Function.[hashFunction OpCodes.Ldftn]              <- zipWithOneOffset <| ldftn
-    opcode2Function.[hashFunction OpCodes.Pop]                <- zipWithOneOffset <| fun _ _ st -> popStack st |> snd |> List.singleton
+    opcode2Function.[hashFunction OpCodes.Pop]                <- zipWithOneOffset <| fun _ _ st -> popOperationalStack st |> snd |> List.singleton
     opcode2Function.[hashFunction OpCodes.Initobj]            <- zipWithOneOffset <| initobj
     opcode2Function.[hashFunction OpCodes.Ldarga]             <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Ldarga_S]           <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int)

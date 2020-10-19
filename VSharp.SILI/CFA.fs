@@ -189,6 +189,8 @@ module public CFA =
 
     type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state) =
         inherit Edge(src, dst)
+        do
+           assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
         override x.PropagatePath (path : path) =
 //            let path = {path with state = Memory.AdvanceTime path.state}
@@ -199,9 +201,10 @@ module public CFA =
                 else callSiteResults
             let k states =
                 let propagateStateAfterCall acc state =
+                    let state = Memory.PopStack state
                     assert(path.state.frames = state.frames)
                     assert(path.state.stack = state.stack)
-                    x.PrintLog "propagation through callEdge" ""
+                    x.PrintLog "propagation through callEdge" callSite
                     x.PrintLog "composition left" (Memory.Dump path.state)
 //                    x.PrintLog "composition this" thisOption
 //                    x.PrintLog "composition args" args
@@ -216,12 +219,14 @@ module public CFA =
             let state = Memory.ComposeStates path.state stateWithArgsOnFrameAndAllocatedType id
 
             match callSite.opCode with
-            | Instruction.Call     -> interpreter.CommonCall callSite.calledMethod state k
-            | Instruction.NewObj   -> interpreter.CommonCall callSite.calledMethod state k
-//                cilStates |> List.map (fun (cilState : cilState) -> {cilState with state = {cilState.state with returnRegister = cilState.opStack |> List.head |> Some}}) |> k
-            | Instruction.CallVirt ->
-                __notImplemented__()
-                //interpreter.CommonCallVirt callSite.calledMethod state k
+            | Instruction.Call     ->
+                interpreter.CommonCall callSite.calledMethod state k
+            | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [state]
+            | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod ->
+                k [state]
+            | Instruction.NewObj   ->
+                interpreter.CommonCall callSite.calledMethod state k
+            | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod state k
             | _ ->  __notImplemented__()
         member x.ExitNodeForCall() = __notImplemented__()
         member x.CallVariables() = __notImplemented__()
@@ -273,31 +278,32 @@ module public CFA =
         let computeCFAForMethod (ilintptr : ILInterpreter) (initialState : state) (cfa : cfa) (used : Dictionary<offset * operationalStack, int>) (block : MethodBase unitBlock) =
             let cfg = cfa.cfg
             let mutable currentTime = 0u
-            let executeSeparatedOpCode offset (opCode : System.Reflection.Emit.OpCode) (cilState : cilState) =
+            let executeSeparatedOpCode offset (opCode : System.Reflection.Emit.OpCode) (cilStateWithArgs : cilState) =
                 let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (offset + opCode.Size)
                 let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
                 let pushFunctionResultOnOpStackIfNeeded cilState (methodInfo : System.Reflection.MethodInfo) =
                     if methodInfo.ReturnType = typeof<System.Void> then cilState
                     else {cilState with opStack = Terms.MakeFunctionResultConstant cilState.state callSite :: cilState.opStack}
 
-                let args, cilState = InstructionsSet.retrieveActualParameters calledMethod cilState
+                let args, cilStateWithoutArgs = InstructionsSet.retrieveActualParameters calledMethod cilStateWithArgs
                 let this, cilState =
                     match calledMethod with
-                    | :? ConstructorInfo when opCode = OpCodes.Newobj ->
-                        let this, state = Memory.AllocateDefaultClass cilState.state (Types.FromDotNetType cilState.state calledMethod.DeclaringType)
-                        Some this, {cilState with state = state; opStack = this :: cilState.opStack}
-                    | :? ConstructorInfo -> InstructionsSet.popStack cilState
+                    | _ when opCode = OpCodes.Newobj ->
+                        let state = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args (List.head) // TODO: what if newobj returns a lot of references and states?
+                        assert(Option.isSome state.returnRegister)
+                        let reference = Option.get state.returnRegister
+                        Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = reference :: cilStateWithoutArgs.opStack}
+                    | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
                     | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
-                        let this, cilState = InstructionsSet.popStack cilState
+                        let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
                         this, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
                     | :? MethodInfo as methodInfo ->
-                        None, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
+                        None, pushFunctionResultOnOpStackIfNeeded cilStateWithoutArgs methodInfo
                     | _ -> internalfailf "unknown methodBase %O" calledMethod
 
                 let nextOffset =
-                    match Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset with
-                    | FallThrough nextOffset -> nextOffset
-                    | _ -> __unreachable__()
+                    assert(cfg.graph.[offset].Count = 1)
+                    cfg.graph.[offset].[0]
 
                 // TODO: why no exceptions?
                 nextOffset, this, args, cilState

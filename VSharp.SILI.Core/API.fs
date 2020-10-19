@@ -171,6 +171,8 @@ module API =
 
         let ReadSafe state reference = Memory.readSafe state reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
+        let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
+        let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
         let ReadStructField structure field = Memory.readStruct structure field
         let rec ReadClassField state reference field =
             match reference.term with

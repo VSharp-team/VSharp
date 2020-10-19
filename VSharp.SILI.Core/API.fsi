@@ -130,6 +130,8 @@ module API =
 
         val ReadSafe : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
+        val ReadThis : state -> MethodBase -> term
+        val ReadArgument : state -> ParameterInfo -> term
         val ReadStructField : term -> fieldId -> term
         val ReadClassField : state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> term
