@@ -163,7 +163,7 @@ module API =
         val StringCtorOfCharArray : state -> term -> term -> state list
 
         // TODO: get rid of all unnecessary stuff below!
-        val ComposeStates : state -> state -> (state -> 'a) -> 'a
+        val ComposeStates : state -> state -> (state list -> 'a) -> 'a
 
         val Merge2States : state -> state -> state
         val FillHoles : state -> term -> (term * state -> 'a) -> 'a

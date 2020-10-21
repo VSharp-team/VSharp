@@ -174,12 +174,13 @@ module public CFA =
         override x.Type = "StepEdge"
         override x.PropagatePath (path : path) =
 
-            Memory.ComposeStates path.state effect (fun state ->
+            Memory.ComposeStates path.state effect (fun states ->
                 x.PrintLog "composition left"  <| Memory.Dump path.state
                 x.PrintLog "composition right" <| Memory.Dump effect
-                x.PrintLog "composition result" <| Memory.Dump state
-                assert(path.state.frames = state.frames)
-                x.CommonPropagatePath (path.lvl + 1u) state)
+                x.PrintLog (sprintf "composition resulted in %d states" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
+                assert(List.forall (fun state -> path.state.frames = state.frames) states)
+                // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
+                List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states)
 
         member x.Effect = effect
         member x.VisibleVariables() = __notImplemented__()
@@ -257,9 +258,7 @@ module public CFA =
             let isOffsetOfCurrentVertex (offset : ip) = startingOffset <= offset.Vertex() && offset.Vertex() < endOffset
             let rec executeAllInstructions erroredStates (offset : ip) cilState : cilState list=
                 let allStates = ilintpr.ExecuteInstruction cfg (offset.Vertex()) cilState
-                let goodStates = allStates |> List.filter (fun (_, cilState) -> not cilState.HasException)
-                let newErrors = allStates |> List.filter (fun (_, cilState) -> cilState.HasException)
-
+                let newErrors, goodStates = allStates |> List.partition (fun (_, cilState) -> cilState.HasException)
                 let allErrors = erroredStates @ List.map (fun (erroredOffset, cilState) -> {cilState with ip = erroredOffset}) newErrors
 
                 match goodStates with

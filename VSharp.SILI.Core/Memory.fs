@@ -402,7 +402,7 @@ module internal Memory =
         let instantiate typ memory =
             let copiedMemory = readArrayCopy state arrayType extractor addr indices
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname} key typ (MemoryRegion.compose copiedMemory memory)
+            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname} key typ (MemoryRegion.deterministicCompose copiedMemory memory)
         MemoryRegion.read region key instantiate
 
     and readArrayRegionExt state arrayType extractor region addr indices (*copy info follows*) srcIndex dstIndex length dstType =
@@ -781,14 +781,15 @@ module internal Memory =
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
         interface IMemoryAccessConstantSource with
             override x.Compose ctx state =
+                // TODO: do nothing if state is empty!
                 let substTerm = fillHoles ctx state
                 let substType = substituteTypeVariables state
                 let substTime = composeTime ctx
                 let key = x.key.Map substTerm substType substTime x.key.Region |> snd
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
-                let after = MemoryRegion.compose before effect
-                MemoryRegion.read after key (makeSymbolicHeapRead x.picker key)
+                let afters = MemoryRegion.compose before effect
+                afters |> List.map (fun (g, after) -> (g, MemoryRegion.read after key (makeSymbolicHeapRead x.picker key))) |> Merging.merge
 
     type stackReading with
         interface IMemoryAccessConstantSource with
@@ -863,15 +864,20 @@ module internal Memory =
         let substTerm = fillHoles ctx state
         let substType = substituteTypeVariables state
         let substTime = composeTime ctx
-        let composeOneRegion dict k mr' =
-            let mr =
-                match PersistentDict.tryFind dict k with
-                | Some mr -> MemoryRegion.compose mr mr'
-                | None -> mr'
-            PersistentDict.add k mr dict
+        let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
+            list {
+                let! (g, dict) = dicts
+                let! (g', mr) =
+                    let mr =
+                        match PersistentDict.tryFind dict k with
+                        | Some mr -> mr
+                        | None -> MemoryRegion.empty mr'.typ
+                    MemoryRegion.compose mr mr' |> List.map (fun (g, mr) -> (g, PersistentDict.add k mr dict))
+                return (g &&& g', mr)
+            }
         dict'
-        |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
-        |> PersistentDict.fold composeOneRegion dict
+            |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
+            |> PersistentDict.fold composeOneRegion [(True, dict)]
 
     let private composeBoxedLocations ctx state state' =
         state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime ctx k) (fillHoles ctx state v) acc) state.boxedLocations
@@ -908,44 +914,49 @@ module internal Memory =
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
     let composeStates ctx state state' =
-        let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
-        let returnRegister = Option.map (fillHoles ctx state) state'.returnRegister
-        let exceptionRegister = composeRaisedExceptionsOf ctx state state.exceptionsRegister
-        let callSiteResults = composeCallSiteResultsOf ctx state state'.callSiteResults
-        let stack, frames = composeStacksAndFramesOf ctx state state'
-        let stackBuffers = composeMemoryRegions ctx state state.stackBuffers state'.stackBuffers
-        let classFields = composeMemoryRegions ctx state state.classFields state'.classFields
-        let arrays = composeMemoryRegions ctx state state.arrays state'.arrays
-        let lengths = composeMemoryRegions ctx state state.lengths state'.lengths
-        let lowerBounds = composeMemoryRegions ctx state state.lowerBounds state'.lowerBounds
-        let staticFields = composeMemoryRegions ctx state state.staticFields state'.staticFields
-        let boxedLocations = composeBoxedLocations ctx state state'
-        let initializedTypes = composeInitializedTypes state state'.initializedTypes
-        let allocatedTypes = composeConcreteDictionaries ctx state.allocatedTypes state'.allocatedTypes (substituteTypeVariables state)
-        let typeVariables = composeTypeVariablesOf state state'
-        let entireCopies = composeConcreteDictionaries ctx state.entireCopies state'.entireCopies (composeArrayCopyInfo ctx state)
-        let extendedCopies = composeConcreteDictionaries ctx state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt ctx state)
-        let delegates = composeConcreteDictionaries ctx state.delegates state'.delegates id
-        {
-            pc = pc
-            returnRegister = returnRegister
-            exceptionsRegister = exceptionRegister
-            callSiteResults = callSiteResults
-            stack = stack
-            frames = frames
-            stackBuffers = stackBuffers
-            classFields = classFields
-            arrays = arrays
-            lengths = lengths
-            lowerBounds = lowerBounds
-            staticFields = staticFields
-            boxedLocations = boxedLocations
-            initializedTypes = initializedTypes
-            allocatedTypes = allocatedTypes
-            typeVariables = typeVariables
-            entireCopies = entireCopies
-            extendedCopies = extendedCopies
-            delegates = delegates
+        // TODO: do nothing if state is empty!
+        list {
+            let pc = List.map (fillHoles ctx state) state'.pc |> List.append state.pc
+            let returnRegister = Option.map (fillHoles ctx state) state'.returnRegister
+            let exceptionRegister = composeRaisedExceptionsOf ctx state state.exceptionsRegister
+            let callSiteResults = composeCallSiteResultsOf ctx state state'.callSiteResults
+            let stack, frames = composeStacksAndFramesOf ctx state state'
+            let! g1, stackBuffers = composeMemoryRegions ctx state state.stackBuffers state'.stackBuffers
+            let! g2, classFields = composeMemoryRegions ctx state state.classFields state'.classFields
+            let! g3, arrays = composeMemoryRegions ctx state state.arrays state'.arrays
+            let! g4, lengths = composeMemoryRegions ctx state state.lengths state'.lengths
+            let! g5, lowerBounds = composeMemoryRegions ctx state state.lowerBounds state'.lowerBounds
+            let! g6, staticFields = composeMemoryRegions ctx state state.staticFields state'.staticFields
+            let boxedLocations = composeBoxedLocations ctx state state'
+            let initializedTypes = composeInitializedTypes state state'.initializedTypes
+            let allocatedTypes = composeConcreteDictionaries ctx state.allocatedTypes state'.allocatedTypes (substituteTypeVariables state)
+            let typeVariables = composeTypeVariablesOf state state'
+            let entireCopies = composeConcreteDictionaries ctx state.entireCopies state'.entireCopies (composeArrayCopyInfo ctx state)
+            let extendedCopies = composeConcreteDictionaries ctx state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt ctx state)
+            let delegates = composeConcreteDictionaries ctx state.delegates state'.delegates id
+            let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
+            if not <| isFalse g then
+                return {
+                    pc = if isTrue g then pc else g::pc
+                    returnRegister = returnRegister
+                    exceptionsRegister = exceptionRegister
+                    callSiteResults = callSiteResults
+                    stack = stack
+                    frames = frames
+                    stackBuffers = stackBuffers
+                    classFields = classFields
+                    arrays = arrays
+                    lengths = lengths
+                    lowerBounds = lowerBounds
+                    staticFields = staticFields
+                    boxedLocations = boxedLocations
+                    initializedTypes = initializedTypes
+                    allocatedTypes = allocatedTypes
+                    typeVariables = typeVariables
+                    entireCopies = entireCopies
+                    extendedCopies = extendedCopies
+                    delegates = delegates
+                }
         }
 
     type typeInitialized with

@@ -11,6 +11,8 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract IsAllocated : bool
     abstract Region : 'reg
     abstract Map : (term -> term) -> (symbolicType -> symbolicType) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
+    abstract IsUnion : bool
+    abstract Unguard : (term * 'a) list
 
 module private MemoryKeyUtils =
 
@@ -45,6 +47,8 @@ type heapAddressKey =
                 else
                     reg.Map mapTime
             newReg, {address = mapTerm x.address}
+        override x.IsUnion = isUnion x.address
+        override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr}))
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -64,6 +68,8 @@ type heapArrayIndexKey =
             productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionsOfIntegerTerms x.indices)
         override x.Map mapTerm _ mapTime reg =
             reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; indices = List.map mapTerm x.indices}
+        override x.IsUnion = isUnion x.address
+        override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; indices = x.indices}))  // TODO: if x.indices is the union of concrete values, then unguard indices as well
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -86,6 +92,8 @@ type heapVectorIndexKey =
             productRegion<vectorTime intervals, int points>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionOfIntegerTerm x.index)
         override x.Map mapTerm _ mapTime reg =
             reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; index = mapTerm x.index}
+        override x.IsUnion = isUnion x.address
+        override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; index = x.index}))  // TODO: if x.index is the union of concrete values, then unguard index as well
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -104,6 +112,14 @@ type stackBufferIndexKey =
         override x.Region = MemoryKeyUtils.regionOfIntegerTerm x.index
         override x.Map mapTerm _ _ reg =
             reg, {index = mapTerm x.index}
+        override x.IsUnion =
+            match x.index.term with
+            | Union gvs when List.forall (fst >> isConcrete) gvs -> true
+            | _ -> false
+        override x.Unguard =
+            match x.index.term with
+            | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
+            | _ -> [(True, x)]
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -119,6 +135,8 @@ type symbolicTypeKey =
         override x.Region = freeRegion<symbolicType>.Singleton x.typ
         override x.Map _ mapper _ reg =
             reg.Map mapper, {typ = mapper x.typ}
+        override x.IsUnion = false
+        override x.Unguard = [(True, x)]
     override x.ToString() = x.typ.ToString()
 
 type updateTreeKey<'key, 'value when 'key : equality> =
@@ -154,8 +172,17 @@ module private UpdateTree =
     let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) =
         RegionTree.map (fun reg {key=k; value=v} -> let reg, k' = mapKey reg k in (reg, k'.Region, {key=k'; value=mapValue v})) tree
 
-    let compose earlier later =
-        RegionTree.append earlier later
+    let compose (earlier : updateTree<'key, 'value, 'reg>) (later : updateTree<'key, 'value, 'reg>) =
+        later |> RegionTree.foldr (fun reg key trees ->
+            list {
+                let! (g, tree) = trees
+                let! (g', k) = key.key.Unguard
+                Console.WriteLine("keyyyyyy: {0}", k);
+                let key' = {key with key = k}
+                return (g &&& g', RegionTree.write reg key' tree)
+            }) [(True, earlier)]
+
+    let deterministicCompose earlier later = RegionTree.append earlier later
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
@@ -169,6 +196,8 @@ module private UpdateTree =
         else sprintf "{%s}" (join "; " lines)
 
     let localize reg tree = RegionTree.localize reg tree |> Node
+
+    let forall predicate tree = RegionTree.foldl (fun acc _ k -> acc && predicate k) true tree
 
 [<StructuralEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
@@ -193,11 +222,17 @@ module MemoryRegion =
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
         {typ=mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates}
 
-    let compose earlier later =
-        // TODO: composition should return set of states (for instance, some address might become union after composition!)
+    let deterministicCompose earlier later =
         if earlier.typ = later.typ then
             if UpdateTree.isEmpty earlier.updates then later
-            else {typ=earlier.typ; updates = UpdateTree.compose earlier.updates later.updates}
+            else {typ=earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates}
+        else internalfail "Composing two incomparable memory objects!"
+
+    let compose earlier later =
+        if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
+            [(True, deterministicCompose earlier later)]
+        elif earlier.typ = later.typ then
+            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree}))
         else internalfail "Composing two incomparable memory objects!"
 
     let toString indent mr = UpdateTree.print indent toString mr.updates

@@ -50,6 +50,12 @@ module public Prelude =
     let safeGenericTypeDefinition (t : System.Type) =
         if t.IsGenericType && not t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
 
+    type ListMonad() =
+       member o.Bind(m : 'a list , f: 'a -> 'b list) = List.collect f m
+       member o.Return x = List.singleton x
+       member o.Zero() = List.empty
+    let list = ListMonad()
+
 [<CustomEquality;CustomComparison>]
 type 'a transparent =
     { v : 'a }

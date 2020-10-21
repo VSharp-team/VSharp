@@ -280,6 +280,10 @@ module internal Terms =
         | Concrete _ -> true
         | _ -> false
 
+    let isUnion = term >> function
+        | Union _ -> true
+        | _ -> false
+
     let isTrue = term >> function
         | Concrete(b, t) when Types.isBool t && (b :?> bool) -> true
         | _ -> false

@@ -253,7 +253,7 @@ type public ExplorerBase() =
     member x.ExploreAndCompose codeLoc state k =
         let addr = [Memory.freshAddress()]
         let ctx : compositionContext = { addr = addr }
-        x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
+        x.Explore codeLoc (Seq.map (fun summary -> let result = Memory.fillHoles ctx state summary.result in List.map (withFst result) <| Memory.composeStates ctx state summary.state) >> List.ofSeq >> List.concat >> k)
 
     abstract member Invoke : ICodeLocation -> (state -> term option -> ((term * state) list -> 'a) -> 'a)
 
