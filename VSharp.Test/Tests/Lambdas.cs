@@ -34,8 +34,8 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting always true
-        // [TestSvm]
-        [Ignore("HeapAddresses were increased due to exploration and following composition. Add Statics of Object that were removed for marshalling")]
+        [TestSvm]
+        // [Ignore("HeapAddresses were increased due to exploration and following composition. Add Statics of Object that were removed for marshalling")]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;

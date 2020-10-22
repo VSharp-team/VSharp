@@ -36,7 +36,7 @@ type public ExplorerBase() =
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             let state = Memory.initializeStaticMembers Memory.empty (Types.Constructor.fromDotNetType m.DeclaringType)
-            x.Invoke id state None (List.map (fun (result, state) -> { result = result; state = state }) >> List.toSeq >> k)
+            x.Invoke id state (List.map (fun (result, state) -> { result = result; state = state }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
@@ -57,7 +57,7 @@ type public ExplorerBase() =
                 let initialStates = x.FormInitialState funcId
                 let resultsAndStates =
                     initialStates
-                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state this (List.map (fun (res, state) ->
+                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state (List.map (fun (res, state) ->
                             res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
                     |> List.concat
 //                    let state = if isMethodOfStruct then Memory.popStack state else state
@@ -65,7 +65,7 @@ type public ExplorerBase() =
                 LegacyDatabase.report funcId resultsAndStates |> k
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
-                x.Invoke ilcode state None (fun resultsAndStates ->
+                x.Invoke ilcode state (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
                     LegacyDatabase.report ilcode resultsAndStates |> k)
             | _ -> __notImplemented__()
@@ -99,17 +99,17 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
-    member x.ReduceFunction state this parameters funcId (methodBase : MethodBase) invoke k =
+    member x.ReduceFunction state funcId invoke k =
         // TODO: do concrete invocation if possible!
 //        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
 //        if Options.InvokeConcrete () && canUseReflection then
 //            API.Marshalling.CallViaReflection state funcId this parameters k
 //        else
-            x.ReduceFunctionSignature funcId state methodBase this parameters false (fun state ->
-            x.EnterRecursiveRegion funcId state invoke (List.map (fun (result, state) -> result, Memory.PopStack state) >> k))
+            x.EnterRecursiveRegion funcId state invoke k
 
 
-    member x.ReduceFunctionSignature (funcId : IFunctionIdentifier) state (methodBase : MethodBase) this paramValues isEffect k =
+    member x.ReduceFunctionSignature state (methodBase : MethodBase) this paramValues isEffect k =
+        let funcId = x.MakeMethodIdentifier methodBase
         let parameters = methodBase.GetParameters()
         let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType
         let values, areParametersSpecified =
@@ -144,10 +144,10 @@ type public ExplorerBase() =
             | None -> parameters
         Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual
 
-    member x.ReduceConcreteCall (methodBase : MethodBase) state this (args : term list symbolicValue) k =
+    member x.ReduceConcreteCall (methodBase : MethodBase) state k =
         let methodId = x.MakeMethodIdentifier methodBase
-        let invoke state k = x.Invoke methodId state this k
-        x.ReduceFunction state this args methodId methodBase invoke k
+        let invoke state k = x.Invoke methodId state k
+        x.ReduceFunction state methodId invoke k
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert(f.IsStatic)
@@ -181,9 +181,11 @@ type public ExplorerBase() =
                 let states =
                     match staticConstructor with
                     | Some cctor ->
-                        let removeCallSiteResult (stateAfterCallingCCtor : state) =
+                        let removeCallSiteResultAndPopStack (stateAfterCallingCCtor : state) =
+                            let stateAfterCallingCCtor = Memory.PopStack stateAfterCallingCCtor
                             {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
-                        x.ReduceConcreteCall cctor state None (Specified []) (List.map (snd >> removeCallSiteResult))
+                        x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
+                        x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton
                 k (states |> List.map (fun state -> Memory.withPathCondition state (!!typeInitialized)))
 
@@ -199,12 +201,12 @@ type public ExplorerBase() =
             | _ -> __notImplemented__()
         let thisIsNotNull = if Option.isSome this then !!( Pointers.isNull (Option.get this)) else Nop
         let state = if Option.isSome this && thisIsNotNull <> True then Memory.withPathCondition state thisIsNotNull else state
-        x.ReduceFunctionSignature funcId state funcId.Method this Unspecified true (fun state ->  state, this, thisIsNotNull)
+        x.ReduceFunctionSignature state funcId.Method this Unspecified true (fun state ->  state, this, thisIsNotNull)
     member x.FormInitialState (funcId : IFunctionIdentifier) : (state * term option * term) list =
         let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId
         x.InitializeStatics state funcId.Method.DeclaringType (List.map (fun state -> state, this, thisIsNotNull(*, isMethodOfStruct*)))
 
-    abstract CreateInstance : System.Type -> term list -> state -> (term * state) list
+    abstract CreateInstance : System.Type -> term list -> state -> state list
     default x.CreateInstance exceptionType arguments state =
         x.InitializeStatics state exceptionType (List.map (fun state ->
         let constructors = exceptionType.GetConstructors()
@@ -223,10 +225,12 @@ type public ExplorerBase() =
         let methodId = x.MakeMethodIdentifier ctor
         assert (not <| exceptionType.IsValueType)
         let reference, state = Memory.AllocateDefaultClass state (Types.FromDotNetType state exceptionType)
-        let invoke state k = x.Invoke methodId state (Some reference) k
-        x.ReduceFunction state (Some reference) (Specified arguments) methodId ctor invoke (fun resultsAndStates ->
+        let invoke= x.Invoke methodId
+        let withResult result (state : state) = {state with returnRegister = Some result}
+        x.ReduceFunctionSignature state ctor (Some reference) (Specified arguments) false (fun state ->
+        x.ReduceFunction state methodId invoke (fun resultsAndStates ->
         resultsAndStates |> List.iter (fun (res, _) -> assert (res = Nop))
-        resultsAndStates |> List.map (snd >> withFst reference))) >> List.concat)
+        resultsAndStates |> List.map (snd >> withResult reference)))) >> List.concat)
 
     member x.InvalidProgramException state =
         x.CreateInstance typeof<System.InvalidProgramException> [] state
@@ -251,11 +255,13 @@ type public ExplorerBase() =
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
     member x.ExploreAndCompose codeLoc state k =
-        let addr = [Memory.freshAddress()]
-        let ctx : compositionContext = { addr = addr }
-        x.Explore codeLoc (Seq.map (fun summary -> let result = Memory.fillHoles ctx state summary.result in List.map (withFst result) <| Memory.composeStates ctx state summary.state) >> List.ofSeq >> List.concat >> k)
+        let _, state = Memory.freshAddress state
+        x.Explore codeLoc (Seq.map (fun summary ->
+            let newStates = Memory.composeStates state summary.state
+            let result = Memory.fillHoles state summary.result
+            List.map (withFst result) newStates) >> List.ofSeq >> List.concat >> k)
 
-    abstract member Invoke : ICodeLocation -> (state -> term option -> ((term * state) list -> 'a) -> 'a)
+    abstract member Invoke : ICodeLocation -> (state -> ((term * state) list -> 'a) -> 'a)
 
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 

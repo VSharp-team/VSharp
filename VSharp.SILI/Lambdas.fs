@@ -2,7 +2,7 @@ namespace VSharp.Interpreter.IL
 open VSharp
 open VSharp.Core
 
-type public 'a symbolicLambda = cilState -> term list symbolicValue -> ((term * cilState) list -> 'a) -> 'a
+type public 'a symbolicLambda = state -> (state list -> 'a) -> 'a
 
 module internal Lambdas =
     let make (body : 'a symbolicLambda) typ (k : term -> 'a) = Concrete body typ |> k
@@ -12,10 +12,10 @@ module internal Lambdas =
             Some(Lambda(lambda :?> 'a symbolicLambda))
         | _ -> None
 
-    let rec invokeDelegate args (cilState : cilState) deleg k =
-        let callDelegate (cilState : cilState) deleg k =
+    let rec invokeDelegate (state : state) deleg k =
+        let callDelegate (state : state) deleg k =
             match deleg.term with
-            | Lambda(lambda) -> lambda cilState (Specified args) k
+            | Lambda(lambda) -> lambda state k
             | _ -> internalfailf "Invalid delegate term %O" deleg
-        let term = Memory.ReadDelegate cilState.state deleg
-        InstructionsSet.GuardedApply cilState term callDelegate k
+        let deleg = Memory.ReadDelegate state deleg
+        InstructionsSet.GuardedApplyForState state deleg callDelegate k

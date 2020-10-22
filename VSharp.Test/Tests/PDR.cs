@@ -48,6 +48,26 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static Action<int> CreateLambda(bool flag)
+        {
+            int a = 0, b = 0, c = 0;
+            Action<int> assign;
+            if (flag)
+                assign = m =>
+                {
+                    a = m;
+                    b = m;
+                };
+            else
+                assign = m =>
+                {
+                    a = m;
+                    c = m;
+                };
+            return assign;
+        }
+
+        [TestSvm]
         public static int CallIncrementOutside()
         {
             return WithStaticMembersUsedInCFA.Increment();
@@ -120,6 +140,30 @@ namespace VSharp.Test.Tests
                 array[0] = 456;
             }
             return array[0];
+        }
+
+        [TestSvm]
+        public static void NewObj1()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 2; i++)
+                new object();
+            //new object();
+        }
+
+        [TestSvm]
+        public static void NewObjInLoop()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 5; ++i)
+            {
+                new object();
+            }
+
+            if (c is string)
+            {
+                new object();
+            }
         }
 
         public class ClassWithOneField

@@ -14,6 +14,7 @@ module API =
     val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
     val BranchExpressions : ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
     val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item -> 'a) -> 'a) -> (state -> ('item -> 'a) -> 'a) -> ('item -> 'item -> 'item list) -> ('item  list -> 'a) -> 'b)
+    val StatedConditionalExecutionAppendResults : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (state list -> 'a) -> 'a) -> (state -> (state list -> 'a) -> 'a) -> (state list -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
     val GuardedApplyExpressionWithPC : term list -> term -> (term -> term) -> term
@@ -40,7 +41,7 @@ module API =
 
         val MakeBool : bool -> term
 
-        val MakeFunctionResultConstant : callSite -> term
+        val MakeFunctionResultConstant : state -> callSite -> term
         val MakeNumber : 'a -> term
         val MakeNullRef : symbolicType -> term
 
@@ -115,6 +116,7 @@ module API =
         val (%%%) : term -> term -> term
         val Mul : term -> term -> term
         val IsZero : term -> term
+
     module public Memory =
         val EmptyState : state
 
@@ -128,6 +130,8 @@ module API =
 
         val ReadSafe : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
+        val ReadThis : state -> MethodBase -> term
+        val ReadArgument : state -> ParameterInfo -> term
         val ReadStructField : term -> fieldId -> term
         val ReadClassField : state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> term
@@ -162,11 +166,12 @@ module API =
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list
 
+        val AdvanceTime : state -> state
+
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> (state list -> 'a) -> 'a
 
         val Merge2States : state -> state -> state
-        val FillHoles : state -> term -> (term * state -> 'a) -> 'a
 
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a

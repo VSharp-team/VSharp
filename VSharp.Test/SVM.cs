@@ -52,14 +52,14 @@ namespace VSharp.Test
         private CodeLocationSummaries PrepareAndInvoke(IDictionary<MethodInfo, CodeLocationSummaries> dict, MethodInfo m,
             Func<IMethodIdentifier, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
-            try
-            {
+            // try
+            // {
                 return PrepareAndInvokeWithoutStatistics(dict, m, invoke);
-            }
-            catch (Exception e)
-            {
-                _statistics.AddException(e, m);
-            }
+            // }
+            // catch (Exception e)
+            // {
+            //     _statistics.AddException(e, m);
+            // }
 
             return null;
         }

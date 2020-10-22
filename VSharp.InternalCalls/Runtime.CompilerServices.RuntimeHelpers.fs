@@ -127,10 +127,10 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 | _ when t = typedefof<char> ->
                     fillInArray charTermCreator state arrayRef sizeof<char> rawData
                 | _ -> __notImplemented__()
-            Nop, state
+            Nop, {state with returnRegister = None}
         | _ -> __notImplemented__(), state
 
-    let InitializeArray (state : state) arrayRef handleTerm =
+    let InitializeArray (state : state) arrayRef handleTerm : state list =
         GuardedStatedApplyStatementK state arrayRef (fun state arrayRef k ->
         GuardedStatedApplyStatementK state handleTerm (fun state handleTerm k ->
-        initializeArray state arrayRef handleTerm |> k) (List.map k >> List.concat)) id
+        initializeArray state arrayRef handleTerm |> k) (List.map k >> List.concat)) (List.map snd)

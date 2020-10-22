@@ -7,13 +7,10 @@ module API =
     let ConfigureSimplifier simplifier =
         Propositional.configureSimplifier simplifier
     let Reset() =
-        Memory.reset()
         IdGenerator.reset()
     let SaveConfiguration() =
-        Memory.saveConfiguration()
         IdGenerator.saveConfiguration()
     let Restore() =
-        Memory.restore()
         IdGenerator.restore()
 
     let BranchStatements state condition thenStatement elseStatement k =
@@ -22,6 +19,8 @@ module API =
         BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
     let BranchExpressions condition thenBranch elseExpression k =
         Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
+    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : (state -> (state list -> 'a) -> 'a)) elseBranch k =
+        Memory.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
     let StatedConditionalExecution = Memory.commonStatedConditionalExecutionk
 
     let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term
@@ -66,7 +65,8 @@ module API =
             | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
 
         // TODO: maybe transfer time from interpreter?
-        let MakeFunctionResultConstant (callSite : callSite) = Memory.makeFunctionResultConstant [Memory.freshAddress()] callSite
+        let MakeFunctionResultConstant state (callSite : callSite) =
+            Memory.makeFunctionResultConstant [state.currentTime] callSite
 
         let isStruct term = isStruct term
         let isReference term = isReference term
@@ -171,6 +171,8 @@ module API =
 
         let ReadSafe state reference = Memory.readSafe state reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
+        let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
+        let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
         let ReadStructField structure field = Memory.readStruct structure field
         let rec ReadClassField state reference field =
             match reference.term with
@@ -215,8 +217,8 @@ module API =
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
 
         let BoxValueType state term =
-            let address : concreteHeapAddress = [Memory.freshAddress()]
-            let reference = HeapRef (Concrete address AddressType) (typeOf term)
+            let address, state = Memory.freshAddress state
+            let reference = HeapRef (ConcreteHeapAddress address) (typeOf term)
             reference, Memory.writeBoxedLocation state address term
 
         let AllocateDefaultStatic state targetType =
@@ -269,8 +271,9 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
 //        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
-        let ComposeStates state state1 k =
-            Memory.composeStates compositionContext.Empty state state1 |> k
+        let AdvanceTime state = Memory.freshAddress state |> snd
+
+        let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 
         let Merge2States (state1 : state) (state2 : state) =
             let pc1 = List.fold (fun pc cond -> pc &&& cond) Terms.True state1.pc
@@ -278,11 +281,6 @@ module API =
             if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
             __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
-
-        let FillHoles (state : state) (term : term) k =
-            let result = Memory.fillHoles compositionContext.Empty state term
-            k (result, state)
-
 
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g

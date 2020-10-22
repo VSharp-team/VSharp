@@ -64,6 +64,12 @@ module public Reflection =
         |> join ", "
         |> sprintf "%s %s.%s(%s)" returnType.FullName methodBase.DeclaringType.FullName methodBase.Name
 
+    let public IsArrayConstructor (methodBase : MethodBase) =
+        methodBase.IsConstructor && methodBase.DeclaringType.IsArray
+
+    let public IsDelegateConstructor (methodBase : MethodBase) =
+        methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
+
     // --------------------------------- Fields ---------------------------------
 
     let wrapField (field : FieldInfo) =
