@@ -255,7 +255,6 @@ type public ExplorerBase() =
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
     member x.ExploreAndCompose codeLoc state k =
-        let _, state = Memory.freshAddress state
         x.Explore codeLoc (Seq.map (fun summary ->
             let newStates = Memory.composeStates state summary.state
             let result = Memory.fillHoles state summary.result

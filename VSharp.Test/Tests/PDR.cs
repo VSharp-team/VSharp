@@ -147,8 +147,12 @@ namespace VSharp.Test.Tests
         {
             object c = new ClassWithOneField();
             for (int i = 0; i < 2; i++)
-                new object();
-            //new object();
+            {
+                var x = new int[32];
+            }
+
+            var y = new double[32];
+            var z = new double[32];
         }
 
         [TestSvm]

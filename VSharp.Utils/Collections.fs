@@ -73,6 +73,11 @@ module public List =
         | [] -> internalfail "List.last of empty list!"
         | x::xs -> lastAndRest x xs makePair
 
+    let rec mapLast f = function
+        | [x] -> [f x]
+        | x::xs -> x::(mapLast f xs)
+        | [] -> []
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

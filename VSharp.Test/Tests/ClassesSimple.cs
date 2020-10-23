@@ -362,7 +362,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class ClassesSimplePropertyAccessModify
     {
-        public class SimpleStruct
+        public class SimpleContainer
         {
             public int X;
 
@@ -372,22 +372,31 @@ namespace VSharp.Test.Tests
             }
         }
 
-        public SimpleStruct StructProperty
+        public SimpleContainer ContainerProperty
         { get; set; }
 
         // [TestSvm]
         [Ignore("HeapAddress was increased due to exploration and following composition. Add Statics of Object that were removed for marshalling")]
         public int TestProperty1(int anyVarName)
         {
-            return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
+            return (new ClassesSimplePropertyAccessModify().ContainerProperty = new SimpleContainer()).X = anyVarName; // anyVarName
         }
 
         [Ignore("Exceptions handling")]
-        public void FirstUseInGuard(SimpleStruct s)
+        public void FirstUseInGuard(SimpleContainer s)
         {
             if (s.X > 5)
                 return;
             s.X = 42;
         }
+
+        [TestSvm]
+        public static void UnionInReference(SimpleContainer a)
+        {
+            var obj = (object) a;
+            var b = (SimpleContainer) obj;
+            b.Set(42);
+        }
+
     }
 }

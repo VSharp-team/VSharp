@@ -166,8 +166,6 @@ module API =
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list
 
-        val AdvanceTime : state -> state
-
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> (state list -> 'a) -> 'a
 

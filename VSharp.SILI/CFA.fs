@@ -174,7 +174,7 @@ module public CFA =
         override x.Type = "StepEdge"
         override x.PropagatePath (path : path) =
 
-            Memory.ComposeStates (Memory.AdvanceTime path.state) effect (fun states ->
+            Memory.ComposeStates path.state effect (fun states ->
                 x.PrintLog "composition left"  <| Memory.Dump path.state
                 x.PrintLog "composition right" <| Memory.Dump effect
                 x.PrintLog (sprintf "composition resulted in %d states" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
@@ -194,7 +194,6 @@ module public CFA =
            assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
         override x.PropagatePath (path : path) =
-//            let path = {path with state = Memory.AdvanceTime path.state}
             let addCallSiteResult callSiteResults (callSite : callSite) (res : term option) =
                 if callSite.HasNonVoidResult then
                     assert(Option.isSome res)
@@ -206,10 +205,8 @@ module public CFA =
                     assert(path.state.frames = state.frames)
                     assert(path.state.stack = state.stack)
                     x.PrintLog "propagation through callEdge" callSite
-                    x.PrintLog "composition left" (Memory.Dump path.state)
-//                    x.PrintLog "composition this" thisOption
-//                    x.PrintLog "composition args" args
-                    x.PrintLog "composition result" (Memory.Dump state)
+                    x.PrintLog "call edge: composition left" (Memory.Dump path.state)
+                    x.PrintLog "call edge: composition result" (Memory.Dump state)
                     let result' = x.CommonPropagatePath (path.lvl + 1u) {state with callSiteResults = addCallSiteResult path.state.callSiteResults callSite state.returnRegister
                                                                                     returnRegister = None}
                     acc || result'
@@ -218,24 +215,22 @@ module public CFA =
             Prelude.releaseAssert (Option.isSome stepItp)
             let interpreter = stepItp |> Option.get
             let states = Memory.ComposeStates path.state stateWithArgsOnFrameAndAllocatedType id
-
-            match callSite.opCode with
-            | Instruction.Call     ->
-                interpreter.CommonCall callSite.calledMethod state k
-            | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [state]
-            | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod ->
-                k [state]
-            | Instruction.NewObj   ->
-                interpreter.CommonCall callSite.calledMethod state k
-            | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod state k
-            | _ ->  __notImplemented__()
+            match states with
+            | [state] ->
+                match callSite.opCode with
+                | Instruction.Call     ->
+                    interpreter.CommonCall callSite.calledMethod state k
+                | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [state]
+                | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod -> k [state]
+                | Instruction.NewObj   ->
+                    interpreter.CommonCall callSite.calledMethod state k
+                | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod state k
+                | _ ->  __notImplemented__()
+            | _ -> internalfailf "Calling %s: composition with frames unexpectedly forked!" callSite.calledMethod.Name
         member x.ExitNodeForCall() = __notImplemented__()
         member x.CallVariables() = __notImplemented__()
         override x.ToString() =
-//            let framesCount = List.length stateWithArgsOnFrame.frames.f
-//            Prelude.releaseAssert(framesCount <= 3)
-            base.ToString()
-//                (List.fold (fun acc arg -> acc + arg.ToString() + " ") "args = " actualArgs)
+            sprintf "%s\nstate = %O\n" (base.ToString()) (API.Memory.Dump stateWithArgsOnFrameAndAllocatedType)
 
     module cfaBuilder =
         let private alreadyComputedCFAs = Dictionary<MethodBase, cfa>()
@@ -276,7 +271,7 @@ module public CFA =
 
         let computeCFAForMethod (ilintptr : ILInterpreter) (initialState : state) (cfa : cfa) (used : Dictionary<offset * operationalStack, int>) (block : MethodBase unitBlock) =
             let cfg = cfa.cfg
-            let mutable currentTime = 0u
+            let mutable currentTime = initialState.currentTime
             let executeSeparatedOpCode offset (opCode : System.Reflection.Emit.OpCode) (cilStateWithArgs : cilState) =
                 let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (offset + opCode.Size)
                 let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
@@ -338,11 +333,12 @@ module public CFA =
                         let dstVertex = createOrGetVertex (Instruction nextOffset, cilState'.opStack)
                         block.AddVertex dstVertex
                         let stateWithArgsOnFrame = ilintptr.ReduceFunctionSignature cilState'.state calledMethod this (Specified args) false (fun x -> x)
+                        currentTime <- VectorTime.max currentTime stateWithArgsOnFrame.currentTime
                         addEdge <| CallEdge(srcVertex, dstVertex, callSite, stateWithArgsOnFrame)
                         bypass dstVertex
                     | _ ->
                         let newStates = executeInstructions ilintptr cfg {initialCilState with ip = Instruction offset; opStack = opStack}
-                        newStates |> List.iter (fun state -> currentTime <- max currentTime state.state.currentTime)
+                        newStates |> List.iter (fun state -> currentTime <- VectorTime.max currentTime state.state.currentTime)
                         let goodStates = List.filter (fun (cilState : cilState) -> not cilState.HasException) newStates
                         let erroredStates = List.filter (fun (cilState : cilState) -> cilState.HasException) newStates
                         goodStates |> List.iter (fun (cilState' : cilState) ->
@@ -420,7 +416,7 @@ type StepInterpreter() =
             else
                 visit vertex
                 let edges = vertex.OutgoingEdges
-                let shouldGetAllPaths = true // TODO: resolve this problem: when set to ``true'' recursion works but very long, when set to ``false'' method recursion doesn't work at all
+                let shouldGetAllPaths = true // TODO: resolve this problem: when set to ``true'' recursion works too long, when set to ``false'' recursion doesn't work at all
                 let paths : path list = vertex.Paths.OfLevel shouldGetAllPaths lvl
                 let newDsts = edges |> Seq.fold (fun acc (edge : CFA.Edge) ->
                     let propagated = Seq.map edge.PropagatePath paths |> Seq.fold (||) false

@@ -321,6 +321,7 @@ module internal InstructionsSet =
             | :? MethodInfo as mi -> mi.ReturnType |> Types.FromDotNetType state
             | _ -> __notImplemented__()
         let term, cilState = popOperationalStack cilState
+        let cilState = {cilState with state = {state with currentTime = []}}
         let typ =
             match term with
             | Some t -> TypeOf t

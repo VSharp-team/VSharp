@@ -101,8 +101,8 @@ and state = {
     entireCopies : pdict<concreteHeapAddress, heapAddress * arrayRegion>  // Address and contents of (entirely) copied arrays
     extendedCopies : pdict<concreteHeapAddress, arrayCopyInfo> // Address, contents, source and destination indices and target type of copied arrays
     delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
-    currentTime : uint32                                       // Current timestamp (and next allocated address as well) in this state
-    startingTime : uint32                                      // Timestamp before which all allocated addresses will be considered symbolic
+    currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
+    startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     returnRegister : term option
     exceptionsRegister : exceptionRegister                     // Heap-address of exception object
     callSiteResults : callSiteResults                          // Computed results of delayed calls
@@ -144,12 +144,12 @@ module internal Memory =
         startingTime = time
     }
 
-    let empty : state = emptySince 0u
+    let empty : state = emptySince VectorTime.zero
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
-    let composeAddresses (a1 : uint32) (a2 : concreteHeapAddress) : concreteHeapAddress =
-        if isZeroAddress a2 then a2 else a1::a2
+    let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
+        if isZeroAddress a2 then a2 else a1 @ a2
 
     let withPathCondition (s : state) cond : state = { s with pc = cond::s.pc }
     let popPathCondition (s : state) : state =
@@ -373,13 +373,13 @@ module internal Memory =
         | _ -> internalfail "Extracting heap address: expected heap reference, but got %O" reference
 
     let private isHeapAddressDefault state = term >> function
-        | ConcreteHeapAddress addr -> VectorTime.lessOrEqual [state.startingTime] addr
+        | ConcreteHeapAddress addr -> VectorTime.lessOrEqual state.startingTime addr
         | _ -> false
 
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) [s.startingTime]
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) s.startingTime
 
     let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
@@ -410,7 +410,7 @@ module internal Memory =
         let instantiate typ memory =
             let copiedMemory = readArrayCopy state arrayType extractor addr indices
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime] typ (MemoryRegion.deterministicCompose copiedMemory memory)
+            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime typ (MemoryRegion.deterministicCompose copiedMemory memory)
         MemoryRegion.read region key isDefault instantiate
 
     and readArrayRegionExt state arrayType extractor region addr indices (*copy info follows*) srcIndex dstIndex length dstType =
@@ -430,7 +430,7 @@ module internal Memory =
             let isDefault (key : heapAddressKey) = isHeapAddressDefault state key.address
             let key = {address = addr}
             MemoryRegion.read (extractor state) key isDefault
-                (makeSymbolicHeapRead {sort = HeapFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime])
+                (makeSymbolicHeapRead {sort = HeapFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readStaticField state typ (field : fieldId) =
         let symbolicType = fromDotNetType field.typ
@@ -439,7 +439,7 @@ module internal Memory =
         let isDefault _ = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
         MemoryRegion.read (extractor state) key isDefault
-            (makeSymbolicHeapRead {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime])
+            (makeSymbolicHeapRead {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLowerBound state addr dimension arrayType =
         let extractor state = accessRegion state.lowerBounds arrayType lengthType
@@ -447,7 +447,7 @@ module internal Memory =
         let isDefault (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = addr; index = dimension}
         MemoryRegion.read (extractor state) key isDefault
-            (makeSymbolicHeapRead {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime])
+            (makeSymbolicHeapRead {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLength state addr dimension arrayType =
         let extractor state = accessRegion state.lengths arrayType lengthType
@@ -455,7 +455,7 @@ module internal Memory =
         let isDefault (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = addr; index = dimension}
         MemoryRegion.read (extractor state) key isDefault
-            (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime])
+            (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readStackBuffer state stackKey index =
         let extractor state = accessRegion state.stackBuffers stackKey (Numeric typeof<int8>)
@@ -463,7 +463,7 @@ module internal Memory =
         let isDefault _ = true
         let key = {index = index}
         MemoryRegion.read (extractor state) key isDefault
-            (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key [state.startingTime])
+            (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readBoxedLocation state (addr : concreteHeapAddress) typ =
         match PersistentDict.tryFind state.boxedLocations addr with
@@ -672,8 +672,8 @@ module internal Memory =
 // ------------------------------- Allocation -------------------------------
 
     let freshAddress state =
-        let state = {state with currentTime = state.currentTime + 1u}
-        [state.currentTime], state
+        let state = {state with currentTime = VectorTime.advance state.currentTime}
+        state.currentTime, state
 
     let allocateOnStack state key term =
         let oldFrame = Stack.peek state.frames
@@ -774,7 +774,7 @@ module internal Memory =
 // ------------------------------- Composition -------------------------------
 
     let private composeTime (state : state) time =
-        if VectorTime.lessOrEqual time [state.startingTime] then time
+        if VectorTime.lessOrEqual time state.startingTime then time
         else composeAddresses state.currentTime time
 
     let rec private fillHole state term =
@@ -800,7 +800,7 @@ module internal Memory =
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
                 let afters = MemoryRegion.compose before effect
-                afters |> List.map (fun (g, after) -> (g, MemoryRegion.read after key x.picker.isDefaultKey (makeSymbolicHeapRead x.picker key [state.startingTime]))) |> Merging.merge
+                afters |> List.map (fun (g, after) -> (g, MemoryRegion.read after key x.picker.isDefaultKey (makeSymbolicHeapRead x.picker key state.startingTime))) |> Merging.merge
 
     type stackReading with
         interface IMemoryAccessConstantSource with
@@ -924,9 +924,13 @@ module internal Memory =
         let dstType = substituteTypeVariables state info.dstType
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
-        // TODO: do nothing if state is empty!
     let composeStates state state' =
+        // TODO: do nothing if state is empty!
         list {
+            let startingTime = state.startingTime
+            // TODO: is this hack correct? We wish to fillHoles only in *potentially overlapping allocated* in state' addresses
+            let hackedStartingTime = if VectorTime.lessOrEqual state.currentTime state'.startingTime then VectorTime.infty else state'.startingTime
+            let state = {state with startingTime = hackedStartingTime}
             let pc = List.map (fillHoles state) state'.pc |> List.append state.pc
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
@@ -967,9 +971,8 @@ module internal Memory =
                     entireCopies = entireCopies
                     extendedCopies = extendedCopies
                     delegates = delegates
-        //            currentTime = if state'.startingTime > state.currentTime then state'.currentTime else state.currentTime
-                    currentTime = state.currentTime
-                    startingTime = state.startingTime
+                    currentTime = if VectorTime.lessOrEqual state.currentTime state'.startingTime then state'.currentTime else state.currentTime @ state'.currentTime
+                    startingTime = startingTime
                 }
         }
 
@@ -1017,5 +1020,4 @@ module internal Memory =
         let sb = dumpDict "Array copies (ext)" id VectorTime.print toString sb s.extendedCopies
         let sb = dumpDict "Delegates" id VectorTime.print toString sb s.delegates
         let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> sb.AppendLine
-//        let sb = if Option.isNone s.returnRegister then sb else sprintf "Return register = %O" (Option.get s.returnRegister) |> sb.AppendLine
         if sb.Length = 0 then "<Empty>" else sb.ToString()

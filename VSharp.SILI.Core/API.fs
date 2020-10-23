@@ -66,7 +66,7 @@ module API =
 
         // TODO: maybe transfer time from interpreter?
         let MakeFunctionResultConstant state (callSite : callSite) =
-            Memory.makeFunctionResultConstant [state.currentTime] callSite
+            Memory.makeFunctionResultConstant state.currentTime callSite
 
         let isStruct term = isStruct term
         let isReference term = isReference term
@@ -271,7 +271,6 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
 //        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
-        let AdvanceTime state = Memory.freshAddress state |> snd
 
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 
