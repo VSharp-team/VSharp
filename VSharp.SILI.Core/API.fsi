@@ -132,8 +132,7 @@ module API =
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> MethodBase -> term
         val ReadArgument : state -> ParameterInfo -> term
-        val ReadStructField : term -> fieldId -> term
-        val ReadClassField : state -> term -> fieldId -> term
+        val ReadField : state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> term
         val ReadStaticField : state -> symbolicType -> fieldId -> term
         val ReadDelegate : state -> term -> term
