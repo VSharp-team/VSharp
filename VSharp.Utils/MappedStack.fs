@@ -39,12 +39,7 @@ module public MappedStack =
 
     let remove (contents, peaks) key =
         let idx = peakIdx peaks key
-        match containsKey key (contents, peaks) with
-        | false ->
-            // this is a case when variable was reserved but never assigned
-            assert (idx = 0u)
-            (contents, peaks)
-        | _ ->
+        if containsKey key (contents, peaks) then
             assert (idx > defaultPeak)
             let key' = makeExtendedKey key idx
             let contents' = Map.remove key' contents
@@ -52,6 +47,10 @@ module public MappedStack =
                 if idx = 1ul then Map.remove key peaks
                 else Map.add key (idx - 1ul) peaks
             contents', peaks'
+        else
+            // this is a case when variable was reserved but never assigned
+            assert (idx = 0u)
+            contents, peaks
 
     let tryFind key (contents, peaks) =
         let idx = peakIdx peaks key

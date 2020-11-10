@@ -907,8 +907,10 @@ module internal Memory =
     let private composeConcreteDictionaries state dict dict' mapValue =
         dict' |> PersistentDict.fold (fun acc k v ->
                         let k = composeTime state k
-                        assert (not <| PersistentDict.contains k dict)
-                        PersistentDict.add k (mapValue v) acc
+                        if (PersistentDict.contains k dict) then
+                            assert (PersistentDict.find dict k = mapValue v)
+                            acc
+                        else PersistentDict.add k (mapValue v) acc
                  ) dict
 
     let private composeArrayCopyInfo state (addr, reg) =

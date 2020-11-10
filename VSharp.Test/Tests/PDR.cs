@@ -5,6 +5,7 @@ using System.Dynamic;
 using System.IO;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
+using VSharp.Test.Tests.Methods;
 
 namespace VSharp.Test.Tests
 {
@@ -143,6 +144,18 @@ namespace VSharp.Test.Tests
             return array[0];
         }
 
+        private static int Return100()
+        {
+            int x;
+            return 100;
+        }
+
+        [TestSvm]
+        public static int TestPopStackWithReservedVariable()
+        {
+            return Return100();
+        }
+
         [TestSvm]
         public static void NewObj1()
         {
@@ -156,8 +169,25 @@ namespace VSharp.Test.Tests
             var z = new double[32];
         }
 
+
+        [TestSvm]
+        public static void SequentialNewObjs()
+        {
+            new object();
+            new object();
+        }
+
         [TestSvm]
         public static void NewObjInLoop()
+        {
+            for (int i = 0; i < 5; ++i)
+            {
+                new object();
+            }
+        }
+
+        [TestSvm]
+        public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
             for (int i = 0; i < 5; ++i)
@@ -226,6 +256,232 @@ namespace VSharp.Test.Tests
         {
             return F(F(x) + F(F(F(F(x)))));
         }
+
+        public class ClassWithOneStaticField
+        {
+            public static int x;
+        }
+
+        public class ClassWithStaticConstructor
+        {
+            public static int X;
+
+            static ClassWithStaticConstructor()
+            {
+                X = 100;
+            }
+        }
+
+        [TestSvm]
+        public static void DoubleInitializeObjects()
+        {
+            new object();
+            new object();
+        }
+
+        [TestSvm]
+        public static int MultipleInitializeStaticFieldsInCfa(int a)
+        {
+            ClassWithOneStaticField.x = a;
+            if (a > 10)
+                ClassWithOneStaticField.x = 20;
+            return ClassWithOneStaticField.x;
+        }
+
+        // expecting 1042
+        [Ignore("Static constructor of ``ClassWithStaticConstructor'' is always called while CFA-construction")]
+        public static int StaticConstructorShouldBeCalledOnce(bool f)
+        {
+            ClassWithStaticConstructor.X = 42;
+            if (f)
+            {
+                ClassWithStaticConstructor.X = ClassWithStaticConstructor.X + 1000;
+            }
+            else
+            {
+                ClassWithStaticConstructor.X = ClassWithStaticConstructor.X + 1000;
+            }
+
+            return ClassWithStaticConstructor.X;
+        }
+
+
+        // expecting 5x
+        [TestSvm]
+        public static int TestForCycle_5x(int x)
+        {
+            int sum = 0;
+            for (int i = 0; i < 5; i++)
+            {
+                sum += x;
+            }
+
+            return sum;
+        }
+
+        [TestSvm]
+        public static int TestConcreteArray(int x)
+        {
+            var res = 0;
+            var a = new int[3] {1, 2, 3};
+            a[2] = x;
+            var len = a.Length;
+            var lb = a.GetLowerBound(0);
+            if (len == 3 && lb == 0)
+                res = 1;
+            return res;
+        }
+
+
+        // expecting 1
+        [TestSvm]
+        public static int TestAllocatedType_1()
+        {
+            VirtualC c = new VirtualC();
+            ReturnConstant();
+            if (c is IVirtual)
+            {
+                return 1;
+            }
+
+            return -1;
+        }
+
+        // expecting 1
+        [TestSvm]
+        public static int TestAllocatedType_2()
+        {
+            VirtualC c = new VirtualC();
+            if (c is IVirtual)
+            {
+                return 1;
+            }
+
+            return -1;
+        }
+
+        private static int IsIVirtual(object obj)
+        {
+            if (obj is IVirtual)
+            {
+                return 1;
+            }
+
+            return -1;
+        }
+
+        // expecting 1
+        [TestSvm]
+        public static int TestAllocatedType_3()
+        {
+            VirtualC c = new VirtualC();
+            return IsIVirtual(c);
+        }
+
+        // expecting f -> 100; !f -> 42
+        [TestSvm]
+        public static int TestAllocatedType_4(bool f)
+        {
+            ClassWithOneField classWithOneField;
+            int result = 0;
+            if (f)
+            {
+                classWithOneField = new ClassWithOneField();
+                classWithOneField.x = 100;
+                result = classWithOneField.x;
+            }
+            else
+            {
+                result = 42;
+            }
+
+            return result;
+        }
+
+        // expecting 20
+        [TestSvm]
+        public static int TestLengths_1()
+        {
+            int[,] array = new int[4,5];
+            ReturnConstant();
+            return array.Length;
+        }
+
+        // expecting 20
+        [TestSvm]
+        public static int TestLengths_2()
+        {
+            int[,] array = new int[4,5];
+            return array.Length;
+        }
+
+        // expecting 15
+        [TestSvm]
+        public static int TestLengths_3()
+        {
+            int[,] array = new int[4,5];
+            ReturnConstant();
+            array = new int[15, 1];
+            return array.Length;
+        }
+
+        // expecting 15
+        [TestSvm]
+        public static int TestLengths_4()
+        {
+            int[,] array = new int[4,5];
+            array = new int[15, 1];
+            return array.Length;
+        }
+
+        // expecting 100
+        [TestSvm]
+        public static int TestLengths_5()
+        {
+            Array array = new int[4,5];
+            ReturnConstant();
+            array = new int[100];
+            return array.Length;
+        }
+
+        // expecting f -> 100, !f -> 20
+        [Ignore("uncomment test when InsInfException handling")]
+        public static int TestLengths_6(bool f)
+        {
+            Array array = new int[4, 5];
+            if (f)
+            {
+                array = new int[100];
+            }
+
+            return array.Length;
+        }
+
+        // expecting 0
+        [TestSvm]
+        public static int TestLowerBound_1()
+        {
+            Array array = new int[4,5];
+            ReturnConstant();
+            array = new int[100];
+            return array.GetLowerBound(0);
+        }
+
+        // expecting 0
+        [TestSvm]
+        public static int TestLowerBound_2(bool f)
+        {
+            Array array = new int[100];
+            int result = array.GetLowerBound(0);;
+            if (f)
+            {
+                array = new int[4, 5];
+                result = array.GetLowerBound(1);
+            }
+
+            return result;
+        }
+
 
         // [TestSvm]
         public static int ThrowException(int x)

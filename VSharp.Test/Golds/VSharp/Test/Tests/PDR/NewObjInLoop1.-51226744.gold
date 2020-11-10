@@ -1,0 +1,12 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.NewObjInLoop1()
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> System.Object
+4.4 ==> System.Object
+4.4.4 ==> System.Object
+4.4.4.4 ==> System.Object
+4.4.4.4.4 ==> System.Object
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

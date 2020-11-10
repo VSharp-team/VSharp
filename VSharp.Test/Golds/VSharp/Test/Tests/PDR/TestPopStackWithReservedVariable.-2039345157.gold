@@ -1,0 +1,5 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestPopStackWithReservedVariable()
+RESULT: Totally 1 state:
+100
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.PDR }

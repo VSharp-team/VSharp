@@ -1,0 +1,8 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.DoubleInitializeObjects()
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+1 ==> System.Object
+2 ==> System.Object
+Initialized types = { VSharp.Test.Tests.PDR, System.Object }
