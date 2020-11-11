@@ -257,7 +257,11 @@ type public ExplorerBase() =
 
     member x.ExploreAndCompose codeLoc state k =
         x.Explore codeLoc (Seq.map (fun summary ->
+            Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
+            Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
             let newStates = Memory.composeStates state summary.state
+            List.iter (Memory.Dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) newStates
+
             let result = Memory.fillHoles state summary.result
             List.map (withFst result) newStates) >> List.ofSeq >> List.concat >> k)
 
