@@ -173,12 +173,15 @@ module API =
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
-        let ReadStructField structure field = Memory.readStruct structure field
-        let rec ReadClassField state reference field =
-            match reference.term with
-            | HeapRef(addr, _) -> Memory.readClassField state addr field
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadClassField state v field)) |> Merging.merge
-            | _ -> internalfailf "Reading field of class: expected reference, but got %O" reference
+        let ReadField state term field =
+            let doRead target =
+                match target.term with
+                | HeapRef(addr, _) -> Memory.readClassField state addr field
+                | Struct _ -> Memory.readStruct target field
+                | Ref addr -> StructField(addr, field) |> Ref |> Memory.readSafe state
+                | _ -> internalfailf "Reading field of %O" term
+            Merging.guardedApply doRead term
+
         let rec ReadArrayIndex state reference indices =
             match reference.term with
             | HeapRef(addr, typ) ->

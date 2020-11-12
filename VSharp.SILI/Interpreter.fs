@@ -565,12 +565,8 @@ and public ILInterpreter() as this =
             let loadWhenTargetIsNotNull (state : state) k =
                 let k1 value = k [{state with returnRegister = Some value}]
                 let fieldId = wrapField fieldInfo
-                match addressNeeded, isStruct target with
-                | false, true -> Memory.ReadStructField target fieldId |> k1
-                | false, false -> Memory.ReadClassField state target fieldId |> k1
-                | true, _ -> Memory.ReferenceField target fieldId |> k1
-//                | true, true -> Memory.ReferenceField target fieldId |> k1
-//                | true, false -> __unreachable__()
+                if addressNeeded then Memory.ReferenceField target fieldId |> k1
+                else Memory.ReadField state target fieldId |> k1
             x.NpeOrInvokeStatement cilState.state target loadWhenTargetIsNotNull (pushResultFromStateToCilState {cilState with opStack = stack})
         | _ -> __corruptedStack__()
     member x.StFld (cfg : cfg) offset (cilState : cilState) =

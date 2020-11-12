@@ -202,7 +202,7 @@ module public CFA =
             let k states =
                 let propagateStateAfterCall acc state =
                     let state = Memory.PopStack state
-                    assert(path.state.frames = state.frames)
+                    assert(path.state.frames = state.frames) // TODO: assert fails in ClassesSimple.Test1
                     assert(path.state.stack = state.stack)
                     x.PrintLog "propagation through callEdge" callSite
                     x.PrintLog "call edge: composition left" (Memory.Dump path.state)
