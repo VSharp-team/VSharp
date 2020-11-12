@@ -120,7 +120,7 @@ module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
 
-    let private emptySince time = {
+    let empty = {
         pc = List.empty
         returnRegister = None
         exceptionsRegister = NoException
@@ -140,11 +140,9 @@ module internal Memory =
         entireCopies = PersistentDict.empty
         extendedCopies = PersistentDict.empty
         delegates = PersistentDict.empty
-        currentTime = time
-        startingTime = time
+        currentTime = [1u]
+        startingTime = VectorTime.zero
     }
-
-    let empty : state = emptySince VectorTime.zero
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -925,12 +923,14 @@ module internal Memory =
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
     let composeStates state state' =
+        assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
             let startingTime = state.startingTime
+            let prefix, suffix = List.splitAt (List.length state.currentTime - List.length state'.startingTime) state.currentTime
+            let prefix = if VectorTime.lessOrEqual suffix state'.startingTime then prefix else state.currentTime
             // TODO: is this hack correct? We wish to fillHoles only in *potentially overlapping allocated* in state' addresses
-            let hackedStartingTime = if VectorTime.lessOrEqual state.currentTime state'.startingTime then VectorTime.infty else state'.startingTime
-            let state = {state with startingTime = hackedStartingTime}
+            let state = {state with startingTime = state'.startingTime; currentTime = prefix}
             let pc = List.map (fillHoles state) state'.pc |> List.append state.pc
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
@@ -949,6 +949,7 @@ module internal Memory =
             let entireCopies = composeConcreteDictionaries state state.entireCopies state'.entireCopies (composeArrayCopyInfo state)
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
+            let currentTime = prefix @ state'.currentTime
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -971,7 +972,7 @@ module internal Memory =
                     entireCopies = entireCopies
                     extendedCopies = extendedCopies
                     delegates = delegates
-                    currentTime = if VectorTime.lessOrEqual state.currentTime state'.startingTime then state'.currentTime else state.currentTime @ state'.currentTime
+                    currentTime = currentTime
                     startingTime = startingTime
                 }
         }

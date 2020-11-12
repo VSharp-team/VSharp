@@ -250,8 +250,8 @@ and public ILInterpreter() as this =
         | _ -> internalfail "unexpected number of arguments"
     member private x.ReduceMethodBaseCall (methodBase : MethodBase) (state : state) (k : state list -> 'a) =
         let dealWithResult (term : term, state : state) =
-            if term <> Nop then {state with returnRegister = Some term; currentTime = []}
-            else {state with returnRegister = None; currentTime = []}
+            if term <> Nop then {state with returnRegister = Some term}
+            else {state with returnRegister = None}
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
         let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
         let fullMethodName = Reflection.GetFullMethodName methodBase

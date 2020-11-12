@@ -18,6 +18,8 @@ module VectorTime =
     let max t1 t2 = if lessOrEqual t1 t2 then t2 else t1
     let min t1 t2 = if lessOrEqual t1 t2 then t1 else t2
 
+    let isEmpty = List.isEmpty
+
     let compose (t1 : vectorTime) (t2 : vectorTime) =
         List.append t1 t2
 

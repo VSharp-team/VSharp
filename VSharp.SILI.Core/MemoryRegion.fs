@@ -39,11 +39,13 @@ type heapAddressKey =
             let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
             let newReg =
                 if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
-                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
-                    let rightBound = mapTime [1u] |> List.lastAndRest |> snd
-                    let rightBoundInterval = intervals<vectorTime>.Singleton rightBound
-                    let mappedZeroInterval = (intervals<vectorTime>.Closed VectorTime.zero rightBound :> IRegion<vectorTime intervals>).Subtract(rightBoundInterval)
-                    mappedZeroInterval.Union(reg'.Map mapTime)
+                    let rightBound = mapTime VectorTime.infty |> List.lastAndRest |> snd
+                    if rightBound.IsEmpty then reg
+                    else
+                        let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
+                        let rightBoundInterval = intervals<vectorTime>.Singleton rightBound
+                        let mappedZeroInterval = (intervals<vectorTime>.Closed VectorTime.zero rightBound :> IRegion<vectorTime intervals>).Subtract(rightBoundInterval)
+                        mappedZeroInterval.Union(reg'.Map mapTime)
                 else
                     reg.Map mapTime
             newReg, {address = mapTerm x.address}
