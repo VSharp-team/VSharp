@@ -25,7 +25,8 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
-    val Solve : term -> SolverInteraction.smtResult
+    val IsValid : state -> SolverInteraction.smtResult
+
     [<AutoOpen>]
     module Terms =
         val Nop : term

@@ -45,10 +45,10 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
         let isFinished (s : cilState) = s.ipStack = [{label = Exit; method = initialState.startingIP.method}]
         let finishedStates = List.filter isFinished nonIIEstates
         let isValid (cilState : cilState) =
-           match Solve (conjunction cilState.state.pc) with
+           match IsValid cilState.state with
            | SolverInteraction.SmtUnsat _ -> false
            | _ -> true
-        let validStates = List.filter isValid
+        let validStates = List.filter isValid finishedStates
         let printInfoForDebug () =
             let allStatesInQueue = q.GetStates()
             Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
@@ -59,10 +59,10 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
         | CilStateWithIIE iie :: _ -> raise iie
         | _ :: _ -> __unreachable__()
 //        | _, _ :: _ -> internalfailf "exception handling is not implemented yet"
-        | _ when finishedStates = [] ->
+        | _ when validStates = [] ->
             assert(printInfoForDebug())
             internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-        | _ -> finishedStates
+        | _ -> validStates
 
 type DummySearcher() =
     inherit ISearcher() with

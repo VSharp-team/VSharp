@@ -130,6 +130,9 @@ module public SolverInteraction =
     type query =
         { lvl : level; queryFml : formula }
 
+    type encodingContext =
+        { addressOrder : Map<concreteHeapAddress, int>}
+
     type satInfo = { mdl : model; usedPaths : path seq }
     type unsatInfo = { core : unsatCore }
 
@@ -139,20 +142,28 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : query -> smtResult
+        abstract CheckSat : encodingContext -> query -> smtResult
         abstract Assert : level -> formula -> unit
         abstract AddPath : path -> unit
 
     let mutable private solver : ISolver option = None
+
     let configureSolver s = solver <- Some s
-    let internal solve term =
+
+    let getEncodingContext (state : state) =
+        let addresses = PersistentDict.keys state.allocatedTypes
+        let sortedAddresses = Seq.sortWith VectorTime.compare addresses
+        let order = Seq.foldi (fun map i address -> Map.add address i map) Map.empty sortedAddresses
+        { addressOrder = order }
+
+    let internal isValid state =
+        let ctx = getEncodingContext state
+        let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s -> s.CheckSat {lvl = 0u; queryFml = term}
+        | Some s -> s.CheckSat ctx {lvl = 0u; queryFml = formula }
         | None -> SmtUnknown ""
 
 module internal Memory =
-
-    open SolverInteraction
 
 // ------------------------------- Primitives -------------------------------
 
@@ -329,6 +340,7 @@ module internal Memory =
 
     let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
         match src with
+        // TODO: check: this works correctly? #do
         | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
         | _ -> None
 
@@ -636,26 +648,25 @@ module internal Memory =
         | _ -> [mapper state term]
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let execution conditionState condition k =
+        let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
-            thenBranch (withPathCondition conditionState condition) (fun thenResult ->
-            elseBranch (withPathCondition conditionState !!condition) (fun elseResult ->
+            thenBranch thenState (fun thenResult ->
+            elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
         // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
         // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenCondition = PC.add conditionState.pc condition
-        let elseCondition = PC.add conditionState.pc (!!condition)
-        match thenCondition, elseCondition with
-        | _ when PC.isFalse thenCondition -> elseBranch conditionState (List.singleton >> k)
-        | _ when PC.isFalse elseCondition -> thenBranch conditionState (List.singleton >> k)
-        | _ ->
-            match solve thenCondition with
-            | SmtUnsat _ -> elseBranch conditionState (List.singleton >> k)
+        let thenState = withPathCondition conditionState condition
+        let elseState = withPathCondition conditionState (!!condition)
+        if PC.isFalse thenState.pc then elseBranch conditionState (List.singleton >> k)
+        elif PC.isFalse elseState.pc then thenBranch conditionState (List.singleton >> k)
+        else
+            match SolverInteraction.isValid thenState with
+            | SolverInteraction.SmtUnsat _ -> elseBranch conditionState (List.singleton >> k)
             | _ ->
-                match solve elseCondition with
-                | SmtUnsat _ -> thenBranch conditionState (List.singleton >> k)
-                | _ -> execution conditionState condition k)
+                match SolverInteraction.isValid elseState with
+                | SolverInteraction.SmtUnsat _ -> thenBranch conditionState (List.singleton >> k)
+                | _ -> execution thenState elseState condition k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
