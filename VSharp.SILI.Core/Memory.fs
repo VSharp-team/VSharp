@@ -377,7 +377,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) s.startingTime
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) VectorTime.zero
 
     let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
@@ -408,7 +408,7 @@ module internal Memory =
         let instantiate typ memory =
             let copiedMemory = readArrayCopy state arrayType extractor addr indices
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime typ (MemoryRegion.deterministicCompose copiedMemory memory)
+            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key VectorTime.zero typ (MemoryRegion.deterministicCompose copiedMemory memory)
         MemoryRegion.read region key isDefault instantiate
 
     and readArrayRegionExt state arrayType extractor region addr indices (*copy info follows*) srcIndex dstIndex length dstType =
