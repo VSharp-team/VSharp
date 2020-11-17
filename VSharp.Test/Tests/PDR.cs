@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.IO;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
@@ -381,7 +382,71 @@ namespace VSharp.Test.Tests
 
         public struct A
         {
+            public int x;
+            public A(int value)
+            {
+                x = value;
+            }
 
+            public int GetX()
+            {
+                return x;
+            }
+        }
+
+        public class ClassWithStructInside
+        {
+            private A _a;
+
+            public ClassWithStructInside(int n)
+            {
+                A localA;
+                localA = new A(n);
+                _a = localA;
+            }
+
+            public int GetN()
+            {
+                return _a.x;
+            }
+        }
+
+        public class ClassWithClassInside
+        {
+            private ClassWithOneField _classWithOneField;
+
+            public ClassWithClassInside(int n)
+            {
+                ClassWithOneField local = new ClassWithOneField();
+                local.x = n;
+                _classWithOneField = local;
+            }
+        }
+
+        [TestSvm]
+        public static ClassWithStructInside CreateClassThatHasStructInside(int n)
+        {
+            return new ClassWithStructInside(n);
+        }
+
+        [TestSvm]
+        public static bool SameN(int n)
+        {
+            ClassWithStructInside c = new ClassWithStructInside(n);
+            return n == c.GetN();
+        }
+
+        [TestSvm]
+        public static ClassWithClassInside CreateClassThatHasClassInside(int n)
+        {
+            return new ClassWithClassInside(n);
+        }
+
+        [TestSvm]
+        public static int CreateStructViaNewobj(int n)
+        {
+            int res1 = new A(n).GetX();
+            return res1 + n;
         }
 
         public static A W2(int x, int y) {

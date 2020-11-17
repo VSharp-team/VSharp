@@ -43,8 +43,7 @@ type heapAddressKey =
                     if rightBound.IsEmpty then reg
                     else
                         let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
-                        let rightBoundInterval = intervals<vectorTime>.Singleton rightBound
-                        let mappedZeroInterval = (intervals<vectorTime>.Closed VectorTime.zero rightBound :> IRegion<vectorTime intervals>).Subtract(rightBoundInterval)
+                        let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.zero rightBound
                         mappedZeroInterval.Union(reg'.Map mapTime)
                 else
                     reg.Map mapTime
@@ -172,7 +171,7 @@ module private UpdateTree =
         RegionTree.write reg {key=key; value=value} tree
 
     let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) =
-        RegionTree.map (fun reg {key=k; value=v} -> let reg, k' = mapKey reg k in (reg, k'.Region, {key=k'; value=mapValue v})) tree
+        RegionTree.map (fun reg {key=k; value=v} -> let reg', k' = mapKey reg k in (reg', k'.Region, {key=k'; value=mapValue v})) tree
 
     let compose (earlier : updateTree<'key, 'value, 'reg>) (later : updateTree<'key, 'value, 'reg>) =
         later |> RegionTree.foldr (fun reg key trees ->

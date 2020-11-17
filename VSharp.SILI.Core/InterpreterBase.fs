@@ -79,12 +79,13 @@ type public ExplorerBase() =
 //            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
 
 
-    member private x.ReproduceEffectOrUnroll areWeStuck body id state k =
+    member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) state k =
         if areWeStuck then
             try
                 x.ReproduceEffect id state k
             with
-            | :? InsufficientInformationException -> body state k
+            | :? InsufficientInformationException ->
+                body state (List.map (fun (rs, s : state) -> rs, {s with currentTime = state.currentTime}) >> k)
         else
             /// explicitly unrolling
             body state k

@@ -314,14 +314,14 @@ module internal InstructionsSet =
         | _ -> __corruptedStack__()
 
     let ret (cfg : cfgData) _ (cilState : cilState) =
-        let state = cilState.state
+        let state = {cilState.state with currentTime = []}
+        let cilState = {cilState with state = state}
         let resultTyp =
             match cfg.methodBase with
             | :? ConstructorInfo -> Void
             | :? MethodInfo as mi -> mi.ReturnType |> Types.FromDotNetType state
             | _ -> __notImplemented__()
         let term, cilState = popOperationalStack cilState
-        let cilState = {cilState with state = {state with currentTime = []}}
         let typ =
             match term with
             | Some t -> TypeOf t
