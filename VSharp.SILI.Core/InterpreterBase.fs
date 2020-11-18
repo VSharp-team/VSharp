@@ -188,7 +188,7 @@ type public ExplorerBase() =
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
                         x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton
-                k (states |> List.map (fun state -> Memory.withPathCondition state (!!typeInitialized)))
+                k states // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
     member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
         __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
@@ -257,7 +257,11 @@ type public ExplorerBase() =
 
     member x.ExploreAndCompose codeLoc state k =
         x.Explore codeLoc (Seq.map (fun summary ->
+            Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
+            Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
             let newStates = Memory.composeStates state summary.state
+            List.iter (Memory.Dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) newStates
+
             let result = Memory.fillHoles state summary.result
             List.map (withFst result) newStates) >> List.ofSeq >> List.concat >> k)
 

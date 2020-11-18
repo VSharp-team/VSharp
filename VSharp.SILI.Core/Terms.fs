@@ -21,7 +21,7 @@ type stackKey =
             match x with
             | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%O" m (lvi.ToString())
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.GetFullMethodName m) (lvi.ToString())
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =

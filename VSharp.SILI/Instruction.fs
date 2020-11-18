@@ -22,7 +22,7 @@ type ip =
         match x with
         | Instruction _ -> true
         | _ -> false
-    member x.Vertex () =
+    member x.Offset () =
         match x with
         | Instruction i -> i
         | _              -> internalfail "Could not get vertex from destination"
@@ -175,7 +175,8 @@ module internal Instruction =
         isCallOpCode opCode || isNewObjOpCode opCode
     let isFinallyClause (ehc : ExceptionHandlingClause) =
         ehc.Flags = ExceptionHandlingClauseOptions.Finally
-    let shouldExecuteFinallyClause srcOffset dstOffset (ehc : ExceptionHandlingClause) =
+    let shouldExecuteFinallyClause (src : ip) (dst : ip) (ehc : ExceptionHandlingClause) =
+        let srcOffset, dstOffset = src.Offset(), dst.Offset()
         let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
         isInside srcOffset && not <| isInside dstOffset
 

@@ -35,15 +35,22 @@ module public MappedStack =
         let idx = Dict.tryGetValue peaks key 1ul
         addToStack key value stack idx
 
+    let containsKey key (contents, peaks) = Map.containsKey key peaks && Map.containsKey (makeExtendedKey key peaks.[key]) contents
+
     let remove (contents, peaks) key =
         let idx = peakIdx peaks key
-        assert (idx > defaultPeak)
-        let key' = makeExtendedKey key idx
-        let contents' = Map.remove key' contents
-        let peaks' =
-            if idx = 1ul then Map.remove key peaks
-            else Map.add key (idx - 1ul) peaks
-        contents', peaks'
+        if containsKey key (contents, peaks) then
+            assert (idx > defaultPeak)
+            let key' = makeExtendedKey key idx
+            let contents' = Map.remove key' contents
+            let peaks' =
+                if idx = 1ul then Map.remove key peaks
+                else Map.add key (idx - 1ul) peaks
+            contents', peaks'
+        else
+            // this is a case when variable was reserved but never assigned
+            assert (idx = 0u)
+            contents, peaks
 
     let tryFind key (contents, peaks) =
         let idx = peakIdx peaks key
@@ -56,7 +63,6 @@ module public MappedStack =
         | Some term -> term
         | None -> failwith "Attempt get value by key which is not presented in stack"
 
-    let containsKey key (contents, peaks) = Map.containsKey key peaks && Map.containsKey (makeExtendedKey key peaks.[key]) contents
 
     let map f (contents, peaks) =
         Map.fold

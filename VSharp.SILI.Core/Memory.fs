@@ -41,6 +41,9 @@ type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
             | :? callSite as other when x.sourceMethod.Equals(other.sourceMethod) -> x.offset.CompareTo(other.offset)
             | :? callSite as other -> x.sourceMethod.MetadataToken.CompareTo(other.sourceMethod.MetadataToken)
             | _ -> -1
+    override x.ToString() =
+        sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
+            (Reflection.GetFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.GetFullMethodName x.calledMethod)
 
 type exceptionRegister =
     | Unhandled of term
@@ -904,8 +907,10 @@ module internal Memory =
     let private composeConcreteDictionaries state dict dict' mapValue =
         dict' |> PersistentDict.fold (fun acc k v ->
                         let k = composeTime state k
-                        assert (not <| PersistentDict.contains k dict)
-                        PersistentDict.add k (mapValue v) acc
+                        if (PersistentDict.contains k dict) then
+                            assert (PersistentDict.find dict k = mapValue v)
+                            acc
+                        else PersistentDict.add k (mapValue v) acc
                  ) dict
 
     let private composeArrayCopyInfo state (addr, reg) =
