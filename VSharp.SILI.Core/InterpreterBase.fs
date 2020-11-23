@@ -40,9 +40,6 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
-        match LegacyDatabase.querySummary codeLoc with
-        | Some r -> k r
-        | None ->
             let k = API.Reset(); fun x -> API.Restore(); k x
             CurrentlyBeingExploredLocations.Add codeLoc |> ignore
             let initClosure frames =
@@ -59,14 +56,15 @@ type public ExplorerBase() =
                 let invoke (state, this, thisIsNotNull) = x.Invoke funcId state (removePCs this thisIsNotNull)
                 let resultsAndStates =
                     initialStates |> List.map invoke |> List.concat
-//                    let state = if isMethodOfStruct then Memory.popStack state else state
+                    |> List.map (fun (result, state) -> {result = result; state = state})
                 CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                LegacyDatabase.report funcId resultsAndStates |> k
+                k resultsAndStates
+//                    let state = if isMethodOfStruct then Memory.popStack state else state
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    LegacyDatabase.report ilcode resultsAndStates |> k)
+                    resultsAndStates |> List.map (fun (result, state) -> {result = result; state = state}) |> k)
             | _ -> __notImplemented__()
 
 //    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
