@@ -40,35 +40,33 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
-        match LegacyDatabase.querySummary codeLoc with
-        | Some r -> k r
-        | None ->
-            let k = API.Reset(); fun x -> API.Restore(); k x
-            CurrentlyBeingExploredLocations.Add codeLoc |> ignore
-            let initClosure frames =
-                let state = List.foldBack (fun frame state ->
-                    let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
+        let k = API.Reset(); fun x -> API.Restore(); k x
+        CurrentlyBeingExploredLocations.Add codeLoc |> ignore
+        let initClosure frames =
+            let state = List.foldBack (fun frame state ->
+                let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
 //                        let state = {state with pc = p}
-                    Memory.NewStackFrame state frame.func fr true) frames Memory.empty
-                { state with pc = List.empty; frames = frames}
-            match codeLoc with
-            | :? IFunctionIdentifier as funcId ->
+                Memory.NewStackFrame state frame.func fr true) frames Memory.empty
+            { state with pc = List.empty; frames = frames}
+        match codeLoc with
+        | :? IFunctionIdentifier as funcId ->
 //                let state, this, thisIsNotNull(*, isMethodOfStruct*) = x.FormInitialState funcId
-                let initialStates = x.FormInitialState funcId
-                let resultsAndStates =
-                    initialStates
-                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state (List.map (fun (res, state) ->
-                            res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
-                    |> List.concat
+            let initialStates = x.FormInitialState funcId
+            let resultsAndStates =
+                initialStates
+                |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state (List.map (fun (res, state) ->
+                        res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
+                |> List.concat
+                |> List.map (fun (result, state) -> {result = result; state = state})
 //                    let state = if isMethodOfStruct then Memory.popStack state else state
-                CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                LegacyDatabase.report funcId resultsAndStates |> k
-            | :? ILCodePortion as ilcode ->
-                let state = initClosure ilcode.Frames
-                x.Invoke ilcode state (fun resultsAndStates ->
-                    CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    LegacyDatabase.report ilcode resultsAndStates |> k)
-            | _ -> __notImplemented__()
+            CurrentlyBeingExploredLocations.Remove funcId |> ignore
+            k resultsAndStates
+        | :? ILCodePortion as ilcode ->
+            let state = initClosure ilcode.Frames
+            x.Invoke ilcode state (fun resultsAndStates ->
+                CurrentlyBeingExploredLocations.Remove ilcode |> ignore
+                resultsAndStates |> List.map (fun (result, state) -> {result = result; state = state}) |> k)
+        | _ -> __notImplemented__()
 
 //    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
 //        let addr = [Memory.freshAddress()]

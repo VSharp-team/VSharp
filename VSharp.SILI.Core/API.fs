@@ -286,7 +286,3 @@ module API =
 
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g
-
-    module LegacyDatabase =
-        let QuerySummary codeLoc =
-            LegacyDatabase.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)

@@ -173,9 +173,6 @@ module API =
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a
 
-    module LegacyDatabase =
-        val QuerySummary : ICodeLocation -> codeLocationSummary list
-
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state
 //        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
