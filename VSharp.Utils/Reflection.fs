@@ -64,6 +64,30 @@ module public Reflection =
         |> join ", "
         |> sprintf "%s %s.%s(%s)" returnType.FullName methodBase.DeclaringType.FullName methodBase.Name
 
+    let public TryGetGenericMethodDefinition (methodBase : MethodBase) =
+        if not <| methodBase.IsGenericMethod then None
+        else
+            let methodInfo =
+                assert(not <| methodBase.IsConstructor)
+                methodBase :?> MethodInfo
+            let args = methodInfo.GetGenericArguments()
+            let genericMethodInfo = methodInfo.GetGenericMethodDefinition()
+            let parameters = genericMethodInfo.GetGenericArguments()
+            Some (genericMethodInfo :> MethodBase, parameters, args)
+
+    let public TryGetMethodWithGenericDeclaringType (methodBase : MethodBase) =
+        let t = methodBase.DeclaringType
+        if not <| t.IsGenericType then None
+        else
+            let actualArgs = t.GetGenericArguments()
+            let genericType = t.GetGenericTypeDefinition()
+            let genericMethod = genericType.GetMethod(methodBase.Name, allBindingFlags)
+            if genericMethod = null then None
+            else Some (genericMethod :> MethodBase, genericType.GetGenericArguments(), actualArgs)
+
+    let public IsGenericOrDeclaredInGenericType (methodBase : MethodBase) =
+        methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
+
     let public IsArrayConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 

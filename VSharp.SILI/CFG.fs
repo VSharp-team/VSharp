@@ -169,6 +169,7 @@ module public CFG =
         topTm
 
     let build (methodBase : MethodBase) =
+        Logger.trace "CFG.build: methodBase = %s" (Reflection.GetFullMethodName methodBase)
         let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()

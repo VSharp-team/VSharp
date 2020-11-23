@@ -13,19 +13,8 @@ type state = VSharp.Core.state
 
 type operationalStack = term list
 
-type ip =
-    | Instruction of offset
-    | Exit
-    | FindingHandler of offset // offset -- source of exception
-    with
-    member x.CanBeExpanded () =
-        match x with
-        | Instruction _ -> true
-        | _ -> false
-    member x.Offset () =
-        match x with
-        | Instruction i -> i
-        | _              -> internalfail "Could not get vertex from destination"
+type ip = VSharp.Core.ip
+
 type ipTransition =
     | FallThrough of offset
     | Return
@@ -53,8 +42,8 @@ type cilState =
 
     static member Empty =
         {
-            ip = Exit
-            isFinished = fun ip -> ip = Exit
+            ip = ip.ExitPointer
+            isFinished = (=) ip.ExitPointer
             recursiveVertices = []
             opStack = []
             state = VSharp.Core.API.Memory.EmptyState
@@ -176,7 +165,7 @@ module internal Instruction =
     let isFinallyClause (ehc : ExceptionHandlingClause) =
         ehc.Flags = ExceptionHandlingClauseOptions.Finally
     let shouldExecuteFinallyClause (src : ip) (dst : ip) (ehc : ExceptionHandlingClause) =
-        let srcOffset, dstOffset = src.Offset(), dst.Offset()
+        let srcOffset, dstOffset = src.Offset, dst.Offset
         let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
         isInside srcOffset && not <| isInside dstOffset
 

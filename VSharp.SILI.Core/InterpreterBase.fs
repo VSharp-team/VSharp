@@ -10,7 +10,6 @@ open System
 
 [<AbstractClass>]
 type public ExplorerBase() =
-    static let CurrentlyBeingExploredLocations = HashSet<ICodeLocation>()
 
     static let DetectUnboundRecursion (codeLoc : ICodeLocation) (s : state) =
         match codeLoc with
@@ -41,7 +40,6 @@ type public ExplorerBase() =
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
             let k = API.Reset(); fun x -> API.Restore(); k x
-            CurrentlyBeingExploredLocations.Add codeLoc |> ignore
             let initClosure frames =
                 let state = List.foldBack (fun frame state ->
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
@@ -57,23 +55,13 @@ type public ExplorerBase() =
                 let resultsAndStates =
                     initialStates |> List.map invoke |> List.concat
                     |> List.map (fun (result, state) -> {result = result; state = state})
-                CurrentlyBeingExploredLocations.Remove funcId |> ignore
                 k resultsAndStates
 //                    let state = if isMethodOfStruct then Memory.popStack state else state
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state (fun resultsAndStates ->
-                    CurrentlyBeingExploredLocations.Remove ilcode |> ignore
                     resultsAndStates |> List.map (fun (result, state) -> {result = result; state = state}) |> k)
             | _ -> __notImplemented__()
-
-//    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-//        let addr = [Memory.freshAddress()]
-//        if CurrentlyBeingExploredLocations.Contains codeLoc then
-//            __notImplemented__()
-//        else
-//            let ctx : compositionContext = { addr = addr }
-//            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
 
 
     member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) state k =
@@ -85,7 +73,7 @@ type public ExplorerBase() =
                 body state (List.map (fun (rs, s : state) -> rs, {s with currentTime = state.currentTime}) >> k)
         else
             /// explicitly unrolling
-            body state k
+            body state k // TODO: why not (List.map (fun (rs, s : state) -> rs, {s with currentTime = state.currentTime}) >> k) ?
 
     member x.EnterRecursiveRegion (codeLoc : IFunctionIdentifier) state body k =
         let shouldStopUnrolling = x.ShouldStopUnrolling codeLoc state
@@ -252,13 +240,37 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    member x.ExploreAndCompose codeLoc state k =
-        x.Explore codeLoc (Seq.map (fun summary ->
-            Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
+    member x.ExploreAndCompose (codeLoc : ICodeLocation) state k =
+        let prepareGenericsLessState (methodId : IMethodIdentifier) state =
+            let methodBase = methodId.Method
+            if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> ICodeLocation, state, false
+            else
+                let genericMethod, methodGenericDefs, methodGenericArgs =
+                    match Reflection.TryGetGenericMethodDefinition methodBase with
+                    | None -> methodBase, [||], [||]
+                    | v -> Option.get v
+                let genericMethod1, typeGenericDefs, typeGenericArgs =
+                    match Reflection.TryGetMethodWithGenericDeclaringType genericMethod with
+                    | None -> genericMethod, [||], [||]
+                    | v -> Option.get v
+                let genericDefs = Array.append methodGenericDefs typeGenericDefs |> Seq.map Id |> List.ofSeq
+                let genericArgs = Array.append methodGenericArgs typeGenericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                if List.isEmpty genericDefs then methodId :> ICodeLocation, state, false
+                else
+                    let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
+                    (x.MakeMethodIdentifier genericMethod1 :> ICodeLocation), state, true
+
+        let newCodeLoc, state, isSubstitutionNeeded =
+            match codeLoc with
+            | :? IMethodIdentifier as methodId ->
+                prepareGenericsLessState methodId state
+            | _ -> codeLoc, state, false
+
+        x.Explore newCodeLoc (Seq.map (fun summary ->
+            Logger.trace "ExploreAndCompose: Original CodeLoc = %O New CodeLoc = %O\ngot summary state = %s"  codeLoc newCodeLoc (Memory.Dump summary.state)
             Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
             let newStates = Memory.composeStates state summary.state
-            List.iter (Memory.Dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) newStates
-
+                            |> if isSubstitutionNeeded then List.map (Memory.popTypeVariablesSubstitution) else id
             let result = Memory.fillHoles state summary.result
             List.map (withFst result) newStates) >> List.ofSeq >> List.concat >> k)
 
@@ -268,10 +280,6 @@ type public ExplorerBase() =
 
     abstract member ReproduceEffect : ICodeLocation -> state -> ((term * state) list -> 'a) -> 'a
     default x.ReproduceEffect codeLoc state k =
-        if CurrentlyBeingExploredLocations.Contains codeLoc then
-            __notImplemented__()
-//            Explorer.recursionApplication codeLoc state addr k
-        else
             x.ExploreAndCompose codeLoc state k
 
 
