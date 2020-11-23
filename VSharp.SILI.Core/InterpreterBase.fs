@@ -253,7 +253,29 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    member x.ExploreAndCompose codeLoc state k =
+    member x.ExploreAndCompose (codeLoc : ICodeLocation) state k =
+        let prepareGenericsLessState (methodId : IMethodIdentifier) state =
+            let methodBase = methodId.Method
+            if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> ICodeLocation, state, false
+            else
+                let genericMethod, methodGenericDefs, methodGenericArgs =
+                    match Reflection.TryGetGenericMethodDefinition methodBase with
+                    | None -> methodBase, [||], [||]
+                    | v -> Option.get v
+                let genericMethod, typeGenericDefs, typeGenericArgs =
+                    match Reflection.TryGetMethodWithGenericDeclaringType genericMethod with
+                    | None -> genericMethod, [||], [||]
+                    | v -> Option.get v
+                let genericDefs = Array.append methodGenericDefs typeGenericDefs |> Seq.map Id |> List.ofSeq
+                let genericArgs = Array.append methodGenericArgs typeGenericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
+                (x.MakeMethodIdentifier genericMethod :> ICodeLocation), state, true
+
+        let codeLoc, state, isPopNeeded =
+            match codeLoc with
+            | :? IMethodIdentifier as methodId -> prepareGenericsLessState methodId state
+            | _ -> codeLoc, state, false
+
         x.Explore codeLoc (Seq.map (fun summary ->
             Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
             Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
