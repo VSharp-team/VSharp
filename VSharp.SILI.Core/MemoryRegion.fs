@@ -215,9 +215,7 @@ module MemoryRegion =
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
     let write mr key value =
-        if not (typeOf value = mr.typ) then
-            __notImplemented__()
-        assert(typeOf value = mr.typ)
+        assert(Types.isConcreteSubtype (typeOf value) mr.typ)
         {typ=mr.typ; updates=UpdateTree.write key value mr.updates}
 
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
