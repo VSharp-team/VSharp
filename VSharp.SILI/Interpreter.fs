@@ -59,7 +59,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
             let u = cfg.sortedOffsets.BinarySearch(startingOffset)
             if startingOffset = lastOffset then cfg.ilBytes.Length
             else cfg.sortedOffsets.[u + 1]
-        let isOffsetOfCurrentVertex (ip : ip) = startingOffset <= ip.Offset && ip.Offset < endOffset
+        let isOffsetOfCurrentVertex (ip : ip) = ip <> ExitPointer && startingOffset <= ip.Offset && ip.Offset < endOffset
         let iieThrown, cilStates = ilInterpreter.ExecuteInstructionsWhile isOffsetOfCurrentVertex cfg startingOffset cilState
         if Option.isSome iieThrown then __notImplemented__()
         cilStates |> List.filter (fun st -> st.IsFinished || not (st.ip.CanBeExpanded() && List.contains st.ip.Offset st.recursiveVertices))
@@ -302,34 +302,40 @@ and public ILInterpreter() as this =
         if targetMethod.IsAbstract
             then x.CallAbstract (x.MakeMethodIdentifier targetMethod) state k
             else
-                x.ReduceMethodBaseCall targetMethod state k
+                // TODO: this is a hack, because we don't must have FillHoles to obtain "this" right type before allocating it on frame
+                let this = Memory.ReadThis state calledMethod
+                let args = calledMethod.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
+                let state = Memory.PopStack state
+                x.ReduceFunctionSignature state targetMethod (Some this) (Specified args) false (fun rightState ->
+                x.ReduceMethodBaseCall targetMethod rightState k)
 
     member x.CallVirtualMethod (ancestorMethod : MethodInfo) (state : state) (k : state list -> 'a) =
-        __notImplemented__()
-
-//        let methodId = x.MakeMethodIdentifier ancestorMethod
-//        let this = Memory.ReadLocalVariable state (ThisKey ancestorMethod)
-//        let callVirtual cilState this k =
-//            let baseType = BaseTypeOfHeapRef state this
-////            let sightType = SightTypeOfRef this
-//            let callForConcreteType typ state k =
-//                x.CallMethodFromTermType state typ ancestorMethod k
-//            let tryToCallForBaseType cilState =
-//                StatedConditionalExecutionCIL cilState
-//                    (fun state k -> k (API.Types.TypeIsRef baseType this &&& API.Types.TypeIsType baseType sightType, state))
-//                    (callForConcreteType baseType)
-//                    (x.CallAbstract funcId)
-//            let tryToCallForSightType cilState =
-//                StatedConditionalExecutionCIL cilState
-//                    (fun state k -> k (API.Types.TypeIsRef sightType this, state))
-//                    (callForConcreteType sightType)
-//                    tryToCallForBaseType
-//            let sightDotNetType = Types.ToDotNetType sightType
-//            let baseDotNetType = Types.ToDotNetType baseType
-//            if sightDotNetType.IsInterface && baseDotNetType.IsInterface
-//                then x.CallAbstract funcId cilState k
-//                else tryToCallForSightType cilState k
-//        GuardedApply cilState this callVirtual k
+        let methodId = x.MakeMethodIdentifier ancestorMethod
+        let this = Memory.ReadThis state ancestorMethod
+        let callVirtual (state : state) this k =
+            let baseType = BaseTypeOfHeapRef state this
+//            let sightType = SightTypeOfRef this
+            let callForConcreteType typ state k =
+                x.CallMethodFromTermType state typ ancestorMethod k
+            let tryToCallForBaseType (state : state) (k : state list -> 'a) =
+                StatedConditionalExecutionAppendResults state
+                    (fun state k -> k (API.Types.TypeIsRef baseType this, state))
+ //                    (fun state k -> k (API.Types.TypeIsRef baseType this &&& API.Types.TypeIsType baseType sightType, state))
+                    (callForConcreteType baseType)
+                    (x.CallAbstract methodId)
+                    k
+ //            let tryToCallForSightType cilState =
+ //                StatedConditionalExecutionCIL cilState
+ //                    (fun state k -> k (API.Types.TypeIsRef sightType this, state))
+ //                    (callForConcreteType sightType)
+ //                    tryToCallForBaseType
+ //            let sightDotNetType = Types.ToDotNetType sightType
+            let baseDotNetType = Types.ToDotNetType baseType
+ //            if sightDotNetType.IsInterface && baseDotNetType.IsInterface
+            if baseDotNetType.IsInterface
+                then x.CallAbstract methodId state k
+                else tryToCallForBaseType state k
+        GuardedApplyForState state this callVirtual k
 
     member x.CallAbstract funcId state k =
         x.CallAbstractMethod funcId state (fun (result, state) ->
@@ -469,11 +475,11 @@ and public ILInterpreter() as this =
 
         let invoke state =
             GuardedApplyForState state methodPtr
-                (fun state methodPtr k ->
-                    BranchOnNull state target
-                        (fun _ _ -> __notImplemented__()) // TODO: check whether this situation is possible
-                        (x.ReduceMethodBaseCall (retrieveMethodInfo methodPtr))
-                        k)
+                (fun state methodPtr k -> x.ReduceMethodBaseCall (retrieveMethodInfo methodPtr) state k)
+//                    BranchOnNull state target
+//                        (fun _ _ -> __notImplemented__()) // TODO: check whether this situation is possible
+//                        (x.ReduceMethodBaseCall (retrieveMethodInfo methodPtr))
+//                        k)
 
         let typ = Types.FromDotNetType state ctor.DeclaringType
         Lambdas.make invoke typ (fun lambda ->
@@ -752,7 +758,7 @@ and public ILInterpreter() as this =
         let valueType = Types.FromDotNetType state typeof<System.ValueType>
 
         match cilState.opStack with
-        | _ :: _ when t.IsGenericParameter -> __notImplemented__() // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
+        | _ :: _ when t.IsGenericParameter -> __insufficientInformation__ "Can't introduce generic type X for equation: T = Nullable<X>"  // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
         | obj :: stack ->
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (Types.TypeIsType termType valueType, state))

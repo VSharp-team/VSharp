@@ -648,6 +648,11 @@ namespace VSharp.Test.Tests
             {
                 return x;
             }
+
+            public void SetX(int newX)
+            {
+                x = newX;
+            }
         }
 
         public class ClassWithStructInside
@@ -736,8 +741,16 @@ namespace VSharp.Test.Tests
             return checked(x + y);
         }
 
+        public class ClassWithCCtor
+        {
+            public static object _f = new PDR.ClassWithOneField();
+        }
 
-
+        [Ignore("Can't execute static cctor of System.Type, because of MemoryRegion.write's __notImplemented__()")]
+        public static object CallStaticCtor()
+        {
+            return ClassWithCCtor._f;
+        }
 
 
         // [TestSvm]

@@ -130,7 +130,9 @@ module public CFG =
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
                     let calledMethod = Instruction.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
-                    data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
+                    if data.offsetsDemandingCall.ContainsKey(v) then
+                        assert(data.offsetsDemandingCall.[v] = (opCode, calledMethod))
+                    else data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
                     markVertex data.verticesOffsets v
                     markVertex data.verticesOffsets offset
                     data.fallThroughOffset.[v] <- Some offset

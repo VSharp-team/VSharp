@@ -262,24 +262,28 @@ type public ExplorerBase() =
                     match Reflection.TryGetGenericMethodDefinition methodBase with
                     | None -> methodBase, [||], [||]
                     | v -> Option.get v
-                let genericMethod, typeGenericDefs, typeGenericArgs =
+                let genericMethod1, typeGenericDefs, typeGenericArgs =
                     match Reflection.TryGetMethodWithGenericDeclaringType genericMethod with
                     | None -> genericMethod, [||], [||]
                     | v -> Option.get v
                 let genericDefs = Array.append methodGenericDefs typeGenericDefs |> Seq.map Id |> List.ofSeq
                 let genericArgs = Array.append methodGenericArgs typeGenericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
-                let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
-                (x.MakeMethodIdentifier genericMethod :> ICodeLocation), state, true
+                if List.isEmpty genericDefs then methodId :> ICodeLocation, state, false
+                else
+                    let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
+                    (x.MakeMethodIdentifier genericMethod1 :> ICodeLocation), state, true
 
         let codeLoc, state, isPopNeeded =
             match codeLoc with
-            | :? IMethodIdentifier as methodId -> prepareGenericsLessState methodId state
+            | :? IMethodIdentifier as methodId ->
+                prepareGenericsLessState methodId state
             | _ -> codeLoc, state, false
 
         x.Explore codeLoc (Seq.map (fun summary ->
             Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
             Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
             let newStates = Memory.composeStates state summary.state
+                            |> if isPopNeeded then List.map Memory.popTypeVariablesSubstitution else id
             List.iter (Memory.Dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) newStates
 
             let result = Memory.fillHoles state summary.result

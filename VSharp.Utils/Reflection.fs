@@ -81,8 +81,9 @@ module public Reflection =
         else
             let actualArgs = t.GetGenericArguments()
             let genericType = t.GetGenericTypeDefinition()
-            let genericMethod = genericType.GetMethod(methodBase.Name)
-            Some (genericMethod :> MethodBase, genericType.GetGenericArguments(), actualArgs)
+            let genericMethod = genericType.GetMethod(methodBase.Name, allBindingFlags)
+            if genericMethod = null then None
+            else Some (genericMethod :> MethodBase, genericType.GetGenericArguments(), actualArgs)
 
     let public IsGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType

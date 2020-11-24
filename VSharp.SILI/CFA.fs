@@ -278,7 +278,7 @@ module public CFA =
                 let this, cilState =
                     match calledMethod with
                     | _ when opCode = OpCodes.Newobj ->
-                        let state = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args (List.head) // TODO: what if newobj returns a lot of references and states?
+                        let state = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id |> List.head // TODO: what if newobj returns a lot of references and states?
                         assert(Option.isSome state.returnRegister)
                         let reference = Option.get state.returnRegister
                         Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = reference :: cilStateWithoutArgs.opStack}
