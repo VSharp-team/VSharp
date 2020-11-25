@@ -109,14 +109,16 @@ module public CFG =
     let private markVertex (set : HashSet<offset>) vOffset =
         set.Add vOffset |> ignore
 
-    let private dfs methodBase (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
+    let private dfs (methodBase : MethodBase) (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
         let rec dfs'  (v : offset) = //(v : offset, balance)  =
             if used.Contains v
             then () // Prelude.releaseAssert(balance = data.visitedOffsetsOperationalStackBalance.[v])
             else
-                used.Add(v) |> ignore
+                let wasAdded = used.Add(v)
+                assert(wasAdded)
 //                data.visitedOffsetsOperationalStackBalance.[v] <- balance
                 let opCode = Instruction.parseInstruction ilBytes v
+                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.GetFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
 
                 let dealWithJump src dst =
@@ -145,14 +147,14 @@ module public CFG =
                 | UnconditionalBranch target -> dealWithJump v target
                 | ConditionalBranch offsets -> offsets |> List.iter (dealWithJump v)
         dfs' v
-    let private dfsComponent methodBase (data : interimData) (ilBytes : byte []) startOffset =
+    let private dfsComponent methodBase (data : interimData) used (ilBytes : byte []) startOffset =
         markVertex data.verticesOffsets startOffset
-        dfs methodBase data (new HashSet<int>()) ilBytes startOffset
+        dfs methodBase data used ilBytes startOffset
 
-    let private dfsExceptionHandlingClause methodBase (data : interimData) (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
+    let private dfsExceptionHandlingClause methodBase (data : interimData) used (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
         if ehc.Flags = ExceptionHandlingClauseOptions.Filter
-        then dfsComponent methodBase data ilBytes ehc.FilterOffset
-        dfsComponent methodBase data ilBytes ehc.HandlerOffset // some catch handlers may be nested
+        then dfsComponent methodBase data used ilBytes ehc.FilterOffset
+        dfsComponent methodBase data used ilBytes ehc.HandlerOffset // some catch handlers may be nested
 
     // TODO: rewrite this code in functional style!
     let topDfs cnt (gr : graph) =
@@ -170,7 +172,8 @@ module public CFG =
         let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()
-        dfsComponent methodBase interimData ilBytes 0
-        Seq.iter (dfsExceptionHandlingClause methodBase interimData ilBytes) methodBody.ExceptionHandlingClauses
+        let used = HashSet<offset>()
+        dfsComponent methodBase interimData used ilBytes 0
+        Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
         let cfg = addVerticesAndEdges cfgData interimData
         {cfg with topologicalTimes = topDfs cfg.sortedOffsets.Count cfg.graph}
