@@ -19,7 +19,7 @@ module internal LegacyDatabase =
         assert(not (summaries.ContainsKey codeLoc))
         let summary = List.map (fun (result, state) -> { result = result; state = state}) resultsAndStates
         printLog Info "For %O got %O state%s\n%O\n\n" codeLoc resultsAndStates.Length (if resultsAndStates.Length > 1 then "s" else "")
-            (summary |> List.map (fun summary -> sprintf "Result: %O; %O" summary.result (Memory.dump summary.state)) |> join "\n")
+            (summary |> List.map (fun summary -> sprintf "Result: %O;\n%O" summary.result (Memory.dump summary.state)) |> join "\n")
         summaries.Add(codeLoc, summary) |> ignore
         summary
 

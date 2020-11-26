@@ -598,7 +598,7 @@ module internal Memory =
         let mr = accessRegion state.classFields field symbolicType
         let key = {address = addr}
         let mr' = MemoryRegion.write mr key value
-        { state with classFields = PersistentDict.add field mr' state.classFields  }
+        { state with classFields = PersistentDict.add field mr' state.classFields }
 
     let writeArrayIndex state addr indices arrayType value =
         let elementType = fst3 arrayType

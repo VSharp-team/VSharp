@@ -144,8 +144,6 @@ module API =
     module public Memory =
         let EmptyState = Memory.empty
 
-        let IsNullReference term = Merging.guardedApply Pointers.isNull term
-
         let PopStack state = Memory.popStack state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state funcId parametersAndThis isEffect = Memory.newStackFrame state funcId parametersAndThis isEffect

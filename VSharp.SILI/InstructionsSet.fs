@@ -395,7 +395,6 @@ module internal InstructionsSet =
         | [_, st] -> brtrueFunction newOffsets st
         | _ -> internalfail errorStr
     let compare op operand1Transformation operand2Transformation (cilState : cilState) =
-        let pc = cilState.state.pc
         match cilState.opStack with
         | _ :: arg1 :: _ ->
             let typ = TypeOf arg1

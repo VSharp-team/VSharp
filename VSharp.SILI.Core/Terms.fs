@@ -259,13 +259,6 @@ module internal Terms =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
         HashMap.addTerm (Union gvs)
 
-    // TODO: get rid of fql reversing (by changing fql) (a lot of bugs are hidden here)
-    let reverseFQL fql = mapsnd List.rev fql
-    let reverseOptionFQL fql = Option.map reverseFQL fql
-
-    let addToFQL key fql = mapsnd (cons key) fql
-    let addToOptionFQL fql key = Option.map (addToFQL key) fql
-
     let castReferenceToPointer targetType = term >> function
         | Ref address -> Ptr (Some address) targetType None
         | Ptr(address, _, None) -> Ptr address targetType None
@@ -303,11 +296,6 @@ module internal Terms =
     let fieldsOf = term >> function
         | Struct(fields, _) -> fields
         | term -> internalfailf "struct or class expected, %O received" term
-
-//    let sightTypeOfFQL (tl : refTopLevelAddress, path) =
-//        match path with
-//        | [] -> tl.SightType
-//        | path -> typeOfPath path
 
     let private typeOfUnion getType gvs =
         let nonEmptyTypes = List.choose (fun (_, v) -> if isVoid v then None else Some (getType v)) gvs

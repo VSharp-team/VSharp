@@ -147,11 +147,6 @@ module internal TypeCasting =
             | _ -> typeIsType (typeOf term) targetType
         Merging.guardedApply castCheck term
 
-    let isCast term targetType =
-        Common.statelessConditionalExecutionWithMerge
-            (fun k -> Pointers.isNull term |> k)
-            (fun k -> k False)
-            (fun k -> canCast term targetType |> k)
 
     let cast term targetType =
         let castUnguarded term =

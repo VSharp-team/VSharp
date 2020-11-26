@@ -48,7 +48,6 @@ type public ExplorerBase() =
             let initClosure frames =
                 let state = List.foldBack (fun frame state ->
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
-//                        let state = {state with pc = p}
                     Memory.NewStackFrame state frame.func fr true) frames Memory.empty
                 { state with pc = PC.empty; frames = frames}
             match codeLoc with

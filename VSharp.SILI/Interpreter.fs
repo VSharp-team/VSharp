@@ -418,7 +418,7 @@ and public ILInterpreter() as this =
         let term = castReferenceToPointerIfNeeded term typ state
         StatedConditionalExecutionAppendResults state
             (fun state k -> k (IsNullReference term ||| Types.IsCast typ term, state))
-            (fun state k -> k [{state with returnRegister = Some <|Types.Cast term typ}])
+            (fun state k -> k [{state with returnRegister = Some <| Types.Cast term typ}])
             (x.Raise x.InvalidCastException)
             k
     member private x.CastClass (cfg : cfg) offset (cilState : cilState) : cilState list =
