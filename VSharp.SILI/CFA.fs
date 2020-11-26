@@ -175,9 +175,9 @@ module public CFA =
         override x.PropagatePath (path : path) =
 
             Memory.ComposeStates path.state effect (fun states ->
-                x.PrintLog "composition left"  <| Memory.Dump path.state
-                x.PrintLog "composition right" <| Memory.Dump effect
-                x.PrintLog (sprintf "composition resulted in %d states" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
+                x.PrintLog "composition left:\n"  <| Memory.Dump path.state
+                x.PrintLog "composition right:\n" <| Memory.Dump effect
+                x.PrintLog (sprintf "composition resulted in %d states:\n" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
                 assert(List.forall (fun state -> path.state.frames = state.frames) states)
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
                 List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states)
@@ -202,9 +202,9 @@ module public CFA =
             let k states =
                 let propagateStateAfterCall acc state =
                     assert(path.state.frames = state.frames)
-                    x.PrintLog "propagation through callEdge" callSite
-                    x.PrintLog "call edge: composition left" (Memory.Dump path.state)
-                    x.PrintLog "call edge: composition result" (Memory.Dump state)
+                    x.PrintLog "propagation through callEdge:\n" callSite
+                    x.PrintLog "call edge: composition left:\n" (Memory.Dump path.state)
+                    x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
                     let result' = x.CommonPropagatePath (path.lvl + 1u) {state with callSiteResults = addCallSiteResult path.state.callSiteResults callSite state.returnRegister
                                                                                     returnRegister = None}
                     acc || result'

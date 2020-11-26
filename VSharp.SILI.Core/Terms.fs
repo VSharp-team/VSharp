@@ -111,6 +111,7 @@ type termNode =
             | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
                 sprintf "<Lambda Expression %O>" t
             | Concrete(_, Null) -> "null"
+            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> "null"
             | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
             | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c
             | Concrete(:? concreteHeapAddress as k, AddressType) -> VectorTime.print k
@@ -144,6 +145,7 @@ type termNode =
                     sprintf "| %s ~> %s" guardString termString
                 let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
                 formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]"
+            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> "NullRef"
             | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType
             | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address
             | Ptr(address, typ, shift) ->

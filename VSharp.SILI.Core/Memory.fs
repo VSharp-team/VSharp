@@ -1012,11 +1012,11 @@ module internal Memory =
             let sb = dumpSection "Stack" sb
             sb.Append(sb1)
 
-    let private dumpDict section sorter keyToString valueToString (sb : StringBuilder) d =
+    let private dumpDict section keyToString valueToString (sb : StringBuilder) d =
         if PersistentDict.isEmpty d then sb
         else
             let sb = dumpSection section sb
-            PersistentDict.dump d sorter keyToString valueToString |> appendLine sb
+            PersistentDict.dump d keyToString keyToString valueToString |> appendLine sb
 
     let private arrayTypeToString (elementType, dimension, isVector) =
         if isVector then ArrayType(elementType, Vector)
@@ -1027,15 +1027,15 @@ module internal Memory =
         // TODO: print stack and lower bounds?
         let sb = StringBuilder()
         let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> appendLine sb
-        let sb = dumpDict "Fields" id toString (MemoryRegion.toString "    ") sb s.classFields
-        let sb = dumpDict "Array contents" id arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
-        let sb = dumpDict "Array lengths" id arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
-        let sb = dumpDict "Boxed items" id VectorTime.print toString sb s.boxedLocations
-        let sb = dumpDict "Types tokens" id VectorTime.print toString sb s.allocatedTypes
-        let sb = dumpDict "Static fields" id toString (MemoryRegion.toString "    ") sb s.staticFields
-        let sb = dumpDict "Array copies" id VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
-        let sb = dumpDict "Array copies (ext)" id VectorTime.print toString sb s.extendedCopies
-        let sb = dumpDict "Delegates" id VectorTime.print toString sb s.delegates
+        let sb = dumpDict "Fields" toString (MemoryRegion.toString "    ") sb s.classFields
+        let sb = dumpDict "Array contents" arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
+        let sb = dumpDict "Array lengths" arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
+        let sb = dumpDict "Boxed items" VectorTime.print toString sb s.boxedLocations
+        let sb = dumpDict "Types tokens" VectorTime.print toString sb s.allocatedTypes
+        let sb = dumpDict "Static fields" toString (MemoryRegion.toString "    ") sb s.staticFields
+        let sb = dumpDict "Array copies" VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
+        let sb = dumpDict "Array copies (ext)" VectorTime.print toString sb s.extendedCopies
+        let sb = dumpDict "Delegates" VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
         let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
         if sb.Length = 0 then "<Empty>" else sb.ToString()
