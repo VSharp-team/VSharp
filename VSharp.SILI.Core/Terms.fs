@@ -444,8 +444,8 @@ module internal Terms =
     let zeroAddress =
         Concrete VectorTime.zero AddressType
 
-    let makeNullRef typ =
-        HeapRef zeroAddress typ
+    let nullRef =
+        HeapRef zeroAddress Null
 
     let makeNullPtr typ =
         Ptr None typ None
@@ -657,8 +657,8 @@ module internal Terms =
         | Numeric(Id t) -> castConcrete 0 t
         | ArrayType _
         | ClassType _
-        | InterfaceType _ -> makeNullRef typ
-        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> makeNullRef typ
+        | InterfaceType _ -> nullRef
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> nullRef
         | TypeVariable(Id t) -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
         | StructType _ -> makeStruct false (fun _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ

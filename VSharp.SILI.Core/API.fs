@@ -46,10 +46,10 @@ module API =
 
         let True = True
         let False = False
+        let NullRef = nullRef
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        let MakeNullRef typ = makeNullRef typ
 
         let TypeOf term = typeOf term
         let rec BaseTypeOfHeapRef state ref =

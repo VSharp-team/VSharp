@@ -671,7 +671,7 @@ and public ILInterpreter() as this =
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (hasValue, state))
                 hasValueCase
-                (fun state k -> k [{state with returnRegister = Some <| MakeNullRef (Types.FromDotNetType state t)}])
+                (fun state k -> k [{state with returnRegister = Some NullRef}])
                 k
 
         x.ReduceFunctionSignature cilState.state hasValueMethodInfo (Some v) (Specified []) false (fun state ->

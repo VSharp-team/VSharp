@@ -38,12 +38,12 @@ module API =
 
         val True : term
         val False : term
+        val NullRef : term
 
         val MakeBool : bool -> term
 
         val MakeFunctionResultConstant : state -> callSite -> term
         val MakeNumber : 'a -> term
-        val MakeNullRef : symbolicType -> term
 
         val TypeOf : term -> symbolicType
         val BaseTypeOfHeapRef : state -> term -> symbolicType

@@ -171,6 +171,7 @@ module internal TypeCasting =
                     (fun k -> k <| makeNullRef targetType)
                     (fun k -> k <| doCast term targetType)
                     k
+            | Null -> nullRef |> k
             | _ -> __unreachable__()
         Merging.guardedApplyk castUnguarded term k
 
