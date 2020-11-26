@@ -262,7 +262,7 @@ module internal Z3 =
 
             member x.AddPath (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
-                printLogLazy Trace "    %s" (lazy(p.state.pc |> List.map toString |> join " /\\ \n     "))
+                printLogLazy Trace "    %s" (lazy(p.state.pc |> PC.mapSeq toString |> join " /\\ \n     "))
                 let pathAtom = addPath p
-                let encoded = List.map builder.EncodeTerm p.state.pc |> ctx.MkAnd
+                let encoded = PC.mapSeq builder.EncodeTerm p.state.pc |> ctx.MkAnd
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))

@@ -90,9 +90,7 @@ module public CFA =
         member x.Dst = dst
         member x.Method = x.Src.Method
         member x.CommonPropagatePath lvl state =
-            let pc = List.filter (fun cond -> cond <> Terms.True) state.pc
-            let state = {state with pc = pc}
-            let newPc = List.fold (fun pc cond -> pc &&& cond) Terms.True state.pc
+            let newPc = PC.squashPC state.pc
             if newPc <> Terms.False then
                 if dst.IsMethodExitVertex then ()
                 dst.Paths.Add {lvl = lvl; state = state}

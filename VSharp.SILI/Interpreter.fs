@@ -43,9 +43,9 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         | _ -> __notImplemented__()
     override x.MakeEpsilonState (ist : cilState) =
         let state = ist.state
-        let pcForEpsilon = !! (conjunction state.pc)
+        let pcForEpsilon = !! (PC.squashPC state.pc)
         let state = { Memory.EmptyState with
-                        pc = [pcForEpsilon]
+                        pc = PC.add PC.empty pcForEpsilon
                         frames = state.frames
                         stack = (fst Memory.EmptyState.stack, snd state.stack)
                     }

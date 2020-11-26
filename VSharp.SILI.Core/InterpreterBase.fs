@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+namespace VSharp.Core
 
 #nowarn "69"
 
@@ -50,16 +50,16 @@ type public ExplorerBase() =
                     let fr = frame.entries |> List.map (fun e -> e.key, Unspecified, e.typ)
 //                        let state = {state with pc = p}
                     Memory.NewStackFrame state frame.func fr true) frames Memory.empty
-                { state with pc = List.empty; frames = frames}
+                { state with pc = PC.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
 //                let state, this, thisIsNotNull(*, isMethodOfStruct*) = x.FormInitialState funcId
                 let initialStates = x.FormInitialState funcId
+                let removePCs this thisIsNotNull =
+                    List.map (fun (res, state) -> res, if Option.isSome this && thisIsNotNull <> True then Memory.removePathCondition state thisIsNotNull else state)
+                let invoke (state, this, thisIsNotNull) = x.Invoke funcId state (removePCs this thisIsNotNull)
                 let resultsAndStates =
-                    initialStates
-                    |> List.map (fun (state, this, thisIsNotNull) -> x.Invoke funcId state (List.map (fun (res, state) ->
-                            res, if Option.isSome this && thisIsNotNull <> True then Memory.popPathCondition state else state)))
-                    |> List.concat
+                    initialStates |> List.map invoke |> List.concat
 //                    let state = if isMethodOfStruct then Memory.popStack state else state
                 CurrentlyBeingExploredLocations.Remove funcId |> ignore
                 LegacyDatabase.report funcId resultsAndStates |> k

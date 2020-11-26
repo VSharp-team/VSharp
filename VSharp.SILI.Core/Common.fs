@@ -71,16 +71,16 @@ module internal Common =
 //                    | _ -> execution condition k
 //        conditionInvocation (fun condition ->
 //        Merging.commonGuardedErroredApplyk chooseBranch errorHandler condition merge k)
-    let commonStatelessConditionalExecutionk conditionInvocation thenBranch elseBranch merge merge2 k =
-        let chooseBranch condition k =
-            match condition with
-            | Terms.True ->  thenBranch k
-            | Terms.False -> elseBranch k
-            | _ -> thenBranch (fun thenResult ->
-                   elseBranch (fun elseResult ->
-                   k <| merge2 condition !!condition thenResult elseResult))
-        conditionInvocation (fun condition ->
-        Merging.commonGuardedApplyk chooseBranch condition merge k)
 
-    let statelessConditionalExecutionWithMergek conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecutionk conditionInvocation thenBranch elseBranch Merging.merge Merging.merge2Terms k
-    let statelessConditionalExecutionWithMerge conditionInvocation thenBranch elseBranch = statelessConditionalExecutionWithMergek conditionInvocation thenBranch elseBranch id
+    let commonStatelessConditionalExecutionk conditionInvocation thenBranch elseBranch merge2 k =
+        let execution condition k =
+            thenBranch (fun thenResult ->
+            elseBranch (fun elseResult ->
+            k <| merge2 condition !!condition thenResult elseResult))
+        conditionInvocation (fun condition ->
+        match condition with
+        | Terms.True ->  thenBranch k
+        | Terms.False -> elseBranch k
+        | _ -> execution condition k)
+
+    let statelessConditionalExecutionWithMergek conditionInvocation thenBranch elseBranch k = commonStatelessConditionalExecutionk conditionInvocation thenBranch elseBranch Merging.merge2Terms k

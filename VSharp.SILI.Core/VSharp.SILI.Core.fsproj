@@ -10,6 +10,7 @@
         <Compile Include="Types.fs" />
         <Compile Include="Terms.fs" />
         <Compile Include="Propositional.fs" />
+        <Compile Include="PathCondition.fs" />
         <Compile Include="Merging.fs" />
         <Compile Include="Common.fs" />
         <Compile Include="Arithmetics.fs" />

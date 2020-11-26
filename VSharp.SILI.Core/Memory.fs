@@ -10,8 +10,6 @@ open VSharp.Utils
 
 #nowarn "69"
 
-type pathCondition = term list
-
 type stack = mappedStack<stackKey, term>
 type entry = { key : stackKey; typ : symbolicType }
 type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
@@ -124,7 +122,7 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let empty = {
-        pc = List.empty
+        pc = PC.empty
         returnRegister = None
         exceptionsRegister = NoException
         callSiteResults = Map.empty
@@ -152,11 +150,8 @@ module internal Memory =
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         if isZeroAddress a2 then a2 else a1 @ a2
 
-    let withPathCondition (s : state) cond : state = { s with pc = cond::s.pc }
-    let popPathCondition (s : state) : state =
-        match s.pc with
-        | [] -> internalfail "cannot pop empty path condition"
-        | _::p' -> { s with pc = p' }
+    let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
+    let removePathCondition (s : state) cond : state = { s with pc = PC.remove s.pc cond }
 
 // ------------------------------- Stack -------------------------------
 
@@ -549,7 +544,7 @@ module internal Memory =
         | Union gvs ->
             let foldFunc (g, v) k =
                 // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
-                let pc = Propositional.conjunction (g :: state.pc)
+                let pc = PC.squashPCWithCondition state.pc g
                 match pc with
                 | False -> k None
                 | _ -> f (withPathCondition state g) v (Some >> k)
@@ -572,8 +567,8 @@ module internal Memory =
         conditionInvocation state (fun (condition, conditionState) ->
         // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
         // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenCondition = condition::conditionState.pc |> conjunction
-        let elseCondition = (!!condition)::conditionState.pc |> conjunction
+        let thenCondition = PC.squashPCWithCondition conditionState.pc condition
+        let elseCondition = PC.squashPCWithCondition conditionState.pc (!!condition)
         match thenCondition, elseCondition with
         | False, _ -> elseBranch conditionState (List.singleton >> k)
         | _, False -> thenBranch conditionState (List.singleton >> k)
@@ -936,7 +931,7 @@ module internal Memory =
             let prefix = if VectorTime.lessOrEqual suffix state'.startingTime then prefix else state.currentTime
             // Hacking return register to propagate starting time of state' into composeTime
             let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
-            let pc = List.map (fillHoles state) state'.pc |> List.append state.pc
+            let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
             let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
@@ -958,7 +953,7 @@ module internal Memory =
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
-                    pc = if isTrue g then pc else g::pc
+                    pc = if isTrue g then pc else PC.add pc g
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     callSiteResults = callSiteResults
@@ -1027,7 +1022,7 @@ module internal Memory =
             |> toString
         // TODO: print stack and lower bounds?
         let sb = StringBuilder()
-        let sb = if s.pc.IsEmpty then sb else (s.pc |> List.map toString |> join " /\ " |> sprintf ("Path condition: %s") |> sb.AppendLine)
+        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> sb.AppendLine
         let sb = dumpDict "Fields" id toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Array contents" id arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
         let sb = dumpDict "Array lengths" id arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
