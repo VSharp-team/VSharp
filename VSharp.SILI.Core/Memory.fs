@@ -380,7 +380,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) VectorTime.zero
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) s.startingTime
 
     let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
@@ -411,7 +411,7 @@ module internal Memory =
         let instantiate typ memory =
             let copiedMemory = readArrayCopy state arrayType extractor addr indices
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key VectorTime.zero typ (MemoryRegion.deterministicCompose copiedMemory memory)
+            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime typ (MemoryRegion.deterministicCompose copiedMemory memory)
         MemoryRegion.read region key isDefault instantiate
 
     and readArrayRegionExt state arrayType extractor region addr indices (*copy info follows*) srcIndex dstIndex length dstType =
@@ -775,8 +775,9 @@ module internal Memory =
 // ------------------------------- Composition -------------------------------
 
     let private composeTime (state : state) time =
-        if VectorTime.lessOrEqual time state.startingTime then time
-        else composeAddresses state.currentTime time
+        match state.returnRegister with
+        | Some(ConcreteT((:? vectorTime as startingTime), _)) when VectorTime.lessOrEqual time startingTime -> time
+        | _ -> composeAddresses state.currentTime time
 
     let rec private fillHole state term =
         match term.term with
@@ -931,11 +932,10 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let startingTime = state.startingTime
             let prefix, suffix = List.splitAt (List.length state.currentTime - List.length state'.startingTime) state.currentTime
             let prefix = if VectorTime.lessOrEqual suffix state'.startingTime then prefix else state.currentTime
-            // TODO: is this hack correct? We wish to fillHoles only in *potentially overlapping allocated* in state' addresses
-            let state = {state with startingTime = state'.startingTime; currentTime = prefix}
+            // Hacking return register to propagate starting time of state' into composeTime
+            let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
             let pc = List.map (fillHoles state) state'.pc |> List.append state.pc
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
@@ -978,7 +978,7 @@ module internal Memory =
                     extendedCopies = extendedCopies
                     delegates = delegates
                     currentTime = currentTime
-                    startingTime = startingTime
+                    startingTime = state.startingTime
                 }
         }
 

@@ -186,10 +186,19 @@ namespace VSharp.Test.Tests
             }
         }
 
+        public static void SequentialNewClassesWithOneField()
+        {
+            new ClassWithOneField();
+            new ClassWithOneField();
+            new ClassWithOneField();
+            new ClassWithOneField();
+        }
+
         [TestSvm]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
+            SequentialNewClassesWithOneField();
             for (int i = 0; i < 5; ++i)
             {
                 new object();
