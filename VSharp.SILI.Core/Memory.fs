@@ -997,12 +997,15 @@ module internal Memory =
 
 // ------------------------------- Pretty-printing -------------------------------
 
+    let private appendLine (sb : StringBuilder) (str : string) =
+        sb.Append(str).Append('\n')
+
     let private dumpSection section (sb : StringBuilder) =
-        sprintf "--------------- %s: ---------------" section |> sb.AppendLine
+        sprintf "--------------- %s: ---------------" section |> appendLine sb
 
     let private dumpStack (sb : StringBuilder) stack =
         let print (sb : StringBuilder) k v =
-            sprintf "key = %O, value = %O" k v |> sb.AppendLine
+            sprintf "key = %O, value = %O" k v |> appendLine sb
         let sb1 = MappedStack.fold print (StringBuilder()) stack
         if sb1.Length = 0 then sb
         else
@@ -1013,16 +1016,17 @@ module internal Memory =
         if PersistentDict.isEmpty d then sb
         else
             let sb = dumpSection section sb
-            PersistentDict.dump d sorter keyToString valueToString |> sb.AppendLine
+            PersistentDict.dump d sorter keyToString valueToString |> appendLine sb
+
+    let private arrayTypeToString (elementType, dimension, isVector) =
+        if isVector then ArrayType(elementType, Vector)
+        else ArrayType(elementType, ConcreteDimension dimension)
+        |> toString
 
     let dump (s : state) =
-        let arrayTypeToString (elementType, dimension, isVector) =
-            if isVector then ArrayType(elementType, Vector)
-            else ArrayType(elementType, ConcreteDimension dimension)
-            |> toString
         // TODO: print stack and lower bounds?
         let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> sb.AppendLine
+        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> appendLine sb
         let sb = dumpDict "Fields" id toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Array contents" id arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
         let sb = dumpDict "Array lengths" id arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
@@ -1033,5 +1037,5 @@ module internal Memory =
         let sb = dumpDict "Array copies (ext)" id VectorTime.print toString sb s.extendedCopies
         let sb = dumpDict "Delegates" id VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
-        let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> sb.AppendLine
+        let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
         if sb.Length = 0 then "<Empty>" else sb.ToString()
