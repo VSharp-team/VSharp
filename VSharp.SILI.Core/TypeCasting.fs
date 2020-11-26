@@ -153,27 +153,21 @@ module internal TypeCasting =
             (fun k -> k False)
             (fun k -> canCast term targetType |> k)
 
-    let rec cast term targetType k =
-        let castUnguarded term k =
+    let cast term targetType =
+        let castUnguarded term =
             match typeOf term with
-            | t when t = targetType -> k term
+            | t when t = targetType -> term
             | Bool
-            | Numeric _ ->
-                primitiveCast term targetType |> k
+            | Numeric _ -> primitiveCast term targetType
             | Pointer _
-            | StructType _ -> k <| doCast term targetType
+            | StructType _
             | ClassType _
             | InterfaceType _
             | TypeVariable _
-            | ArrayType _ ->
-                Common.statelessConditionalExecutionWithMergek
-                    (fun k -> k <| Pointers.isNull term)
-                    (fun k -> k <| makeNullRef targetType)
-                    (fun k -> k <| doCast term targetType)
-                    k
-            | Null -> nullRef |> k
+            | ArrayType _ -> doCast term targetType
+            | Null -> nullRef
             | _ -> __unreachable__()
-        Merging.guardedApplyk castUnguarded term k
+        Merging.guardedApply castUnguarded term
 
     let castReferenceToPointer state reference =
         let getType ref =
