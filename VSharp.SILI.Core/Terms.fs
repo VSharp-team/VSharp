@@ -298,13 +298,15 @@ module internal Terms =
         | term -> internalfailf "struct or class expected, %O received" term
 
     let private typeOfUnion getType gvs =
-        let nonEmptyTypes = List.choose (fun (_, v) -> if isVoid v then None else Some (getType v)) gvs
+        let chooseTypes (_, v) =
+            let typ = getType v
+            if Types.isVoid typ || Types.isNull typ then None else Some typ
+        let nonEmptyTypes = List.choose chooseTypes gvs
         match nonEmptyTypes with
         | [] -> Null
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 
