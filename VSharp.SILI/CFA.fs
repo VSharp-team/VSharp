@@ -38,6 +38,18 @@ module public CFA =
         let incomingEdges: List<Edge> = List<_>()
         let outgoingEdges: List<Edge> = List<_>()
 
+        override x.GetHashCode() = (m, ip).GetHashCode()
+        override x.Equals(o : obj) =
+            match o with
+            | :? Vertex as other -> x.Method = other.Method && x.Ip = other.Ip
+            | _ -> false
+        interface System.IComparable with
+            override x.CompareTo(other) =
+                match other with
+                | :? Vertex as other when x.Method.Equals(other.Method) -> x.GetHashCode().CompareTo(other.GetHashCode())
+                | :? Vertex as other -> x.Method.MetadataToken.CompareTo(other.Method.MetadataToken)
+                | _ -> -1
+
         member x.AddErroredStates (newErrors : cilState list) =
             errors.AddRange(newErrors)
 
@@ -404,12 +416,14 @@ module public CFA =
 
 type StepInterpreter() =
     inherit ILInterpreter()
-    let visitedVertices : persistent<Dictionary<CFA.Vertex, uint32>> =
-        let r = new persistent<_>(always (Dictionary<_,_>()), id) in r.Reset(); r
+    let visitedVertices : persistent<Map<CFA.Vertex, uint32>> =
+        let r = new persistent<_>(always Map.empty, id) in r.Reset(); r
     let incrementCounter vertex =
-        if not <| visitedVertices.Value.ContainsKey vertex then
-            visitedVertices.Value.[vertex] <- 1u
-        else visitedVertices.Value.[vertex] <- 1u + visitedVertices.Value.[vertex]
+        match visitedVertices.Value.ContainsKey vertex with
+        | true ->
+            let cnt = Map.find vertex visitedVertices.Value
+            visitedVertices.Mutate (Map.add vertex (cnt + 1u) visitedVertices.Value)
+        | _ -> visitedVertices.Mutate (Map.add vertex 1u visitedVertices.Value)
     override x.ReproduceEffect codeLoc state k = x.ExploreAndCompose codeLoc state k
     override x.CreateInstance exceptionType arguments state : state list =
         let error = Nop
