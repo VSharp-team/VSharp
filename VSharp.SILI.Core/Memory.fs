@@ -258,10 +258,13 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private stackReading =
-        {key : stackKey; time : vectorTime}
+        {key : stackKey; time : vectorTime option}
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = Seq.empty
-            override x.Time = x.time
+            override x.Time =
+                match x.time with
+                | Some time -> time
+                | None -> internalfailf "Requesting time of primitive stack location %O" x.key
             override x.TypeOfLocation = x.key.TypeOfLocation
 
     [<StructuralEquality;NoComparison>]
@@ -351,7 +354,7 @@ module internal Memory =
     let makeSymbolicThis (m : System.Reflection.MethodBase) =
         let declaringType = m.DeclaringType |> fromDotNetType
         if Types.isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} AddressType) declaringType
+        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 
 // ------------------------------- Reading -------------------------------
 
@@ -375,7 +378,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) s.startingTime
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if Types.isValueType key.TypeOfLocation then None else Some s.startingTime)
 
     let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
