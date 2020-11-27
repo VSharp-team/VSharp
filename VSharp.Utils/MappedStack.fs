@@ -54,7 +54,6 @@ module public MappedStack =
 
     let tryFind key (contents, peaks) =
         let idx = peakIdx peaks key
-        assert (idx > defaultPeak)
         let key' = makeExtendedKey key idx
         Map.tryFind key' contents
 

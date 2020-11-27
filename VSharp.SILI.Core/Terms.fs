@@ -43,6 +43,11 @@ type stackKey =
         | ParameterKey p -> p.ParameterType
         | LocalVariableKey(l, _) -> l.LocalType
         |> fromDotNetType
+    member x.Map typeSubst =
+        match x with
+        | ThisKey m -> ThisKey (Reflection.concretizeMethodBase m typeSubst)
+        | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
+        | LocalVariableKey(l, m) -> LocalVariableKey (Reflection.concretizeLocalVariable l m typeSubst)
 
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector

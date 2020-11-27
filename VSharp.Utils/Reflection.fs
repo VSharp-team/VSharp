@@ -70,6 +70,45 @@ module public Reflection =
     let public IsDelegateConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
 
+    // --------------------------------- Concretization ---------------------------------
+
+    let rec public concretizeType (subst : Type -> Type)  (typ : Type)=
+        if typ.IsGenericParameter then subst typ
+        elif typ.IsGenericType then
+            let args = typ.GetGenericArguments()
+            typ.GetGenericTypeDefinition().MakeGenericType(Array.map (concretizeType subst) args)
+        else typ
+
+    let concretizeMethodBase (m : MethodBase) (subst : Type -> Type) =
+        if not m.DeclaringType.IsGenericType then m
+        elif not (m :? MethodInfo) then
+            if m.DeclaringType.IsGenericType then
+                __notImplemented__()
+            else m
+        else
+            let mi = m :?> MethodInfo
+            let mi = (concretizeType subst m.DeclaringType).GetMethod(m.Name, m.GetParameters() |> Array.map (fun pi -> pi.ParameterType |> subst))
+            assert(mi <> null)
+            if mi.IsGenericMethod then
+                mi.MakeGenericMethod(mi.GetGenericArguments() |> Array.map subst)
+            else mi
+            :> MethodBase
+
+    let concretizeParameter (p : ParameterInfo) (subst : Type -> Type) =
+        if not (p.Member :? MethodBase) then __notImplemented__()
+        else
+            (concretizeMethodBase (p.Member :?> MethodBase) subst).GetParameters() |> Array.find (fun pi -> pi.Name = p.Name)
+
+    let concretizeLocalVariable (l : LocalVariableInfo) (m : MethodBase) (subst : Type -> Type) =
+        let m = concretizeMethodBase m subst
+        let mb = m.GetMethodBody()
+        assert(mb <> null)
+        mb.LocalVariables.[l.LocalIndex], m
+
+    let concretizeField (f : fieldId) (subst : Type -> Type) =
+        let declaringType = concretizeType subst f.declaringType
+        {declaringType = declaringType; name = f.name; typ = concretizeType subst f.typ}
+
     // --------------------------------- Fields ---------------------------------
 
     let wrapField (field : FieldInfo) =

@@ -215,6 +215,17 @@ module internal Memory =
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
         | Pointer t -> Pointer(substituteTypeVariables t)
 
+    let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
+        (substituteTypeVariables state et, i, b)
+
+    let dotNetTypeSubst state (t : System.Type) =
+        match MappedStack.tryFind (Id t) (fst state.typeVariables) with
+        | Some typ -> typ |> toDotNetType
+        | None -> t
+
+    let private substituteTypeVariablesIntoField state (f : fieldId) =
+        Reflection.concretizeField f (dotNetTypeSubst state)
+
     let rec typeOfHeapLocation state (address : heapAddress) =
         match address.term with
         | ConcreteHeapAddress address ->
@@ -416,7 +427,7 @@ module internal Memory =
         __notImplemented__()
 
     let readArrayIndex state addr indices arrayType =
-        let extractor state = accessRegion state.arrays arrayType (fst3 arrayType)
+        let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
         readArrayRegion state arrayType extractor (extractor state) addr indices
 
     let readClassField state addr (field : fieldId) =
@@ -424,7 +435,7 @@ module internal Memory =
             readArrayIndex state addr [makeNumber 0] (Char, 1, true)
         else
             let symbolicType = fromDotNetType field.typ
-            let extractor state = accessRegion state.classFields field symbolicType
+            let extractor state = accessRegion state.classFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
             let mkname = fun (key : heapAddressKey) -> sprintf "%O.%O" key.address field
             let isDefault (key : heapAddressKey) = isHeapAddressDefault state key.address
             let key = {address = addr}
@@ -433,7 +444,7 @@ module internal Memory =
 
     let readStaticField state typ (field : fieldId) =
         let symbolicType = fromDotNetType field.typ
-        let extractor state = accessRegion state.staticFields field symbolicType
+        let extractor state = accessRegion state.staticFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
         let mkname = fun (key : symbolicTypeKey) -> sprintf "%O.%O" key.typ field
         let isDefault _ = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
@@ -441,7 +452,7 @@ module internal Memory =
             (makeSymbolicHeapRead {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLowerBound state addr dimension arrayType =
-        let extractor state = accessRegion state.lowerBounds arrayType lengthType
+        let extractor state = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "LowerBound(%O, %O)" key.address key.index
         let isDefault (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = addr; index = dimension}
@@ -449,15 +460,15 @@ module internal Memory =
             (makeSymbolicHeapRead {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLength state addr dimension arrayType =
-        let extractor state = accessRegion state.lengths arrayType lengthType
+        let extractor state = accessRegion state.lengths (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "Length(%O, %O)" key.address key.index
         let isDefault (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = addr; index = dimension}
         MemoryRegion.read (extractor state) key isDefault
             (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
-    let readStackBuffer state stackKey index =
-        let extractor state = accessRegion state.stackBuffers stackKey (Numeric typeof<int8>)
+    let readStackBuffer state (stackKey : stackKey) index =
+        let extractor state = accessRegion state.stackBuffers (stackKey.Map (dotNetTypeSubst state)) (Numeric typeof<int8>)
         let mkname = fun (key : stackBufferIndexKey) -> sprintf "%O[%O]" stackKey key.index
         let isDefault _ = true
         let key = {index = index}
@@ -805,7 +816,9 @@ module internal Memory =
 
     type stackReading with
         interface IMemoryAccessConstantSource with
-            override x.Compose state = readStackLocation state x.key
+            override x.Compose state =
+                let key = x.key.Map (dotNetTypeSubst state)
+                readStackLocation state key
 
     type structField with
         interface IMemoryAccessConstantSource with
