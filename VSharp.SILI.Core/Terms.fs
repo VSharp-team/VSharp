@@ -113,8 +113,8 @@ type termNode =
             match term with
             | Nop -> "<VOID>"
             | Constant(name, _, _) -> name.v
-            | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
-                sprintf "<Lambda Expression %O>" t
+            | Concrete(_, (ClassType(Id t, _) as typ)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+                sprintf "<Lambda Expression %O>" typ
             | Concrete(_, Null) -> "null"
             | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> "null"
             | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"

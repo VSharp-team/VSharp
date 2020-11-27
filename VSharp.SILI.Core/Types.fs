@@ -226,16 +226,15 @@ module internal Types =
         let private ClassType (t : Type) g = ClassType (Id t) g
         let private InterfaceType (t : Type) g = InterfaceType (Id t) g
 
+        let private getGenericDefinition (dotNetType : Type) =
+            if dotNetType.IsGenericType then
+                dotNetType.GetGenericTypeDefinition()
+            else dotNetType
+
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
                 Seq.map fromDotNetType (dotNetType.GetGenericArguments()) |> List.ofSeq
             else []
-
-        and private makeInterfaceType (interfaceType : Type) =
-            let genericArguments = getGenericArguments interfaceType
-            InterfaceType interfaceType genericArguments
-
-        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map makeInterfaceType |> List.ofSeq
 
         and fromDotNetType (dotNetType : Type) =
             match dotNetType with
@@ -252,10 +251,10 @@ module internal Types =
                 ArrayType(
                     fromDotNetType (a.GetElementType()),
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
-            | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
+            | s when s.IsValueType && not s.IsGenericParameter -> StructType (getGenericDefinition s) (getGenericArguments s)
             | p when p.IsGenericParameter -> TypeVariable(Id p)
-            | c when c.IsClass -> ClassType c (getGenericArguments c)
-            | i when i.IsInterface -> makeInterfaceType i
+            | c when c.IsClass -> ClassType (getGenericDefinition c) (getGenericArguments c)
+            | i when i.IsInterface -> InterfaceType (getGenericDefinition i) (getGenericArguments i)
             | _ -> __notImplemented__()
 
     open Constructor
