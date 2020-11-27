@@ -79,20 +79,31 @@ module public Reflection =
             typ.GetGenericTypeDefinition().MakeGenericType(Array.map (concretizeType subst) args)
         else typ
 
+    let private concretizeMethod subst (m : MethodBase) getMethod =
+        let concreteType = concretizeType subst m.DeclaringType
+        let concreteParameters = m.GetParameters() |> Array.map (fun pi -> pi.ParameterType |> subst)
+        getMethod concreteType m.Name concreteParameters
+
+    let private concretizeMethodInfo subst m =
+        let mi = concretizeMethod subst m (fun t name parameters -> t.GetMethod(name, parameters))
+        assert(mi <> null)
+        if mi.IsGenericMethod then mi.MakeGenericMethod(mi.GetGenericArguments() |> Array.map subst)
+        else mi
+        :> MethodBase
+
+    let private concretizeCtorInfo subst m =
+        let ci = concretizeMethod subst m (fun t _ parameters -> t.GetConstructor(parameters))
+        assert(ci <> null)
+        ci :> MethodBase
+
     let concretizeMethodBase (m : MethodBase) (subst : Type -> Type) =
-        if not m.DeclaringType.IsGenericType then m
-        elif not (m :? MethodInfo) then
-            if m.DeclaringType.IsGenericType then
-                __notImplemented__()
-            else m
-        else
-            let mi = m :?> MethodInfo
-            let mi = (concretizeType subst m.DeclaringType).GetMethod(m.Name, m.GetParameters() |> Array.map (fun pi -> pi.ParameterType |> subst))
-            assert(mi <> null)
-            if mi.IsGenericMethod then
-                mi.MakeGenericMethod(mi.GetGenericArguments() |> Array.map subst)
-            else mi
-            :> MethodBase
+        match m with
+        | _ when not m.DeclaringType.IsGenericType -> m
+        | :? MethodInfo ->
+            concretizeMethodInfo subst m
+        | :? ConstructorInfo ->
+            concretizeCtorInfo subst m
+        | _ -> __unreachable__()
 
     let concretizeParameter (p : ParameterInfo) (subst : Type -> Type) =
         if not (p.Member :? MethodBase) then __notImplemented__()
