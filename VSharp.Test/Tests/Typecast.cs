@@ -100,6 +100,18 @@ namespace VSharp.Test.Tests.Typecast
             return DownCastObject(obj) + DownCastPiece(b);
         }
 
+        public static String DownCastToString(object str)
+        {
+            return (String) str;
+        }
+
+        [TestSvm]
+        public static String UpCastDownCastString()
+        {
+            object str = "literal";
+            return DownCastToString(str);
+        }
+
         [TestSvm]
         public static int DownCastPiece(Piece piece)
         {
