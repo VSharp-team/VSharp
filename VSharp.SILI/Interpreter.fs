@@ -598,7 +598,7 @@ and public ILInterpreter() as this =
                 let length = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
                 x.AccessArray uncheckedLdElem state length index k
             let state = {cilState.state with opStack = stack}
-            x.NpeOrInvokeStatement cilState.state arrayRef checkedLdElem (pushResultFromStateToCilState cilState)
+            x.NpeOrInvokeStatement state arrayRef checkedLdElem (pushResultFromStateToCilState cilState)
         | _ -> __corruptedStack__()
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (castUnchecked typ) cilState
     member private x.LdElem (cfg : cfg) offset (cilState : cilState) =
@@ -646,7 +646,7 @@ and public ILInterpreter() as this =
                 let length = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
                 k [{state with returnRegister = Some length}]
             let state = {cilState.state with opStack = stack}
-            x.NpeOrInvokeStatement cilState.state arrayRef ldlen (pushResultFromStateToCilState cilState)
+            x.NpeOrInvokeStatement state arrayRef ldlen (pushResultFromStateToCilState cilState)
         | _ -> __corruptedStack__()
     member private x.LdVirtFtn (cfg : cfg) offset (cilState : cilState) =
         __notImplemented__()
@@ -754,7 +754,7 @@ and public ILInterpreter() as this =
         | _ :: _ when t.IsGenericParameter -> __notImplemented__() // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
         | obj :: stack ->
             let state = {cilState.state with opStack = stack}
-            x.UnboxCommon cilState.state obj t id (pushResultFromStateToCilState cilState)
+            x.UnboxCommon state obj t id (pushResultFromStateToCilState cilState)
         | _ -> __corruptedStack__()
 
     member private x.UnboxAny (cfg : cfg) offset (cilState : cilState) =

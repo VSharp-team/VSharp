@@ -52,6 +52,8 @@ module API =
         val isReference : term -> bool
         val IsNullReference : term -> term
 
+        val IsIdempotent : term -> bool
+
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
         val (|Conjunction|_|) : term -> term list option
@@ -148,6 +150,9 @@ module API =
         val AllocateOnStack : state -> stackKey -> term -> state
         val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
         val MakeSymbolicThis : System.Reflection.MethodBase -> term
+
+        val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+
         val BoxValueType : state -> term -> term * state
         val AllocateDefaultStatic : state -> symbolicType -> state
         val AllocateDefaultClass : state -> symbolicType -> term * state

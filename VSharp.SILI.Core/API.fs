@@ -72,6 +72,8 @@ module API =
         let isReference term = isReference term
         let IsNullReference term = Pointers.isNull term
 
+        let IsIdempotent term = isIdempotent term
+
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
@@ -223,6 +225,8 @@ module API =
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
 
+        let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
+
         let BoxValueType state term =
             let address, state = Memory.freshAddress state
             let reference = HeapRef (ConcreteHeapAddress address) (typeOf term)
@@ -278,6 +282,7 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
 //        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
+
 
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 

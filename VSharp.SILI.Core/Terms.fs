@@ -571,6 +571,32 @@ module internal Terms =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
+    let rec private isConcreteAddress (address : address) =
+        match address with
+        | PrimitiveStackLocation _
+        | BoxedLocation _
+        | StaticField _ -> true
+        | StackBufferIndex (_, term) -> isConcrete term
+        | StructField(address, _) -> isConcreteAddress address
+        | ClassField (heapAddress, _)
+        | ArrayIndex (heapAddress, _, _)
+        | ArrayLowerBound (heapAddress, _, _)
+        | ArrayLength (heapAddress, _, _) -> isConcreteHeapAddress heapAddress
+
+    let private isConcretePtr = function
+        | Ptr(None, _, None) -> true
+        | Ptr(None, _, Some shift) -> isConcrete shift
+        | Ptr(Some address, _, None) -> isConcreteAddress address
+        | Ptr(Some address, _, Some shift) -> isConcreteAddress address && isConcrete shift
+        | _ -> false
+
+    let isIdempotent = term >> function
+        | Concrete _
+        | Ref _ -> true
+        | Ptr _ as v when isConcretePtr v -> true
+        | HeapRef(heapAddress, _) when isConcreteHeapAddress heapAddress -> true
+        | _ -> false
+
     let rec timeOf (address : heapAddress) =
         match address.term with
         | ConcreteHeapAddress addr -> addr

@@ -942,9 +942,8 @@ module internal Memory =
         let dstType = substituteTypeVariables state info.dstType
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
-    let private isOfPrimitiveType (v : term) =
-        let typ = typeOf v
-        __notImplemented__()
+    let composeOpStacksOf state opStack' =
+        List.map (fun v -> if isConcrete v then v else fillHoles state v) opStack' // TODO: just use fillHoles!
 
     let composeStates state state' =
         assert(not <| VectorTime.isEmpty state.currentTime)
@@ -955,7 +954,7 @@ module internal Memory =
             // Hacking return register to propagate starting time of state' into composeTime
             let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
-            let opStack = List.map (fun v -> if isOfPrimitiveType v then fillHoles state v else v) state'.opStack
+            let opStack = composeOpStacksOf state state'.opStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
             let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
@@ -1049,7 +1048,7 @@ module internal Memory =
         |> toString
 
     let dump (s : state) =
-        // TODO: print stack and lower bounds?
+        // TODO: print lower bounds?
         let sb = StringBuilder()
         let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> appendLine sb
         let sb = dumpDict "Fields" toString (MemoryRegion.toString "    ") sb s.classFields
@@ -1063,4 +1062,5 @@ module internal Memory =
         let sb = dumpDict "Delegates" VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
         let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
+        let sb = if List.length s.opStack = 0 then sb else let sb = dumpSection "Operational stack" sb in (s.opStack |> List.map toString |> join "\n" |> sb.AppendLine)
         if sb.Length = 0 then "<Empty>" else sb.ToString()

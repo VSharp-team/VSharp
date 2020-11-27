@@ -10,6 +10,19 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
+
+type opStackSource =
+    {shift : uint; typ : symbolicType; time : vectorTime}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.time
+        override x.TypeOfLocation = x.typ
+        override x.Compose state =
+            let result = List.item (int x.shift) state.opStack
+            assert(TypeOf result = x.typ)
+            result
+
+
 module Properties =
     let internal exitVertexOffset = -1
     let internal exitVertexNumber = -1
@@ -192,25 +205,32 @@ module public CFA =
         override x.ToString() =
             sprintf "%s\neffect = %O\npc = %O\n" (base.ToString()) (API.Memory.Dump effect) effect.pc
 
-    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state) =
+    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop) =
         inherit Edge(src, dst)
         do
            assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
         override x.PropagatePath (path : path) =
-            let addCallSiteResult callSiteResults (callSite : callSite) (res : term option) =
-                if callSite.HasNonVoidResult then
-                    assert(Option.isSome res)
-                    Map.add callSite res callSiteResults
-                else callSiteResults
             let k states =
                 let propagateStateAfterCall acc state =
                     assert(path.state.frames = state.frames)
                     x.PrintLog "propagation through callEdge:\n" callSite
                     x.PrintLog "call edge: composition left:\n" (Memory.Dump path.state)
                     x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
-                    let result' = x.CommonPropagatePath (path.lvl + 1u) {state with callSiteResults = addCallSiteResult path.state.callSiteResults callSite state.returnRegister
-                                                                                    returnRegister = None}
+                    let stateAfterCall =
+                        let opStack = List.skip numberToDrop path.state.opStack
+                        if callSite.HasNonVoidResult then
+                            assert(Option.isSome state.returnRegister)
+                            { state with
+                                callSiteResults = Map.add callSite state.returnRegister path.state.callSiteResults
+                                returnRegister = None
+                                opStack = Option.get state.returnRegister :: opStack }
+                        elif callSite.opCode = OpCodes.Newobj then
+                            let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
+                            { state with callSiteResults = path.state.callSiteResults; opStack = reference :: opStack}
+                        else { state with callSiteResults = path.state.callSiteResults; opStack = opStack}
+
+                    let result' = x.CommonPropagatePath (path.lvl + 1u) stateAfterCall
                     acc || result'
                 List.fold propagateStateAfterCall false states
 //            let k1 results = results |> List.unzip |> snd |> k
@@ -281,6 +301,22 @@ module public CFA =
                     List.collect ((<||) (executeAllInstructions allErrors)) list
                 | list -> allErrors @ (list |> List.map (fun (offset, cilState) -> {cilState with ip = offset}))
             executeAllInstructions [] (Instruction startingOffset) cilState
+
+        let makeSymbolicOpStack time (opStack : term list) : term list=
+            let mkSource (index : int) typ =
+                {shift = uint index; typ = typ; time = time}
+
+            let makeSymbolic index (v : term) =
+                if Terms.IsIdempotent v then v
+                else
+                    let shift = index
+                    let typ = TypeOf v
+                    let source = mkSource shift typ
+                    let name = sprintf "opStack.[%d] from top" shift
+                    Memory.MakeSymbolicValue source name typ
+
+            let symbolicOpStack = List.mapi makeSymbolic opStack
+            symbolicOpStack
 
         let computeCFAForMethod (ilintptr : ILInterpreter) (initialState : state) (cfa : cfa) (used : Dictionary<bypassData, int>) (block : MethodBase unitBlock) =
             let cfg = cfa.cfg
@@ -357,13 +393,14 @@ module public CFA =
                     let modifiedState = {initialState with allocatedTypes = allocatedTypes; lengths = lengths; lowerBounds = lowerBounds
                                                            currentTime = currentTime; startingTime = currentTime}
                     let initialCilState = {cilState.Empty with state = modifiedState}
+                    let modifiedOpStack = makeSymbolicOpStack initialState.startingTime opStack
                     let offset = ip.Offset()
                     match cfg.offsetsDemandingCall.ContainsKey offset with
                     | true ->
                         let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
                         let callSite = {sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode}
                         let nextOffset, this, args, cilState' =
-                            initialCilState |> withIp (Instruction offset) |> withOpStack opStack
+                            initialCilState |> withIp (Instruction offset) |> withOpStack modifiedOpStack
                             |> executeSeparatedOpCode offset opCode
                         let dstVertex =
                             let s = cilState'.state
@@ -371,11 +408,12 @@ module public CFA =
                         block.AddVertex dstVertex
                         let stateWithArgsOnFrame = ilintptr.ReduceFunctionSignature cilState'.state calledMethod this (Specified args) false (fun x -> x)
                         currentTime <- VectorTime.max currentTime stateWithArgsOnFrame.currentTime
-                        addEdge <| CallEdge(srcVertex, dstVertex, callSite, stateWithArgsOnFrame)
+                        let numberToDrop = List.length args + if Option.isNone this || opCode = OpCodes.Newobj then 0 else 1
+                        addEdge <| CallEdge(srcVertex, dstVertex, callSite, stateWithArgsOnFrame, numberToDrop)
                         bypass dstVertex stateWithArgsOnFrame.allocatedTypes stateWithArgsOnFrame.lengths stateWithArgsOnFrame.lowerBounds
                     | _ ->
                         let newStates =
-                            initialCilState |> withIp (Instruction offset) |> withOpStack opStack
+                            initialCilState |> withIp (Instruction offset) |> withOpStack modifiedOpStack
                             |> executeInstructions ilintptr cfg
                         newStates |> List.iter (fun state -> currentTime <- VectorTime.max currentTime state.state.currentTime)
                         let goodStates = List.filter (fun (cilState : cilState) -> not cilState.HasException) newStates

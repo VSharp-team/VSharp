@@ -749,6 +749,45 @@ namespace VSharp.Test.Tests
 
 
 
+
+        [TestSvm]
+        public static int Test123(int x)
+        {
+            x = x * x;
+            return F(x + 42);
+        }
+
+        private static int Foooo(int x)
+        {
+            return x + 42;
+        }
+
+        public class Aaaa
+        {
+            public int a;
+        }
+
+        [TestSvm]
+        public static int TestArgComposition(Aaaa c)
+        {
+            c.a = c.a * c.a;
+            c.a = Foooo(c.a);
+            return c.a;
+        }
+
+        private static A IdForStruct(A a)
+        {
+            a.x = 900;
+            return a;
+        }
+
+        [TestSvm]
+        public static A TestA()
+        {
+            A a = new A(17);
+            return IdForStruct(a);
+        }
+
         // [TestSvm]
         // public static int CheckOperationalStackBalance(int x)
         // {
