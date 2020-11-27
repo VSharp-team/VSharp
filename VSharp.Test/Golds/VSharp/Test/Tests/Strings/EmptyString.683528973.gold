@@ -9,7 +9,7 @@ System.Char[] ==> {2[0] <- '\000'}
 --------------- Array lengths: ---------------
 System.Char[] ==> {2[0] <- 1}
 --------------- Types tokens: ---------------
-2 ==> System.Char[]
+2 ==> System.String
 --------------- Static fields: ---------------
 Empty ==> {System.String <- (HeapRef 2 to System.String)}
 Initialized types = { System.String, VSharp.Test.Tests.Strings }
