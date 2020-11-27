@@ -125,7 +125,7 @@ namespace VSharp.Test.Tests.Methods
     [TestSvmFixture]
     public static class VirtualMethod
     {
-        [TestSvm]
+        [Ignore("Calling virtual method is not implemented")]
         public static IMovable MakeVirtualMove(Pawn p, Coord c)
         {
             p?.MakeMove(c);
@@ -138,7 +138,7 @@ namespace VSharp.Test.Tests.Methods
             return p?.MakeMove(c);
         }
 
-        [TestSvm]
+        [Ignore("Calling virtual method is not implemented")]
         public static IMovable MakeConcreteMove(Coord c)
         {
             var p = new Piece(0, 0);
@@ -182,7 +182,7 @@ namespace VSharp.Test.Tests.Methods
             }
         }
 
-        [TestSvm]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall1(VirtualC a, int n)
         {
             if (a == null) return 0;

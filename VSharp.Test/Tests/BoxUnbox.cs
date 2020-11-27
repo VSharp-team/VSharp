@@ -41,7 +41,7 @@ namespace VSharp.Test.Tests
             return (T) o;
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("reading from struct instead of ref #fix")]
         public static object UnboxAny1()
         {
             var b = new B(5);
@@ -104,7 +104,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [Ignore("reading from struct instead of ref #fix")]
         public static object Box7()
         {
             int? x = 7;
@@ -157,7 +157,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class UnboxGeneric<T>
     {
-        [Ignore("Unbox.any for generics is not implemented: no way to do `Nullable.GetUnderlyingType` for generic type")]
+        [Ignore("Unbox.any for generics is not implemented: no way to do `Nullable.GetUnderlyingType` for generic type #fix")]
         public static T Cast(object o)
         {
             return (T) o;
@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [Ignore("Subtype analysis is not so smart (it doesn't check IVirtual constraint)")]
+        [Ignore("Insufficient information")]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -184,14 +184,14 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [Ignore("Subtype analysis is not so smart (it doesn't check IVirtual constraint)")]
+        [Ignore("Insufficient information #fix")]
         public static object BoxValue(U t)
         {
             object o = t;
             return o;
         }
 
-        [Ignore("There's no way to introduce new Generic Parameter for Nullable'")] // TODO: check this now
+        [Ignore("Insufficient information")]
         public static object BoxValue(V t)
         {
             object o = t;

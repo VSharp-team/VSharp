@@ -36,7 +36,7 @@ namespace VSharp.Test.Tests
             return 100;
         }
 
-        [Ignore("Type tokens change from run to run")]
+        [Ignore("GetType() is not implemented")]
         public static Type GetEnumType(Color c)
         {
             return c.GetType();

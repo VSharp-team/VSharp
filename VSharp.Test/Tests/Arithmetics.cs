@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture]
+    // [TestSvmFixture] // TODO: need exceptions for all tests
     public sealed class Arithmetics_CIL
     {
         [Ignore("unknown result")]
@@ -374,7 +374,7 @@ namespace VSharp.Test.Tests
             return x2 - x1 == 1;
         }
 
-        [Ignore("too long")]
+        [Ignore("Exceptions handling")]
         public static int CheckedUnchecked(int x0, int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9)
         {
             return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
@@ -603,8 +603,7 @@ namespace VSharp.Test.Tests
             return Math.Log(-1);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [TestSvm]
         public static double LogMethod7(double x)
         {
             double y;
@@ -892,7 +891,7 @@ namespace VSharp.Test.Tests
         }
 
         // 5.9
-        [Ignore("Type tokens change from run to run")]
+        [Ignore("GetTypeFromHandle is not implemented #fix")]
         public static float AbsSingleMethod()
         {
             return Math.Abs(Convert.ToSingle(-5.9));
@@ -919,7 +918,7 @@ namespace VSharp.Test.Tests
             return Math.Atan2(1, Double.PositiveInfinity);
         }
 
-        [TestSvm]
+        [Ignore("Unbounded recursion, need to implement PDR")]
         public static void Mult(int x, int y)
         {
             int z = 0;
