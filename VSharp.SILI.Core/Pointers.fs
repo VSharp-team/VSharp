@@ -135,7 +135,7 @@ module internal Pointers =
             (fun x y k -> simplifyReferenceEqualityk x y k)
 
     let isNull heapReference =
-        simplifyReferenceEqualityk heapReference (makeNullRef <| typeOf heapReference) id
+        simplifyReferenceEqualityk heapReference nullRef id
 
     let rec private simplifySPDUnaryMinus y tp k =
         simplifySPDExpression y k (fun y k ->

@@ -1,6 +1,5 @@
 METHOD: VSharp.Test.Tests.Typecast.Pawn VSharp.Test.Tests.Typecast.Typecast.TypeCastConcreteNull()
-RESULT: null
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> CLASS []
+RESULT: Totally 1 state:
+NullRef
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

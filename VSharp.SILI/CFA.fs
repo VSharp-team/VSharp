@@ -90,9 +90,7 @@ module public CFA =
         member x.Dst = dst
         member x.Method = x.Src.Method
         member x.CommonPropagatePath lvl state =
-            let pc = List.filter (fun cond -> cond <> Terms.True) state.pc
-            let state = {state with pc = pc}
-            let newPc = List.fold (fun pc cond -> pc &&& cond) Terms.True state.pc
+            let newPc = PC.squashPC state.pc
             if newPc <> Terms.False then
                 if dst.IsMethodExitVertex then ()
                 dst.Paths.Add {lvl = lvl; state = state}
@@ -177,9 +175,9 @@ module public CFA =
         override x.PropagatePath (path : path) =
 
             Memory.ComposeStates path.state effect (fun states ->
-                x.PrintLog "composition left"  <| Memory.Dump path.state
-                x.PrintLog "composition right" <| Memory.Dump effect
-                x.PrintLog (sprintf "composition resulted in %d states" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
+                x.PrintLog "composition left:\n"  <| Memory.Dump path.state
+                x.PrintLog "composition right:\n" <| Memory.Dump effect
+                x.PrintLog (sprintf "composition resulted in %d states:\n" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
                 assert(List.forall (fun state -> path.state.frames = state.frames) states)
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
                 List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states)
@@ -204,9 +202,9 @@ module public CFA =
             let k states =
                 let propagateStateAfterCall acc state =
                     assert(path.state.frames = state.frames)
-                    x.PrintLog "propagation through callEdge" callSite
-                    x.PrintLog "call edge: composition left" (Memory.Dump path.state)
-                    x.PrintLog "call edge: composition result" (Memory.Dump state)
+                    x.PrintLog "propagation through callEdge:\n" callSite
+                    x.PrintLog "call edge: composition left:\n" (Memory.Dump path.state)
+                    x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
                     let result' = x.CommonPropagatePath (path.lvl + 1u) {state with callSiteResults = addCallSiteResult path.state.callSiteResults callSite state.returnRegister
                                                                                     returnRegister = None}
                     acc || result'
@@ -294,7 +292,8 @@ module public CFA =
                 let this, cilState =
                     match calledMethod with
                     | _ when opCode = OpCodes.Newobj ->
-                        let state = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args (List.head) // TODO: what if newobj returns a lot of references and states?
+                        let states = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id // TODO: what if newobj returns a lot of references and states?
+                        let state = List.head states
                         assert(Option.isSome state.returnRegister)
                         let reference = Option.get state.returnRegister
                         Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = reference :: cilStateWithoutArgs.opStack}

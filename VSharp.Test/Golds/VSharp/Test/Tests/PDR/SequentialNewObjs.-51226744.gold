@@ -1,0 +1,8 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.SequentialNewObjs()
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> System.Object
+3 ==> System.Object
+Initialized types = { VSharp.Test.Tests.PDR, System.Object }

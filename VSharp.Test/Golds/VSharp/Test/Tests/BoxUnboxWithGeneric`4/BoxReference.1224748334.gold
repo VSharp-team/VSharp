@@ -1,8 +1,5 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnboxWithGeneric`4[G,T,U,V].BoxReference(T)
-RESULT: UNION[
-	| !(0 == t) ~> (HeapRef t)
-	| 0 == t ~> null]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.BoxUnboxWithGeneric`4[G,T,U,V] ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef t to T)
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.BoxUnboxWithGeneric`4[G,T,U,V] }

@@ -40,14 +40,13 @@ namespace VSharp.Test.Tests.Generic
             return new LinkedList<int>();
         }
 
-        [Ignore("Static array(T[] s_emptyArray = new T[0]) is allocated twice")]
+        [TestSvm]
         public static List<double> RetList()
         {
             return new List<double>();
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information")]
         public static T RetT(T t)
         {
             return t;
@@ -77,7 +76,7 @@ namespace VSharp.Test.Tests.Generic
             return u;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information")]
         public static P RetP(P p)
         {
             return p;
@@ -120,7 +119,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information")]
         public static V RetV(V v)
         {
             return v;
@@ -136,7 +135,7 @@ namespace VSharp.Test.Tests.Generic
             return GenericClass<object, int>.RetR(0);
         }
 
-        [Ignore("There should be two boxed zeros")]
+        [TestSvm]
         public static object RetConstructedR0()
         {
             return GenericClass<object, int>.Ret0(0);
@@ -188,14 +187,6 @@ namespace VSharp.Test.Tests.Generic
             if (f == null) return 0;
             return f.GetFields();
         }
-
-        [TestSvm]
-        public static int TestFoo(LinkedList<int> l)
-        {
-            if (l == null) return 0;
-            if (l.First == null) return 1;
-            return l.First.Value += 1;
-        }
     }
 
     [TestSvmFixture]
@@ -230,8 +221,7 @@ namespace VSharp.Test.Tests.Generic
 //            return obj;
 //        }
 
-        // [TestSvm]
-        [Ignore("guards are complicated")]
+        [TestSvm]
         public static int RetWorked(Object obj, int a)
         {
             if (obj as BlackPawn != null)

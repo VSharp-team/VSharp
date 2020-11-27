@@ -104,7 +104,7 @@ module internal Merging =
 
     let commonGuardedMapkWithPC pc mapper gvs merge k =
         let foldFunc gvs (g, v) k =
-            let pc' = Propositional.conjunction (g :: pc)
+            let pc' = PC.squashPCWithCondition pc g
             match pc' with
             | False -> k gvs
             | _ -> mapper v (fun t -> k ((g, t) :: gvs))

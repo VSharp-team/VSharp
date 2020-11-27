@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR+WithStaticMembersUsedInCFA.IncrementAndMutate()
+RESULT: Totally 1 state:
+100
+MEMORY DUMP:
+--------------- Static fields: ---------------
+x ==> {
+        VSharp.Test.Tests.PDR+WithStaticMembersUsedInCFA <- 100
+    }
+Initialized types = { VSharp.Test.Tests.PDR+WithStaticMembersUsedInCFA }

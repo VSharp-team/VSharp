@@ -1,16 +1,25 @@
 METHOD: System.Int32 VSharp.Test.Tests.ClassesSimple.ValueTypeMethod(System.Int32, System.Int32)
-RESULT: UNION[
-	| !(x < y) & !(x <= y) ~> 1
-	| !(x < y) & x <= y ~> 0
-	| x < y ~> -1]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-System.Int32 ==> System.Int32 STRUCT [
-	| MaxValue ~> UNION[
-		| !hasKey#1 ~> 2147483647
-		| hasKey#1 ~> System.Int32.MaxValue]
-	| MinValue ~> UNION[
-		| !hasKey#1 ~> -2147483648
-		| hasKey#1 ~> System.Int32.MinValue]]
-VSharp.Test.Tests.ClassesSimple ==> CLASS []
+RESULT: Totally 3 states:
+0
+MEMORY DUMP:
+Path condition: !(x < y) /\ x <= y
+--------------- Static fields: ---------------
+MaxValue ==> {System.Int32 <- 2147483647}
+MinValue ==> {System.Int32 <- -2147483648}
+Initialized types = { System.Int32, VSharp.Test.Tests.ClassesSimple }
+
+1
+MEMORY DUMP:
+Path condition: !(x < y) /\ !(x <= y)
+--------------- Static fields: ---------------
+MaxValue ==> {System.Int32 <- 2147483647}
+MinValue ==> {System.Int32 <- -2147483648}
+Initialized types = { System.Int32, VSharp.Test.Tests.ClassesSimple }
+
+-1
+MEMORY DUMP:
+Path condition: x < y
+--------------- Static fields: ---------------
+MaxValue ==> {System.Int32 <- 2147483647}
+MinValue ==> {System.Int32 <- -2147483648}
+Initialized types = { System.Int32, VSharp.Test.Tests.ClassesSimple }

@@ -1,13 +1,38 @@
 METHOD: System.Int32[] VSharp.Test.Tests.Lists.RetOneDArray1(System.Boolean, System.Boolean)
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> [|
-	1 ~> UNION[
-		| !flag1 & !flag2 ~> 0
-		| !flag1 & flag2 ~> 89
-		| flag1 ~> 42]
-	... 5 ... |]
----------- s1 = ----------
-VSharp.Test.Tests.Lists ==> CLASS []
+RESULT: Totally 3 states:
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !flag1 /\ !flag2
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }
+
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: flag1
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[1] <- 42}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }
+
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !flag1 /\ flag2
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[1] <- 89}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }

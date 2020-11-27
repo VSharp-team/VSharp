@@ -1,19 +1,51 @@
 METHOD: System.Int32[] VSharp.Test.Tests.Lists.RetOneDArray2(System.Int32)
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> [|
-	1 ~> UNION[
-		| !(5 == n) & !(8 == n) ~> 0
-		| !(8 == n) & 5 == n ~> 42
-		| 8 == n ~> 89];
-	4 ~> UNION[
-		| !(5 == n) ~> 0
-		| 5 == n ~> 99];
-	7 ~> UNION[
-		| !(8 == n) ~> 0
-		| 8 == n ~> 66]
-	... n ... |]
----------- s1 = ----------
-VSharp.Test.Tests.Lists ==> CLASS []
+RESULT: Totally 4 states:
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !(5 == n) /\ !(8 == n) /\ !(n < 0)
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- n}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }
+
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !(5 == n) /\ !(n < 0) /\ 1 < n /\ 7 < n /\ 8 == n
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[1] <- 89; 2[7] <- 66}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- n}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }
+
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !(8 == n) /\ !(n < 0) /\ 1 < n /\ 4 < n /\ 5 == n
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[1] <- 42; 2[4] <- 99}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- n}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }
+
+(HeapRef 2 to System.Int32[])
+MEMORY DUMP:
+Path condition: !(n < 0) /\ 1 < n /\ 4 < n /\ 5 == n /\ 7 < n /\ 8 == n
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[1] <- 89; 2[4] <- 99; 2[7] <- 66}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- n}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+Initialized types = { VSharp.Test.Tests.Lists }

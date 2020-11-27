@@ -395,7 +395,6 @@ module internal InstructionsSet =
         | [_, st] -> brtrueFunction newOffsets st
         | _ -> internalfail errorStr
     let compare op operand1Transformation operand2Transformation (cilState : cilState) =
-        let pc = cilState.state.pc
         match cilState.opStack with
         | _ :: arg1 :: _ ->
             let typ = TypeOf arg1
@@ -458,7 +457,7 @@ module internal InstructionsSet =
         let address, state = Memory.BoxValueType cilState.state v
         {cilState with opStack = address :: cilState.opStack; state = state} :: []
     let ldnull (cilState : cilState) =
-        pushResultOnStack cilState (MakeNullRef Types.ObjectType, cilState.state) :: []
+        pushResultOnStack cilState (NullRef, cilState.state) :: []
 
     let convu (cilState : cilState) = cilState :: []
     let convi (cilState : cilState) = cilState :: []
@@ -535,12 +534,12 @@ module internal InstructionsSet =
             let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Isinst.Size)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (IsNullReference object, state))
-                (fun cilState k -> k [{cilState with opStack = MakeNullRef typ :: stack}])
+                (fun cilState k -> k [{cilState with opStack = NullRef :: stack}])
                 (fun cilState k ->
                     StatedConditionalExecutionCIL cilState
                         (fun state k -> k (Types.IsCast typ object, state))
                         (fun cilState k -> k [cilState])
-                        (fun cilState k -> k [{cilState with opStack = MakeNullRef typ :: stack}])
+                        (fun cilState k -> k [{cilState with opStack = NullRef :: stack}])
                         k)
                 id
         | _ -> __corruptedStack__()

@@ -1,6 +1,5 @@
 METHOD: Z VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetU(Z)
-RESULT: (HeapRef z)
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef z to Z)
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z] }

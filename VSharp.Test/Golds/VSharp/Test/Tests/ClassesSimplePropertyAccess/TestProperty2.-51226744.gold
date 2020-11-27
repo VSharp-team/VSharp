@@ -1,7 +1,9 @@
 METHOD: System.Void VSharp.Test.Tests.ClassesSimplePropertyAccess.TestProperty2()
-RESULT: <VOID>
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
-VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
+key = __loc__0, value = VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
+	| X ~> 42]
+Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct, VSharp.Test.Tests.ClassesSimplePropertyAccess }

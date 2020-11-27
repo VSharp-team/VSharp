@@ -2,4 +2,6 @@ METHOD: System.Boolean VSharp.Test.Tests.Logics.Negation3(System.Boolean)
 RESULT: Totally 1 state:
 b
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = b, value = !b
 Initialized types = { VSharp.Test.Tests.Logics }

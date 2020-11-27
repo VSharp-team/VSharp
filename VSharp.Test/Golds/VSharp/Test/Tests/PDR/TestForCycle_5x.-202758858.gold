@@ -2,4 +2,7 @@ METHOD: System.Int32 VSharp.Test.Tests.PDR.TestForCycle_5x(System.Int32)
 RESULT: Totally 1 state:
 x + x + x + x + x
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__1, value = 5
+key = __loc__0, value = x + x + x + x + x
 Initialized types = { VSharp.Test.Tests.PDR }

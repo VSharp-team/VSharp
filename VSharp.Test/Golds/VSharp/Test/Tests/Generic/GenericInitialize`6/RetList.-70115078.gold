@@ -1,19 +1,16 @@
 METHOD: System.Collections.Generic.List`1[System.Double] VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
-RESULT: (HeapRef 2)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1.1 ==> [|... 0 ... |]
-2 ==> System.Collections.Generic.List`1[System.Double] CLASS [
-	| System::Collections::Generic::List`1::_items ~> UNION[
-		| !hasKey#1 ~> (HeapRef 1.1)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Double].s_emptyArray)]
-	| System::Collections::Generic::List`1::_size ~> 0
-	| System::Collections::Generic::List`1::_version ~> 0]
----------- s1 = ----------
-System.Collections.Generic.List`1[System.Double] ==> CLASS [
-	| s_emptyArray ~> UNION[
-		| !hasKey#1 ~> (HeapRef 1.1)
-		| hasKey#1 ~> (HeapRef System.Collections.Generic.List`1[System.Double].s_emptyArray)]]
-System.Object ==> CLASS []
-VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 2 to System.Collections.Generic.List`1[System.Double])
+MEMORY DUMP:
+--------------- Fields: ---------------
+_items ==> {2 <- (HeapRef 1.2 to System.Double[])}
+--------------- Array lengths: ---------------
+System.Double[] ==> {1.2[0] <- 0}
+--------------- Types tokens: ---------------
+1.2 ==> System.Double[]
+2 ==> System.Collections.Generic.List`1[System.Double]
+--------------- Static fields: ---------------
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[System.Double] <- (HeapRef 1.2 to System.Double[])
+    }
+Initialized types = { System.Object, System.Collections.Generic.List`1[System.Double], VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] }

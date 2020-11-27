@@ -1,6 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualH.F()
-RESULT: 7777777
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualH ==> CLASS []
+RESULT: Totally 1 state:
+7777777
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualH)
+Initialized types = { VSharp.Test.Tests.Methods.VirtualH }

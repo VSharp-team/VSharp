@@ -81,12 +81,10 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 let currentDimensionTerm = MakeNumber currentDimension
                 let currentLengthTerm = Memory.ArrayLengthByDimension state arrayRef currentDimensionTerm
                 let currentLength = extractIntFromTerm currentLengthTerm
-                let res =
-                    List.init currentLength id |>
-                    List.fold (fun (state, j) i ->
-                        let indexTerm = MakeNumber i
-                        helper (currentDimension + 1) (List.append multiIndex [indexTerm]) (state, j)) (state, j)
-                res
+                List.init currentLength id |>
+                List.fold (fun (state, j) i ->
+                    let indexTerm = MakeNumber i
+                    helper (currentDimension + 1) (List.append multiIndex [indexTerm]) (state, j)) (state, j)
         helper 0 [] (state, 0) |> fst
 
     let initializeArray state arrayRef handleTerm =

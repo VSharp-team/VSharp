@@ -1,8 +1,12 @@
 METHOD: VSharp.Test.Tests.Typecast.Coord VSharp.Test.Tests.Typecast.Piece.GetCoord()
-RESULT: VSharp.Test.Tests.Typecast.Coord STRUCT [
-	| VSharp::Test::Tests::Typecast::Coord::X ~> this.VSharp::Test::Tests::Typecast::Piece::_xCoord
-	| VSharp::Test::Tests::Typecast::Coord::Y ~> this.VSharp::Test::Tests::Typecast::Piece::_yCoord]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Typecast.Piece ==> CLASS []
+RESULT: Totally 1 state:
+VSharp.Test.Tests.Typecast.Coord STRUCT [
+	| X ~> this._xCoord
+	| Y ~> this._yCoord]
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Typecast.Piece)
+key = __loc__0, value = VSharp.Test.Tests.Typecast.Coord STRUCT [
+	| X ~> this._xCoord
+	| Y ~> this._yCoord]
+Initialized types = { VSharp.Test.Tests.Typecast.Piece }

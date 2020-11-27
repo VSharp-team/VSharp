@@ -2,4 +2,6 @@ METHOD: System.Boolean VSharp.Test.Tests.Logics.AndOr25(System.Boolean, System.B
 RESULT: Totally 1 state:
 a
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = True
 Initialized types = { VSharp.Test.Tests.Logics }

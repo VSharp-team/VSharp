@@ -1,6 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualG.F()
-RESULT: 66
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualG ==> CLASS []
+RESULT: Totally 1 state:
+66
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualG)
+Initialized types = { VSharp.Test.Tests.Methods.VirtualG }

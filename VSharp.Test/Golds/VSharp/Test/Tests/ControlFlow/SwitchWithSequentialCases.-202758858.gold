@@ -1,12 +1,31 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.SwitchWithSequentialCases(System.Int32)
-RESULT: UNION[
-	| !(x < 5) | x < 0 ~> -1
-	| 0 == x ~> 1
-	| 1 == x ~> 11
-	| 2 == x ~> 101
-	| 3 == x ~> 1001
-	| 4 == x ~> 10001]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.ControlFlow ==> CLASS []
+RESULT: Totally 6 states:
+1
+MEMORY DUMP:
+Path condition: 0 == x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+11
+MEMORY DUMP:
+Path condition: 1 == x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+101
+MEMORY DUMP:
+Path condition: 2 == x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1001
+MEMORY DUMP:
+Path condition: 3 == x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+10001
+MEMORY DUMP:
+Path condition: 4 == x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+-1
+MEMORY DUMP:
+Path condition: !(x < 5) | x < 0
+Initialized types = { VSharp.Test.Tests.ControlFlow }

@@ -1,13 +1,7 @@
 METHOD: System.Collections.Generic.LinkedList`1[System.Int32] VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetDictionary()
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> System.Collections.Generic.LinkedList`1[System.Int32] CLASS [
-	| System::Collections::Generic::LinkedList`1::_siInfo ~> null
-	| System::Collections::Generic::LinkedList`1::count ~> 0
-	| System::Collections::Generic::LinkedList`1::head ~> null
-	| System::Collections::Generic::LinkedList`1::version ~> 0]
----------- s1 = ----------
-System.Collections.Generic.LinkedList`1[System.Int32] ==> CLASS []
-VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 2 to System.Collections.Generic.LinkedList`1[System.Int32])
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> System.Collections.Generic.LinkedList`1[System.Int32]
+Initialized types = { System.Object, VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z], System.Collections.Generic.LinkedList`1[System.Int32] }

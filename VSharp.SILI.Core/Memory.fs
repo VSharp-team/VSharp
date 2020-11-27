@@ -10,8 +10,6 @@ open VSharp.Utils
 
 #nowarn "69"
 
-type pathCondition = term list
-
 type stack = mappedStack<stackKey, term>
 type entry = { key : stackKey; typ : symbolicType }
 type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
@@ -124,7 +122,7 @@ module internal Memory =
 // ------------------------------- Primitives -------------------------------
 
     let empty = {
-        pc = List.empty
+        pc = PC.empty
         returnRegister = None
         exceptionsRegister = NoException
         callSiteResults = Map.empty
@@ -152,11 +150,8 @@ module internal Memory =
     let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
         if isZeroAddress a2 then a2 else a1 @ a2
 
-    let withPathCondition (s : state) cond : state = { s with pc = cond::s.pc }
-    let popPathCondition (s : state) : state =
-        match s.pc with
-        | [] -> internalfail "cannot pop empty path condition"
-        | _::p' -> { s with pc = p' }
+    let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
+    let removePathCondition (s : state) cond : state = { s with pc = PC.remove s.pc cond }
 
 // ------------------------------- Stack -------------------------------
 
@@ -263,10 +258,13 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private stackReading =
-        {key : stackKey; time : vectorTime}
+        {key : stackKey; time : vectorTime option}
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = Seq.empty
-            override x.Time = x.time
+            override x.Time =
+                match x.time with
+                | Some time -> time
+                | None -> internalfailf "Requesting time of primitive stack location %O" x.key
             override x.TypeOfLocation = x.key.TypeOfLocation
 
     [<StructuralEquality;NoComparison>]
@@ -356,7 +354,7 @@ module internal Memory =
     let makeSymbolicThis (m : System.Reflection.MethodBase) =
         let declaringType = m.DeclaringType |> fromDotNetType
         if Types.isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} AddressType) declaringType
+        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 
 // ------------------------------- Reading -------------------------------
 
@@ -380,7 +378,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) VectorTime.zero
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if Types.isValueType key.TypeOfLocation then None else Some s.startingTime)
 
     let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
@@ -411,7 +409,7 @@ module internal Memory =
         let instantiate typ memory =
             let copiedMemory = readArrayCopy state arrayType extractor addr indices
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key VectorTime.zero typ (MemoryRegion.deterministicCompose copiedMemory memory)
+            makeSymbolicHeapRead {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime typ (MemoryRegion.deterministicCompose copiedMemory memory)
         MemoryRegion.read region key isDefault instantiate
 
     and readArrayRegionExt state arrayType extractor region addr indices (*copy info follows*) srcIndex dstIndex length dstType =
@@ -549,7 +547,7 @@ module internal Memory =
         | Union gvs ->
             let foldFunc (g, v) k =
                 // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
-                let pc = Propositional.conjunction (g :: state.pc)
+                let pc = PC.squashPCWithCondition state.pc g
                 match pc with
                 | False -> k None
                 | _ -> f (withPathCondition state g) v (Some >> k)
@@ -572,8 +570,8 @@ module internal Memory =
         conditionInvocation state (fun (condition, conditionState) ->
         // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
         // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenCondition = condition::conditionState.pc |> conjunction
-        let elseCondition = (!!condition)::conditionState.pc |> conjunction
+        let thenCondition = PC.squashPCWithCondition conditionState.pc condition
+        let elseCondition = PC.squashPCWithCondition conditionState.pc (!!condition)
         match thenCondition, elseCondition with
         | False, _ -> elseBranch conditionState (List.singleton >> k)
         | _, False -> thenBranch conditionState (List.singleton >> k)
@@ -603,7 +601,7 @@ module internal Memory =
         let mr = accessRegion state.classFields field symbolicType
         let key = {address = addr}
         let mr' = MemoryRegion.write mr key value
-        { state with classFields = PersistentDict.add field mr' state.classFields  }
+        { state with classFields = PersistentDict.add field mr' state.classFields }
 
     let writeArrayIndex state addr indices arrayType value =
         let elementType = fst3 arrayType
@@ -775,8 +773,9 @@ module internal Memory =
 // ------------------------------- Composition -------------------------------
 
     let private composeTime (state : state) time =
-        if VectorTime.lessOrEqual time state.startingTime then time
-        else composeAddresses state.currentTime time
+        match state.returnRegister with
+        | Some(ConcreteT((:? vectorTime as startingTime), _)) when VectorTime.lessOrEqual time startingTime -> time
+        | _ -> composeAddresses state.currentTime time
 
     let rec private fillHole state term =
         match term.term with
@@ -931,12 +930,11 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let startingTime = state.startingTime
             let prefix, suffix = List.splitAt (List.length state.currentTime - List.length state'.startingTime) state.currentTime
             let prefix = if VectorTime.lessOrEqual suffix state'.startingTime then prefix else state.currentTime
-            // TODO: is this hack correct? We wish to fillHoles only in *potentially overlapping allocated* in state' addresses
-            let state = {state with startingTime = state'.startingTime; currentTime = prefix}
-            let pc = List.map (fillHoles state) state'.pc |> List.append state.pc
+            // Hacking return register to propagate starting time of state' into composeTime
+            let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
+            let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
             let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
@@ -958,7 +956,7 @@ module internal Memory =
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
-                    pc = if isTrue g then pc else g::pc
+                    pc = if isTrue g then pc else PC.add pc g
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     callSiteResults = callSiteResults
@@ -978,7 +976,7 @@ module internal Memory =
                     extendedCopies = extendedCopies
                     delegates = delegates
                     currentTime = currentTime
-                    startingTime = startingTime
+                    startingTime = state.startingTime
                 }
         }
 
@@ -1002,28 +1000,45 @@ module internal Memory =
 
 // ------------------------------- Pretty-printing -------------------------------
 
-    let private dumpDict section sorter keyToString valueToString (sb : StringBuilder) d =
+    let private appendLine (sb : StringBuilder) (str : string) =
+        sb.Append(str).Append('\n')
+
+    let private dumpSection section (sb : StringBuilder) =
+        sprintf "--------------- %s: ---------------" section |> appendLine sb
+
+    let private dumpStack (sb : StringBuilder) stack =
+        let print (sb : StringBuilder) k v =
+            sprintf "key = %O, value = %O" k v |> appendLine sb
+        let sb1 = MappedStack.fold print (StringBuilder()) stack
+        if sb1.Length = 0 then sb
+        else
+            let sb = dumpSection "Stack" sb
+            sb.Append(sb1)
+
+    let private dumpDict section keyToString valueToString (sb : StringBuilder) d =
         if PersistentDict.isEmpty d then sb
         else
-            let sb = sprintf "--------------- %s: ---------------" section |> sb.AppendLine
-            PersistentDict.dump d sorter keyToString valueToString |> sb.AppendLine
+            let sb = dumpSection section sb
+            PersistentDict.dump d keyToString keyToString valueToString |> appendLine sb
+
+    let private arrayTypeToString (elementType, dimension, isVector) =
+        if isVector then ArrayType(elementType, Vector)
+        else ArrayType(elementType, ConcreteDimension dimension)
+        |> toString
 
     let dump (s : state) =
-        let arrayTypeToString (elementType, dimension, isVector) =
-            if isVector then ArrayType(elementType, Vector)
-            else ArrayType(elementType, ConcreteDimension dimension)
-            |> toString
         // TODO: print stack and lower bounds?
         let sb = StringBuilder()
-        let sb = if s.pc.IsEmpty then sb else (s.pc |> List.map toString |> join " /\ " |> sprintf ("Path condition: %s") |> sb.AppendLine)
-        let sb = dumpDict "Fields" id toString (MemoryRegion.toString "    ") sb s.classFields
-        let sb = dumpDict "Array contents" id arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
-        let sb = dumpDict "Array lengths" id arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
-        let sb = dumpDict "Boxed items" id VectorTime.print toString sb s.boxedLocations
-        let sb = dumpDict "Types tokens" id VectorTime.print toString sb s.allocatedTypes
-        let sb = dumpDict "Static fields" id toString (MemoryRegion.toString "    ") sb s.staticFields
-        let sb = dumpDict "Array copies" id VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
-        let sb = dumpDict "Array copies (ext)" id VectorTime.print toString sb s.extendedCopies
-        let sb = dumpDict "Delegates" id VectorTime.print toString sb s.delegates
-        let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> sb.AppendLine
+        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.mapSeq toString |> Seq.sort |> join " /\ " |> sprintf ("Path condition: %s") |> appendLine sb
+        let sb = dumpDict "Fields" toString (MemoryRegion.toString "    ") sb s.classFields
+        let sb = dumpDict "Array contents" arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
+        let sb = dumpDict "Array lengths" arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
+        let sb = dumpDict "Boxed items" VectorTime.print toString sb s.boxedLocations
+        let sb = dumpDict "Types tokens" VectorTime.print toString sb s.allocatedTypes
+        let sb = dumpDict "Static fields" toString (MemoryRegion.toString "    ") sb s.staticFields
+        let sb = dumpDict "Array copies" VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
+        let sb = dumpDict "Array copies (ext)" VectorTime.print toString sb s.extendedCopies
+        let sb = dumpDict "Delegates" VectorTime.print toString sb s.delegates
+        let sb = dumpStack sb s.stack
+        let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
         if sb.Length = 0 then "<Empty>" else sb.ToString()

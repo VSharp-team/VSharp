@@ -1,8 +1,11 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.TryUpCast(VSharp.Test.Tests.Typecast.Piece)
-RESULT: UNION[
-	| !(0 == piece) ~> 33
-	| 0 == piece ~> 42]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Typecast.Typecast ==> CLASS []
+RESULT: Totally 2 states:
+42
+MEMORY DUMP:
+Path condition: null == piece
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
+
+33
+MEMORY DUMP:
+Path condition: !(null == piece)
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

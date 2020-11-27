@@ -2,4 +2,6 @@ METHOD: System.Boolean VSharp.Test.Tests.Logics.Equal3(System.Boolean, System.Bo
 RESULT: Totally 1 state:
 True
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = a & b & c
 Initialized types = { VSharp.Test.Tests.Logics }

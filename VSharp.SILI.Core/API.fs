@@ -46,10 +46,10 @@ module API =
 
         let True = True
         let False = False
+        let NullRef = nullRef
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        let MakeNullRef typ = makeNullRef typ
 
         let TypeOf term = typeOf term
         let rec BaseTypeOfHeapRef state ref =
@@ -116,7 +116,7 @@ module API =
         let RefIsRef leftRef rightRef = TypeCasting.refIsRef leftRef rightRef
 
         let IsCast targetType term = TypeCasting.canCast term targetType
-        let Cast term targetType = TypeCasting.cast term targetType id
+        let Cast term targetType = TypeCasting.cast term targetType
         let CastConcrete value typ = castConcrete value typ
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 
@@ -143,8 +143,6 @@ module API =
 
     module public Memory =
         let EmptyState = Memory.empty
-
-        let IsNullReference term = Merging.guardedApply Pointers.isNull term
 
         let PopStack state = Memory.popStack state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -278,8 +276,8 @@ module API =
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 
         let Merge2States (state1 : state) (state2 : state) =
-            let pc1 = List.fold (fun pc cond -> pc &&& cond) Terms.True state1.pc
-            let pc2 = List.fold (fun pc cond -> pc &&& cond) Terms.True state2.pc
+            let pc1 = PC.squashPC state1.pc
+            let pc2 = PC.squashPC state2.pc
             if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
             __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}

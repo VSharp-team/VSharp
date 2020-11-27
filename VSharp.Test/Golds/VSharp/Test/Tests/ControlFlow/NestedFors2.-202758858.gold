@@ -1,12 +1,36 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.NestedFors2(System.Int32)
-RESULT: UNION[
-	| !(1 <= x) | μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1] ~> 0
-	| !(μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1]) & 1 <= x ~> μ[Vertex = 8, RV = [8], __loc__0]]
-HEAP:
-{ heap = merge[
-	(!(1 <= x) | μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1], <empty>),
-	(!(μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1]) & 1 <= x, { heap = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]), statics = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]) } ⚪ recapp(Vertex = 8, RV = [8]))], statics = merge[
-	(!(1 <= x) | μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1], s0),
-	(!(μ[Vertex = 5, RV = [5; 8], __loc__2] <= μ[Vertex = 5, RV = [5; 8], __loc__1]) & 1 <= x, { heap = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]), statics = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]) } ⚪ recapp(Vertex = 8, RV = [8]))] } where
----------- s0 = ----------
-VSharp.Test.Tests.ControlFlow ==> CLASS []
+RESULT: Totally 4 states:
+0
+MEMORY DUMP:
+Path condition: !(1 <= x)
+--------------- Stack: ---------------
+key = __loc__1, value = 1
+key = __loc__0, value = 0
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1
+MEMORY DUMP:
+Path condition: !(2 <= x) /\ 1 <= x
+--------------- Stack: ---------------
+key = __loc__2, value = 2
+key = __loc__1, value = 2
+key = __loc__0, value = 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+4
+MEMORY DUMP:
+Path condition: !(3 <= x) /\ 1 <= x /\ 2 <= x
+--------------- Stack: ---------------
+key = __loc__2, value = 3
+key = __loc__1, value = 3
+key = __loc__0, value = 4
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+10
+MEMORY DUMP:
+Path condition: !(4 <= x) /\ 1 <= x /\ 2 <= x /\ 3 <= x
+--------------- Stack: ---------------
+key = __loc__2, value = 4
+key = __loc__1, value = 4
+key = __loc__0, value = 10
+Initialized types = { VSharp.Test.Tests.ControlFlow }

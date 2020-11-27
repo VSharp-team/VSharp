@@ -43,9 +43,9 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         | _ -> __notImplemented__()
     override x.MakeEpsilonState (ist : cilState) =
         let state = ist.state
-        let pcForEpsilon = !! (conjunction state.pc)
+        let pcForEpsilon = !! (PC.squashPC state.pc)
         let state = { Memory.EmptyState with
-                        pc = [pcForEpsilon]
+                        pc = PC.add PC.empty pcForEpsilon
                         frames = state.frames
                         stack = (fst Memory.EmptyState.stack, snd state.stack)
                     }
@@ -418,7 +418,7 @@ and public ILInterpreter() as this =
         let term = castReferenceToPointerIfNeeded term typ state
         StatedConditionalExecutionAppendResults state
             (fun state k -> k (IsNullReference term ||| Types.IsCast typ term, state))
-            (fun state k -> k [{state with returnRegister = Some <|Types.Cast term typ}])
+            (fun state k -> k [{state with returnRegister = Some <| Types.Cast term typ}])
             (x.Raise x.InvalidCastException)
             k
     member private x.CastClass (cfg : cfg) offset (cilState : cilState) : cilState list =
@@ -480,7 +480,7 @@ and public ILInterpreter() as this =
             GuardedApplyForState state methodPtr
                 (fun state methodPtr k ->
                     BranchOnNull state target
-                        (fun _ _ -> __notImplemented__()) // TODO: check whether this situation is possible
+                        (fun _ _ -> __notImplemented__()) // TODO: check whether this situation is possible -- it is possible in test DoubleValue (symbolic ref, because of cfa)
                         (x.ReduceMethodBaseCall (retrieveMethodInfo methodPtr))
                         k)
 
@@ -671,7 +671,7 @@ and public ILInterpreter() as this =
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (hasValue, state))
                 hasValueCase
-                (fun state k -> k [{state with returnRegister = Some <| MakeNullRef (Types.FromDotNetType state t)}])
+                (fun state k -> k [{state with returnRegister = Some NullRef}])
                 k
 
         x.ReduceFunctionSignature cilState.state hasValueMethodInfo (Some v) (Specified []) false (fun state ->

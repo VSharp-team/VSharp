@@ -55,7 +55,7 @@ namespace VSharp.Test.Tests
 //            return a > 3;
 //        }
 
-        [Ignore("Z3: sorts")]
+        [Ignore("dfs goes through vertex twice #fix")]
         public bool Construct()
         {
             var a = new List<int>(4) {1, 2, 3, 4};
@@ -98,8 +98,7 @@ namespace VSharp.Test.Tests
             return c.GetUpperBound(0);
         }
 
-        // [TestSvm]
-        [Ignore("order of heap addresses changed. Complicated guard for ``default`` value")]
+        [TestSvm]
         public int ArrayLength(int f)
         {
             int[] tmp;
@@ -155,7 +154,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [Ignore("Simplification of arithmetics is bad")]
+        [TestSvm]
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];
@@ -436,8 +435,16 @@ namespace VSharp.Test.Tests
             return l;
         }
 
+        [TestSvm]
+        public static int FirstElementOfLinkedList(LinkedList<int> l)
+        {
+            if (l == null) return 0;
+            if (l.First == null) return 1;
+            return l.First.Value += 1;
+        }
+
         // Test on tracking current heap address during access to heap for filtering possible locations
-        [Ignore("Current heap address should be inside ref, otherwise node m will not be filtered out")]
+        [Ignore("Exception handling is not implemented")]
         public static int MemoryTest(LinkedList<int> l)
         {
             LinkedListNode<int> n = new LinkedListNode<int>(10);

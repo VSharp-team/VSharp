@@ -27,15 +27,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
-        [Ignore("reinterpretation")]
+        [Ignore("typeOfStackLocation when location is not in stack #fix")]
         public static int Always18()
         {
             return Mult2(9);
         }
 
         // Expecting always true
-        [TestSvm]
-        // [Ignore("HeapAddresses were increased due to exploration and following composition. Add Statics of Object that were removed for marshalling")]
+        [Ignore("Null lambda was invoked")]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;

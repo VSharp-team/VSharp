@@ -1,6 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ArithmeticsMethod3(System.Int32, System.Int32, System.Int32)
-RESULT: -11 + c
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []
+RESULT: Totally 1 state:
+-11 + c
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Arithmetics }

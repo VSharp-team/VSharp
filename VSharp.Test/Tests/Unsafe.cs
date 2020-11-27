@@ -48,22 +48,21 @@ namespace VSharp.Test.Tests
             return **&p;
         }
 
-        [Ignore("topLevelLocation of StackRef")]
+        [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
             var s = new IntPtr(&myFavouriteParameter);
             return *(int*) s.ToPointer();
         }
 
-        // [TestSvm]
-        [Ignore("Field term extractor for functionResultConstantSource needed")]
-        public static void* CompilerHackLikePtrReturn(void* ptr) // TODO: keys of MemoryCell are equal, but FQLs are not (because of equality of concrete "this" and "constructed instance")
+        [Ignore("Insufficient information")]
+        public static void* CompilerHackLikePtrReturn(void* ptr)
         {
             var x = (IntPtr) ptr;
             return x.ToPointer();
         }
 
-        [Ignore("Not working, because of (p - q) might not be multiple of 8")]
+        [Ignore("Not working, because of (p - q) might not be multiple of 8 #fix")]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
@@ -73,7 +72,7 @@ namespace VSharp.Test.Tests
             return * (int*) (q + d);
         }
 
-        [Ignore("Not working, because the idea of test is not right")]
+        [Ignore("Not working, because the idea of test is not right #fix")]
         public static int PointerTriangle(int x, int y, int z)
         {
             int* px = &x;
