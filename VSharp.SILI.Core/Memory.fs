@@ -717,8 +717,9 @@ module internal Memory =
 
     let allocateString state (str : string) =
         let address, state = allocateConcreteVector state Char (str.Length + 1) (Seq.append str (Seq.singleton '\000'))
+        let heapAddress = getConcreteHeapAddress address
         let state = writeClassField state address Reflection.stringLengthField (Concrete str.Length lengthType)
-        HeapRef address Types.String, state
+        HeapRef address Types.String, {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
 
     let allocateDelegate state delegateTerm =
         let concreteAddress, state = freshAddress state

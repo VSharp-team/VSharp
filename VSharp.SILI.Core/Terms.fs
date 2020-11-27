@@ -549,6 +549,10 @@ module internal Terms =
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
 
+    let getConcreteHeapAddress = term >> function
+        | ConcreteHeapAddress(addr) -> addr
+        | _ -> __unreachable__()
+
     let isConcreteHeapAddress term =
         match term.term with
         | ConcreteHeapAddress _ -> true
