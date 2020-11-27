@@ -37,7 +37,6 @@ type cilState =
     { ip : ip
       isFinished : ip -> bool
       recursiveVertices : int list
-      opStack : operationalStack
       state : state
       leaveInstructionExecuted : bool
       filterResult : term option
@@ -56,7 +55,6 @@ type cilState =
             ip = Exit
             isFinished = fun ip -> ip = Exit
             recursiveVertices = []
-            opStack = []
             state = VSharp.Core.API.Memory.EmptyState
             leaveInstructionExecuted = false
             filterResult = None
@@ -65,7 +63,6 @@ type cilState =
         { ip = curV
           isFinished = fun x -> x = targetV
           recursiveVertices = []
-          opStack = [];
           state = state
           leaveInstructionExecuted = false
           filterResult = None

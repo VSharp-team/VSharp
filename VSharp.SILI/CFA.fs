@@ -21,6 +21,10 @@ module public CFA =
     let mutable stepItp : ILInterpreter option = None
     let configureInterpreter itp = stepItp <- Some itp
 
+    let withState = InstructionsSet.withState
+    let withOpStack = InstructionsSet.withOpStack
+    let withIp = InstructionsSet.withIp
+    let pushToOpStack = InstructionsSet.pushToOpStack
     type vertexLabel =
         | FromCFG of offset
         | PreCatchVertex of offset * ExceptionHandlingClause
@@ -286,7 +290,7 @@ module public CFA =
                 let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
                 let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : System.Reflection.MethodInfo) =
                     if methodInfo.ReturnType = typeof<System.Void> then cilState
-                    else {cilState with opStack = Terms.MakeFunctionResultConstant cilState.state callSite :: cilState.opStack}
+                    else pushToOpStack (Terms.MakeFunctionResultConstant cilState.state callSite) cilState
 
                 let args, cilStateWithoutArgs = InstructionsSet.retrieveActualParameters calledMethod cilStateWithArgs
                 let this, cilState =
@@ -300,7 +304,7 @@ module public CFA =
                             if calledMethod.DeclaringType.IsValueType then
                                   Memory.ReadSafe state reference
                             else reference
-                        Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = valueOnStack :: cilStateWithoutArgs.opStack}
+                        Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None} |> pushToOpStack valueOnStack
                     | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
                     | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
                         let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
@@ -319,13 +323,15 @@ module public CFA =
             let rec computeCFAForBlock (block : unitBlock<'a>) =
                 let createOrGetVertex (bypassData : bypassData) =
                     match bypassData.ip with
+                    | Exit ->
+                        assert(bypassData.opStack = [])
+                        block.exitVertex
                     | _ when used.ContainsKey(bypassData) -> block.vertices.[used.[bypassData]]
                     | Instruction offset ->
                         let vertex = Vertex.CreateVertex cfg.methodBase offset bypassData.opStack
                         block.AddVertex vertex
                         vertex
-                    | Exit when bypassData.opStack = [] -> block.exitVertex
-                    | _ -> __unreachable__()
+                    | _ -> internalfail "Handlers are not implemented now"
 
                 let isInsideCycle opStack (src : offset) (dst : ip) =
                     match dst with
@@ -356,31 +362,35 @@ module public CFA =
                     | true ->
                         let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
                         let callSite = {sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode}
-                        let nextOffset, this, args, cilState' = executeSeparatedOpCode offset opCode {initialCilState with ip = Instruction offset; opStack = opStack}
+                        let nextOffset, this, args, cilState' =
+                            initialCilState |> withIp (Instruction offset) |> withOpStack opStack
+                            |> executeSeparatedOpCode offset opCode
                         let dstVertex =
                             let s = cilState'.state
-                            createOrGetVertex (createData (Instruction nextOffset) cilState'.opStack s.allocatedTypes s.lengths s.lowerBounds)
+                            createOrGetVertex (createData (Instruction nextOffset) s.opStack s.allocatedTypes s.lengths s.lowerBounds)
                         block.AddVertex dstVertex
                         let stateWithArgsOnFrame = ilintptr.ReduceFunctionSignature cilState'.state calledMethod this (Specified args) false (fun x -> x)
                         currentTime <- VectorTime.max currentTime stateWithArgsOnFrame.currentTime
                         addEdge <| CallEdge(srcVertex, dstVertex, callSite, stateWithArgsOnFrame)
                         bypass dstVertex stateWithArgsOnFrame.allocatedTypes stateWithArgsOnFrame.lengths stateWithArgsOnFrame.lowerBounds
                     | _ ->
-                        let newStates = executeInstructions ilintptr cfg {initialCilState with ip = Instruction offset; opStack = opStack}
+                        let newStates =
+                            initialCilState |> withIp (Instruction offset) |> withOpStack opStack
+                            |> executeInstructions ilintptr cfg
                         newStates |> List.iter (fun state -> currentTime <- VectorTime.max currentTime state.state.currentTime)
                         let goodStates = List.filter (fun (cilState : cilState) -> not cilState.HasException) newStates
                         let erroredStates = List.filter (fun (cilState : cilState) -> cilState.HasException) newStates
                         goodStates |> List.iter (fun (cilState' : cilState) ->
-                            match isInsideCycle cilState'.opStack offset cilState'.ip with
+                            match isInsideCycle cilState'.state.opStack offset cilState'.ip with
                             | Some vertex ->
                                 assert (not cilState'.leaveInstructionExecuted)
                                 addEdge <| StepEdge(srcVertex, vertex, cilState'.state)
                             | None ->
                                 let s = cilState'.state
-                                let dstVertex = createOrGetVertex (createData cilState'.ip cilState'.opStack s.allocatedTypes s.lengths s.lowerBounds)
+                                let dstVertex = createOrGetVertex (createData cilState'.ip s.opStack s.allocatedTypes s.lengths s.lowerBounds)
                                 if not cilState'.leaveInstructionExecuted then addEdge <| StepEdge(srcVertex, dstVertex, cilState'.state)
                                 else
-                                    Prelude.releaseAssert(List.isEmpty cilState'.opStack)
+                                    Prelude.releaseAssert(List.isEmpty s.opStack)
                                     addEdgesToFinallyBlocks initialCilState.state srcVertex dstVertex
                                 bypass dstVertex cilState'.state.allocatedTypes cilState'.state.lengths cilState'.state.lowerBounds)
                         srcVertex.AddErroredStates erroredStates

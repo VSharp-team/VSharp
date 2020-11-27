@@ -87,6 +87,7 @@ type arrayCopyInfo =
 
 and state = {
     pc : pathCondition
+    opStack : term list
     stack : stack                                             // Arguments and local variables
     stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
     frames : frames                                           // Meta-information about stack frames
@@ -123,6 +124,7 @@ module internal Memory =
 
     let empty = {
         pc = PC.empty
+        opStack = List.empty
         returnRegister = None
         exceptionsRegister = NoException
         callSiteResults = Map.empty
@@ -940,6 +942,10 @@ module internal Memory =
         let dstType = substituteTypeVariables state info.dstType
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
+    let private isOfPrimitiveType (v : term) =
+        let typ = typeOf v
+        __notImplemented__()
+
     let composeStates state state' =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
@@ -949,6 +955,7 @@ module internal Memory =
             // Hacking return register to propagate starting time of state' into composeTime
             let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
+            let opStack = List.map (fun v -> if isOfPrimitiveType v then fillHoles state v else v) state'.opStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
             let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
@@ -971,6 +978,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     pc = if isTrue g then pc else PC.add pc g
+                    opStack = opStack
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     callSiteResults = callSiteResults
