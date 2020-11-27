@@ -46,7 +46,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
@@ -76,7 +76,7 @@ namespace VSharp.Test.Tests.Generic
             return u;
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static P RetP(P p)
         {
             return p;
@@ -119,7 +119,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static V RetV(V v)
         {
             return v;

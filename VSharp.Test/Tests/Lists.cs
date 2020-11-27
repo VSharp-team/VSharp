@@ -55,7 +55,7 @@ namespace VSharp.Test.Tests
 //            return a > 3;
 //        }
 
-        [Ignore("dfs goes through vertex twice #fix")]
+        [TestSvm]
         public bool Construct()
         {
             var a = new List<int>(4) {1, 2, 3, 4};
