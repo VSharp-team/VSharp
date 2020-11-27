@@ -1,15 +1,18 @@
 METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.TestStack(VSharp.Test.Tests.Second)
-RESULT: UNION[
-	| !(0 == b) & !(0 == b.VSharp::Test::Tests::Second::b) ~> 1 + b.VSharp::Test::Tests::Second::b.VSharp::Test::Tests::First::B
-	| 0 == b | 0 == b.VSharp::Test::Tests::Second::b ~> 0]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-b.VSharp::Test::Tests::Second::b ==> VSharp.Test.Tests.First CLASS [
-	| VSharp::Test::Tests::First::B ~> UNION[
-		| !(0 == b) & !(0 == b.VSharp::Test::Tests::Second::b) ~> 1 + b.VSharp::Test::Tests::Second::b.VSharp::Test::Tests::First::B
-		| 0 == b | 0 == b.VSharp::Test::Tests::Second::b ~> b.VSharp::Test::Tests::Second::b.VSharp::Test::Tests::First::B]]
----------- s1 = ----------
-VSharp.Test.Tests.First ==> CLASS []
-VSharp.Test.Tests.RecursiveAccess ==> CLASS []
-VSharp.Test.Tests.Second ==> CLASS []
+RESULT: Totally 3 states:
+0
+MEMORY DUMP:
+Path condition: b == null
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }
+
+0
+MEMORY DUMP:
+Path condition: !(b == null) /\ b.b == null
+Initialized types = { VSharp.Test.Tests.Second, VSharp.Test.Tests.RecursiveAccess }
+
+1 + b.b.B
+MEMORY DUMP:
+Path condition: !(b == null) /\ !(b.b == null)
+--------------- Fields: ---------------
+B ==> {b.b <- 1 + b.b.B}
+Initialized types = { VSharp.Test.Tests.Second, VSharp.Test.Tests.First, VSharp.Test.Tests.RecursiveAccess }

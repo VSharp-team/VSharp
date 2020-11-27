@@ -1,8 +1,15 @@
 METHOD: System.Int32 VSharp.Test.Tests.Enums.SymbolicColor2Int(VSharp.Test.Tests.Enums+Color, System.Int32)
-RESULT: UNION[
-	| !((VSharp.Test.Tests.Enums+Color)v == c) ~> 100
-	| (VSharp.Test.Tests.Enums+Color)v == c ~> 42]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Enums ==> CLASS []
+RESULT: Totally 2 states:
+100
+MEMORY DUMP:
+Path condition: !((VSharp.Test.Tests.Enums+Color)v == c)
+--------------- Stack: ---------------
+key = __loc__0, value = (VSharp.Test.Tests.Enums+Color)v
+Initialized types = { VSharp.Test.Tests.Enums }
+
+42
+MEMORY DUMP:
+Path condition: (VSharp.Test.Tests.Enums+Color)v == c
+--------------- Stack: ---------------
+key = __loc__0, value = (VSharp.Test.Tests.Enums+Color)v
+Initialized types = { VSharp.Test.Tests.Enums }

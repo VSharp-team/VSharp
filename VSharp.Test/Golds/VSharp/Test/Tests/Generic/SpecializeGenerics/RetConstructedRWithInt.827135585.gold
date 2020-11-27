@@ -1,9 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.Generic.SpecializeGenerics.RetConstructedRWithInt()
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> 0
----------- s1 = ----------
-VSharp.Test.Tests.Generic.GenericClass`2[System.Object,System.Int32] ==> CLASS []
-VSharp.Test.Tests.Generic.SpecializeGenerics ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 2 to System.Object)
+MEMORY DUMP:
+--------------- Boxed items: ---------------
+2 ==> 0
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+Initialized types = { VSharp.Test.Tests.Generic.GenericClass`2[System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }

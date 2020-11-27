@@ -1,0 +1,19 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.StaticConstructorShouldBeCalledOnce(System.Boolean)
+RESULT: Totally 2 states:
+100
+MEMORY DUMP:
+Path condition: !f
+--------------- Static fields: ---------------
+X ==> {
+        VSharp.Test.Tests.PDR+ClassWithStaticConstructor <- 100
+    }
+Initialized types = { VSharp.Test.Tests.PDR, VSharp.Test.Tests.PDR+ClassWithStaticConstructor }
+
+100
+MEMORY DUMP:
+Path condition: f
+--------------- Static fields: ---------------
+X ==> {
+        VSharp.Test.Tests.PDR+ClassWithStaticConstructor <- 100
+    }
+Initialized types = { VSharp.Test.Tests.PDR, VSharp.Test.Tests.PDR+ClassWithStaticConstructor }

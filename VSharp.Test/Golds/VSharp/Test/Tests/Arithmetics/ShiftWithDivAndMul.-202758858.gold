@@ -1,6 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ShiftWithDivAndMul(System.Int32)
-RESULT: (a << 6) / 4
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []
+RESULT: Totally 1 state:
+(a << 6) / 4
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Arithmetics }

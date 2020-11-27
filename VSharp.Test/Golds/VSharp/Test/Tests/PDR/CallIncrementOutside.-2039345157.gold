@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.CallIncrementOutside()
+RESULT: Totally 1 state:
+101
+MEMORY DUMP:
+--------------- Static fields: ---------------
+x ==> {
+        VSharp.Test.Tests.PDR+WithStaticMembersUsedInCFA <- 101
+    }
+Initialized types = { VSharp.Test.Tests.PDR+WithStaticMembersUsedInCFA, VSharp.Test.Tests.PDR }

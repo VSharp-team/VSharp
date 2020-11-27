@@ -1,6 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.Unsafe.ReturnConst()
-RESULT: 421234123
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Unsafe ==> CLASS []
+RESULT: Totally 1 state:
+421234123
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = 421234123
+Initialized types = { VSharp.Test.Tests.Unsafe }

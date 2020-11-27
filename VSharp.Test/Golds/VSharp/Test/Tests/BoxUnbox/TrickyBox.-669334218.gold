@@ -1,11 +1,19 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.TrickyBox(System.Int32)
-RESULT: UNION[
-	| !(5 == x) ~> (HeapRef 2)
-	| 5 == x ~> (HeapRef 1)]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> x
+RESULT: Totally 2 states:
+(HeapRef 2 to System.Int32)
+MEMORY DUMP:
+Path condition: !(5 == x)
+--------------- Boxed items: ---------------
 2 ==> 42
----------- s1 = ----------
-VSharp.Test.Tests.BoxUnbox ==> CLASS []
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+Initialized types = { VSharp.Test.Tests.BoxUnbox }
+
+(HeapRef 2 to System.Int32)
+MEMORY DUMP:
+Path condition: 5 == x
+--------------- Boxed items: ---------------
+2 ==> x
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+Initialized types = { VSharp.Test.Tests.BoxUnbox }

@@ -1,6 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Pawn.GetNewField()
-RESULT: this.VSharp::Test::Tests::Typecast::Pawn::_newField
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Typecast.Pawn ==> CLASS []
+RESULT: Totally 1 state:
+this._newField
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Typecast.Pawn)
+Initialized types = { VSharp.Test.Tests.Typecast.Pawn }

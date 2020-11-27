@@ -1,10 +1,32 @@
 METHOD: System.Int32 VSharp.Test.Tests.Generic.TetsUnion.RetWorked(System.Object, System.Int32)
-RESULT: UNION[
-	| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.BlackPawn) & !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) ~> 6 + a
-	| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.BlackPawn) ~> 5
-	| !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.BlackPawn) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) ~> 11
-	| (!((HeapRef obj) <: VSharp.Test.Tests.Typecast.BlackPawn) | 0 == obj) & (!((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj) ~> a]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Generic.TetsUnion ==> CLASS []
+RESULT: Totally 5 states:
+a
+MEMORY DUMP:
+Path condition: null == obj
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
+
+a
+MEMORY DUMP:
+Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn)
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
+
+6 + a
+MEMORY DUMP:
+Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ (obj <: VSharp.Test.Tests.Typecast.Pawn)
+--------------- Stack: ---------------
+key = a, value = 6 + a
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
+
+5
+MEMORY DUMP:
+Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn) /\ (obj <: VSharp.Test.Tests.Typecast.BlackPawn)
+--------------- Stack: ---------------
+key = a, value = 5
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
+
+11
+MEMORY DUMP:
+Path condition: !(null == obj) /\ (obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ (obj <: VSharp.Test.Tests.Typecast.Pawn)
+--------------- Stack: ---------------
+key = a, value = 11
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }

@@ -1,9 +1,9 @@
 METHOD: System.Void VSharp.Test.Tests.Typecast.Pawn.SetNewField(System.Int32)
-RESULT: <VOID>
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-this ==> VSharp.Test.Tests.Typecast.Pawn CLASS [
-	| VSharp::Test::Tests::Typecast::Pawn::_newField ~> field]
----------- s1 = ----------
-VSharp.Test.Tests.Typecast.Pawn ==> CLASS []
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Fields: ---------------
+_newField ==> {this <- field}
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Typecast.Pawn)
+Initialized types = { VSharp.Test.Tests.Typecast.Pawn }

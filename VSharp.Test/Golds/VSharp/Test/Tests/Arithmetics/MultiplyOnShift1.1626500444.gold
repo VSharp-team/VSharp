@@ -1,6 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.MultiplyOnShift1(System.Int16)
-RESULT: (System.Int32)a << 19
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []
+RESULT: Totally 1 state:
+(System.Int32)a << 19
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Arithmetics }

@@ -1,6 +1,8 @@
 METHOD: System.Int32 VSharp.Test.Tests.Unsafe.ChangeThroughIndirection()
-RESULT: 14
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Unsafe ==> CLASS []
+RESULT: Totally 1 state:
+14
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__1, value = 14
+key = __loc__0, value = 14
+Initialized types = { VSharp.Test.Tests.Unsafe }

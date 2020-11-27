@@ -1,6 +1,5 @@
 METHOD: System.Double VSharp.Test.Tests.Arithmetics.CheckOverflow3(System.Double)
-RESULT: Infinity + x1
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics ==> CLASS []
+RESULT: Totally 1 state:
+Infinity + x1
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Arithmetics }

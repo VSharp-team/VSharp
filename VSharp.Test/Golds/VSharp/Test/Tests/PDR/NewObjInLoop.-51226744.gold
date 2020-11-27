@@ -8,4 +8,6 @@ MEMORY DUMP:
 2.2.2 ==> System.Object
 2.2.2.2 ==> System.Object
 2.2.2.2.2 ==> System.Object
+--------------- Stack: ---------------
+key = __loc__0, value = 5
 Initialized types = { VSharp.Test.Tests.PDR, System.Object }

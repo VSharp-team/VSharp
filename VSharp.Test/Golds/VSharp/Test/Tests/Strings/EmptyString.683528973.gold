@@ -1,16 +1,15 @@
 METHOD: System.String VSharp.Test.Tests.Strings.EmptyString(System.Int32, System.Int32)
-RESULT: UNION[
-	| !hasKey#1 ~> (HeapRef 1)
-	| hasKey#1 ~> (HeapRef System.String.Empty)]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> System.String CLASS [
-	| System::String::_firstChar ~> [| 0 ~> '\000' ... 1 ... |]
-	| System::String::_stringLength ~> 0]
----------- s1 = ----------
-System.String ==> CLASS [
-	| Empty ~> UNION[
-		| !hasKey#1 ~> (HeapRef 1)
-		| hasKey#1 ~> (HeapRef System.String.Empty)]]
-VSharp.Test.Tests.Strings ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 2 to System.String)
+MEMORY DUMP:
+--------------- Fields: ---------------
+_stringLength ==> {2 <- 0}
+--------------- Array contents: ---------------
+System.Char[] ==> {2[0] <- '\000'}
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 1}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+--------------- Static fields: ---------------
+Empty ==> {System.String <- (HeapRef 2 to System.String)}
+Initialized types = { System.String, VSharp.Test.Tests.Strings }

@@ -1,13 +1,15 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.UpCast()
-RESULT: 15
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Typecast.Pawn CLASS [
-	| VSharp::Test::Tests::Typecast::Pawn::_newField ~> 25
-	| VSharp::Test::Tests::Typecast::Piece::Rate ~> 1
-	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> 1
-	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> 1]
----------- s1 = ----------
-VSharp.Test.Tests.Typecast.Pawn ==> CLASS []
-VSharp.Test.Tests.Typecast.Typecast ==> CLASS []
+RESULT: Totally 1 state:
+15
+MEMORY DUMP:
+--------------- Fields: ---------------
+Rate ==> {2 <- 1}
+_newField ==> {2 <- 25}
+_xCoord ==> {2 <- 1}
+_yCoord ==> {2 <- 1}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Typecast.Pawn
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.Typecast.Pawn)
+key = __loc__1, value = (HeapRef 2 to VSharp.Test.Tests.Typecast.Pawn)
+Initialized types = { VSharp.Test.Tests.Typecast.Pawn, VSharp.Test.Tests.Typecast.Typecast, System.Object, VSharp.Test.Tests.Typecast.Piece }

@@ -1,16 +1,18 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.NestedForsSimple(System.Int32)
-RESULT: UNION[
-	| !(0 < x) | μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x] ~> 0
-	| !(μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x]) & 0 < x ~> μ[Vertex = 8, RV = [8], __loc__0]]
-HEAP:
-{ heap = merge[
-	(!(0 < x) | μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x], <empty>),
-	(!(μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x]) & 0 < x, { heap = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]), statics = merge[
-	(!(0 < x), s0),
-	(0 < x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]))] } ⚪ recapp(Vertex = 8, RV = [8]))], statics = merge[
-	(!(0 < x) | μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x], s0),
-	(!(μ[Vertex = 5, RV = [5; 8], __loc__2] < μ[Vertex = 5, RV = [5; 8], x]) & 0 < x, { heap = merge[
-	(!(0 < x), <empty>),
-	(0 < x, { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]))], statics = { heap = <empty>, statics = s0 } ⚪ recapp(Vertex = 5, RV = [5; 8]) } ⚪ recapp(Vertex = 8, RV = [8]))] } where
----------- s0 = ----------
-VSharp.Test.Tests.ControlFlow ==> CLASS []
+RESULT: Totally 2 states:
+0
+MEMORY DUMP:
+Path condition: !(0 < x)
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+key = __loc__1, value = 0
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1
+MEMORY DUMP:
+Path condition: !(1 < x) /\ 0 < x
+--------------- Stack: ---------------
+key = __loc__2, value = 1
+key = __loc__0, value = 1
+key = __loc__1, value = 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }

@@ -1,10 +1,10 @@
 METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Typecast.Knight.MakeMove(VSharp.Test.Tests.Typecast.Coord)
-RESULT: (HeapRef this)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-this ==> VSharp.Test.Tests.Typecast.Knight CLASS [
-	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> c.VSharp::Test::Tests::Typecast::Coord::X + c.VSharp::Test::Tests::Typecast::Coord::Y
-	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> -c.VSharp::Test::Tests::Typecast::Coord::Y + c.VSharp::Test::Tests::Typecast::Coord::X]
----------- s1 = ----------
-VSharp.Test.Tests.Typecast.Knight ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef this to VSharp.Test.Tests.Typecast.Knight)
+MEMORY DUMP:
+--------------- Fields: ---------------
+_xCoord ==> {this <- X + Y}
+_yCoord ==> {this <- -Y + X}
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Typecast.Knight)
+Initialized types = { VSharp.Test.Tests.Typecast.Knight }

@@ -1,0 +1,33 @@
+METHOD: System.Action`1[System.Int32] VSharp.Test.Tests.PDR.CreateLambda(System.Boolean)
+RESULT: Totally 2 states:
+(HeapRef 4 to System.Action`1[System.Int32])
+MEMORY DUMP:
+Path condition: !flag
+--------------- Fields: ---------------
+a ==> {2 <- 0}
+b ==> {2 <- 0}
+c ==> {2 <- 0}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass1_0
+--------------- Delegates: ---------------
+4 ==> <Lambda Expression System.Action`1[System.Int32]>
+--------------- Stack: ---------------
+key = __loc__1, value = (HeapRef 4 to System.Action`1[System.Int32])
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+<>c__DisplayClass1_0)
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass1_0 }
+
+(HeapRef 3 to System.Action`1[System.Int32])
+MEMORY DUMP:
+Path condition: flag
+--------------- Fields: ---------------
+a ==> {2 <- 0}
+b ==> {2 <- 0}
+c ==> {2 <- 0}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass1_0
+--------------- Delegates: ---------------
+3 ==> <Lambda Expression System.Action`1[System.Int32]>
+--------------- Stack: ---------------
+key = __loc__1, value = (HeapRef 3 to System.Action`1[System.Int32])
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+<>c__DisplayClass1_0)
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass1_0 }

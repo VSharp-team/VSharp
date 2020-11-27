@@ -1,12 +1,17 @@
 METHOD: System.Int32 VSharp.Test.Tests.ClassesSimplePropertyAccessModify.TestProperty1(System.Int32)
-RESULT: anyVarName
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify CLASS [
-	| VSharp::Test::Tests::ClassesSimplePropertyAccessModify::<StructProperty>k__BackingField ~> (HeapRef 2)]
-2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct CLASS [
-	| VSharp::Test::Tests::ClassesSimplePropertyAccessModify::SimpleStruct::X ~> anyVarName]
----------- s1 = ----------
-VSharp.Test.Tests.ClassesSimplePropertyAccessModify ==> CLASS []
-VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleStruct ==> CLASS []
+RESULT: Totally 1 state:
+anyVarName
+MEMORY DUMP:
+--------------- Fields: ---------------
+<ContainerProperty>k__BackingField ==> {
+        2 <- (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
+    }
+X ==> {3 <- anyVarName}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify
+3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccessModify)
+key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
+key = __loc__1, value = anyVarName
+Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccessModify, VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer, System.Object }

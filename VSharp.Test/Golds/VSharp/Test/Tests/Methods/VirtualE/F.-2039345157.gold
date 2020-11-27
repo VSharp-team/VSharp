@@ -1,6 +1,7 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualE.F()
-RESULT: 9
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualE ==> CLASS []
+RESULT: Totally 1 state:
+9
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualE)
+Initialized types = { VSharp.Test.Tests.Methods.VirtualE }

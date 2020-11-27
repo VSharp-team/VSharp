@@ -1,12 +1,10 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.CastAfterNull()
-RESULT: 38
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Typecast.Piece CLASS [
-	| VSharp::Test::Tests::Typecast::Piece::Rate ~> 0
-	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> 1
-	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> 3]
----------- s1 = ----------
-VSharp.Test.Tests.Typecast.Piece ==> CLASS []
-VSharp.Test.Tests.Typecast.Typecast ==> CLASS []
+RESULT: Totally 1 state:
+38
+MEMORY DUMP:
+--------------- Fields: ---------------
+_xCoord ==> {2 <- 1}
+_yCoord ==> {2 <- 3}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Typecast.Piece
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast, System.Object, VSharp.Test.Tests.Typecast.Piece }

@@ -1,0 +1,16 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.NewObj1()
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Array lengths: ---------------
+System.Double[] ==> {3.3.3[0] <- 32; 3.3.4[0] <- 32}
+System.Int32[] ==> {3[0] <- 32; 3.3[0] <- 32}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> System.Int32[]
+3.3 ==> System.Int32[]
+3.3.3 ==> System.Double[]
+3.3.4 ==> System.Double[]
+--------------- Stack: ---------------
+key = __loc__0, value = 2
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

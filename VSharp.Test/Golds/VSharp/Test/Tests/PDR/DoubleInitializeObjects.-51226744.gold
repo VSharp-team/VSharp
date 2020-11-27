@@ -3,6 +3,6 @@ RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-1 ==> System.Object
 2 ==> System.Object
+3 ==> System.Object
 Initialized types = { VSharp.Test.Tests.PDR, System.Object }

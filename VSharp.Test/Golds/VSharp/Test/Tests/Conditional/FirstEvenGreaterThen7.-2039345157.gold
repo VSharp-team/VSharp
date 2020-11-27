@@ -1,6 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Conditional.FirstEvenGreaterThen7()
-RESULT: 8
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Conditional ==> CLASS []
+RESULT: Totally 1 state:
+8
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Conditional }

@@ -2,4 +2,6 @@ METHOD: System.Boolean VSharp.Test.Tests.Logics.NotEqual2(System.Boolean, System
 RESULT: Totally 1 state:
 False
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = a & b
 Initialized types = { VSharp.Test.Tests.Logics }

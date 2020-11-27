@@ -1,9 +1,29 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.AcyclicGotos(System.Int32)
-RESULT: UNION[
-	| !(x < 1000) & !(x <= 100) ~> x / 1000
-	| (!(x < 42) & x <= 100 | !(x <= 100) & x < 1000) & (x < 1000 | x <= 100) ~> 100 + x
-	| x < 42 & x <= 100 ~> 10 * x]
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.ControlFlow ==> CLASS []
+RESULT: Totally 4 states:
+x / 1000
+MEMORY DUMP:
+Path condition: !(x < 1000) /\ !(x <= 100)
+--------------- Stack: ---------------
+key = x, value = x / 1000
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+100 + x
+MEMORY DUMP:
+Path condition: !(x < 42) /\ x <= 100
+--------------- Stack: ---------------
+key = x, value = 100 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+10 * x
+MEMORY DUMP:
+Path condition: x < 42 /\ x <= 100
+--------------- Stack: ---------------
+key = x, value = 10 * x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+100 + x
+MEMORY DUMP:
+Path condition: !(x <= 100) /\ x < 1000
+--------------- Stack: ---------------
+key = x, value = 100 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }

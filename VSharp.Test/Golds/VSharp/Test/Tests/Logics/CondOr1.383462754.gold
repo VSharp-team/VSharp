@@ -2,4 +2,8 @@ METHOD: System.Boolean VSharp.Test.Tests.Logics.CondOr1(System.Int32)
 RESULT: Totally 1 state:
 True
 MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = x
+key = __loc__1, value = 2 + x
+key = x, value = 2 + x
 Initialized types = { VSharp.Test.Tests.Logics }

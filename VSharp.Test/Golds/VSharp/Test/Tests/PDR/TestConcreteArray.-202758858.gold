@@ -8,4 +8,8 @@ System.Int32[] ==> {2[0] <- 1; 2[1] <- 2; 2[2] <- x}
 System.Int32[] ==> {2[0] <- 3}
 --------------- Types tokens: ---------------
 2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__1, value = 3
+key = __loc__0, value = 1
+key = __loc__2, value = 0
 Initialized types = { System.Array, VSharp.Test.Tests.PDR, System.Runtime.CompilerServices.RuntimeHelpers }
