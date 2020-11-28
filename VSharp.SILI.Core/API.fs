@@ -82,6 +82,7 @@ module API =
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
             | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))
+            | HeapRef _ -> __insufficientInformation__ "Unable to unbox symbolic ref %O" reference
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 

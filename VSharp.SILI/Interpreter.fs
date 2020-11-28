@@ -502,7 +502,7 @@ and public ILInterpreter() as this =
                     x.ReduceFunctionSignature state constructorInfo (Some reference) (Specified args) false (fun state ->
                     x.ReduceMethodBaseCall constructorInfo state (List.map (withResult reference) >> k))
                 else
-                    withResult reference state  |> List.singleton |> k
+                    withResult reference state |> List.singleton |> k
             let referenceTypeCase (state : state) =
                 let ref, state = Memory.AllocateDefaultClass state constructedTermType
                 callConstructor state ref id
@@ -513,7 +513,8 @@ and public ILInterpreter() as this =
                 let ref, state = Memory.BoxValueType state freshValue
                 let k =
                     let modifyResult state =
-                        let value = Memory.ReadSafe state ref
+                        let ref' = HeapReferenceToBoxReference ref
+                        let value = Memory.ReadSafe state ref'
                         withResult value state
                     List.map modifyResult
                 callConstructor state ref k
