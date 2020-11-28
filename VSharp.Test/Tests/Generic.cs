@@ -34,6 +34,16 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
+        [TestSvmFixture]
+        public static class NonGenericClassInsideGenericClass
+        {
+            [TestSvm]
+            public static int GenericMethodOfNonGenericType(U a)
+            {
+                return 0;
+            }
+        }
+
         [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
@@ -46,7 +56,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static T RetT(T t)
         {
             return t;
@@ -76,7 +86,7 @@ namespace VSharp.Test.Tests.Generic
             return u;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static P RetP(P p)
         {
             return p;
@@ -119,7 +129,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static V RetV(V v)
         {
             return v;

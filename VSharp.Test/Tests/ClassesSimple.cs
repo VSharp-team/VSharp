@@ -251,14 +251,14 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public static class ClassesSimpleHierarchy
     {
-        [TestSvm]
+        [Ignore("Byref is not implemented")]
         public static List<string> Test1()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123, 42);
             return ClassesSimpleRegistrator.entries;
         }
 
-        [TestSvm]
+        [Ignore("Byref is not implemented")]
         public static int Test2()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();

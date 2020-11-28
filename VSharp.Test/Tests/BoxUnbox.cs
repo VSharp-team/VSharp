@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -184,14 +184,14 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValue(U t)
         {
             object o = t;
             return o;
         }
 
-        [TestSvm]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValue(V t)
         {
             object o = t;
