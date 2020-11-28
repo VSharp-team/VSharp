@@ -1,0 +1,5 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.GenericInitialize`6+NonGenericClassInsideGenericClass[T,U,P,K,N,Z].GenericMethodOfNonGenericType(U)
+RESULT: Totally 1 state:
+0
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Generic.GenericInitialize`6+NonGenericClassInsideGenericClass[T,U,P,K,N,Z] }

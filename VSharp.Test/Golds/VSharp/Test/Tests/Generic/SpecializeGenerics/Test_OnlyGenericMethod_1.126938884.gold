@@ -1,0 +1,7 @@
+METHOD: VSharp.Test.Tests.SimpleStruct VSharp.Test.Tests.Generic.SpecializeGenerics.Test_OnlyGenericMethod_1()
+RESULT: Totally 1 state:
+VSharp.Test.Tests.SimpleStruct STRUCT []
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = VSharp.Test.Tests.SimpleStruct STRUCT []
+Initialized types = { VSharp.Test.Tests.Generic.GenericMethodInsideGenericType`3[System.Object,System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }
