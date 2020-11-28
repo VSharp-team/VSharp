@@ -84,25 +84,31 @@ module public Reflection =
         let concreteParameters = m.GetParameters() |> Array.map (fun pi -> pi.ParameterType |> subst)
         getMethod concreteType m.Name concreteParameters
 
-    let private concretizeMethodInfo subst m =
-        let mi = concretizeMethod subst m (fun t name parameters -> t.GetMethod(name, parameters))
-        assert(mi <> null)
-        if mi.IsGenericMethod then mi.MakeGenericMethod(mi.GetGenericArguments() |> Array.map subst)
-        else mi
+    let private concretizeMethodInfo subst (mi : MethodInfo) =
+        let concretize method =
+            let mi = concretizeMethod subst method (fun t name parameters -> t.GetMethod(name, parameters))
+            assert(mi <> null)
+            mi
+        let concretizeGeneric (mi : MethodInfo) =
+            let args = mi.GetGenericArguments()
+            let genericMethod = mi.GetGenericMethodDefinition()
+            let mi = concretize genericMethod
+            mi.MakeGenericMethod(args |> Array.map subst)
+        if mi.IsGenericMethod then concretizeGeneric mi else concretize mi
         :> MethodBase
 
-    let private concretizeCtorInfo subst m =
-        let ci = concretizeMethod subst m (fun t _ parameters -> t.GetConstructor(parameters))
+    let private concretizeCtorInfo subst ci =
+        let ci = concretizeMethod subst ci (fun t _ parameters -> t.GetConstructor(parameters))
         assert(ci <> null)
         ci :> MethodBase
 
     let concretizeMethodBase (m : MethodBase) (subst : Type -> Type) =
         match m with
         | _ when not m.DeclaringType.IsGenericType -> m
-        | :? MethodInfo ->
-            concretizeMethodInfo subst m
-        | :? ConstructorInfo ->
-            concretizeCtorInfo subst m
+        | :? MethodInfo as mi ->
+            concretizeMethodInfo subst mi
+        | :? ConstructorInfo as ci ->
+            concretizeCtorInfo subst ci
         | _ -> __unreachable__()
 
     let concretizeParameter (p : ParameterInfo) (subst : Type -> Type) =
