@@ -296,7 +296,12 @@ module public CFA =
                         let state = List.head states
                         assert(Option.isSome state.returnRegister)
                         let reference = Option.get state.returnRegister
-                        Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = reference :: cilStateWithoutArgs.opStack}
+                        let valueOnStack =
+                            if calledMethod.DeclaringType.IsValueType then
+                                  let ref' = HeapReferenceToBoxReference reference
+                                  Memory.ReadSafe state ref'
+                            else reference
+                        Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = valueOnStack :: cilStateWithoutArgs.opStack}
                     | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
                     | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
                         let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs

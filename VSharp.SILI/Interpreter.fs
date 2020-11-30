@@ -517,7 +517,9 @@ and public ILInterpreter() as this =
                         let value = Memory.ReadSafe state ref'
                         withResult value state
                     List.map modifyResult
-                callConstructor state ref k
+
+                if isCallNeeded then callConstructor state ref k
+                else withResult ref state |> List.singleton
             if Types.IsValueType constructedTermType then valueTypeCase state
             else referenceTypeCase state
         let nonDelegateCase (state : state) =
