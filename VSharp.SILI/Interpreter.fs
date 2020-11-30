@@ -480,7 +480,7 @@ and public ILInterpreter() as this =
             GuardedApplyForState state methodPtr
                 (fun state methodPtr k ->
                     BranchOnNull state target
-                        (fun _ _ -> __notImplemented__()) // TODO: check whether this situation is possible -- it is possible in test DoubleValue (symbolic ref, because of cfa)
+                        (x.Raise x.NullReferenceException)
                         (x.ReduceMethodBaseCall (retrieveMethodInfo methodPtr))
                         k)
 
