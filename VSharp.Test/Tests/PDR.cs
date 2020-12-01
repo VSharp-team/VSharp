@@ -751,7 +751,7 @@ namespace VSharp.Test.Tests
 
 
         [TestSvm]
-        public static int Test123(int x)
+        public static int TestThatEffectsDoNotSpreadToDifferentBasicBlocks(int x)
         {
             x = x * x;
             return F(x + 42);
