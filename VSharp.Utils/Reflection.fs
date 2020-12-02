@@ -72,7 +72,7 @@ module public Reflection =
 
     // --------------------------------- Concretization ---------------------------------
 
-    let rec public concretizeType (subst : Type -> Type)  (typ : Type)=
+    let rec public concretizeType (subst : Type -> Type) (typ : Type)=
         if typ.IsGenericParameter then subst typ
         elif typ.IsGenericType then
             let args = typ.GetGenericArguments()

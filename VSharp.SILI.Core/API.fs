@@ -216,6 +216,11 @@ module API =
 
         let DefaultOf typ = makeDefaultValue typ
         let AllocateOnStack state key term = Memory.allocateOnStack state key term
+        let AllocateTemporaryLocalVariable state typ term =
+            let tmpKey = TemporaryLocalVariableKey typ
+            let ref = PrimitiveStackLocation tmpKey |> Ref
+            ref, Memory.allocateOnStack state tmpKey term
+
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
 
         let BoxValueType state term =

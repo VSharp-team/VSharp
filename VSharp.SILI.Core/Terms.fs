@@ -11,17 +11,20 @@ type stackKey =
     | ThisKey of Reflection.MethodBase
     | ParameterKey of Reflection.ParameterInfo
     | LocalVariableKey of Reflection.LocalVariableInfo * Reflection.MethodBase
+    | TemporaryLocalVariableKey of Type
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
         | ParameterKey pi -> pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
+        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" typ.FullName
     override x.GetHashCode() =
         let fullname =
             match x with
             | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
             | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.GetFullMethodName m) (lvi.ToString())
+            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" typ.FullName
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -30,11 +33,14 @@ type stackKey =
                 match x, other with
                 | ThisKey _, ThisKey _
                 | ParameterKey _, ParameterKey _
-                | LocalVariableKey _, LocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
+                | LocalVariableKey _, LocalVariableKey _
+                | TemporaryLocalVariableKey _, TemporaryLocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
                 | ThisKey _, _ -> -1
                 | _, ThisKey _ -> 1
                 | LocalVariableKey _, _ -> -1
                 | _, LocalVariableKey _ -> 1
+                | TemporaryLocalVariableKey _, _ -> -1
+                | _, TemporaryLocalVariableKey _ -> 1
             | _ -> -1
     override x.Equals(other) = (x :> IComparable).CompareTo(other) = 0
     member x.TypeOfLocation =
@@ -42,12 +48,14 @@ type stackKey =
         | ThisKey m -> m.DeclaringType
         | ParameterKey p -> p.ParameterType
         | LocalVariableKey(l, _) -> l.LocalType
+        | TemporaryLocalVariableKey typ -> typ
         |> fromDotNetType
     member x.Map typeSubst =
         match x with
         | ThisKey m -> ThisKey (Reflection.concretizeMethodBase m typeSubst)
         | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
         | LocalVariableKey(l, m) -> LocalVariableKey (Reflection.concretizeLocalVariable l m typeSubst)
+        | TemporaryLocalVariableKey typ -> TemporaryLocalVariableKey (Reflection.concretizeType typeSubst typ)
 
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector

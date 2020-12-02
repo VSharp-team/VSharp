@@ -497,29 +497,21 @@ and public ILInterpreter() as this =
         let typ = constructorInfo.DeclaringType
         let constructedTermType = typ |> Types.FromDotNetType state
         let blockCase (state : state) =
-            let callConstructor (state : state) reference k =
+            let callConstructor (state : state) reference afterCall =
                 if isCallNeeded then
                     x.ReduceFunctionSignature state constructorInfo (Some reference) (Specified args) false (fun state ->
-                    x.ReduceMethodBaseCall constructorInfo state (List.map (withResult reference) >> k))
-                else
-                    withResult reference state |> List.singleton |> k
+                    x.ReduceMethodBaseCall constructorInfo state afterCall)
+                else withResult reference state |> List.singleton
             let referenceTypeCase (state : state) =
                 let ref, state = Memory.AllocateDefaultClass state constructedTermType
-                callConstructor state ref id
+                callConstructor state ref (List.map (withResult ref))
             let valueTypeCase (state : state) =
-//                let stackKey = SymbolicThisKey constructorInfo
-//                let freshValue = Memory.MakeDefaultBlock constructedTermType (HeapTopLevelStack stackKey, [])
                 let freshValue = Memory.DefaultOf constructedTermType
-                let ref, state = Memory.BoxValueType state freshValue
-                let k =
-                    let modifyResult state =
-                        let ref' = HeapReferenceToBoxReference ref
-                        let value = Memory.ReadSafe state ref'
-                        withResult value state
-                    List.map modifyResult
-
-                if isCallNeeded then callConstructor state ref k
-                else withResult ref state |> List.singleton
+                let ref, state = Memory.AllocateTemporaryLocalVariable state typ freshValue
+                let modifyResult state =
+                    let value = Memory.ReadSafe state ref
+                    withResult value state
+                callConstructor state ref (List.map modifyResult)
             if Types.IsValueType constructedTermType then valueTypeCase state
             else referenceTypeCase state
         let nonDelegateCase (state : state) =

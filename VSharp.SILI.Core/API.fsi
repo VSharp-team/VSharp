@@ -146,6 +146,7 @@ module API =
 
         val DefaultOf : symbolicType -> term
         val AllocateOnStack : state -> stackKey -> term -> state
+        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
         val MakeSymbolicThis : System.Reflection.MethodBase -> term
         val BoxValueType : state -> term -> term * state
         val AllocateDefaultStatic : state -> symbolicType -> state

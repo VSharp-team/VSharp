@@ -298,8 +298,7 @@ module public CFA =
                         let reference = Option.get state.returnRegister
                         let valueOnStack =
                             if calledMethod.DeclaringType.IsValueType then
-                                  let ref' = HeapReferenceToBoxReference reference
-                                  Memory.ReadSafe state ref'
+                                  Memory.ReadSafe state reference
                             else reference
                         Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = valueOnStack :: cilStateWithoutArgs.opStack}
                     | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
