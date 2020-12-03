@@ -181,7 +181,7 @@ type public ExplorerBase() =
                     | Some cctor ->
                         let removeCallSiteResultAndPopStack (stateAfterCallingCCtor : state) =
                             let stateAfterCallingCCtor = Memory.PopStack stateAfterCallingCCtor
-                            {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
+                            {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
                         x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton

@@ -1062,5 +1062,5 @@ module internal Memory =
         let sb = dumpDict "Delegates" VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
         let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
-        let sb = if List.length s.opStack = 0 then sb else let sb = dumpSection "Operational stack" sb in (s.opStack |> List.map toString |> join "\n" |> sb.AppendLine)
+        let sb = if List.length s.opStack = 0 then sb else let sb = dumpSection "Operational stack" sb in (s.opStack |> List.map toString |> join "\n" |> appendLine sb)
         if sb.Length = 0 then "<Empty>" else sb.ToString()

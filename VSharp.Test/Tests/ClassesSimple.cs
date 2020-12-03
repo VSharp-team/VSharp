@@ -342,7 +342,8 @@ namespace VSharp.Test.Tests
             SecretProperty = new List<bool>();
         }
 
-        [Ignore("_structProperty field is lost #fix")]
+        // [Ignore("_structProperty field is lost #fix")]
+        [TestSvm]
         public void TestProperty1()
         {
             var st = new ClassesSimplePropertyAccess();

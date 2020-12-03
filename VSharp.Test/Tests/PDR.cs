@@ -676,6 +676,126 @@ namespace VSharp.Test.Tests
             }
         }
 
+
+        public class ClassWithLotsOFFields
+        {
+            public A _a;
+            public ClassWithLotsOFFields _next;
+            public double _pi = 3.14;
+            public int _fortyTwo = 42;
+            public int _forty;
+            public Array _array;
+            public Action _action;
+
+            public ClassWithLotsOFFields()
+            {
+                _forty = 40;
+            }
+        }
+
+        [TestSvm]
+        public static int WrongTest()
+        {
+            ClassWithLotsOFFields c = new ClassWithLotsOFFields();
+            if (c._forty == 0)
+            {
+                return 0;
+            }
+
+            if (c._forty == 40) return 40;
+
+            return -1;
+        }
+
+        [TestSvm]
+        public static ClassWithLotsOFFields TestDefaultFieldsAllocation()
+        {
+            return new ClassWithLotsOFFields();
+        }
+
+        [TestSvm]
+        public static ClassWithLotsOFFields TestNext()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            return classWithLotsOfFields._next;
+        }
+
+        [TestSvm]
+        public static int CheckInvalidCfaConstruction(bool f)
+        {
+            ClassWithLotsOFFields c = new ClassWithLotsOFFields();
+            if (f)
+            {
+                c._forty = 40;
+            }
+            else
+            {
+                c._forty = 100;
+            }
+
+            if (c._forty == 40)
+            {
+                return 40;
+            }
+
+            if (c._forty == 100)
+            {
+                return 100;
+            }
+
+            return 100500;
+        }
+
+
+        [TestSvm]
+        public static int TestForty()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            return classWithLotsOfFields._forty;
+        }
+
+        [TestSvm]
+        public static int TestForty_WithSet0()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            classWithLotsOfFields._forty = 0;
+            return classWithLotsOfFields._forty;
+        }
+
+        public struct StructWithStructInside2
+        {
+            private A _a;
+
+            public StructWithStructInside2(int n)
+            {
+                _a = new A(n);
+            }
+
+            public int GetN()
+            {
+                return _a.x;
+            }
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test1_StructWithStructInside2()
+        {
+            return new StructWithStructInside2();
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test2_StructWithStructInside2(int n)
+        {
+            return new StructWithStructInside2(n);
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test3_StructWithStructInside2()
+        {
+            return new StructWithStructInside2(42);
+        }
+
+
         public class ClassWithClassInside
         {
             private ClassWithOneField _classWithOneField;

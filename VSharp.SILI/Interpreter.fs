@@ -248,8 +248,11 @@ and public ILInterpreter() as this =
             let results : state list = VSharp.System.Runtime_CompilerServices_RuntimeHelpers.InitializeArray state arrayRef handleTerm
             k results) k) id
         | _ -> internalfail "unexpected number of arguments"
-    member private x.ReduceMethodBaseCall (methodBase : MethodBase) (state : state) (k : state list -> 'a) =
-        let k = List.map Memory.PopStack >> k
+    member private x.ReduceMethodBaseCall (methodBase : MethodBase) (initialState : state) (k : state list -> 'a) =
+        let state = { initialState with opStack = [] }
+        let k =
+            let restoreOpStack state = { state with opStack = initialState.opStack }
+            List.map Memory.PopStack >> List.map restoreOpStack >> k
         let dealWithResult (term : term, state : state) =
             if term <> Nop then {state with returnRegister = Some term}
             else {state with returnRegister = None}
