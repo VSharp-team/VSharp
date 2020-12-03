@@ -19,7 +19,7 @@ type opStackSource =
         override x.TypeOfLocation = x.typ
         override x.Compose state =
             let result = List.item (int x.shift) state.opStack
-            assert(TypeOf result = x.typ)
+            assert(CanWrite result x.typ) // TODO: what if (0:int) is assigned to reference?
             result
 
 

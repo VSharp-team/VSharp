@@ -52,6 +52,8 @@ module API =
         val isReference : term -> bool
         val IsNullReference : term -> term
 
+        val CanWrite : term -> symbolicType -> bool
+
         val IsIdempotent : term -> bool
 
         val (|True|_|) : term -> unit option

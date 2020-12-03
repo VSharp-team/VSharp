@@ -214,9 +214,9 @@ module MemoryRegion =
         let makeDefault () = makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
-    let private canWrite value cellType =
+    let canWrite value cellType =
         let typ = typeOf value
-        typ = Null || Types.isConcreteSubtype typ cellType // do not reorder operands of "OR"!
+        typ = Null && (not <| Types.isValueType cellType) || Types.isConcreteSubtype typ cellType // do not reorder operands of "OR"!
 
     let write mr key value =
         assert(canWrite value mr.typ)
