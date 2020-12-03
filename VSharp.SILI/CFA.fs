@@ -38,6 +38,14 @@ module public CFA =
     let withOpStack = InstructionsSet.withOpStack
     let withIp = InstructionsSet.withIp
     let pushToOpStack = InstructionsSet.pushToOpStack
+
+    let pushNewObjResultOnOpStack state reference (calledMethod : MethodBase) =
+        let valueOnStack =
+            if calledMethod.DeclaringType.IsValueType then
+                  Memory.ReadSafe state reference
+            else reference
+        {state with opStack = valueOnStack :: state.opStack}
+
     type vertexLabel =
         | FromCFG of offset
         | PreCatchVertex of offset * ExceptionHandlingClause
@@ -227,7 +235,8 @@ module public CFA =
                                 opStack = Option.get state.returnRegister :: opStack }
                         elif callSite.opCode = OpCodes.Newobj then
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
-                            { state with callSiteResults = path.state.callSiteResults; opStack = reference :: opStack}
+                            let state = pushNewObjResultOnOpStack {state with opStack = opStack} reference callSite.calledMethod
+                            { state with callSiteResults = path.state.callSiteResults}
                         else { state with callSiteResults = path.state.callSiteResults; opStack = opStack}
 
                     let result' = x.CommonPropagatePath (path.lvl + 1u) stateAfterCall
@@ -336,11 +345,8 @@ module public CFA =
                         let state = List.head states
                         assert(Option.isSome state.returnRegister)
                         let reference = Option.get state.returnRegister
-                        let valueOnStack =
-                            if calledMethod.DeclaringType.IsValueType then
-                                  Memory.ReadSafe state reference
-                            else reference
-                        Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None} |> pushToOpStack valueOnStack
+                        let state = pushNewObjResultOnOpStack state reference calledMethod
+                        Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None}
                     | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
                     | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
                         let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
