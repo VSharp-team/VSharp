@@ -775,17 +775,17 @@ namespace VSharp.Test.Tests
             return c.a;
         }
 
-        private static A IdForStruct(A a)
+        private static A Set900ForStruct(A a)
         {
             a.x = 900;
             return a;
         }
 
         [TestSvm]
-        public static A TestA()
+        public static A StructIsAllocatedInTemporaryLocalVariableBeforeCallingCtor()
         {
             A a = new A(17);
-            return IdForStruct(a);
+            return Set900ForStruct(a);
         }
 
         // [TestSvm]

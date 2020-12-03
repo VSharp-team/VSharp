@@ -1,11 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.UnboxAny.UnboxAny4()
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.UnboxAny+A CLASS [
-	| VSharp::Test::Tests::UnboxAny::A::x ~> 123]
----------- s1 = ----------
-System.Object ==> CLASS []
-VSharp.Test.Tests.UnboxAny ==> CLASS []
-VSharp.Test.Tests.UnboxAny+A ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 2 to VSharp.Test.Tests.UnboxAny+A)
+MEMORY DUMP:
+--------------- Fields: ---------------
+x ==> {2 <- 123}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.UnboxAny+A
+Initialized types = { VSharp.Test.Tests.UnboxAny+A, VSharp.Test.Tests.UnboxAny, System.Object }

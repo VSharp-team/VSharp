@@ -1,9 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.Box7()
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> 7
----------- s1 = ----------
-System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
-VSharp.Test.Tests.BoxUnbox ==> CLASS []
+RESULT: Totally 1 state:
+7
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __tmp__System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], value = System.Nullable`1[System.Int32] STRUCT [
+	| hasValue ~> True
+	| value ~> 7]
+Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }
