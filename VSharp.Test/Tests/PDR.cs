@@ -788,6 +788,23 @@ namespace VSharp.Test.Tests
             return Set900ForStruct(a);
         }
 
+        private static int F(int n, ref int x) {
+            int m = n;
+            if (n == 0) {
+                x = 42;
+                return 0;
+            }
+            return (n == 10 ? F(n-1, ref m) : F(n-1, ref x)) + m;
+        }
+
+        // expecting 87
+        [Ignore("fromDotNetType: internalfail \"byref type is not implemented!\"")]
+        public static int MutateStackValueFromPreviousFrame()
+        {
+            int x = 0;
+            return F(10, ref x);
+        }
+
         // [TestSvm]
         // public static int CheckOperationalStackBalance(int x)
         // {
