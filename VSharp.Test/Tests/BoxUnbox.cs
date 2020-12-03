@@ -41,7 +41,7 @@ namespace VSharp.Test.Tests
             return (T) o;
         }
 
-        [Ignore("reading from struct instead of ref #fix")]
+        [TestSvm]
         public static object UnboxAny1()
         {
             var b = new B(5);
@@ -104,7 +104,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [Ignore("reading from struct instead of ref #fix")]
+        [TestSvm]
         public static object Box7()
         {
             int? x = 7;
