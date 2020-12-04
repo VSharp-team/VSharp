@@ -12,7 +12,7 @@ open VSharp.Core
 
 
 type opStackSource =
-    {shift : uint; typ : symbolicType; time : vectorTime}
+    {shift : uint32; typ : symbolicType; time : vectorTime}
     interface IMemoryAccessConstantSource with
         override x.SubTerms = Seq.empty
         override x.Time = x.time
@@ -313,7 +313,7 @@ module public CFA =
 
         let makeSymbolicOpStack time (opStack : term list) : term list=
             let mkSource (index : int) typ =
-                {shift = uint index; typ = typ; time = time}
+                {shift = uint32 index; typ = typ; time = time}
 
             let makeSymbolic index (v : term) =
                 if Terms.IsIdempotent v then v
