@@ -694,20 +694,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static int WrongTest()
-        {
-            ClassWithLotsOFFields c = new ClassWithLotsOFFields();
-            if (c._forty == 0)
-            {
-                return 0;
-            }
-
-            if (c._forty == 40) return 40;
-
-            return -1;
-        }
-
-        [TestSvm]
         public static ClassWithLotsOFFields TestDefaultFieldsAllocation()
         {
             return new ClassWithLotsOFFields();
