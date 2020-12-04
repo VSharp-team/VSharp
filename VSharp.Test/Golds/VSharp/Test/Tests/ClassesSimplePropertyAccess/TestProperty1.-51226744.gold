@@ -1,17 +1,24 @@
 METHOD: System.Void VSharp.Test.Tests.ClassesSimplePropertyAccess.TestProperty1()
-RESULT: <VOID>
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess CLASS [
-	| VSharp::Test::Tests::ClassesSimplePropertyAccess::<SecretProperty>k__BackingField ~> (HeapRef 2)
-	| VSharp::Test::Tests::ClassesSimplePropertyAccess::_structProperty ~> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
-		| VSharp::Test::Tests::ClassesSimplePropertyAccess::SimpleStruct::X ~> 0]]
-2 ==> System.Collections.Generic.List`1[System.Boolean] CLASS [
-	| System::Collections::Generic::List`1::_items ~> (HeapRef 3)
-	| System::Collections::Generic::List`1::_size ~> 0
-	| System::Collections::Generic::List`1::_version ~> 0]
-3 ==> [|... 0 ... |]
----------- s1 = ----------
-VSharp.Test.Tests.ClassesSimplePropertyAccess ==> CLASS []
-VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct ==> VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT []
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Fields: ---------------
+<SecretProperty>k__BackingField ==> {
+        2 <- (HeapRef 2.2 to System.Collections.Generic.List`1[System.Boolean])
+    }
+_items ==> {2.2 <- (HeapRef 2.1.2 to System.Boolean[])}
+--------------- Array lengths: ---------------
+System.Boolean[] ==> {2.1.2[0] <- 0}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess
+2.1.2 ==> System.Boolean[]
+2.2 ==> System.Collections.Generic.List`1[System.Boolean]
+--------------- Static fields: ---------------
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[System.Boolean] <- (HeapRef 2.1.2 to System.Boolean[])
+    }
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
+key = __loc__0, value = VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
+	| X ~> 42]
+Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct, System.Collections.Generic.List`1[System.Boolean], System.Object, VSharp.Test.Tests.ClassesSimplePropertyAccess }

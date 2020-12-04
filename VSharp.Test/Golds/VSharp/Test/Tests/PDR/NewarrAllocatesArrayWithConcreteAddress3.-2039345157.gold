@@ -1,6 +1,6 @@
 METHOD: System.Int32 VSharp.Test.Tests.PDR.NewarrAllocatesArrayWithConcreteAddress3()
 RESULT: Totally 1 state:
-0
+42
 MEMORY DUMP:
 --------------- Array contents: ---------------
 System.Int32[] ==> {
