@@ -347,7 +347,7 @@ module public CFA =
         member x.VisibleVariables() = __notImplemented__()
 
         override x.ToString() =
-            sprintf "%s\neffect = %O\npc = %O\n" (base.ToString()) (API.Memory.Dump effect) effect.pc
+            sprintf "%s\neffect = %O\npc = %s\n" (base.ToString()) (API.Memory.Dump effect) (toString effect.pc)
 
     type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop) =
         inherit Edge(src, dst)

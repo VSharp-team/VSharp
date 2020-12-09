@@ -37,6 +37,8 @@ module PC =
         Cps.Seq.foldlk mapAndAdd empty (toSeq pc) id
     let public mapSeq mapper (pc : pathCondition) = toSeq pc |> Seq.map mapper
 
+    let toString pc = mapSeq toString pc |> Seq.sort |> join " /\ "
+
     let union (pc1 : pathCondition) (pc2 : pathCondition) = Seq.fold add pc1 (toSeq pc2)
 
     let squashPC = PersistentSet.toSeq >> Propositional.conjunction
