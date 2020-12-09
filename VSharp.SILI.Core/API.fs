@@ -110,6 +110,7 @@ module API =
     module Types =
         let Numeric t = Types.Numeric t
         let ObjectType = Types.objectType
+        let IndexType = Types.indexType
 
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> Memory.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t

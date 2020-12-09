@@ -23,6 +23,148 @@ type opStackSource =
             assert(CanWrite result x.typ) // TODO: what if (0:int) is assigned to reference?
             result
 
+[<StructuralEquality;NoComparison>]
+type structFieldAddr =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            match baseTerm.term with
+            | Ptr(Some(StructField(addr, fieldId)), _, _) ->
+                Ptr (Some addr) (Types.FromDotNetType state fieldId.typ) None
+            | Ref(StructField(addr, _)) ->
+                Ref addr
+            | _ -> __notImplemented__()
+
+[<StructuralEquality;NoComparison>]
+type stackBufferIndexAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = Types.IndexType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | StackBufferIndex(_, term) -> term
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type classFieldAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ClassField(term, _) -> term
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayIndexHeapAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayIndex(term, _, _) -> term
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayIndexItem =
+    {baseSource : IMemoryAccessConstantSource; i : int}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayIndex(_, indices, _) -> List.item x.i indices
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLowerBoundHeapAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLowerBound(term, _, _) -> term
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLowerBoundDimension =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLowerBound(_, dim, _) -> dim
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLengthAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLength(term, _, _) -> term
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLengthDimension =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLength(_, dim, _) -> dim
+                | _ -> __unreachable__()
+            getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type pointerShift =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getShift term =
+                match term.term with
+                | Ptr(_, _, Some shift) -> shift
+                | _ -> __unreachable__()
+            GuardedApplyExpression baseTerm getShift
 
 module Properties =
     let internal exitVertexOffset = -1
@@ -302,6 +444,45 @@ module public CFA =
             edge.Src.OutgoingEdges.Add edge
             edge.Dst.IncomingEdges.Add edge
 
+        let private updateLI makeSource term name typ =
+            let isConcrete =
+                match typ with
+                | AddressType -> IsConcreteHeapAddress
+                | _ when Types.IsInteger typ -> IsConcrete
+                | _ -> __notImplemented__()
+            if isConcrete term then term
+            else Constant name (makeSource()) typ
+
+        let rec private makeSymbolicAddress source = function
+            | StackBufferIndex(key, term) when Terms.IsConcrete term |> not ->
+                let source : stackBufferIndexAddress = {baseSource = source}
+                StackBufferIndex(key, Constant "StackBufferIndex" source Types.IndexType)
+            | StructField(address, fieldId) ->
+                StructField(makeSymbolicAddress source address, fieldId)
+            | ClassField(heapAddress, fieldId) when Terms.IsConcreteHeapAddress heapAddress |> not ->
+                let source : classFieldAddress = {baseSource = source}
+                ClassField(Constant "ClassFieldAddress" source AddressType, fieldId)
+            | ArrayIndex(heapAddress, indices, aType) ->
+                let makeAddressSource () : arrayIndexHeapAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayIndexHeapAddress" AddressType
+                let makeIndexSource i () : arrayIndexItem = {baseSource = source; i = i}
+                let indexName i = sprintf "ArrayIndex.[%d]" i
+                let indices = List.mapi (fun i x -> updateLI (makeIndexSource i) x (indexName i) Types.IndexType) indices
+                ArrayIndex(address, indices, aType)
+            | ArrayLowerBound(heapAddress, dim, aType) ->
+                let makeAddressSource () : arrayLowerBoundHeapAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayLowerBoundHeapAddress" AddressType
+                let makeDimSource () : arrayLowerBoundDimension = {baseSource = source}
+                let dim = updateLI makeDimSource dim "ArrayLowerBoundDimension" Types.IndexType
+                ArrayLowerBound(address, dim, aType)
+            | ArrayLength(heapAddress, dim, aType) ->
+                let makeAddressSource () : arrayLengthAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayLengthAddress" AddressType
+                let makeDimSource () : arrayLengthDimension = {baseSource = source}
+                let dim = updateLI makeDimSource dim "ArrayLengthDimension" Types.IndexType
+                ArrayLength(address, dim, aType)
+            | address -> address
+
         let makeSymbolicOpStack time (opStack : term list) : term list=
             let mkSource (index : int) typ =
                 {shift = uint32 index; typ = typ; time = time}
@@ -313,7 +494,15 @@ module public CFA =
                     let typ = TypeOf v
                     let source = mkSource shift typ
                     let name = sprintf "opStack.[%d] from top" shift
-                    Memory.MakeSymbolicValue source name typ
+                    match v.term with
+                    | Ref address ->
+                        makeSymbolicAddress source address |> Ref
+                    | Ptr(address, typ, shift) ->
+                        let addr = Option.map (makeSymbolicAddress source) address
+                        let makeShiftSource () : pointerShift = {baseSource = source}
+                        let shift = Option.map (fun shift -> updateLI makeShiftSource shift "PointerShift" Types.IndexType) shift
+                        Ptr addr typ shift
+                    | _ -> Memory.MakeSymbolicValue source name typ
 
             let symbolicOpStack = List.mapi makeSymbolic opStack
             symbolicOpStack
