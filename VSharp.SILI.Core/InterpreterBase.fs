@@ -183,7 +183,7 @@ type public ExplorerBase() =
                             let stateAfterCallingCCtor = Memory.PopStack stateAfterCallingCCtor
                             {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
-                        x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
+                        x.ReduceConcreteCall cctor state (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton
                 k states // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 

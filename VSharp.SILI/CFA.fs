@@ -3,7 +3,6 @@ namespace VSharp.Analyzer
 open System
 open System.Reflection
 open System.Collections.Generic
-
 open System.Reflection.Emit
 open VSharp.Interpreter.IL
 open CFG
@@ -11,7 +10,7 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
-
+[<StructuralEquality;NoComparison>]
 type opStackSource =
     {shift : uint32; typ : symbolicType; time : vectorTime}
     interface IMemoryAccessConstantSource with

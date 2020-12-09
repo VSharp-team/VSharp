@@ -577,7 +577,7 @@ module internal Terms =
         | BoxedLocation _
         | StaticField _ -> true
         | StackBufferIndex (_, term) -> isConcrete term
-        | StructField(address, _) -> isConcreteAddress address
+        | StructField (address, _) -> isConcreteAddress address
         | ClassField (heapAddress, _)
         | ArrayIndex (heapAddress, _, _)
         | ArrayLowerBound (heapAddress, _, _)
@@ -591,10 +591,10 @@ module internal Terms =
         | _ -> false
 
     let isIdempotent = term >> function
-        | Concrete _
-        | Ref _ -> true
-        | Ptr _ as v when isConcretePtr v -> true
-        | HeapRef(heapAddress, _) when isConcreteHeapAddress heapAddress -> true
+        | Concrete _ -> true
+        | Ref addr -> isConcreteAddress addr
+        | Ptr _ as v -> isConcretePtr v
+        | HeapRef(heapAddress, _) -> isConcreteHeapAddress heapAddress
         | _ -> false
 
     let rec timeOf (address : heapAddress) =
