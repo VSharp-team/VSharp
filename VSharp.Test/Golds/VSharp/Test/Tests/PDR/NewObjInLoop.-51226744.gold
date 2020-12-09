@@ -3,11 +3,11 @@ RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-2 ==> System.Object
-2.2 ==> System.Object
-2.2.2 ==> System.Object
-2.2.2.2 ==> System.Object
-2.2.2.2.2 ==> System.Object
+8 ==> System.Object
+9.8 ==> System.Object
+9.9.8 ==> System.Object
+9.9.9.8 ==> System.Object
+9.9.9.9.8 ==> System.Object
 --------------- Stack: ---------------
 key = __loc__0, value = 5
 Initialized types = { VSharp.Test.Tests.PDR, System.Object }

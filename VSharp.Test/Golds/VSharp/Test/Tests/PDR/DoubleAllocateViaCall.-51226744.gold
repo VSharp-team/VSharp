@@ -1,8 +1,8 @@
-METHOD: System.Void VSharp.Test.Tests.PDR.SequentialNewObjs()
+METHOD: System.Void VSharp.Test.Tests.PDR.DoubleAllocateViaCall()
 RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-3 ==> System.Object
-6 ==> System.Object
+2.3 ==> System.Object
+3.3 ==> System.Object
 Initialized types = { VSharp.Test.Tests.PDR, System.Object }

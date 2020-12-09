@@ -1,23 +1,23 @@
 METHOD: VSharp.Test.Tests.PDR+ClassWithOneField VSharp.Test.Tests.PDR.NewObjWithBranching(System.Boolean)
 RESULT: Totally 2 states:
-(HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+(HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 MEMORY DUMP:
 Path condition: !f
 --------------- Fields: ---------------
-x ==> {2 <- 456}
+x ==> {3 <- 456}
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }
 
-(HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+(HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 MEMORY DUMP:
 Path condition: f
 --------------- Fields: ---------------
-x ==> {2 <- 42}
+x ==> {3 <- 42}
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

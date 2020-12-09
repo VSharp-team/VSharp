@@ -3,7 +3,7 @@ RESULT: Totally 1 state:
 42
 MEMORY DUMP:
 --------------- Fields: ---------------
-x ==> {2 <- 42}
+x ==> {3 <- 42}
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -4,15 +4,15 @@ True
 MEMORY DUMP:
 --------------- Fields: ---------------
 _b ==> {
-        2 <- VSharp.Test.Tests.ClassesSimpleB STRUCT [
+        4 <- VSharp.Test.Tests.ClassesSimpleB STRUCT [
 	| _c ~> VSharp.Test.Tests.ClassesSimpleC STRUCT [
 	| <M1>k__BackingField ~> 42
 	| _m2 ~> 102
 	| _n ~> n]]
     }
-_intField ==> {2 <- 100500}
+_intField ==> {4 <- 100500}
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.ClassesSimpleA
+4 ==> VSharp.Test.Tests.ClassesSimpleA
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.ClassesSimpleA)
+key = __loc__0, value = (HeapRef 4 to VSharp.Test.Tests.ClassesSimpleA)
 Initialized types = { VSharp.Test.Tests.ClassesSimpleC, VSharp.Test.Tests.ClassesSimpleB, System.Object, VSharp.Test.Tests.ClassesSimpleA, VSharp.Test.Tests.ClassesSimple }

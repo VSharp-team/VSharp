@@ -1,15 +1,15 @@
 METHOD: System.String VSharp.Test.Tests.Strings.EmptyString(System.Int32, System.Int32)
 RESULT: Totally 1 state:
-(HeapRef 2 to System.String)
+(HeapRef 3 to System.String)
 MEMORY DUMP:
 --------------- Fields: ---------------
-_stringLength ==> {2 <- 0}
+_stringLength ==> {3 <- 0}
 --------------- Array contents: ---------------
-System.Char[] ==> {2[0] <- '\000'}
+System.Char[] ==> {3[0] <- '\000'}
 --------------- Array lengths: ---------------
-System.Char[] ==> {2[0] <- 1}
+System.Char[] ==> {3[0] <- 1}
 --------------- Types tokens: ---------------
-2 ==> System.String
+3 ==> System.String
 --------------- Static fields: ---------------
-Empty ==> {System.String <- (HeapRef 2 to System.String)}
+Empty ==> {System.String <- (HeapRef 3 to System.String)}
 Initialized types = { System.String, VSharp.Test.Tests.Strings }

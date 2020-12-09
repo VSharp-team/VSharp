@@ -1,22 +1,22 @@
 METHOD: System.String VSharp.Test.Tests.Typecast.Typecast.UpCastDownCastString()
 RESULT: Totally 1 state:
-(HeapRef 2 to System.String)
+(HeapRef 3 to System.String)
 MEMORY DUMP:
 --------------- Fields: ---------------
-_stringLength ==> {2 <- 7}
+_stringLength ==> {3 <- 7}
 --------------- Array contents: ---------------
 System.Char[] ==> {
-        2[0] <- 'l'
-        2[1] <- 'i'
-        2[2] <- 't'
-        2[3] <- 'e'
-        2[4] <- 'r'
-        2[5] <- 'a'
-        2[6] <- 'l'
-        2[7] <- '\000'
+        3[0] <- 'l'
+        3[1] <- 'i'
+        3[2] <- 't'
+        3[3] <- 'e'
+        3[4] <- 'r'
+        3[5] <- 'a'
+        3[6] <- 'l'
+        3[7] <- '\000'
     }
 --------------- Array lengths: ---------------
-System.Char[] ==> {2[0] <- 8}
+System.Char[] ==> {3[0] <- 8}
 --------------- Types tokens: ---------------
-2 ==> System.String
+3 ==> System.String
 Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

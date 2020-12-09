@@ -1,15 +1,15 @@
 METHOD: System.Object VSharp.Test.Tests.UnboxAny.UnboxAny1()
 RESULT: Totally 1 state:
-(HeapRef 3 to VSharp.Test.Tests.UnboxAny+B)
+(HeapRef 8 to VSharp.Test.Tests.UnboxAny+B)
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-2 ==> VSharp.Test.Tests.UnboxAny+B STRUCT [
+5 ==> VSharp.Test.Tests.UnboxAny+B STRUCT [
 	| x ~> 5]
-3 ==> VSharp.Test.Tests.UnboxAny+B STRUCT [
+8 ==> VSharp.Test.Tests.UnboxAny+B STRUCT [
 	| x ~> 5]
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.UnboxAny+B
-3 ==> VSharp.Test.Tests.UnboxAny+B
+5 ==> VSharp.Test.Tests.UnboxAny+B
+8 ==> VSharp.Test.Tests.UnboxAny+B
 --------------- Stack: ---------------
 key = __tmp__VSharp.Test.Tests.UnboxAny+B, value = VSharp.Test.Tests.UnboxAny+B STRUCT [
 	| x ~> 5]
