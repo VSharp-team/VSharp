@@ -75,8 +75,8 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         |> List.filter (fun st -> st.IsFinished || not (st.ip.CanBeExpanded() && List.contains (st.ip.Offset()) st.recursiveVertices))
     override x.IsRecursiveState cilState =
         let isHeadOfLoop (cfg : cfg) v =
-            let vTime = cfg.topologicalTimes.[v]
-            cfg.reverseGraph.[v] |> Seq.exists (fun u -> cfg.topologicalTimes.[u] > vTime)
+            let tv = cfg.dfsOut.[v]
+            cfg.reverseGraph.[v] |> Seq.exists (fun u -> cfg.dfsOut.[u] < tv)
         match cilState.ip with
         | Instruction v ->
             isHeadOfLoop cfg v &&

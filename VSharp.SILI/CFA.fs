@@ -378,7 +378,7 @@ module public CFA =
                 let isInsideCycle opStack (src : offset) (dst : ip) =
                     match dst with
                     | Instruction dst ->
-                        if cfg.topologicalTimes.[src] >= cfg.topologicalTimes.[dst] then
+                        if cfg.dfsOut.[src] <= cfg.dfsOut.[dst] then
                             Seq.tryFind (fun (bypassData : bypassData) -> bypassData.ip = Instruction dst && bypassData.opStack = opStack) used.Keys
                             |> Option.map (fun bypassData -> block.vertices.[used.[bypassData]])
                         else None

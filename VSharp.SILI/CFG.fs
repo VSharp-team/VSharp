@@ -14,7 +14,8 @@ module public CFG =
         methodBase : MethodBase
         ilBytes : byte []
         sortedOffsets : List<offset>
-        topologicalTimes : Dictionary<offset, int>
+        dfsOut : Dictionary<offset, int>
+        sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
         graph : graph
         reverseGraph : graph
         clauses : ExceptionHandlingClause list
@@ -55,7 +56,8 @@ module public CFG =
             methodBase = methodBase
             ilBytes = mb.GetILAsByteArray()
             sortedOffsets = List<_>()
-            topologicalTimes = null
+            dfsOut = Dictionary<_,_>()
+            sccOut = Dictionary<_,_>()
             graph = Dictionary<_, _>()
             reverseGraph = Dictionary<_,_>()
             clauses = List.ofSeq mb.ExceptionHandlingClauses
@@ -156,17 +158,23 @@ module public CFG =
         then dfsComponent methodBase data used ilBytes ehc.FilterOffset
         dfsComponent methodBase data used ilBytes ehc.HandlerOffset // some catch handlers may be nested
 
-    // TODO: rewrite this code in functional style!
-    let topDfs cnt (gr : graph) =
-        let mutable t = cnt
-        let topTm = Dictionary<offset, int>()
-        let rec helperH v =
-            topTm.Add(v, 0)
-            gr.[v] |> Seq.iter (fun u -> if not <| topTm.ContainsKey u then helperH u)
-            topTm.[v] <- t
-            t <- t - 1
-        gr |> Seq.iter (fun kvp -> if not <| topTm.ContainsKey kvp.Key then helperH kvp.Key)
-        topTm
+    let orderEdges (used : HashSet<offset>) (cfg : cfgData) : unit =
+        let rec bypass acc (u : offset) =
+            used.Add u |> ignore
+            let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
+            cfg.dfsOut.[u] <- tOut
+            u::vertices, tOut + 1
+
+        let vertices, _ = bypass ([], 1) 0 // TODO: what about final handlers (they are separated from main) ?
+
+        let propagateMaxTOutForSCC (used : HashSet<offset>) max v =
+            let rec helper v =
+                used.Add v |> ignore
+                cfg.sccOut.[v] <- max
+                cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| used.Contains u then helper u)
+            helper v
+        let used = HashSet<offset>()
+        vertices |> List.iter (fun v -> if not <| used.Contains v then propagateMaxTOutForSCC used cfg.dfsOut.[v] v)
 
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase
@@ -176,4 +184,5 @@ module public CFG =
         dfsComponent methodBase interimData used ilBytes 0
         Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
         let cfg = addVerticesAndEdges cfgData interimData
-        {cfg with topologicalTimes = topDfs cfg.sortedOffsets.Count cfg.graph}
+        orderEdges (HashSet<offset>()) cfg
+        cfg
