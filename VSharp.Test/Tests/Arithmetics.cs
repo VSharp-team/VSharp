@@ -603,7 +603,7 @@ namespace VSharp.Test.Tests
             return Math.Log(-1);
         }
 
-        [TestSvm]
+        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
         public static double LogMethod7(double x)
         {
             double y;

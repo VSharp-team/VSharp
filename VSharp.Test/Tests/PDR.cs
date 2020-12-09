@@ -305,6 +305,18 @@ namespace VSharp.Test.Tests
             new object();
         }
 
+        public static void AllocateObject()
+        {
+            new object();
+        }
+
+        [TestSvm]
+        public static void DoubleAllocateViaCall()
+        {
+            AllocateObject();
+            AllocateObject();
+        }
+
         [TestSvm]
         public static int MultipleInitializeStaticFieldsInCfa(int a)
         {
@@ -868,10 +880,17 @@ namespace VSharp.Test.Tests
             return checked(x + y);
         }
 
+        public static void MutateField(ClassWithOneField a)
+        {
+            a.x = 42;
+        }
 
-
-
-
+        [TestSvm]
+        public static void SymbolicHeapRefIsNotIdempotent(ClassWithOneField a, ClassWithOneField b) {
+            var x = a;
+            a = b;
+            MutateField(x);
+        }
 
         [TestSvm]
         public static int TestThatEffectsDoNotSpreadToDifferentBasicBlocks(int x)
@@ -918,6 +937,18 @@ namespace VSharp.Test.Tests
                 return 0;
             }
             return (n == 10 ? F(n-1, ref m) : F(n-1, ref x)) + m;
+        }
+
+        private static T[] EnsureConcreteTypeForArrayCreation<T>(int size)
+        {
+            return new T[size];
+        }
+
+        [TestSvm]
+        public static void EnsureConcreteType_1()
+        {
+            int[] array = EnsureConcreteTypeForArrayCreation<int>(10);
+            array[9] = 42;
         }
 
         // expecting 87

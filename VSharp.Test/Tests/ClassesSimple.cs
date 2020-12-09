@@ -342,7 +342,6 @@ namespace VSharp.Test.Tests
             SecretProperty = new List<bool>();
         }
 
-        // [Ignore("_structProperty field is lost #fix")]
         [TestSvm]
         public void TestProperty1()
         {
@@ -395,6 +394,5 @@ namespace VSharp.Test.Tests
             var b = (SimpleContainer) obj;
             b.Set(42);
         }
-
     }
 }
