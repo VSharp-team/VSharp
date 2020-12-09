@@ -911,6 +911,30 @@ namespace VSharp.Test.Tests
             return F(10, ref x);
         }
 
+
+        [TestSvm]
+        public static double AddressesBecomeComplicated(double x)
+        {
+            double y;
+
+            if (x >= 0)
+            {
+                y = x;
+            }
+            else
+            {
+                y = -x;
+            }
+
+            ReturnConstant();
+            var obj3 = new object();
+            var obj4 = new object();
+            var obj5 = new object();
+
+            return Math.Log(y);
+        }
+
+
         // [TestSvm]
         // public static int CheckOperationalStackBalance(int x)
         // {
