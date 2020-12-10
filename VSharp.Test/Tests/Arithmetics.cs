@@ -689,8 +689,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(x, y);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
         public static double PowMethod5(double x)
         {
             double y;
@@ -701,8 +700,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(y, 2);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
         public static double PowMethod6(double x)
         {
             double y;

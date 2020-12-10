@@ -389,6 +389,7 @@ module internal Memory =
         | _ -> false
 
     let readStackLocation (s : state) key =
+        if Option.isNone (List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; typ = t } -> if l = key then Some t else None)) s.frames) && Option.isNone (MappedStack.tryFind key s.stack) then ()
         match MappedStack.tryFind key s.stack with
         | Some value -> value
         | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if Types.isValueType key.TypeOfLocation then None else Some s.startingTime)

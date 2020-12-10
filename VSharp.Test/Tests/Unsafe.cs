@@ -62,7 +62,8 @@ namespace VSharp.Test.Tests
             return x.ToPointer();
         }
 
-        [Ignore("Not working, because of (p - q) might not be multiple of 8 #fix")]
+        // [Ignore("Not working, because of (p - q) might not be multiple of 8 #fix")]
+        [TestSvm]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
@@ -72,7 +73,8 @@ namespace VSharp.Test.Tests
             return * (int*) (q + d);
         }
 
-        [Ignore("Not working, because the idea of test is not right #fix")]
+        // [Ignore("Not working, because the idea of test is not right #fix")]
+        [TestSvm]
         public static int PointerTriangle(int x, int y, int z)
         {
             int* px = &x;

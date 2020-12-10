@@ -91,7 +91,8 @@ namespace VSharp.Test.Tests
             return array.GetLowerBound(dimension);
         }
 
-        [Ignore("reinterpretation")]
+        // [Ignore("reinterpretation")]
+        [TestSvm]
         public int UpperBoundTest()
         {
             var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
@@ -219,7 +220,7 @@ namespace VSharp.Test.Tests
         }
 
         // [TestSvm]
-        [Ignore("exceptions handling: should append errored state to result")]
+        [Ignore("Exceptions handling")]
         public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
         {
             var array = new EmptyStruct[3];
@@ -239,7 +240,7 @@ namespace VSharp.Test.Tests
         }
 
         // [TestSvm]
-        [Ignore("Exceptions handling. Should we represent function summary as list of states and compose only those that have !False path condition?")]
+        [Ignore("Exceptions handling")]
         public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
         {
             var arr = new A[10];
@@ -444,7 +445,7 @@ namespace VSharp.Test.Tests
         }
 
         // Test on tracking current heap address during access to heap for filtering possible locations
-        [Ignore("Exception handling is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int MemoryTest(LinkedList<int> l)
         {
             LinkedListNode<int> n = new LinkedListNode<int>(10);
@@ -990,7 +991,8 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [Ignore("Test works too long")]
+        // [Ignore("Test works too long")]
+        [TestSvm]
         public static bool TestBinTree(BinTree tree, int x) // always true
         {
             if (tree == null)

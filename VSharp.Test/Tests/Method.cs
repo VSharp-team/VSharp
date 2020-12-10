@@ -132,7 +132,7 @@ namespace VSharp.Test.Tests.Methods
             return p;
         }
 
-        [Ignore("Encoding of High-Order application")]
+        [Ignore("Calling virtual method is not implemented")]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
@@ -152,7 +152,7 @@ namespace VSharp.Test.Tests.Methods
             return p.MakeMove(c);
         }
 
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall(IVirtual a)
         {
             if (a == null) return 0;
@@ -194,8 +194,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall2(VirtualB a)
         {
             if (a == null) return 0;
@@ -207,8 +206,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall3(VirtualG a, int n)
         {
             if (a == null) return 0;
@@ -220,8 +218,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall4(VirtualH a, int n)
         {
             if (a == null) return 0;
@@ -233,8 +230,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall5(VirtualH a, int n)
         {
             if (a == null) return 0;
@@ -246,8 +242,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall6(VirtualI<double> a, int n)
         {
             if (a == null) return 0;
@@ -259,8 +254,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall7(VirtualJ<float> a, int n)
         {
             if (a == null) return 0;
@@ -272,8 +266,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F<float, int>();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap; Guards slightly changed")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int VirtualCall8(VirtualK a, int n)
         {
             if (a == null) return 0;
@@ -285,7 +278,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F<float, int>();
         }
 
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int VirtualCall9(A a)
         {
             if (a is B)
@@ -295,8 +288,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        // [TestSvm]
-        [Ignore("Composition after callvirt makes Mutation for generalized heap")]
+        [Ignore("Calling virtual method is not implemented")]
         public static int CheckSightTypeWorksCorrect(C c)
         {
             if (c == null) return 0;

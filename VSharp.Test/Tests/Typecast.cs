@@ -435,7 +435,7 @@ namespace VSharp.Test.Tests.Typecast
             return (int)obj;
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

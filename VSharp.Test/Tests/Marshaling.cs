@@ -176,8 +176,8 @@ namespace VSharp.Test.Tests
             return array;
         }
 
-        // [TestSvm]
-        [Ignore("newarr allocates array on concrete address that is duplicated on operational stack and is irrelavant for next basic block that has empty state")]
+        [TestSvm]
+        // [Ignore("newarr allocates array on concrete address that is duplicated on operational stack and is irrelavant for next basic block that has empty state")]
         public static Piece[][] Create_ArrayOfArray()
         {
             return G();
@@ -188,7 +188,8 @@ namespace VSharp.Test.Tests
             x = 42;
         }
 
-        [Ignore("Marshaling should have logic that checks StackRefs ")]
+        // [Ignore("Marshaling should have logic that checks StackRefs ")]
+        [TestSvm]
         public static int Indirect_Change()
         {
             int x = 10;
@@ -196,8 +197,8 @@ namespace VSharp.Test.Tests
             return x;
         }
 
-        // [TestSvm]
-        [Ignore("GetTypeFromHandle() is not implemented")]
+        [TestSvm]
+        // [Ignore("GetTypeFromHandle() is not implemented")]
         public static Dictionary<char, Piece> CreateRepeatingDictionary()
         {
             Dictionary<char, Piece> fenMappings = new Dictionary<char, Piece>()

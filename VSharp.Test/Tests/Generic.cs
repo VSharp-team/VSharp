@@ -72,15 +72,13 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public static T RetT(T t)
         {
             return t;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public static U RetU(U u)
         {
             return u;
@@ -98,15 +96,14 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
-        public static N RetT(N n)
+        [Ignore("Insufficient information is correct result")]
+        public static N RetN(N n)
         {
             return n;
         }
 
         [TestSvm]
-        public static Z RetU(Z z)
+        public static Z RetZ(Z z)
         {
             return z;
         }
@@ -173,15 +170,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public T GetFields()
         {
             return _field;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public void SetField(T f)
         {
             _field = f;

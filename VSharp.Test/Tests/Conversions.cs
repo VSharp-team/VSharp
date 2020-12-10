@@ -122,16 +122,16 @@ namespace VSharp.Test.Tests
             return Conv_Ovf_Un_ulong_long(34U);
         }
 
-        // [TestSvm]
-        [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
+        [TestSvm]
+        // [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
         public static IntPtr Conv_Ovf_long_NativeInt(long a)
         {
             return checked((IntPtr) a);
         }
 
 
-        // [TestSvm]
-        [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
+        [TestSvm]
+        // [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
         public static IntPtr Conv_Ovf_int_NativeInt(int a)
         {
             return checked((IntPtr) a);
