@@ -44,6 +44,16 @@ module API =
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
+        let getAddressTermFromRefOrPtr getTerm refOrPtr =
+            let rec getLastAddress = function
+                | StructField(addr, _) -> getLastAddress addr
+                | addr -> addr
+            let getAddressTerm = term >> function
+                | Ptr(Some addr, _, _)
+                | Ref addr -> getLastAddress addr |> getTerm
+                | _ -> __unreachable__()
+            Merging.guardedApply getAddressTerm refOrPtr
+
         let True = True
         let False = False
         let NullRef = nullRef
@@ -75,6 +85,11 @@ module API =
         let CanWrite value cellType = MemoryRegion.canWrite value cellType
 
         let IsIdempotent term = isIdempotent term
+
+        let IsConcrete term = isConcrete term
+        let IsConcreteHeapAddress addr = isConcreteHeapAddress addr
+
+        let GetConcreteHeapAddress addr = getConcreteHeapAddress addr
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -108,6 +123,9 @@ module API =
         let IsReal t = Types.isReal t
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
+
+        let IsArrayType t = Types.isArray t
+
 
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t

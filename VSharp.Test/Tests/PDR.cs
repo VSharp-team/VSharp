@@ -169,6 +169,23 @@ namespace VSharp.Test.Tests
             var z = new double[32];
         }
 
+        // expecting 64
+        [TestSvm]
+        public static int TestWrongTimeComposition()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 2; i++)
+            {
+                var x = new int[32];
+            }
+
+            var y = new double[32];
+            var z = new double[32];
+            ReturnConstant();
+
+            return y.Length + z.Length;
+        }
+
 
         [TestSvm]
         public static void SequentialNewObjs()

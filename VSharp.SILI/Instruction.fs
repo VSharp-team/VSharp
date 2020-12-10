@@ -35,8 +35,7 @@ type ipTransition =
 
 type cilState =
     { ip : ip
-      isFinished : ip -> bool
-      recursiveVertices : int list
+      isCompleted : bool
       state : state
       leaveInstructionExecuted : bool
       filterResult : term option
@@ -47,22 +46,21 @@ type cilState =
         member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
         member x.ResultTerm = x.state.returnRegister
     member x.CanBeExpanded () = x.ip.CanBeExpanded()
-    member x.IsFinished = x.isFinished x.ip
+//    member x.IsFinished = x.isFinished x.ip
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
 
-    static member Empty =
-        {
-            ip = Exit
-            isFinished = fun ip -> ip = Exit
-            recursiveVertices = []
-            state = VSharp.Core.API.Memory.EmptyState
-            leaveInstructionExecuted = false
-            filterResult = None
-        }
-    static member MakeEmpty curV targetV state =
+//    static member Empty =
+//        {
+//            ip = Exit
+//            isFinished = fun ip -> ip = Exit
+//            recursiveVertices = []
+//            state = VSharp.Core.API.Memory.EmptyState
+//            leaveInstructionExecuted = false
+//            filterResult = None
+//        }
+    static member MakeEmpty curV state =
         { ip = curV
-          isFinished = fun x -> x = targetV
-          recursiveVertices = []
+          isCompleted = false
           state = state
           leaveInstructionExecuted = false
           filterResult = None

@@ -5,6 +5,7 @@ open System.Collections.Generic
 
 open System.Reflection.Emit
 open System.Runtime.InteropServices
+open FSharpx.Collections
 open VSharp
 
 module public CFG =
@@ -144,8 +145,8 @@ module public CFG =
                     data.fallThroughOffset.[v] <- Some offset
 //                    let newBalance = Instruction.countOperationalStackBalance opCode None balance
                     dfs' offset
-                | ExceptionMechanism
-                | Return -> ()
+                | ExceptionMechanism -> ()
+                | Return -> markVertex data.verticesOffsets v
                 | UnconditionalBranch target -> dealWithJump v target
                 | ConditionalBranch offsets -> offsets |> List.iter (dealWithJump v)
         dfs' v
@@ -164,17 +165,17 @@ module public CFG =
             let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
             cfg.dfsOut.[u] <- tOut
             u::vertices, tOut + 1
-
-        let vertices, _ = bypass ([], 1) 0 // TODO: what about final handlers (they are separated from main) ?
-
         let propagateMaxTOutForSCC (used : HashSet<offset>) max v =
             let rec helper v =
                 used.Add v |> ignore
                 cfg.sccOut.[v] <- max
                 cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| used.Contains u then helper u)
             helper v
+        let vertices, _ = bypass ([], 1) 0 // TODO: what about final handlers (they are separated from main) ?
         let used = HashSet<offset>()
         vertices |> List.iter (fun v -> if not <| used.Contains v then propagateMaxTOutForSCC used cfg.dfsOut.[v] v)
+
+
 
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase

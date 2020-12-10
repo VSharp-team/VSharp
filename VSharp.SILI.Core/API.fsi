@@ -56,6 +56,11 @@ module API =
 
         val IsIdempotent : term -> bool
 
+        val IsConcrete : term -> bool
+        val IsConcreteHeapAddress : term -> bool
+
+        val GetConcreteHeapAddress : term -> concreteHeapAddress
+
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
         val (|Conjunction|_|) : term -> term list option
@@ -83,6 +88,9 @@ module API =
         val IsReal : symbolicType -> bool
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
+
+        val IsArrayType : symbolicType -> bool
+
 
         val String : symbolicType
         val (|StringType|_|) : symbolicType -> unit option

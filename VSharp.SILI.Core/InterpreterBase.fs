@@ -301,6 +301,7 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
                             x.ExploreInIsolation state
                         else state :: []
                     newStates |> List.iter (fun newState ->
+                    if x.IsResultState newState then x.SetResultState newState
                     match x.FindSimilar newState with
                     | None -> x.Add newState
                     | Some similar -> merge newState similar |> List.iter x.Add)
