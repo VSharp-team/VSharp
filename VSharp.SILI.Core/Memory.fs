@@ -508,7 +508,7 @@ module internal Memory =
     let rec readSafe state reference =
         match reference.term with
         | Ref address -> readAddress state address
-        | Ptr (address, _, None) when Option.isSome address -> readAddress state (Option.get address)
+        | Ptr (Some address, viewType, None) when typeOfAddress address = viewType -> readAddress state address
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readSafe state v)) |> Merging.merge
         | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
@@ -679,6 +679,7 @@ module internal Memory =
             (fun state reference ->
                 match reference.term with
                 | Ref address -> writeAddress state address value
+                | Ptr (Some address, viewType, None) when typeOfAddress address = viewType -> writeAddress state address value
                 | _ -> internalfailf "Writing: expected reference, but got %O" reference)
             state reference
 
