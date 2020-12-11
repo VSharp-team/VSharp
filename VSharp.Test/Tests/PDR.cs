@@ -78,14 +78,14 @@ namespace VSharp.Test.Tests
 
         private static int ReturnConstant() => 17;
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int CasualFactorial(int x)
         {
             if (x <= 0) return 1;
             return x * CasualFactorial(x - 1);
         }
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int CasualFactorial1()
         {
             return CasualFactorial(1);
@@ -521,7 +521,7 @@ namespace VSharp.Test.Tests
         }
 
 
-        // [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ThrowException(int x)
         {
             throw new Exception();
@@ -959,6 +959,21 @@ namespace VSharp.Test.Tests
             return F(10, ref x);
         }
 
+        [TestSvm]
+        public static int CheckOperationalStackBalance(int x)
+        {
+            int y = 2 * x;
+            if (x > 0)
+            {
+                y++;
+            }
+            else
+            {
+                int z = -x - 5;
+                y = z + 1;
+            }
+            return y;
+        }
 
         [TestSvm]
         public static double AddressesBecomeComplicated(double x)
@@ -981,23 +996,5 @@ namespace VSharp.Test.Tests
 
             return Math.Log(y);
         }
-
-
-        // [TestSvm]
-        // public static int CheckOperationalStackBalance(int x)
-        // {
-        //     int y = 2 * x;
-        //     if (x > 0)
-        //     {
-        //         y++;
-        //     }
-        //     else
-        //     {
-        //         int z = -x - 5;
-        //         y = z + 1;
-        //     }
-        //
-        //     return y;
-        // }
     }
 }

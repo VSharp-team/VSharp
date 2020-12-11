@@ -6,7 +6,8 @@ using ChessDotNet.Pieces;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture]
+    [TestSvmFixture]
+    [Ignore("Marshaling is not implemented")]
     public sealed class Marshaling
     {
         public class RecursiveClass
@@ -177,7 +178,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        // [Ignore("newarr allocates array on concrete address that is duplicated on operational stack and is irrelavant for next basic block that has empty state")]
         public static Piece[][] Create_ArrayOfArray()
         {
             return G();
@@ -188,7 +188,6 @@ namespace VSharp.Test.Tests
             x = 42;
         }
 
-        // [Ignore("Marshaling should have logic that checks StackRefs ")]
         [TestSvm]
         public static int Indirect_Change()
         {
@@ -198,7 +197,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        // [Ignore("GetTypeFromHandle() is not implemented")]
         public static Dictionary<char, Piece> CreateRepeatingDictionary()
         {
             Dictionary<char, Piece> fenMappings = new Dictionary<char, Piece>()
@@ -211,7 +209,6 @@ namespace VSharp.Test.Tests
             return fenMappings;
         }
 
-        // [TestSvm]
         [Ignore("GetTypeFromHandle() is not implemented")]
         public static Dictionary<char, Piece> CreateDictionary()
         {

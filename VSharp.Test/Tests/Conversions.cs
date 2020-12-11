@@ -4,7 +4,8 @@ using VSharp.Test.Tests.Methods;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture]
+    [TestSvmFixture]
+    [Ignore("Need exceptions for all tests")]
     public class Conversions
     {
         [TestSvm]
@@ -123,7 +124,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        // [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
         public static IntPtr Conv_Ovf_long_NativeInt(long a)
         {
             return checked((IntPtr) a);
@@ -131,7 +131,6 @@ namespace VSharp.Test.Tests
 
 
         [TestSvm]
-        // [Ignore("makeSymbolicInstance for Structs is not Implemented for functionResultConstantSource (needed fieldTermExtractor)")]
         public static IntPtr Conv_Ovf_int_NativeInt(int a)
         {
             return checked((IntPtr) a);

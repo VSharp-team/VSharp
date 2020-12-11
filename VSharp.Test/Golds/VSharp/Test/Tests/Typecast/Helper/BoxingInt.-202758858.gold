@@ -1,8 +1,9 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Helper.BoxingInt(System.Int32)
-RESULT: obj
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> obj
----------- s1 = ----------
-VSharp.Test.Tests.Typecast.Helper ==> CLASS []
+RESULT: Totally 1 state:
+obj
+MEMORY DUMP:
+--------------- Boxed items: ---------------
+3 ==> obj
+--------------- Types tokens: ---------------
+3 ==> System.Int32
+Initialized types = { VSharp.Test.Tests.Typecast.Helper }

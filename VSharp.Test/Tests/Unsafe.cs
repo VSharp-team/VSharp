@@ -62,8 +62,7 @@ namespace VSharp.Test.Tests
             return x.ToPointer();
         }
 
-        // [Ignore("Not working, because of (p - q) might not be multiple of 8 #fix")]
-        [TestSvm]
+        [TestSvm][Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
@@ -73,8 +72,7 @@ namespace VSharp.Test.Tests
             return * (int*) (q + d);
         }
 
-        // [Ignore("Not working, because the idea of test is not right #fix")]
-        [TestSvm]
+        [Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
         public static int PointerTriangle(int x, int y, int z)
         {
             int* px = &x;

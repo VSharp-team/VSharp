@@ -91,7 +91,6 @@ namespace VSharp.Test.Tests
             return array.GetLowerBound(dimension);
         }
 
-        // [Ignore("reinterpretation")]
         [TestSvm]
         public int UpperBoundTest()
         {
@@ -219,7 +218,6 @@ namespace VSharp.Test.Tests
         {
         }
 
-        // [TestSvm]
         [Ignore("Exceptions handling")]
         public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
         {
@@ -239,7 +237,6 @@ namespace VSharp.Test.Tests
             return i;
         }
 
-        // [TestSvm]
         [Ignore("Exceptions handling")]
         public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
         {
@@ -369,8 +366,7 @@ namespace VSharp.Test.Tests
             return f;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int F(int x)
         {
             if (x > 10)
@@ -385,15 +381,13 @@ namespace VSharp.Test.Tests
             return Container.X + tmp.X;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int G(int x)
         {
             return F(5) + 10;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int NonEmptyPath(First f)
         {
             int res = 0;
@@ -515,7 +509,7 @@ namespace VSharp.Test.Tests
                 Key = x;
             }
 
-            [TestSvm]
+            [Ignore("Forward exploration does not handle recursion now")]
             public void Add(int x)
             {
                 if (Key == x)
@@ -991,8 +985,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        // [Ignore("Test works too long")]
-        [TestSvm]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static bool TestBinTree(BinTree tree, int x) // always true
         {
             if (tree == null)
@@ -1001,8 +994,7 @@ namespace VSharp.Test.Tests
             return tree.Contains(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void TestBinTree2(BinTree tree, int x)
         {
             if (tree == null)
@@ -1010,8 +1002,7 @@ namespace VSharp.Test.Tests
             tree.Add2(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void ListTest(List list)
         {
             if (list == null)
@@ -1035,8 +1026,7 @@ namespace VSharp.Test.Tests
                 return RecF(y - 2);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int TestRecF(int n)
         {
             return RecF(n - 15);

@@ -1,12 +1,22 @@
 METHOD: System.Int32 VSharp.Test.Tests.Lists.UpperBoundTest()
-RESULT: 3
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> [| 0, 0 ~> 1; 0, 1 ~> 1; 1, 0 ~> 2; 1, 1 ~> 2; 2, 0 ~> 3; 2, 1 ~> 3; 3, 0 ~> 4; 3, 1 ~> 4 ... 4 x 2 ... |]
----------- s1 = ----------
-System.Array ==> CLASS []
-System.Int32[,] ==> CLASS []
-System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
-VSharp.CSharpUtils.Array ==> CLASS []
-VSharp.Test.Tests.Lists ==> CLASS []
+RESULT: Totally 1 state:
+3
+MEMORY DUMP:
+--------------- Array contents: ---------------
+System.Int32[,] ==> {
+        4[0, 0] <- 1
+        4[0, 1] <- 1
+        4[1, 0] <- 2
+        4[1, 1] <- 2
+        4[2, 0] <- 3
+        4[2, 1] <- 3
+        4[3, 0] <- 4
+        4[3, 1] <- 4
+    }
+--------------- Array lengths: ---------------
+System.Int32[,] ==> {4[0] <- 4; 4[1] <- 2}
+--------------- Types tokens: ---------------
+4 ==> System.Int32[,]
+--------------- Stack: ---------------
+key = this, value = (HeapRef this to VSharp.Test.Tests.Lists)
+Initialized types = { System.Array, System.Runtime.CompilerServices.RuntimeHelpers, VSharp.CSharpUtils.Array, VSharp.Test.Tests.Lists, System.Int32[,] }

@@ -3,7 +3,8 @@ using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture] // TODO: need exceptions for all tests
+    [TestSvmFixture]
+    [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
         [Ignore("unknown result")]
@@ -419,8 +420,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 2000000000 + x1 + 2000000000
-        // [TestSvm]
-        [Ignore("exceptions handling")]
+        [Ignore("Exceptions handling")]
         public static int CheckOrder(int x1)
         {
             int x = 2000000000;
@@ -628,8 +628,7 @@ namespace VSharp.Test.Tests
             return Math.Sqrt(4);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
         public static double SqrtMethod3(double x)
         {
             double y;
@@ -850,8 +849,7 @@ namespace VSharp.Test.Tests
             return Math.Tan(Double.NegativeInfinity);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
         public static double SinhMethod(double x)
         {
             double y;
