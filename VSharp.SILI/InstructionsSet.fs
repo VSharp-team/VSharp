@@ -464,8 +464,12 @@ module internal InstructionsSet =
         cilState |> withState state |> pushToOpStack address |> List.singleton
     let ldnull (cilState : cilState) =
         pushResultOnStack cilState (NullRef, cilState.state) :: []
-
-    let convu (cilState : cilState) = cilState :: []
+    let convu (cilState : cilState) =
+        match cilState.state.opStack with
+        | value :: stack when IsReference value ->
+            let ptr = Types.CastReferenceToPointer cilState.state value
+            cilState |> withOpStack (ptr::stack) |> List.singleton
+        | _ -> cilState :: []
     let convi (cilState : cilState) = cilState :: []
     let castTopOfOperationalStackUnchecked targetType typeForStack (cilState : cilState) =
         match cilState.state.opStack with
