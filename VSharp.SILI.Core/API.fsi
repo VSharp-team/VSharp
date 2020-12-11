@@ -50,8 +50,8 @@ module API =
         val TypeOf : term -> symbolicType
         val BaseTypeOfHeapRef : state -> term -> symbolicType
 
-        val isStruct : term -> bool
-        val isReference : term -> bool
+        val IsStruct : term -> bool
+        val IsReference : term -> bool
         val IsNullReference : term -> term
 
         val CanWrite : term -> symbolicType -> bool

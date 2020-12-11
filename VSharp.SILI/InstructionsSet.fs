@@ -217,7 +217,7 @@ module internal InstructionsSet =
         PrimitiveStackLocation (ParameterKey pi) |> Ref
 
     let castReferenceToPointerIfNeeded term typ state =
-        if isReference term && Types.IsPointer typ
+        if IsReference term && Types.IsPointer typ
         then Types.CastReferenceToPointer state term // TODO: casting to pointer is weird
         else term
     let castUnchecked typ term (state : state) : term =
@@ -268,11 +268,11 @@ module internal InstructionsSet =
         let state = cilState.state
         let left, state, typ = getVarTerm state variableIndex cfg.methodBase
         match state.opStack with
-         | right :: stack ->
+        | right :: stack ->
             let value = castUnchecked typ right state
             let states = Memory.WriteSafe state left value
             states |> List.map (fun state -> cilState |> withState state |> withOpStack stack)
-         | _ -> __corruptedStack__()
+        | _ -> __corruptedStack__()
     let performCILUnaryOperation op isChecked (cilState : cilState) =
         // TODO: why isChecked is unused?
         match cilState.state.opStack with
@@ -354,7 +354,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
                 term !== MakeNumber (t.GetEnumValues().GetValue(0))
-            | _ when isReference term -> !!(IsNullReference term)//  term !== NullRef
+            | _ when IsReference term -> !!(IsNullReference term)//  term !== NullRef
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
 
@@ -471,7 +471,7 @@ module internal InstructionsSet =
         match cilState.state.opStack with
         | t :: stack ->
             let term = castUnchecked targetType t cilState.state
-            let termForStack =castUnchecked typeForStack term cilState.state
+            let termForStack = castUnchecked typeForStack term cilState.state
             cilState |> withOpStack (termForStack::stack) |> List.singleton
         | _ -> __corruptedStack__()
     let ldloca numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
@@ -551,7 +551,7 @@ module internal InstructionsSet =
         | _ -> __corruptedStack__()
     let cgtun (cilState : cilState) =
         match cilState.state.opStack with
-        | arg2 :: arg1 :: _ when isReference arg2 && isReference arg1 ->
+        | arg2 :: arg1 :: _ when IsReference arg2 && IsReference arg1 ->
             compare OperationType.NotEqual idTransformation idTransformation cilState
         | _ -> compare OperationType.Greater makeUnsignedInteger makeUnsignedInteger cilState
     let ldobj (cfg : cfgData) offset (cilState : cilState) =

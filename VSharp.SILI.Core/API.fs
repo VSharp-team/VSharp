@@ -78,8 +78,8 @@ module API =
         let MakeFunctionResultConstant state (callSite : callSite) =
             Memory.makeFunctionResultConstant state.currentTime callSite
 
-        let isStruct term = isStruct term
-        let isReference term = isReference term
+        let IsStruct term = isStruct term
+        let IsReference term = isReference term
         let IsNullReference term = Pointers.isNull term
 
         let CanWrite value cellType = MemoryRegion.canWrite value cellType

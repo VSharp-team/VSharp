@@ -943,8 +943,8 @@ module internal Memory =
         let dstType = substituteTypeVariables state info.dstType
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
-    let composeOpStacksOf state opStack' =
-        List.map (fun v -> if isConcrete v then v else fillHoles state v) opStack' // TODO: just use fillHoles!
+    let composeOpStacksOf state opStack =
+        List.map (fillHoles state) opStack
 
     let composeStates state state' =
         assert(not <| VectorTime.isEmpty state.currentTime)

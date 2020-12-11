@@ -646,7 +646,7 @@ and public ILInterpreter() as this =
         | _ -> __corruptedStack__()
     member private x.UnboxCommon (state : state) (obj : term) (t : System.Type) (handleRestResults : term * state -> term * state) (k : state list -> 'a) =
         let termType = Types.FromDotNetType state t
-        assert(isReference obj)
+        assert(IsReference obj)
         assert(Types.IsValueType termType)
         let nullCase (state : state) (k : state list -> 'a) : 'a =
             if Types.TypeIsNullable termType then
