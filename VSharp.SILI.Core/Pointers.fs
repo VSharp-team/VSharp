@@ -8,6 +8,7 @@ module internal Pointers =
         | Ptr(_, typ, _) -> makeNumber (Types.sizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
+    // TODO: delete this symbolic constant source, because the idea is wrong
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
         interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
