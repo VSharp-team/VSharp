@@ -225,8 +225,14 @@ and public ILInterpreter() as this =
             // TODO: check that all parameters were specified
             let methodInfo = Loader.concreteExternalImplementations.[fullMethodName]
             let methodId = x.MakeMethodIdentifier methodInfo
+            let thisOption, args =
+                match thisOption, methodInfo.IsStatic with
+                | Some this, true -> None, this :: args
+                | None, false -> internalfail "Calling non-static concrete implementation for static method"
+                | _ -> thisOption, args
+            let state = x.ReduceFunctionSignature state methodInfo thisOption (Specified args) false id
             let invoke state k = x.Invoke methodId state k
-            x.ReduceFunction state methodId invoke (List.map dealWithResult >> k)
+            x.ReduceFunction state methodId invoke (List.map dealWithResult >> List.map Memory.PopStack >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 then
             internalfailf "new extern method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then
