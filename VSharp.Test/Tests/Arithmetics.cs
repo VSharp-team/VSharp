@@ -603,7 +603,7 @@ namespace VSharp.Test.Tests
             return Math.Log(-1);
         }
 
-        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
+        [TestSvm]
         public static double LogMethod7(double x)
         {
             double y;
@@ -628,7 +628,7 @@ namespace VSharp.Test.Tests
             return Math.Sqrt(4);
         }
 
-        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
+        [TestSvm]
         public static double SqrtMethod3(double x)
         {
             double y;
@@ -688,7 +688,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(x, y);
         }
 
-        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
+        [TestSvm]
         public static double PowMethod5(double x)
         {
             double y;
@@ -699,7 +699,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(y, 2);
         }
 
-        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
+        [TestSvm]
         public static double PowMethod6(double x)
         {
             double y;
@@ -849,7 +849,7 @@ namespace VSharp.Test.Tests
             return Math.Tan(Double.NegativeInfinity);
         }
 
-        [Ignore("Addresses of System.Double[] are incorrect, because currentTime inside dfs method (CFA.fs) is global")]
+        [TestSvm]
         public static double SinhMethod(double x)
         {
             double y;
