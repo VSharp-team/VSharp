@@ -1,10 +1,24 @@
 METHOD: System.Int32 VSharp.Test.Tests.PDR.Gotos1(System.Int32)
-RESULT: Totally 11 states:
+RESULT: Totally 22 states:
+-2 + x
+MEMORY DUMP:
+Path condition: !((-2 + x) % 5 == 0) /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = -2 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 3 + x
 MEMORY DUMP:
 Path condition: !(3 + x < 100) /\ (-2 + x) % 5 == 0 /\ x <= 10
 --------------- Stack: ---------------
 key = x, value = 3 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
+1 + x
+MEMORY DUMP:
+Path condition: !((1 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ 3 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 1 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
 6 + x
@@ -14,11 +28,25 @@ Path condition: !(6 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ 3 + x
 key = x, value = 6 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
+4 + x
+MEMORY DUMP:
+Path condition: !((4 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ 3 + x < 100 /\ 6 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 4 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 9 + x
 MEMORY DUMP:
 Path condition: !(9 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ 3 + x < 100 /\ 6 + x < 100 /\ x <= 10
 --------------- Stack: ---------------
 key = x, value = 9 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
+7 + x
+MEMORY DUMP:
+Path condition: !((7 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 7 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
 12 + x
@@ -28,11 +56,25 @@ Path condition: !(12 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (4 +
 key = x, value = 12 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
+10 + x
+MEMORY DUMP:
+Path condition: !((10 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 10 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 15 + x
 MEMORY DUMP:
 Path condition: !(15 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
 --------------- Stack: ---------------
 key = x, value = 15 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
+13 + x
+MEMORY DUMP:
+Path condition: !((13 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 13 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
 18 + x
@@ -42,11 +84,25 @@ Path condition: !(18 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 
 key = x, value = 18 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
+16 + x
+MEMORY DUMP:
+Path condition: !((16 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 16 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 21 + x
 MEMORY DUMP:
 Path condition: !(21 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
 --------------- Stack: ---------------
 key = x, value = 21 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
+19 + x
+MEMORY DUMP:
+Path condition: !((19 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 19 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
 24 + x
@@ -56,6 +112,13 @@ Path condition: !(24 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 
 key = x, value = 24 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
+22 + x
+MEMORY DUMP:
+Path condition: !((22 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (19 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 24 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 22 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 27 + x
 MEMORY DUMP:
 Path condition: !(27 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (19 + x) % 5 == 0 /\ (22 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 24 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
@@ -63,11 +126,25 @@ Path condition: !(27 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 
 key = x, value = 27 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
+25 + x
+MEMORY DUMP:
+Path condition: !((25 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (19 + x) % 5 == 0 /\ (22 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 24 + x < 100 /\ 27 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 25 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
 30 + x
 MEMORY DUMP:
 Path condition: !(30 + x < 100) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (19 + x) % 5 == 0 /\ (22 + x) % 5 == 0 /\ (25 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 24 + x < 100 /\ 27 + x < 100 /\ 3 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
 --------------- Stack: ---------------
 key = x, value = 30 + x
+Initialized types = { VSharp.Test.Tests.PDR }
+
+28 + x
+MEMORY DUMP:
+Path condition: !((28 + x) % 5 == 0) /\ (-2 + x) % 5 == 0 /\ (1 + x) % 5 == 0 /\ (10 + x) % 5 == 0 /\ (13 + x) % 5 == 0 /\ (16 + x) % 5 == 0 /\ (19 + x) % 5 == 0 /\ (22 + x) % 5 == 0 /\ (25 + x) % 5 == 0 /\ (4 + x) % 5 == 0 /\ (7 + x) % 5 == 0 /\ 12 + x < 100 /\ 15 + x < 100 /\ 18 + x < 100 /\ 21 + x < 100 /\ 24 + x < 100 /\ 27 + x < 100 /\ 3 + x < 100 /\ 30 + x < 100 /\ 6 + x < 100 /\ 9 + x < 100 /\ x <= 10
+--------------- Stack: ---------------
+key = x, value = 28 + x
 Initialized types = { VSharp.Test.Tests.PDR }
 
 33 + x

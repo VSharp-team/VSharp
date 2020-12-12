@@ -1,5 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.GotoWithinWhile(System.Int32)
-RESULT: Totally 5 states:
+RESULT: Totally 19 states:
 1 + x
 MEMORY DUMP:
 Path condition: 2 * x < 0
@@ -10,10 +10,58 @@ Initialized types = { VSharp.Test.Tests.ControlFlow }
 
 1 + x
 MEMORY DUMP:
+Path condition: !(2 * x < 0) /\ !(2 * x < 100)
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x
+key = x, value = 1 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1001 + x
+MEMORY DUMP:
+Path condition: !(2 * x < 0) /\ 2 * x < 100 /\ 2 * x == 42
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x
+key = x, value = 1001 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+10000 + x
+MEMORY DUMP:
+Path condition: !(2 * x < 0) /\ !(2 * x == 42) /\ 2 * x < 100 /\ 2 * x == 84
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x
+key = x, value = 10000 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1 + x
+MEMORY DUMP:
 Path condition: !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ 1 + 2 * x < 0 /\ 2 * x < 100
 --------------- Stack: ---------------
 key = __loc__0, value = 1 + 2 * x
 key = x, value = 1 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1 + x
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x < 100) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 1 + 2 * x
+key = x, value = 1 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+1001 + x
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ 1 + 2 * x < 100 /\ 1 + 2 * x == 42 /\ 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 1 + 2 * x
+key = x, value = 1001 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+10000 + x
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ 1 + 2 * x < 100 /\ 1 + 2 * x == 84 /\ 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 1 + 2 * x
+key = x, value = 10000 + x
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
 (1 + 2 * x) % 2 + x + 1
@@ -24,6 +72,30 @@ key = __loc__0, value = 2 + 2 * x
 key = x, value = (1 + 2 * x) % 2 + x + 1
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
+(1 + 2 * x) % 2 + x + 1
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x < 100) /\ 1 + 2 * x < 100 /\ 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 + 2 * x
+key = x, value = (1 + 2 * x) % 2 + x + 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + 1001
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ 1 + 2 * x < 100 /\ 2 * x < 100 /\ 2 + 2 * x < 100 /\ 2 + 2 * x == 42
+--------------- Stack: ---------------
+key = __loc__0, value = 2 + 2 * x
+key = x, value = (1 + 2 * x) % 2 + x + 1001
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + 10000
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ 1 + 2 * x < 100 /\ 2 * x < 100 /\ 2 + 2 * x < 100 /\ 2 + 2 * x == 84
+--------------- Stack: ---------------
+key = __loc__0, value = 2 + 2 * x
+key = x, value = (1 + 2 * x) % 2 + x + 10000
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
 (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1
 MEMORY DUMP:
 Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 0 /\ 2 * x < 100 /\ 2 + 2 * x < 100
@@ -32,10 +104,50 @@ key = __loc__0, value = 2 * x + 3
 key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
+(1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x + 3 < 100) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x < 100 /\ 2 + 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x + 3
+key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1001
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 100 /\ 2 * x + 3 == 42 /\ 2 * x < 100 /\ 2 + 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x + 3
+key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 1001
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 10000
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x + 3 == 42) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 100 /\ 2 * x + 3 == 84 /\ 2 * x < 100 /\ 2 + 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x + 3
+key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + 10000
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
 (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1
 MEMORY DUMP:
 Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x + 3 == 42) /\ !(2 * x + 3 == 84) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 100 /\ 2 * x + 4 < 0 /\ 2 * x < 100 /\ 2 + 2 * x < 100
 --------------- Stack: ---------------
 key = __loc__0, value = 2 * x + 4
 key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x + 3 == 42) /\ !(2 * x + 3 == 84) /\ !(2 * x + 4 < 0) /\ !(2 * x + 4 < 100) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 100 /\ 2 * x < 100 /\ 2 + 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x + 4
+key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+(1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1001
+MEMORY DUMP:
+Path condition: !(1 + 2 * x < 0) /\ !(1 + 2 * x == 42) /\ !(1 + 2 * x == 84) /\ !(2 * x + 3 < 0) /\ !(2 * x + 3 == 42) /\ !(2 * x + 3 == 84) /\ !(2 * x + 4 < 0) /\ !(2 * x < 0) /\ !(2 * x == 42) /\ !(2 * x == 84) /\ !(2 + 2 * x < 0) /\ !(2 + 2 * x == 42) /\ !(2 + 2 * x == 84) /\ 1 + 2 * x < 100 /\ 2 * x + 3 < 100 /\ 2 * x + 4 < 100 /\ 2 * x + 4 == 42 /\ 2 * x < 100 /\ 2 + 2 * x < 100
+--------------- Stack: ---------------
+key = __loc__0, value = 2 * x + 4
+key = x, value = (1 + 2 * x) % 2 + x + (2 + 2 * x) % 2 + (2 * x + 3) % 2 + 1001
 Initialized types = { VSharp.Test.Tests.ControlFlow }
