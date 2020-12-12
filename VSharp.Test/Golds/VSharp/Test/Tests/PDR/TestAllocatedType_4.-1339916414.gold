@@ -11,9 +11,9 @@ Initialized types = { VSharp.Test.Tests.PDR }
 MEMORY DUMP:
 Path condition: f
 --------------- Fields: ---------------
-x ==> {5 <- 100}
+x ==> {6 <- 100}
 --------------- Types tokens: ---------------
-5 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+6 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------
 key = __loc__0, value = 100
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

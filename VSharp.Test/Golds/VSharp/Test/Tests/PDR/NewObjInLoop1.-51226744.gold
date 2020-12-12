@@ -8,11 +8,11 @@ MEMORY DUMP:
 5.6 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 5.9 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 5.12 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-19 ==> System.Object
-20.19 ==> System.Object
-20.20.19 ==> System.Object
-20.20.20.19 ==> System.Object
-20.20.20.20.19 ==> System.Object
+11 ==> System.Object
+12.11 ==> System.Object
+12.12.11 ==> System.Object
+12.12.12.11 ==> System.Object
+12.12.12.12.11 ==> System.Object
 --------------- Stack: ---------------
 key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 key = __loc__1, value = 5

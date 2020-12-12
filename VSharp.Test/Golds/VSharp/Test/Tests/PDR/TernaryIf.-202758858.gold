@@ -1,11 +1,11 @@
 METHOD: System.Int32 VSharp.Test.Tests.PDR.TernaryIf(System.Int32)
 RESULT: Totally 2 states:
-x
-MEMORY DUMP:
-Path condition: !(x < 0)
-Initialized types = { VSharp.Test.Tests.PDR }
-
 -x
 MEMORY DUMP:
 Path condition: x < 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+x
+MEMORY DUMP:
+Path condition: !(x < 0)
 Initialized types = { VSharp.Test.Tests.PDR }

@@ -2,7 +2,9 @@ METHOD: System.Int32[] VSharp.Test.Tests.Lists.RetOneDArray1(System.Boolean, Sys
 RESULT: Totally 3 states:
 (HeapRef 3 to System.Int32[])
 MEMORY DUMP:
-Path condition: !flag1 /\ !flag2
+Path condition: flag1
+--------------- Array contents: ---------------
+System.Int32[] ==> {3[1] <- 42}
 --------------- Array lengths: ---------------
 System.Int32[] ==> {3[0] <- 5}
 --------------- Types tokens: ---------------
@@ -13,9 +15,7 @@ Initialized types = { VSharp.Test.Tests.Lists }
 
 (HeapRef 3 to System.Int32[])
 MEMORY DUMP:
-Path condition: flag1
---------------- Array contents: ---------------
-System.Int32[] ==> {3[1] <- 42}
+Path condition: !flag1 /\ !flag2
 --------------- Array lengths: ---------------
 System.Int32[] ==> {3[0] <- 5}
 --------------- Types tokens: ---------------
