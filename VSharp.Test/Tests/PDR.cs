@@ -880,6 +880,25 @@ namespace VSharp.Test.Tests
             return checked(x + y);
         }
 
+        // expecting 111
+        [TestSvm]
+        public static int TestWithNestedFinallyHandlers(int x, int y)
+        {
+            int addition = 1;
+            try  {}
+            finally
+            {
+                try { }
+                finally
+                {
+                    addition += 10;
+                }
+                addition += 100;
+            }
+
+            return addition;
+        }
+
         public static void MutateField(ClassWithOneField a)
         {
             a.x = 42;

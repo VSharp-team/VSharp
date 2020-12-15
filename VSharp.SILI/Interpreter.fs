@@ -1055,19 +1055,17 @@ and public ILInterpreter() as this =
         assert(not cilState.isCompleted)
         let opCode = Instruction.parseInstruction cfg.ilBytes offset
 //        Logger.printLog Logger.Trace "Executing instruction %O of %O [%O]" opCode cfg.methodBase cfg.methodBase.DeclaringType
-        let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
         let newOffsets : ip list =
-            match nextTargets with
-            | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction          -> [Instruction nextInstruction]
-            | Return -> [Exit]
-            | ExceptionMechanism -> [FindingHandler offset]
-            | ConditionalBranch targets -> targets |> List.map Instruction
+            if Instruction.isLeaveOpCode opCode || opCode = OpCodes.Endfinally
+            then cfg.graph.[offset] |> Seq.map Instruction |> List.ofSeq
+            else
+                let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
+                match nextTargets with
+                | UnconditionalBranch nextInstruction
+                | FallThrough nextInstruction          -> [Instruction nextInstruction]
+                | Return -> [Exit]
+                | ExceptionMechanism -> [FindingHandler offset]
+                | ConditionalBranch targets -> targets |> List.map Instruction
         let newSts = opcode2Function.[hashFunction opCode] cfg offset newOffsets cilState
-
-//        if opCode = OpCodes.Isinst then
-//            newSts |> List.iteri (fun i (_, cilState : cilState) -> Logger.printLog Logger.Trace "number = %i state = %O\n" i cilState.state)
-
-        if opCode = Reflection.Emit.OpCodes.Add_Ovf then ()
         let leaveInstructionExecuted = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
         newSts |> List.map (fun (d, cilState : cilState) -> d, {cilState with leaveInstructionExecuted = leaveInstructionExecuted})

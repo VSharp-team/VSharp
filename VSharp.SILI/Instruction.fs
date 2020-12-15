@@ -159,6 +159,8 @@ module internal Instruction =
         | _ -> __notImplemented__()
         <| opCode
 
+    let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
+
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
         || opCode = OpCodes.Calli

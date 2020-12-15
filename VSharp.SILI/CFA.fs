@@ -628,6 +628,7 @@ module public CFA =
                     let createEdge s' dstVertex = CallEdge (srcVertex, dstVertex, callSite, s', numberToDrop)
                     let currentTime, vertices, q, used = addEdgeAndRenewQueue createEdge d cfg (currentTime, vertices, q, used) cilState'
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
+                    else vertices
                 else
                     let newStates = interpreter.ExecuteAllInstructions cfg initialCilState
                     let goodStates = newStates |> List.filter (fun (cilState : cilState) -> cilState.isCompleted && not cilState.HasException && cilState.ip = d.v)
@@ -638,7 +639,7 @@ module public CFA =
                     let createEdge s' dstVertex = StepEdge(d.srcVertex, dstVertex, s')
                     let currentTime, vertices, q, used = goodStates |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
-
+                    else vertices
             let offset = block.entryPoint.Ip.Offset()
             let d0 = { u = block.entryPoint.Ip; srcVertex = block.entryPoint; uOut = cfg.dfsOut.[offset]
                        v = block.entryPoint.Ip; vOut = 0; minSCCs = 0; opStack = initialState.opStack
@@ -648,7 +649,8 @@ module public CFA =
             let vertices = PersistentDict.empty
                            |> PersistentDict.add (block.entryPoint.Ip, initialState.opStack) block.entryPoint
                            |> PersistentDict.add (block.exitVertex.Ip, block.exitVertex.OpStack) block.exitVertex
-            bypass cfg q used vertices initialState.currentTime
+            let vertices = bypass cfg q used vertices initialState.currentTime
+            vertices |> PersistentDict.values |> Seq.iter block.AddVertex
 
         let computeCFA (interpreter : ILInterpreter) (methodMetadata: ILMethodMetadata) : cfa =
             let methodBase = methodMetadata.methodBase

@@ -113,13 +113,11 @@ module public CFG =
         set.Add vOffset |> ignore
 
     let private dfs (methodBase : MethodBase) (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
-        let rec dfs'  (v : offset) = //(v : offset, balance)  =
-            if used.Contains v
-            then () // Prelude.releaseAssert(balance = data.visitedOffsetsOperationalStackBalance.[v])
+        let rec dfs' (v : offset) =
+            if used.Contains v then ()
             else
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
-//                data.visitedOffsetsOperationalStackBalance.[v] <- balance
                 let opCode = Instruction.parseInstruction ilBytes v
                 Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.GetFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
@@ -127,8 +125,23 @@ module public CFG =
                 let dealWithJump src dst =
                     markVertex data.verticesOffsets src
                     markVertex data.verticesOffsets dst
-                    data.AddEdge src dst
-//                    let newBalance = Instruction.countOperationalStackBalance opCode None balance
+
+                    if Instruction.isLeaveOpCode opCode then
+                        let ehcs = methodBase.GetMethodBody().ExceptionHandlingClauses
+                                   |> Seq.filter Instruction.isFinallyClause
+                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause (Instruction src) (Instruction dst))
+                                   |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
+                        let chainSequentialFinallyBlocks prevOffset (ehc : ExceptionHandlingClause) =
+                            let startOffset = ehc.HandlerOffset
+                            let endOffset = ehc.HandlerOffset + ehc.HandlerLength - 1
+                            markVertex data.verticesOffsets startOffset
+                            data.AddEdge prevOffset startOffset
+                            dfs' startOffset
+                            markVertex data.verticesOffsets endOffset
+                            endOffset
+                        let lastVertex = ehcs |> Seq.fold chainSequentialFinallyBlocks src
+                        data.AddEdge lastVertex dst
+                    else data.AddEdge src dst
                     dfs' dst
 
                 let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
@@ -139,11 +152,9 @@ module public CFG =
                     markVertex data.verticesOffsets v
                     markVertex data.verticesOffsets offset
                     data.fallThroughOffset.[v] <- Some offset
-//                    let newBalance = Instruction.countOperationalStackBalance opCode (Some calledMethod) balance
                     dfs' offset
                 | FallThrough offset ->
                     data.fallThroughOffset.[v] <- Some offset
-//                    let newBalance = Instruction.countOperationalStackBalance opCode None balance
                     dfs' offset
                 | ExceptionMechanism -> ()
                 | Return -> markVertex data.verticesOffsets v
@@ -174,8 +185,6 @@ module public CFG =
         let vertices, _ = bypass ([], 1) 0 // TODO: what about final handlers (they are separated from main) ?
         let used = HashSet<offset>()
         vertices |> List.iter (fun v -> if not <| used.Contains v then propagateMaxTOutForSCC used cfg.dfsOut.[v] v)
-
-
 
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase
