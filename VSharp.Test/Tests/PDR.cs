@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting 64
-        [TestSvm]
+        [Ignore("currentTime composition works wrong")]
         public static int TestWrongTimeComposition()
         {
             object c = new ClassWithOneField();

@@ -62,7 +62,7 @@ namespace VSharp.Test.Tests
             return x.ToPointer();
         }
 
-        [TestSvm][Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
+        [Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
