@@ -620,11 +620,18 @@ and public ILInterpreter() as this =
 //        | _ -> __corruptedStack__()
     member x.BoxNullable (t : Type) v (cilState : cilState) : cilState list =
         // TODO: move it to Reflection.fs; add more validation in case if .NET implementation does not have these methods
+        let boxValue (state : state) =
+            match state.returnRegister with
+            | None -> __unreachable__()
+            | Some value ->
+                let address, state = Memory.BoxValueType state value
+                {state with returnRegister = Some address}
+
         let hasValueMethodInfo = t.GetMethod("get_HasValue")
         let hasValueCase (state : state) k =
             let valueMethodInfo = t.GetMethod("get_Value")
             x.ReduceFunctionSignature state valueMethodInfo (Some v) (Specified []) false (fun state ->
-            x.ReduceMethodBaseCall valueMethodInfo state k)
+            x.ReduceMethodBaseCall valueMethodInfo state ((List.map boxValue) >> k))
         let boxNullable (hasValue, state : state) (k : state list -> 'a) =
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (hasValue, state))
