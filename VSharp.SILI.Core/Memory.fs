@@ -149,8 +149,6 @@ module internal Memory =
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
-    let composeAddresses (a1 : concreteHeapAddress) (a2 : concreteHeapAddress) : concreteHeapAddress =
-        if isZeroAddress a2 then a2 else a1 @ a2
 
     let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
     let removePathCondition (s : state) cond : state = { s with pc = PC.remove s.pc cond }
@@ -789,9 +787,17 @@ module internal Memory =
 // ------------------------------- Composition -------------------------------
 
     let private composeTime (state : state) time =
-        match state.returnRegister with
-        | Some(ConcreteT((:? vectorTime as startingTime), _)) when VectorTime.lessOrEqual time startingTime -> time
-        | _ -> composeAddresses state.currentTime time
+        assert(not <| VectorTime.isEmpty time)
+        match time with
+        | _ when isZeroAddress time -> time
+        | t::_ when VectorTime.isDescending time ->
+            match state.returnRegister with
+            | Some(ConcreteT((:? (vectorTime * vectorTime) as interval), _)) when VectorTime.less time (fst interval) && not <| VectorTime.isEmpty (snd interval) -> time
+            | Some(ConcreteT((:? (vectorTime * vectorTime) as interval), _)) when VectorTime.isEmpty (snd interval) -> state.currentTime @ time
+            | _ ->
+                let prefix = List.skipTailWhile ((>) t) state.currentTime
+                prefix @ time
+        | _ -> state.currentTime @ time
 
     let rec private fillHole state term =
         match term.term with
@@ -948,13 +954,13 @@ module internal Memory =
         List.map (fillHoles state) opStack
 
     let composeStates state state' =
+        assert(VectorTime.isDescending state.currentTime)
+        assert(VectorTime.isDescending state'.currentTime)
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let prefix, suffix = List.splitAt (List.length state.currentTime - List.length state'.startingTime) state.currentTime
-            let prefix = if VectorTime.lessOrEqual suffix state'.startingTime then prefix else state.currentTime
-            // Hacking return register to propagate starting time of state' into composeTime
-            let state = {state with currentTime = prefix; returnRegister = Some(Concrete state'.startingTime (fromDotNetType typeof<vectorTime>))}
+            // Hacking return register to propagate starting and current time of state' into composeTime
+            let state = {state with returnRegister = Some(Concrete (state'.startingTime, state'.currentTime) (fromDotNetType typeof<vectorTime * vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
             let opStack = composeOpStacksOf state state'.opStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
@@ -974,7 +980,10 @@ module internal Memory =
             let entireCopies = composeConcreteDictionaries state state.entireCopies state'.entireCopies (composeArrayCopyInfo state)
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
-            let currentTime = prefix @ state'.currentTime
+            let currentTime =
+                match state'.currentTime with
+                | [] -> state.currentTime
+                | _ -> composeTime state state'.currentTime
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -1018,7 +1027,7 @@ module internal Memory =
                     Prelude.releaseAssert (Option.isSome value)
                     Option.get value
                 else
-                    let newTime = composeAddresses state.currentTime x.calledTime
+                    let newTime = composeTime state x.calledTime
                     makeFunctionResultConstant newTime x.callSite
 
 // ------------------------------- Pretty-printing -------------------------------

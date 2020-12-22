@@ -78,6 +78,13 @@ module public List =
         | x::xs -> x::(mapLast f xs)
         | [] -> []
 
+    let rec skipTailWhile pred = function
+        | [] -> []
+        | x::xs ->
+            match skipTailWhile pred xs with
+            | [] -> if pred x then [] else [x]
+            | xs' -> x::xs'
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

@@ -28,3 +28,5 @@ module VectorTime =
         List.append t1 t2
 
     let print (t : vectorTime) = t |> List.map toString |> join "."
+
+    let isDescending (t : vectorTime) = t |> Seq.pairwise |> Seq.forall (fun (a, b) -> a >= b)
