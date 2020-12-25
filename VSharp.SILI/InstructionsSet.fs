@@ -338,7 +338,7 @@ module internal InstructionsSet =
         | Some t, _ ->
             let t = castUnchecked resultTyp t cilState.state
             cilState |> withResult (Some t) |> List.singleton
-         | _ -> __unreachable__()
+        | _ -> __unreachable__()
     let Transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with

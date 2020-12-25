@@ -786,18 +786,25 @@ module internal Memory =
 
 // ------------------------------- Composition -------------------------------
 
-    let private composeTime (state : state) time =
-        assert(not <| VectorTime.isEmpty time)
-        match time with
-        | _ when isZeroAddress time -> time
-        | t::_ when VectorTime.isDescending time ->
-            match state.returnRegister with
-            | Some(ConcreteT((:? (vectorTime * vectorTime) as interval), _)) when VectorTime.less time (fst interval) && not <| VectorTime.isEmpty (snd interval) -> time
-            | Some(ConcreteT((:? (vectorTime * vectorTime) as interval), _)) when VectorTime.isEmpty (snd interval) -> state.currentTime @ time
-            | _ ->
-                let prefix = List.skipTailWhile ((>) t) state.currentTime
-                prefix @ time
-        | _ -> state.currentTime @ time
+    let private skipSuffixWhile predicate ys =
+        let skipIfNeed y acc k =
+            if predicate (y::acc) then k (y::acc)
+            else List.take (List.length ys - List.length acc) ys
+        Cps.List.foldrk skipIfNeed [] ys (always [])
+
+    let private composeTime state time =
+        let prefix = skipSuffixWhile (fun currentTimeSuffix -> VectorTime.less currentTimeSuffix time) state.currentTime
+        prefix @ time
+
+    let private composeConcreteHeapAddress (state : state) addr =
+        assert(not <| VectorTime.isEmpty addr)
+        match state.returnRegister with
+        // address from other block
+        | Some(ConcreteT(:? (vectorTime * vectorTime) as interval, _)) when VectorTime.lessOrEqual addr (fst interval) -> addr
+        // address of called function
+        | Some(ConcreteT(:? (vectorTime * vectorTime) as interval, _)) when VectorTime.isEmpty (snd interval) -> state.currentTime @ addr
+        // default case
+        | _ -> composeTime state addr
 
     let rec private fillHole state term =
         match term.term with
@@ -809,7 +816,7 @@ module internal Memory =
         | _ -> term
 
     and fillHoles state term =
-        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeTime state) term
+        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeConcreteHeapAddress state) term
 
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
         interface IMemoryAccessConstantSource with
@@ -817,7 +824,7 @@ module internal Memory =
                 // TODO: do nothing if state is empty!
                 let substTerm = fillHoles state
                 let substType = substituteTypeVariables state
-                let substTime = composeTime state
+                let substTime = composeConcreteHeapAddress state
                 let key = x.key.Map substTerm substType substTime x.key.Region |> snd
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
@@ -891,14 +898,14 @@ module internal Memory =
     let private fillHolesInMemoryRegion state mr =
         let substTerm = fillHoles state
         let substType = substituteTypeVariables state
-        let substTime = composeTime state
+        let substTime = composeConcreteHeapAddress state
         MemoryRegion.map substTerm substType substTime mr
 
     let private composeMemoryRegions state dict dict' =
         // TODO: somehow get rid of this copy-paste?
         let substTerm = fillHoles state
         let substType = substituteTypeVariables state
-        let substTime = composeTime state
+        let substTime = composeConcreteHeapAddress state
         let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
             list {
                 let! (g, dict) = dicts
@@ -915,7 +922,7 @@ module internal Memory =
             |> PersistentDict.fold composeOneRegion [(True, dict)]
 
     let private composeBoxedLocations state state' =
-        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime state k) (fillHoles state v) acc) state.boxedLocations
+        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeConcreteHeapAddress state k) (fillHoles state v) acc) state.boxedLocations
 
     let private composeTypeVariablesOf state state' =
         let (ms, s) = state.typeVariables
@@ -929,7 +936,7 @@ module internal Memory =
 
     let private composeConcreteDictionaries state dict dict' mapValue =
         dict' |> PersistentDict.fold (fun acc k v ->
-                        let k = composeTime state k
+                        let k = composeConcreteHeapAddress state k
                         if (PersistentDict.contains k dict) then
                             assert (PersistentDict.find dict k = mapValue v)
                             acc
@@ -981,9 +988,8 @@ module internal Memory =
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
             let currentTime =
-                match state'.currentTime with
-                | [] -> state.currentTime
-                | _ -> composeTime state state'.currentTime
+                if VectorTime.less state.currentTime state'.startingTime then state'.currentTime
+                else composeTime state state'.currentTime
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -1027,7 +1033,7 @@ module internal Memory =
                     Prelude.releaseAssert (Option.isSome value)
                     Option.get value
                 else
-                    let newTime = composeTime state x.calledTime
+                    let newTime = composeConcreteHeapAddress state x.calledTime
                     makeFunctionResultConstant newTime x.callSite
 
 // ------------------------------- Pretty-printing -------------------------------

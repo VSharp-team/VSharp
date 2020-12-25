@@ -169,9 +169,8 @@ namespace VSharp.Test.Tests
             var z = new double[32];
         }
 
-        // expecting 64
         [TestSvm]
-        public static int TestWrongTimeComposition()
+        public static int TestCompositionWhenCallDividesBlocksAndSomeInformationIsPropagated()
         {
             object c = new ClassWithOneField();
             for (int i = 0; i < 2; i++)
@@ -185,7 +184,6 @@ namespace VSharp.Test.Tests
 
             return y.Length + z.Length;
         }
-
 
         [TestSvm]
         public static void SequentialNewObjs()
