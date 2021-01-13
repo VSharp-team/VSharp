@@ -1,18 +1,16 @@
 namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
-open System
 open System.Reflection
 open System.Reflection.Emit
 open InstructionsSet
 open VSharp
 open VSharp.Core
-open VSharp.Reflection
 
 type cfg = CFG.cfgData
 
-type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICodeLocation, cfg : cfg, rv : int list) =
-    inherit VSharp.Core.InterpreterBase<cilState>()
+type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICodeLocation, cfg : cfg) =
+    inherit InterpreterBase<cilState>()
     let mutable results : cilState list = []
     let workingSet = List<cilState>()
     let exceptionsSet = List<cilState>()
@@ -26,16 +24,15 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         let getResultsAndStates = function
             | [] -> internalfail "Exception handling is not implemented!" // TODO: __unreachable__()
             | cilStates -> List.map (fun (st : cilState) -> st.state.returnRegister |?? Nop, st.state) cilStates
-        let interpret state curV targetV rvs =
-            cilState.MakeEmpty curV state
+        let interpret state =
+            cilState.MakeEmpty (Instruction 0) state
             |> x.Interpret
             |> getResultsAndStates
         match codeLoc with
         | :? ILMethodMetadata ->
-            ilInterpreter.InitializeStatics state cfg.methodBase.DeclaringType (List.map (fun state ->
-            interpret state (Instruction 0) ip.Exit []) >> List.concat >> k)
+            ilInterpreter.InitializeStatics state cfg.methodBase.DeclaringType (List.map interpret >> List.concat >> k)
         | _ -> __notImplemented__()
-    override x.MakeEpsilonState (ist : cilState) = internalfail "Explore in isolation is irrelevant"
+    override x.MakeEpsilonState _ = internalfail "Explore in isolation is irrelevant"
 
     override x.EvaluateOneStep cilState =
         let allStates = ilInterpreter.ExecuteAllInstructions cfg {cilState with isCompleted = false}
@@ -44,9 +41,9 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         let completedStates = allStates |> List.filter (fun (cilState : cilState) -> cilState.isCompleted && not <| cilState.HasException)
         completedStates
 
-    override x.IsRecursiveState cilState = false
+    override x.IsRecursiveState _ = false
     override x.Add cilState = if cilState.ip <> ip.Exit then workingSet.Add cilState
-    override x.ExploreInIsolation cilState = internalfail "Explore in isolation is irrelevant"
+    override x.ExploreInIsolation _ = internalfail "Explore in isolation is irrelevant"
     override x.HasNextState () = workingSet.Count <> 0
     override x.FindSimilar cilState =
         let areCapableForMerge (st1 : cilState) (st2 : cilState) =  st1.state.opStack = st2.state.opStack && st1.ip = st2.ip
@@ -67,7 +64,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
         st
 
 and public ILInterpreter() as this =
-    inherit VSharp.Core.ExplorerBase()
+    inherit ExplorerBase()
     do
         opcode2Function.[hashFunction OpCodes.Call]           <- zipWithOneOffset <| this.Call
         opcode2Function.[hashFunction OpCodes.Callvirt]       <- zipWithOneOffset <| this.CallVirt
@@ -143,7 +140,7 @@ and public ILInterpreter() as this =
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
         ]
-    let __corruptedStack__() = raise (InvalidProgramException())
+    let __corruptedStack__() = raise (System.InvalidProgramException())
 
     member private x.Raise createException (state : state) k =
         //TODO: exception handling
@@ -186,8 +183,7 @@ and public ILInterpreter() as this =
             statement
             k
 
-    member private x.InitializeArray (cilState : cilState) = __notImplemented__
-    member private x.CommonInitializeArray (state : state) thisOption (args : term list) =
+    member private x.CommonInitializeArray (state : state) _ (args : term list) =
         match args with
         | arrayRef :: handleTerm :: [] ->
             x.NpeOrInvokeStatement state arrayRef (fun state k ->
@@ -264,7 +260,7 @@ and public ILInterpreter() as this =
             else
                 x.ReduceMethodBaseCall targetMethod state k
 
-    member x.CallVirtualMethod (ancestorMethod : MethodInfo) (state : state) (k : state list -> 'a) =
+    member x.CallVirtualMethod (_ : MethodInfo) (_ : state) (_ : state list -> 'a) =
         __notImplemented__()
 
 //        let methodId = x.MakeMethodIdentifier ancestorMethod
@@ -301,7 +297,7 @@ and public ILInterpreter() as this =
             k [state])
 
     member private x.ConvOvf targetType typeForStack (cilState : cilState) = // TODO: think about getting rid of typeForStack
-        let typIsLessTyp : System.Collections.Generic.Dictionary<symbolicType, list<symbolicType>> = Dictionary<_,_>()
+        let typIsLessTyp : Dictionary<symbolicType, list<symbolicType>> = Dictionary<_,_>()
         typIsLessTyp.[TypeUtils.int8Type] <- [TypeUtils.int8Type; TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type]
         typIsLessTyp.[TypeUtils.int16Type] <- [TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type]
         typIsLessTyp.[TypeUtils.int32Type] <- [TypeUtils.int32Type; TypeUtils.int64Type]
@@ -313,7 +309,7 @@ and public ILInterpreter() as this =
         typIsLessTyp.[TypeUtils.uint64Type] <- [TypeUtils.uint64Type]
         let less leftTyp rightTyp = List.contains rightTyp typIsLessTyp.[leftTyp]
 
-        let minMax : System.Collections.Generic.Dictionary<symbolicType, int64 * int64> = Dictionary<_,_>()
+        let minMax : Dictionary<symbolicType, int64 * int64> = Dictionary<_,_>()
         minMax.[TypeUtils.int8Type] <- (System.SByte.MinValue |> int64, System.SByte.MaxValue |> int64)
         minMax.[TypeUtils.int16Type] <- (System.Int16.MinValue |> int64, System.Int16.MaxValue |> int64)
         minMax.[TypeUtils.int32Type] <- (System.Int32.MinValue |> int64, System.Int32.MaxValue |> int64)
@@ -414,7 +410,7 @@ and public ILInterpreter() as this =
         // NOTE: It is not quite strict to ReduceFunctionSignature here because, but it does not matter because signatures of virtual methods are the same
         x.ReduceFunctionSignature cilState.state ancestorMethodBase (Some this) (Specified args) false (fun state ->
         x.CommonCallVirt ancestorMethodBase state (pushResultFromStateToCilState cilState))
-    member x.ReduceArrayCreation (arrayType : Type) (methodBase : MethodBase) (state : state) (parameters : term list) k =
+    member x.ReduceArrayCreation (arrayType : System.Type) (state : state) (parameters : term list) k =
         let arrayTyp = Types.FromDotNetType state arrayType
         let reference, state = Memory.AllocateDefaultArray state parameters arrayTyp
         withResultState reference state |> List.singleton |> k
@@ -440,12 +436,6 @@ and public ILInterpreter() as this =
         Lambdas.make invoke typ (fun lambda ->
         let deleg, state = Memory.AllocateDelegate state lambda
         withResultState deleg state |> List.singleton |> k)
-    member private x.CreateDelegate (ctor : ConstructorInfo) (cilState : cilState) k =
-        match cilState.state.opStack with
-        | methodPtr :: target :: stack ->
-            let state = {cilState.state with opStack = stack}
-            x.CommonCreateDelegate ctor state [methodPtr; target] (pushResultFromStateToCilState cilState)
-        | _ -> __corruptedStack__()
     member x.CommonNewObj isCallNeeded (constructorInfo : ConstructorInfo) (state : state) (args : term list) (k : state list -> 'a) : 'a =
         let typ = constructorInfo.DeclaringType
         let constructedTermType = typ |> Types.FromDotNetType state
@@ -470,7 +460,7 @@ and public ILInterpreter() as this =
         let nonDelegateCase (state : state) =
             x.InitializeStatics state typ (List.map (fun state ->
             if typ.IsArray && constructorInfo.GetMethodBody() = null
-                then x.ReduceArrayCreation typ constructorInfo state args id
+                then x.ReduceArrayCreation typ state args id
                 else blockCase state) >> List.concat)
         if Reflection.IsDelegateConstructor constructorInfo
             then x.CommonCreateDelegate constructorInfo state args k
@@ -487,7 +477,7 @@ and public ILInterpreter() as this =
         assert (fieldInfo.IsStatic)
         x.InitializeStatics cilState.state fieldInfo.DeclaringType (List.map (fun state ->
         let declaringTermType = fieldInfo.DeclaringType |> Types.FromDotNetType state
-        let fieldId = wrapField fieldInfo
+        let fieldId = Reflection.wrapField fieldInfo
         let value = if addressNeeded then StaticField(declaringTermType, fieldId) |> Ref else Memory.ReadStaticField state declaringTermType fieldId
         pushResultOnStack cilState (value, state) :: []) >> List.concat)
     member private x.StsFld (cfg : cfg) offset (cilState : cilState) =
@@ -495,7 +485,7 @@ and public ILInterpreter() as this =
         let state = cilState.state
         assert (fieldInfo.IsStatic)
         let declaringTermType = fieldInfo.DeclaringType |> Types.FromDotNetType state
-        let fieldId = wrapField fieldInfo
+        let fieldId = Reflection.wrapField fieldInfo
         match cilState.state.opStack with
         | value :: stack ->
             x.InitializeStatics state fieldInfo.DeclaringType (List.map (fun state ->
@@ -511,7 +501,7 @@ and public ILInterpreter() as this =
         | target :: stack ->
             let loadWhenTargetIsNotNull (state : state) k =
                 let k1 value = k [{state with returnRegister = Some value}]
-                let fieldId = wrapField fieldInfo
+                let fieldId = Reflection.wrapField fieldInfo
                 if addressNeeded then Memory.ReferenceField target fieldId |> k1
                 else Memory.ReadField state target fieldId |> k1
             let state = {cilState.state with opStack = stack}
@@ -524,7 +514,7 @@ and public ILInterpreter() as this =
         | value :: targetRef :: stack ->
             let storeWhenTargetIsNotNull (state : state) k =
                 let fieldType = fieldInfo.FieldType |> Types.FromDotNetType state
-                let fieldId = wrapField fieldInfo
+                let fieldId = Reflection.wrapField fieldInfo
                 let reference = Memory.ReferenceField targetRef fieldId
                 let value = castUnchecked fieldType value state
                 Memory.WriteSafe state reference value |> k
@@ -587,7 +577,7 @@ and public ILInterpreter() as this =
             let state = {cilState.state with opStack = stack}
             x.NpeOrInvokeStatement state arrayRef ldlen (pushResultFromStateToCilState cilState)
         | _ -> __corruptedStack__()
-    member private x.LdVirtFtn (cfg : cfg) offset (cilState : cilState) =
+    member private x.LdVirtFtn (_ : cfg) _ (_ : cilState) =
         __notImplemented__()
 //        let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Ldvirtftn.Size)
 //        match cilState.opStack with
@@ -600,7 +590,7 @@ and public ILInterpreter() as this =
 //                k [methodPtr, cilState]
 //            x.NpeOrInvokeStatement {cilState with opStack = stack} this ldvirtftn pushFunctionResults
 //        | _ -> __corruptedStack__()
-    member x.BoxNullable (t : Type) v (cilState : cilState) : cilState list =
+    member x.BoxNullable (t : System.Type) v (cilState : cilState) : cilState list =
         // TODO: move it to Reflection.fs; add more validation in case if .NET implementation does not have these methods
         let boxValue (state : state) =
             match state.returnRegister with
@@ -652,7 +642,7 @@ and public ILInterpreter() as this =
             else
                 x.Raise x.NullReferenceException state k
         let canCastValueTypeToNullableTargetCase (state : state) =
-            let underlyingTypeOfNullableT = Nullable.GetUnderlyingType t
+            let underlyingTypeOfNullableT = System.Nullable.GetUnderlyingType t
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (Types.RefIsType obj (Types.FromDotNetType state underlyingTypeOfNullableT), state))
                 (fun state k ->
@@ -992,11 +982,11 @@ and public ILInterpreter() as this =
     override x.Invoke codeLoc =
         match codeLoc with
         | :? ILMethodMetadata as ilmm ->
-            let interpreter = CodePortionInterpreter(x, ilmm, findCfg ilmm, [])
+            let interpreter = CodePortionInterpreter(x, ilmm, findCfg ilmm)
             interpreter.Invoke
         | :? ILCodePortion as ilcode ->
             let ilmm = ilcode.FuncId :?> ILMethodMetadata
-            let interpreter = CodePortionInterpreter(x, ilcode, findCfg ilmm, [])
+            let interpreter = CodePortionInterpreter(x, ilcode, findCfg ilmm)
             interpreter.Invoke
         | _ -> internalfail "unhandled ICodeLocation instance"
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier

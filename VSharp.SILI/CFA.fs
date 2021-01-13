@@ -5,7 +5,6 @@ open System.Reflection
 open System.Collections.Generic
 open System.Reflection.Emit
 open VSharp.Interpreter.IL
-open CFG
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -195,7 +194,7 @@ module public CFA =
             match o with
             | :? Vertex as other -> x.Method = other.Method && x.Ip = other.Ip
             | _ -> false
-        interface System.IComparable with
+        interface IComparable with
             override x.CompareTo(other) =
                 match other with
                 | :? Vertex as other when x.Method.Equals(other.Method) -> x.GetHashCode().CompareTo(other.GetHashCode())
@@ -285,7 +284,7 @@ module public CFA =
 
     type cfa =
             {
-              cfg : cfgData
+              cfg : CFG.cfgData
               body : MethodBase unitBlock
               finallyHandlers : Dictionary<offset, ExceptionHandlingClause unitBlock>
             }
@@ -493,7 +492,7 @@ module public CFA =
             let offset = cilState.ip.Offset()
             let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
             let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
-            let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : System.Reflection.MethodInfo) =
+            let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
                 if methodInfo.ReturnType = typeof<System.Void> then cilState
                 else pushToOpStack (Terms.MakeFunctionResultConstant cilState.state callSite) cilState
 
@@ -654,9 +653,9 @@ module public CFA =
 type StepInterpreter() =
     inherit ILInterpreter()
     let visitedVertices : persistent<Map<CFA.Vertex, uint32>> =
-        let r = new persistent<_>(always Map.empty, id) in r.Reset(); r
+        let r = persistent<_>(always Map.empty, id) in r.Reset(); r
     override x.ReproduceEffect codeLoc state k = x.ExploreAndCompose codeLoc state k
-    override x.CreateInstance exceptionType arguments state : state list =
+    override x.CreateInstance _ _ state : state list =
         let error = Nop
         {state with exceptionsRegister = Unhandled error} |> List.singleton
     member x.ForwardExploration (cfa : CFA.cfa) codeLoc initialState (k : (term * state) list -> 'a) =

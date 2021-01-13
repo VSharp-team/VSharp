@@ -6,7 +6,6 @@ open System.Reflection.Emit
 
 open VSharp
 open VSharp.Core
-open VSharp.Reflection
 open CFG
 
 type public ILMethodMetadata =
@@ -63,7 +62,7 @@ module internal TypeUtils =
     let isIntegerTermType typ = integers |> List.contains typ
     let isFloatTermType typ = typ = float32TermType || typ = float64TermType
     let isInteger = Terms.TypeOf >> isIntegerTermType
-    let isBool = Terms.TypeOf >> Types.IsBool
+    let isBool = Terms.TypeOf >> IsBool
     let (|Int8|_|) t = if Terms.TypeOf t = int8Type then Some(t) else None
     let (|UInt8|_|) t = if Terms.TypeOf t = uint8Type then Some(t) else None
     let (|Int16|_|) t = if Terms.TypeOf t = int16Type then Some(t) else None
@@ -273,7 +272,7 @@ module internal InstructionsSet =
             let states = Memory.WriteSafe state left value
             states |> List.map (fun state -> cilState |> withState state |> withOpStack stack)
         | _ -> __corruptedStack__()
-    let performCILUnaryOperation op isChecked (cilState : cilState) =
+    let performCILUnaryOperation op _ (cilState : cilState) =
         // TODO: why isChecked is unused?
         match cilState.state.opStack with
         | x :: stack ->
@@ -433,7 +432,7 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = List.splitAt paramsNumber cilState.state.opStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
+            if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
             else
                 let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
                 castUnchecked typ parameter cilState.state
@@ -585,7 +584,7 @@ module internal InstructionsSet =
         let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
         cilState |> pushToOpStack (MakeNumber size) |> List.singleton
-    let throw cfg offset (cilState : cilState) =
+    let throw _ _ (cilState : cilState) =
         match cilState.state.opStack with
         | error :: _ ->
             cilState |> withException (Unhandled error) |> withOpStack [] |> List.singleton
