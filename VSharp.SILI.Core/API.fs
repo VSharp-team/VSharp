@@ -124,10 +124,7 @@ module API =
         let IsReal t = Types.isReal t
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
-
         let IsArrayType t = Types.isArray t
-
-
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
@@ -301,7 +298,6 @@ module API =
             | HeapRef _
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
-
 
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 

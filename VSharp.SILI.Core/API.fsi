@@ -91,10 +91,7 @@ module API =
         val IsReal : symbolicType -> bool
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
-
         val IsArrayType : symbolicType -> bool
-
-
         val String : symbolicType
         val (|StringType|_|) : symbolicType -> unit option
 

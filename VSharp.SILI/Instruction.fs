@@ -6,7 +6,6 @@ open System.Reflection.Emit
 
 exception IncorrectCIL of string
 
-//type offset = VSharp.Core.offset
 type offset = int
 type term = VSharp.Core.term
 type state = VSharp.Core.state
@@ -46,18 +45,7 @@ type cilState =
         member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
         member x.ResultTerm = x.state.returnRegister
     member x.CanBeExpanded () = x.ip.CanBeExpanded()
-//    member x.IsFinished = x.isFinished x.ip
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
-
-//    static member Empty =
-//        {
-//            ip = Exit
-//            isFinished = fun ip -> ip = Exit
-//            recursiveVertices = []
-//            state = VSharp.Core.API.Memory.EmptyState
-//            leaveInstructionExecuted = false
-//            filterResult = None
-//        }
     static member MakeEmpty curV state =
         { ip = curV
           isCompleted = false
@@ -188,52 +176,3 @@ module internal Instruction =
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
         elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[pos + 1]]
-
-
-
-    let countOperationalStackBalance (opCode : OpCode) (calledMethod : MethodBase option) oldBalance =
-        let countMethodCallArgumentsNumber opCode (methodBase : MethodBase) =
-            let thisAddition = if methodBase.IsStatic || opCode = OpCodes.Newobj then 0 else 1
-            thisAddition + methodBase.GetParameters().Length
-        let hasResultOnOperationalStackAfterCall : MethodBase * OpCode -> bool = function
-            | (:? ConstructorInfo, NewObj)     -> true
-            | (:? ConstructorInfo, _)          -> false
-            | (:? MethodInfo as methodInfo, _) -> methodInfo.ReturnType <> typedefof<System.Void>
-            | _ -> __unreachable__()
-
-        let popCount = function
-            | StackBehaviour.Pop0 -> 0
-            | StackBehaviour.Popi
-            | StackBehaviour.Popref
-            | StackBehaviour.Pop1 -> -1
-            | StackBehaviour.Popi_pop1
-            | StackBehaviour.Popi_popi
-            | StackBehaviour.Popi_popi8
-            | StackBehaviour.Popi_popr4
-            | StackBehaviour.Popi_popr8
-            | StackBehaviour.Popref_pop1
-            | StackBehaviour.Popref_popi
-            | StackBehaviour.Pop1_pop1 -> -2
-            | StackBehaviour.Popref_popi_popi
-            | StackBehaviour.Popref_popi_popi8
-            | StackBehaviour.Popref_popi_popr4
-            | StackBehaviour.Popref_popi_popr8
-            | StackBehaviour.Popref_popi_popref
-            | StackBehaviour.Popref_popi_pop1
-            | StackBehaviour.Popi_popi_popi -> -3
-            | StackBehaviour.Varpop -> -1 * countMethodCallArgumentsNumber opCode (Option.get calledMethod)
-            | _ -> __unreachable__()
-        let pushCount = function
-            | StackBehaviour.Push0 -> 0
-            | StackBehaviour.Pushi
-            | StackBehaviour.Pushi8
-            | StackBehaviour.Pushr4
-            | StackBehaviour.Pushr8
-            | StackBehaviour.Pushref
-            | StackBehaviour.Push1 -> 1
-            | StackBehaviour.Push1_push1 -> 2
-            | StackBehaviour.Varpush when hasResultOnOperationalStackAfterCall (Option.get calledMethod, opCode) -> 1
-            | StackBehaviour.Varpush -> 0
-            | _ -> __unreachable__()
-        if opCode = OpCodes.Leave || opCode = OpCodes.Leave_S then 0
-        else oldBalance + popCount (opCode.StackBehaviourPop) + pushCount (opCode.StackBehaviourPush)

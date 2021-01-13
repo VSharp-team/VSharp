@@ -4,7 +4,6 @@ open System.Reflection
 open System.Collections.Generic
 
 open System.Reflection.Emit
-open System.Runtime.InteropServices
 open FSharpx.Collections
 open VSharp
 

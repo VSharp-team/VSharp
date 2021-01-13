@@ -23,22 +23,6 @@ type opStackSource =
             result
 
 [<StructuralEquality;NoComparison>]
-type structFieldAddr =
-    {baseSource : IMemoryAccessConstantSource}
-    interface IMemoryAccessConstantSource with
-        override x.SubTerms = Seq.empty
-        override x.Time = x.baseSource.Time
-        override x.TypeOfLocation = AddressType
-        override x.Compose state =
-            let baseTerm = x.baseSource.Compose state
-            match baseTerm.term with
-            | Ptr(Some(StructField(addr, fieldId)), _, _) ->
-                Ptr (Some addr) (Types.FromDotNetType state fieldId.typ) None
-            | Ref(StructField(addr, _)) ->
-                Ref addr
-            | _ -> __notImplemented__()
-
-[<StructuralEquality;NoComparison>]
 type stackBufferIndexAddress =
     {baseSource : IMemoryAccessConstantSource}
     interface IMemoryAccessConstantSource with
@@ -517,14 +501,15 @@ module public CFA =
             let this, cilState =
                 match calledMethod with
                 | _ when opCode = OpCodes.Newobj ->
-                    let states = interpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id // TODO: what if newobj returns a lot of references and states?
+                    let states = interpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id
+                    assert (List.length states = 1)
                     let state = List.head states
                     assert(Option.isSome state.returnRegister)
                     let reference = Option.get state.returnRegister
                     let state = pushNewObjResultOnOpStack state reference calledMethod
                     Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None}
                 | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
-                | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
+                | :? MethodInfo as methodInfo when not calledMethod.IsStatic ->
                     let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
                     this, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
                 | :? MethodInfo as methodInfo ->
@@ -576,7 +561,6 @@ module public CFA =
             let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack d.v vertices
             addEdge <| createEdge s' dstVertex
 
-            // TODO: handle cilState'.leaveInstructionExecuted
             let bypassData = {d with u = d.v; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
                                      allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
 

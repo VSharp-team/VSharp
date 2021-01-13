@@ -1036,7 +1036,7 @@ and public ILInterpreter() as this =
                 let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
                 match nextTargets with
                 | UnconditionalBranch nextInstruction
-                | FallThrough nextInstruction          -> [Instruction nextInstruction]
+                | FallThrough nextInstruction -> [Instruction nextInstruction]
                 | Return -> [Exit]
                 | ExceptionMechanism -> [FindingHandler offset]
                 | ConditionalBranch targets -> targets |> List.map Instruction

@@ -295,17 +295,9 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
             let states = x.EvaluateOneStep current
             states |> List.iter (fun state ->
                 if x.IsResultState state then x.SetResultState state
-                else
-                    let newStates =
-                        if x.IsRecursiveState state then
-                            x.ExploreInIsolation state
-                        else state :: []
-                    newStates |> List.iter (fun newState ->
-                    if x.IsResultState newState then x.SetResultState newState
-                    match x.FindSimilar newState with
-                    | None -> x.Add newState
-                    | Some similar -> merge newState similar |> List.iter x.Add)
-                )
+                match x.FindSimilar state with
+                | None -> x.Add state
+                | Some similar -> merge state similar |> List.iter x.Add)
             if x.HasNextState () then
                 let newSt = x.PickNext ()
                 interpret' newSt
