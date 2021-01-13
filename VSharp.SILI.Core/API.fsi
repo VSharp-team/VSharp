@@ -172,7 +172,6 @@ module API =
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
-//        val ThrowException : state -> symbolicType -> term * state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string

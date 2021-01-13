@@ -377,7 +377,6 @@ module public CFA =
                     let result' = x.CommonPropagatePath (path.lvl + 1u) stateAfterCall
                     acc || result'
                 List.fold propagateStateAfterCall false states
-//            let k1 results = results |> List.unzip |> snd |> k
             Prelude.releaseAssert (Option.isSome stepItp)
             let interpreter = stepItp |> Option.get
             let states = Memory.ComposeStates path.state stateWithArgsOnFrameAndAllocatedType id

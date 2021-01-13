@@ -302,8 +302,6 @@ module API =
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
-//        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
-
 
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 

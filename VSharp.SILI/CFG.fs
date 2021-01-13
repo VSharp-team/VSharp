@@ -22,16 +22,11 @@ module public CFG =
         clauses : ExceptionHandlingClause list
         offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
     }
-//    with
-//        member x.IsCallOrNewObjOffset offset =
-//            Seq.tryFind ((=) offset) x.offsetsDemandingCall |> Option.isSome
 
     type private interimData = {
         opCodes : OpCode [] //  for debug
         verticesOffsets : int HashSet
-//        possibleOffsets : int HashSet
         fallThroughOffset : offset option []
-//        visitedOffsetsOperationalStackBalance : int []
         edges : Dictionary<offset, List<offset>>
         offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
     }
@@ -46,9 +41,7 @@ module public CFG =
         let size = mb.GetILAsByteArray().Length
         let interim = {
             fallThroughOffset = Array.init size (fun _ -> None)
-//            visitedOffsetsOperationalStackBalance = Array.init size (always -1)
             verticesOffsets = HashSet<_>()
-//            possibleOffsets = HashSet<_>()
             edges = Dictionary<_, _>()
             opCodes = Array.init size (fun _ -> OpCodes.Prefix1)
             offsetsDemandingCall = Dictionary<_,_>()
@@ -73,9 +66,6 @@ module public CFG =
 
     let private addVerticesAndEdges (cfgData : cfgData) (interimData : interimData) =
         interimData.verticesOffsets
-//        |> Seq.filter (fun offset -> interimData.visitedOffsetsOperationalStackBalance.[offset] = 0)
-//        |> Seq.append interimData.verticesOffsets
-//        |> Seq.distinct
         |> Seq.sort
         |> Seq.iter (createVertex cfgData)
 
