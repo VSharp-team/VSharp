@@ -25,7 +25,7 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
             | [] -> internalfail "Exception handling is not implemented!" // TODO: __unreachable__()
             | cilStates -> List.map (fun (st : cilState) -> st.state.returnRegister |?? Nop, st.state) cilStates
         let interpret state =
-            cilState.MakeEmpty (Instruction 0) state
+            cilState.Make (Instruction 0) state
             |> x.Interpret
             |> getResultsAndStates
         match codeLoc with
@@ -35,12 +35,9 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
     override x.MakeEpsilonState _ = internalfail "Explore in isolation is irrelevant"
 
     override x.EvaluateOneStep cilState =
-        let allStates = ilInterpreter.ExecuteAllInstructions cfg cilState
-        let errors = allStates |> List.filter (fun (cilState : cilState) -> cilState.HasException)
-        exceptionsSet.AddRange( errors)
-
-        let completedStates = allStates |> List.filter (fun (cilState : cilState) -> ilInterpreter.IsHeadOfBasicBlock cfg cilState.ip && not <| cilState.HasException)
-        completedStates
+        let goodStates, incompleteStates, errors = ilInterpreter.ExecuteAllInstructions cfg cilState // TODO: what about incompleteStates?
+        exceptionsSet.AddRange(errors)
+        goodStates
 
     override x.IsRecursiveState _ = false
     override x.Add cilState = if cilState.ip <> ip.Exit then workingSet.Add cilState
@@ -998,30 +995,39 @@ and public ILInterpreter() as this =
         | Instruction offset -> Seq.contains offset cfg.sortedOffsets
         | _ -> __notImplemented__()
 
-    member x.ExecuteAllInstructions (cfg : cfg) (cilState : cilState) =
+    // returns finishedStates, incompleteStates, erroredStates
+    member x.ExecuteAllInstructions (cfg : cfg) (cilState : cilState) : (cilState list * cilState list * cilState list)  =
         assert (cilState.ip.CanBeExpanded())
         let startingOffset = cilState.ip.Offset ()
         let endOffset =
             let lastOffset = Seq.last cfg.sortedOffsets
-            if startingOffset = lastOffset then cfg.ilBytes.Length
-            else
-                let index = cfg.sortedOffsets.BinarySearch startingOffset
-                cfg.sortedOffsets.[index + 1]
-        let isIpOfCurrentBasicBlock = function
-            | Instruction offset -> startingOffset <= offset && offset < endOffset
-            | _ -> false
+            let rec binarySearch l r =
+                if l + 1 = r then l
+                else
+                    let mid = (l + r) / 2
+                    if cfg.sortedOffsets.[mid] <= startingOffset then binarySearch mid r
+                    else binarySearch l mid
+            let index = binarySearch 0 (Seq.length cfg.sortedOffsets)
+            if cfg.sortedOffsets.[index] = lastOffset then cfg.ilBytes.Length
+            else cfg.sortedOffsets.[index + 1]
 
-        let rec executeAllInstructions erroredStates (offset : ip) cilState : cilState list=
-            let allStates = x.ExecuteInstruction cfg (offset.Offset()) cilState
-            let newErrors, goodStates = allStates |> List.partition (fun (_, cilState : cilState) -> cilState.HasException)
-            let allErrors = erroredStates @ List.map (fun (erroredOffset, (cilState : cilState)) -> {cilState with ip = erroredOffset}) newErrors
+        let isIpOfCurrentBasicBlock offset = startingOffset <= offset && offset < endOffset
 
-            match goodStates with
-            | list when List.forall (fst >> (=) ip.Exit) list -> List.map (fun (_, state) -> {state with ip = ip.Exit}) list @ allErrors
-            | (nextIp, _)::xs as list when isIpOfCurrentBasicBlock nextIp && List.forall (fst >> (=) nextIp) xs ->
-                List.collect ((<||) (executeAllInstructions allErrors)) list
-            | list -> allErrors @ (list |> List.map (fun (ip, cilState) -> {cilState with ip = ip}))
-        executeAllInstructions [] (Instruction startingOffset) cilState
+        let rec executeAllInstructions (finishedStates, incompleteStates, errors) (offset : offset) cilState =
+            try
+                let allStates = x.ExecuteInstruction cfg offset {cilState with iie = None}
+                let newErrors, goodStates = allStates |> List.partition (fun (_, cilState : cilState) -> cilState.HasException)
+                let errors = errors @ List.map (fun (erroredOffset, (cilState : cilState)) -> {cilState with ip = erroredOffset}) newErrors
+
+                match goodStates with
+                | list when List.forall (fst >> (=) ip.Exit) list ->
+                    (List.map (fun (_, cilState : cilState) -> {cilState with ip = ip.Exit})) list @ finishedStates, incompleteStates, errors
+                | (Instruction nextOffset as nextIp, _)::xs as list when isIpOfCurrentBasicBlock nextOffset && List.forall (fst >> (=) nextIp) xs ->
+                    List.fold (fun acc (_, cilState)-> executeAllInstructions acc nextOffset cilState) (finishedStates, incompleteStates, errors) list
+                | list -> List.map (fun (ip, cilState) -> {cilState with ip = ip}) list @ finishedStates, incompleteStates, errors
+            with
+            | :? InsufficientInformationException as iie -> finishedStates, {cilState with iie = Some iie; ip = Instruction offset} :: incompleteStates, errors
+        executeAllInstructions ([],[],[]) startingOffset cilState
 
     member x.ExecuteInstruction (cfg : cfg) (offset : int) (cilState : cilState) =
         let opCode = Instruction.parseInstruction cfg.ilBytes offset

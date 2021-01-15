@@ -24,6 +24,7 @@ type cilState =
     { ip : ip
       state : state
       filterResult : term option
+      iie : InsufficientInformationException option
     }
     interface VSharp.Core.IInterpreterState<cilState> with
         member x.InternalState = x.state
@@ -32,10 +33,11 @@ type cilState =
         member x.ResultTerm = x.state.returnRegister
     member x.CanBeExpanded () = x.ip.CanBeExpanded()
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
-    static member MakeEmpty curV state =
+    static member Make curV state =
         { ip = curV
           state = state
           filterResult = None
+          iie = None
         }
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =

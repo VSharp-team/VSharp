@@ -204,6 +204,8 @@ module Properties =
 
 module public CFA =
     open TermUtils
+    let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
+
     let mutable stepItp : ILInterpreter option = None
     let configureInterpreter itp = stepItp <- Some itp
 
@@ -357,20 +359,37 @@ module public CFA =
 
 
 
-    type StepEdge(src : Vertex, dst : Vertex, effect : state) =
+    type StepEdge(src : Vertex, dst : Vertex, effect : state, cfg : cfg, ip : ip) =
         inherit Edge(src, dst)
         do
             Prelude.releaseAssert(Map.isEmpty effect.callSiteResults)
         override x.Type = "StepEdge"
         override x.PropagatePath (path : path) =
-
-            Memory.ComposeStates path.state effect (fun states ->
+            let executeRestInstructions (state : state) =
                 x.PrintLog "composition left:\n"  <| Memory.Dump path.state
                 x.PrintLog "composition right:\n" <| Memory.Dump effect
-                x.PrintLog (sprintf "composition resulted in %d states:\n" <| List.length states) <| (List.map Memory.Dump states |> join "\n")
+                x.PrintLog (sprintf "composition resulted:\n") (Memory.Dump state)
+                if ip = dst.Ip then List.singleton state
+                else
+                    x.PrintLog "IIE while cfa-construction occured!" ()
+                    let interpreter = ILInterpreter()
+                    let cilState = cilState.Make ip state
+                    let finishedStates, incompleteStates, errors = interpreter.ExecuteAllInstructions cfg cilState // TODO: handle errors
+                    match incompleteStates with
+                    | [] -> ()
+                    | CilStateWithIIE iie :: _ -> raise iie
+                    | _ -> __unreachable__()
+
+                    finishedStates
+                    |> List.filter (fun (cilState : cilState) -> cilState.ip = dst.Ip)
+                    |> List.map (fun (cilState : cilState) -> cilState.state)
+
+
+            Memory.ComposeStates path.state effect (List.map executeRestInstructions >> List.concat >> (fun states ->
+
                 assert(List.forall (fun state -> path.state.frames = state.frames) states)
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
-                List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states)
+                List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states))
 
         member x.Effect = effect
         member x.VisibleVariables() = __notImplemented__()
@@ -610,15 +629,18 @@ module public CFA =
             | _ -> __notImplemented__()
 
         let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
-            assert(cilState'.ip = d.v)
+//            assert(cilState'.ip = d.v)
             let s' = cilState'.state
             let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack d.v vertices
-            addEdge <| createEdge s' dstVertex
+            addEdge <| createEdge cilState' dstVertex
 
             let bypassData = {d with u = d.v; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
                                      allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
 
-            let newQ, newUsed = updateQueue cfg d.v bypassData (q, used)
+            let newQ, newUsed =
+                match cilState'.iie with
+                | None -> updateQueue cfg d.v bypassData (q, used)
+                | Some _ -> q, used
             VectorTime.max currentTime s'.currentTime, vertices, newQ, newUsed
 
         let private isConcreteHeapRef (term : term) =
@@ -659,23 +681,20 @@ module public CFA =
                 let symbolicOpStack = makeSymbolicOpStack currentTime d.opStack
                 let modifiedState = prepareStateWithConcreteInfo {initialState with currentTime = currentTime; startingTime = currentTime; opStack = symbolicOpStack} d
 
-                let initialCilState = cilState.MakeEmpty d.u modifiedState
+                let initialCilState = cilState.Make d.u modifiedState
                 if cfg.offsetsDemandingCall.ContainsKey offset then
                     let cilState', callSite, numberToDrop = executeSeparatedOpCode interpreter cfg initialCilState
-                    let createEdge s' dstVertex = CallEdge (srcVertex, dstVertex, callSite, s', numberToDrop)
+                    let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop)
                     let currentTime, vertices, q, used = addEdgeAndRenewQueue createEdge d cfg (currentTime, vertices, q, used) cilState'
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
                     else vertices
                 else
-                    let newStates = interpreter.ExecuteAllInstructions cfg initialCilState
-                    let erroredStates, nonErroredStates = newStates |> List.partition (fun (cilState : cilState) -> cilState.HasException)
-                    let incompleteStates, finishedStates = nonErroredStates |> List.partition (fun (cilState : cilState) ->
-                        not <| interpreter.IsHeadOfBasicBlock cfg cilState.ip)
+                    let finishedStates, incompleteStates, erroredStates = interpreter.ExecuteAllInstructions cfg initialCilState
                     let goodStates = finishedStates |> List.filter (fun (cilState : cilState) -> cilState.ip = d.v)
                     srcVertex.AddErroredStates erroredStates
 
-                    let createEdge s' dstVertex = StepEdge(d.srcVertex, dstVertex, s')
-                    let currentTime, vertices, q, used = goodStates |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)
+                    let createEdge (cilState' : cilState) dstVertex = StepEdge(d.srcVertex, dstVertex, cilState'.state, cfg, cilState'.ip)
+                    let currentTime, vertices, q, used = (goodStates @ incompleteStates) |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
                     else vertices
             let offset = block.entryPoint.Ip.Offset()
