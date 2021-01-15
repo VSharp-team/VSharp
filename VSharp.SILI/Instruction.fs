@@ -12,19 +12,7 @@ type state = VSharp.Core.state
 
 type operationalStack = term list
 
-type ip =
-    | Instruction of offset
-    | Exit
-    | FindingHandler of offset // offset -- source of exception
-    with
-    member x.CanBeExpanded () =
-        match x with
-        | Instruction _ -> true
-        | _ -> false
-    member x.Offset () =
-        match x with
-        | Instruction i -> i
-        | _              -> internalfail "Could not get vertex from destination"
+type ip = VSharp.Core.ip
 type ipTransition =
     | FallThrough of offset
     | Return
@@ -34,9 +22,7 @@ type ipTransition =
 
 type cilState =
     { ip : ip
-      isCompleted : bool
       state : state
-      leaveInstructionExecuted : bool
       filterResult : term option
     }
     interface VSharp.Core.IInterpreterState<cilState> with
@@ -48,9 +34,7 @@ type cilState =
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
     static member MakeEmpty curV state =
         { ip = curV
-          isCompleted = false
           state = state
-          leaveInstructionExecuted = false
           filterResult = None
         }
 module internal NumberCreator =

@@ -226,18 +226,17 @@ module public CFA =
         with
         member x.Foo() = ()
 
-    // TODO: use vertexLabel instead of offset
-    type Vertex private(id, m : MethodBase, offset, opStack : operationalStack) =
+    type Vertex private(id, m : MethodBase, ip : ip, opStack : operationalStack) =
         static let ids : Dictionary<MethodBase, int> = Dictionary<_,_>()
-        let lemmas = Lemmas(m, offset)
-        let paths = Paths(m, offset)
-        let queries = Queries(m, offset)
+        let lemmas = Lemmas(m, ip)
+        let paths = Paths(m, ip)
+        let queries = Queries(m, ip)
         let solver = null //Solver.SolverPool.mkSolver()
         let errors = List<cilState>()
         let incomingEdges: List<Edge> = List<_>()
         let outgoingEdges: List<Edge> = List<_>()
 
-        override x.GetHashCode() = (m, offset).GetHashCode()
+        override x.GetHashCode() = (m, ip).GetHashCode()
         override x.Equals(o : obj) =
             match o with
             | :? Vertex as other -> x.Method = other.Method && x.Ip = other.Ip
@@ -258,13 +257,13 @@ module public CFA =
         member x.Solver = solver
         member x.IncomingEdges = incomingEdges
         member x.OutgoingEdges = outgoingEdges
-        member x.Ip with get() = if x.IsMethodExitVertex then Exit else Instruction offset
+        member x.Ip with get() = ip
         member x.OpStack with get() = opStack
         member x.Method with get() = m
-        member x.IsMethodStartVertex with get() = offset = 0
-        member x.IsMethodExitVertex with get() = offset = -1
+        member x.IsMethodStartVertex with get() = ip = Instruction 0
+        member x.IsMethodExitVertex with get() = ip = Exit
         override x.ToString() =
-            sprintf "(Method = %O, Offset = %x, id = %d)\n" m offset id +
+            sprintf "(Method = %O, ip = %O, id = %d)\n" m ip id +
             sprintf "Edges count = %d\n" x.OutgoingEdges.Count +
             "Edges: \n" + Seq.fold (fun acc edge -> acc + edge.ToString() + "\n") "" x.OutgoingEdges
         static member CreateVertex method offset opStack =
@@ -321,12 +320,12 @@ module public CFA =
                 vertices = vertices
             }
         static member CreateEmptyForMethod (method : MethodBase) =
-            unitBlock<'a>.CreateEmpty method method Properties.initialVertexOffset Properties.exitVertexOffset
+            unitBlock<'a>.CreateEmpty method method (Instruction Properties.initialVertexOffset) Exit
         static member CreateEmptyForFinallyClause (m : MethodBase) (ehc : ExceptionHandlingClause) =
             let entryOffset = ehc.HandlerOffset
             // TODO: check if this formula is forever true
             let exitOffset = ehc.HandlerOffset + ehc.HandlerLength - 1
-            unitBlock<'a>.CreateEmpty ehc m entryOffset exitOffset
+            unitBlock<'a>.CreateEmpty ehc m (Instruction entryOffset) (Instruction exitOffset)
         override x.ToString() =
             Seq.fold (fun acc vertex -> acc + "\n" + vertex.ToString()) "" x.vertices.Values
 
@@ -590,7 +589,7 @@ module public CFA =
             if PersistentDict.contains (v, concreteOpStack) vertices then
                 PersistentDict.find vertices (v, concreteOpStack), vertices
             else
-                let dstVertex = Vertex.CreateVertex methodBase (ip2Offset v) concreteOpStack
+                let dstVertex = Vertex.CreateVertex methodBase v concreteOpStack
                 dstVertex, PersistentDict.add (v, concreteOpStack) dstVertex vertices
 
         let updateQueue (cfg : cfg) newU (d : bypassDataForEdges) (q, used) =
@@ -669,10 +668,11 @@ module public CFA =
                     else vertices
                 else
                     let newStates = interpreter.ExecuteAllInstructions cfg initialCilState
-                    let goodStates = newStates |> List.filter (fun (cilState : cilState) -> cilState.isCompleted && not cilState.HasException && cilState.ip = d.v)
-                    let erroredStates = newStates |> List.filter (fun (cilState : cilState) -> cilState.HasException)
+                    let erroredStates, nonErroredStates = newStates |> List.partition (fun (cilState : cilState) -> cilState.HasException)
+                    let incompleteStates, finishedStates = nonErroredStates |> List.partition (fun (cilState : cilState) ->
+                        not <| interpreter.IsHeadOfBasicBlock cfg cilState.ip)
+                    let goodStates = finishedStates |> List.filter (fun (cilState : cilState) -> cilState.ip = d.v)
                     srcVertex.AddErroredStates erroredStates
-                    let incompleteStates = newStates |> List.filter (fun (cilState : cilState) -> not <| cilState.isCompleted && not <| cilState.HasException)
 
                     let createEdge s' dstVertex = StepEdge(d.srcVertex, dstVertex, s')
                     let currentTime, vertices, q, used = goodStates |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)

@@ -35,10 +35,11 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
     override x.MakeEpsilonState _ = internalfail "Explore in isolation is irrelevant"
 
     override x.EvaluateOneStep cilState =
-        let allStates = ilInterpreter.ExecuteAllInstructions cfg {cilState with isCompleted = false}
+        let allStates = ilInterpreter.ExecuteAllInstructions cfg cilState
         let errors = allStates |> List.filter (fun (cilState : cilState) -> cilState.HasException)
         exceptionsSet.AddRange( errors)
-        let completedStates = allStates |> List.filter (fun (cilState : cilState) -> cilState.isCompleted && not <| cilState.HasException)
+
+        let completedStates = allStates |> List.filter (fun (cilState : cilState) -> ilInterpreter.IsHeadOfBasicBlock cfg cilState.ip && not <| cilState.HasException)
         completedStates
 
     override x.IsRecursiveState _ = false
@@ -56,8 +57,8 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
     override x.SetResultState newRes = results <- newRes :: results
     override x.IsResultState cilState =
         match results with
-        | [] -> cilState.isCompleted && cilState.ip = Exit
-        | result :: _ -> cilState.isCompleted && result.ip = cilState.ip && result.state.opStack = cilState.state.opStack
+        | [] -> cilState.ip = Exit
+        | result :: _ -> result.ip = cilState.ip && result.state.opStack = cilState.state.opStack
     override x.PickNext () =
         let st = workingSet.[0]
         workingSet.RemoveAt 0
@@ -991,6 +992,12 @@ and public ILInterpreter() as this =
         | _ -> internalfail "unhandled ICodeLocation instance"
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
 
+    member x.IsHeadOfBasicBlock (cfg : cfg) (ip : ip) =
+        match ip with
+        | Exit -> true
+        | Instruction offset -> Seq.contains offset cfg.sortedOffsets
+        | _ -> __notImplemented__()
+
     member x.ExecuteAllInstructions (cfg : cfg) (cilState : cilState) =
         assert (cilState.ip.CanBeExpanded())
         let startingOffset = cilState.ip.Offset ()
@@ -1010,14 +1017,13 @@ and public ILInterpreter() as this =
             let allErrors = erroredStates @ List.map (fun (erroredOffset, (cilState : cilState)) -> {cilState with ip = erroredOffset}) newErrors
 
             match goodStates with
-            | list when List.forall (fst >> (=) ip.Exit) list -> List.map (fun (_, state) -> {state with ip = ip.Exit; isCompleted = true}) list @ allErrors
+            | list when List.forall (fst >> (=) ip.Exit) list -> List.map (fun (_, state) -> {state with ip = ip.Exit}) list @ allErrors
             | (nextIp, _)::xs as list when isIpOfCurrentBasicBlock nextIp && List.forall (fst >> (=) nextIp) xs ->
                 List.collect ((<||) (executeAllInstructions allErrors)) list
-            | list -> allErrors @ (list |> List.map (fun (ip, cilState) -> {cilState with ip = ip; isCompleted = not <| isIpOfCurrentBasicBlock ip}))
+            | list -> allErrors @ (list |> List.map (fun (ip, cilState) -> {cilState with ip = ip}))
         executeAllInstructions [] (Instruction startingOffset) cilState
 
     member x.ExecuteInstruction (cfg : cfg) (offset : int) (cilState : cilState) =
-        assert(not cilState.isCompleted)
         let opCode = Instruction.parseInstruction cfg.ilBytes offset
         let newOffsets : ip list =
             if Instruction.isLeaveOpCode opCode || opCode = OpCodes.Endfinally
@@ -1031,5 +1037,4 @@ and public ILInterpreter() as this =
                 | ExceptionMechanism -> [FindingHandler offset]
                 | ConditionalBranch targets -> targets |> List.map Instruction
         let newSts = opcode2Function.[hashFunction opCode] cfg offset newOffsets cilState
-        let leaveInstructionExecuted = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
-        newSts |> List.map (fun (d, cilState : cilState) -> d, {cilState with leaveInstructionExecuted = leaveInstructionExecuted})
+        newSts |> List.map (fun (d, cilState : cilState) -> d, cilState)
