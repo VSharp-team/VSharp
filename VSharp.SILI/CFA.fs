@@ -206,8 +206,8 @@ module public CFA =
     open TermUtils
     let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
 
-    let mutable stepItp : ILInterpreter option = None
-    let configureInterpreter itp = stepItp <- Some itp
+//    let mutable stepItp : MethodInterpreter option = None
+//    let configureInterpreter itp = stepItp <- Some itp
 
     let withState = InstructionsSet.withState
     let withOpStack = InstructionsSet.withOpStack
@@ -276,16 +276,16 @@ module public CFA =
         [<AbstractClass>]
         Edge(src : Vertex, dst : Vertex) =
         abstract member Type : string
-        abstract member PropagatePath : path -> bool
+        abstract member PropagatePath : cilState -> cilState list
         member x.PrintLog msg obj = Logger.printLog Logger.Trace "[%s]\n%s: %O" (x.commonToString()) msg obj
         member x.Src = src
         member x.Dst = dst
         member x.Method = x.Src.Method
-        member x.CommonPropagatePath lvl state =
+        member x.CommonFilterStates state =
             let newPc = PC.squashPC state.pc
             if newPc <> Terms.False then
-                if dst.IsMethodExitVertex then ()
-                dst.Paths.Add {lvl = lvl; state = state}
+//                if dst.IsMethodExitVertex then ()
+//                dst.Paths.Add {lvl = lvl; state = state}
                 true
             else false
         override x.ToString() = x.commonToString()
@@ -364,32 +364,19 @@ module public CFA =
         do
             Prelude.releaseAssert(Map.isEmpty effect.callSiteResults)
         override x.Type = "StepEdge"
-        override x.PropagatePath (path : path) =
-            let executeRestInstructions (state : state) =
-                x.PrintLog "composition left:\n"  <| Memory.Dump path.state
-                x.PrintLog "composition right:\n" <| Memory.Dump effect
-                x.PrintLog (sprintf "composition resulted:\n") (Memory.Dump state)
-                if ip = dst.Ip then List.singleton state
-                else
-                    x.PrintLog "IIE while cfa-construction occured!" ()
-                    let interpreter = ILInterpreter()
-                    let cilState = cilState.Make ip state
-                    let finishedStates, incompleteStates, errors = interpreter.ExecuteAllInstructions cfg cilState // TODO: handle errors
-                    match incompleteStates with
-                    | [] -> ()
-                    | CilStateWithIIE iie :: _ -> raise iie
-                    | _ -> __unreachable__()
+        override x.PropagatePath (cilState1 : cilState) =
+//                x.PrintLog "composition left:\n"  <| Memory.Dump cilState1.state
+//                x.PrintLog "composition right:\n" <| Memory.Dump effect
+//                x.PrintLog (sprintf "composition resulted:\n") (Memory.Dump state)
+//                cilState.Make ip state |> List.singleton
 
-                    finishedStates
-                    |> List.filter (fun (cilState : cilState) -> cilState.ip = dst.Ip)
-                    |> List.map (fun (cilState : cilState) -> cilState.state)
+            Memory.ComposeStates cilState1.state effect (fun states ->
 
+                assert(List.forall (fun state -> cilState1.state.frames = state.frames) states)
 
-            Memory.ComposeStates path.state effect (List.map executeRestInstructions >> List.concat >> (fun states ->
-
-                assert(List.forall (fun state -> path.state.frames = state.frames) states)
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
-                List.fold (fun acc state -> acc || x.CommonPropagatePath (path.lvl + 1u) state) false states))
+                let goodStates = List.filter x.CommonFilterStates states
+                List.map (fun state -> cilState.Make ip state) goodStates)
 
         member x.Effect = effect
         member x.VisibleVariables() = __notImplemented__()
@@ -397,38 +384,38 @@ module public CFA =
         override x.ToString() =
             sprintf "%s\neffect = %O\npc = %s\n" (base.ToString()) (API.Memory.Dump effect) (toString effect.pc)
 
-    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop) =
+    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop, interpreter : ILInterpreter) =
         inherit Edge(src, dst)
         do
            assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
-        override x.PropagatePath (path : path) =
+        override x.PropagatePath (cilState1 : cilState) =
             let k states =
                 let propagateStateAfterCall acc state =
-                    assert(path.state.frames = state.frames)
+                    assert(cilState1.state.frames = state.frames)
                     x.PrintLog "propagation through callEdge:\n" callSite
-                    x.PrintLog "call edge: composition left:\n" (Memory.Dump path.state)
+                    x.PrintLog "call edge: composition left:\n" (Memory.Dump cilState1.state)
                     x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
                     let stateAfterCall =
-                        let opStack = List.skip numberToDrop path.state.opStack
+                        let opStack = List.skip numberToDrop cilState1.state.opStack
                         if callSite.HasNonVoidResult then
                             assert(Option.isSome state.returnRegister)
                             { state with
-                                callSiteResults = Map.add callSite state.returnRegister path.state.callSiteResults
+                                callSiteResults = Map.add callSite state.returnRegister cilState1.state.callSiteResults
                                 returnRegister = None
                                 opStack = Option.get state.returnRegister :: opStack }
                         elif callSite.opCode = OpCodes.Newobj then
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
                             let state = pushNewObjResultOnOpStack {state with opStack = opStack} reference callSite.calledMethod
-                            { state with callSiteResults = path.state.callSiteResults}
-                        else { state with callSiteResults = path.state.callSiteResults; opStack = opStack}
+                            { state with callSiteResults = cilState1.state.callSiteResults}
+                        else { state with callSiteResults = cilState1.state.callSiteResults; opStack = opStack}
 
-                    let result' = x.CommonPropagatePath (path.lvl + 1u) stateAfterCall
-                    acc || result'
-                List.fold propagateStateAfterCall false states
-            Prelude.releaseAssert (Option.isSome stepItp)
-            let interpreter = stepItp |> Option.get
-            let states = Memory.ComposeStates path.state stateWithArgsOnFrameAndAllocatedType id
+                    if x.CommonFilterStates stateAfterCall then (cilState.Make dst.Ip stateAfterCall) :: acc
+                    else acc
+                List.fold propagateStateAfterCall [] states
+//            Prelude.releaseAssert (Option.isSome stepItp)
+//            let interpreter = stepItp |> Option.get
+            let states = Memory.ComposeStates cilState1.state stateWithArgsOnFrameAndAllocatedType id
             match states with
             | [state] ->
                 match callSite.opCode with
@@ -491,7 +478,7 @@ module public CFA =
             edge.Src.OutgoingEdges.Add edge
             edge.Dst.IncomingEdges.Add edge
 
-        let private shouldRemainOnOpStack (term : term) =
+        let internal shouldRemainOnOpStack (term : term) =
             match term.term with
             | Concrete _ -> true
             | Ref addr -> isConcreteAddress addr
@@ -684,7 +671,7 @@ module public CFA =
                 let initialCilState = cilState.Make d.u modifiedState
                 if cfg.offsetsDemandingCall.ContainsKey offset then
                     let cilState', callSite, numberToDrop = executeSeparatedOpCode interpreter cfg initialCilState
-                    let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop)
+                    let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop, interpreter)
                     let currentTime, vertices, q, used = addEdgeAndRenewQueue createEdge d cfg (currentTime, vertices, q, used) cilState'
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
                     else vertices
@@ -709,12 +696,13 @@ module public CFA =
             let vertices = bypass cfg q used vertices initialState.currentTime
             vertices |> PersistentDict.values |> Seq.iter block.AddVertex
 
-        let computeCFA (interpreter : ILInterpreter) (methodMetadata: ILMethodMetadata) : cfa =
-            let methodBase = methodMetadata.methodBase
+        let computeCFA (methodInterpreter : MethodInterpreter) (funcId: IFunctionIdentifier) : cfa =
+            let interpreter = ILInterpreter(methodInterpreter)
+            let methodBase = funcId.Method
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
-                let initialState, _, _ = interpreter.FormInitialStateWithoutStatics methodMetadata
+                let initialState, _, _ = methodInterpreter.FormInitialStateWithoutStatics funcId
                 Prelude.releaseAssert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
 
                 let cfg = CFG.build methodBase
@@ -726,66 +714,23 @@ module public CFA =
                 cfa
 
 type StepInterpreter() =
-    inherit ILInterpreter()
-    let visitedVertices : persistent<Map<CFA.Vertex, uint32>> =
-        let r = persistent<_>(always Map.empty, id) in r.Reset(); r
-    override x.ReproduceEffect codeLoc state k = x.ExploreAndCompose codeLoc state k
-    override x.CreateInstance _ _ state : state list =
-        let error = Nop
-        {state with exceptionsRegister = Unhandled error} |> List.singleton
-    member x.ForwardExploration (cfa : CFA.cfa) codeLoc initialState (k : (term * state) list -> 'a) =
-        let k =
-            visitedVertices.Save()
-            let k x = visitedVertices.Restore(); k x
-            k
+    inherit MethodInterpreter()
 
-        let maxBorder = 50u
-        let used (vertex : CFA.Vertex) =
-            if vertex.IsMethodExitVertex then true
-            elif visitedVertices.Value.ContainsKey vertex then
-                visitedVertices.Value.[vertex] >= maxBorder
-            else visitedVertices.Mutate (Map.add vertex 1u visitedVertices.Value)
-                 false
+    override x.CreateInstance t args (state : state) =
+        List.singleton <| {state with exceptionsRegister = Unhandled Nop}
 
-        let visit vertex =
-            match visitedVertices.Value.ContainsKey vertex with
-            | true ->
-                let cnt = Map.find vertex visitedVertices.Value
-                visitedVertices.Mutate (Map.add vertex (cnt + 1u) visitedVertices.Value)
-            | _ -> visitedVertices.Mutate (Map.add vertex 1u visitedVertices.Value)
-        let rec dfs lvl (vertex : CFA.Vertex) =
-            if used vertex then ()
-            else
-                visit vertex
-                let edges = vertex.OutgoingEdges
-                let paths : path list = vertex.Paths.OfLevel lvl
-                let newDsts = edges |> Seq.fold (fun acc (edge : CFA.Edge) ->
-                    let propagated = Seq.map edge.PropagatePath paths |> Seq.fold (||) false
-                    if propagated then (edge.Dst :: acc) else acc) []
-                List.iter (dfs (lvl + 1u)) newDsts
-        cfa.body.entryPoint.Paths.Add {lvl = 0u; state = initialState}
-        Logger.trace "starting Forward exploration for %O" codeLoc
-        dfs 0u cfa.body.entryPoint
-        let resultStates = List.init (maxBorder |> int) (fun lvl -> cfa.body.exitVertex.Paths.OfLevel (lvl |> uint32) |> List.ofSeq)
-                         |> List.concat
-                         |> List.map (fun (path : path) ->
-                             let state = path.state
-                             match state.returnRegister with
-                             | None -> Nop, state
-                             | Some res -> res, state)
-        if List.length resultStates = 0 then internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-        k resultStates
-
-    override x.Invoke codeLoc =
-        match codeLoc with
-        | :? ILMethodMetadata as ilmm ->
-            CFA.configureInterpreter x
-
-            try
-                let cfa = CFA.cfaBuilder.computeCFA x ilmm
-                x.ForwardExploration cfa codeLoc
-            with
-            | :? InsufficientInformationException -> base.Invoke codeLoc
-
-        | _ -> internalfail "unhandled ICodeLocation instance"
-
+    override x.EvaluateOneStep (funcId, cilState : cilState) =
+        try
+            let cfa : CFA.cfa = CFA.cfaBuilder.computeCFA x funcId
+            let ip = cilState.ip
+            let concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack cilState.state.opStack
+            let vertices = cfa.body.vertices.Values |> Seq.filter (fun (v : CFA.Vertex) ->
+                v.Ip = ip && concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack v.OpStack) |> List.ofSeq
+            match vertices with
+            | [] -> base.EvaluateOneStep (funcId, cilState)
+            | _ ->
+                let dealWithVertex (v : CFA.Vertex) =
+                    Seq.fold (fun acc (edge : CFA.Edge) -> acc @ edge.PropagatePath cilState) [] v.OutgoingEdges
+                List.fold (fun acc v -> acc @ dealWithVertex v) [] vertices
+        with
+        | :? InsufficientInformationException as iie -> base.EvaluateOneStep (funcId, cilState)

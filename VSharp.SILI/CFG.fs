@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Reflection
 open System.Collections.Generic
 
@@ -10,17 +11,29 @@ open VSharp
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
 
-    type public cfgData = {
-        methodBase : MethodBase
-        ilBytes : byte []
-        sortedOffsets : List<offset>
-        dfsOut : Dictionary<offset, int>
-        sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
-        graph : graph
-        reverseGraph : graph
-        clauses : ExceptionHandlingClause list
-        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
-    }
+    [<CustomEquality; CustomComparison>]
+    type public cfgData =
+        {
+            methodBase : MethodBase
+            ilBytes : byte []
+            sortedOffsets : List<offset>
+            dfsOut : Dictionary<offset, int>
+            sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
+            graph : graph
+            reverseGraph : graph
+            clauses : ExceptionHandlingClause list
+            offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
+        }
+        interface IComparable with
+            override x.CompareTo (obj : obj) =
+                match obj with
+                | :? cfgData as other -> x.methodBase.GetHashCode().CompareTo(other.GetHashCode())
+                | _ -> -1
+        override x.Equals (obj : obj) =
+            match obj with
+            | :? cfgData as other -> x.methodBase = other.methodBase
+            | _ -> false
+        override x.GetHashCode() = x.methodBase.GetHashCode()
 
     type private interimData = {
         opCodes : OpCode [] //  for debug
