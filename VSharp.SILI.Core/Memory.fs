@@ -847,9 +847,10 @@ module internal Memory =
             override x.Compose state =
                 x.baseSource.Compose state |> extractAddress
 
-    let private fillAndMutateStackLocation state stack k v =
+    let private fillAndMutateStackLocation state stack (k : stackKey) v =
+        let k' = k.Map (typeVariableSubst state)
         let v' = fillHoles state v
-        writeStackLocation stack k v'
+        writeStackLocation stack k' v'
 
     let composeRaisedExceptionsOf (state : state) (error : exceptionRegister) =
         error |> exceptionRegister.map (fillHoles state)

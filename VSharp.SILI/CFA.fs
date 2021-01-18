@@ -204,7 +204,6 @@ module Properties =
 
 module public CFA =
     open TermUtils
-    let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
 
 //    let mutable stepItp : MethodInterpreter option = None
 //    let configureInterpreter itp = stepItp <- Some itp
@@ -549,7 +548,7 @@ module public CFA =
             let symbolicOpStack = List.mapi makeSymbolic opStack
             symbolicOpStack
 
-        let private executeSeparatedOpCode (interpreter : ILInterpreter) (cfg : cfg) (cilState : cilState) =
+        let private executeSeparatedOpCode (methodInterpreter : MethodInterpreter) (cfg : cfg) (cilState : cilState) =
             let offset = cilState.ip.Offset()
             let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
             let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
@@ -561,7 +560,8 @@ module public CFA =
             let this, cilState =
                 match calledMethod with
                 | _ when opCode = OpCodes.Newobj ->
-                    let states = interpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id
+                    let ilInterpreter = ILInterpreter(methodInterpreter)
+                    let states = ilInterpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id
                     assert (List.length states = 1)
                     let state = List.head states
                     assert(Option.isSome state.returnRegister)
@@ -577,7 +577,7 @@ module public CFA =
                 | _ -> internalfailf "unknown methodBase %O" calledMethod
 
             let numberToDrop = List.length args + if Option.isNone this || callSite.opCode = OpCodes.Newobj then 0 else 1
-            let stateWithArgsOnFrame = interpreter.ReduceFunctionSignature cilState.state calledMethod this (Specified args) false id
+            let stateWithArgsOnFrame : state = methodInterpreter.ReduceFunctionSignature cilState.state calledMethod this (Specified args) false id
             let nextOffset =
                 assert(cfg.graph.[offset].Count = 1)
                 cfg.graph.[offset].[0]
@@ -655,7 +655,8 @@ module public CFA =
 
 
         // note: entry point and exit vertex must be added to unit block
-        let private computeCFAForBlock (interpreter : ILInterpreter) (initialState : state) (cfa : cfa) (block : unitBlock<'a>) =
+        let private computeCFAForBlock (methodInterpreter : MethodInterpreter) (initialState : state) (cfa : cfa) (block : unitBlock<'a>) =
+            let ilInterpreter = ILInterpreter(methodInterpreter)
             let cfg = cfa.cfg
             let rec bypass (cfg : cfg) (q : IPriorityQueue<bypassDataForEdges>) (used : pset<bypassDataForEdges>) (vertices : pdict<ip * operationalStack, Vertex>) currentTime =
                 let d, q = PriorityQueue.pop q
@@ -670,13 +671,13 @@ module public CFA =
 
                 let initialCilState = cilState.Make d.u modifiedState
                 if cfg.offsetsDemandingCall.ContainsKey offset then
-                    let cilState', callSite, numberToDrop = executeSeparatedOpCode interpreter cfg initialCilState
-                    let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop, interpreter)
+                    let cilState', callSite, numberToDrop = executeSeparatedOpCode methodInterpreter cfg initialCilState
+                    let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop, ilInterpreter)
                     let currentTime, vertices, q, used = addEdgeAndRenewQueue createEdge d cfg (currentTime, vertices, q, used) cilState'
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
                     else vertices
                 else
-                    let finishedStates, incompleteStates, erroredStates = interpreter.ExecuteAllInstructions cfg initialCilState
+                    let finishedStates, incompleteStates, erroredStates = ilInterpreter.ExecuteAllInstructions cfg initialCilState
                     let goodStates = finishedStates |> List.filter (fun (cilState : cilState) -> cilState.ip = d.v)
                     srcVertex.AddErroredStates erroredStates
 
@@ -697,7 +698,6 @@ module public CFA =
             vertices |> PersistentDict.values |> Seq.iter block.AddVertex
 
         let computeCFA (methodInterpreter : MethodInterpreter) (funcId: IFunctionIdentifier) : cfa =
-            let interpreter = ILInterpreter(methodInterpreter)
             let methodBase = funcId.Method
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
@@ -708,7 +708,7 @@ module public CFA =
                 let cfg = CFG.build methodBase
                 let cfa = createEmptyCFA cfg methodBase
 
-                computeCFAForBlock interpreter initialState cfa cfa.body
+                computeCFAForBlock methodInterpreter initialState cfa cfa.body
                 alreadyComputedCFAs.[methodBase] <- cfa
                 Logger.printLog Logger.Trace "Computed cfa: %O" cfa
                 cfa

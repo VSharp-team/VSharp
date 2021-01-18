@@ -16,6 +16,8 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
     let exceptionsSet = Dictionary<IFunctionIdentifier, List<cilState>>()
     let incompleteStatesSet = Dictionary<IFunctionIdentifier, List<cilState>>()
 
+    let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
+
     static let cfgs = Dictionary<IFunctionIdentifier, cfg>()
     static let findCfg (ilmm : IFunctionIdentifier) =
         Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.Method)
@@ -39,7 +41,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             visitedVertices.Mutate (Map.add key (cnt + 1u) visitedVertices.Value)
         | _ -> visitedVertices.Mutate (Map.add key 1u visitedVertices.Value)
 
-    member x.Interpret (funcId : IFunctionIdentifier) (start : cilState) =
+    member x.Interpret (funcId : IFunctionIdentifier) (start : cilState) : unit =
         let cfg = findCfg funcId
         let merge (x : cilState) (y : cilState) =
             match x.state.returnRegister, y.state.returnRegister with
@@ -48,7 +50,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             | _ -> internalfail "only one state has result"
             |> List.map (fun (r, s) -> {x with state = {s with returnRegister = r}})
 
-        let rec interpret' (current : cilState) : cilState list =
+        let rec interpret' (current : cilState) : unit =
             x.Visit (cfg, current.ip)
             let states = x.EvaluateOneStep (funcId, current)
             states |> List.iter (fun state ->
@@ -58,9 +60,9 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
                 | Some similar -> merge state similar |> List.iter (x.Add funcId))
             match x.PickNext funcId with
             | Some newSt -> interpret' newSt
-            | None -> results.[funcId] |> List.ofSeq
+            | None -> ()
         if not <| x.Used cfg start.ip then interpret' start
-        else []
+        else ()
 
     override x.Invoke funcId state k =
         workingSet.TryAdd(funcId, List<cilState>())    |> ignore
@@ -77,14 +79,21 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
                 k x
             k
 
-        let getResultsAndStates = function
-            | [] when incompleteStatesSet.[funcId].Count = 0 -> internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-            | [] -> incompleteStatesSet.[funcId].[0].iie |> Option.get |> raise
-            | cilStates -> List.map (fun (st : cilState) -> st.state.returnRegister |?? Nop, st.state) cilStates
+        let getResultsAndStates () =
+            let results = results.[funcId] |> List.ofSeq
+            let incompleteStates = incompleteStatesSet.[funcId] |> List.ofSeq
+            let errors = exceptionsSet.[funcId] |> List.ofSeq
+
+            match incompleteStates, errors, results with
+            | CilStateWithIIE iie :: _ , _, _ -> raise iie
+            | _ :: _, _, _ -> __unreachable__()
+            | _, _ :: _, _ -> internalfailf "exception handling is not implemented yet"
+            | _, _, [] -> internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
+            | _ -> List.map (fun (st : cilState) -> st.state.returnRegister |?? Nop, st.state) results
         let interpret state =
             cilState.Make (Instruction 0) state
             |> x.Interpret funcId
-            |> getResultsAndStates
+            getResultsAndStates ()
         x.InitializeStatics state funcId.Method.DeclaringType (List.map interpret >> List.concat >> k)
 
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
@@ -310,34 +319,31 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         if targetMethod.IsAbstract
             then x.CallAbstract (methodInterpreter.MakeMethodIdentifier targetMethod) state k
             else
-                x.ReduceMethodBaseCall targetMethod state k
+                // TODO: this is a hack, because we don't must have FillHoles to obtain "this" right type before allocating it on frame
+                let this = Memory.ReadThis state calledMethod
+                let args = calledMethod.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
+                let state = Memory.PopStack state
+                methodInterpreter.ReduceFunctionSignature state targetMethod (Some this) (Specified args) false (fun rightState ->
+                x.ReduceMethodBaseCall targetMethod rightState k)
 
-    member x.CallVirtualMethod (_ : MethodInfo) (_ : state) (_ : state list -> 'a) =
-        __notImplemented__()
-
-//        let methodId = x.MakeMethodIdentifier ancestorMethod
-//        let this = Memory.ReadLocalVariable state (ThisKey ancestorMethod)
-//        let callVirtual cilState this k =
-//            let baseType = BaseTypeOfHeapRef state this
-////            let sightType = SightTypeOfRef this
-//            let callForConcreteType typ state k =
-//                x.CallMethodFromTermType state typ ancestorMethod k
-//            let tryToCallForBaseType cilState =
-//                StatedConditionalExecutionCIL cilState
-//                    (fun state k -> k (API.Types.TypeIsRef baseType this &&& API.Types.TypeIsType baseType sightType, state))
-//                    (callForConcreteType baseType)
-//                    (x.CallAbstract funcId)
-//            let tryToCallForSightType cilState =
-//                StatedConditionalExecutionCIL cilState
-//                    (fun state k -> k (API.Types.TypeIsRef sightType this, state))
-//                    (callForConcreteType sightType)
-//                    tryToCallForBaseType
-//            let sightDotNetType = Types.ToDotNetType sightType
-//            let baseDotNetType = Types.ToDotNetType baseType
-//            if sightDotNetType.IsInterface && baseDotNetType.IsInterface
-//                then x.CallAbstract funcId cilState k
-//                else tryToCallForSightType cilState k
-//        GuardedApply cilState this callVirtual k
+    member x.CallVirtualMethod (ancestorMethod : MethodInfo) (state : state) (k : state list -> 'a) =
+        let methodId = methodInterpreter.MakeMethodIdentifier ancestorMethod
+        let this = Memory.ReadThis state ancestorMethod
+        let callVirtual (state : state) this k =
+            let baseType = BaseTypeOfHeapRef state this
+            let callForConcreteType typ state k =
+                x.CallMethodFromTermType state typ ancestorMethod k
+            let tryToCallForBaseType (state : state) (k : state list -> 'a) =
+                StatedConditionalExecutionAppendResults state
+                    (fun state k -> k (API.Types.TypeIsRef baseType this, state))
+                    (callForConcreteType baseType)
+                    (x.CallAbstract methodId)
+                    k
+            let baseDotNetType = Types.ToDotNetType baseType
+            if baseDotNetType.IsInterface
+                then x.CallAbstract methodId state k
+                else tryToCallForBaseType state k
+        GuardedApplyForState state this callVirtual k
 
     member x.CallAbstract funcId state k =
         methodInterpreter.CallAbstractMethod funcId state (fun (result, state) ->
@@ -447,7 +453,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this = Memory.ReadThis stateWithArgsOnFrame ancestorMethodBase
         let call (state : state) k =
             methodInterpreter.InitializeStatics state ancestorMethodBase.DeclaringType (List.map (fun state ->
-            if ancestorMethodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate> then
+            if ancestorMethodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate> && ancestorMethodBase.Name = "Invoke" then
                 Lambdas.invokeDelegate state this id
             elif ancestorMethodBase.IsVirtual && not ancestorMethodBase.IsFinal then
                 let methodInfo = ancestorMethodBase :?> MethodInfo
@@ -1048,10 +1054,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         | Exit -> true
         | Instruction offset -> Seq.contains offset cfg.sortedOffsets
         | _ -> __notImplemented__()
-
-    member x.ReduceFunctionSignature state methodBase this args isEffect k =
-        methodInterpreter.ReduceFunctionSignature state methodBase this args isEffect k
-    member x.MakeMethodIdentifier = methodInterpreter.MakeMethodIdentifier
 
     // returns finishedStates, incompleteStates, erroredStates
     member x.ExecuteAllInstructions (cfg : cfg) (cilState : cilState) : (cilState list * cilState list * cilState list)  =
