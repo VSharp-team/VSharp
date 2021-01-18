@@ -1049,12 +1049,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member x.InvalidCastException state = methodInterpreter.InvalidCastException state
     // -------------------------------- ExplorerBase operations -------------------------------------
 
-    member x.IsHeadOfBasicBlock (cfg : cfg) (ip : ip) =
-        match ip with
-        | Exit -> true
-        | Instruction offset -> Seq.contains offset cfg.sortedOffsets
-        | _ -> __notImplemented__()
-
     // returns finishedStates, incompleteStates, erroredStates
     member x.ExecuteAllInstructions (cfg : cfg) (cilState : cilState) : (cilState list * cilState list * cilState list)  =
         assert (cilState.ip.CanBeExpanded())
