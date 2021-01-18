@@ -284,11 +284,12 @@ module API =
 
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 
-        let Merge2States (state1 : state) (state2 : state) =
-            let pc1 = PC.squashPC state1.pc
-            let pc2 = PC.squashPC state2.pc
-            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
-            __notImplemented__() : state
+        let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
+        let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
+//            let pc1 = PC.squashPC state1.pc
+//            let pc2 = PC.squashPC state2.pc
+//            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
+//            __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
 
     module Options =

@@ -9,16 +9,32 @@ open VSharp.Core
 
 type cfg = CFG.cfgData
 
-type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICodeLocation, cfg : cfg) =
-    inherit InterpreterBase<cilState>()
+type public CodePortionInterpreter(ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg) =
     let mutable results : cilState list = []
     let workingSet = List<cilState>()
     let exceptionsSet = List<cilState>()
 
-    override x.MakeRecursiveState cilState =
-        let methodId = ilInterpreter.MakeMethodIdentifier cfg.methodBase
-        let ilCodePortion = ILCodePortion(cilState.ip.Offset(), methodId, cilState.state)
-        ilInterpreter.ReproduceEffect ilCodePortion cilState.state (List.map (fun (_, state) -> {cilState with state = state}))
+    member x.Interpret (start : cilState) =
+        let merge (x : cilState) (y : cilState) =
+            match x.state.returnRegister, y.state.returnRegister with
+            | None, None -> Memory.Merge2States x.state y.state |> List.map (withFst None)
+            | Some t1, Some t2 -> Memory.Merge2Results (t1, x.state) (t2, y.state) |> List.map (fun (r, s) -> (Some r, s))
+            | _ -> internalfail "only one state has result"
+            |> List.map (fun (r, s) -> {x with state = {s with returnRegister = r}})
+
+        let rec interpret' (current : cilState) : cilState list =
+            let states = x.EvaluateOneStep current
+            states |> List.iter (fun state ->
+                if x.IsResultState state then x.SetResultState state
+                match x.FindSimilar state with
+                | None -> x.Add state
+                | Some similar -> merge state similar |> List.iter x.Add)
+            if x.HasNextState () then
+                let newSt = x.PickNext ()
+                interpret' newSt
+            else
+                x.GetResultStates ()
+        interpret' start
 
     member x.Invoke state k =
         let getResultsAndStates = function
@@ -28,35 +44,28 @@ type public CodePortionInterpreter(ilInterpreter : ILInterpreter, codeLoc : ICod
             cilState.Make (Instruction 0) state
             |> x.Interpret
             |> getResultsAndStates
-        match codeLoc with
-        | :? ILMethodMetadata ->
-            ilInterpreter.InitializeStatics state cfg.methodBase.DeclaringType (List.map interpret >> List.concat >> k)
-        | _ -> __notImplemented__()
-    override x.MakeEpsilonState _ = internalfail "Explore in isolation is irrelevant"
-
-    override x.EvaluateOneStep cilState =
+        ilInterpreter.InitializeStatics state cfg.methodBase.DeclaringType (List.map interpret >> List.concat >> k)
+    member x.EvaluateOneStep cilState =
         let goodStates, incompleteStates, errors = ilInterpreter.ExecuteAllInstructions cfg cilState // TODO: what about incompleteStates?
         exceptionsSet.AddRange(errors)
         goodStates
 
-    override x.IsRecursiveState _ = false
-    override x.Add cilState = if cilState.ip <> ip.Exit then workingSet.Add cilState
-    override x.ExploreInIsolation _ = internalfail "Explore in isolation is irrelevant"
-    override x.HasNextState () = workingSet.Count <> 0
-    override x.FindSimilar cilState =
+    member x.Add cilState = if cilState.ip <> ip.Exit then workingSet.Add cilState
+    member x.HasNextState () = workingSet.Count <> 0
+    member x.FindSimilar cilState =
         let areCapableForMerge (st1 : cilState) (st2 : cilState) =  st1.state.opStack = st2.state.opStack && st1.ip = st2.ip
         match Seq.tryFindIndex (areCapableForMerge cilState) workingSet with
         | None -> None
         | Some i -> let res = Some workingSet.[i]
                     workingSet.RemoveAt i
                     res
-    override x.GetResultStates () = results
-    override x.SetResultState newRes = results <- newRes :: results
-    override x.IsResultState cilState =
+    member x.GetResultStates () = results
+    member x.SetResultState newRes = results <- newRes :: results
+    member x.IsResultState cilState =
         match results with
         | [] -> cilState.ip = Exit
         | result :: _ -> result.ip = cilState.ip && result.state.opStack = cilState.state.opStack
-    override x.PickNext () =
+    member x.PickNext () =
         let st = workingSet.[0]
         workingSet.RemoveAt 0
         st
@@ -129,9 +138,9 @@ and public ILInterpreter() as this =
         opcode2Function.[hashFunction OpCodes.Rem]            <- zipWithOneOffset <| fun _ _ -> this.Rem
         opcode2Function.[hashFunction OpCodes.Rem_Un]         <- zipWithOneOffset <| fun _ _ -> this.RemUn
         opcode2Function.[hashFunction OpCodes.Newarr]         <- zipWithOneOffset <| this.Newarr
-    let cfgs = Dictionary<ILMethodMetadata, cfg>()
-    let findCfg (ilmm : ILMethodMetadata) =
-        Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.methodBase)
+    let cfgs = Dictionary<IFunctionIdentifier, cfg>()
+    let findCfg (ilmm : IFunctionIdentifier) =
+        Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.Method)
     let internalImplementations : Map<string, (state -> term option -> term list -> state list)> =
         Map.ofList [
             "System.Int32 System.Array.GetLength(this, System.Int32)", this.CommonGetArrayLength
@@ -977,16 +986,9 @@ and public ILInterpreter() as this =
         | _ -> __corruptedStack__()
 
     // -------------------------------- ExplorerBase operations -------------------------------------
-    override x.Invoke codeLoc =
-        match codeLoc with
-        | :? ILMethodMetadata as ilmm ->
-            let interpreter = CodePortionInterpreter(x, ilmm, findCfg ilmm)
-            interpreter.Invoke
-        | :? ILCodePortion as ilcode ->
-            let ilmm = ilcode.FuncId :?> ILMethodMetadata
-            let interpreter = CodePortionInterpreter(x, ilcode, findCfg ilmm)
-            interpreter.Invoke
-        | _ -> internalfail "unhandled ICodeLocation instance"
+    override x.Invoke funcId =
+        let interpreter = CodePortionInterpreter(x, funcId, findCfg funcId)
+        interpreter.Invoke
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
 
     member x.IsHeadOfBasicBlock (cfg : cfg) (ip : ip) =

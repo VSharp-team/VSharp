@@ -174,7 +174,8 @@ module API =
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> (state list -> 'a) -> 'a
 
-        val Merge2States : state -> state -> state
+        val Merge2States : state -> state -> state list
+        val Merge2Results : term * state -> term * state -> (term * state) list
 
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a

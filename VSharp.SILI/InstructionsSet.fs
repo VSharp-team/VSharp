@@ -22,7 +22,6 @@ type public ILMethodMetadata =
             | :? MethodInfo as mi -> mi.ReturnType
             | :? ConstructorInfo -> typeof<Void>
             | _ -> __notImplemented__()
-        member x.Location = null // TODO: think about renaming ICodeLocation to smth more useful
 
 module internal TypeUtils =
     open Types

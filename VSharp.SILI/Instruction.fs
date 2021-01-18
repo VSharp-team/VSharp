@@ -26,11 +26,11 @@ type cilState =
       filterResult : term option
       iie : InsufficientInformationException option
     }
-    interface VSharp.Core.IInterpreterState<cilState> with
-        member x.InternalState = x.state
-        member x.SetState st = {x with state = st}
-        member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
-        member x.ResultTerm = x.state.returnRegister
+//    interface VSharp.Core.IInterpreterState<cilState> with
+//        member x.InternalState = x.state
+//        member x.SetState st = {x with state = st}
+//        member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
+//        member x.ResultTerm = x.state.returnRegister
     member x.CanBeExpanded () = x.ip.CanBeExpanded()
     member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
     static member Make curV state =
