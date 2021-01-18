@@ -214,11 +214,38 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." state
         x.CreateInstance typeof<System.InvalidCastException> [message] state
 
-    member x.ExploreAndCompose codeLoc state k =
-        x.Explore codeLoc (Seq.map (fun summary ->
-            Logger.trace "ExploreAndCompose: got summary state = %s" (Memory.Dump summary.state)
+
+    member x.ExploreAndCompose (funcId : IFunctionIdentifier) state k =
+        let prepareGenericsLessState (methodId : IMethodIdentifier) state =
+            let methodBase = methodId.Method
+            if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> IFunctionIdentifier, state, false
+            else
+                let genericMethod, methodGenericDefs, methodGenericArgs =
+                    match Reflection.TryGetGenericMethodDefinition methodBase with
+                    | None -> methodBase, [||], [||]
+                    | v -> Option.get v
+                let genericMethod1, typeGenericDefs, typeGenericArgs =
+                    match Reflection.TryGetMethodWithGenericDeclaringType genericMethod with
+                    | None -> genericMethod, [||], [||]
+                    | v -> Option.get v
+                let genericDefs = Array.append methodGenericDefs typeGenericDefs |> Seq.map Id |> List.ofSeq
+                let genericArgs = Array.append methodGenericArgs typeGenericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                if List.isEmpty genericDefs then methodId :> IFunctionIdentifier, state, false
+                else
+                    let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
+                    (x.MakeMethodIdentifier genericMethod1 :> IFunctionIdentifier), state, true
+
+        let newFuncId, state, isSubstitutionNeeded =
+            match funcId with
+            | :? IMethodIdentifier as methodId ->
+                prepareGenericsLessState methodId state
+            | _ -> funcId, state, false
+
+        x.Explore newFuncId (Seq.map (fun summary ->
+            Logger.trace "ExploreAndCompose: Original CodeLoc = %O New CodeLoc = %O\ngot summary state = %s" funcId newFuncId (Memory.Dump summary.state)
             Logger.trace "ExploreAndCompose: Left state = %s" (Memory.Dump state)
             let newStates = Memory.composeStates state summary.state
+                            |> if isSubstitutionNeeded then List.map (Memory.popTypeVariablesSubstitution) else id
             List.iter (Memory.Dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) newStates
 
             let result = Memory.fillHoles state summary.result

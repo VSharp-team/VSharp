@@ -192,7 +192,19 @@ module internal InstructionsSet =
 // TODO: this should be now broken!
 //            | 6 -> [| s.stack; s.heap; s.statics; s.frames; s.pc; argsAndThis |]
             | _ -> __notImplemented__()
-        let result = methodInfo.Invoke(null, parameters)
+        let result =
+            try
+                methodInfo.Invoke(null, parameters)
+            with
+            | :? TargetInvocationException as targetException ->
+                Logger.trace "InternalCall got TargetInvocationException %s" targetException.Message
+                let actualException = targetException.GetBaseException()
+                Logger.trace "TargetInvocationException.GetBaseException %s" actualException.Message
+                raise <| actualException
+            | e ->
+                Logger.trace "InternalCall got exception %s" e.Message
+                raise e
+
         let appendResultToState (term : term, state : state) =
             match term.term with
             | Nop -> {state with returnRegister = None}

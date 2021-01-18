@@ -157,6 +157,7 @@ module internal Instruction =
     let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
+
     let parseInstruction (ilBytes : byte []) pos =
         let b1 = ilBytes.[pos]
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
