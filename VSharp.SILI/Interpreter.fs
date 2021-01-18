@@ -70,12 +70,15 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
         exceptionsSet.TryAdd(funcId, List<cilState>()) |> ignore
         incompleteStatesSet.TryAdd(funcId, List<cilState>()) |> ignore
 
+        let cleanSets () =
+            results.[funcId] <- List()
+            incompleteStatesSet.[funcId] <- List()
+
         let k =
             visitedVertices.Save()
             let k x =
                 visitedVertices.Restore()
-                results.[funcId] <- List()
-                incompleteStatesSet.[funcId] <- List()
+                cleanSets()
                 k x
             k
 
@@ -85,7 +88,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             let errors = exceptionsSet.[funcId] |> List.ofSeq
 
             match incompleteStates, errors, results with
-            | CilStateWithIIE iie :: _ , _, _ -> raise iie
+            | CilStateWithIIE iie :: _ , _, _ -> cleanSets(); raise iie
             | _ :: _, _, _ -> __unreachable__()
             | _, _ :: _, _ -> internalfailf "exception handling is not implemented yet"
             | _, _, [] -> internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
