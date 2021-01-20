@@ -218,13 +218,13 @@ module internal Memory =
     let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
         (substituteTypeVariables state et, i, b)
 
-    let dotNetTypeSubst state (t : System.Type) =
+    let typeVariableSubst state (t : System.Type) =
         match MappedStack.tryFind (Id t) (fst state.typeVariables) with
         | Some typ -> typ |> toDotNetType
         | None -> t
 
     let private substituteTypeVariablesIntoField state (f : fieldId) =
-        Reflection.concretizeField f (dotNetTypeSubst state)
+        Reflection.concretizeField f (typeVariableSubst state)
 
     let rec typeOfHeapLocation state (address : heapAddress) =
         match address.term with
@@ -468,7 +468,7 @@ module internal Memory =
             (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readStackBuffer state (stackKey : stackKey) index =
-        let extractor state = accessRegion state.stackBuffers (stackKey.Map (dotNetTypeSubst state)) (Numeric typeof<int8>)
+        let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) (Numeric typeof<int8>)
         let mkname = fun (key : stackBufferIndexKey) -> sprintf "%O[%O]" stackKey key.index
         let isDefault _ _ = true
         let key = {index = index}
@@ -833,7 +833,7 @@ module internal Memory =
     type stackReading with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
-                let key = x.key.Map (dotNetTypeSubst state)
+                let key = x.key.Map (typeVariableSubst state)
                 readStackLocation state key
 
     type structField with

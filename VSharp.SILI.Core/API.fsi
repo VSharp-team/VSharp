@@ -36,8 +36,6 @@ module API =
         val HeapRef : heapAddress -> symbolicType -> term
         val Union : (term * term) list -> term
 
-        val getAddressTermFromRefOrPtr : (address -> term) -> term -> term
-
         val True : term
         val False : term
         val NullRef : term
@@ -54,14 +52,7 @@ module API =
         val IsReference : term -> bool
         val IsNullReference : term -> term
 
-        val CanWrite : term -> symbolicType -> bool
-
-        val IsIdempotent : term -> bool
-
-        val IsConcrete : term -> bool
-        val IsConcreteHeapAddress : term -> bool
-
-        val GetConcreteHeapAddress : term -> concreteHeapAddress
+        val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option

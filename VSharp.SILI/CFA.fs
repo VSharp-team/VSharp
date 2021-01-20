@@ -9,6 +9,49 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
+module TermUtils =
+    let internal term (t : term) = t.term
+
+    let internal getAddressTermFromRefOrPtr getTerm refOrPtr =
+        let rec getLastAddress = function
+            | StructField(addr, _) -> getLastAddress addr
+            | addr -> addr
+        let getAddressTerm = term >> function
+            | Ptr(Some addr, _, _)
+            | Ref addr -> getLastAddress addr |> getTerm
+            | _ -> __unreachable__()
+        GuardedApplyExpression refOrPtr getAddressTerm
+
+    let internal isConcrete (term : term) =
+        match term.term with
+        | Concrete _ -> true
+        | _ -> false
+
+
+    let internal (|ConcreteHeapAddress|_|) = term >> (|ConcreteHeapAddress|_|)
+    let internal isConcreteHeapAddress = function
+        | ConcreteHeapAddress _ -> true
+        | _ -> false
+
+    let rec internal isConcreteAddress (address : address) =
+        match address with
+        | PrimitiveStackLocation _
+        | BoxedLocation _
+        | StaticField _ -> true
+        | StackBufferIndex (_, term) -> isConcrete term
+        | StructField (address, _) -> isConcreteAddress address
+        | ClassField (heapAddress, _)
+        | ArrayIndex (heapAddress, _, _)
+        | ArrayLowerBound (heapAddress, _, _)
+        | ArrayLength (heapAddress, _, _) -> isConcreteHeapAddress heapAddress
+
+    let internal isConcretePtr = function
+        | Ptr(None, _, None) -> true
+        | Ptr(None, _, Some shift) -> isConcrete shift
+        | Ptr(Some address, _, None) -> isConcreteAddress address
+        | Ptr(Some address, _, Some shift) -> isConcreteAddress address && isConcrete shift
+        | _ -> false
+
 [<StructuralEquality;NoComparison>]
 type opStackSource =
     {shift : uint32; typ : symbolicType; time : vectorTime}
@@ -17,8 +60,12 @@ type opStackSource =
         override x.Time = x.time
         override x.TypeOfLocation = x.typ
         override x.Compose state =
+            let validateCompositionResult typ =
+                typ = Null && (not <| Types.IsValueType x.typ)
+                || (Types.ToDotNetType typ).IsAssignableFrom (Types.ToDotNetType x.typ) // do not reorder operands of "OR"!
+
             let result = List.item (int x.shift) state.opStack
-            assert(CanWrite result x.typ) // TODO: what if (0:int) is assigned to reference?
+            assert(validateCompositionResult <| TypeOf result) // TODO: what if (0:int) is assigned to reference?
             result
 
 [<StructuralEquality;NoComparison>]
@@ -33,7 +80,7 @@ type stackBufferIndexAddress =
             let getTerm = function
                 | StackBufferIndex(_, term) -> term
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type classFieldAddress =
@@ -47,7 +94,7 @@ type classFieldAddress =
             let getTerm = function
                 | ClassField(term, _) -> term
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayIndexHeapAddress =
@@ -61,7 +108,7 @@ type arrayIndexHeapAddress =
             let getTerm = function
                 | ArrayIndex(term, _, _) -> term
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayIndexItem =
@@ -75,7 +122,7 @@ type arrayIndexItem =
             let getTerm = function
                 | ArrayIndex(_, indices, _) -> List.item x.i indices
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayLowerBoundHeapAddress =
@@ -89,7 +136,7 @@ type arrayLowerBoundHeapAddress =
             let getTerm = function
                 | ArrayLowerBound(term, _, _) -> term
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayLowerBoundDimension =
@@ -103,7 +150,7 @@ type arrayLowerBoundDimension =
             let getTerm = function
                 | ArrayLowerBound(_, dim, _) -> dim
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayLengthAddress =
@@ -117,7 +164,7 @@ type arrayLengthAddress =
             let getTerm = function
                 | ArrayLength(term, _, _) -> term
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type arrayLengthDimension =
@@ -131,7 +178,7 @@ type arrayLengthDimension =
             let getTerm = function
                 | ArrayLength(_, dim, _) -> dim
                 | _ -> __unreachable__()
-            getAddressTermFromRefOrPtr getTerm baseTerm
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
 
 [<StructuralEquality;NoComparison>]
 type pointerShift =
@@ -156,6 +203,7 @@ module Properties =
     let internal initialVertexNumber = 0
 
 module public CFA =
+    open TermUtils
     let mutable stepItp : ILInterpreter option = None
     let configureInterpreter itp = stepItp <- Some itp
 
@@ -425,22 +473,30 @@ module public CFA =
             edge.Src.OutgoingEdges.Add edge
             edge.Dst.IncomingEdges.Add edge
 
+        let private shouldRemainOnOpStack (term : term) =
+            match term.term with
+            | Concrete _ -> true
+            | Ref addr -> isConcreteAddress addr
+            | Ptr _ as v -> isConcretePtr v
+            | HeapRef(heapAddress, _) -> isConcreteHeapAddress heapAddress
+            | _ -> false
+
         let private updateLI makeSource term name typ =
             let isConcrete =
                 match typ with
-                | AddressType -> IsConcreteHeapAddress
-                | _ when Types.IsInteger typ -> IsConcrete
+                | AddressType -> isConcreteHeapAddress
+                | _ when Types.IsInteger typ -> isConcrete
                 | _ -> __notImplemented__()
             if isConcrete term then term
             else Constant name (makeSource()) typ
 
         let rec private makeSymbolicAddress source = function
-            | StackBufferIndex(key, term) when Terms.IsConcrete term |> not ->
+            | StackBufferIndex(key, term) when isConcrete term |> not ->
                 let source : stackBufferIndexAddress = {baseSource = source}
                 StackBufferIndex(key, Constant "StackBufferIndex" source Types.IndexType)
             | StructField(address, fieldId) ->
                 StructField(makeSymbolicAddress source address, fieldId)
-            | ClassField(heapAddress, fieldId) when Terms.IsConcreteHeapAddress heapAddress |> not ->
+            | ClassField(heapAddress, fieldId) when isConcreteHeapAddress heapAddress |> not ->
                 let source : classFieldAddress = {baseSource = source}
                 ClassField(Constant "ClassFieldAddress" source AddressType, fieldId)
             | ArrayIndex(heapAddress, indices, aType) ->
@@ -469,7 +525,7 @@ module public CFA =
                 {shift = uint32 index; typ = typ; time = time}
 
             let makeSymbolic index (v : term) =
-                if Terms.IsIdempotent v then v
+                if shouldRemainOnOpStack v then v
                 else
                     let shift = index
                     let typ = TypeOf v
@@ -530,7 +586,7 @@ module public CFA =
             | _ -> __notImplemented__()
 
         let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationalStack, Vertex>)  =
-            let concreteOpStack = List.filter IsIdempotent opStack
+            let concreteOpStack = List.filter shouldRemainOnOpStack opStack
             if PersistentDict.contains (v, concreteOpStack) vertices then
                 PersistentDict.find vertices (v, concreteOpStack), vertices
             else
@@ -568,12 +624,12 @@ module public CFA =
 
         let private isConcreteHeapRef (term : term) =
             match term.term with
-            | HeapRef (addr, _) -> IsConcreteHeapAddress addr
+            | HeapRef (addr, _) -> isConcreteHeapAddress addr
             | _ -> false
 
         let private getTermConcreteHeapAddress (term : term) =
             match term.term with
-            | HeapRef (addr, _) -> GetConcreteHeapAddress addr
+            | HeapRef (ConcreteHeapAddress addr, _) -> addr
             | _ -> __unreachable__()
 
         let private prepareStateWithConcreteInfo (s : state) (d : bypassDataForEdges) =

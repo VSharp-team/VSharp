@@ -49,7 +49,6 @@ type public ExplorerBase() =
                 { state with pc = PC.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
-//                let state, this, thisIsNotNull(*, isMethodOfStruct*) = x.FormInitialState funcId
                 let initialStates = x.FormInitialState funcId
                 let removePCs this thisIsNotNull =
                     List.map (fun (res, state) -> res, if Option.isSome this && thisIsNotNull <> True then Memory.removePathCondition state thisIsNotNull else state)
@@ -59,21 +58,12 @@ type public ExplorerBase() =
                     |> List.map (fun (result, state) -> {result = result; state = state})
                 CurrentlyBeingExploredLocations.Remove funcId |> ignore
                 k resultsAndStates
-//                    let state = if isMethodOfStruct then Memory.popStack state else state
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
                     resultsAndStates |> List.map (fun (result, state) -> {result = result; state = state}) |> k)
             | _ -> __notImplemented__()
-
-//    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-//        let addr = [Memory.freshAddress()]
-//        if CurrentlyBeingExploredLocations.Contains codeLoc then
-//            __notImplemented__()
-//        else
-//            let ctx : compositionContext = { addr = addr }
-//            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
 
 
     member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) state k =
@@ -270,7 +260,6 @@ type public ExplorerBase() =
     default x.ReproduceEffect codeLoc state k =
         if CurrentlyBeingExploredLocations.Contains codeLoc then
             __notImplemented__()
-//            Explorer.recursionApplication codeLoc state addr k
         else
             x.ExploreAndCompose codeLoc state k
 

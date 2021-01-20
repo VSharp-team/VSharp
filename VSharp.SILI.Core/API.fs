@@ -44,16 +44,6 @@ module API =
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
-        let getAddressTermFromRefOrPtr getTerm refOrPtr =
-            let rec getLastAddress = function
-                | StructField(addr, _) -> getLastAddress addr
-                | addr -> addr
-            let getAddressTerm = term >> function
-                | Ptr(Some addr, _, _)
-                | Ref addr -> getLastAddress addr |> getTerm
-                | _ -> __unreachable__()
-            Merging.guardedApply getAddressTerm refOrPtr
-
         let True = True
         let False = False
         let NullRef = nullRef
@@ -82,14 +72,7 @@ module API =
         let IsReference term = isReference term
         let IsNullReference term = Pointers.isNull term
 
-        let CanWrite value cellType = MemoryRegion.canWrite value cellType
-
-        let IsIdempotent term = isIdempotent term
-
-        let IsConcrete term = isConcrete term
-        let IsConcreteHeapAddress addr = isConcreteHeapAddress addr
-
-        let GetConcreteHeapAddress addr = getConcreteHeapAddress addr
+        let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
