@@ -43,6 +43,19 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
 
     member x.Interpret (funcId : IFunctionIdentifier) (start : cilState) : unit =
         let cfg = findCfg funcId
+        let printStatistics () =
+            Logger.trace "Visit statistics:\n"
+            let p ip =
+                let k = cfg, ip
+                match visitedVertices.Value.ContainsKey k with
+                | true ->
+                    let cnt = Map.find k visitedVertices.Value
+                    Logger.trace "%O, %O: value = %d\n" cfg.methodBase ip cnt
+                | _ -> Logger.trace "%O, %O: value = 0" cfg.methodBase ip
+
+            Seq.iter (fun (offset : offset) -> p <| Instruction offset) cfg.sortedOffsets
+            p Exit
+
         let merge (x : cilState) (y : cilState) =
             match x.state.returnRegister, y.state.returnRegister with
             | None, None -> Memory.Merge2States x.state y.state |> List.map (withFst None)
@@ -51,17 +64,19 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             |> List.map (fun (r, s) -> {x with state = {s with returnRegister = r}})
 
         let rec interpret' (current : cilState) : unit =
-            x.Visit (cfg, current.ip)
-            let states = x.EvaluateOneStep (funcId, current)
-            states |> List.iter (fun state ->
-                if x.IsResultState funcId state then results.[funcId].Add(state)
-                match x.FindSimilar funcId state with
-                | None -> x.Add funcId state
-                | Some similar -> merge state similar |> List.iter (x.Add funcId))
+            if not <| x.Used cfg current.ip then
+                x.Visit (cfg, current.ip)
+                let states = x.EvaluateOneStep (funcId, current)
+                states |> List.iter (fun state ->
+                    if x.IsResultState funcId state then results.[funcId].Add(state)
+                    match x.FindSimilar funcId state with
+                    | None -> x.Add funcId state
+                    | Some similar -> merge state similar |> List.iter (x.Add funcId))
             match x.PickNext funcId with
             | Some newSt -> interpret' newSt
             | None -> ()
-        if not <| x.Used cfg start.ip then interpret' start
+        interpret' start
+        printStatistics ()
 
     override x.Invoke funcId state k =
         workingSet.TryAdd(funcId, List<cilState>())    |> ignore
@@ -119,15 +134,11 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
     member x.IsResultState (funcId : IFunctionIdentifier) (cilState : cilState) =
         cilState.ip = ip.Exit && cilState.state.opStack = []
     member x.PickNext (funcId : IFunctionIdentifier) =
-        let cfg = findCfg funcId
-        let rec findState () =
-            if workingSet.[funcId].Count = 0 then None
-            else
-                let st = workingSet.[funcId].[0]
-                workingSet.[funcId].RemoveAt 0
-                if x.Used cfg st.ip then findState ()
-                else Some st
-        findState ()
+        if workingSet.[funcId].Count > 0 then
+            let st = workingSet.[funcId].[0]
+            workingSet.[funcId].RemoveAt 0
+            Some st
+        else None
 
 and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     do

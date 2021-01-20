@@ -375,6 +375,7 @@ module public CFA =
 
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
                 let goodStates = List.filter x.CommonFilterStates states
+                if List.length goodStates <> List.length states then Logger.trace "Some states were not propagated from %O to %O" src.Ip ip
                 List.map (fun state -> cilState.Make ip state) goodStates)
 
         member x.Effect = effect
@@ -678,6 +679,7 @@ module public CFA =
                     else vertices
                 else
                     let finishedStates, incompleteStates, erroredStates = ilInterpreter.ExecuteAllInstructions cfg initialCilState
+                    let incompleteStates = List.filter (fun (cilState : cilState) -> cilState.ip <> srcVertex.Ip) incompleteStates
                     let goodStates = finishedStates |> List.filter (fun (cilState : cilState) -> cilState.ip = d.v)
                     srcVertex.AddErroredStates erroredStates
 
