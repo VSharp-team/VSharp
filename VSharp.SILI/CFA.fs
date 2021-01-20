@@ -725,12 +725,10 @@ type StepInterpreter() =
             let ip = cilState.ip
             let concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack cilState.state.opStack
             let vertices = cfa.body.vertices.Values |> Seq.filter (fun (v : CFA.Vertex) ->
-                v.Ip = ip && concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack v.OpStack) |> List.ofSeq
+                v.Ip = ip && concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack v.OpStack && v.OutgoingEdges.Count > 0) |> List.ofSeq
             match vertices with
             | [] -> base.EvaluateOneStep (funcId, cilState)
-            | _ ->
-                let dealWithVertex (v : CFA.Vertex) =
-                    Seq.fold (fun acc (edge : CFA.Edge) -> acc @ edge.PropagatePath cilState) [] v.OutgoingEdges
-                List.fold (fun acc v -> acc @ dealWithVertex v) [] vertices
+            | [v] -> Seq.fold (fun acc (edge : CFA.Edge) -> acc @ edge.PropagatePath cilState) [] v.OutgoingEdges
+            | _ -> __unreachable__()
         with
         | :? InsufficientInformationException as iie -> base.EvaluateOneStep (funcId, cilState)

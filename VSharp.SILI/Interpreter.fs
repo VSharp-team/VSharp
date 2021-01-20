@@ -62,7 +62,6 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             | Some newSt -> interpret' newSt
             | None -> ()
         if not <| x.Used cfg start.ip then interpret' start
-        else ()
 
     override x.Invoke funcId state k =
         workingSet.TryAdd(funcId, List<cilState>())    |> ignore
