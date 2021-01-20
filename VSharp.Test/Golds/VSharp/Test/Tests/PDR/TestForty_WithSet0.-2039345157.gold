@@ -1,0 +1,11 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestForty_WithSet0()
+RESULT: Totally 1 state:
+0
+MEMORY DUMP:
+--------------- Fields: ---------------
+_forty ==> {3 <- 0}
+_fortyTwo ==> {3 <- 42}
+_pi ==> {3 <- 3.14}
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.PDR+ClassWithLotsOFFields
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithLotsOFFields }

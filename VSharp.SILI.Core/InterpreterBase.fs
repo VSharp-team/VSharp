@@ -40,9 +40,6 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (codeLoc : ICodeLocation) (k : codeLocationSummary seq -> 'a) =
-        match LegacyDatabase.querySummary codeLoc with
-        | Some r -> k r
-        | None ->
             let k = API.Reset(); fun x -> API.Restore(); k x
             CurrentlyBeingExploredLocations.Add codeLoc |> ignore
             let initClosure frames =
@@ -52,30 +49,21 @@ type public ExplorerBase() =
                 { state with pc = PC.empty; frames = frames}
             match codeLoc with
             | :? IFunctionIdentifier as funcId ->
-//                let state, this, thisIsNotNull(*, isMethodOfStruct*) = x.FormInitialState funcId
                 let initialStates = x.FormInitialState funcId
                 let removePCs this thisIsNotNull =
                     List.map (fun (res, state) -> res, if Option.isSome this && thisIsNotNull <> True then Memory.removePathCondition state thisIsNotNull else state)
                 let invoke (state, this, thisIsNotNull) = x.Invoke funcId state (removePCs this thisIsNotNull)
                 let resultsAndStates =
                     initialStates |> List.map invoke |> List.concat
-//                    let state = if isMethodOfStruct then Memory.popStack state else state
+                    |> List.map (fun (result, state) -> {result = result; state = state})
                 CurrentlyBeingExploredLocations.Remove funcId |> ignore
-                LegacyDatabase.report funcId resultsAndStates |> k
+                k resultsAndStates
             | :? ILCodePortion as ilcode ->
                 let state = initClosure ilcode.Frames
                 x.Invoke ilcode state (fun resultsAndStates ->
                     CurrentlyBeingExploredLocations.Remove ilcode |> ignore
-                    LegacyDatabase.report ilcode resultsAndStates |> k)
+                    resultsAndStates |> List.map (fun (result, state) -> {result = result; state = state}) |> k)
             | _ -> __notImplemented__()
-
-//    member x.ReproduceEffect (codeLoc : ICodeLocation) state k =
-//        let addr = [Memory.freshAddress()]
-//        if CurrentlyBeingExploredLocations.Contains codeLoc then
-//            __notImplemented__()
-//        else
-//            let ctx : compositionContext = { addr = addr }
-//            x.Explore codeLoc (Seq.map (fun summary -> Memory.fillHoles ctx state summary.result, Memory.composeStates ctx state summary.state) >> List.ofSeq >> k)
 
 
     member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) state k =
@@ -183,9 +171,9 @@ type public ExplorerBase() =
                     | Some cctor ->
                         let removeCallSiteResultAndPopStack (stateAfterCallingCCtor : state) =
                             let stateAfterCallingCCtor = Memory.PopStack stateAfterCallingCCtor
-                            {stateAfterCallingCCtor with callSiteResults = state.callSiteResults}
+                            {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
-                        x.ReduceConcreteCall cctor state  (List.map (snd >> removeCallSiteResultAndPopStack)))
+                        x.ReduceConcreteCall cctor state (List.map (snd >> removeCallSiteResultAndPopStack)))
                     | None -> state |> List.singleton
                 k states // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
@@ -272,7 +260,6 @@ type public ExplorerBase() =
     default x.ReproduceEffect codeLoc state k =
         if CurrentlyBeingExploredLocations.Contains codeLoc then
             __notImplemented__()
-//            Explorer.recursionApplication codeLoc state addr k
         else
             x.ExploreAndCompose codeLoc state k
 
@@ -297,16 +284,9 @@ type public InterpreterBase<'InterpreterState when 'InterpreterState :> IInterpr
             let states = x.EvaluateOneStep current
             states |> List.iter (fun state ->
                 if x.IsResultState state then x.SetResultState state
-                else
-                    let newStates =
-                        if x.IsRecursiveState state then
-                            x.ExploreInIsolation state
-                        else state :: []
-                    newStates |> List.iter (fun newState ->
-                    match x.FindSimilar newState with
-                    | None -> x.Add newState
-                    | Some similar -> merge newState similar |> List.iter x.Add)
-                )
+                match x.FindSimilar state with
+                | None -> x.Add state
+                | Some similar -> merge state similar |> List.iter x.Add)
             if x.HasNextState () then
                 let newSt = x.PickNext ()
                 interpret' newSt

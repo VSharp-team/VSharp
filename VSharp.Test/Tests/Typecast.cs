@@ -100,6 +100,18 @@ namespace VSharp.Test.Tests.Typecast
             return DownCastObject(obj) + DownCastPiece(b);
         }
 
+        public static String DownCastToString(object str)
+        {
+            return (String) str;
+        }
+
+        [TestSvm]
+        public static String UpCastDownCastString()
+        {
+            object str = "literal";
+            return DownCastToString(str);
+        }
+
         [TestSvm]
         public static int DownCastPiece(Piece piece)
         {
@@ -423,7 +435,7 @@ namespace VSharp.Test.Tests.Typecast
             return (int)obj;
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

@@ -55,7 +55,7 @@ namespace VSharp.Test.Tests
 //            return a > 3;
 //        }
 
-        [Ignore("dfs goes through vertex twice #fix")]
+        [Ignore("Byref is not implemented")]
         public bool Construct()
         {
             var a = new List<int>(4) {1, 2, 3, 4};
@@ -91,7 +91,7 @@ namespace VSharp.Test.Tests
             return array.GetLowerBound(dimension);
         }
 
-        [Ignore("reinterpretation")]
+        [TestSvm]
         public int UpperBoundTest()
         {
             var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
@@ -218,8 +218,7 @@ namespace VSharp.Test.Tests
         {
         }
 
-        // [TestSvm]
-        [Ignore("exceptions handling: should append errored state to result")]
+        [Ignore("Exceptions handling")]
         public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
         {
             var array = new EmptyStruct[3];
@@ -238,8 +237,7 @@ namespace VSharp.Test.Tests
             return i;
         }
 
-        // [TestSvm]
-        [Ignore("Exceptions handling. Should we represent function summary as list of states and compose only those that have !False path condition?")]
+        [Ignore("Exceptions handling")]
         public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
         {
             var arr = new A[10];
@@ -368,8 +366,7 @@ namespace VSharp.Test.Tests
             return f;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int F(int x)
         {
             if (x > 10)
@@ -384,15 +381,13 @@ namespace VSharp.Test.Tests
             return Container.X + tmp.X;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int G(int x)
         {
             return F(5) + 10;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int NonEmptyPath(First f)
         {
             int res = 0;
@@ -444,7 +439,7 @@ namespace VSharp.Test.Tests
         }
 
         // Test on tracking current heap address during access to heap for filtering possible locations
-        [Ignore("Exception handling is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int MemoryTest(LinkedList<int> l)
         {
             LinkedListNode<int> n = new LinkedListNode<int>(10);
@@ -514,7 +509,7 @@ namespace VSharp.Test.Tests
                 Key = x;
             }
 
-            [TestSvm]
+            [Ignore("Forward exploration does not handle recursion now")]
             public void Add(int x)
             {
                 if (Key == x)
@@ -990,7 +985,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [Ignore("Test works too long")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static bool TestBinTree(BinTree tree, int x) // always true
         {
             if (tree == null)
@@ -999,8 +994,7 @@ namespace VSharp.Test.Tests
             return tree.Contains(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void TestBinTree2(BinTree tree, int x)
         {
             if (tree == null)
@@ -1008,8 +1002,7 @@ namespace VSharp.Test.Tests
             tree.Add2(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void ListTest(List list)
         {
             if (list == null)
@@ -1033,8 +1026,7 @@ namespace VSharp.Test.Tests
                 return RecF(y - 2);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int TestRecF(int n)
         {
             return RecF(n - 15);

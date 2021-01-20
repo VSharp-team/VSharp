@@ -68,9 +68,11 @@ module API =
         let MakeFunctionResultConstant state (callSite : callSite) =
             Memory.makeFunctionResultConstant state.currentTime callSite
 
-        let isStruct term = isStruct term
-        let isReference term = isReference term
+        let IsStruct term = isStruct term
+        let IsReference term = isReference term
         let IsNullReference term = Pointers.isNull term
+
+        let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -82,6 +84,7 @@ module API =
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
             | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))
+            | HeapRef _ -> __insufficientInformation__ "Unable to unbox symbolic ref %O" reference
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
@@ -90,6 +93,7 @@ module API =
     module Types =
         let Numeric t = Types.Numeric t
         let ObjectType = Types.objectType
+        let IndexType = Types.indexType
 
         let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> Memory.substituteTypeVariables state
         let ToDotNetType t = Types.toDotNetType t
@@ -103,7 +107,7 @@ module API =
         let IsReal t = Types.isReal t
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
-
+        let IsArrayType t = Types.isArray t
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
@@ -215,7 +219,14 @@ module API =
 
         let DefaultOf typ = makeDefaultValue typ
         let AllocateOnStack state key term = Memory.allocateOnStack state key term
+        let AllocateTemporaryLocalVariable state typ term =
+            let tmpKey = TemporaryLocalVariableKey typ
+            let ref = PrimitiveStackLocation tmpKey |> Ref
+            ref, Memory.allocateOnStack state tmpKey term
+
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
+
+        let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
 
         let BoxValueType state term =
             let address, state = Memory.freshAddress state
@@ -271,8 +282,6 @@ module API =
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
-//        let ThrowException state typ = __notImplemented__() //Memory.allocateException m.Value state typ
-
         let ComposeStates state state1 k = Memory.composeStates state state1 |> k
 
         let Merge2States (state1 : state) (state2 : state) =
@@ -284,7 +293,3 @@ module API =
 
     module Options =
         let HandleNativeInt f g = Options.HandleNativeInt f g
-
-    module LegacyDatabase =
-        let QuerySummary codeLoc =
-            LegacyDatabase.querySummary codeLoc ||?? lazy(internalfailf "database does not contain exploration results for %O" codeLoc)

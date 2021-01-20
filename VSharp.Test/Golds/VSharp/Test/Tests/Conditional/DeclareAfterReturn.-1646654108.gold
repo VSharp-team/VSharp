@@ -5,14 +5,14 @@ MEMORY DUMP:
 Path condition: !f
 Initialized types = { VSharp.Test.Tests.Conditional }
 
+42
+MEMORY DUMP:
+Path condition: f /\ flag
+Initialized types = { VSharp.Test.Tests.Conditional }
+
 x + x + x + x
 MEMORY DUMP:
 Path condition: !flag /\ f
 --------------- Stack: ---------------
 key = __loc__0, value = x + x
-Initialized types = { VSharp.Test.Tests.Conditional }
-
-42
-MEMORY DUMP:
-Path condition: f /\ flag
 Initialized types = { VSharp.Test.Tests.Conditional }

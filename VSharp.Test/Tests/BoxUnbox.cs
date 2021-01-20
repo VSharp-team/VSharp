@@ -41,7 +41,7 @@ namespace VSharp.Test.Tests
             return (T) o;
         }
 
-        [Ignore("reading from struct instead of ref #fix")]
+        [TestSvm]
         public static object UnboxAny1()
         {
             var b = new B(5);
@@ -62,21 +62,21 @@ namespace VSharp.Test.Tests
             return Cast<B>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static object UnboxAny4()
         {
             var a = new A();
             return Cast<A>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static object UnboxAny5()
         {
             var a = new int[] {1, 2, 3};
             return Cast<uint[]>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static object UnboxAny6()
         {
             var a = new uint[] {1, 2, 3};
@@ -104,7 +104,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [Ignore("reading from struct instead of ref #fix")]
+        [TestSvm]
         public static object Box7()
         {
             int? x = 7;
@@ -157,7 +157,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class UnboxGeneric<T>
     {
-        [Ignore("Unbox.any for generics is not implemented: no way to do `Nullable.GetUnderlyingType` for generic type #fix")]
+        [Ignore("Insufficient information is correct result")]
         public static T Cast(object o)
         {
             return (T) o;
@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [Ignore("Insufficient information")]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -184,14 +184,14 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [Ignore("Insufficient information #fix")]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValue(U t)
         {
             object o = t;
             return o;
         }
 
-        [Ignore("Insufficient information")]
+        [Ignore("Insufficient information is correct result")]
         public static object BoxValue(V t)
         {
             object o = t;

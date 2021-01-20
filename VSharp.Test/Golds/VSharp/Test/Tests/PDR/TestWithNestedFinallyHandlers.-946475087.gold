@@ -1,0 +1,7 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestWithNestedFinallyHandlers(System.Int32, System.Int32)
+RESULT: Totally 1 state:
+111
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = 111
+Initialized types = { VSharp.Test.Tests.PDR }

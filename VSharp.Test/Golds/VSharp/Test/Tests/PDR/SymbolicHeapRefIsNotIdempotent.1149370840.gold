@@ -1,0 +1,10 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.SymbolicHeapRefIsNotIdempotent(VSharp.Test.Tests.PDR+ClassWithOneField, VSharp.Test.Tests.PDR+ClassWithOneField)
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+Path condition: !(a == null)
+--------------- Fields: ---------------
+x ==> {a <- 42}
+--------------- Stack: ---------------
+key = a, value = (HeapRef b to VSharp.Test.Tests.PDR+ClassWithOneField)
+Initialized types = { VSharp.Test.Tests.PDR }

@@ -1,0 +1,11 @@
+METHOD: System.Object VSharp.Test.Tests.PDR.CallStaticCtor()
+RESULT: Totally 1 state:
+(HeapRef 1.2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+1.2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+--------------- Static fields: ---------------
+_f ==> {
+        VSharp.Test.Tests.PDR+ClassWithCCtor <- (HeapRef 1.2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithCCtor, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -1,21 +1,69 @@
 METHOD: System.Double VSharp.Test.Tests.Arithmetics.SqrtMethod3(System.Double)
-RESULT: UNION[
-	| !(x < 0) ~> sqrt(x)
-	| x < 0 ~> sqrt(-x)]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1.1 ==> [| 0 ~> 1; 1 ~> 10; 2 ~> 100; 3 ~> 1000; 4 ~> 10000; 5 ~> 100000; 6 ~> 1000000; 7 ~> 10000000; 8 ~> 100000000; 9 ~> 1000000000; 10 ~> 10000000000; 11 ~> 100000000000; 12 ~> 1000000000000; 13 ~> 10000000000000; 14 ~> 100000000000000; 15 ~> 1000000000000000 ... 16 ... |]
----------- s1 = ----------
-System.Math ==> CLASS [
-	| E ~> UNION[
-		| !hasKey#1 ~> 2.718281828459045
-		| hasKey#1 ~> System.Math.E]
-	| PI ~> UNION[
-		| !hasKey#1 ~> 3.141592653589793
-		| hasKey#1 ~> System.Math.PI]
-	| roundPower10Double ~> UNION[
-		| !hasKey#1 ~> (HeapRef 1.1)
-		| hasKey#1 ~> (HeapRef System.Math.roundPower10Double)]]
-System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
-VSharp.Test.Tests.Arithmetics ==> CLASS []
+RESULT: Totally 2 states:
+sqrt(-x)
+MEMORY DUMP:
+Path condition: x < 0
+--------------- Array contents: ---------------
+System.Double[] ==> {
+        9.3[0] <- 1
+        9.3[1] <- 10
+        9.3[2] <- 100
+        9.3[3] <- 1000
+        9.3[4] <- 10000
+        9.3[5] <- 100000
+        9.3[6] <- 1000000
+        9.3[7] <- 10000000
+        9.3[8] <- 100000000
+        9.3[9] <- 1000000000
+        9.3[10] <- 10000000000
+        9.3[11] <- 100000000000
+        9.3[12] <- 1000000000000
+        9.3[13] <- 10000000000000
+        9.3[14] <- 100000000000000
+        9.3[15] <- 1000000000000000
+    }
+--------------- Array lengths: ---------------
+System.Double[] ==> {9.3[0] <- 16}
+--------------- Types tokens: ---------------
+9.3 ==> System.Double[]
+--------------- Static fields: ---------------
+E ==> {System.Math <- 2.718281828459045}
+PI ==> {System.Math <- 3.141592653589793}
+roundPower10Double ==> {System.Math <- (HeapRef 9.3 to System.Double[])}
+--------------- Stack: ---------------
+key = __loc__0, value = -x
+Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Arithmetics, System.Math }
+
+sqrt(x)
+MEMORY DUMP:
+Path condition: !(x < 0)
+--------------- Array contents: ---------------
+System.Double[] ==> {
+        9.3[0] <- 1
+        9.3[1] <- 10
+        9.3[2] <- 100
+        9.3[3] <- 1000
+        9.3[4] <- 10000
+        9.3[5] <- 100000
+        9.3[6] <- 1000000
+        9.3[7] <- 10000000
+        9.3[8] <- 100000000
+        9.3[9] <- 1000000000
+        9.3[10] <- 10000000000
+        9.3[11] <- 100000000000
+        9.3[12] <- 1000000000000
+        9.3[13] <- 10000000000000
+        9.3[14] <- 100000000000000
+        9.3[15] <- 1000000000000000
+    }
+--------------- Array lengths: ---------------
+System.Double[] ==> {9.3[0] <- 16}
+--------------- Types tokens: ---------------
+9.3 ==> System.Double[]
+--------------- Static fields: ---------------
+E ==> {System.Math <- 2.718281828459045}
+PI ==> {System.Math <- 3.141592653589793}
+roundPower10Double ==> {System.Math <- (HeapRef 9.3 to System.Double[])}
+--------------- Stack: ---------------
+key = __loc__0, value = x
+Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Arithmetics, System.Math }

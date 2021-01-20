@@ -3,10 +3,10 @@ RESULT: Totally 1 state:
 True
 MEMORY DUMP:
 --------------- Fields: ---------------
-_a ==> {2 <- VSharp.Test.Tests.PDR+A STRUCT [
+_a ==> {4 <- VSharp.Test.Tests.PDR+A STRUCT [
 	| x ~> n]}
 --------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.PDR+ClassWithStructInside
+4 ==> VSharp.Test.Tests.PDR+ClassWithStructInside
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithStructInside)
+key = __loc__0, value = (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithStructInside)
 Initialized types = { VSharp.Test.Tests.PDR+A, VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithStructInside }

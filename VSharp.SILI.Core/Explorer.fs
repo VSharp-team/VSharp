@@ -13,18 +13,17 @@ type IMethodIdentifier =
     abstract DeclaringType : System.Type
     abstract DeclaringAssembly : Assembly
 
-type ILCodePortion(vertexNumber : int, recursiveVertices : int list, funcId : IFunctionIdentifier, state : state) =
+type ILCodePortion(vertexNumber : int, funcId : IFunctionIdentifier, state : state) =
     member x.VertexNumber with get() = vertexNumber
-    member x.RecursiveVertices with get() = recursiveVertices
     member x.Frames with get() = state.frames
     member x.FuncId with get() = funcId
     override x.Equals(b) =
         match b with
-        | :? ILCodePortion as ilcode -> ilcode.VertexNumber = vertexNumber && ilcode.RecursiveVertices = recursiveVertices && ilcode.FuncId = funcId
+        | :? ILCodePortion as ilcode -> ilcode.VertexNumber = vertexNumber && ilcode.FuncId = funcId
         | _ -> false
     override x.GetHashCode() =
         let codeLoc = x :> ICodeLocation
         codeLoc.Location.GetHashCode()
-    override x.ToString() = sprintf "Vertex = %d, RV = %O" vertexNumber recursiveVertices
+    override x.ToString() = sprintf "Vertex = %d" vertexNumber
     interface ICodeLocation with
-        override x.Location = (vertexNumber, recursiveVertices) :> obj
+        override x.Location = vertexNumber :> obj

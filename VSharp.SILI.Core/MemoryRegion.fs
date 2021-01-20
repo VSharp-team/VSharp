@@ -214,8 +214,12 @@ module MemoryRegion =
         let makeDefault () = makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
+    let validateWrite value cellType =
+        let typ = typeOf value
+        typ = Null && (not <| Types.isValueType cellType) || Types.isConcreteSubtype typ cellType // do not reorder operands of "OR"!
+
     let write mr key value =
-        assert(Types.isConcreteSubtype (typeOf value) mr.typ)
+        assert(validateWrite value mr.typ)
         {typ=mr.typ; updates=UpdateTree.write key value mr.updates}
 
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =

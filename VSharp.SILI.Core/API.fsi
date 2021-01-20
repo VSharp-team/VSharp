@@ -48,9 +48,11 @@ module API =
         val TypeOf : term -> symbolicType
         val BaseTypeOfHeapRef : state -> term -> symbolicType
 
-        val isStruct : term -> bool
-        val isReference : term -> bool
+        val IsStruct : term -> bool
+        val IsReference : term -> bool
         val IsNullReference : term -> term
+
+        val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
@@ -66,6 +68,7 @@ module API =
     module Types =
         val Numeric : System.Type -> symbolicType
         val ObjectType : symbolicType
+        val IndexType : symbolicType
 
         val FromDotNetType : state -> System.Type -> symbolicType
         val ToDotNetType : symbolicType -> System.Type
@@ -79,7 +82,7 @@ module API =
         val IsReal : symbolicType -> bool
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
-
+        val IsArrayType : symbolicType -> bool
         val String : symbolicType
         val (|StringType|_|) : symbolicType -> unit option
 
@@ -146,14 +149,17 @@ module API =
 
         val DefaultOf : symbolicType -> term
         val AllocateOnStack : state -> stackKey -> term -> state
+        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
         val MakeSymbolicThis : System.Reflection.MethodBase -> term
+
+        val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+
         val BoxValueType : state -> term -> term * state
         val AllocateDefaultStatic : state -> symbolicType -> state
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
-//        val ThrowException : state -> symbolicType -> term * state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
@@ -172,9 +178,6 @@ module API =
 
     module Options =
         val HandleNativeInt : 'a -> 'a -> 'a
-
-    module LegacyDatabase =
-        val QuerySummary : ICodeLocation -> codeLocationSummary list
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state

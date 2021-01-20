@@ -34,6 +34,16 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
+        [TestSvmFixture]
+        public static class NonGenericClassInsideGenericClass
+        {
+            [TestSvm]
+            public static int GenericMethodOfNonGenericType(U a)
+            {
+                return 0;
+            }
+        }
+
         [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
@@ -46,7 +56,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [Ignore("Insufficient information")]
+        [Ignore("Insufficient information is correct result")]
         public static T RetT(T t)
         {
             return t;
@@ -62,21 +72,19 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public static T RetT(T t)
         {
             return t;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public static U RetU(U u)
         {
             return u;
         }
 
-        [Ignore("Insufficient information")]
+        [Ignore("Insufficient information is correct result")]
         public static P RetP(P p)
         {
             return p;
@@ -88,15 +96,14 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
-        public static N RetT(N n)
+        [Ignore("Insufficient information is correct result")]
+        public static N RetN(N n)
         {
             return n;
         }
 
         [TestSvm]
-        public static Z RetU(Z z)
+        public static Z RetZ(Z z)
         {
             return z;
         }
@@ -119,7 +126,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [Ignore("Insufficient information")]
+        [Ignore("Insufficient information is correct result")]
         public static V RetV(V v)
         {
             return v;
@@ -163,15 +170,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public T GetFields()
         {
             return _field;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [Ignore("Insufficient information is correct result")]
         public void SetField(T f)
         {
             _field = f;

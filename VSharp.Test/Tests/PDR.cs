@@ -78,14 +78,14 @@ namespace VSharp.Test.Tests
 
         private static int ReturnConstant() => 17;
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int CasualFactorial(int x)
         {
             if (x <= 0) return 1;
             return x * CasualFactorial(x - 1);
         }
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int CasualFactorial1()
         {
             return CasualFactorial(1);
@@ -169,6 +169,21 @@ namespace VSharp.Test.Tests
             var z = new double[32];
         }
 
+        [TestSvm]
+        public static int TestCompositionWhenCallDividesBlocksAndSomeInformationIsPropagated()
+        {
+            object c = new ClassWithOneField();
+            for (int i = 0; i < 2; i++)
+            {
+                var x = new int[32];
+            }
+
+            var y = new double[32];
+            var z = new double[32];
+            ReturnConstant();
+
+            return y.Length + z.Length;
+        }
 
         [TestSvm]
         public static void SequentialNewObjs()
@@ -229,7 +244,7 @@ namespace VSharp.Test.Tests
             return classWithOneField.x;
         }
 
-        [Ignore("No states obtained, because exception handling is not implemented")]
+        [Ignore("Exceptions handling")]
         public static void AlwaysNullReferenceException()
         {
             ReadFieldOfCLass(null);
@@ -286,6 +301,18 @@ namespace VSharp.Test.Tests
         {
             new object();
             new object();
+        }
+
+        public static void AllocateObject()
+        {
+            new object();
+        }
+
+        [TestSvm]
+        public static void DoubleAllocateViaCall()
+        {
+            AllocateObject();
+            AllocateObject();
         }
 
         [TestSvm]
@@ -454,7 +481,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting f -> 100, !f -> 20
-        [Ignore("uncomment test when InsInfException handling")]
+        [Ignore("Insufficient information is correct result")]
         public static int TestLengths_6(bool f)
         {
             Array array = new int[4, 5];
@@ -492,7 +519,7 @@ namespace VSharp.Test.Tests
         }
 
 
-        // [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int ThrowException(int x)
         {
             throw new Exception();
@@ -550,7 +577,7 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        [Ignore("No states obtained, need to implement exceptions")]
+        [Ignore("Exceptions handling")]
         public static void CheckFinallyOrderForNestedTryBlocks2()
         {
             try
@@ -676,6 +703,112 @@ namespace VSharp.Test.Tests
             }
         }
 
+
+        public class ClassWithLotsOFFields
+        {
+            public A _a;
+            public ClassWithLotsOFFields _next;
+            public double _pi = 3.14;
+            public int _fortyTwo = 42;
+            public int _forty;
+            public Array _array;
+            public Action _action;
+
+            public ClassWithLotsOFFields()
+            {
+                _forty = 40;
+            }
+        }
+
+        [TestSvm]
+        public static ClassWithLotsOFFields TestDefaultFieldsAllocation()
+        {
+            return new ClassWithLotsOFFields();
+        }
+
+        [TestSvm]
+        public static ClassWithLotsOFFields TestNext()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            return classWithLotsOfFields._next;
+        }
+
+        [TestSvm]
+        public static int CheckInvalidCfaConstruction(bool f)
+        {
+            ClassWithLotsOFFields c = new ClassWithLotsOFFields();
+            if (f)
+            {
+                c._forty = 40;
+            }
+            else
+            {
+                c._forty = 100;
+            }
+
+            if (c._forty == 40)
+            {
+                return 40;
+            }
+
+            if (c._forty == 100)
+            {
+                return 100;
+            }
+
+            return 100500;
+        }
+
+
+        [TestSvm]
+        public static int TestForty()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            return classWithLotsOfFields._forty;
+        }
+
+        [TestSvm]
+        public static int TestForty_WithSet0()
+        {
+            ClassWithLotsOFFields classWithLotsOfFields = new ClassWithLotsOFFields();
+            classWithLotsOfFields._forty = 0;
+            return classWithLotsOfFields._forty;
+        }
+
+        public struct StructWithStructInside2
+        {
+            private A _a;
+
+            public StructWithStructInside2(int n)
+            {
+                _a = new A(n);
+            }
+
+            public int GetN()
+            {
+                return _a.x;
+            }
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test1_StructWithStructInside2()
+        {
+            return new StructWithStructInside2();
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test2_StructWithStructInside2(int n)
+        {
+            return new StructWithStructInside2(n);
+        }
+
+        [TestSvm]
+        public static StructWithStructInside2 Test3_StructWithStructInside2()
+        {
+            return new StructWithStructInside2(42);
+        }
+
+
         public class ClassWithClassInside
         {
             private ClassWithOneField _classWithOneField;
@@ -707,7 +840,7 @@ namespace VSharp.Test.Tests
             return new ClassWithClassInside(n);
         }
 
-        [Ignore("Newobj is not implemented properly for structs: where to allocate struct for ctor call")]
+        [TestSvm]
         public static int CreateStructViaNewobj(int n)
         {
             int res1 = new A(n).GetX();
@@ -745,25 +878,140 @@ namespace VSharp.Test.Tests
             return checked(x + y);
         }
 
+        // expecting 111
+        [TestSvm]
+        public static int TestWithNestedFinallyHandlers(int x, int y)
+        {
+            int addition = 1;
+            try  {}
+            finally
+            {
+                try { }
+                finally
+                {
+                    addition += 10;
+                }
+                addition += 100;
+            }
 
+            return addition;
+        }
 
+        public static void MutateField(ClassWithOneField a)
+        {
+            a.x = 42;
+        }
 
+        [TestSvm]
+        public static void SymbolicHeapRefIsNotIdempotent(ClassWithOneField a, ClassWithOneField b) {
+            var x = a;
+            a = b;
+            MutateField(x);
+        }
 
-        // [TestSvm]
-        // public static int CheckOperationalStackBalance(int x)
-        // {
-        //     int y = 2 * x;
-        //     if (x > 0)
-        //     {
-        //         y++;
-        //     }
-        //     else
-        //     {
-        //         int z = -x - 5;
-        //         y = z + 1;
-        //     }
-        //
-        //     return y;
-        // }
+        [TestSvm]
+        public static int TestThatEffectsDoNotSpreadToDifferentBasicBlocks(int x)
+        {
+            x = x * x;
+            return F(x + 42);
+        }
+
+        private static int Foooo(int x)
+        {
+            return x + 42;
+        }
+
+        public class Aaaa
+        {
+            public int a;
+        }
+
+        [TestSvm]
+        public static int TestArgComposition(Aaaa c)
+        {
+            c.a = c.a * c.a;
+            c.a = Foooo(c.a);
+            return c.a;
+        }
+
+        private static A Set900ForStruct(A a)
+        {
+            a.x = 900;
+            return a;
+        }
+
+        [TestSvm]
+        public static A StructIsAllocatedInTemporaryLocalVariableBeforeCallingCtor()
+        {
+            A a = new A(17);
+            return Set900ForStruct(a);
+        }
+
+        private static int F(int n, ref int x) {
+            int m = n;
+            if (n == 0) {
+                x = 42;
+                return 0;
+            }
+            return (n == 10 ? F(n-1, ref m) : F(n-1, ref x)) + m;
+        }
+
+        private static T[] EnsureConcreteTypeForArrayCreation<T>(int size)
+        {
+            return new T[size];
+        }
+
+        [TestSvm]
+        public static void EnsureConcreteType_1()
+        {
+            int[] array = EnsureConcreteTypeForArrayCreation<int>(10);
+            array[9] = 42;
+        }
+
+        // expecting 87
+        [Ignore("Byref type is not implemented!")]
+        public static int MutateStackValueFromPreviousFrame()
+        {
+            int x = 0;
+            return F(10, ref x);
+        }
+
+        [TestSvm]
+        public static int CheckOperationalStackBalance(int x)
+        {
+            int y = 2 * x;
+            if (x > 0)
+            {
+                y++;
+            }
+            else
+            {
+                int z = -x - 5;
+                y = z + 1;
+            }
+            return y;
+        }
+
+        [TestSvm]
+        public static double AddressesBecomeComplicated(double x)
+        {
+            double y;
+
+            if (x >= 0)
+            {
+                y = x;
+            }
+            else
+            {
+                y = -x;
+            }
+
+            ReturnConstant();
+            var obj3 = new object();
+            var obj4 = new object();
+            var obj5 = new object();
+
+            return Math.Log(y);
+        }
     }
 }

@@ -1,0 +1,11 @@
+METHOD: VSharp.Test.Tests.PDR+ClassWithLotsOFFields VSharp.Test.Tests.PDR.TestNext()
+RESULT: Totally 1 state:
+NullRef
+MEMORY DUMP:
+--------------- Fields: ---------------
+_forty ==> {3 <- 40}
+_fortyTwo ==> {3 <- 42}
+_pi ==> {3 <- 3.14}
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.PDR+ClassWithLotsOFFields
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithLotsOFFields }

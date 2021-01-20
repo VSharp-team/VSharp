@@ -27,14 +27,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
-        [Ignore("typeOfStackLocation when location is not in stack #fix")]
+        [Ignore("ThisKey for lambda function is not in stack")]
         public static int Always18()
         {
             return Mult2(9);
         }
 
         // Expecting always true
-        [Ignore("Null lambda was invoked")]
+        [Ignore("ThisKey for lambda function is not in stack")]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;

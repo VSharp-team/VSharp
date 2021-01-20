@@ -13,15 +13,13 @@ namespace VSharp.Test.Tests
             return FibRec(n - 1) + FibRec(n - 2);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int Fib2()
         {
             return FibRec(2);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int Fib5()
         {
             return FibRec(5);
@@ -47,8 +45,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int FibUnbound(int n)
         {
             _c = 42;
@@ -70,15 +67,13 @@ namespace VSharp.Test.Tests
             return GcdRec(n, m - n);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int Gcd1()
         {
             return GcdRec(15, 4);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int Gcd15()
         {
             return GcdRec(30, 75);
@@ -88,8 +83,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public static class McCarthy91
     {
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int McCarthy(int n)
         {
             return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
@@ -140,8 +134,7 @@ namespace VSharp.Test.Tests
             return s;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static SmallClass MutationAfterRecursionTest(int n)
         {
             var s1 = new BigClass {Small = new SmallClass()};

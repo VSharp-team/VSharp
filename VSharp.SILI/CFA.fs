@@ -1,14 +1,199 @@
 namespace VSharp.Analyzer
 
+open System
 open System.Reflection
 open System.Collections.Generic
-
 open System.Reflection.Emit
 open VSharp.Interpreter.IL
-open CFG
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+
+module TermUtils =
+    let internal term (t : term) = t.term
+
+    let internal getAddressTermFromRefOrPtr getTerm refOrPtr =
+        let rec getLastAddress = function
+            | StructField(addr, _) -> getLastAddress addr
+            | addr -> addr
+        let getAddressTerm = term >> function
+            | Ptr(Some addr, _, _)
+            | Ref addr -> getLastAddress addr |> getTerm
+            | _ -> __unreachable__()
+        GuardedApplyExpression refOrPtr getAddressTerm
+
+    let internal isConcrete (term : term) =
+        match term.term with
+        | Concrete _ -> true
+        | _ -> false
+
+
+    let internal (|ConcreteHeapAddress|_|) = term >> (|ConcreteHeapAddress|_|)
+    let internal isConcreteHeapAddress = function
+        | ConcreteHeapAddress _ -> true
+        | _ -> false
+
+    let rec internal isConcreteAddress (address : address) =
+        match address with
+        | PrimitiveStackLocation _
+        | BoxedLocation _
+        | StaticField _ -> true
+        | StackBufferIndex (_, term) -> isConcrete term
+        | StructField (address, _) -> isConcreteAddress address
+        | ClassField (heapAddress, _)
+        | ArrayIndex (heapAddress, _, _)
+        | ArrayLowerBound (heapAddress, _, _)
+        | ArrayLength (heapAddress, _, _) -> isConcreteHeapAddress heapAddress
+
+    let internal isConcretePtr = function
+        | Ptr(None, _, None) -> true
+        | Ptr(None, _, Some shift) -> isConcrete shift
+        | Ptr(Some address, _, None) -> isConcreteAddress address
+        | Ptr(Some address, _, Some shift) -> isConcreteAddress address && isConcrete shift
+        | _ -> false
+
+[<StructuralEquality;NoComparison>]
+type opStackSource =
+    {shift : uint32; typ : symbolicType; time : vectorTime}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.time
+        override x.TypeOfLocation = x.typ
+        override x.Compose state =
+            let validateCompositionResult typ =
+                typ = Null && (not <| Types.IsValueType x.typ)
+                || (Types.ToDotNetType typ).IsAssignableFrom (Types.ToDotNetType x.typ) // do not reorder operands of "OR"!
+
+            let result = List.item (int x.shift) state.opStack
+            assert(validateCompositionResult <| TypeOf result) // TODO: what if (0:int) is assigned to reference?
+            result
+
+[<StructuralEquality;NoComparison>]
+type stackBufferIndexAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = Types.IndexType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | StackBufferIndex(_, term) -> term
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type classFieldAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ClassField(term, _) -> term
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayIndexHeapAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayIndex(term, _, _) -> term
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayIndexItem =
+    {baseSource : IMemoryAccessConstantSource; i : int}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayIndex(_, indices, _) -> List.item x.i indices
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLowerBoundHeapAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLowerBound(term, _, _) -> term
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLowerBoundDimension =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLowerBound(_, dim, _) -> dim
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLengthAddress =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLength(term, _, _) -> term
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type arrayLengthDimension =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getTerm = function
+                | ArrayLength(_, dim, _) -> dim
+                | _ -> __unreachable__()
+            TermUtils.getAddressTermFromRefOrPtr getTerm baseTerm
+
+[<StructuralEquality;NoComparison>]
+type pointerShift =
+    {baseSource : IMemoryAccessConstantSource}
+    interface IMemoryAccessConstantSource with
+        override x.SubTerms = Seq.empty
+        override x.Time = x.baseSource.Time
+        override x.TypeOfLocation = AddressType
+        override x.Compose state =
+            let baseTerm = x.baseSource.Compose state
+            let getShift term =
+                match term.term with
+                | Ptr(_, _, Some shift) -> shift
+                | _ -> __unreachable__()
+            GuardedApplyExpression baseTerm getShift
 
 module Properties =
     let internal exitVertexOffset = -1
@@ -18,8 +203,21 @@ module Properties =
     let internal initialVertexNumber = 0
 
 module public CFA =
+    open TermUtils
     let mutable stepItp : ILInterpreter option = None
     let configureInterpreter itp = stepItp <- Some itp
+
+    let withState = InstructionsSet.withState
+    let withOpStack = InstructionsSet.withOpStack
+    let withIp = InstructionsSet.withIp
+    let pushToOpStack = InstructionsSet.pushToOpStack
+
+    let pushNewObjResultOnOpStack state reference (calledMethod : MethodBase) =
+        let valueOnStack =
+            if calledMethod.DeclaringType.IsValueType then
+                  Memory.ReadSafe state reference
+            else reference
+        {state with opStack = valueOnStack :: state.opStack}
 
     type vertexLabel =
         | FromCFG of offset
@@ -29,13 +227,10 @@ module public CFA =
         member x.Foo() = ()
 
     // TODO: use vertexLabel instead of offset
-//    [<AllowNullLiteral;CustomEquality;CustomComparison>]
-//    [<CustomEquality;CustomComparison>]
     type Vertex private(id, m : MethodBase, offset, opStack : operationalStack) =
         static let ids : Dictionary<MethodBase, int> = Dictionary<_,_>()
         let lemmas = Lemmas(m, offset)
         let paths = Paths(m, offset)
-//        let paths : Paths persistent = let r = new persistent<_>(always (Paths(m, offset)), id) in r.Reset(); r
         let queries = Queries(m, offset)
         let solver = null //Solver.SolverPool.mkSolver()
         let errors = List<cilState>()
@@ -47,7 +242,7 @@ module public CFA =
             match o with
             | :? Vertex as other -> x.Method = other.Method && x.Ip = other.Ip
             | _ -> false
-        interface System.IComparable with
+        interface IComparable with
             override x.CompareTo(other) =
                 match other with
                 | :? Vertex as other when x.Method.Equals(other.Method) -> x.GetHashCode().CompareTo(other.GetHashCode())
@@ -58,11 +253,7 @@ module public CFA =
 
         member x.Id with get() = id
         member x.Lemmas = lemmas
-//        member x.Reset () = paths.Reset()
-//        member x.Restore () = paths.Restore()
         member x.Paths with get () = paths
-//        member x.Paths with get() =
-//            paths.Value
         member x.Queries = queries
         member x.Solver = solver
         member x.IncomingEdges = incomingEdges
@@ -141,7 +332,7 @@ module public CFA =
 
     type cfa =
             {
-              cfg : cfgData
+              cfg : CFG.cfgData
               body : MethodBase unitBlock
               finallyHandlers : Dictionary<offset, ExceptionHandlingClause unitBlock>
             }
@@ -186,30 +377,37 @@ module public CFA =
         member x.VisibleVariables() = __notImplemented__()
 
         override x.ToString() =
-            sprintf "%s\neffect = %O\npc = %O\n" (base.ToString()) (API.Memory.Dump effect) effect.pc
+            sprintf "%s\neffect = %O\npc = %s\n" (base.ToString()) (API.Memory.Dump effect) (toString effect.pc)
 
-    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state) =
+    type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop) =
         inherit Edge(src, dst)
         do
            assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
         override x.PropagatePath (path : path) =
-            let addCallSiteResult callSiteResults (callSite : callSite) (res : term option) =
-                if callSite.HasNonVoidResult then
-                    assert(Option.isSome res)
-                    Map.add callSite res callSiteResults
-                else callSiteResults
             let k states =
                 let propagateStateAfterCall acc state =
                     assert(path.state.frames = state.frames)
                     x.PrintLog "propagation through callEdge:\n" callSite
                     x.PrintLog "call edge: composition left:\n" (Memory.Dump path.state)
                     x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
-                    let result' = x.CommonPropagatePath (path.lvl + 1u) {state with callSiteResults = addCallSiteResult path.state.callSiteResults callSite state.returnRegister
-                                                                                    returnRegister = None}
+                    let stateAfterCall =
+                        let opStack = List.skip numberToDrop path.state.opStack
+                        if callSite.HasNonVoidResult then
+                            assert(Option.isSome state.returnRegister)
+                            { state with
+                                callSiteResults = Map.add callSite state.returnRegister path.state.callSiteResults
+                                returnRegister = None
+                                opStack = Option.get state.returnRegister :: opStack }
+                        elif callSite.opCode = OpCodes.Newobj then
+                            let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
+                            let state = pushNewObjResultOnOpStack {state with opStack = opStack} reference callSite.calledMethod
+                            { state with callSiteResults = path.state.callSiteResults}
+                        else { state with callSiteResults = path.state.callSiteResults; opStack = opStack}
+
+                    let result' = x.CommonPropagatePath (path.lvl + 1u) stateAfterCall
                     acc || result'
                 List.fold propagateStateAfterCall false states
-//            let k1 results = results |> List.unzip |> snd |> k
             Prelude.releaseAssert (Option.isSome stepItp)
             let interpreter = stepItp |> Option.get
             let states = Memory.ComposeStates path.state stateWithArgsOnFrameAndAllocatedType id
@@ -232,17 +430,37 @@ module public CFA =
     module cfaBuilder =
         let private alreadyComputedCFAs = Dictionary<MethodBase, cfa>()
 
-        type bypassData =
-            { ip : ip
+        [<CustomEquality; CustomComparison>]
+        type bypassDataForEdges =
+            { u : ip
+              srcVertex : Vertex
+              v : ip
+              uOut : int
+              vOut : int
+              minSCCs : int
               opStack : operationalStack
               allocatedTypes : pdict<concreteHeapAddress, symbolicType>
               lengths : pdict<arrayType, vectorRegion>
-              lowerBounds : pdict<arrayType, vectorRegion> }
-
-        let createData ip opStack allocatedTypes lengths lowerBounds =
-            {
-                ip = ip; opStack = opStack; allocatedTypes = allocatedTypes; lengths = lengths; lowerBounds = lowerBounds
+              lowerBounds : pdict<arrayType, vectorRegion>
             }
+            override x.ToString() =
+                let emptyState = {API.Memory.EmptyState with opStack = x.opStack }
+                sprintf "u = %O, id = %d; v = %O; state = %s" x.u x.srcVertex.Id x.v (Memory.Dump emptyState)
+            override x.GetHashCode() = (x.u, x.v, x.srcVertex).GetHashCode()
+            override x.Equals y =
+                match y with
+                | :? bypassDataForEdges as y -> x.u = y.u && x.srcVertex.Equals(y.srcVertex) && x.v = y.v && x.opStack = y.opStack
+                | _ -> false
+            interface IComparable with
+                override x.CompareTo (obj : obj) =
+                    let rec compareData a1 a2 a3 b1 b2 b3 =
+                        if a1 > b1 || a1 = b1 && a2 > b2 || a1 = b1 && a2 = b2 && a3 > b3 then -1
+                        elif a1 = b1 && a2 = b2 && a3 = b3 then 0
+                        else 1
+
+                    match obj with
+                    | :? bypassDataForEdges as other -> compareData x.minSCCs x.uOut x.vOut other.minSCCs other.uOut other.vOut
+                    | _ -> -1
 
         let private createEmptyCFA cfg method =
             {
@@ -255,161 +473,235 @@ module public CFA =
             edge.Src.OutgoingEdges.Add edge
             edge.Dst.IncomingEdges.Add edge
 
-        let private executeInstructions (ilintpr : ILInterpreter) cfg (cilState : cilState) =
-            assert (cilState.ip.CanBeExpanded())
-            let startingOffset = cilState.ip.Offset ()
-            let endOffset =
-                let lastOffset = Seq.last cfg.sortedOffsets
-                if startingOffset = lastOffset then cfg.ilBytes.Length
+        let private shouldRemainOnOpStack (term : term) =
+            match term.term with
+            | Concrete _ -> true
+            | Ref addr -> isConcreteAddress addr
+            | Ptr _ as v -> isConcretePtr v
+            | HeapRef(heapAddress, _) -> isConcreteHeapAddress heapAddress
+            | _ -> false
+
+        let private updateLI makeSource term name typ =
+            let isConcrete =
+                match typ with
+                | AddressType -> isConcreteHeapAddress
+                | _ when Types.IsInteger typ -> isConcrete
+                | _ -> __notImplemented__()
+            if isConcrete term then term
+            else Constant name (makeSource()) typ
+
+        let rec private makeSymbolicAddress source = function
+            | StackBufferIndex(key, term) when isConcrete term |> not ->
+                let source : stackBufferIndexAddress = {baseSource = source}
+                StackBufferIndex(key, Constant "StackBufferIndex" source Types.IndexType)
+            | StructField(address, fieldId) ->
+                StructField(makeSymbolicAddress source address, fieldId)
+            | ClassField(heapAddress, fieldId) when isConcreteHeapAddress heapAddress |> not ->
+                let source : classFieldAddress = {baseSource = source}
+                ClassField(Constant "ClassFieldAddress" source AddressType, fieldId)
+            | ArrayIndex(heapAddress, indices, aType) ->
+                let makeAddressSource () : arrayIndexHeapAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayIndexHeapAddress" AddressType
+                let makeIndexSource i () : arrayIndexItem = {baseSource = source; i = i}
+                let indexName i = sprintf "ArrayIndex.[%d]" i
+                let indices = List.mapi (fun i x -> updateLI (makeIndexSource i) x (indexName i) Types.IndexType) indices
+                ArrayIndex(address, indices, aType)
+            | ArrayLowerBound(heapAddress, dim, aType) ->
+                let makeAddressSource () : arrayLowerBoundHeapAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayLowerBoundHeapAddress" AddressType
+                let makeDimSource () : arrayLowerBoundDimension = {baseSource = source}
+                let dim = updateLI makeDimSource dim "ArrayLowerBoundDimension" Types.IndexType
+                ArrayLowerBound(address, dim, aType)
+            | ArrayLength(heapAddress, dim, aType) ->
+                let makeAddressSource () : arrayLengthAddress = {baseSource = source}
+                let address = updateLI makeAddressSource heapAddress "ArrayLengthAddress" AddressType
+                let makeDimSource () : arrayLengthDimension = {baseSource = source}
+                let dim = updateLI makeDimSource dim "ArrayLengthDimension" Types.IndexType
+                ArrayLength(address, dim, aType)
+            | address -> address
+
+        let makeSymbolicOpStack time (opStack : term list) : term list=
+            let mkSource (index : int) typ =
+                {shift = uint32 index; typ = typ; time = time}
+
+            let makeSymbolic index (v : term) =
+                if shouldRemainOnOpStack v then v
                 else
-                    let index = cfg.sortedOffsets.BinarySearch startingOffset
-                    cfg.sortedOffsets.[index + 1]
-            let isOffsetOfCurrentVertex (offset : ip) = startingOffset <= offset.Offset() && offset.Offset() < endOffset
-            let rec executeAllInstructions erroredStates (offset : ip) cilState : cilState list=
-                let allStates = ilintpr.ExecuteInstruction cfg (offset.Offset()) cilState
-                let newErrors, goodStates = allStates |> List.partition (fun (_, cilState) -> cilState.HasException)
-                let allErrors = erroredStates @ List.map (fun (erroredOffset, (cilState : cilState)) -> {cilState with ip = erroredOffset}) newErrors
+                    let shift = index
+                    let typ = TypeOf v
+                    let source = mkSource shift typ
+                    let name = sprintf "opStack.[%d] from top" shift
+                    match v.term with
+                    | Ref address ->
+                        makeSymbolicAddress source address |> Ref
+                    | Ptr(address, typ, shift) ->
+                        let addr = Option.map (makeSymbolicAddress source) address
+                        let makeShiftSource () : pointerShift = {baseSource = source}
+                        let shift = Option.map (fun shift -> updateLI makeShiftSource shift "PointerShift" Types.IndexType) shift
+                        Ptr addr typ shift
+                    | _ -> Memory.MakeSymbolicValue source name typ
 
-                match goodStates with
-                | list when List.forall (fst >> (=) ip.Exit) list -> List.map (fun (_, state) -> { state with ip = ip.Exit}) list @ allErrors
-                | (nextOffset, _)::xs as list when isOffsetOfCurrentVertex nextOffset
-                                                   && List.forall (fun (offset, _) -> offset = nextOffset && isOffsetOfCurrentVertex offset) xs ->
-                    List.collect ((<||) (executeAllInstructions allErrors)) list
-                | list -> allErrors @ (list |> List.map (fun (offset, cilState) -> {cilState with ip = offset}))
-            executeAllInstructions [] (Instruction startingOffset) cilState
+            let symbolicOpStack = List.mapi makeSymbolic opStack
+            symbolicOpStack
 
-        let computeCFAForMethod (ilintptr : ILInterpreter) (initialState : state) (cfa : cfa) (used : Dictionary<bypassData, int>) (block : MethodBase unitBlock) =
+        let private executeSeparatedOpCode (interpreter : ILInterpreter) (cfg : cfg) (cilState : cilState) =
+            let offset = cilState.ip.Offset()
+            let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
+            let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
+            let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
+                if methodInfo.ReturnType = typeof<System.Void> then cilState
+                else pushToOpStack (Terms.MakeFunctionResultConstant cilState.state callSite) cilState
+
+            let args, cilStateWithoutArgs = InstructionsSet.retrieveActualParameters calledMethod cilState
+            let this, cilState =
+                match calledMethod with
+                | _ when opCode = OpCodes.Newobj ->
+                    let states = interpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id
+                    assert (List.length states = 1)
+                    let state = List.head states
+                    assert(Option.isSome state.returnRegister)
+                    let reference = Option.get state.returnRegister
+                    let state = pushNewObjResultOnOpStack state reference calledMethod
+                    Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None}
+                | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
+                | :? MethodInfo as methodInfo when not calledMethod.IsStatic ->
+                    let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
+                    this, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
+                | :? MethodInfo as methodInfo ->
+                    None, pushFunctionResultOnOpStackIfNeeded cilStateWithoutArgs methodInfo
+                | _ -> internalfailf "unknown methodBase %O" calledMethod
+
+            let numberToDrop = List.length args + if Option.isNone this || callSite.opCode = OpCodes.Newobj then 0 else 1
+            let stateWithArgsOnFrame = interpreter.ReduceFunctionSignature cilState.state calledMethod this (Specified args) false id
+            let nextOffset =
+                assert(cfg.graph.[offset].Count = 1)
+                cfg.graph.[offset].[0]
+            { cilState with ip = Instruction nextOffset; state = stateWithArgsOnFrame }, callSite, numberToDrop
+
+        // TODO: change offset to ip for Vertex
+        let private ip2Offset (ip : ip) =
+            match ip with
+            | Instruction i -> i
+            | Exit -> -1
+            | _ -> __notImplemented__()
+
+        let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationalStack, Vertex>)  =
+            let concreteOpStack = List.filter shouldRemainOnOpStack opStack
+            if PersistentDict.contains (v, concreteOpStack) vertices then
+                PersistentDict.find vertices (v, concreteOpStack), vertices
+            else
+                let dstVertex = Vertex.CreateVertex methodBase (ip2Offset v) concreteOpStack
+                dstVertex, PersistentDict.add (v, concreteOpStack) dstVertex vertices
+
+        let updateQueue (cfg : cfg) newU (d : bypassDataForEdges) (q, used) =
+            let changeData w =
+                match w with
+                | Instruction wOffset -> {d with v = w; vOut = cfg.dfsOut.[wOffset]; minSCCs = min cfg.sccOut.[wOffset] cfg.sccOut.[wOffset]}
+                | Exit -> {d with v = Exit; vOut = -1; minSCCs = -1}
+                | _ -> __notImplemented__()
+
+            let addIfNotUsed (q, used) d =
+                if PersistentSet.contains d used then q, used
+                else PriorityQueue.insert d q, PersistentSet.add used d
+
+            match newU with
+            | Exit -> q, used
+            | Instruction offset when cfg.graph.[offset].Count = 0 -> (changeData Exit) |> addIfNotUsed (q, used)
+            | Instruction vOffset -> cfg.graph.[vOffset] |> Seq.fold (fun acc wOffset -> changeData (Instruction wOffset) |> addIfNotUsed acc) (q, used)
+            | _ -> __notImplemented__()
+
+        let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
+            assert(cilState'.ip = d.v)
+            let s' = cilState'.state
+            let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack d.v vertices
+            addEdge <| createEdge s' dstVertex
+
+            let bypassData = {d with u = d.v; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
+                                     allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
+
+            let newQ, newUsed = updateQueue cfg d.v bypassData (q, used)
+            VectorTime.max currentTime s'.currentTime, vertices, newQ, newUsed
+
+        let private isConcreteHeapRef (term : term) =
+            match term.term with
+            | HeapRef (addr, _) -> isConcreteHeapAddress addr
+            | _ -> false
+
+        let private getTermConcreteHeapAddress (term : term) =
+            match term.term with
+            | HeapRef (ConcreteHeapAddress addr, _) -> addr
+            | _ -> __unreachable__()
+
+        let private prepareStateWithConcreteInfo (s : state) (d : bypassDataForEdges) =
+            let concreteHeapAddresses = s.opStack |> List.filter isConcreteHeapRef |> List.map getTermConcreteHeapAddress
+            let appendAllocatedTypes acc k v = if List.contains k concreteHeapAddresses then PersistentDict.add k v acc else acc
+            let allocatedTypes = PersistentDict.fold appendAllocatedTypes PersistentDict.empty d.allocatedTypes
+            let allocatedTypesValues = PersistentDict.values allocatedTypes
+
+            let appendLengths acc ((t,_,_) : arrayType as k) v = if Seq.contains t allocatedTypesValues then PersistentDict.add k v acc else acc
+            let appendLowerBounds acc ((t,_,_) : arrayType as k) v = if Seq.contains t allocatedTypesValues then PersistentDict.add k v acc else acc
+
+            let lengths = PersistentDict.fold appendLengths PersistentDict.empty d.lengths
+            let lowerBounds = PersistentDict.fold appendLowerBounds PersistentDict.empty d.lowerBounds
+            {s with allocatedTypes = allocatedTypes; lengths = lengths; lowerBounds = lowerBounds}
+
+
+        // note: entry point and exit vertex must be added to unit block
+        let private computeCFAForBlock (interpreter : ILInterpreter) (initialState : state) (cfa : cfa) (block : unitBlock<'a>) =
             let cfg = cfa.cfg
-            let mutable currentTime = initialState.currentTime
-            let executeSeparatedOpCode offset (opCode : System.Reflection.Emit.OpCode) (cilStateWithArgs : cilState) =
-                let calledMethod = InstructionsSet.resolveMethodFromMetadata cfg (offset + opCode.Size)
-                let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
-                let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : System.Reflection.MethodInfo) =
-                    if methodInfo.ReturnType = typeof<System.Void> then cilState
-                    else {cilState with opStack = Terms.MakeFunctionResultConstant cilState.state callSite :: cilState.opStack}
+            let rec bypass (cfg : cfg) (q : IPriorityQueue<bypassDataForEdges>) (used : pset<bypassDataForEdges>) (vertices : pdict<ip * operationalStack, Vertex>) currentTime =
+                let d, q = PriorityQueue.pop q
+                assert(PersistentSet.contains d used)
+                let srcVertex = d.srcVertex
+                assert(d.u <> Exit)
+                let offset = d.u.Offset()
 
-                let args, cilStateWithoutArgs = InstructionsSet.retrieveActualParameters calledMethod cilStateWithArgs
-                let this, cilState =
-                    match calledMethod with
-                    | _ when opCode = OpCodes.Newobj ->
-                        let states = ilintptr.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id // TODO: what if newobj returns a lot of references and states?
-                        let state = List.head states
-                        assert(Option.isSome state.returnRegister)
-                        let reference = Option.get state.returnRegister
-                        Some reference, {cilStateWithoutArgs with state = {state with returnRegister = None}; opStack = reference :: cilStateWithoutArgs.opStack}
-                    | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
-                    | :? MethodInfo as methodInfo when not calledMethod.IsStatic || opCode = System.Reflection.Emit.OpCodes.Callvirt -> // TODO: check if condition `opCode = OpCodes.Callvirt` needed
-                        let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
-                        this, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
-                    | :? MethodInfo as methodInfo ->
-                        None, pushFunctionResultOnOpStackIfNeeded cilStateWithoutArgs methodInfo
-                    | _ -> internalfailf "unknown methodBase %O" calledMethod
+                let currentTime = VectorTime.advance currentTime
+                let symbolicOpStack = makeSymbolicOpStack currentTime d.opStack
+                let modifiedState = prepareStateWithConcreteInfo {initialState with currentTime = currentTime; startingTime = currentTime; opStack = symbolicOpStack} d
 
-                let nextOffset =
-                    assert(cfg.graph.[offset].Count = 1)
-                    cfg.graph.[offset].[0]
+                let initialCilState = cilState.MakeEmpty d.u modifiedState
+                if cfg.offsetsDemandingCall.ContainsKey offset then
+                    let cilState', callSite, numberToDrop = executeSeparatedOpCode interpreter cfg initialCilState
+                    let createEdge s' dstVertex = CallEdge (srcVertex, dstVertex, callSite, s', numberToDrop)
+                    let currentTime, vertices, q, used = addEdgeAndRenewQueue createEdge d cfg (currentTime, vertices, q, used) cilState'
+                    if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
+                    else vertices
+                else
+                    let newStates = interpreter.ExecuteAllInstructions cfg initialCilState
+                    let goodStates = newStates |> List.filter (fun (cilState : cilState) -> cilState.isCompleted && not cilState.HasException && cilState.ip = d.v)
+                    let erroredStates = newStates |> List.filter (fun (cilState : cilState) -> cilState.HasException)
+                    srcVertex.AddErroredStates erroredStates
+                    let incompleteStates = newStates |> List.filter (fun (cilState : cilState) -> not <| cilState.isCompleted && not <| cilState.HasException)
 
-                // TODO: why no exceptions?
-                nextOffset, this, args, cilState
+                    let createEdge s' dstVertex = StepEdge(d.srcVertex, dstVertex, s')
+                    let currentTime, vertices, q, used = goodStates |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)
+                    if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
+                    else vertices
+            let offset = block.entryPoint.Ip.Offset()
+            let d0 = { u = block.entryPoint.Ip; srcVertex = block.entryPoint; uOut = cfg.dfsOut.[offset]
+                       v = block.entryPoint.Ip; vOut = 0; minSCCs = 0; opStack = initialState.opStack
+                       allocatedTypes = initialState.allocatedTypes; lengths = initialState.lengths; lowerBounds = initialState.lowerBounds }
 
-            let rec computeCFAForBlock (block : unitBlock<'a>) =
-                let createOrGetVertex (bypassData : bypassData) =
-                    match bypassData.ip with
-                    | _ when used.ContainsKey(bypassData) -> block.vertices.[used.[bypassData]]
-                    | Instruction offset ->
-                        let vertex = Vertex.CreateVertex cfg.methodBase offset bypassData.opStack
-                        block.AddVertex vertex
-                        vertex
-                    | Exit when bypassData.opStack = [] -> block.exitVertex
-                    | _ -> __unreachable__()
+            let q, used = updateQueue cfg block.entryPoint.Ip d0 (PriorityQueue.empty false, PersistentSet.empty)
+            let vertices = PersistentDict.empty
+                           |> PersistentDict.add (block.entryPoint.Ip, initialState.opStack) block.entryPoint
+                           |> PersistentDict.add (block.exitVertex.Ip, block.exitVertex.OpStack) block.exitVertex
+            let vertices = bypass cfg q used vertices initialState.currentTime
+            vertices |> PersistentDict.values |> Seq.iter block.AddVertex
 
-                let isInsideCycle opStack (src : offset) (dst : ip) =
-                    match dst with
-                    | Instruction dst ->
-                        if cfg.topologicalTimes.[src] >= cfg.topologicalTimes.[dst] then
-                            Seq.tryFind (fun (bypassData : bypassData) -> bypassData.ip = Instruction dst && bypassData.opStack = opStack) used.Keys
-                            |> Option.map (fun bypassData -> block.vertices.[used.[bypassData]])
-                        else None
-                    | _ -> None
-
-                // note: entry point and exit vertex must be added to unit block
-                let rec bypass (vertex : Vertex) allocatedTypes lengths lowerBounds =
-                    let id, ip, opStack = vertex.Id, vertex.Ip, vertex.OpStack
-                    let bypassData = createData ip opStack allocatedTypes lengths lowerBounds
-                    if used.ContainsKey bypassData || vertex = block.exitVertex then
-                        Logger.printLog Logger.Trace "Again went to ip = %O\nnopStack = %O" ip opStack
-                    else
-                    let wasAdded = used.TryAdd(bypassData, id)
-                    Prelude.releaseAssert(wasAdded)
-                    let srcVertex = block.vertices.[id]
-                    Logger.printLog Logger.Trace "[Starting computing cfa for ip = %O]\nopStack = %O" ip opStack
-                    System.Console.WriteLine("Making initial CFA state with STARTING TIME = {0}", currentTime)
-                    let modifiedState = {initialState with allocatedTypes = allocatedTypes; lengths = lengths; lowerBounds = lowerBounds
-                                                           currentTime = currentTime; startingTime = currentTime}
-                    let initialCilState = {cilState.Empty with state = modifiedState}
-                    let offset = ip.Offset()
-                    match cfg.offsetsDemandingCall.ContainsKey offset with
-                    | true ->
-                        let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
-                        let callSite = {sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode}
-                        let nextOffset, this, args, cilState' = executeSeparatedOpCode offset opCode {initialCilState with ip = Instruction offset; opStack = opStack}
-                        let dstVertex =
-                            let s = cilState'.state
-                            createOrGetVertex (createData (Instruction nextOffset) cilState'.opStack s.allocatedTypes s.lengths s.lowerBounds)
-                        block.AddVertex dstVertex
-                        let stateWithArgsOnFrame = ilintptr.ReduceFunctionSignature cilState'.state calledMethod this (Specified args) false (fun x -> x)
-                        currentTime <- VectorTime.max currentTime stateWithArgsOnFrame.currentTime
-                        addEdge <| CallEdge(srcVertex, dstVertex, callSite, stateWithArgsOnFrame)
-                        bypass dstVertex stateWithArgsOnFrame.allocatedTypes stateWithArgsOnFrame.lengths stateWithArgsOnFrame.lowerBounds
-                    | _ ->
-                        let newStates = executeInstructions ilintptr cfg {initialCilState with ip = Instruction offset; opStack = opStack}
-                        newStates |> List.iter (fun state -> currentTime <- VectorTime.max currentTime state.state.currentTime)
-                        let goodStates = List.filter (fun (cilState : cilState) -> not cilState.HasException) newStates
-                        let erroredStates = List.filter (fun (cilState : cilState) -> cilState.HasException) newStates
-                        goodStates |> List.iter (fun (cilState' : cilState) ->
-                            match isInsideCycle cilState'.opStack offset cilState'.ip with
-                            | Some vertex ->
-                                assert (not cilState'.leaveInstructionExecuted)
-                                addEdge <| StepEdge(srcVertex, vertex, cilState'.state)
-                            | None ->
-                                let s = cilState'.state
-                                let dstVertex = createOrGetVertex (createData cilState'.ip cilState'.opStack s.allocatedTypes s.lengths s.lowerBounds)
-                                if not cilState'.leaveInstructionExecuted then addEdge <| StepEdge(srcVertex, dstVertex, cilState'.state)
-                                else
-                                    Prelude.releaseAssert(List.isEmpty cilState'.opStack)
-                                    addEdgesToFinallyBlocks initialCilState.state srcVertex dstVertex
-                                bypass dstVertex cilState'.state.allocatedTypes cilState'.state.lengths cilState'.state.lowerBounds)
-                        srcVertex.AddErroredStates erroredStates
-                bypass block.entryPoint initialState.allocatedTypes initialState.lengths initialState.lowerBounds
-            and addEdgesToFinallyBlocks emptyEffect (srcVertex : Vertex) (dstVertex : Vertex) =
-                let method = cfg.methodBase
-                let ehcs = method.GetMethodBody().ExceptionHandlingClauses
-                           |> Seq.filter Instruction.isFinallyClause
-                           |> Seq.filter (Instruction.shouldExecuteFinallyClause srcVertex.Ip dstVertex.Ip)
-                           |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
-                let chainSequentialFinallyBlocks prevVertex (ehc : ExceptionHandlingClause) =
-                    let finallyBlock = cfa.FindOrCreateFinallyHandler ehc
-                    addEdge <| StepEdge(prevVertex, finallyBlock.entryPoint, emptyEffect)
-                    computeCFAForBlock finallyBlock
-                    finallyBlock.exitVertex
-                let lastVertex = ehcs |> Seq.fold chainSequentialFinallyBlocks srcVertex
-                addEdge <| StepEdge (lastVertex, dstVertex, emptyEffect)
-            computeCFAForBlock block
-
-        let computeCFA (ilintptr : ILInterpreter) (ilmm: ILMethodMetadata) : cfa =
-            let methodBase = ilmm.methodBase
+        let computeCFA (interpreter : ILInterpreter) (methodMetadata: ILMethodMetadata) : cfa =
+            let methodBase = methodMetadata.methodBase
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
-                let initialState, this, _ = ilintptr.FormInitialStateWithoutStatics ilmm
+                let initialState, _, _ = interpreter.FormInitialStateWithoutStatics methodMetadata
                 Prelude.releaseAssert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
 
-//                Logger.printLog Logger.Trace "emptyState for method %O = %O" methodBase emptyState
                 let cfg = CFG.build methodBase
                 let cfa = createEmptyCFA cfg methodBase
 
-                let used = Dictionary<bypassData, int>()
-                computeCFAForMethod ilintptr initialState cfa used cfa.body
+                computeCFAForBlock interpreter initialState cfa cfa.body
                 alreadyComputedCFAs.[methodBase] <- cfa
                 Logger.printLog Logger.Trace "Computed cfa: %O" cfa
                 cfa
@@ -417,9 +709,9 @@ module public CFA =
 type StepInterpreter() =
     inherit ILInterpreter()
     let visitedVertices : persistent<Map<CFA.Vertex, uint32>> =
-        let r = new persistent<_>(always Map.empty, id) in r.Reset(); r
+        let r = persistent<_>(always Map.empty, id) in r.Reset(); r
     override x.ReproduceEffect codeLoc state k = x.ExploreAndCompose codeLoc state k
-    override x.CreateInstance exceptionType arguments state : state list =
+    override x.CreateInstance _ _ state : state list =
         let error = Nop
         {state with exceptionsRegister = Unhandled error} |> List.singleton
     member x.ForwardExploration (cfa : CFA.cfa) codeLoc initialState (k : (term * state) list -> 'a) =

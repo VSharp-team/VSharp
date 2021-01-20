@@ -70,6 +70,62 @@ module public Reflection =
     let public IsDelegateConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
 
+    // --------------------------------- Concretization ---------------------------------
+
+    let rec public concretizeType (subst : Type -> Type) (typ : Type)=
+        if typ.IsGenericParameter then subst typ
+        elif typ.IsGenericType then
+            let args = typ.GetGenericArguments()
+            typ.GetGenericTypeDefinition().MakeGenericType(Array.map (concretizeType subst) args)
+        else typ
+
+    let private concretizeMethod subst (m : MethodBase) getMethod =
+        let concreteType = concretizeType subst m.DeclaringType
+        let concreteParameters = m.GetParameters() |> Array.map (fun pi -> pi.ParameterType |> subst)
+        getMethod concreteType m.Name concreteParameters
+
+    let private concretizeMethodInfo subst (mi : MethodInfo) =
+        let concretize method =
+            let mi = concretizeMethod subst method (fun t name parameters -> t.GetMethod(name, parameters))
+            assert(mi <> null)
+            mi
+        let concretizeGeneric (mi : MethodInfo) =
+            let args = mi.GetGenericArguments()
+            let genericMethod = mi.GetGenericMethodDefinition()
+            let mi = concretize genericMethod
+            mi.MakeGenericMethod(args |> Array.map subst)
+        if mi.IsGenericMethod then concretizeGeneric mi else concretize mi
+        :> MethodBase
+
+    let private concretizeCtorInfo subst ci =
+        let ci = concretizeMethod subst ci (fun t _ parameters -> t.GetConstructor(parameters))
+        assert(ci <> null)
+        ci :> MethodBase
+
+    let concretizeMethodBase (m : MethodBase) (subst : Type -> Type) =
+        match m with
+        | _ when not m.DeclaringType.IsGenericType -> m
+        | :? MethodInfo as mi ->
+            concretizeMethodInfo subst mi
+        | :? ConstructorInfo as ci ->
+            concretizeCtorInfo subst ci
+        | _ -> __unreachable__()
+
+    let concretizeParameter (p : ParameterInfo) (subst : Type -> Type) =
+        if not (p.Member :? MethodBase) then __notImplemented__()
+        else
+            (concretizeMethodBase (p.Member :?> MethodBase) subst).GetParameters() |> Array.find (fun pi -> pi.Name = p.Name)
+
+    let concretizeLocalVariable (l : LocalVariableInfo) (m : MethodBase) (subst : Type -> Type) =
+        let m = concretizeMethodBase m subst
+        let mb = m.GetMethodBody()
+        assert(mb <> null)
+        mb.LocalVariables.[l.LocalIndex], m
+
+    let concretizeField (f : fieldId) (subst : Type -> Type) =
+        let declaringType = concretizeType subst f.declaringType
+        {declaringType = declaringType; name = f.name; typ = concretizeType subst f.typ}
+
     // --------------------------------- Fields ---------------------------------
 
     let wrapField (field : FieldInfo) =
