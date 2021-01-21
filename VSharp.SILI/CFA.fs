@@ -596,7 +596,7 @@ module public CFA =
             if PersistentDict.contains (v, concreteOpStack) vertices then
                 PersistentDict.find vertices (v, concreteOpStack), vertices
             else
-                let dstVertex = Vertex.CreateVertex methodBase v concreteOpStack
+                let dstVertex = Vertex.CreateVertex methodBase v opStack
                 dstVertex, PersistentDict.add (v, concreteOpStack) dstVertex vertices
 
         let updateQueue (cfg : cfg) newU (d : bypassDataForEdges) (q, used) =
@@ -725,9 +725,13 @@ type StepInterpreter() =
         try
             let cfa : CFA.cfa = CFA.cfaBuilder.computeCFA x funcId
             let ip = cilState.ip
-            let concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack cilState.state.opStack
+            let vertexWithSameOpStack (v : CFA.Vertex) =
+                v.OpStack
+                |> List.zip cilState.state.opStack
+                |> List.forall (fun (x, y) -> if CFA.cfaBuilder.shouldRemainOnOpStack y then x = y else true)
             let vertices = cfa.body.vertices.Values |> Seq.filter (fun (v : CFA.Vertex) ->
-                v.Ip = ip && concreteValuesOnOperationalStack = List.filter CFA.cfaBuilder.shouldRemainOnOpStack v.OpStack && v.OutgoingEdges.Count > 0) |> List.ofSeq
+                v.Ip = ip && v.OutgoingEdges.Count > 0 && vertexWithSameOpStack v) |> List.ofSeq
+
             match vertices with
             | [] -> base.EvaluateOneStep (funcId, cilState)
             | [v] -> Seq.fold (fun acc (edge : CFA.Edge) -> acc @ edge.PropagatePath cilState) [] v.OutgoingEdges
