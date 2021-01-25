@@ -734,7 +734,9 @@ type StepInterpreter() =
 
             match vertices with
             | [] -> base.EvaluateOneStep (funcId, cilState)
-            | [v] -> Seq.fold (fun acc (edge : CFA.Edge) -> acc @ edge.PropagatePath cilState) [] v.OutgoingEdges
-            | _ -> __unreachable__()
+            | _ ->
+                let propagateThroughEdge acc (edge : CFA.Edge) =
+                    acc @ edge.PropagatePath cilState
+                List.fold (fun acc (v : CFA.Vertex) -> Seq.fold propagateThroughEdge acc v.OutgoingEdges) [] vertices
         with
         | :? InsufficientInformationException as iie -> base.EvaluateOneStep (funcId, cilState)
