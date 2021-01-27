@@ -89,6 +89,7 @@ module API =
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
         let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
+        let RemovePathCondition conditionState condition = Memory.removePathCondition conditionState condition
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -233,7 +234,7 @@ module API =
             let reference = HeapRef (ConcreteHeapAddress address) (typeOf term)
             reference, Memory.writeBoxedLocation state address term
 
-        let AllocateDefaultStatic state targetType =
+        let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
 
         let AllocateDefaultClass state typ =
@@ -292,5 +293,3 @@ module API =
 //            __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
 
-    module Options =
-        let HandleNativeInt f g = Options.HandleNativeInt f g

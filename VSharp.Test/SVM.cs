@@ -4,10 +4,11 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using VSharp.Core;
+using VSharp.Interpreter.IL;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
-using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Core.codeLocationSummary>;
+using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Interpreter.IL.codeLocationSummary>;
 
 
 namespace VSharp.Test
@@ -146,7 +147,7 @@ namespace VSharp.Test
         {
             if (summary == null)
                 return "Summary is empty";
-            return $"{summary.result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.state))}";
+            return $"{summary.Result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.cilState.state))}";
         }
 
         private static string ResultToString(TestCodeLocationSummaries summary)

@@ -104,72 +104,15 @@ module internal TypeUtils =
         let MaxValue = MakeNumber UInt64.MaxValue
 
 module internal InstructionsSet =
+    open CilStateOperations
 
     let __corruptedStack__() = raise (InvalidProgramException())
 
-    // ------------------------------- Helper functions for cilState -------------------------------
-
-
     let idTransformation term k = k term
 
-    let withState state (cilState : cilState) = {cilState with state = state}
-    let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
-    let withOpStack opStack (cilState : cilState) = {cilState with state = {cilState.state with opStack = opStack}}
-    let withResult result (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = result}}
-    let withResultState result (state : state) = {state with returnRegister = Some result}
-    let withIp ip (cilState : cilState) = {cilState with ip = ip}
-    let pushToOpStack v (cilState : cilState) = {cilState with state = {cilState.state with opStack = v :: cilState.state.opStack}}
-    let withException exc (cilState : cilState) = {cilState with state = {cilState.state with exceptionsRegister = exc}}
-    let pushResultOnStack (cilState : cilState) (res, state) =
-        if res <> Nop then
-            {cilState with state = {state with opStack = res :: state.opStack}}
-        else {cilState with state = state}
-    let mapFunctionResultsk mapResult =
-        let mapResults (result, cilState : cilState) =
-            let result, state = mapResult (result, cilState.state)
-            result, {cilState with state = state}
-        Cps.List.map mapResults
-    let getCilStateFromResult results : cilState list = List.map snd results
-    let mapAndPushFunctionResultsk mapResult =
-        let mapAndPushResult (term, cilState : cilState) =
-            mapResult (term, cilState.state) |> pushResultOnStack cilState
-        let exceptionCheck ((_, cilState : cilState) as result) =
-            if cilState.HasException then cilState
-            else mapAndPushResult result
-        Cps.List.map exceptionCheck
-    let pushFunctionResults results = mapAndPushFunctionResultsk id results id
-    let pushResultFromStateToCilState (cilState : cilState) (states : state list) : cilState list =
-        states |> List.map (fun (state : state) ->
-            if state.exceptionsRegister.UnhandledError then {cilState with state = state} // TODO: check whether opStack = [] is needed
-            else
-                let opStack =
-                    match state.returnRegister with
-                    | None -> state.opStack
-                    | Some r -> r :: state.opStack
-                let state = {state with returnRegister = None; opStack = opStack}
-                {cilState with state = state})
+    // --------------------------------------- Metadata Interaction ----------------------------------------
 
-    // --------------------------------------- Primitives ----------------------------------------
 
-    let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
-        StatedConditionalExecution cilState.state condition
-            (fun state k -> thenBranch {cilState with state = state} k)
-            (fun state k -> elseBranch {cilState with state = state} k)
-            (fun x y -> List.append x y |> List.singleton)
-            (List.head >> k)
-//    let GuardedApply (cilState : cilState) term f k =
-    let GuardedApply (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
-        GuardedStatedApplyk
-            (fun state term k -> f {cilState with state = state} term k)
-            cilState.state term id (List.concat >> k)
-    let GuardedApplyForState state term f k = GuardedStatedApplyk f state term id (List.concat >> k)
-    let BranchOnNull (state : state) term thenBranch elseBranch k =
-        StatedConditionalExecution state
-            (fun state k -> k (IsNullReference term, state))
-            thenBranch
-            elseBranch
-            (fun res1 res2 -> [res1; res2])
-            (List.concat >> k)
     let resolveFieldFromMetadata (cfg : cfgData) = Instruction.resolveFieldFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTypeFromMetadata (cfg : cfgData) = Instruction.resolveTypeFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTermTypeFromMetadata state (cfg : cfgData) = resolveTypeFromMetadata cfg >> Types.FromDotNetType state
@@ -246,7 +189,7 @@ module internal InstructionsSet =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let reference, state, _ = getVarTerm cilState.state index cfg.methodBase
         let term = Memory.ReadSafe state reference
-        pushResultOnStack cilState (term, state) :: []
+        pushResultOnOpStack cilState (term, state) :: []
 
     let ldarg numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
@@ -262,7 +205,7 @@ module internal InstructionsSet =
             | Some _, false ->
                 let term = getArgTerm (argumentIndex - 1) cfg.methodBase
                 Memory.ReadSafe state term, state
-        pushResultOnStack cilState (arg, state) :: []
+        pushResultOnOpStack cilState (arg, state) :: []
     let ldarga numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
@@ -272,7 +215,7 @@ module internal InstructionsSet =
             | None -> getArgTerm argumentIndex cfg.methodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
             | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
-        pushResultOnStack cilState (address, state) :: []
+        pushResultOnOpStack cilState (address, state) :: []
     let stloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let variableIndex = numberCreator cfg.ilBytes shiftedOffset
         let state = cilState.state
@@ -344,12 +287,12 @@ module internal InstructionsSet =
             | None -> Void
         match term, resultTyp with
         | None, Void -> cilState :: []
-        | Some t, _ when typ = resultTyp -> cilState |> withResult (Some t) |> List.singleton // TODO: [simplification] remove this heuristics
+        | Some t, _ when typ = resultTyp -> cilState |> withResult t |> List.singleton // TODO: [simplification] remove this heuristics
         | Some t, _ ->
             let t = castUnchecked resultTyp t cilState.state
-            cilState |> withResult (Some t) |> List.singleton
+            cilState |> withResult t |> List.singleton
         | _ -> __unreachable__()
-    let Transform2BooleanTerm pc (term : term) =
+    let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
             | Bool -> term
@@ -373,7 +316,7 @@ module internal InstructionsSet =
         | y :: x :: _ ->
             let transform =
                 if TypeUtils.isBool x || TypeUtils.isBool y
-                then fun t k -> k (Transform2BooleanTerm cilState.state.pc t)
+                then fun t k -> k (transform2BooleanTerm cilState.state.pc t)
                 else idTransformation
             performCILBinaryOperation OperationType.Equal transform transform idTransformation cilState
         | _ -> __corruptedStack__()
@@ -399,7 +342,7 @@ module internal InstructionsSet =
                | _ -> __unreachable__()
            let cilState = withOpStack stack cilState
            StatedConditionalExecutionCIL cilState
-               (fun state k -> k (condTransform <| Transform2BooleanTerm state.pc cond, state))
+               (fun state k -> k (condTransform <| transform2BooleanTerm state.pc cond, state))
                (fun cilState k -> k [offsetThen, cilState])
                (fun cilState k -> k [offsetElse, cilState])
                id
@@ -468,12 +411,12 @@ module internal InstructionsSet =
         let string = cfg.methodBase.Module.ResolveString stringToken
         let state = cilState.state
         let referenceAndState = Memory.AllocateString string state
-        pushResultOnStack cilState referenceAndState :: []
+        pushResultOnOpStack cilState referenceAndState :: []
     let allocateValueTypeInHeap v (cilState : cilState) =
         let address, state = Memory.BoxValueType cilState.state v
         cilState |> withState state |> pushToOpStack address |> List.singleton
     let ldnull (cilState : cilState) =
-        pushResultOnStack cilState (NullRef, cilState.state) :: []
+        pushResultOnOpStack cilState (NullRef, cilState.state) :: []
     let convu (cilState : cilState) =
         match cilState.state.opStack with
         | value :: stack when IsReference value ->
@@ -491,7 +434,7 @@ module internal InstructionsSet =
     let ldloca numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let term, state, _ = getVarTerm cilState.state index cfg.methodBase
-        pushResultOnStack cilState (term, state) :: []
+        pushResultOnOpStack cilState (term, state) :: []
     let switch newOffsets (cilState : cilState) =
         match cilState.state.opStack with
         | value :: stack ->
@@ -518,11 +461,11 @@ module internal InstructionsSet =
             | :? Type as t -> Terms.Concrete t.TypeHandle (Types.FromDotNetType state typeof<RuntimeTypeHandle>)
             | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle (Types.FromDotNetType state typeof<RuntimeMethodHandle>)
             | _ -> internalfailf "Could not resolve token"
-        pushResultOnStack cilState (res, state) :: []
+        pushResultOnOpStack cilState (res, state) :: []
     let ldftn (cfg : cfgData) offset (cilState : cilState) =
         let methodInfo = resolveMethodFromMetadata cfg (offset + OpCodes.Ldftn.Size)
         let methodPtr = Terms.Concrete methodInfo (Types.FromDotNetType cilState.state (methodInfo.GetType()))
-        pushResultOnStack cilState (methodPtr, cilState.state) :: []
+        pushResultOnOpStack cilState (methodPtr, cilState.state) :: []
     let initobj (cfg : cfgData) offset (cilState : cilState) =
         match cilState.state.opStack with
         | targetAddress :: stack ->

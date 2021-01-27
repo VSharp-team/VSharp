@@ -206,27 +206,12 @@ module Properties =
 module public CFA =
     open TermUtils
 
-//    let mutable stepItp : MethodInterpreter option = None
-//    let configureInterpreter itp = stepItp <- Some itp
-
-    let withState = InstructionsSet.withState
-    let withOpStack = InstructionsSet.withOpStack
-    let withIp = InstructionsSet.withIp
-    let pushToOpStack = InstructionsSet.pushToOpStack
-
-    let pushNewObjResultOnOpStack state reference (calledMethod : MethodBase) =
+    let pushNewObjResultOnOpStack (cilState : cilState) reference (calledMethod : MethodBase) =
         let valueOnStack =
             if calledMethod.DeclaringType.IsValueType then
-                  Memory.ReadSafe state reference
+                  Memory.ReadSafe cilState.state reference
             else reference
-        {state with opStack = valueOnStack :: state.opStack}
-
-    type vertexLabel =
-        | FromCFG of offset
-        | PreCatchVertex of offset * ExceptionHandlingClause
-        | MethodCommonExit
-        with
-        member x.Foo() = ()
+        pushToOpStack valueOnStack cilState
 
     type Vertex private(id, m : MethodBase, ip : ip, opStack : operationalStack) =
         static let ids : Dictionary<MethodBase, int> = Dictionary<_,_>()
@@ -388,42 +373,43 @@ module public CFA =
         do
            assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
         override x.Type = "Call"
-        override x.PropagatePath (cilState1 : cilState) =
-            let k states =
-                let propagateStateAfterCall acc state =
-                    assert(cilState1.state.frames = state.frames)
-                    x.PrintLog "propagation through callEdge:\n" callSite
-                    x.PrintLog "call edge: composition left:\n" (Memory.Dump cilState1.state)
-                    x.PrintLog "call edge: composition result:\n" (Memory.Dump state)
+        override x.PropagatePath (cilStateBeforeCall : cilState) =
+            let k (cilStates : cilState list) =
+                let propagateStateAfterCall acc (resultCilState : cilState) =
+                    let resultState = resultCilState.state
+                    let initialState = cilStateBeforeCall.state
+                    assert(initialState.frames = resultState.frames)
+                    x.PrintLog "propagation through callEdge" callSite
+                    x.PrintLog "call edge: composition left" (dump cilStateBeforeCall)
+                    x.PrintLog "call edge: composition result" (dump resultCilState)
                     let stateAfterCall =
-                        let opStack = List.skip numberToDrop cilState1.state.opStack
+                        let opStack = List.skip numberToDrop initialState.opStack
                         if callSite.HasNonVoidResult then
-                            assert(Option.isSome state.returnRegister)
-                            { state with
-                                callSiteResults = Map.add callSite state.returnRegister cilState1.state.callSiteResults
-                                returnRegister = None
-                                opStack = Option.get state.returnRegister :: opStack }
+                            assert(Option.isSome resultState.returnRegister)
+                            { resultState with callSiteResults = Map.add callSite resultState.returnRegister initialState.callSiteResults
+                                               returnRegister = None
+                                               opStack = Option.get resultState.returnRegister :: opStack }
                         elif callSite.opCode = OpCodes.Newobj then
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
-                            let state = pushNewObjResultOnOpStack {state with opStack = opStack} reference callSite.calledMethod
-                            { state with callSiteResults = cilState1.state.callSiteResults}
-                        else { state with callSiteResults = cilState1.state.callSiteResults; opStack = opStack}
+                            let modifiedCilState = pushNewObjResultOnOpStack (withOpStack opStack resultCilState) reference callSite.calledMethod
+                            { modifiedCilState.state with callSiteResults = initialState.callSiteResults}
+                        else { resultState with callSiteResults = initialState.callSiteResults; opStack = opStack}
 
-                    if x.CommonFilterStates stateAfterCall then (cilState.Make dst.Ip stateAfterCall) :: acc
+                    if x.CommonFilterStates stateAfterCall then {resultCilState with state = stateAfterCall; ip = dst.Ip} :: acc
                     else acc
-                List.fold propagateStateAfterCall [] states
-//            Prelude.releaseAssert (Option.isSome stepItp)
-//            let interpreter = stepItp |> Option.get
-            let states = Memory.ComposeStates cilState1.state stateWithArgsOnFrameAndAllocatedType id
+                List.fold propagateStateAfterCall [] cilStates
+
+            let states = Memory.ComposeStates cilStateBeforeCall.state stateWithArgsOnFrameAndAllocatedType id
             match states with
             | [state] ->
+                let cilState = {cilStateBeforeCall with state = state}
                 match callSite.opCode with
-                | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [Memory.PopStack state]
-                | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod -> k [Memory.PopStack state]
+                | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [popStackOf cilState]
+                | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod -> k [popStackOf cilState]
                 | Instruction.Call
                 | Instruction.NewObj   ->
-                    interpreter.CommonCall callSite.calledMethod state k
-                | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod state k
+                    interpreter.CommonCall callSite.calledMethod cilState k
+                | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod cilState k
                 | _ ->  __notImplemented__()
             | _ -> internalfailf "Calling %s: composition with frames unexpectedly forked!" callSite.calledMethod.Name
         member x.ExitNodeForCall() = __notImplemented__()
@@ -561,13 +547,13 @@ module public CFA =
                 match calledMethod with
                 | _ when opCode = OpCodes.Newobj ->
                     let ilInterpreter = ILInterpreter(methodInterpreter)
-                    let states = ilInterpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs.state args id
-                    assert (List.length states = 1)
-                    let state = List.head states
-                    assert(Option.isSome state.returnRegister)
-                    let reference = Option.get state.returnRegister
-                    let state = pushNewObjResultOnOpStack state reference calledMethod
-                    Some reference, cilStateWithoutArgs |> withState {state with returnRegister = None}
+                    let cilStates = ilInterpreter.CommonNewObj false (calledMethod :?> ConstructorInfo) cilStateWithoutArgs args id
+                    assert (List.length cilStates = 1)
+                    let cilState = List.head cilStates
+                    assert(Option.isSome cilState.state.returnRegister)
+                    let reference = Option.get cilState.state.returnRegister
+                    let cilState = pushNewObjResultOnOpStack cilState reference calledMethod
+                    Some reference, withNoResult cilState
                 | :? ConstructorInfo -> InstructionsSet.popOperationalStack cilStateWithoutArgs
                 | :? MethodInfo as methodInfo when not calledMethod.IsStatic ->
                     let this, cilState = InstructionsSet.popOperationalStack cilStateWithoutArgs
@@ -669,7 +655,7 @@ module public CFA =
                 let symbolicOpStack = makeSymbolicOpStack currentTime d.opStack
                 let modifiedState = prepareStateWithConcreteInfo {initialState with currentTime = currentTime; startingTime = currentTime; opStack = symbolicOpStack} d
 
-                let initialCilState = cilState.Make d.u modifiedState
+                let initialCilState = makeCilState d.u modifiedState
                 if cfg.offsetsDemandingCall.ContainsKey offset then
                     let cilState', callSite, numberToDrop = executeSeparatedOpCode methodInterpreter cfg initialCilState
                     let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop, ilInterpreter)
@@ -717,8 +703,9 @@ module public CFA =
 type StepInterpreter() =
     inherit MethodInterpreter()
 
-    override x.CreateInstance t args (state : state) =
-        List.singleton <| {state with exceptionsRegister = Unhandled Nop}
+    override x.CreateInstance t args (cilState : cilState) =
+        let state = {cilState.state with exceptionsRegister = Unhandled Nop}
+        List.singleton <| {cilState with state = state}
 
     override x.EvaluateOneStep (funcId, cilState : cilState) =
         try
