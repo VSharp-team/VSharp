@@ -196,7 +196,7 @@ module internal Z3 =
                 seq {
                     for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
                         if levelAtoms.[i] <> null then
-                            yield! pathAtoms.[uint32(i)]
+                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
                 }
             optCtx.Push()
             let weight = 1u
