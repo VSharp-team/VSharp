@@ -1,4 +1,4 @@
-﻿namespace VSharp.Core
+﻿namespace VSharp.Interpreter.IL
 
 type ExplorationMode = TrustConventions | CompleteExploration
 type RecursionUnrollingModeType = SmartUnrolling | NeverUnroll | AlwaysUnroll

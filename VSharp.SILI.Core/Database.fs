@@ -6,8 +6,8 @@ open System.Reflection
 open VSharp
 open VSharp.Logger
 
-type codeLocationSummary = { result : term; state : state }
-type codeLocationSummaries = codeLocationSummary list
+
+
 
 type ip =
     | Instruction of offset

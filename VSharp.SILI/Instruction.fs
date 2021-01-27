@@ -1,7 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
-open System.Text
+
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
@@ -24,65 +24,6 @@ type ipTransition =
     | ConditionalBranch of offset list
     | ExceptionMechanism
 
-type cilState =
-    { ip : ip
-      state : state
-      filterResult : term option
-      iie : InsufficientInformationException option
-      level : level
-    }
-    member x.CanBeExpanded () = x.ip.CanBeExpanded()
-    member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
-    static member Make curV state =
-        { ip = curV
-          state = state
-          filterResult = None
-          iie = None
-          level = PersistentDict.empty
-        }
-
-module internal CilStateOperations =
-    let compose (cilState1 : cilState) (cilState2 : cilState) k =
-        let level =
-            PersistentDict.fold (fun (acc : level) k v ->
-                let oldValue = if PersistentDict.contains k acc then PersistentDict.find acc k else 0u
-                PersistentDict.add k (v + oldValue) acc
-            ) cilState1.level cilState2.level
-
-        let states = VSharp.Core.API.Memory.ComposeStates cilState1.state cilState2.state id
-        k <| List.map (fun state -> {cilState2 with state = state; level = level}) states
-
-    let incrementLevel (cilState : cilState) k =
-        let lvl = cilState.level
-        let newValue = if PersistentDict.contains k lvl then PersistentDict.find lvl k + 1u else 1u
-        {cilState with level = PersistentDict.add k newValue lvl}
-
-    let stateOf (cilState : cilState) = cilState.state
-
-    let private dumpSection section (sb : StringBuilder) =
-        sprintf "--------------- %s: ---------------" section |> sb.AppendLine
-
-    let private dumpSectionValue section value (sb : StringBuilder) =
-        sb |> dumpSection section |> (fun sb -> sb.AppendLine value)
-
-    let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
-        if PersistentDict.isEmpty d then sb
-        else
-            let sb = dumpSection section sb
-            PersistentDict.dump d sort keyToString valueToString |> sb.AppendLine
-
-    let ipAndMethodBase2String (ip : ip, m : MethodBase) =
-        sprintf "Method: %O, ip = %O" m ip
-
-    // TODO: print filterResult and IIE ?
-    let dump (cilState : cilState) : string =
-        let sb = dumpSectionValue "IP" (sprintf "%O" cilState.ip) (StringBuilder())
-        let sb = dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
-
-        let stateDump = VSharp.Core.API.Memory.Dump cilState.state
-        let sb = dumpSectionValue "State" stateDump sb
-
-        if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()
 
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
