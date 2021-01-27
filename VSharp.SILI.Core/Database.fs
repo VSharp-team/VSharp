@@ -23,25 +23,22 @@ type ip =
         | Instruction i -> i
         | _              -> internalfail "Could not get vertex from destination"
 
-type level = uint32
+type level = pdict<ip * MethodBase, uint>
 
 module Level =
-    let zero : level = UInt32.MinValue
-    let inf : level = UInt32.MaxValue
+    let zero : level = __notImplemented__()
+    let inf : level = __notImplemented__()
 
     let isZero (l : level) = (l = zero)
     let isInf (l : level) = (l = inf)
 
-    let next (l : level) : level =
-        if isInf l then l else l + 1u
-    let prev (l : level) : level =
-        if isZero l then internalfail "Taking previous of zero level!"
-        if isInf l then l else l - 1u
+    let next (l : level) : level = __notImplemented__()
 
-    let toUInt (l : level) : uint32 =
-        l
-    let toInt (l : level) : int =
-        int(l)
+    let prev (l : level) : level = __notImplemented__()
+    let toUInt (l : level) : uint32 = __notImplemented__()
+
+    let toInt (l : level) : int = __notImplemented__()
+
     let toString (lvl : level) =
         if isInf lvl then "inf" else lvl.ToString()
 

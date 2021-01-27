@@ -8,6 +8,7 @@ open VSharp.Interpreter.IL
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open CilStateOperations
 
 module TermUtils =
     let internal term (t : term) = t.term
@@ -276,7 +277,7 @@ module public CFA =
         Edge(src : Vertex, dst : Vertex) =
         abstract member Type : string
         abstract member PropagatePath : cilState -> cilState list
-        member x.PrintLog msg obj = Logger.printLog Logger.Trace "[%s]\n%s: %O" (x.commonToString()) msg obj
+        member x.PrintLog msg obj = Logger.trace "[%s] %s: %O" (x.commonToString()) msg obj
         member x.Src = src
         member x.Dst = dst
         member x.Method = x.Src.Method
@@ -358,31 +359,29 @@ module public CFA =
 
 
 
-    type StepEdge(src : Vertex, dst : Vertex, effect : state, cfg : cfg, ip : ip) =
+    type StepEdge(src : Vertex, dst : Vertex, effect : cilState) =
         inherit Edge(src, dst)
         do
-            Prelude.releaseAssert(Map.isEmpty effect.callSiteResults)
+            Prelude.releaseAssert(Map.isEmpty effect.state.callSiteResults)
         override x.Type = "StepEdge"
-        override x.PropagatePath (cilState1 : cilState) =
-//                x.PrintLog "composition left:\n"  <| Memory.Dump cilState1.state
-//                x.PrintLog "composition right:\n" <| Memory.Dump effect
-//                x.PrintLog (sprintf "composition resulted:\n") (Memory.Dump state)
-//                cilState.Make ip state |> List.singleton
+        override x.PropagatePath (cilState : cilState) =
+            compose cilState effect (fun cilStates ->
+                x.PrintLog "composition left"  <| dump cilState
+                x.PrintLog "composition right" <| dump effect
+                List.iter (dump >> x.PrintLog (sprintf "composition resulted")) cilStates
 
-            Memory.ComposeStates cilState1.state effect (fun states ->
-
-                assert(List.forall (fun state -> cilState1.state.frames = state.frames) states)
+                assert(List.forall (fun (cilState' : cilState) -> cilState'.state.frames = cilState.state.frames) cilStates)
 
                 // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
-                let goodStates = List.filter x.CommonFilterStates states
-                if List.length goodStates <> List.length states then Logger.trace "Some states were not propagated from %O to %O" src.Ip ip
-                List.map (fun state -> cilState.Make ip state) goodStates)
+                let goodStates = List.filter (stateOf >> x.CommonFilterStates) cilStates
+                if List.length goodStates <> List.length cilStates then Logger.trace "Some states were not propagated from %O to %O" src.Ip cilState.ip
+                cilStates
+            )
 
         member x.Effect = effect
         member x.VisibleVariables() = __notImplemented__()
 
-        override x.ToString() =
-            sprintf "%s\neffect = %O\npc = %s\n" (base.ToString()) (API.Memory.Dump effect) (toString effect.pc)
+        override x.ToString() = dump effect
 
     type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop, interpreter : ILInterpreter) =
         inherit Edge(src, dst)
@@ -683,7 +682,7 @@ module public CFA =
                     let goodStates = finishedStates |> List.filter (fun (cilState : cilState) -> cilState.ip = d.v)
                     srcVertex.AddErroredStates erroredStates
 
-                    let createEdge (cilState' : cilState) dstVertex = StepEdge(d.srcVertex, dstVertex, cilState'.state, cfg, cilState'.ip)
+                    let createEdge (cilState' : cilState) dstVertex = StepEdge(d.srcVertex, dstVertex, cilState')
                     let currentTime, vertices, q, used = (goodStates @ incompleteStates) |> List.fold (addEdgeAndRenewQueue createEdge d cfg) (currentTime, vertices, q, used)
                     if not <| PriorityQueue.isEmpty q then bypass cfg q used vertices currentTime
                     else vertices

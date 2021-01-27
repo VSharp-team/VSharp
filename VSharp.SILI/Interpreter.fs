@@ -21,40 +21,16 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
     static let cfgs = Dictionary<IFunctionIdentifier, cfg>()
     static let findCfg (ilmm : IFunctionIdentifier) =
         Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.Method)
-    static let visitedVertices : persistent<Map<cfg * ip, uint32>> =
-        let r = persistent<_>(always Map.empty, id) in r.Reset(); r
 
-    let maxBorder = 50u
+    let maxBorder = 3u
 
-    member private x.Used (cfg : cfg) (ins : ip) =
-        let key = (cfg, ins)
-        if ins = ip.Exit then true
-        elif visitedVertices.Value.ContainsKey(key) then
-            visitedVertices.Value.[key] >= maxBorder
-        else visitedVertices.Mutate (Map.add key 1u visitedVertices.Value)
-             false
-
-    member private x.Visit key =
-        match visitedVertices.Value.ContainsKey key with
-        | true ->
-            let cnt = Map.find key visitedVertices.Value
-            visitedVertices.Mutate (Map.add key (cnt + 1u) visitedVertices.Value)
-        | _ -> visitedVertices.Mutate (Map.add key 1u visitedVertices.Value)
+    member private x.Used k (cilState : cilState) =
+        if PersistentDict.contains k cilState.level then
+            PersistentDict.find cilState.level k >= maxBorder
+        else false
 
     member x.Interpret (funcId : IFunctionIdentifier) (start : cilState) : unit =
         let cfg = findCfg funcId
-        let printStatistics () =
-            Logger.trace "Visit statistics:\n"
-            let p ip =
-                let k = cfg, ip
-                match visitedVertices.Value.ContainsKey k with
-                | true ->
-                    let cnt = Map.find k visitedVertices.Value
-                    Logger.trace "%O, %O: value = %d\n" cfg.methodBase ip cnt
-                | _ -> Logger.trace "%O, %O: value = 0" cfg.methodBase ip
-
-            Seq.iter (fun (offset : offset) -> p <| Instruction offset) cfg.sortedOffsets
-            p Exit
 
         let merge (x : cilState) (y : cilState) =
             match x.state.returnRegister, y.state.returnRegister with
@@ -64,8 +40,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             |> List.map (fun (r, s) -> {x with state = {s with returnRegister = r}})
 
         let rec interpret' (current : cilState) : unit =
-            if not <| x.Used cfg current.ip then
-                x.Visit (cfg, current.ip)
+            if not <| x.Used (current.ip, cfg.methodBase) current then
                 let states = x.EvaluateOneStep (funcId, current)
                 states |> List.iter (fun state ->
                     if x.IsResultState funcId state then results.[funcId].Add(state)
@@ -76,7 +51,6 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             | Some newSt -> interpret' newSt
             | None -> ()
         interpret' start
-        printStatistics ()
 
     override x.Invoke funcId state k =
         workingSet.TryAdd(funcId, List<cilState>())    |> ignore
@@ -87,14 +61,6 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
         let cleanSets () =
             results.[funcId] <- List()
             incompleteStatesSet.[funcId] <- List()
-
-        let k =
-            visitedVertices.Save()
-            let k x =
-                visitedVertices.Restore()
-                cleanSets()
-                k x
-            k
 
         let getResultsAndStates () =
             let results = results.[funcId] |> List.ofSeq
@@ -111,7 +77,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             cilState.Make (Instruction 0) state
             |> x.Interpret funcId
             getResultsAndStates ()
-        x.InitializeStatics state funcId.Method.DeclaringType (List.map interpret >> List.concat >> k)
+        x.InitializeStatics state funcId.Method.DeclaringType (List.map interpret >> List.concat >> (fun x -> cleanSets(); k x))
 
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
     abstract member EvaluateOneStep : IFunctionIdentifier * cilState -> cilState list
@@ -1096,6 +1062,16 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | :? InsufficientInformationException as iie -> finishedStates, {cilState with iie = Some iie; ip = Instruction offset} :: incompleteStates, errors
         executeAllInstructions ([],[],[]) startingOffset cilState
 
+    member x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) : cilState =
+        let isRecursiveVertex offset =
+            if cfg.dfsOut.ContainsKey offset then
+                let t1 = cfg.dfsOut.[offset]
+                cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
+            else false
+        if offset = 0 || isRecursiveVertex offset then
+            CilStateOperations.incrementLevel cilState (Instruction offset, cfg.methodBase)
+        else cilState
+
     member x.ExecuteInstruction (cfg : cfg) (offset : int) (cilState : cilState) =
         let opCode = Instruction.parseInstruction cfg.ilBytes offset
         let newOffsets : ip list =
@@ -1110,4 +1086,5 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 | ExceptionMechanism -> [FindingHandler offset]
                 | ConditionalBranch targets -> targets |> List.map Instruction
         let newSts = opcode2Function.[hashFunction opCode] cfg offset newOffsets cilState
-        newSts |> List.map (fun (d, cilState : cilState) -> d, cilState)
+
+        newSts |> List.map (fun (d, cilState : cilState) -> d, x.IncrementLevelIfNeeded cfg offset cilState)
