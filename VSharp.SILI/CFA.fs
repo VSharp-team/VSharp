@@ -714,7 +714,8 @@ type StepInterpreter() =
             let vertexWithSameOpStack (v : CFA.Vertex) =
                 v.OpStack
                 |> List.zip cilState.state.opStack
-                |> List.forall (fun (x, y) -> if CFA.cfaBuilder.shouldRemainOnOpStack y then x = y else true)
+                |> List.forall (fun (elementOnStateOpSTack, elementOnVertexOpStack) ->
+                    if CFA.cfaBuilder.shouldRemainOnOpStack elementOnVertexOpStack then elementOnStateOpSTack = elementOnVertexOpStack else true)
             let vertices = cfa.body.vertices.Values |> Seq.filter (fun (v : CFA.Vertex) ->
                 v.Ip = ip && v.OutgoingEdges.Count > 0 && vertexWithSameOpStack v) |> List.ofSeq
 

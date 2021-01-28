@@ -99,7 +99,10 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
                     workingSet.[funcId].RemoveAt i
                     res
     member x.IsResultState (funcId : IFunctionIdentifier) (cilState : cilState) =
-        cilState.ip = ip.Exit && cilState.state.opStack = []
+        // this is a hack, it should be gone with cfa
+        let needToAddResult () = not <| Seq.exists ((=) cilState) results.[funcId]
+        cilState.ip = ip.Exit && cilState.state.opStack = [] && needToAddResult()
+
     member x.PickNext (funcId : IFunctionIdentifier) =
         if workingSet.[funcId].Count > 0 then
             let st = workingSet.[funcId].[0]
