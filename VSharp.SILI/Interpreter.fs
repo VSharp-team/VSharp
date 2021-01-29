@@ -23,11 +23,11 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
     static let findCfg (ilmm : IFunctionIdentifier) =
         Dict.getValueOrUpdate cfgs ilmm (fun () -> CFG.build ilmm.Method)
 
-    let maxBorder = 3u
+    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
 
     member private x.Used k (cilState : cilState) =
         if PersistentDict.contains k cilState.level then
-            PersistentDict.find cilState.level k >= maxBorder
+            PersistentDict.find cilState.level k >= maxBound
         else false
 
     member x.Interpret (funcId : IFunctionIdentifier) (start : cilState) : unit =
