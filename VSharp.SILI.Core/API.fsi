@@ -65,6 +65,8 @@ module API =
 
         val WithPathCondition : state -> term -> state
 
+        val RemovePathCondition : state -> term -> state
+
     module Types =
         val Numeric : System.Type -> symbolicType
         val ObjectType : symbolicType
@@ -155,7 +157,7 @@ module API =
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
 
         val BoxValueType : state -> term -> term * state
-        val AllocateDefaultStatic : state -> symbolicType -> state
+        val InitializeStaticMembers : state -> symbolicType -> state
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
@@ -174,10 +176,9 @@ module API =
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> (state list -> 'a) -> 'a
 
-        val Merge2States : state -> state -> state
+        val Merge2States : state -> state -> state list
+        val Merge2Results : term * state -> term * state -> (term * state) list
 
-    module Options =
-        val HandleNativeInt : 'a -> 'a -> 'a
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state

@@ -60,18 +60,13 @@ type stackKey =
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector
 
-type ICodeLocation =
-    abstract Location : obj
-
 type IFunctionIdentifier =
-    inherit ICodeLocation
     abstract ReturnType : Type
     abstract IsConstructor : bool
     abstract Method : System.Reflection.MethodBase
 
 type EmptyIdentifier() =
     interface IFunctionIdentifier with
-        override x.Location = null
         override x.ReturnType = typeof<Void>
         override x.IsConstructor = false
         override x.Method = null

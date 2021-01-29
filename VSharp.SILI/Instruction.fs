@@ -1,5 +1,7 @@
 namespace VSharp.Interpreter.IL
 
+open System
+
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
@@ -12,19 +14,9 @@ type state = VSharp.Core.state
 
 type operationalStack = term list
 
-type ip =
-    | Instruction of offset
-    | Exit
-    | FindingHandler of offset // offset -- source of exception
-    with
-    member x.CanBeExpanded () =
-        match x with
-        | Instruction _ -> true
-        | _ -> false
-    member x.Offset () =
-        match x with
-        | Instruction i -> i
-        | _              -> internalfail "Could not get vertex from destination"
+type ip = VSharp.Core.ip
+type level = VSharp.Core.level
+
 type ipTransition =
     | FallThrough of offset
     | Return
@@ -32,27 +24,7 @@ type ipTransition =
     | ConditionalBranch of offset list
     | ExceptionMechanism
 
-type cilState =
-    { ip : ip
-      isCompleted : bool
-      state : state
-      leaveInstructionExecuted : bool
-      filterResult : term option
-    }
-    interface VSharp.Core.IInterpreterState<cilState> with
-        member x.InternalState = x.state
-        member x.SetState st = {x with state = st}
-        member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
-        member x.ResultTerm = x.state.returnRegister
-    member x.CanBeExpanded () = x.ip.CanBeExpanded()
-    member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
-    static member MakeEmpty curV state =
-        { ip = curV
-          isCompleted = false
-          state = state
-          leaveInstructionExecuted = false
-          filterResult = None
-        }
+
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
         System.BitConverter.ToInt32(ilBytes, pos)
@@ -170,6 +142,7 @@ module internal Instruction =
     let (|Calli|_|) (opCode : OpCode) = if opCode = OpCodes.Calli then Some () else None
     let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
+
 
     let parseInstruction (ilBytes : byte []) pos =
         let b1 = ilBytes.[pos]
