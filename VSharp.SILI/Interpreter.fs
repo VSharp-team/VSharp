@@ -1048,7 +1048,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
             else false
         if offset = 0 || isRecursiveVertex offset then
-            CilStateOperations.incrementLevel cilState (Instruction offset, cfg.methodBase)
+            incrementLevel cilState (Instruction offset, cfg.methodBase)
         else cilState
 
     member x.ExecuteInstruction (cfg : cfg) (offset : int) (cilState : cilState) =
