@@ -427,7 +427,7 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = List.splitAt paramsNumber cilState.opStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
+            if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
             else
                 let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
                 castUnchecked typ parameter cilState.state

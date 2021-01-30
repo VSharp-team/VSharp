@@ -28,6 +28,11 @@ module public Prelude =
         | Some x -> x::xs
         | None -> xs
 
+    let public swap (x : 'a byref) (y : 'a byref) =
+        let tmp = x
+        x <- y
+        y <- tmp
+
     let inline public withFst x = fun y -> (x, y)
     let inline public withSnd y = fun x -> (x, y)
     let inline public makePair x y = (x, y)

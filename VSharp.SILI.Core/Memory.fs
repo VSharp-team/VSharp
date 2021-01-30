@@ -26,8 +26,8 @@ type offset = int
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
     with
-    member x.HasNonVoidResult = Reflection.GetMethodReturnType x.calledMethod <> typeof<System.Void>
-    member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
+    member x.HasNonVoidResult = Reflection.methodReturnType x.calledMethod <> typeof<System.Void>
+    member x.SymbolicType = x.calledMethod |> Reflection.methodReturnType |> fromDotNetType
     override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
     override x.Equals(o : obj) =
         match o with
@@ -41,7 +41,7 @@ type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
             | _ -> -1
     override x.ToString() =
         sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
-            (Reflection.GetFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.GetFullMethodName x.calledMethod)
+            (Reflection.fullMethodName x.sourceMethod) x.offset x.opCode (Reflection.fullMethodName x.calledMethod)
 
 type exceptionRegister =
     | Unhandled of term

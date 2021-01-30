@@ -99,7 +99,7 @@ module public CFA =
         override x.ToString() = x.commonToString()
         member x.commonToString() =
             sprintf "%s ID:[%d --> %d] IP:[%O --> %O] Method:%s"
-                x.Type x.Src.Id x.Dst.Id x.Src.Ip x.Dst.Ip (Reflection.GetFullMethodName x.Method)
+                x.Type x.Src.Id x.Dst.Id x.Src.Ip x.Dst.Ip (Reflection.fullMethodName x.Method)
 
 
     type 'a unitBlock =
@@ -216,8 +216,8 @@ module public CFA =
             match states with
             | [state] ->
                 match callSite.opCode with
-                | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [Memory.PopStack state]
-                | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod -> k [Memory.PopStack state]
+                | Instruction.NewObj   when Reflection.isDelegateConstructor callSite.calledMethod -> k [Memory.PopStack state]
+                | Instruction.NewObj   when Reflection.isArrayConstructor callSite.calledMethod -> k [Memory.PopStack state]
                 | Instruction.Call
                 | Instruction.NewObj   ->
                     interpreter.CommonCall callSite.calledMethod state k

@@ -19,9 +19,9 @@ type stackKey =
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
+            | ThisKey m -> sprintf "%s##this" (Reflection.fullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.GetFullMethodName m) (lvi.ToString())
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.fullMethodName m) (lvi.ToString())
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
