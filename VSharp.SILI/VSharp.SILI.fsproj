@@ -5,6 +5,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Communication.fs" />
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
         <Compile Include="InstructionsSet.fs" />
