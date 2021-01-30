@@ -20,6 +20,15 @@ module public Reflection =
 
     // --------------------------- Metadata Resolving ---------------------------
 
+    let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
+        let assembly =
+            try
+                Assembly.Load(assemblyName)
+            with _ ->
+                Assembly.LoadFile(moduleName)
+        let m = assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
+        m.ResolveMethod(token)
+
     let private retrieveMethodsGenerics (method : MethodBase) =
         match method with
         | :? MethodInfo as mi -> mi.GetGenericArguments()
@@ -167,6 +176,13 @@ module public Reflection =
     let concretizeField (f : fieldId) (subst : Type -> Type) =
         let declaringType = concretizeType subst f.declaringType
         {declaringType = declaringType; name = f.name; typ = concretizeType subst f.typ}
+
+    let public methodToString (m : MethodBase) =
+        let hasThis = m.CallingConvention.HasFlag(CallingConventions.HasThis)
+        let returnsSomething = getMethodReturnType m <> typeof<Void>
+        let argsCount = m.GetParameters().Length
+        if m.DeclaringType = null then m.Name
+        else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.FullName m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
 
     // --------------------------------- Fields ---------------------------------
 

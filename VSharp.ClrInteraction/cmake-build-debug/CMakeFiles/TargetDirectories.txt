@@ -1,0 +1,3 @@
+/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/CMakeFiles/icsharpConcolic.dir

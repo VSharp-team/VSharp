@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="VSharp.ClrInteraction"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="clang"/>
+		<Option virtualFolders="CMake Files\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="icsharpConcolic">
+				<Option output="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/libicsharpConcolic.dylib" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="3"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DBIT64"/>
+					<Add option="-DPAL_STDCPP_COMPAT"/>
+					<Add option="-DPLATFORM_UNIX"/>
+					<Add option="-D_LOGGING"/>
+					<Add option="-D_DEBUG"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/."/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/inc/rt"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/prebuilt/inc"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/inc"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/inc"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/12.0.5/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"/>
+					<Add directory="/System/Library/Frameworks"/>
+					<Add directory="/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 icsharpConcolic"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="icsharpConcolic/fast">
+				<Option output="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/libicsharpConcolic.dylib" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug"/>
+				<Option object_output="./"/>
+				<Option type="3"/>
+				<Option compiler="clang"/>
+				<Compiler>
+					<Add option="-DBIT64"/>
+					<Add option="-DPAL_STDCPP_COMPAT"/>
+					<Add option="-DPLATFORM_UNIX"/>
+					<Add option="-D_LOGGING"/>
+					<Add option="-D_DEBUG"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/."/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/inc/rt"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/prebuilt/inc"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/pal/inc"/>
+					<Add directory="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/../CoreClr/src/inc"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/../include/c++/v1"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/12.0.5/include"/>
+					<Add directory="/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"/>
+					<Add directory="/System/Library/Frameworks"/>
+					<Add directory="/Library/Frameworks"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 icsharpConcolic/fast"/>
+					<CompileFile command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/make -j8 -f &quot;/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/CoreClr/src/pal/prebuilt/idl/corprof_i.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/classFactory.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/classFactory.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/communication/protocol.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/communication/protocol.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/communication/unixFifoCommunicator.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/corProfiler.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/corProfiler.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/dllmain.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/instrumenter.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/instrumenter.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/logging.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/logging.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/heap.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/heap.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/memory.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/memory.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/stack.cpp">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/memory/stack.h">
+			<Option target="icsharpConcolic"/>
+		</Unit>
+		<Unit filename="/Users/michael/Documents/Work/VSharp/VSharp.ClrInteraction/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

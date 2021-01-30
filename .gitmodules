@@ -1,0 +1,3 @@
+[submodule "CoreClr"]
+	path = CoreClr
+	url = https://github.com/VSharp-team/CoreClr.git

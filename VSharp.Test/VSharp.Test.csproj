@@ -39,6 +39,12 @@
       <Reference Include="ChessDotNet, Version=0.9.4.0, Culture=neutral, PublicKeyToken=95fb3ccd1157343b">
         <HintPath>Tests\Chess.NET\ChessDotNet.dll</HintPath>
       </Reference>
+      <Reference Include="Microsoft.Pex.resources, Version=15.0.0.0, Culture=ru, PublicKeyToken=b03f5f7f11d50a3a, ProcessorArchitecture=MSIL">
+        <HintPath>..\..\..\Downloads\Telegram Desktop\Pex\Microsoft.Pex.Resources.dll</HintPath>
+      </Reference>
+      <Reference Include="Microsoft.Pex.VisualStudio.resources, Version=15.0.0.0, Culture=ru, PublicKeyToken=b03f5f7f11d50a3a, ProcessorArchitecture=MSIL">
+        <HintPath>..\..\..\Downloads\Telegram Desktop\Pex\Microsoft.Pex.VisualStudio.Resources.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>

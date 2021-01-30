@@ -1,0 +1,5 @@
+LIBRARY "VSharp.ClrInteraction.Dll"
+
+EXPORTS
+    DllCanUnloadNow PRIVATE
+    DllGetClassObject PRIVATE
