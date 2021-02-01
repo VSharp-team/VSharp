@@ -10,13 +10,14 @@ open VSharp.Core
 open CilStateOperations
 open System.Collections.Generic
 open System.Reflection
+open ipOperations
 
 type codeLocationSummary = { cilState : cilState } // state.returnRegister is used as result
     with
+    member x.State = withOpStack emptyOpStack x.cilState |> stateOf
     member x.Result =
-        match x.cilState.state.returnRegister with
-        | None -> Nop
-        | Some r -> r
+        if Memory.OpStackLength x.cilState.state.opStack = 0 then Nop
+        else pop x.cilState |> fst
 
 type codeLocationSummaries = codeLocationSummary list
 
@@ -33,7 +34,7 @@ type public ExplorerBase() =
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             let state = Memory.InitializeStaticMembers Memory.EmptyState (Types.FromDotNetType m.DeclaringType)
-            let initialState = makeInitialState state
+            let initialState = makeInitialState m.Method state
             x.Invoke id initialState (List.map (fun cilState -> { cilState = cilState }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
@@ -47,15 +48,17 @@ type public ExplorerBase() =
         k resultsAndStates
 
     member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) cilState k =
-        if areWeStuck then
-            try
-                x.ReproduceEffect id cilState k
-            with
-            | :? InsufficientInformationException ->
-                body cilState k
-        else
-            // explicitly unrolling
-            body cilState k
+        // every exploration should be made via searcher
+        __unreachable__()
+//        if areWeStuck then
+//            try
+//                x.ReproduceEffect id cilState k
+//            with
+//            | :? InsufficientInformationException ->
+//                body cilState k
+//        else
+//            // explicitly unrolling
+//            body cilState k
 
     member x.EnterRecursiveRegion (funcId : IFunctionIdentifier) cilState body k =
         let shouldStopUnrolling = x.ShouldStopUnrolling funcId cilState
@@ -67,20 +70,21 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
-    member x.ReduceFunction initialCilState (methodBase : MethodBase) k =
+    abstract ReduceFunction : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
+    default x.ReduceFunction (methodBase : MethodBase) (cilState : cilState) k =
+        // TODO: do nothing, we have queue
+        cilState |> List.singleton |> k
         // TODO: do concrete invocation if possible!
 //        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
 //        if Options.InvokeConcrete () && canUseReflection then
 //            API.Marshalling.CallViaReflection state funcId this parameters k
 //        else
-        let methodId = x.MakeMethodIdentifier methodBase
-        let invoke state k = x.Invoke methodId state k
-        let cilState = withOpStack emptyOpStack initialCilState
-        let restoreOpStack cilState = withOpStack initialCilState.state.opStack cilState
-        x.EnterRecursiveRegion methodId cilState invoke (List.map restoreOpStack >> k)
+//            let methodId = x.MakeMethodIdentifier methodBase
+//            let invoke state k = x.Invoke methodId state k
+//            x.EnterRecursiveRegion methodId cilState invoke k
 
-    member x.ReduceFunctionSignature state (methodBase : MethodBase) this paramValues isEffect k =
-        let funcId = x.MakeMethodIdentifier methodBase
+    static member ReduceFunctionSignature state (funcId : IFunctionIdentifier) this paramValues isEffect k =
+        let methodBase = funcId.Method
         let parameters = methodBase.GetParameters()
         let getParameterType (param : ParameterInfo) = Types.FromDotNetType param.ParameterType
         let values, areParametersSpecified =
@@ -115,6 +119,11 @@ type public ExplorerBase() =
             | None -> parameters
         Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k
 
+    member x.ReduceFunctionSignatureCIL (cilState : cilState) (methodBase : MethodBase) this paramValues isEffect k =
+        let funcId = x.MakeMethodIdentifier methodBase
+        ExplorerBase.ReduceFunctionSignature cilState.state funcId this paramValues isEffect (fun state ->
+        cilState |> withState state |> pushToIp (instruction methodBase 0) |> k)
+
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert(f.IsStatic)
         if f.IsLiteral then
@@ -131,34 +140,36 @@ type public ExplorerBase() =
                 Memory.WriteStaticField state targetType fieldId value
         else state
 
-    member x.InitializeStatics (cilState : cilState) (t : System.Type) (k : cilState list -> 'a) =
+    member x.InitializeStatics (cilState : cilState) (t : System.Type) whenInitializedCont : cilState list =
         let fields = t.GetFields(Reflection.staticBindingFlags)
-        let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
+
         match t with
-        | _ when t.IsGenericParameter -> k (List.singleton cilState)
+        | _ when t.IsGenericParameter -> whenInitializedCont cilState
         | _ ->
             let termType = Types.FromDotNetType t
             let typeInitialized = Memory.IsTypeInitialized cilState.state termType
             match typeInitialized with
-            | True -> k (List.singleton cilState)
+            | True -> whenInitializedCont cilState
             | _ ->
+                let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
                 let state = Memory.InitializeStaticMembers cilState.state termType
                 let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
-                let cilStates =
-                    match staticConstructor with
-                    | Some cctor ->
-                        let removeCallSiteResultAndPopStack (cilStateAfterCallingCCtor : cilState) =
-                            let stateAfterCallingCCtor = Memory.PopFrame cilStateAfterCallingCCtor.state
-                            let stateWithoutCallSiteResult = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
-                            {cilStateAfterCallingCCtor with state = stateWithoutCallSiteResult}
-                        x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
-                        x.ReduceFunction {cilState with state = state} cctor (List.map removeCallSiteResultAndPopStack))
-                    | None -> {cilState with state = state } |> List.singleton
-                k cilStates // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
+                let cilState = withState state cilState
+                match staticConstructor with
+                | Some cctor ->
+//                    let removeCallSiteResultAndPopStack (cilStateAfterCallingCCtor : cilState) =
+//                        let stateAfterCallingCCtor = Memory.PopFrame cilStateAfterCallingCCtor.state
+//                        let stateWithoutCallSiteResult = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
+//                        {cilStateAfterCallingCCtor with state = stateWithoutCallSiteResult}
+                    x.ReduceFunctionSignatureCIL cilState cctor None (Specified []) false (List.singleton)
+//                    staticConstructor, cilState
+                | None -> whenInitializedCont cilState
+                // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
     member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
         __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
-    member x.FormInitialStateWithoutStatics (funcId : IFunctionIdentifier) =
+
+    static member FormInitialStateWithoutStatics isEffect (funcId : IFunctionIdentifier) =
         let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
@@ -167,15 +178,15 @@ type public ExplorerBase() =
                 (if m.IsStatic then None else Memory.MakeSymbolicThis m.Method |> Some), initialState
             | _ -> __notImplemented__()
         let state = Option.fold (fun state this -> !!(IsNullReference this) |> WithPathCondition state) state this
-        x.ReduceFunctionSignature state funcId.Method this Unspecified true id
+        ExplorerBase.ReduceFunctionSignature state funcId this Unspecified isEffect id
     member x.FormInitialState (funcId : IFunctionIdentifier) : cilState list =
-        let state = x.FormInitialStateWithoutStatics funcId
-        let cilState = makeInitialState state
-        x.InitializeStatics cilState funcId.Method.DeclaringType id
+        let state = ExplorerBase.FormInitialStateWithoutStatics false funcId
+        let cilState = makeInitialState funcId.Method state
+        x.InitializeStatics cilState funcId.Method.DeclaringType (List.singleton)
 
-    abstract CreateInstance : System.Type -> term list -> cilState -> cilState list
-    default x.CreateInstance exceptionType arguments cilState =
-        x.InitializeStatics cilState exceptionType (List.map (fun cilState ->
+    abstract CreateException : System.Type -> term list -> cilState -> cilState list
+    default x.CreateException exceptionType arguments cilState =
+        assert (not <| exceptionType.IsValueType)
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
         let argumentsTypes =
@@ -189,35 +200,32 @@ type public ExplorerBase() =
                                    |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
         assert(List.length ctors = 1)
         let ctor = List.head ctors
-        assert (not <| exceptionType.IsValueType)
-        let s = cilState.state
-        let reference, s = Memory.AllocateDefaultClass s (Types.FromDotNetType exceptionType)
-        let withResult result (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = Some result}}
-        x.ReduceFunctionSignature s ctor (Some reference) (Specified arguments) false (fun state ->
-        x.ReduceFunction {cilState with state = state} ctor (fun cilStates ->
-        cilStates |> List.map (withResult reference)))) >> List.concat)
+        let fullConstructorName = Reflection.GetFullMethodName ctor
+        assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
+        let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName
+        x.ReduceFunctionSignatureCIL cilState proxyCtor None (Specified arguments) false List.singleton
 
     member x.InvalidProgramException cilState =
-        x.CreateInstance typeof<System.InvalidProgramException> [] cilState
+        x.CreateException typeof<System.InvalidProgramException> [] cilState
     member x.NullReferenceException cilState =
-        x.CreateInstance typeof<System.NullReferenceException> [] cilState
+        x.CreateException typeof<System.NullReferenceException> [] cilState
     member x.IndexOutOfRangeException cilState =
-        x.CreateInstance typeof<System.IndexOutOfRangeException> [] cilState
+        x.CreateException typeof<System.IndexOutOfRangeException> [] cilState
     member x.ArrayTypeMismatchException cilState =
-        x.CreateInstance typeof<System.ArrayTypeMismatchException> [] cilState
+        x.CreateException typeof<System.ArrayTypeMismatchException> [] cilState
     member x.DivideByZeroException cilState =
-        x.CreateInstance typeof<System.DivideByZeroException> [] cilState
+        x.CreateException typeof<System.DivideByZeroException> [] cilState
     member x.OverflowException cilState =
-        x.CreateInstance typeof<System.OverflowException> [] cilState
+        x.CreateException typeof<System.OverflowException> [] cilState
     member x.ArithmeticException cilState =
-        x.CreateInstance typeof<System.ArithmeticException> [] cilState
+        x.CreateException typeof<System.ArithmeticException> [] cilState
     member x.TypeInitializerException qualifiedTypeName innerException (cilState : cilState) =
         let typeName, state = Memory.AllocateString qualifiedTypeName cilState.state
         let args = [typeName; innerException]
-        x.CreateInstance typeof<System.TypeInitializationException> args {cilState with state = state}
+        x.CreateException typeof<System.TypeInitializationException> args {cilState with state = state}
     member x.InvalidCastException (cilState : cilState) =
         let message, state = Memory.AllocateString "Specified cast is not valid." cilState.state
-        x.CreateInstance typeof<System.InvalidCastException> [message] {cilState with state = state}
+        x.CreateException typeof<System.InvalidCastException> [message] {cilState with state = state}
 
     member x.ExploreAndCompose (funcId : IFunctionIdentifier) (cilState : cilState) (k : cilState list -> 'a) =
         let prepareGenericsLessState (methodId : IMethodIdentifier) state =

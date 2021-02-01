@@ -7,6 +7,7 @@ open System.Collections.Generic
 open System.Reflection.Emit
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
 
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
@@ -51,7 +52,9 @@ module public CFG =
 
     let private createData (methodBase : MethodBase) =
         let mb = methodBase.GetMethodBody()
-        let size = mb.GetILAsByteArray().Length
+        if mb = null then ()
+        let array = mb.GetILAsByteArray()
+        let size = array.Length
         let interim = {
             fallThroughOffset = Array.init size (fun _ -> None)
             verticesOffsets = HashSet<_>()
@@ -121,7 +124,7 @@ module public CFG =
             else
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
-                let opCode = Instruction.parseInstruction ilBytes v
+                let opCode = Instruction.parseInstruction methodBase v
                 Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.GetFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
 
@@ -132,7 +135,7 @@ module public CFG =
                     if Instruction.isLeaveOpCode opCode then
                         let ehcs = methodBase.GetMethodBody().ExceptionHandlingClauses
                                    |> Seq.filter Instruction.isFinallyClause
-                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause (ip.Instruction src) (ip.Instruction dst))
+                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause src dst)
                                    |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
                         let chainSequentialFinallyBlocks prevOffset (ehc : ExceptionHandlingClause) =
                             let startOffset = ehc.HandlerOffset
@@ -199,3 +202,7 @@ module public CFG =
         let cfg = addVerticesAndEdges cfgData interimData
         orderEdges (HashSet<offset>()) cfg
         cfg
+
+    let cfgs = Dictionary<MethodBase, cfgData>()
+    let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
+

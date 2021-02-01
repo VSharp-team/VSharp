@@ -5,6 +5,7 @@ open System
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
+open VSharp.Core
 
 exception IncorrectCIL of string
 
@@ -58,6 +59,7 @@ module internal Instruction =
     let private twoBytesOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
 
     let private fillOpCodes =
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let resolve (field : FieldInfo) =
             match field.GetValue() with
             | :? OpCode as opCode -> let value = int opCode.Value
@@ -130,11 +132,12 @@ module internal Instruction =
         isCallOpCode opCode || isNewObjOpCode opCode
     let isFinallyClause (ehc : ExceptionHandlingClause) =
         ehc.Flags = ExceptionHandlingClauseOptions.Finally
-    let shouldExecuteFinallyClause (src : ip) (dst : ip) (ehc : ExceptionHandlingClause) =
-        let srcOffset, dstOffset = src.Offset(), dst.Offset()
+    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+//        let srcOffset, dstOffset = src.Offset(), dst.Offset()
         let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
-        isInside srcOffset && not <| isInside dstOffset
+        isInside src && not <| isInside dst
 
+    let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
     let (|Call|_|) (opCode : OpCode) = if opCode = OpCodes.Call then Some () else None
     let (|CallVirt|_|) (opCode : OpCode) = if opCode = OpCodes.Callvirt then Some () else None
     let (|Calli|_|) (opCode : OpCode) = if opCode = OpCodes.Calli then Some () else None
@@ -142,8 +145,15 @@ module internal Instruction =
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
 
-    let parseInstruction (ilBytes : byte []) pos =
+    let parseInstruction (m : MethodBase) pos =
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
         let b1 = ilBytes.[pos]
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
         elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[pos + 1]]
+
+    let parseCallSite (m : MethodBase) pos =
+        let opCode = parseInstruction m pos
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
+        let calledMethod = resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
+        {sourceMethod = m; calledMethod = calledMethod; opCode = opCode; offset = pos}

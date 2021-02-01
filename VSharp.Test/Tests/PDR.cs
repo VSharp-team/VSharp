@@ -50,6 +50,13 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static int NRE_TEST(ClassWithOneField c)
+        {
+            return c.x;
+        }
+
+
+        [TestSvm]
         public static Action<int> CreateLambda(bool flag)
         {
             int a = 0, b = 0, c = 0;
@@ -67,6 +74,13 @@ namespace VSharp.Test.Tests
                     c = m;
                 };
             return assign;
+        }
+
+        [TestSvm]
+        public static int factAgain(int n)
+        {
+            if (n <= 0) return 1;
+            return n * factAgain(n - 1);
         }
 
         [TestSvm]
@@ -106,6 +120,12 @@ namespace VSharp.Test.Tests
             ReturnConstant();
             array[5] = 42;
             return array[5];
+        }
+
+        [TestSvm]
+        public static object CreateClassViaNewobj()
+        {
+            return new object();
         }
 
         [TestSvm]
@@ -523,6 +543,56 @@ namespace VSharp.Test.Tests
         public static int ThrowException(int x)
         {
             throw new Exception();
+        }
+
+        public static int D(int arg)
+        {
+            return arg + 1;
+        }
+
+        public static int X(int arg)
+        {
+            return D(arg + 20);
+        }
+
+        public static int G(int arg)
+        {
+            return X(arg + 300);
+        }
+
+        [TestSvm]
+        public static int BreakCallSitesComposition()
+        {
+            int x = X(0);
+            int g = G(0);
+
+            return x + g;
+        }
+
+        [TestSvm]
+        public static int BreakCallSitesCompositionRecursion(int n)
+        {
+            int sum = D(n);
+            int restSum = 0;
+            if (n > 0)
+            {
+                restSum = BreakCallSitesCompositionRecursion(n - 1);
+            }
+
+            return sum + restSum;
+        }
+
+        [TestSvm]
+        public static int BreakCallSitesCompositionCycle(int n)
+        {
+            int sum = 0;
+            while (n >= 0)
+            {
+                sum += D(n);
+                n--;
+            }
+
+            return sum;
         }
 
         [TestSvm]
@@ -953,6 +1023,39 @@ namespace VSharp.Test.Tests
         public class Aaaa
         {
             public int a;
+        }
+
+
+        [TestSvm]
+        public static uint TestConversions(uint x)
+        {
+            return x;
+        }
+
+        [TestSvm]
+        public static long Conv_Ovf_short_int(long a)
+        {
+            return checked((int) a);
+        }
+
+
+        [TestSvm]
+        public static long Many_Conversions(short a)
+        {
+            long tmp = a;
+            tmp = (short) Conv_Ovf_short_int(tmp);
+            tmp = (byte) Conv_Ovf_short_int(tmp);
+            tmp = (long) Conv_Ovf_short_int(tmp);
+            tmp = (short) Conv_Ovf_short_int(tmp);
+            tmp = (byte) Conv_Ovf_short_int(tmp);
+            tmp = (long) Conv_Ovf_short_int(tmp);
+            return tmp;
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndUint(int a, uint b)
+        {
+            return b + a;
         }
 
         [TestSvm]

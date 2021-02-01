@@ -12,6 +12,8 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.Interpreter.IL;
+using VSharp.Analyzer;
 
 namespace VSharp.Test
 {
@@ -72,8 +74,8 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            // var svm = new SVM(new MethodInterpreter());
-            var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
+            // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
+            var svm = new SVM(new MethodInterpreter(new MethodSearcher()));
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             TestSvmAttribute.SetUpSVM(svm);
         }

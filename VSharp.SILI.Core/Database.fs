@@ -4,21 +4,46 @@ open System.Collections.Generic
 open System.Reflection
 open VSharp
 
-type ip =
+type label =
     | Instruction of offset
     | Exit
     | FindingHandler of offset // offset -- source of exception
+
+[<CustomComparison; CustomEquality>]
+type ip = { label : label; method : MethodBase}
     with
     member x.CanBeExpanded () =
-        match x with
+        match x.label with
         | Instruction _ -> true
         | _ -> false
     member x.Offset () =
-        match x with
+        match x.label with
         | Instruction i -> i
         | _              -> internalfail "Could not get vertex from destination"
+    override x.Equals y =
+        match y with
+        | :? ip as y -> x.label = y.label && x.method = y.method
+        | _ -> false
+    override x.GetHashCode() = (x.label, x.method).GetHashCode()
+    interface System.IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? ip as y when x.method.Equals(y.method) -> compare x.label y.label
+            | :? ip as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
+            | _ -> -1
+    override x.ToString() = sprintf "{label = %O; method = %s}" x.label (Reflection.GetFullMethodName x.method)
 
-type level = pdict<ip * MethodBase, uint32>
+type level = pdict<ip, uint>
+type ipStack = ip list
+
+module ipOperations =
+    let exit m = {label = Exit; method = m}
+    let instruction m i = {label = Instruction i; method = m}
+    let findingHandler m i = {label = FindingHandler i; method = m}
+    let withExit ip = {ip with label = Exit}
+    let withOffset offset ip = {ip with label = Instruction offset}
+    let labelOf (ip : ip) = ip.label
+    let methodOf (ip : ip) = ip.method
 
 module Level =
     let zero : level = __notImplemented__()

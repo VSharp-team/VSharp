@@ -148,7 +148,7 @@ namespace VSharp.Test
         {
             if (summary == null)
                 return "Summary is empty";
-            return $"{summary.Result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.cilState.state))}";
+            return $"{summary.Result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.State))}";
         }
 
         private static string ResultToString(TestCodeLocationSummaries summary)

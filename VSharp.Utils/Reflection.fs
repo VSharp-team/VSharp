@@ -55,8 +55,7 @@ module public Reflection =
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let public HasNonVoidResult calledMethod =
-        GetMethodReturnType calledMethod <> typeof<System.Void>
+    let public HasNonVoidResult m = GetMethodReturnType m <> typeof<System.Void>
 
     let public GetFullMethodName (methodBase : MethodBase) =
         let returnType = GetMethodReturnType methodBase
@@ -74,6 +73,9 @@ module public Reflection =
 
     let public IsGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
+
+    let public isStaticConstructor (m : MethodBase) =
+        m.IsStatic && m.Name = ".cctor"
 
     // --------------------------------- Substitute generics ---------------------------------
 

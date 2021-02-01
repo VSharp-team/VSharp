@@ -32,6 +32,9 @@ module internal OperationStack =
         let args, contents = List.splitAt n opStack.contents
         args, { contents = contents }
 
+    let union opStack opStack' =
+        { contents = List.append opStack.contents opStack'.contents }
+
     let toList opStack = opStack.contents
 
     let toString opStack = opStack.contents |> List.map toString |> join "\n"

@@ -130,7 +130,9 @@ module API =
         val PushToOpStack : term -> operationStack -> operationStack
         val GetOpStackItem : int -> operationStack -> term
         val FilterOpStack : (term -> bool) -> operationStack -> operationStack
+        val UnionOpStacks : operationStack -> operationStack -> operationStack
         val MapiOpStack : (int -> term -> term) -> operationStack -> operationStack
+        val OpStackLength : operationStack -> int
         val OpStackToList : operationStack -> term list
 
         val PopFrame : state -> state

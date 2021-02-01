@@ -43,6 +43,7 @@ type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
         sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
             (Reflection.GetFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.GetFullMethodName x.calledMethod)
 
+// TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
     | Unhandled of term
     | Caught of term
@@ -53,7 +54,6 @@ type exceptionRegister =
         | Unhandled error -> error
         | Caught error -> error
         | _ -> internalfail "no error"
-
 
     member x.TransformToCaught () =
         match x with
@@ -76,7 +76,7 @@ type exceptionRegister =
         match x with
         | Unhandled e -> Unhandled <| f e
         | Caught e -> Caught <| f e
-        | _ -> NoException
+        | NoException -> NoException
 
 type callSiteResults = Map<callSite, term option>
 
@@ -875,7 +875,9 @@ module internal Memory =
         | None -> reserveLocation accState k p // new frame, so we need to reserve
 
     let composeRaisedExceptionsOf (state : state) (error : exceptionRegister) =
-        error |> exceptionRegister.map (fillHoles state)
+        match state.exceptionsRegister, error with
+        | NoException, _ -> error |> exceptionRegister.map (fillHoles state)
+        | _ -> __unreachable__()
 
     let composeCallSiteResultsOf (state : state) (callSiteResults : callSiteResults) =
         Map.fold (fun (acc : callSiteResults) key value ->
@@ -986,9 +988,10 @@ module internal Memory =
             // Hacking return register to propagate starting and current time of state' into composeTime
             let state = {state with returnRegister = Some(Concrete (state'.startingTime, state'.currentTime) (fromDotNetType typeof<vectorTime * vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
+            // Note: this is not final opStack of resulting cilState, here we forget left state's opStack at all
             let opStack = composeOpStacksOf state state'.opStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
-            let exceptionRegister = composeRaisedExceptionsOf state state.exceptionsRegister
+            let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
             let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
             let stack, frames = composeStacksAndFramesOf state state'
             let! g1, stackBuffers = composeMemoryRegions state state.stackBuffers state'.stackBuffers

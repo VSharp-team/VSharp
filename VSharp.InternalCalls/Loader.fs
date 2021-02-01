@@ -24,3 +24,14 @@ module Loader =
         Assembly.GetExecutingAssembly().GetTypes()
         |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
         |> collectImplementations
+
+    let private runtimeExceptionsConstructors =
+        Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Exceptions")
+        |> Seq.singleton
+        |> collectImplementations
+
+    let public hasRuntimeExceptionsImplementation (fullMethodName : string) =
+        Map.containsKey fullMethodName runtimeExceptionsConstructors
+
+    let public getRuntimeExceptionsImplementation (fullMethodName : string) =
+        runtimeExceptionsConstructors.[fullMethodName]

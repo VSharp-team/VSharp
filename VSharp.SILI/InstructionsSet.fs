@@ -39,6 +39,8 @@ module internal TypeUtils =
     let uint64Type  = Numeric typedefof<uint64>
     let charType    = Numeric typedefof<char>
 
+    let isEnum typ = typ |> ToDotNetType |> (fun t -> t.IsEnum)
+
     let signed2unsignedOrId = function
         | Bool -> uint32Type
         | Numeric (Id typ) when typ = typedefof<int32> || typ = typedefof<uint32> -> uint32Type
@@ -46,6 +48,7 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
         | Numeric (Id typ) when typ = typedefof<double> -> float64Type
+        | typ when isEnum typ -> typ
         | _ -> __unreachable__()
     let unsigned2signedOrId = function
         | Bool -> int32Type
@@ -55,10 +58,11 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
         | Numeric (Id typ) when typ = typedefof<double> -> float64Type
         | Pointer _ as t -> t
+        | t when isEnum t -> t
         | _ -> __unreachable__()
     let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
 
-    let isIntegerTermType typ = integers |> List.contains typ
+    let isIntegerTermType typ = integers |> List.contains typ || isEnum typ
     let isFloatTermType typ = typ = float32Type || typ = float64Type
     let isInteger = Terms.TypeOf >> isIntegerTermType
     let isBool = Terms.TypeOf >> IsBool
@@ -105,11 +109,11 @@ module internal TypeUtils =
 
 module internal InstructionsSet =
     open CilStateOperations
+    open ipOperations
 
     let idTransformation term k = k term
 
     // --------------------------------------- Metadata Interaction ----------------------------------------
-
 
     let resolveFieldFromMetadata (cfg : cfgData) = Instruction.resolveFieldFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTypeFromMetadata (cfg : cfgData) = Instruction.resolveTypeFromMetadata cfg.methodBase cfg.ilBytes
@@ -146,15 +150,14 @@ module internal InstructionsSet =
                 Logger.trace "InternalCall got exception %s" e.Message
                 raise e
 
-        let appendResultToState (term : term, state : state) =
+        let pushOnOpStack (term : term, state : state) =
             match term.term with
-            | Nop -> {state with returnRegister = None}
-            | _ -> {state with returnRegister = Some term}
+            | Nop -> state
+            | _ -> {state with opStack = Memory.PushToOpStack term state.opStack}
         match result with
-        | :? (term * state) as r -> r |> appendResultToState |> List.singleton |> k
-        | :? ((term * state) list) as r -> r |> List.map appendResultToState |> k
+        | :? (term * state) as r -> pushOnOpStack r |> List.singleton |> k
+        | :? ((term * state) list) as r -> List.map pushOnOpStack r |> k
         | _ -> internalfail "internal call should return tuple term * state!"
-
 
     // ------------------------------- CIL instructions -------------------------------
 
@@ -240,26 +243,24 @@ module internal InstructionsSet =
         let x, cilState = pop cilState
         cilState |> push x |> push x |> List.singleton
 
-    let ret (cfg : cfgData) _ (cilState : cilState) =
-        let resultTyp =
-            match cfg.methodBase with
-            | :? ConstructorInfo -> Void
-            | :? MethodInfo as mi -> Types.FromDotNetType mi.ReturnType
-            | _ -> __notImplemented__()
-        let term, cilState =
-            if not <| Reflection.HasNonVoidResult cfg.methodBase then None, cilState
-            else pop cilState |> mapfst Some
-        let typ =
-            match term with
-            | Some t -> TypeOf t
-            | None -> Void
-        match term, resultTyp with
-        | None, Void -> cilState :: []
-        | Some t, _ when typ = resultTyp -> cilState |> withResult t |> List.singleton // TODO: [simplification] remove this heuristics
-        | Some t, _ ->
-            let t = castUnchecked resultTyp t cilState.state
-            cilState |> withResult t |> List.singleton
-        | _ -> __unreachable__()
+    let isCallIp (ip : ip) =
+        let offset = ip.Offset()
+        let opCode = Instruction.parseInstruction ip.method offset
+        Instruction.isDemandingCallOpCode opCode
+
+    let ret (cfg : cfgData) _ _ (cilState : cilState) : cilState list =
+        let resultTyp = Reflection.GetMethodReturnType cfg.methodBase |> Types.FromDotNetType
+        let cilState =
+            if resultTyp = Void then withNoResult cilState
+            else
+                let res, cilState = pop cilState
+                let castedResult = castUnchecked resultTyp res cilState.state
+                push castedResult cilState
+
+        match cilState.ipStack with
+        | ip :: ips -> {cilState with ipStack = {label = Exit; method = ip.method} :: ips} |> List.singleton
+        | [] -> __unreachable__()
+
     let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
@@ -300,22 +301,23 @@ module internal InstructionsSet =
         let value, cilState = pop cilState
         let states = Memory.WriteSafe cilState.state argTerm value
         states |> List.map (fun state -> cilState |> withState state)
-    let brcommon condTransform offsets (cilState : cilState) =
+    let brcommon condTransform (ips : ipStack list) (cilState : cilState) =
         let cond, cilState = pop cilState
-        let offsetThen, offsetElse =
-            match offsets with
-            | [offsetThen; offsetElse] -> offsetThen, offsetElse
-            | _ -> __unreachable__()
+        let ipThen, ipElse =
+           match ips with
+           | [ipThen; ipElse] -> ipThen, ipElse
+           | _ -> __unreachable__()
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (condTransform <| transform2BooleanTerm state.pc cond, state))
-            (fun cilState k -> k [offsetThen, cilState])
-            (fun cilState k -> k [offsetElse, cilState])
-            id
+           (fun state k -> k (condTransform <| transform2BooleanTerm state.pc cond, state))
+           (fun cilState k -> k [withIp ipThen cilState])
+           (fun cilState k -> k [withIp ipElse cilState])
+           id
     let brfalse = brcommon id
     let brtrue = brcommon (!!)
     let applyAndBranch errorStr additionalFunction brtrueFunction (cfg : cfgData) offset newOffsets (cilState : cilState) =
-        match additionalFunction cfg offset [Instruction offset] cilState with
-        | [_, st] -> brtrueFunction newOffsets st
+        let newIps = [instruction cfg.methodBase offset] :: []
+        match additionalFunction cfg offset newIps cilState with
+        | [st] -> brtrueFunction newOffsets st
         | _ -> internalfail errorStr
     let boolToInt b =
         BranchExpressions (fun k -> k b) (fun k -> k TypeUtils.Int32.One) (fun k -> k TypeUtils.Int32.Zero) id
@@ -380,18 +382,18 @@ module internal InstructionsSet =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let term = referenceLocalVariable index cfg.methodBase
         push term cilState |> List.singleton
-    let switch newOffsets (cilState : cilState) =
+    let switch newIps (cilState : cilState) =
         let value, cilState = pop cilState
         let value = makeUnsignedInteger value id
-        let checkOneCase (guard, newOffset) cilState kRestCases =
+        let checkOneCase (guard, newIp) cilState kRestCases =
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (guard, state))
-                (fun cilState k -> k [newOffset, cilState])
+                (fun cilState k -> k [withIp newIp cilState])
                 (fun _ k -> kRestCases cilState k) // ignore pc because we always know that cases do not overlap
-        let fallThroughOffset, newOffsets = List.head newOffsets, List.tail newOffsets
-        let casesAndOffsets = List.mapi (fun i offset -> value === MakeNumber i, offset) newOffsets
-        let fallThroughGuard = Arithmetics.(>>=) value (List.length newOffsets |> MakeNumber)
-        Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughOffset)::casesAndOffsets) (fun _ k -> k []) id
+        let fallThroughIp, restIps = List.head newIps, List.tail newIps
+        let casesAndOffsets = List.mapi (fun i offset -> value === MakeNumber i, offset) restIps
+        let fallThroughGuard = Arithmetics.(>>=) value (List.length restIps |> MakeNumber)
+        Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (cfg : cfgData) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
         let res =
@@ -478,13 +480,21 @@ module internal InstructionsSet =
         else __notImplemented__()
     let endfinally _ _ (cilState : cilState) =
         cilState |> withOpStack emptyOpStack |> List.singleton
-    let zipWithOneOffset op cfgData offset newOffsets cilState =
-        assert(List.length newOffsets = 1)
-        let newOffset = List.head newOffsets
+    let zipWithOneOffset op cfgData offset newIps cilState =
+        assert(List.length newIps = 1)
+        assert(not <| isError cilState)
+        let newIp = List.head newIps
         let cilStates = op cfgData offset cilState
-        List.map (withFst newOffset) cilStates
+        let errors, goods = cilStates |> List.partition isError
 
-    let opcode2Function : (cfgData -> offset -> ip list -> cilState -> (ip * cilState) list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
+        let changeIpIfNeeded (newState : cilState) =
+            // case when constructing runtime exception
+            if List.length newState.state.frames = List.length cilState.state.frames then withIp newIp newState
+            else newState
+
+        errors @ List.map changeIpIfNeeded goods
+
+    let opcode2Function : (cfgData -> offset -> ipStack list -> cilState -> cilState list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
     opcode2Function.[hashFunction OpCodes.Br]                 <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
     opcode2Function.[hashFunction OpCodes.Br_S]               <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
     opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Add // TODO: check float overflow [spec]
@@ -541,7 +551,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Ldloc_S]            <- zipWithOneOffset <| ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldloc_S.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Ldloca]             <- zipWithOneOffset <| ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldloca.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Ldloca_S]           <- zipWithOneOffset <| ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldloca_S.Size) |> int)
-    opcode2Function.[hashFunction OpCodes.Ret]                <- zipWithOneOffset <| ret
+    opcode2Function.[hashFunction OpCodes.Ret]                <- ret
     opcode2Function.[hashFunction OpCodes.Dup]                <- zipWithOneOffset <| fun _ _ -> dup
 
     // branching

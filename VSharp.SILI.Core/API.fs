@@ -153,7 +153,9 @@ module API =
             OperationStack.push x' opStack
         let GetOpStackItem index opStack = OperationStack.item index opStack
         let FilterOpStack f opStack = OperationStack.filter f opStack
+        let UnionOpStacks opStack opStack' = OperationStack.union opStack opStack'
         let MapiOpStack f opStack = OperationStack.mapi f opStack
+        let OpStackLength opStack = OperationStack.length opStack
         let OpStackToList opStack = OperationStack.toList opStack
 
         let PopFrame state = Memory.popFrame state
