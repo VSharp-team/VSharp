@@ -3,7 +3,7 @@
 
 namespace icsharp {
 
-class communicator {   
+class Communicator {
 public:
     bool open();
     int read(char *buffer, int count);

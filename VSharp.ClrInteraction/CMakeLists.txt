@@ -20,6 +20,7 @@ add_definitions(-DBIT64 -DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
 message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-D_LOGGING)
+    add_definitions(-D_DEBUG)
 endif()
 
 add_library(icsharpConcolic SHARED
@@ -27,6 +28,12 @@ add_library(icsharpConcolic SHARED
     corProfiler.cpp
     dllmain.cpp
     logging.cpp
+    instrumentation/ilRewriter.cpp
+    instrumentation/reflection.cpp
+    instrumentation/instrumenter.cpp
     communication/unixFifoCommunicator.cpp
     communication/protocol.cpp
+    memory/memory.cpp
+    memory/stack.cpp
+    memory/heap.cpp
     ${CORECLR_PATH}/src/pal/prebuilt/idl/corprof_i.cpp)

@@ -15,6 +15,13 @@
         <Compile Include="CFA.fs" />
         <Compile Include="Engine.fs" />
         <Compile Include="StepInterpreter.fs" />
+        <Compile Include="ILRewriter.fs" />
+        <Compile Include="Instrumenter.fs" />
+        <Compile Include="ClientMachine.fs" />
+        <Content Include="..\VSharp.ClrInteraction\build\libicsharpConcolic.so">
+          <Link>libicsharpConcolic.so</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>
@@ -22,5 +29,4 @@
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
-
 </Project>

@@ -4,6 +4,8 @@
 #include "unknwn.h"
 #include <atomic>
 
+namespace icsharp {
+
 class ClassFactory : public IClassFactory
 {
 private:
@@ -17,5 +19,7 @@ public:
     HRESULT STDMETHODCALLTYPE CreateInstance(IUnknown *pUnkOuter, REFIID riid, void **ppvObject) override;
     HRESULT STDMETHODCALLTYPE LockServer(BOOL fLock) override;
 };
+
+}
 
 #endif // CLASSFACTORY_H_

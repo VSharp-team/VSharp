@@ -5,25 +5,42 @@
 
 namespace icsharp {
 
-class protocol {
+struct MethodBodyInfo {
+    unsigned token;
+    unsigned codeLength;
+    unsigned assemblyNameLength;
+    unsigned moduleNameLength;
+    unsigned maxStackSize;
+    unsigned ehsLength;
+    unsigned signatureTokensLength;
+    char *signatureTokens;
+    char16_t *assemblyName;
+    char16_t *moduleName;
+    char *bytecode;
+    char *ehs;
+};
+
+class Protocol {
 private:
-	communicator communicator;
+    Communicator m_communicator;
 
-	bool readConfirmation();
-	bool writeConfirmation();
+    bool readConfirmation();
+    bool writeConfirmation();
 
-	bool readCount(int &count);
-	bool writeCount(int count);
+    bool readCount(int &count);
+    bool writeCount(int count);
 
-	bool readBuffer(char *&buffer, int &count);
-	bool writeBuffer(char *buffer, int count);
+    bool readBuffer(char *&buffer, int &count);
+    bool writeBuffer(char *buffer, int count);
 
-	bool handshake();
+    bool handshake();
 
 public:
-	bool connect();
-	bool sendMethodBody(char *bytecode, int length);
-	bool acceptMethodBody(char *&bytecode, int &length);
+    bool connect();
+    bool sendProbes();
+    bool sendMethodBody(const MethodBodyInfo &body);
+    bool acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength);
+    bool shutdown();
 };
 
 }

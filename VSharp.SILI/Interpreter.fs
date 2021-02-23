@@ -255,7 +255,7 @@ and public ILInterpreter() as this =
             else {state with returnRegister = None}
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
         let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
-        let fullMethodName = Reflection.GetFullMethodName methodBase
+        let fullMethodName = Reflection.fullMethodName methodBase
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         if Map.containsKey fullMethodName internalImplementations then
             (internalImplementations.[fullMethodName] state thisOption args) |> k
@@ -524,7 +524,7 @@ and public ILInterpreter() as this =
             if typ.IsArray && constructorInfo.GetMethodBody() = null
                 then x.ReduceArrayCreation typ constructorInfo state args id
                 else blockCase state) >> List.concat)
-        if Reflection.IsDelegateConstructor constructorInfo
+        if Reflection.isDelegateConstructor constructorInfo
             then x.CommonCreateDelegate constructorInfo state args k
             else nonDelegateCase state |> k
 

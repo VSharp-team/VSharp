@@ -5,11 +5,19 @@
 #include "cor.h"
 #include "corprof.h"
 
+namespace icsharp {
+
+class Instrumenter;
+class Protocol;
+
 class CorProfiler : public ICorProfilerCallback8
 {
 private:
     std::atomic<int> refCount;
-    ICorProfilerInfo8* corProfilerInfo;
+    ICorProfilerInfo9* corProfilerInfo;
+    Instrumenter *instrumenter;
+    Protocol *protocol;
+
 public:
     CorProfiler();
     virtual ~CorProfiler();
@@ -144,5 +152,7 @@ public:
         return count;
     }
 };
+
+}
 
 #endif // CORPROFILER_H_

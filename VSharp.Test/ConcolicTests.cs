@@ -1,4 +1,5 @@
-using System;
+using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using VSharp.Concolic;
 
@@ -10,9 +11,13 @@ namespace VSharp.Test
         [Test]
         public void TestHandshake()
         {
-            Logger.current_text_writer = TestContext.Progress;
-            var communicator = new Communicator(0);
-            Assert.IsTrue(communicator.Connect());
+            var writer = new StreamWriter("dotnet_lastrun", false);
+            writer.AutoFlush = false;
+            Logger.current_text_writer = writer;
+            Assembly assembly = Assembly.LoadFile("/home/dvvrd/dev/vsharp/VSharp.ClrInteraction/TestProject.dll");
+            var machine = new ClientMachine(assembly, null);
+            Assert.IsTrue(machine.Spawn());
+            while (machine.ExecCommand()) { }
         }
     }
 }

@@ -17,7 +17,7 @@ bool reportError() {
     ERROR(tout << strerror(errno));
     return false;
 }
-bool communicator::open() {
+bool Communicator::open() {
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) 
         return reportError();
@@ -30,21 +30,21 @@ bool communicator::open() {
     return true;
 }
 
-int communicator::read(char *buffer, int count) {
+int Communicator::read(char *buffer, int count) {
     int bytes = ::read(fd, buffer, count);
-    LOG(tout << "read " << count << " bytes: " << buffer);
+//    LOG(tout << "read " << count << " bytes: " << buffer);
     if (bytes < 0) reportError();
     return bytes;
 }
 
-int communicator::write(char *message, int count) {
-    LOG(tout << "writing " << count << " bytes: " << message);
+int Communicator::write(char *message, int count) {
+//    LOG(tout << "writing " << count << " bytes: " << message);
     int bytes = ::write(fd, message, count);
     if (bytes < 0) reportError();
     return bytes;
 }
 
-bool communicator::close() {
+bool Communicator::close() {
     if (::close(fd)) 
         return reportError();
     return true;   

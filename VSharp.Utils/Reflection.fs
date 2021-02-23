@@ -2,7 +2,6 @@ namespace VSharp
 
 open System
 open System.Reflection
-open VSharp.CSharpUtils
 
 module public Reflection =
 
@@ -21,6 +20,15 @@ module public Reflection =
         staticBindingFlags ||| instanceBindingFlags
 
     // --------------------------- Metadata Resolving ---------------------------
+
+    let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
+        let assembly =
+            try
+                Assembly.Load(assemblyName)
+            with _ ->
+                Assembly.LoadFile(moduleName)
+        let m = assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
+        m.ResolveMethod(token)
 
     let private retrieveMethodsGenerics (method : MethodBase) =
         match method with
@@ -51,24 +59,31 @@ module public Reflection =
     // --------------------------------- Methods --------------------------------
 
     // TODO: what if return type is generic?
-    let public GetMethodReturnType : MethodBase -> Type = function
+    let public methodReturnType : MethodBase -> Type = function
         | :? ConstructorInfo -> typeof<System.Void>
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let public GetFullMethodName (methodBase : MethodBase) =
-        let returnType = GetMethodReturnType methodBase
+    let public fullMethodName (methodBase : MethodBase) =
+        let returnType = methodReturnType methodBase
         methodBase.GetParameters()
         |> Seq.map (fun param -> param.ParameterType.FullName)
         |> if methodBase.IsStatic then id else Seq.cons "this"
         |> join ", "
         |> sprintf "%s %s.%s(%s)" returnType.FullName methodBase.DeclaringType.FullName methodBase.Name
 
-    let public IsArrayConstructor (methodBase : MethodBase) =
+    let public isArrayConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 
-    let public IsDelegateConstructor (methodBase : MethodBase) =
+    let public isDelegateConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
+
+    let public methodToString (m : MethodBase) =
+        let hasThis = m.CallingConvention.HasFlag(CallingConventions.HasThis)
+        let returnsSometing = methodReturnType m <> typeof<Void>
+        let argsCount = m.GetParameters().Length
+        if m.DeclaringType = null then m.Name
+        else sprintf "%s %s.%s(%s)" (if returnsSometing then "nonvoid" else "void") m.DeclaringType.FullName m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
 
     // --------------------------------- Fields ---------------------------------
 
