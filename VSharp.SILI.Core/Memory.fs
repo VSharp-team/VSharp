@@ -26,7 +26,7 @@ type offset = int
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
     with
-    member x.HasNonVoidResult = Reflection.GetMethodReturnType x.calledMethod <> typeof<System.Void>
+    member x.HasNonVoidResult = Reflection.HasNonVoidResult x.calledMethod
     member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
     override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
     override x.Equals(o : obj) =
