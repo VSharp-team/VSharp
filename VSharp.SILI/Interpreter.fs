@@ -74,10 +74,15 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
             | _, _ :: _, _ -> internalfailf "exception handling is not implemented yet"
             | _, _, [] -> internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
             | _ -> results
+        let printResults (cilStates : cilState list) =
+            let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
+            let fullMethodName = Reflection.GetFullMethodName funcId.Method
+            Logger.info "For method %O got %i states :\n%O" fullMethodName (List.length cilStates) states
         let interpret (cilState : cilState) =
-            { cilState with ip = Instruction 0}
-            |> x.Interpret funcId
-            getResultsAndStates ()
+            { cilState with ip = Instruction 0} |> x.Interpret funcId
+            let results = getResultsAndStates ()
+            printResults results
+            results
         x.InitializeStatics cilState funcId.Method.DeclaringType (List.map interpret >> List.concat >> (fun x -> cleanSets(); k x))
 
     override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
