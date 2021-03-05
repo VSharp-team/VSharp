@@ -59,7 +59,6 @@ module API =
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
 
-        // TODO: maybe transfer time from interpreter?
         let MakeFunctionResultConstant state (callSite : callSite) =
             Memory.makeFunctionResultConstant state.currentTime callSite
 

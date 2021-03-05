@@ -90,7 +90,7 @@ type public MethodInterpreter((*ilInterpreter : ILInterpreter, funcId : IFunctio
     default x.EvaluateOneStep (funcId : IFunctionIdentifier, cilState) =
         let cfg = findCfg funcId
         let ilInterpreter = ILInterpreter(x)
-        let goodStates, incompleteStates, errors = ilInterpreter.ExecuteAllInstructions cfg cilState // TODO: what about incompleteStates?
+        let goodStates, incompleteStates, errors = ilInterpreter.ExecuteAllInstructions cfg cilState
         incompleteStatesSet.[funcId].AddRange(incompleteStates)
         exceptionsSet.[funcId].AddRange(errors)
         goodStates

@@ -168,7 +168,7 @@ module internal InstructionsSet =
 
     let castReferenceToPointerIfNeeded term typ state =
         if IsReference term && Types.IsPointer typ
-        then Types.CastReferenceToPointer state term // TODO: casting to pointer is weird
+        then Types.CastReferenceToPointer state term
         else term
     let castUnchecked typ term (state : state) : term =
         let term = castReferenceToPointerIfNeeded term typ state

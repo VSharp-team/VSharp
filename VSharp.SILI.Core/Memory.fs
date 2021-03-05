@@ -873,7 +873,6 @@ module internal Memory =
 
     let private composeStacksAndFramesOf state state' : stack * frames =
         let composeFramesOf state frames' : frames =
-            // TODO: do we really need to substitute type variables?
             let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
             List.append frames' state.frames
 
@@ -899,9 +898,6 @@ module internal Memory =
         let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}                            // add rest frames
         let finalState = MappedStack.fold (fillAndMutateStackLocation state) state3 state'RestStack                         // fill and copy effect of rest frames
         finalState.stack, finalState.frames
-//        // TODO: still, for artificial frames we should mutate it? For instance, consider composition of a state with the effect of a function in the middle of some branch
-//        let stack' = MappedStack.map (fun _ -> fillHoles ctx state) state'.stack
-//        MappedStack.concat state.stack stack'
 
     let private fillHolesInMemoryRegion state mr =
         let substTerm = fillHoles state
