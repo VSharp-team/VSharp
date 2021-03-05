@@ -159,7 +159,7 @@ module internal Memory =
         let pushOne (map : stack) (key, value, typ) =
             match value with
             | Specified term -> { key = key; typ = typ }, MappedStack.push key term map
-            | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key map
+            | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key 1u map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let frames' = Stack.push s.frames { func = funcId; entries = locations; isEffect = isEffect }
         { s with stack = newStack; frames = frames' }
@@ -855,10 +855,23 @@ module internal Memory =
             override x.Compose state =
                 x.baseSource.Compose state |> extractAddress
 
-    let private fillAndMutateStackLocation state stack (k : stackKey) v =
-        let k' = k.Map (typeVariableSubst state)
-        let v' = fillHoles state v
-        writeStackLocation stack k' v'
+    let private reserveLocation (state : state) key (n : uint32) =
+        {state with stack = MappedStack.reserve key n state.stack}
+
+    // state is untouched. It is needed because of this situation:
+    // Effect: x' <- y + 5, y' <- x + 10
+    // Left state: x <- 0, y <- 0
+    // After composition: {x <- 5, y <- 15} OR {y <- 10, x <- 15}
+    // but expected result is {x <- 5, y <- 10}
+    let private fillAndMutateStackLocation isEffect state accState (k : stackKey) p (v : term option) =
+        match v with
+        | Some v ->
+            let k' = k.Map (typeVariableSubst state)
+            let v' = fillHoles state v
+//            writeStackLocation accState k' v'
+            { accState with stack = MappedStack.addWithIdx k' v' accState.stack p}
+        | None when isEffect -> accState // already reserved
+        | None -> reserveLocation accState k p // new frame, so we need to reserve
 
     let composeRaisedExceptionsOf (state : state) (error : exceptionRegister) =
         error |> exceptionRegister.map (fillHoles state)
