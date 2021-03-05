@@ -474,7 +474,7 @@ module internal InstructionsSet =
     let leave _ _ (cilState : cilState) = cilState :: []
     let rethrow _ _ (cilState : cilState) =
         let state = cilState.state
-        Prelude.releaseAssert(Option.isSome state.exceptionsRegister.ExceptionTerm)
+        assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
         let state = {state with exceptionsRegister = state.exceptionsRegister.TransformToUnhandled()}
         { cilState with state = state} |> List.singleton
     let endfilter _ _ (cilState : cilState) =

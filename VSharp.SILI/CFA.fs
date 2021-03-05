@@ -343,7 +343,7 @@ module public CFA =
     type StepEdge(src : Vertex, dst : Vertex, effect : cilState) =
         inherit Edge(src, dst)
         do
-            Prelude.releaseAssert(Map.isEmpty effect.state.callSiteResults)
+            assert(Map.isEmpty effect.state.callSiteResults)
         override x.Type = "StepEdge"
         override x.PropagatePath (cilState : cilState) =
             compose cilState effect (fun cilStates ->
@@ -682,7 +682,7 @@ module public CFA =
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
                 let initialState, _, _ = methodInterpreter.FormInitialStateWithoutStatics funcId
-                Prelude.releaseAssert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
+                assert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
 
                 let cfg = CFG.build methodBase
                 let cfa = createEmptyCFA cfg methodBase

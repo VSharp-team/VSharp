@@ -13,9 +13,6 @@ module public Prelude =
     let inline public __notImplemented__() = raise (System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
-    let inline public releaseAssert2(value, message) = if not value then internalfail message
-    let inline public releaseAssert value = releaseAssert2(value, "release assert")
-
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 

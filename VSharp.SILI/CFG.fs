@@ -91,7 +91,7 @@ module public CFG =
             if used.Contains src then ()
             else
                 let wasAdded = used.Add src
-                Prelude.releaseAssert2 (wasAdded, "offset %d couldn't be added")
+                assert(wasAdded)
                 match interimData.fallThroughOffset.[src] with
                 | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
                     addEdge currentVertex dst

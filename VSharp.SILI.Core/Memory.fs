@@ -865,7 +865,7 @@ module internal Memory =
 
     let composeCallSiteResultsOf (state : state) (callSiteResults : callSiteResults) =
         Map.fold (fun (acc : callSiteResults) key value ->
-            Prelude.releaseAssert(not <| Map.exists (fun k _ -> k = key) acc)
+            assert(not <| Map.exists (fun k _ -> k = key) acc)
             match value with
             | None -> acc
             | Some v -> Map.add key (fillHoles state v |> Some) acc
@@ -1033,9 +1033,9 @@ module internal Memory =
         interface IMemoryAccessConstantSource with
             override x.Compose state =
                 if Map.containsKey x.callSite state.callSiteResults then
-                    let value = state.callSiteResults.[x.callSite]
-                    Prelude.releaseAssert (Option.isSome value)
-                    Option.get value
+                    match state.callSiteResults.[x.callSite] with
+                    | Some value -> value
+                    | _ -> __unreachable__()
                 else
                     let newTime = composeConcreteHeapAddress state x.calledTime
                     makeFunctionResultConstant newTime x.callSite

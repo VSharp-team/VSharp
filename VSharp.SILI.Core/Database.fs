@@ -112,7 +112,7 @@ type Paths(m : MethodBase, ip : ip) =
     member x.OfLevel lvl =
         let paths  = Dict.tryGetValue2 parsed lvl (fun () -> new HashSet<_>()) |> List.ofSeq
         let paths = List.filter (used.Contains >> not) paths
-        List.iter (fun (path : path) -> Prelude.releaseAssert(used.Add(path))) paths
+        List.iter (fun (path : path) -> assert(used.Add(path))) paths
         paths
 
 
