@@ -395,39 +395,28 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
 
-    let canCastConcrete (value : obj) targetType =
+    // Only for concretes: there will never be null type
+    let canCastConcrete (concrete : obj) targetType =
+        assert(not <| Types.isNull targetType)
         let targetType = Types.toDotNetType targetType
-        let actualType = if box value = null then targetType else value.GetType()
-        actualType = targetType
-        || targetType.IsAssignableFrom(actualType)
-        || typedefof<IConvertible>.IsAssignableFrom(actualType) && (TypeUtils.isIntegral targetType || TypeUtils.isReal targetType)
+        let actualType = TypeUtils.getTypeOfConcrete concrete
+        actualType = targetType || targetType.IsAssignableFrom(actualType)
 
-    let castConcrete (value : obj) (t : System.Type) =
-        let actualType = if box value = null then t else value.GetType()
+    let castConcrete (concrete : obj) (t : Type) =
+        let actualType = TypeUtils.getTypeOfConcrete concrete
         let functionIsCastedToMethodPointer () =
-            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<System.IntPtr>.IsAssignableFrom(t)
-        try
-            if actualType = t then
-                Concrete value (fromDotNetType t)
-            elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
-                Concrete value (fromDotNetType t)
-            elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
-                let casted =
-                    if t.IsPointer then
-                        IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
-                    //TODO: ability to convert negative integers to UInt32 without overflowException
-                    elif TypeUtils.isIntegral t then
-                        TypeUtils.uncheckedChangeType value t
-                    else Convert.ChangeType(value, t)
-                Concrete casted (fromDotNetType t)
-            elif t.IsAssignableFrom(actualType) then
-                Concrete value (fromDotNetType t)
-            elif functionIsCastedToMethodPointer() then
-                Concrete value (fromDotNetType actualType)
-            else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-        with
-        | _ ->
-            internalfailf "cannot cast %s to %s!" actualType.FullName t.FullName
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
+        if actualType = t then
+            Concrete concrete (fromDotNetType t)
+        elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
+            Concrete concrete (fromDotNetType t)
+        elif TypeUtils.canConvert actualType t then
+            Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
+        elif t.IsAssignableFrom(actualType) then
+            Concrete concrete (fromDotNetType t)
+        elif functionIsCastedToMethodPointer() then
+            Concrete concrete (fromDotNetType actualType)
+        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" actualType.FullName t.FullName))
 
     let True =
         Concrete (box true) Bool

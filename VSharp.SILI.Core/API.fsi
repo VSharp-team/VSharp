@@ -93,10 +93,10 @@ module API =
 
         val TypeIsType : symbolicType -> symbolicType -> term
         val TypeIsNullable : symbolicType -> bool
-        val TypeIsRef : symbolicType -> term -> term
-        val RefIsType : term -> symbolicType -> term
-        val RefIsRef : term -> term -> term
-        val IsCast : symbolicType -> term -> term
+        val TypeIsRef :  state -> symbolicType -> term -> term
+        val RefIsType : state -> term -> symbolicType -> term
+        val IsCast : state -> term -> symbolicType -> term
+        val CanCastImplicitly : term -> symbolicType -> bool
         val Cast : term -> symbolicType -> term
         val CastConcrete : 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term

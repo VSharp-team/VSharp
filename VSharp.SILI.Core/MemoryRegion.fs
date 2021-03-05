@@ -216,7 +216,7 @@ module MemoryRegion =
 
     let validateWrite value cellType =
         let typ = typeOf value
-        typ = Null && (not <| Types.isValueType cellType) || Types.isConcreteSubtype typ cellType // do not reorder operands of "OR"!
+        Types.isConcreteSubtype typ cellType
 
     let write mr key value =
         assert(validateWrite value mr.typ)

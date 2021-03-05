@@ -2,7 +2,10 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
+open System.Collections.Immutable
 open System.Reflection
+open System.Reflection.Emit
+open FSharpx.Collections
 
 module TypeUtils =
     let isGround (x : Type) =
@@ -37,6 +40,7 @@ module TypeUtils =
     let isIntegral = integralTypes.Contains
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains
+    let isPrimitive = primitiveTypes.Contains
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
     // returns false, if "t" is value type or if we have no information about "t" type from constraints
@@ -56,31 +60,102 @@ module TypeUtils =
     let private isLong = (=) typeof<int64>
     let private isULong = (=) typeof<uint64>
 
-    let uncheckedChangeType (value : obj) t =
-        let bytes =
-            match value with
-            | :? bool    as b  -> (if b then 1L else 0L) |> BitConverter.GetBytes
-            | :? byte    as n  -> n |> int64 |> BitConverter.GetBytes
-            | :? sbyte   as n  -> n |> int64 |> BitConverter.GetBytes
-            | :? int16   as n  -> n |> int64 |> BitConverter.GetBytes
-            | :? uint16  as n  -> n |> int64 |> BitConverter.GetBytes
-            | :? int     as n  -> n |> int64 |> BitConverter.GetBytes
-            | :? uint32  as n  -> n |> uint64 |> BitConverter.GetBytes
-            | :? int64   as n  -> n |> BitConverter.GetBytes
-            | :? uint64  as n  -> n |> BitConverter.GetBytes
-            | _ -> __notImplemented__()
+    let private isWiderForNumericTypesMap =
+        let widerThan8  = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>; typeof<int16>; typeof<uint16>; typeof<float32>; typeof<float>|]
+        let widerThan16 = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<float32>; typeof<uint64>; typeof<float>|]
+        let widerThan32 = [|typeof<int64>; typeof<uint64>; typeof<float>|]
+        let widerThan64 = [||]
+        PersistentDict.ofSeq [
+            (typeof<int8>,    widerThan8)
+            (typeof<uint8>,   widerThan8)
+            (typeof<int16>,   widerThan16)
+            (typeof<uint16>,  widerThan16)
+            (typeof<int32>,   widerThan32)
+            (typeof<uint32>,  widerThan32)
+            (typeof<float32>, widerThan32)
+            (typeof<int64>,   widerThan64)
+            (typeof<uint64>,  widerThan64)
+            (typeof<float>,   widerThan64) ]
+
+    let isLessForNumericTypes t1 t2 =
+        assert(isNumeric t1 && isNumeric t2)
+        Array.contains t2 isWiderForNumericTypesMap.[t1]
+
+    // ---------------------------------- Basic type operations ----------------------------------
+
+    let getTypeOfConcrete value =
+        assert(box value <> null)
+        value.GetType()
+
+    let defaultOf (t : Type) =
+        if t.IsValueType && Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
+            then Activator.CreateInstance t
+            else null
+
+    let internalSizeOf (typ: Type) : uint32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+        let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+        let gen = meth.GetILGenerator()
+        gen.Emit(OpCodes.Sizeof, typ)
+        gen.Emit(OpCodes.Ret)
+        meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
+
+    // --------------------------------------- Conversions ---------------------------------------
+
+    let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType
+
+    type private convType = delegate of obj -> obj
+
+    let private convs = new Dictionary<Type * Type, convType>()
+
+    let private emitConv t =
         match t with
-        | _ when t = typedefof<Boolean>   ->  BitConverter.ToBoolean(bytes, 0) :> obj
-        | _ when t = typedefof<Byte>      ->  bytes.[0]                        :> obj
-        | _ when t = typedefof<SByte>     ->  bytes.[0] |> sbyte               :> obj
-        | _ when t = typedefof<Char>      ->  BitConverter.ToChar(bytes, 0)    :> obj
-        | _ when t = typedefof<Int16>     ->  BitConverter.ToInt16(bytes, 0)   :> obj
-        | _ when t = typedefof<UInt16>    ->  BitConverter.ToUInt16(bytes, 0)  :> obj
-        | _ when t = typedefof<Int32>     ->  BitConverter.ToInt32(bytes, 0)   :> obj
-        | _ when t = typedefof<UInt32>    ->  BitConverter.ToUInt32(bytes, 0)  :> obj
-        | _ when t = typedefof<Int64>     ->  BitConverter.ToInt64(bytes, 0)   :> obj
-        | _ when t = typedefof<UInt64>    ->  BitConverter.ToUInt64(bytes, 0)  :> obj
-        | _ -> __notImplemented__()
+        | _ when t = typeof<SByte>      -> OpCodes.Conv_I1
+        | _ when t = typeof<Int16>      -> OpCodes.Conv_I2
+        | _ when t = typeof<Int32>      -> OpCodes.Conv_I4
+        | _ when t = typeof<Int64>      -> OpCodes.Conv_I8
+        | _ when t = typeof<Byte>       -> OpCodes.Conv_U1
+        | _ when t = typeof<Char>       -> OpCodes.Conv_U2
+        | _ when t = typeof<UInt16>     -> OpCodes.Conv_U2
+        | _ when t = typeof<UInt32>     -> OpCodes.Conv_U4
+        | _ when t = typeof<UInt64>     -> OpCodes.Conv_U8
+        | _ when t = typeof<float32>    -> OpCodes.Conv_R4
+        | _ when t = typeof<float>      -> OpCodes.Conv_R8
+        | _ when t = typeof<Boolean>    -> __unreachable__()
+        | _ when t = typeof<nativeint>  -> __unreachable__()
+        | _ when t = typeof<unativeint> -> __unreachable__()
+        | _                             -> __unreachable__()
+
+    let private createNumericConv (fromType : Type) (toType : Type) =
+        assert(isNumeric fromType && isNumeric toType)
+        let args = [| typeof<obj> |]
+        let conv = DynamicMethod("Conv", typeof<obj>, args)
+        let il = conv.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, fromType)
+        il.Emit(emitConv toType)
+        il.Emit(OpCodes.Box, toType)
+        il.Emit(OpCodes.Ret)
+        conv.CreateDelegate(typeof<convType>) :?> convType
+
+    let private getConv fromType toType = // TODO: initialize once all cases
+        let result : convType ref = ref null
+        if convs.TryGetValue((fromType, toType), result) then !result
+        else
+            let conv = createNumericConv fromType toType
+            convs.Add((fromType, toType), conv)
+            conv
+
+    let private convNumeric value toType =
+        let fromType = getTypeOfConcrete value
+        let conv = getConv fromType toType
+        conv.Invoke(value)
+
+    let convert (value : obj) t =
+        match t with
+        | _  when t = typeof<Boolean> -> Convert.ToBoolean(value) :> obj // TODO: throws an exception on char, implement using Emit
+        | _ -> convNumeric value t
+
+    // --------------------------------------- Operation target type ---------------------------------------
 
     let failDeduceBinaryTargetType op x y =
         internalfailf "%s (%O x, %O y); is not a binary arithmetical operator" op x y

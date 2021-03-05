@@ -62,7 +62,7 @@ type opStackSource =
         override x.TypeOfLocation = x.typ
         override x.Compose state =
             let result = Memory.GetOpStackItem (int x.shift) state.opStack
-            assert(Types.canCastImplicitly result x.typ)
+            assert(Types.CanCastImplicitly result x.typ)
             Types.Cast result x.typ
 
 [<StructuralEquality;NoComparison>]

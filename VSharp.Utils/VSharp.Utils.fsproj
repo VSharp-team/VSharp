@@ -8,12 +8,12 @@
         <Compile Include="Logger.fs" />
         <Compile Include="WeakDictionary.fs" />
         <Compile Include="Prelude.fs" />
-        <Compile Include="TypeUtils.fs" />
         <Compile Include="Collections.fs" />
         <Compile Include="Reflection.fs" />
         <Compile Include="Cps.fs" />
         <Compile Include="MappedStack.fs" />
         <Compile Include="PersistentDictionary.fs" />
+        <Compile Include="TypeUtils.fs" />
         <Compile Include="Persistent.fs" />
         <Compile Include="IdGenerator.fs" />
         <Compile Include="VectorTime.fs" />
