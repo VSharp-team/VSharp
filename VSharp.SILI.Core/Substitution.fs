@@ -19,13 +19,12 @@ module Substitution =
     let rec substitute termSubst typeSubst timeSubst term =
         let recur = substitute termSubst typeSubst timeSubst
         match term.term with
-        | Expression(op, args, t) ->
-            let t = typeSubst t
+        | Expression(op, args, _) ->
             substituteMany termSubst typeSubst timeSubst args (fun args' ->
             if args = args' then term
             else
                 match op with
-                | Operator op -> Operators.simplifyOperation op t args' id
+                | Operator op -> Operators.simplifyOperation op args' id
                 | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'

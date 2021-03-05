@@ -26,19 +26,19 @@ module internal Operators =
     let (===) x y = ksimplifyEquality x y id
     let (!==) x y = ksimplifyEquality x y (!!)
 
-    let simplifyUnaryOperation op t arg k =
-        match t with
+    let simplifyUnaryOperation op arg k =
+        match typeOf arg with
         | Bool -> Propositional.simplifyUnaryConnective op arg k
         | Numeric(Id t) -> Arithmetics.simplifyUnaryOperation op arg t k
         | Types.StringType -> __notImplemented__()
         | _ -> __notImplemented__()
 
-    let simplifyOperation op t args k =
+    let simplifyOperation op args k =
         let arity = Operations.operationArity op
         match arity with
         | 1 ->
             assert(List.length args = 1)
-            simplifyUnaryOperation op t (List.head args) k
+            simplifyUnaryOperation op (List.head args) k
         | 2 ->
             assert(List.length args >= 2)
             Cps.List.reducek (fun x y k -> simplifyBinaryOperation op x y k) args k

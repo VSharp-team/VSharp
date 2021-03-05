@@ -73,14 +73,17 @@ type public ExplorerBase() =
         | RecursionUnrollingModeType.NeverUnroll -> true
         | RecursionUnrollingModeType.AlwaysUnroll -> false
 
-    member x.ReduceFunction cilState funcId invoke k =
+    member x.ReduceFunction initialCilState (methodBase : MethodBase) k =
         // TODO: do concrete invocation if possible!
 //        let canUseReflection = API.Marshalling.CanBeCalledViaReflection state funcId this parameters
 //        if Options.InvokeConcrete () && canUseReflection then
 //            API.Marshalling.CallViaReflection state funcId this parameters k
 //        else
-            x.EnterRecursiveRegion funcId cilState invoke k
-
+        let methodId = x.MakeMethodIdentifier methodBase
+        let invoke state k = x.Invoke methodId state k
+        let cilState = withOpStack emptyOpStack initialCilState
+        let restoreOpStack cilState = withOpStack initialCilState.state.opStack cilState
+        x.EnterRecursiveRegion methodId cilState invoke (List.map restoreOpStack >> k)
 
     member x.ReduceFunctionSignature state (methodBase : MethodBase) this paramValues isEffect k =
         let funcId = x.MakeMethodIdentifier methodBase
@@ -116,12 +119,7 @@ type public ExplorerBase() =
                 let thisKey = ThisKey methodBase
                 (thisKey, Specified thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
-        Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k // TODO: need to change FQL in "parametersAndThis" before adding it to stack frames (ClassesSimplePropertyAccess.TestProperty1) #FQLsNotEqual
-
-    member x.ReduceConcreteCall (methodBase : MethodBase) (cilState : cilState) k =
-        let methodId = x.MakeMethodIdentifier methodBase
-        let invoke state k = x.Invoke methodId state k
-        x.ReduceFunction cilState methodId invoke k
+        Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert(f.IsStatic)
@@ -160,7 +158,7 @@ type public ExplorerBase() =
                             let stateWithoutCallSiteResult = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
                             {cilStateAfterCallingCCtor with state = stateWithoutCallSiteResult}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->
-                        x.ReduceConcreteCall cctor {cilState with state = state} (List.map removeCallSiteResultAndPopStack))
+                        x.ReduceFunction {cilState with state = state} cctor (List.map removeCallSiteResultAndPopStack))
                     | None -> {cilState with state = state } |> List.singleton
                 k cilStates // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
@@ -198,14 +196,12 @@ type public ExplorerBase() =
                                    |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
         assert(List.length ctors = 1)
         let ctor = List.head ctors
-        let methodId = x.MakeMethodIdentifier ctor
         assert (not <| exceptionType.IsValueType)
         let s = cilState.state
         let reference, s = Memory.AllocateDefaultClass s (Types.FromDotNetType s exceptionType)
-        let invoke = x.Invoke methodId
         let withResult result (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = Some result}}
         x.ReduceFunctionSignature s ctor (Some reference) (Specified arguments) false (fun state ->
-        x.ReduceFunction {cilState with state = state} methodId invoke (fun cilStates ->
+        x.ReduceFunction {cilState with state = state} ctor (fun cilStates ->
         cilStates |> List.map (withResult reference)))) >> List.concat)
 
     member x.InvalidProgramException cilState =

@@ -30,7 +30,7 @@ module API =
         Memory.commonGuardedStatedApplyk f state term mergeStates k
 
     let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
-    let PerformUnaryOperation op t arg k = Operators.simplifyUnaryOperation op t arg k
+    let PerformUnaryOperation op arg k = Operators.simplifyUnaryOperation op arg k
 
     [<AutoOpen>]
     module public Terms =

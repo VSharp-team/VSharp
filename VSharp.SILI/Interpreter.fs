@@ -261,19 +261,17 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         elif Map.containsKey fullMethodName Loader.concreteExternalImplementations then
             // TODO: check that all parameters were specified
             let methodInfo = Loader.concreteExternalImplementations.[fullMethodName]
-            let methodId = methodInterpreter.MakeMethodIdentifier methodInfo
             let thisOption, args =
                 match thisOption, methodInfo.IsStatic with
                 | Some this, true -> None, this :: args
                 | None, false -> internalfail "Calling non-static concrete implementation for static method"
                 | _ -> thisOption, args
             let state = methodInterpreter.ReduceFunctionSignature state methodInfo thisOption (Specified args) false id
-            let invoke cilState k = methodInterpreter.Invoke methodId cilState k
-            methodInterpreter.ReduceFunction {cilState with state = state} methodId invoke (List.map popStackOf >> k)
+            methodInterpreter.ReduceFunction {cilState with state = state} methodInfo (List.map popStackOf >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 then
             internalfailf "new extern method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then
-            methodInterpreter.ReduceConcreteCall methodBase cilState k
+            methodInterpreter.ReduceFunction cilState methodBase k
         else
             internalfail "nonextern method without body!"
 
