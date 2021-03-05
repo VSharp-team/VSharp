@@ -230,7 +230,7 @@ module internal Memory =
         if address = VectorTime.zero then Null
         else PersistentDict.find state.allocatedTypes address
 
-    // TODO: use only getStrongestTypeOfHeapRef someday
+    // TODO: use only mostConcreteTypeOfHeapRef someday
     let rec typeOfHeapLocation state (address : heapAddress) =
         let getTypeOfAddress = term >> function
             | ConcreteHeapAddress address -> typeOfConcreteHeapAddress state address
