@@ -66,7 +66,7 @@ and [<CustomEquality;CustomComparison>]
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Id h1, Id h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
+                    | Id h1, Id h2 -> compare (h1.GetDeterministicHashCode()) (h2.GetDeterministicHashCode())
                 | _ -> -1
 
 module internal Types =
