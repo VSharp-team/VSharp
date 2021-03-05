@@ -7,9 +7,9 @@ open VSharp.Core.API
 
 open VSharp
 open VSharp.Core
+open CilStateOperations
 open System.Collections.Generic
 open System.Reflection
-open VSharp.System
 
 type codeLocationSummary = { cilState : cilState } // state.returnRegister is used as result
     with
@@ -28,29 +28,28 @@ type public ExplorerBase() =
         let isRecursiveFrame (frame : stackFrame) = funcId = frame.func
         s.frames |> Stack.pop |> Stack.exists isRecursiveFrame
 
-
     member x.InterpretEntryPoint (id : IFunctionIdentifier) k =
         match id with
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
             let state = Memory.InitializeStaticMembers Memory.EmptyState (Types.FromDotNetType Memory.EmptyState m.DeclaringType)
-            let initialState = CilStateOperations.makeInitialState state
+            let initialState = makeInitialState state
             x.Invoke id initialState (List.map (fun cilState -> { cilState = cilState }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (funcId : IFunctionIdentifier) (k : codeLocationSummary seq -> 'a) =
-            let k = API.Reset(); fun x -> API.Restore(); k x
-            CurrentlyBeingExploredLocations.Add funcId |> ignore
-            let initialStates = x.FormInitialState funcId
-            let removePCs this thisIsNotNull (cilState : cilState) =
-                if Option.isSome this && thisIsNotNull <> True then
-                    {cilState with state = RemovePathCondition cilState.state thisIsNotNull}
-                else cilState
-            let invoke (cilState, this, thisIsNotNull) = x.Invoke funcId cilState (List.map (removePCs this thisIsNotNull))
-            let resultsAndStates =
-                initialStates |> List.map invoke |> List.concat |> List.map (fun cilState  -> {cilState = cilState})
-            CurrentlyBeingExploredLocations.Remove funcId |> ignore
-            k resultsAndStates
+        let k = API.Reset(); fun x -> API.Restore(); k x
+        CurrentlyBeingExploredLocations.Add funcId |> ignore
+        let initialStates = x.FormInitialState funcId
+        let removePCs this thisIsNotNull (cilState : cilState) =
+            if Option.isSome this && thisIsNotNull <> True then
+                {cilState with state = RemovePathCondition cilState.state thisIsNotNull}
+            else cilState
+        let invoke (cilState, this, thisIsNotNull) = x.Invoke funcId cilState (List.map (removePCs this thisIsNotNull))
+        let resultsAndStates =
+            initialStates |> List.collect invoke |> List.map (fun cilState -> {cilState = cilState})
+        CurrentlyBeingExploredLocations.Remove funcId |> ignore
+        k resultsAndStates
 
     member private x.ReproduceEffectOrUnroll areWeStuck body (id : IFunctionIdentifier) cilState k =
         if areWeStuck then
@@ -60,7 +59,7 @@ type public ExplorerBase() =
             | :? InsufficientInformationException ->
                 body cilState (List.map (CilStateOperations.withCurrentTime cilState.state.currentTime) >> k)
         else
-            /// explicitly unrolling
+            // explicitly unrolling
             body cilState k
 
     member x.EnterRecursiveRegion (funcId : IFunctionIdentifier) cilState body k =
@@ -174,10 +173,10 @@ type public ExplorerBase() =
             | _ -> __notImplemented__()
         let thisIsNotNull = if Option.isSome this then !!(IsNullReference(Option.get this)) else Nop
         let state = if Option.isSome this && thisIsNotNull <> True then WithPathCondition state thisIsNotNull else state
-        x.ReduceFunctionSignature state funcId.Method this Unspecified true (fun state ->  state, this, thisIsNotNull)
+        x.ReduceFunctionSignature state funcId.Method this Unspecified true (fun state -> state, this, thisIsNotNull)
     member x.FormInitialState (funcId : IFunctionIdentifier) : (cilState * term option * term) list =
         let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId
-        let cilState = CilStateOperations.makeInitialState state
+        let cilState = makeInitialState state
         x.InitializeStatics cilState funcId.Method.DeclaringType (List.map (fun cilState -> cilState, this, thisIsNotNull(*, isMethodOfStruct*)))
 
     abstract CreateInstance : System.Type -> term list -> cilState -> cilState list
@@ -226,7 +225,6 @@ type public ExplorerBase() =
         let message, state = Memory.AllocateString "Specified cast is not valid." cilState.state
         x.CreateInstance typeof<System.InvalidCastException> [message] {cilState with state = state}
 
-
     member x.ExploreAndCompose (funcId : IFunctionIdentifier) (cilState : cilState) (k : cilState list -> 'a) =
         let prepareGenericsLessState (methodId : IMethodIdentifier) state =
             let methodBase = methodId.Method
@@ -253,10 +251,11 @@ type public ExplorerBase() =
             else k
 
         x.Explore newFuncId (Seq.map (fun summary ->
-            Logger.trace "ExploreAndCompose: Original CodeLoc = %O New CodeLoc = %O\ngot summary state = %s" funcId newFuncId (CilStateOperations.dump summary.cilState)
-            Logger.trace "ExploreAndCompose: Left state = %s" (CilStateOperations.dump cilState)
-            let resultStates = CilStateOperations.compose cilState summary.cilState id
-            List.iter (CilStateOperations.dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) resultStates
+            Logger.trace "ExploreAndCompose: Original CodeLoc = %O New CodeLoc = %O\ngot summary state = %s" funcId newFuncId (dump summary.cilState)
+            Logger.trace "ExploreAndCompose: Left state = %s" (dump cilState)
+            let summaryCilState = withCurrentTime [] summary.cilState
+            let resultStates = compose cilState summaryCilState
+            List.iter (dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) resultStates
             resultStates) >> List.ofSeq >> List.concat >> k)
 
     abstract member Invoke : IFunctionIdentifier -> cilState -> (cilState list -> 'a) -> 'a
@@ -264,6 +263,4 @@ type public ExplorerBase() =
     abstract member MakeMethodIdentifier : MethodBase -> IMethodIdentifier
 
     abstract member ReproduceEffect : IFunctionIdentifier -> cilState -> (cilState list -> 'a) -> 'a
-    default x.ReproduceEffect funcId state k =
-            x.ExploreAndCompose funcId state k
-
+    default x.ReproduceEffect funcId state k = x.ExploreAndCompose funcId state k

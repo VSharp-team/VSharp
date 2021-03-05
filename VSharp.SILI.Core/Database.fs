@@ -3,10 +3,6 @@ namespace VSharp.Core
 open System.Collections.Generic
 open System.Reflection
 open VSharp
-open VSharp.Logger
-
-
-
 
 type ip =
     | Instruction of offset
@@ -22,7 +18,7 @@ type ip =
         | Instruction i -> i
         | _              -> internalfail "Could not get vertex from destination"
 
-type level = pdict<ip * MethodBase, uint>
+type level = pdict<ip * MethodBase, uint32>
 
 module Level =
     let zero : level = __notImplemented__()

@@ -2,7 +2,6 @@ namespace VSharp
 
 open System
 open System.Reflection
-open VSharp.CSharpUtils
 
 module public Reflection =
 
@@ -31,7 +30,7 @@ module public Reflection =
     let resolveField (method : MethodBase) fieldToken =
         let methodsGenerics = retrieveMethodsGenerics method
         let typGenerics = method.DeclaringType.GetGenericArguments()
-        method.Module.ResolveField (fieldToken, typGenerics, methodsGenerics)
+        method.Module.ResolveField(fieldToken, typGenerics, methodsGenerics)
 
     let resolveType (method : MethodBase) typeToken =
         let typGenerics = method.DeclaringType.GetGenericArguments()
@@ -161,7 +160,7 @@ module public Reflection =
     // --------------------------------- Fields ---------------------------------
 
     let wrapField (field : FieldInfo) =
-        {declaringType = safeGenericTypeDefinition field.DeclaringType; name = field.Name; typ = field.FieldType}
+        {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
 
     let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance

@@ -8,25 +8,18 @@ open System.Reflection.Emit
 open FSharpx.Collections
 
 module TypeUtils =
-    let isGround (x : Type) =
-        (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
 
-    let defaultOf (t : Type) =
-        if t.IsValueType && Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
-            then Activator.CreateInstance t
-            else null
+    // ---------------------------------- Basic type groups ----------------------------------
 
     let private integralTypes =
-        new HashSet<Type>(
-                          [typedefof<byte>; typedefof<sbyte>;
+        new HashSet<Type>([typedefof<byte>; typedefof<sbyte>;
                            typedefof<int16>; typedefof<uint16>;
                            typedefof<int32>; typedefof<uint32>;
                            typedefof<int64>; typedefof<uint64>;
                            typedefof<char>])
 
     let private unsignedTypes =
-        new HashSet<Type>(
-                          [typedefof<byte>; typedefof<uint16>;
+        new HashSet<Type>([typedefof<byte>; typedefof<uint16>;
                            typedefof<uint32>; typedefof<uint64>;])
 
     let private realTypes =
@@ -36,6 +29,11 @@ module TypeUtils =
 
     let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
+    // ---------------------------------- Basic type predicates ----------------------------------
+
+    let isGround (x : Type) =
+        (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
+
     let isNumeric = numericTypes.Contains
     let isIntegral = integralTypes.Contains
     let isReal = realTypes.Contains
@@ -44,16 +42,16 @@ module TypeUtils =
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
     // returns false, if "t" is value type or if we have no information about "t" type from constraints
-    let rec isReferenceTypeParameter (t : System.Type) =
-        let checkAttribute (t : System.Type) =
+    let rec isReferenceTypeParameter (t : Type) =
+        let checkAttribute (t : Type) =
             t.GenericParameterAttributes &&& GenericParameterAttributes.ReferenceTypeConstraint <> GenericParameterAttributes.None
-        let isSimpleReferenceConstraint (t : System.Type) = t.IsClass && t <> typeof<System.ValueType>
-        let isReferenceConstraint (c : System.Type) = if c.IsGenericParameter then isReferenceTypeParameter c else isSimpleReferenceConstraint c
+        let isSimpleReferenceConstraint (t : Type) = t.IsClass && t <> typeof<ValueType>
+        let isReferenceConstraint (c : Type) = if c.IsGenericParameter then isReferenceTypeParameter c else isSimpleReferenceConstraint c
         checkAttribute t || t.GetGenericParameterConstraints() |> Array.exists isReferenceConstraint
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is value type (for example, "t : struct" case)
     // returns false, if "t" is reference type or if we have no information about "t" type from constraints
-    let isValueTypeParameter (t : System.Type) = t.IsValueType
+    let isValueTypeParameter (t : Type) = t.IsValueType
 
     let private isInt = (=) typeof<int32>
     let private isUInt = (=) typeof<uint32>
@@ -182,7 +180,6 @@ module TypeUtils =
 
     let deduceShiftTargetType x y =
         let fail() = failDeduceBinaryTargetType "{<<, >>}" x y
-
         if not <| isInt y then fail()                               // DO NOT REORDER THESE elif's!
         elif isInt x || isUInt x || isLong x || isULong x then x
         elif isIntegral x then typeof<int32>

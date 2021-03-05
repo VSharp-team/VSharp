@@ -119,7 +119,6 @@ module API =
             let actualType = TypeOf term
             Types.canCastImplicitly actualType targetType
         let Cast term targetType = TypeCasting.cast term targetType
-        let CastConcrete value typ = castConcrete value typ
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 
     module public Operators =
@@ -207,14 +206,14 @@ module API =
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
         let WriteSafe state reference value = Memory.writeSafe state reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
-        let rec WriteClassField state reference field value =
+        let WriteClassField state reference field value =
             Memory.guardedStatedMap
                 (fun state reference ->
                     match reference.term with
                     | HeapRef(addr, _) -> Memory.writeClassField state addr field value
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
                 state reference
-        let rec WriteArrayIndex state reference indices value =
+        let WriteArrayIndex state reference indices value =
             Memory.guardedStatedMap
                 (fun state reference ->
                     match reference.term with
@@ -277,7 +276,7 @@ module API =
             | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
-        let rec StringCtorOfCharArray state arrayRef dstRef =
+        let StringCtorOfCharArray state arrayRef dstRef =
             match dstRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = Types.String)
@@ -286,12 +285,13 @@ module API =
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))
                         Memory.copyCharArrayToString state arrayAddr dstAddr
-                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef) state arrayRef
+                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef)
+                    state arrayRef
             | HeapRef _
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
-        let ComposeStates state state1 k = Memory.composeStates state state1 |> k
+        let ComposeStates state state' = Memory.composeStates state state'
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)

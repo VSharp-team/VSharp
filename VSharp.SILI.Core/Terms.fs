@@ -82,7 +82,6 @@ type operation =
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
 
-
 // TODO: symbolic type -> primitive type
 // TODO: get rid of Nop!
 [<StructuralEquality;NoComparison>]
@@ -329,7 +328,7 @@ module internal Terms =
     let typeOfAddress = function
         | ClassField(_, field)
         | StructField(_, field)
-        | StaticField(_, field) -> field.typ |> Types.Constructor.fromDotNetType
+        | StaticField(_, field) -> field.typ |> fromDotNetType
         | ArrayIndex(_, _, (elementType, _, _)) -> elementType
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _
@@ -379,8 +378,8 @@ module internal Terms =
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
-    let isBool t =     typeOf t |> Types.isBool
-    let isNumeric t =  typeOf t |> Types.isNumeric
+    let isBool t =    typeOf t |> Types.isBool
+    let isNumeric t = typeOf t |> Types.isNumeric
 
     let rec isStruct term =
         match term.term with
@@ -485,7 +484,6 @@ module internal Terms =
     let negate term =
         assert(isBool term)
         makeUnary OperationType.LogicalNeg term Bool
-
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None

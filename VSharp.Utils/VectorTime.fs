@@ -16,6 +16,8 @@ module VectorTime =
     let less (t1 : vectorTime) (t2 : vectorTime) =
         -1 = compare t1 t2
 
+    let isDescending (t : vectorTime) = t |> Seq.pairwise |> Seq.forall (fun (a, b) -> a >= b)
+
     let advance (t : vectorTime) =
         List.mapLast (fun x -> if x = System.UInt32.MaxValue then internalfailf "Advancing infinite time!" else x + 1u) t
 
@@ -28,5 +30,3 @@ module VectorTime =
         List.append t1 t2
 
     let print (t : vectorTime) = t |> List.map toString |> join "."
-
-    let isDescending (t : vectorTime) = t |> Seq.pairwise |> Seq.forall (fun (a, b) -> a >= b)

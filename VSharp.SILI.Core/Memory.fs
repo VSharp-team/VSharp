@@ -485,10 +485,10 @@ module internal Memory =
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
-    let readBoxedLocation state (addr : concreteHeapAddress) typ =
+    let readBoxedLocation state (addr : concreteHeapAddress) =
         match PersistentDict.tryFind state.boxedLocations addr with
         | Some value -> value
-        | None -> internalfailf "Boxed location %O [type = %O] was not found in heap: this should not happen!" addr typ
+        | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" addr
 
     let rec readDelegate state reference =
         match reference.term with
@@ -508,7 +508,7 @@ module internal Memory =
             let structTerm = readAddress state addr
             readStruct structTerm field
         | ArrayLength(addr, dimension, typ) -> readLength state addr dimension typ
-        | BoxedLocation(addr, typ) -> readBoxedLocation state addr typ
+        | BoxedLocation(addr, _) -> readBoxedLocation state addr
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(addr, dimension, typ) -> readLowerBound state addr dimension typ
 
@@ -708,8 +708,9 @@ module internal Memory =
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.String>)
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.Delegate>)
         let concreteAddress, state = freshAddress state
-        let address = ConcreteHeapAddress concreteAddress
+        assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
         let state = {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
+        let address = ConcreteHeapAddress concreteAddress
         HeapRef address typ, state
 
     let allocateArray state typ lowerBounds lengths =
@@ -836,7 +837,8 @@ module internal Memory =
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
                 let afters = MemoryRegion.compose before effect
-                afters |> List.map (fun (g, after) -> (g, MemoryRegion.read after key (x.picker.isDefaultKey state) (makeSymbolicHeapRead x.picker key state.startingTime))) |> Merging.merge
+                let read region = MemoryRegion.read region key (x.picker.isDefaultKey state) (makeSymbolicHeapRead x.picker key state.startingTime)
+                afters |> List.map (mapsnd read) |> Merging.merge
 
     type stackReading with
         interface IMemoryAccessConstantSource with
@@ -888,7 +890,6 @@ module internal Memory =
         let composeFramesOf state frames' : frames =
             let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
             List.append frames' state.frames
-
         let bottomAndRestFrames (s : state) : (stack option * stack * frames) =
             let bottomFrame, restFrames =
                 let bottomFrame, restFrames = Stack.bottomAndRest s.frames
@@ -898,18 +899,18 @@ module internal Memory =
                 let pushOne stack (entry : entry) =
                     match MappedStack.tryFind entry.key s.stack with
                     | Some v -> MappedStack.push entry.key v stack
-                    | None -> MappedStack.reserve entry.key stack
-                let stack = List.fold pushOne MappedStack.empty locations
-                stack
+                    | None -> MappedStack.reserve entry.key 1u stack
+                List.fold pushOne MappedStack.empty locations
             let bottom = bottomFrame |> Option.map (entriesOfFrame >> getStackFrame)
             let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
             bottom, rest, restFrames
-
-
         let state'Bottom, state'RestStack, state'RestFrames = bottomAndRestFrames state'
-        let state2 = Option.fold (MappedStack.fold (fillAndMutateStackLocation state)) state state'Bottom  // apply effect of bottom frame
-        let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}                            // add rest frames
-        let finalState = MappedStack.fold (fillAndMutateStackLocation state) state3 state'RestStack                         // fill and copy effect of rest frames
+        // apply effect of bottom frame
+        let state2 = Option.fold (MappedStack.fold (fillAndMutateStackLocation true state)) state state'Bottom
+        // add rest frames
+        let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}
+        // fill and copy effect of rest frames
+        let finalState = MappedStack.fold (fillAndMutateStackLocation false state) state3 state'RestStack
         finalState.stack, finalState.frames
 
     let private fillHolesInMemoryRegion state mr =

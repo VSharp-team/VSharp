@@ -249,7 +249,6 @@ module internal Types =
     open Constructor
 
     let public Char = Numeric typedefof<char>
-
     let public String = fromDotNetType typedefof<string>
     let Int32 = Numeric typeof<int>
     let Int64 = Numeric typeof<int64>

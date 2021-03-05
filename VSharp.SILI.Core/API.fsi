@@ -64,7 +64,6 @@ module API =
         val HeapReferenceToBoxReference : term -> term
 
         val WithPathCondition : state -> term -> state
-
         val RemovePathCondition : state -> term -> state
         val GetConditionOfState : state -> term
 
@@ -182,7 +181,7 @@ module API =
         val StringCtorOfCharArray : state -> term -> term -> state list
 
         // TODO: get rid of all unnecessary stuff below!
-        val ComposeStates : state -> state -> (state list -> 'a) -> 'a
+        val ComposeStates : state -> state -> state list
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list

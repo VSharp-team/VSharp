@@ -27,15 +27,14 @@ module internal CilStateOperations =
 
     let makeInitialState state = makeCilState (ip.Instruction 0) state
 
-    let compose (cilState1 : cilState) (cilState2 : cilState) k =
+    let compose (cilState1 : cilState) (cilState2 : cilState) =
         let level =
             PersistentDict.fold (fun (acc : level) k v ->
                 let oldValue = if PersistentDict.contains k acc then PersistentDict.find acc k else 0u
                 PersistentDict.add k (v + oldValue) acc
             ) cilState1.level cilState2.level
-
-        let states = VSharp.Core.API.Memory.ComposeStates cilState1.state cilState2.state id
-        k <| List.map (fun state -> {cilState2 with state = state; level = level}) states
+        let states = Memory.ComposeStates cilState1.state cilState2.state
+        List.map (fun state -> {cilState2 with state = state; level = level}) states
 
     let incrementLevel (cilState : cilState) k =
         let lvl = cilState.level
@@ -97,7 +96,7 @@ module internal CilStateOperations =
             cilState.state term id (List.concat >> k)
 
     let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation (thenBranch : (cilState -> (cilState list -> 'a) -> 'a)) elseBranch k =
-         StatedConditionalExecution cilState.state conditionInvocation
+        StatedConditionalExecution cilState.state conditionInvocation
             (fun state k -> thenBranch {cilState with state = state} k)
             (fun state k -> elseBranch {cilState with state = state} k)
             (fun x y -> [x; y])
@@ -126,5 +125,4 @@ module internal CilStateOperations =
         let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
         let stateDump = Memory.Dump cilState.state
         let sb = dumpSectionValue "State" stateDump sb
-
         if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()

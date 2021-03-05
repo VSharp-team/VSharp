@@ -10,10 +10,11 @@ open VSharp
 open VSharp.Core
 open CilStateOperations
 
-module TermUtils =
-    let internal term (t : term) = t.term
+module internal TermUtils =
 
-    let internal getAddressTermFromRefOrPtr getTerm refOrPtr =
+    let term (t : term) = t.term
+
+    let getAddressTermFromRefOrPtr getTerm refOrPtr =
         let rec getLastAddress = function
             | StructField(addr, _) -> getLastAddress addr
             | addr -> addr
@@ -23,18 +24,17 @@ module TermUtils =
             | _ -> __unreachable__()
         GuardedApplyExpression refOrPtr getAddressTerm
 
-    let internal isConcrete (term : term) =
+    let isConcrete (term : term) =
         match term.term with
         | Concrete _ -> true
         | _ -> false
 
-
-    let internal (|ConcreteHeapAddress|_|) = term >> (|ConcreteHeapAddress|_|)
-    let internal isConcreteHeapAddress = function
+    let (|ConcreteHeapAddress|_|) = term >> (|ConcreteHeapAddress|_|)
+    let isConcreteHeapAddress = function
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
-    let rec internal isConcreteAddress (address : address) =
+    let rec isConcreteAddress (address : address) =
         match address with
         | PrimitiveStackLocation _
         | BoxedLocation _
@@ -46,7 +46,7 @@ module TermUtils =
         | ArrayLowerBound (heapAddress, _, _)
         | ArrayLength (heapAddress, _, _) -> isConcreteHeapAddress heapAddress
 
-    let internal isConcretePtr = function
+    let isConcretePtr = function
         | Ptr(None, _, None) -> true
         | Ptr(None, _, Some shift) -> isConcrete shift
         | Ptr(Some address, _, None) -> isConcreteAddress address
@@ -263,12 +263,7 @@ module public CFA =
         member x.Dst = dst
         member x.Method = x.Src.Method
         member x.CommonFilterStates state =
-            let newPc = PC.squashPC state.pc
-            if newPc <> Terms.False then
-//                if dst.IsMethodExitVertex then ()
-//                dst.Paths.Add {lvl = lvl; state = state}
-                true
-            else false
+            PC.squashPC state.pc <> Terms.False
         override x.ToString() = x.commonToString()
         member x.commonToString() =
             sprintf "%s ID:[%d --> %d] IP:[%O --> %O] Method:%s"
@@ -346,18 +341,15 @@ module public CFA =
             assert(Map.isEmpty effect.state.callSiteResults)
         override x.Type = "StepEdge"
         override x.PropagatePath (cilState : cilState) =
-            compose cilState effect (fun cilStates ->
-                x.PrintLog "composition left"  <| dump cilState
-                x.PrintLog "composition right" <| dump effect
-                List.iter (dump >> x.PrintLog (sprintf "composition resulted")) cilStates
-
-                assert(List.forall (fun (cilState' : cilState) -> cilState'.state.frames = cilState.state.frames) cilStates)
-
-                // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
-                let goodStates = List.filter (stateOf >> x.CommonFilterStates) cilStates
-                if List.length goodStates <> List.length cilStates then Logger.trace "Some states were not propagated from %O to %O" src.Ip cilState.ip
-                cilStates
-            )
+            let cilStates = compose cilState effect
+            x.PrintLog "composition left"  <| dump cilState
+            x.PrintLog "composition right" <| dump effect
+            List.iter (dump >> x.PrintLog (sprintf "composition resulted")) cilStates
+            assert(List.forall (fun (cilState' : cilState) -> cilState'.state.frames = cilState.state.frames) cilStates)
+            // Do NOT turn this List.fold into List.exists to be sure that EVERY returned state is propagated
+            let goodStates = List.filter (stateOf >> x.CommonFilterStates) cilStates
+            if List.length goodStates <> List.length cilStates then Logger.trace "Some states were not propagated from %O to %O" src.Ip cilState.ip
+            goodStates
 
         member x.Effect = effect
         member x.VisibleVariables() = __notImplemented__()
@@ -387,15 +379,17 @@ module public CFA =
                                                returnRegister = None
                                                opStack = Memory.PushToOpStack r opStack }
                         | None when callSite.opCode = OpCodes.Newobj ->
+                            assert(not callSite.HasNonVoidResult)
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
                             let modifiedCilState = pushNewObjResultOnOpStack (withOpStack opStack resultCilState) reference callSite.calledMethod
                             { modifiedCilState.state with callSiteResults = initialState.callSiteResults }
-                        | None -> { resultState with callSiteResults = initialState.callSiteResults; opStack = opStack}
+                        | None ->
+                            assert(not callSite.HasNonVoidResult)
+                            { resultState with callSiteResults = initialState.callSiteResults; opStack = opStack}
                     if x.CommonFilterStates stateAfterCall then {resultCilState with state = stateAfterCall; ip = dst.Ip} :: acc
                     else acc
                 List.fold propagateStateAfterCall [] cilStates
-
-            let states = Memory.ComposeStates cilStateBeforeCall.state stateWithArgsOnFrameAndAllocatedType id
+            let states = Memory.ComposeStates cilStateBeforeCall.state stateWithArgsOnFrameAndAllocatedType
             match states with
             | [state] ->
                 let cilState = {cilStateBeforeCall with state = state}
@@ -579,11 +573,9 @@ module public CFA =
                 | Instruction wOffset -> {d with v = w; vOut = cfg.dfsOut.[wOffset]; minSCCs = min cfg.sccOut.[wOffset] cfg.sccOut.[wOffset]}
                 | Exit -> {d with v = Exit; vOut = -1; minSCCs = -1}
                 | _ -> __notImplemented__()
-
             let addIfNotUsed (q, used) d =
                 if PersistentSet.contains d used then q, used
                 else PriorityQueue.insert d q, PersistentSet.add used d
-
             match newU with
             | Exit -> q, used
             | Instruction offset when cfg.graph.[offset].Count = 0 -> (changeData Exit) |> addIfNotUsed (q, used)
@@ -591,7 +583,6 @@ module public CFA =
             | _ -> __notImplemented__()
 
         let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
-//            assert(cilState'.ip = d.v)
             let s' = cilState'.state
             let dstIp = cilState'.ip
             let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack dstIp vertices
@@ -599,7 +590,6 @@ module public CFA =
 
             let bypassData = {d with u = dstIp; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
                                      allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
-
             let newQ, newUsed =
                 match cilState'.iie with
                 | None -> updateQueue cfg dstIp bypassData (q, used)
@@ -608,12 +598,12 @@ module public CFA =
 
         let private isConcreteHeapRef (term : term) =
             match term.term with
-            | HeapRef (addr, _) -> isConcreteHeapAddress addr
+            | HeapRef(addr, _) -> isConcreteHeapAddress addr
             | _ -> false
 
         let private getTermConcreteHeapAddress (term : term) =
             match term.term with
-            | HeapRef (ConcreteHeapAddress addr, _) -> addr
+            | HeapRef(ConcreteHeapAddress addr, _) -> addr
             | _ -> __unreachable__()
 
         let private prepareStateWithConcreteInfo (s : state) (d : bypassDataForEdges) =
@@ -695,14 +685,13 @@ module public CFA =
 type StepInterpreter() =
     inherit MethodInterpreter()
 
-    override x.CreateInstance t args (cilState : cilState) =
+    override x.CreateInstance _ _ (cilState : cilState) =
         let state = {cilState.state with exceptionsRegister = Unhandled Nop}
         List.singleton <| {cilState with state = state}
 
     override x.EvaluateOneStep (funcId, cilState : cilState) =
         try
             let cfa : CFA.cfa = CFA.cfaBuilder.computeCFA x funcId
-            let ip = cilState.ip
             let vertexWithSameOpStack (v : CFA.Vertex) =
                 let vOpStack = Memory.OpStackToList v.OpStack
                 let opStack = Memory.OpStackToList cilState.state.opStack
@@ -711,8 +700,8 @@ type StepInterpreter() =
                 |> List.zip opStack
                 |> List.forall (fun (elementOnStateOpSTack, elementOnVertexOpStack) ->
                     if CFA.cfaBuilder.shouldRemainOnOpStack elementOnVertexOpStack then elementOnStateOpSTack = elementOnVertexOpStack else true)
-            let vertices = cfa.body.vertices.Values |> Seq.filter (fun (v : CFA.Vertex) ->
-                v.Ip = ip && v.OutgoingEdges.Count > 0 && vertexWithSameOpStack v) |> List.ofSeq
+            let isAppropriate (v : CFA.Vertex) = v.Ip = cilState.ip && v.OutgoingEdges.Count > 0 && vertexWithSameOpStack v
+            let vertices = cfa.body.vertices.Values |> Seq.filter isAppropriate |> List.ofSeq
 
             match vertices with
             | [] -> base.EvaluateOneStep (funcId, cilState)
@@ -721,4 +710,4 @@ type StepInterpreter() =
                     acc @ edge.PropagatePath cilState
                 List.fold (fun acc (v : CFA.Vertex) -> Seq.fold propagateThroughEdge acc v.OutgoingEdges) [] vertices
         with
-        | :? InsufficientInformationException as iie -> base.EvaluateOneStep (funcId, cilState)
+        | :? InsufficientInformationException -> base.EvaluateOneStep (funcId, cilState)

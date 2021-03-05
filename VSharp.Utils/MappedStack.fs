@@ -57,7 +57,6 @@ module public MappedStack =
         | Some term -> term
         | None -> failwith "Attempt get value by key which is not presented in stack"
 
-
     let map f (contents, peaks) =
         Map.fold
             (fun m k v ->

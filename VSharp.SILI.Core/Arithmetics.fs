@@ -396,9 +396,9 @@ module internal Arithmetics =
             let xt' = toDotNetType xt
             simplifyShift op t a (castConcrete (Calculator.Add(x, c, xt')) xt') matched
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
-        | Concrete(_, _), Concrete(_, _), OperationType.ShiftLeft ->
+        | Concrete _, Concrete _, OperationType.ShiftLeft ->
             castConcrete 0 t |> matched
-        | Concrete(_, _), Concrete(_, _), OperationType.ShiftRight when a |> typeOf |> toDotNetType |> isUnsigned ->
+        | Concrete _, Concrete _, OperationType.ShiftRight when a |> typeOf |> toDotNetType |> isUnsigned ->
             castConcrete 0 t |> matched
         | _ -> unmatched ()
 
@@ -423,9 +423,9 @@ module internal Arithmetics =
         let defaultCase () =
             makeShift operation t x y k
         simplifyGenericBinary "shift" x y k
-                                (simplifyConcreteBinary (simplifyConcreteShift operation) t)
-                                (fun x y k -> simplifyShiftExt operation t x y k defaultCase)
-                                (fun x y k -> simplifyShift operation t x y k)
+            (simplifyConcreteBinary (simplifyConcreteShift operation) t)
+            (fun x y k -> simplifyShiftExt operation t x y k defaultCase)
+            (fun x y k -> simplifyShift operation t x y k)
 
 // TODO: IMPLEMENT BITWISE OPERATIONS!
     and private simplifyBitwise (op : OperationType) x y t resType k =

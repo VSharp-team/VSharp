@@ -27,17 +27,17 @@ module internal TypeUtils =
     open Types
 
     // TODO: get all this functions from Core #mbdo
-    let float64TermType = Numeric typedefof<double>
-    let float32TermType = Numeric typedefof<float32>
-    let int8Type        = Numeric typedefof<int8>
-    let int16Type       = Numeric typedefof<int16>
-    let int32Type       = Numeric typedefof<int32>
-    let int64Type       = Numeric typedefof<int64>
-    let uint8Type       = Numeric typedefof<uint8>
-    let uint16Type      = Numeric typedefof<uint16>
-    let uint32Type      = Numeric typedefof<uint32>
-    let uint64Type      = Numeric typedefof<uint64>
-    let charType        = Numeric typedefof<char>
+    let float64Type = Numeric typedefof<double>
+    let float32Type = Numeric typedefof<float32>
+    let int8Type    = Numeric typedefof<int8>
+    let int16Type   = Numeric typedefof<int16>
+    let int32Type   = Numeric typedefof<int32>
+    let int64Type   = Numeric typedefof<int64>
+    let uint8Type   = Numeric typedefof<uint8>
+    let uint16Type  = Numeric typedefof<uint16>
+    let uint32Type  = Numeric typedefof<uint32>
+    let uint64Type  = Numeric typedefof<uint64>
+    let charType    = Numeric typedefof<char>
 
     let signed2unsignedOrId = function
         | Bool -> uint32Type
@@ -45,7 +45,7 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int8>  || typ = typedefof<uint8>  -> uint8Type
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
-        | Numeric (Id typ) when typ = typedefof<double> -> float64TermType
+        | Numeric (Id typ) when typ = typedefof<double> -> float64Type
         | _ -> __unreachable__()
     let unsigned2signedOrId = function
         | Bool -> int32Type
@@ -53,27 +53,27 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int8>  || typ = typedefof<uint8> -> int8Type
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> int16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
-        | Numeric (Id typ) when typ = typedefof<double> -> float64TermType
+        | Numeric (Id typ) when typ = typedefof<double> -> float64Type
         | Pointer _ as t -> t
         | _ -> __unreachable__()
     let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
 
     let isIntegerTermType typ = integers |> List.contains typ
-    let isFloatTermType typ = typ = float32TermType || typ = float64TermType
+    let isFloatTermType typ = typ = float32Type || typ = float64Type
     let isInteger = Terms.TypeOf >> isIntegerTermType
     let isBool = Terms.TypeOf >> IsBool
-    let (|Int8|_|) t = if Terms.TypeOf t = int8Type then Some(t) else None
-    let (|UInt8|_|) t = if Terms.TypeOf t = uint8Type then Some(t) else None
-    let (|Int16|_|) t = if Terms.TypeOf t = int16Type then Some(t) else None
-    let (|UInt16|_|) t = if Terms.TypeOf t = uint16Type then Some(t) else None
-    let (|Int32|_|) t = if Terms.TypeOf t = int32Type then Some(t) else None
-    let (|UInt32|_|) t = if Terms.TypeOf t = uint32Type then Some(t) else None
-    let (|Int64|_|) t = if Terms.TypeOf t = int64Type then Some(t) else None
-    let (|UInt64|_|) t = if Terms.TypeOf t = uint64Type then Some(t) else None
-    let (|Bool|_|) t = if isBool t then Some(t) else None
-    let (|Float32|_|) t = if Terms.TypeOf t = float32TermType then Some(t) else None
-    let (|Float64|_|) t = if Terms.TypeOf t = float64TermType then Some(t) else None
-    let (|Float|_|) t = if Terms.TypeOf t |> isFloatTermType then Some(t) else None
+    let (|Int8|_|) t = if Terms.TypeOf t = int8Type then Some() else None
+    let (|UInt8|_|) t = if Terms.TypeOf t = uint8Type then Some() else None
+    let (|Int16|_|) t = if Terms.TypeOf t = int16Type then Some() else None
+    let (|UInt16|_|) t = if Terms.TypeOf t = uint16Type then Some() else None
+    let (|Int32|_|) t = if Terms.TypeOf t = int32Type then Some() else None
+    let (|UInt32|_|) t = if Terms.TypeOf t = uint32Type then Some() else None
+    let (|Int64|_|) t = if Terms.TypeOf t = int64Type then Some() else None
+    let (|UInt64|_|) t = if Terms.TypeOf t = uint64Type then Some() else None
+    let (|Bool|_|) t = if isBool t then Some() else None
+    let (|Float32|_|) t = if Terms.TypeOf t = float32Type then Some() else None
+    let (|Float64|_|) t = if Terms.TypeOf t = float64Type then Some() else None
+    let (|Float|_|) t = if Terms.TypeOf t |> isFloatTermType then Some() else None
 
     module Char =
         let Zero = MakeNumber '\000'
@@ -201,9 +201,8 @@ module internal InstructionsSet =
         push arg cilState |> List.singleton
     let ldarga numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
-        let state = cilState.state
         let address =
-            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis state cfg.methodBase
+            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.methodBase
             match this with
             | None -> getArgTerm argumentIndex cfg.methodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
@@ -278,7 +277,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
                 term !== MakeNumber (t.GetEnumValues().GetValue(0))
-            | _ when IsReference term -> !!(IsNullReference term)//  term !== NullRef
+            | _ when IsReference term -> !!(IsNullReference term)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
 
@@ -352,7 +351,6 @@ module internal InstructionsSet =
         let typ = Terms.TypeOf term
         let unsignedTyp = TypeUtils.signed2unsignedOrId typ
         if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
-            // TODO: check whether term is not pointer
             k <| Types.Cast term unsignedTyp // no specs found about overflows
         else k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
@@ -398,8 +396,8 @@ module internal InstructionsSet =
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughOffset)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (cfg : cfgData) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
-        let state = cilState.state
         let res =
+            let state = cilState.state
             match memberInfo with
             | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle (Types.FromDotNetType state typeof<RuntimeFieldHandle>)
             | :? Type as t -> Terms.Concrete t.TypeHandle (Types.FromDotNetType state typeof<RuntimeTypeHandle>)
@@ -484,7 +482,7 @@ module internal InstructionsSet =
     let endfinally _ _ (cilState : cilState) =
         cilState |> withOpStack emptyOpStack |> List.singleton
     let zipWithOneOffset op cfgData offset newOffsets cilState =
-        assert (List.length newOffsets = 1)
+        assert(List.length newOffsets = 1)
         let newOffset = List.head newOffsets
         let cilStates = op cfgData offset cilState
         List.map (withFst newOffset) cilStates
@@ -605,8 +603,8 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Ldind_U1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint8Type)
     opcode2Function.[hashFunction OpCodes.Ldind_U2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint16Type)
     opcode2Function.[hashFunction OpCodes.Ldind_U4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float32TermType)
-    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float64TermType)
+    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float64Type)
     opcode2Function.[hashFunction OpCodes.Ldind_Ref]          <- zipWithOneOffset <| fun _ _ -> ldindref
     opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind always
     opcode2Function.[hashFunction OpCodes.Isinst]             <- zipWithOneOffset isinst
@@ -617,8 +615,8 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Stind_I2]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int16Type
     opcode2Function.[hashFunction OpCodes.Stind_I4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int32Type
     opcode2Function.[hashFunction OpCodes.Stind_I8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int64Type
-    opcode2Function.[hashFunction OpCodes.Stind_R4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float32TermType
-    opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float64TermType
+    opcode2Function.[hashFunction OpCodes.Stind_R4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float32Type
+    opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float64Type
     opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Sizeof]             <- zipWithOneOffset <| sizeofInstruction
     opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| throw
@@ -627,8 +625,8 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Endfinally]         <- zipWithOneOffset <| endfinally
     opcode2Function.[hashFunction OpCodes.Rethrow]            <- zipWithOneOffset <| rethrow
     opcode2Function.[hashFunction OpCodes.Endfilter]          <- zipWithOneOffset <| endfilter
-    // TODO: notImplemented instructions
 
+    // TODO: notImplemented instructions
     opcode2Function.[hashFunction OpCodes.Stelem_I]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Arglist]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Jmp]                <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
