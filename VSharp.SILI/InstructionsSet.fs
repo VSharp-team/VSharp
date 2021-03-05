@@ -242,7 +242,6 @@ module internal InstructionsSet =
         cilState |> push x |> push x |> List.singleton
 
     let ret (cfg : cfgData) _ (cilState : cilState) =
-        let cilState = withCurrentTime [] cilState
         let resultTyp =
             match cfg.methodBase with
             | :? ConstructorInfo -> Void

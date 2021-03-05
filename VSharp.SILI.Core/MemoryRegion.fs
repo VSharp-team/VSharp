@@ -39,7 +39,8 @@ type heapAddressKey =
             let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
             let newReg =
                 if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
-                    let rightBound = mapTime VectorTime.infty |> List.lastAndRest |> snd
+                    let rightBound = mapTime []
+                    assert(not <| VectorTime.isEmpty rightBound)
                     if rightBound.IsEmpty then reg
                     else
                         let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg

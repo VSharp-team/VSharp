@@ -18,7 +18,4 @@ namespace VSharp.Test
             svm.Run(assembly, new List<string>());
         }
     }
-
-
-
 }

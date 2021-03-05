@@ -805,8 +805,9 @@ module internal Memory =
         prefix @ time
 
     let private composeConcreteHeapAddress (state : state) addr =
-        assert(not <| VectorTime.isEmpty addr)
         match state.returnRegister with
+        // this is needed only for heapAddressKey.Map when composing
+        | _ when VectorTime.isEmpty addr -> state.currentTime
         // address from other block
         | Some(ConcreteT(:? (vectorTime * vectorTime) as interval, _)) when VectorTime.lessOrEqual addr (fst interval) -> addr
         // address of called function
