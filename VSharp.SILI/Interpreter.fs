@@ -329,33 +329,35 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member x.CallAbstract funcId cilState k =
         methodInterpreter.CallAbstractMethod funcId cilState k
 
-    member private x.ConvOvf targetType typeForStack (cilState : cilState) = // TODO: think about getting rid of typeForStack
-        let typIsLessTyp : Dictionary<symbolicType, list<symbolicType>> = Dictionary<_,_>()
-        typIsLessTyp.[TypeUtils.int8Type] <- [TypeUtils.int8Type; TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type]
-        typIsLessTyp.[TypeUtils.int16Type] <- [TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type]
-        typIsLessTyp.[TypeUtils.int32Type] <- [TypeUtils.int32Type; TypeUtils.int64Type]
-        typIsLessTyp.[TypeUtils.int64Type] <- [TypeUtils.int64Type]
-
-        typIsLessTyp.[TypeUtils.uint8Type] <- [TypeUtils.uint8Type; TypeUtils.uint16Type; TypeUtils.uint32Type; TypeUtils.uint64Type]
-        typIsLessTyp.[TypeUtils.uint16Type] <- [TypeUtils.uint16Type; TypeUtils.uint32Type; TypeUtils.uint64Type]
-        typIsLessTyp.[TypeUtils.uint32Type] <- [TypeUtils.uint32Type; TypeUtils.uint64Type]
-        typIsLessTyp.[TypeUtils.uint64Type] <- [TypeUtils.uint64Type]
-        let less leftTyp rightTyp = List.contains rightTyp typIsLessTyp.[leftTyp]
-
-        let minMax : Dictionary<symbolicType, int64 * int64> = Dictionary<_,_>()
-        minMax.[TypeUtils.int8Type] <- (System.SByte.MinValue |> int64, System.SByte.MaxValue |> int64)
-        minMax.[TypeUtils.int16Type] <- (System.Int16.MinValue |> int64, System.Int16.MaxValue |> int64)
-        minMax.[TypeUtils.int32Type] <- (System.Int32.MinValue |> int64, System.Int32.MaxValue |> int64)
-        minMax.[TypeUtils.int64Type] <- (System.Int64.MinValue, System.Int64.MaxValue)
-        minMax.[TypeUtils.uint8Type] <- (System.Byte.MinValue |> int64, System.Byte.MaxValue |> int64)
-        minMax.[TypeUtils.uint16Type] <- (System.UInt16.MinValue |> int64, System.UInt16.MaxValue |> int64)
-        minMax.[TypeUtils.uint32Type] <- (System.UInt32.MinValue |> int64, System.UInt32.MaxValue |> int64)
-        minMax.[TypeUtils.uint64Type] <- (System.UInt64.MinValue |> int64, System.UInt64.MaxValue |> int64)
-
-
+    member private x.ConvOvf targetType (cilState : cilState) =
+        let supersetsOf =
+            PersistentDict.ofSeq [
+                TypeUtils.int8Type,    [|TypeUtils.int8Type; TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type|]
+                TypeUtils.int16Type,   [|TypeUtils.int16Type; TypeUtils.int32Type; TypeUtils.int64Type|]
+                TypeUtils.int32Type,   [|TypeUtils.int32Type; TypeUtils.int64Type|]
+                TypeUtils.int64Type,   [|TypeUtils.int64Type|]
+                TypeUtils.uint8Type,   [|TypeUtils.uint8Type; TypeUtils.uint16Type; TypeUtils.uint32Type; TypeUtils.uint64Type|]
+                TypeUtils.uint16Type,  [|TypeUtils.uint16Type; TypeUtils.uint32Type; TypeUtils.uint64Type|]
+                TypeUtils.uint32Type,  [|TypeUtils.uint32Type; TypeUtils.uint64Type|]
+                TypeUtils.uint64Type,  [|TypeUtils.uint64Type|]
+                TypeUtils.float32Type, [|TypeUtils.float32Type; TypeUtils.float64Type|]
+                TypeUtils.float64Type, [|TypeUtils.float64Type|] ]
+        let isSubset leftTyp rightTyp = Array.contains rightTyp supersetsOf.[leftTyp]
+        let minMaxOf =
+            PersistentDict.ofSeq [
+                TypeUtils.int8Type,    (System.SByte.MinValue |> int64, System.SByte.MaxValue |> int64)
+                TypeUtils.int16Type,   (System.Int16.MinValue |> int64, System.Int16.MaxValue |> int64)
+                TypeUtils.int32Type,   (System.Int32.MinValue |> int64, System.Int32.MaxValue |> int64)
+                TypeUtils.int64Type,   (System.Int64.MinValue, System.Int64.MaxValue)
+                TypeUtils.uint8Type,   (System.Byte.MinValue |> int64, System.Byte.MaxValue |> int64)
+                TypeUtils.uint16Type,  (System.UInt16.MinValue |> int64, System.UInt16.MaxValue |> int64)
+                TypeUtils.uint32Type,  (System.UInt32.MinValue |> int64, System.UInt32.MaxValue |> int64)
+                TypeUtils.uint64Type,  (System.UInt64.MinValue |> int64, System.UInt64.MaxValue |> int64)
+                TypeUtils.float32Type, (System.Single.MinValue |> int64, System.Single.MaxValue |> int64)
+                TypeUtils.float64Type, (System.Double.MinValue |> int64, System.Double.MaxValue |> int64) ]
         let getSegment leftTyp rightTyp =
-            let min1, max1 = minMax.[leftTyp]
-            let min2, max2 = minMax.[rightTyp]
+            let min1, max1 = minMaxOf.[leftTyp]
+            let min2, max2 = minMaxOf.[rightTyp]
             match min1 < min2, max1 < max2 with
             | true, true   -> min2, max1
             | true, false  -> min2, max2
@@ -366,7 +368,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let (<<=) = API.Arithmetics.(<<=)
             assert(TypeUtils.isInteger term)
             let termType = Terms.TypeOf term
-            if less termType targetTermType then True
+            if isSubset termType targetTermType then True
             elif termType = TypeUtils.int64Type && targetTermType = TypeUtils.uint64Type then
                 let int64Zero = MakeNumber (0 |> int64)
                 int64Zero <<= term

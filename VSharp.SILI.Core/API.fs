@@ -240,7 +240,7 @@ module API =
 
         let BoxValueType state term =
             let address, state = Memory.freshAddress state
-            let reference = HeapRef (ConcreteHeapAddress address) (typeOf term)
+            let reference = HeapRef (ConcreteHeapAddress address) Types.ObjectType
             reference, Memory.writeBoxedLocation state address term
 
         let InitializeStaticMembers state targetType =

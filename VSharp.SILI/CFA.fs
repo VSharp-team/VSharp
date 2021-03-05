@@ -593,15 +593,16 @@ module public CFA =
         let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
 //            assert(cilState'.ip = d.v)
             let s' = cilState'.state
-            let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack d.v vertices
+            let dstIp = cilState'.ip
+            let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack dstIp vertices
             addEdge <| createEdge cilState' dstVertex
 
-            let bypassData = {d with u = d.v; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
+            let bypassData = {d with u = dstIp; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
                                      allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
 
             let newQ, newUsed =
                 match cilState'.iie with
-                | None -> updateQueue cfg d.v bypassData (q, used)
+                | None -> updateQueue cfg dstIp bypassData (q, used)
                 | Some _ -> q, used
             VectorTime.max currentTime s'.currentTime, vertices, newQ, newUsed
 

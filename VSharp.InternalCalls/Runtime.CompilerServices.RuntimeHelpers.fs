@@ -111,7 +111,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 | _ when t = typedefof<int> ->
                     fillInArray int32TermCreator state arrayRef sizeof<int> rawData
                 | _ when t = typedefof<uint32> ->
-                    fillInArray int32TermCreator state arrayRef sizeof<uint32> rawData
+                    fillInArray unsignedInt32TermCreator state arrayRef sizeof<uint32> rawData
                 | _ when t = typedefof<int64> ->
                     fillInArray int64TermCreator state arrayRef sizeof<int64> rawData
                 | _ when t = typedefof<uint64> ->

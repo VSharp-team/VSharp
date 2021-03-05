@@ -46,7 +46,8 @@ module public CFG =
         member x.AddEdge src dst =
             if not <| x.edges.ContainsKey src then
                 x.edges.Add (src, List<_>())
-            x.edges.[src].Add dst
+                x.edges.[src].Add dst
+            elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
     let private createData (methodBase : MethodBase) =
         let mb = methodBase.GetMethodBody()
