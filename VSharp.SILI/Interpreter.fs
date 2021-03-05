@@ -311,12 +311,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let methodId = methodInterpreter.MakeMethodIdentifier ancestorMethod
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
-            let baseType = BaseTypeOfHeapRef cilState.state this
+            let baseType = MostConcreteTypeOfHeapRef cilState.state this
             let callForConcreteType typ state k =
                 x.CallMethodFromTermType state typ ancestorMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionAppendResultsCIL cilState
-                    (fun state k -> k (API.Types.TypeIsRef baseType this, state))
+                    (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
                     (callForConcreteType baseType)
                     (x.CallAbstract methodId)
                     k
@@ -395,7 +395,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member private x.CommonCastClass (cilState : cilState) (term : term) (typ : symbolicType) k =
         let term = castReferenceToPointerIfNeeded term typ cilState.state
         StatedConditionalExecutionAppendResultsCIL cilState
-            (fun state k -> k (IsNullReference term ||| Types.IsCast typ term, state))
+            (fun state k -> k (IsNullReference term ||| Types.IsCast state term typ, state))
             (fun cilState k -> cilState |> withResult (Types.Cast term typ) |> List.singleton |> k)
             (x.Raise x.InvalidCastException)
             k
@@ -572,7 +572,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                     uncheckedStElem
                     (x.Raise x.ArrayTypeMismatchException)
             let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
-                let baseType = arrayRef |> BaseTypeOfHeapRef cilState.state |> Types.ElementType
+                let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
                 if Types.IsValueType typeOfValue then
                     checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
                 else
@@ -658,7 +658,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let canCastValueTypeToNullableTargetCase (cilState : cilState) =
             let underlyingTypeOfNullableT = System.Nullable.GetUnderlyingType t
             StatedConditionalExecutionAppendResultsCIL cilState
-                (fun state k -> k (Types.RefIsType obj (Types.FromDotNetType state underlyingTypeOfNullableT), state))
+                (fun state k -> k (Types.RefIsType state obj (Types.FromDotNetType state underlyingTypeOfNullableT), state))
                 (fun cilState k ->
                     let value = Memory.ReadSafe cilState.state obj
                     let nullableTerm = Memory.DefaultOf termType
@@ -674,7 +674,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 canCastValueTypeToNullableTargetCase cilState
             else
                 StatedConditionalExecutionAppendResultsCIL cilState
-                    (fun state k -> k (Types.IsCast termType obj, state)) // TODO: Why not Types.RefIsType method?
+                    (fun state k -> k (Types.IsCast state obj termType, state))
                     (fun cilState k ->
                         let res, state = handleRestResults(Types.Cast obj termType |> HeapReferenceToBoxReference, cilState.state)
                         cilState |> withState state |> withResult res |> List.singleton |> k)

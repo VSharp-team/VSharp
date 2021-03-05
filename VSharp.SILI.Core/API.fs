@@ -52,17 +52,12 @@ module API =
         let MakeNumber n = makeNumber n
 
         let TypeOf term = typeOf term
-        let rec BaseTypeOfHeapRef state ref =
-            match ref.term with
-            | HeapRef(addr, _) -> Memory.typeOfHeapLocation state addr
-            | Union gvs ->
-                let ts = List.map (fun (_, v) -> BaseTypeOfHeapRef state v) gvs
-                match ts with
-                | [] -> __unreachable__()
-                | t::ts ->
-                    assert(List.forall ((=)t) ts)
-                    t
-            | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
+        let rec MostConcreteTypeOfHeapRef state ref =
+            let getType ref =
+                match ref.term with
+                | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
+                | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
+            commonTypeOf getType ref
 
         // TODO: maybe transfer time from interpreter?
         let MakeFunctionResultConstant state (callSite : callSite) =
@@ -117,9 +112,8 @@ module API =
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsNullable typ = TypeCasting.isNullable typ
-        let rec TypeIsRef typ ref = TypeCasting.typeIsRef typ ref
-        let RefIsType ref typ = TypeCasting.refIsType ref typ
-        let RefIsRef leftRef rightRef = TypeCasting.refIsRef leftRef rightRef
+        let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
+        let RefIsType state ref typ = TypeCasting.refIsType state ref typ
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
         let CanCastImplicitly term targetType =
@@ -202,7 +196,7 @@ module API =
         let rec ReadArrayIndex state reference indices =
             match reference.term with
             | HeapRef(addr, typ) ->
-                let (_, dim, _) as arrayType = symbolicTypeToArrayType typ
+                let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                 assert(dim = List.length indices)
                 Memory.readArrayIndex state addr indices arrayType
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadArrayIndex state v indices)) |> Merging.merge
@@ -225,7 +219,7 @@ module API =
                 (fun state reference ->
                     match reference.term with
                     | HeapRef(addr, typ) ->
-                        let (_, dim, _) as arrayType = symbolicTypeToArrayType typ
+                        let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                         assert(dim = List.length indices)
                         Memory.writeArrayIndex state addr indices arrayType value
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
@@ -268,29 +262,29 @@ module API =
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
-            | HeapRef(addr, _) -> Memory.typeOfHeapLocation state addr |> Types.rankOf |> makeNumber
+            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> Types.rankOf |> makeNumber
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayRank state v)) |> Merging.merge
             | _ -> internalfailf "Getting rank of array: expected ref, but got %O" arrayRef
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
-            | HeapRef(addr, _) -> Memory.readLength state addr index (symbolicTypeToArrayType (Memory.typeOfHeapLocation state addr))
+            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLengthByDimension state v index)) |> Merging.merge
             | _ -> internalfailf "reading array length: expected heap reference, but got %O" arrayRef
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
-            | HeapRef(addr, _) -> Memory.readLowerBound state addr index (symbolicTypeToArrayType (Memory.typeOfHeapLocation state addr))
+            | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLowerBoundByDimension state v index)) |> Merging.merge
             | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
         let rec StringCtorOfCharArray state arrayRef dstRef =
             match dstRef.term with
-            | HeapRef({term = ConcreteHeapAddress dstAddr}, typ) ->
-                assert(typ = Types.String)
+            | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address typ = Types.String)
                 Memory.guardedStatedMap (fun state arrayRef ->
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
-                        assert(typ = ArrayType(Types.Char, Vector))
+                        assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))
                         Memory.copyCharArrayToString state arrayAddr dstAddr
                     | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef) state arrayRef
             | HeapRef _

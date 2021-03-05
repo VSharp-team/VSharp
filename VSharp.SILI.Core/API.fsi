@@ -46,7 +46,7 @@ module API =
         val MakeNumber : 'a -> term
 
         val TypeOf : term -> symbolicType
-        val BaseTypeOfHeapRef : state -> term -> symbolicType
+        val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
 
         val IsStruct : term -> bool
         val IsReference : term -> bool
@@ -98,7 +98,6 @@ module API =
         val IsCast : state -> term -> symbolicType -> term
         val CanCastImplicitly : term -> symbolicType -> bool
         val Cast : term -> symbolicType -> term
-        val CastConcrete : 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]

@@ -467,7 +467,6 @@ module internal Terms =
         | Constant(_, _, t)
         | Expression(_, _, t) -> makeCast t targetType term
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
-        | HeapRef _ when Types.isObject targetType -> term
         | _ -> __unreachable__()
 
     let negate term =

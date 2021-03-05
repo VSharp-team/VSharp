@@ -226,19 +226,29 @@ module internal Memory =
     let private substituteTypeVariablesIntoField state (f : fieldId) =
         Reflection.concretizeField f (typeVariableSubst state)
 
+    let private typeOfConcreteHeapAddress state address =
+        if address = VectorTime.zero then Null
+        else PersistentDict.find state.allocatedTypes address
+
+    // TODO: use only getStrongestTypeOfHeapRef someday
     let rec typeOfHeapLocation state (address : heapAddress) =
-        match address.term with
-        | ConcreteHeapAddress address ->
-            if address = VectorTime.zero then Null
-            else PersistentDict.find state.allocatedTypes address
-        | Constant(_, (:? IMemoryAccessConstantSource as source), AddressType) -> source.TypeOfLocation
-        | Union gvs ->
-            match gvs |> List.tryPick (fun (_, v) -> let typ = typeOfHeapLocation state v in if typ = Null then None else Some typ) with
-            | None -> Null
-            | Some result ->
-                assert (gvs |> List.forall (fun (_, v) -> let typ = typeOfHeapLocation state v in typ = Null || typ = result))
-                result
-        | _ -> __unreachable__()
+        let getTypeOfAddress = term >> function
+            | ConcreteHeapAddress address -> typeOfConcreteHeapAddress state address
+            | Constant(_, (:? IMemoryAccessConstantSource as source), AddressType) -> source.TypeOfLocation
+            | _ -> __unreachable__()
+        commonTypeOf getTypeOfAddress address
+
+    let mostConcreteTypeOfHeapRef state address sightType =
+        let locationType = typeOfHeapLocation state address
+        if isConcreteSubtype locationType sightType then locationType
+        else
+            assert(isConcreteSubtype sightType locationType)
+            sightType
+
+    let baseTypeOfAddress state address =
+        match address with
+        | BoxedLocation(addr, _) -> typeOfConcreteHeapAddress state addr
+        | _ -> typeOfAddress address
 
 // ------------------------------- Instantiation -------------------------------
 
@@ -761,13 +771,11 @@ module internal Memory =
 
 // ------------------------------- Copying -------------------------------
 
-    let copyArray state srcAddress dstAddress =
-        let arrayType = typeOfHeapLocation state srcAddress |> symbolicTypeToArrayType
+    let copyArray state srcAddress arrayType dstAddress =
         let contents = MemoryRegion.localizeArray srcAddress (snd3 arrayType) state.arrays.[arrayType]
         {state with entireCopies = PersistentDict.add dstAddress (srcAddress, contents) state.entireCopies}
 
     let copyArrayExt state srcAddress srcIndices srcType dstAddress dstIndices dstType =
-        let arrayType = typeOfHeapLocation state srcAddress |> symbolicTypeToArrayType
         // TODO: implement memmove for multidimensional arrays, i.e. consider the case of overlapping src and dest arrays.
         // TODO: See Array.Copy documentation for detalis.
         __notImplemented__()
@@ -776,7 +784,7 @@ module internal Memory =
         let arrayType = (Char, 1, true)
         let length = readLength state arrayAddress (makeNumber 0) arrayType
         let lengthPlus1 = Arithmetics.add length (makeNumber 1)
-        let state = copyArray state arrayAddress dstAddress
+        let state = copyArray state arrayAddress arrayType dstAddress
         let dstAddress = ConcreteHeapAddress dstAddress
         let state = writeLength state dstAddress (makeNumber 0) arrayType lengthPlus1
         let state = writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Char)

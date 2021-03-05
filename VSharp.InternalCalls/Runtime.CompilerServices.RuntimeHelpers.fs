@@ -91,7 +91,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
         match handleTerm.term with
         | Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-            let elemType = BaseTypeOfHeapRef state arrayRef |> Types.ElementType
+            let elemType = MostConcreteTypeOfHeapRef state arrayRef |> Types.ElementType
             let t = Types.ToDotNetType elemType
             assert (t.IsValueType) // TODO: be careful about type variables
 
