@@ -1046,26 +1046,30 @@ module internal Memory =
 
 // ------------------------------- Pretty-printing -------------------------------
 
-    let private appendLine (sb : StringBuilder) (str : string) =
-        sb.Append(str).Append('\n')
-
-    let private dumpSection section (sb : StringBuilder) =
-        sprintf "--------------- %s: ---------------" section |> appendLine sb
-
     let private dumpStack (sb : StringBuilder) stack =
-        let print (sb : StringBuilder) k v =
-            sprintf "key = %O, value = %O" k v |> appendLine sb
+        let print (sb : StringBuilder) k _ v =
+            Option.fold (fun sb v -> sprintf "key = %O, value = %O" k v |> PrettyPrinting.appendLine sb) sb v
         let sb1 = MappedStack.fold print (StringBuilder()) stack
         if sb1.Length = 0 then sb
         else
-            let sb = dumpSection "Stack" sb
+            let sb = PrettyPrinting.dumpSection "Stack" sb
             sb.Append(sb1)
 
     let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
         if PersistentDict.isEmpty d then sb
         else
-            let sb = dumpSection section sb
-            PersistentDict.dump d sort keyToString valueToString |> appendLine sb
+            let sb = PrettyPrinting.dumpSection section sb
+            PersistentDict.dump d sort keyToString valueToString |> PrettyPrinting.appendLine sb
+
+    let private dumpInitializedTypes (sb : StringBuilder) initializedTypes =
+        if SymbolicSet.isEmpty initializedTypes then sb
+        else sprintf "Initialized types = %s" (SymbolicSet.print initializedTypes) |> PrettyPrinting.appendLine sb
+
+    let private dumpOpStack (sb : StringBuilder) opStack =
+        if OperationStack.length opStack = 0 then sb
+        else
+            let sb = PrettyPrinting.dumpSection "Operation stack" sb
+            OperationStack.toString opStack |> PrettyPrinting.appendLine sb
 
     let private arrayTypeToString (elementType, dimension, isVector) =
         if isVector then ArrayType(elementType, Vector)
@@ -1079,7 +1083,7 @@ module internal Memory =
         // TODO: print lower bounds?
         let sortBy sorter = Seq.sortBy (fst >> sorter)
         let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf ("Path condition: %s") |> appendLine sb
+        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
         let sb = dumpDict "Array lengths" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
@@ -1090,6 +1094,6 @@ module internal Memory =
         let sb = dumpDict "Array copies (ext)" sortVectorTime VectorTime.print toString sb s.extendedCopies
         let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
-        let sb = if SymbolicSet.isEmpty s.initializedTypes then sb else sprintf "Initialized types = %s" (SymbolicSet.print s.initializedTypes) |> appendLine sb
-        let sb = if List.length s.opStack = 0 then sb else let sb = dumpSection "Operational stack" sb in (s.opStack |> List.map toString |> join "\n" |> appendLine sb)
+        let sb = dumpInitializedTypes sb s.initializedTypes
+        let sb = dumpOpStack sb s.opStack
         if sb.Length = 0 then "<Empty>" else sb.ToString()

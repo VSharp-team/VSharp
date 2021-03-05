@@ -111,27 +111,20 @@ module internal CilStateOperations =
             k
 
     // ------------------------------- Pretty printing for cilState -------------------------------
-    let private dumpSection section (sb : StringBuilder) =
-        sprintf "--------------- %s: ---------------" section |> sb.AppendLine
 
     let private dumpSectionValue section value (sb : StringBuilder) =
-        sb |> dumpSection section |> (fun sb -> sb.AppendLine value)
-
-    let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
-        if PersistentDict.isEmpty d then sb
-        else
-            let sb = dumpSection section sb
-            PersistentDict.dump d sort keyToString valueToString |> sb.AppendLine
+        let sb = Utils.PrettyPrinting.dumpSection section sb
+        Utils.PrettyPrinting.appendLine sb value
 
     let ipAndMethodBase2String (ip : ip, m : MethodBase) =
         sprintf "Method: %O, ip = %O" m ip
 
     // TODO: print filterResult and IIE ?
     let dump (cilState : cilState) : string =
-        let sb = dumpSectionValue "IP" (sprintf "%O" cilState.ip) (StringBuilder())
-        let sb = dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
-
-        let stateDump = VSharp.Core.API.Memory.Dump cilState.state
+        let sb = (StringBuilder())
+        let sb = dumpSectionValue "IP" (sprintf "%O" cilState.ip) sb
+        let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
+        let stateDump = Memory.Dump cilState.state
         let sb = dumpSectionValue "State" stateDump sb
 
         if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()

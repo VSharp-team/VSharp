@@ -141,7 +141,7 @@ type termNode =
                         |> checkExpression operation.priority parentPriority
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority indent (List.head operands).term) |>
+                    sprintf "(%O %s)" dest (toStr operation.priority indent (List.head operands).term) |>
                         checkExpression operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->

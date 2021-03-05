@@ -19,6 +19,7 @@
         <Compile Include="VectorTime.fs" />
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />
+        <Compile Include="PrettyPrinting.fs" />
     </ItemGroup>
 
     <ItemGroup>
