@@ -262,6 +262,9 @@ module internal Types =
     let public Char = Numeric typedefof<char>
 
     let public String = fromDotNetType typedefof<string>
+    let Int32 = Numeric typeof<int>
+    let Int64 = Numeric typeof<int64>
+    let F = Numeric typeof<float>
 
     let (|StringType|_|) = function
         | typ when typ = String -> Some()

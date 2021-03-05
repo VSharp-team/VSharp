@@ -156,7 +156,7 @@ type public ExplorerBase() =
                     match staticConstructor with
                     | Some cctor ->
                         let removeCallSiteResultAndPopStack (cilStateAfterCallingCCtor : cilState) =
-                            let stateAfterCallingCCtor = Memory.PopStack cilStateAfterCallingCCtor.state
+                            let stateAfterCallingCCtor = Memory.PopFrame cilStateAfterCallingCCtor.state
                             let stateWithoutCallSiteResult = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
                             {cilStateAfterCallingCCtor with state = stateWithoutCallSiteResult}
                         x.ReduceFunctionSignature state cctor None (Specified []) false (fun state ->

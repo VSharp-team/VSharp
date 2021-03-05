@@ -66,6 +66,7 @@ module API =
         val WithPathCondition : state -> term -> state
 
         val RemovePathCondition : state -> term -> state
+        val GetConditionOfState : state -> term
 
     module Types =
         val Numeric : System.Type -> symbolicType
@@ -125,7 +126,15 @@ module API =
     module public Memory =
         val EmptyState : state
 
-        val PopStack : state -> state
+        val PopFromOpStack : operationStack -> term * operationStack
+        val PopArgumentsFromOpStack : int -> operationStack -> term list * operationStack
+        val PushToOpStack : term -> operationStack -> operationStack
+        val GetOpStackItem : int -> operationStack -> term
+        val FilterOpStack : (term -> bool) -> operationStack -> operationStack
+        val MapiOpStack : (int -> term -> term) -> operationStack -> operationStack
+        val OpStackToList : operationStack -> term list
+
+        val PopFrame : state -> state
         val PopTypeVariables : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state

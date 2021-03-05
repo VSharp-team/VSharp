@@ -87,7 +87,7 @@ type arrayCopyInfo =
 
 and state = {
     pc : pathCondition
-    opStack : term list
+    opStack : operationStack
     stack : stack                                             // Arguments and local variables
     stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
     frames : frames                                           // Meta-information about stack frames
@@ -124,7 +124,7 @@ module internal Memory =
 
     let empty = {
         pc = PC.empty
-        opStack = List.empty
+        opStack = OperationStack.empty
         returnRegister = None
         exceptionsRegister = NoException
         callSiteResults = Map.empty
@@ -165,7 +165,7 @@ module internal Memory =
         { s with stack = newStack; frames = frames' }
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
-    let popStack (s : state) : state =
+    let popFrame (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
         let entries = (Stack.peek s.frames).entries
         let frames' = Stack.pop s.frames
@@ -958,7 +958,7 @@ module internal Memory =
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstType=dstType}
 
     let composeOpStacksOf state opStack =
-        List.map (fillHoles state) opStack
+        OperationStack.map (fillHoles state) opStack
 
     let composeStates state state' =
         assert(VectorTime.isDescending state.currentTime)

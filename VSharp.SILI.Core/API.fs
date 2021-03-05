@@ -90,6 +90,7 @@ module API =
 
         let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
         let RemovePathCondition conditionState condition = Memory.removePathCondition conditionState condition
+        let GetConditionOfState state = PC.squashPC state.pc
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -149,7 +150,17 @@ module API =
     module public Memory =
         let EmptyState = Memory.empty
 
-        let PopStack state = Memory.popStack state
+        let PopFromOpStack opStack = OperationStack.pop opStack
+        let PopArgumentsFromOpStack n opStack = OperationStack.popMany n opStack
+        let PushToOpStack x opStack =
+            let x' = TypeCasting.castToOpStackType x
+            OperationStack.push x' opStack
+        let GetOpStackItem index opStack = OperationStack.item index opStack
+        let FilterOpStack f opStack = OperationStack.filter f opStack
+        let MapiOpStack f opStack = OperationStack.mapi f opStack
+        let OpStackToList opStack = OperationStack.toList opStack
+
+        let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state funcId parametersAndThis isEffect = Memory.newStackFrame state funcId parametersAndThis isEffect
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst

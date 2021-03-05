@@ -173,3 +173,16 @@ module internal TypeCasting =
             let typ = commonTypeOf getType reference
             Terms.castReferenceToPointer typ reference
         Merging.guardedApply doCast reference
+
+    let castToOpStackType x =
+        match typeOf x with
+        // TODO: need to add conversion from bool to int?
+        // | Bool -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<int8>   -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<int16>  -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<byte>   -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<char>   -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<uint16> -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<uint32> -> cast x Int32
+        | Numeric(Id typ) when typ = typeof<uint64> -> cast x Int64
+        | _ -> x

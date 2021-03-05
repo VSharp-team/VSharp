@@ -43,40 +43,45 @@ module internal CilStateOperations =
         {cilState with level = PersistentDict.add k newValue lvl}
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
+
     let stateOf (cilState : cilState) = cilState.state
-    let popStackOf (cilState : cilState) = {cilState with state = Memory.PopStack cilState.state}
+    let popStackOf (cilState : cilState) = {cilState with state = Memory.PopFrame cilState.state}
 
+    let emptyOpStack = Memory.EmptyState.opStack
     let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
-
     let withOpStack opStack (cilState : cilState) = {cilState with state = {cilState.state with opStack = opStack}}
-
     let withState state (cilState : cilState) = {cilState with state = state}
     let changeState (cilState : cilState) state = {cilState with state = state}
     let withResult result (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = Some result}}
     let withNoResult (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = None}}
     let withResultState result (state : state) = {state with returnRegister = Some result}
     let withIp ip (cilState : cilState) = {cilState with ip = ip}
-    let pushToOpStack v (cilState : cilState) = {cilState with state = {cilState.state with opStack = v :: cilState.state.opStack}}
+    let push v (cilState : cilState) = {cilState with state = {cilState.state with opStack = Memory.PushToOpStack v cilState.state.opStack}}
+    let pop (cilState : cilState) =
+        let v, opStack = Memory.PopFromOpStack cilState.state.opStack
+        v, {cilState with state = {cilState.state with opStack = opStack}}
+    let pop2 (cilState : cilState) =
+        let arg2, cilState = pop cilState
+        let arg1, cilState = pop cilState
+        arg2, arg1, cilState
+    let pop3 (cilState : cilState) =
+        let arg3, cilState = pop cilState
+        let arg2, cilState = pop cilState
+        let arg1, cilState = pop cilState
+        arg3, arg2, arg1, cilState
     let withException exc (cilState : cilState) = {cilState with state = {cilState.state with exceptionsRegister = exc}}
-
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
-
-
-    let pushResultOnOpStack (cilState : cilState) (res, state) =
-        if res <> Terms.Nop then cilState |> withState state |> pushToOpStack res
-        else withState state cilState
-
-    let pushResultToOperationalStack (cilStates : cilState list)  =
+    let pushResultToOperationalStack (cilStates : cilState list) =
         cilStates |> List.map (fun (cilState : cilState) ->
             let state = cilState.state
-            if state.exceptionsRegister.UnhandledError then cilState // TODO: check whether opStack = [] is needed
+            if state.exceptionsRegister.UnhandledError then cilState // TODO: check whether opStack := [] is needed
             else
                 let opStack =
                     match state.returnRegister with
                     | None -> state.opStack
-                    | Some r -> r :: state.opStack
+                    | Some r -> Memory.PushToOpStack r state.opStack
                 let state = {state with returnRegister = None; opStack = opStack}
                 {cilState with state = state})
 
