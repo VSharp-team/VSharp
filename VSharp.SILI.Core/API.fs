@@ -167,17 +167,18 @@ module API =
             | HeapRef(addr, typ) -> ArrayIndex(addr, indices, symbolicTypeToArrayType typ) |> Ref
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex v indices)) |> Merging.merge
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
-        let rec ReferenceField reference fieldId =
+        let rec ReferenceField state reference fieldId =
             match reference.term with
+            | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                ReferenceField state (HeapReferenceToBoxReference reference) fieldId
             | HeapRef(address, typ) ->
-                let dnt = Types.ToDotNetType typ
-                let dnt = if dnt.IsGenericType then dnt.GetGenericTypeDefinition() else dnt
-                assert(fieldId.declaringType.IsAssignableFrom dnt)
+                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
                 ClassField(address, fieldId) |> Ref
-            | Ref addr ->
-                assert(typeOfAddress addr |> Types.isStruct)
-                StructField(addr, fieldId) |> Ref
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField v fieldId)) |> Merging.merge
+            | Ref address ->
+                assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
+                StructField(address, fieldId) |> Ref
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
         let ReadSafe state reference = Memory.readSafe state reference
@@ -187,9 +188,9 @@ module API =
         let ReadField state term field =
             let doRead target =
                 match target.term with
-                | HeapRef(addr, _) -> Memory.readClassField state addr field
+                | HeapRef _
+                | Ref _ -> ReferenceField state target field |> Memory.readSafe state
                 | Struct _ -> Memory.readStruct target field
-                | Ref addr -> StructField(addr, field) |> Ref |> Memory.readSafe state
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 

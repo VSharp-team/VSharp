@@ -138,7 +138,7 @@ module API =
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
-        val ReferenceField : term -> fieldId -> term
+        val ReferenceField : state -> term -> fieldId -> term
         val ReferenceArrayIndex : term -> term list -> term
 
         val ReadSafe : state -> term -> term
