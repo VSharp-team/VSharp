@@ -456,16 +456,29 @@ module internal Terms =
         assert(Operations.isUnary operation)
         Expression (Operator operation) [x] t
 
-    let private makeCast srcTyp dstTyp expr =
-        if srcTyp = dstTyp then expr
-        else Expression (Cast(srcTyp, dstTyp)) [expr] dstTyp
+    let (|CastExpr|_|) = term >> function
+        | Expression(Cast(srcType, dstType), [x], t) ->
+            assert(dstType = t)
+            Some(CastExpr(x, srcType, dstType))
+        | _ -> None
+
+    let rec private makeCast term fromType toType =
+        match term, toType with
+        | _ when fromType = toType -> term
+        | CastExpr(x, xType, Numeric(Id t)), Numeric(Id dstType) when not <| TypeUtils.isLessForNumericTypes t dstType ->
+            makeCast x xType toType
+        | CastExpr(x, (Numeric(Id srcType) as xType), Numeric(Id t)), Numeric(Id dstType)
+            when not <| TypeUtils.isLessForNumericTypes t srcType && not <| TypeUtils.isLessForNumericTypes dstType t ->
+            makeCast x xType toType
+        | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
         match term.term with
         | _ when typeOf term = targetType -> term
         | Concrete(value, _) -> castConcrete value (Types.toDotNetType targetType)
+        // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t)
-        | Expression(_, _, t) -> makeCast t targetType term
+        | Expression(_, _, t) -> makeCast term t targetType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 
@@ -539,6 +552,11 @@ module internal Terms =
 
     let (|ShiftRight|_|) = term >> function
         | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t))
+        | _ -> None
+
+    let (|ShiftRightThroughCast|_|) = function
+        | CastExpr(ShiftRight(a, b, Numeric(Id t)), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
     let (|ConcreteHeapAddress|_|) = function
