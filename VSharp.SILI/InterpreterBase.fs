@@ -232,20 +232,13 @@ type public ExplorerBase() =
             let methodBase = methodId.Method
             if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> IFunctionIdentifier, state, false
             else
-                let genericMethod, methodGenericDefs, methodGenericArgs =
-                    match Reflection.TryGetGenericMethodDefinition methodBase with
-                    | None -> methodBase, [||], [||]
-                    | v -> Option.get v
-                let genericMethod1, typeGenericDefs, typeGenericArgs =
-                    match Reflection.TryGetMethodWithGenericDeclaringType genericMethod with
-                    | None -> genericMethod, [||], [||]
-                    | v -> Option.get v
-                let genericDefs = Array.append methodGenericDefs typeGenericDefs |> Seq.map Id |> List.ofSeq
-                let genericArgs = Array.append methodGenericArgs typeGenericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                let fullyGenericMethod, genericArgs, genericDefs = Reflection.generalizeMethodBase methodBase
+                let genericArgs = genericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                let genericDefs = genericDefs |> Seq.map Id |> List.ofSeq
                 if List.isEmpty genericDefs then methodId :> IFunctionIdentifier, state, false
                 else
                     let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
-                    (x.MakeMethodIdentifier genericMethod1 :> IFunctionIdentifier), state, true
+                    (x.MakeMethodIdentifier fullyGenericMethod :> IFunctionIdentifier), state, true
 
         let newFuncId, cilState, isSubstitutionNeeded =
             match funcId with
