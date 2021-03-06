@@ -32,7 +32,7 @@ type public ExplorerBase() =
         match id with
         | :? IMethodIdentifier as m ->
             assert(m.IsStatic)
-            let state = Memory.InitializeStaticMembers Memory.EmptyState (Types.FromDotNetType Memory.EmptyState m.DeclaringType)
+            let state = Memory.InitializeStaticMembers Memory.EmptyState (Types.FromDotNetType m.DeclaringType)
             let initialState = makeInitialState state
             x.Invoke id initialState (List.map (fun cilState -> { cilState = cilState }) >> List.toSeq >> k)
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
@@ -82,14 +82,14 @@ type public ExplorerBase() =
     member x.ReduceFunctionSignature state (methodBase : MethodBase) this paramValues isEffect k =
         let funcId = x.MakeMethodIdentifier methodBase
         let parameters = methodBase.GetParameters()
-        let getParameterType (param : ParameterInfo) = Types.FromDotNetType state param.ParameterType
+        let getParameterType (param : ParameterInfo) = Types.FromDotNetType param.ParameterType
         let values, areParametersSpecified =
             match paramValues with
             | Specified values -> values, true
             | Unspecified -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey(lvi, methodBase)
-            (stackKey, Unspecified, Types.FromDotNetType state lvi.LocalType)
+            (stackKey, Unspecified, Types.FromDotNetType lvi.LocalType)
         let locals =
             match methodBase.GetMethodBody() with
             | null -> []
@@ -121,12 +121,12 @@ type public ExplorerBase() =
             match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
             | null -> state
             | value ->
-                let fieldType = f.FieldType |> Types.FromDotNetType state
+                let fieldType = Types.FromDotNetType f.FieldType
                 let value, state =
                     match value with
                     | :? string as str -> Memory.AllocateString str state
                     | v -> Terms.Concrete v fieldType, state
-                let targetType = Types.FromDotNetType state f.DeclaringType
+                let targetType = Types.FromDotNetType f.DeclaringType
                 let fieldId = Reflection.wrapField f
                 Memory.WriteStaticField state targetType fieldId value
         else state
@@ -137,7 +137,7 @@ type public ExplorerBase() =
         match t with
         | _ when t.IsGenericParameter -> k (List.singleton cilState)
         | _ ->
-            let termType = t |> Types.FromDotNetType cilState.state
+            let termType = Types.FromDotNetType t
             let typeInitialized = Memory.IsTypeInitialized cilState.state termType
             match typeInitialized with
             | True -> k (List.singleton cilState)
@@ -162,7 +162,7 @@ type public ExplorerBase() =
         let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
-                let declaringType = m.DeclaringType |> Types.FromDotNetType Memory.EmptyState
+                let declaringType = Types.FromDotNetType m.DeclaringType
                 let initialState = Memory.InitializeStaticMembers Memory.EmptyState declaringType
                 (if m.IsStatic then None else Memory.MakeSymbolicThis m.Method |> Some), initialState
             | _ -> __notImplemented__()
@@ -191,7 +191,7 @@ type public ExplorerBase() =
         let ctor = List.head ctors
         assert (not <| exceptionType.IsValueType)
         let s = cilState.state
-        let reference, s = Memory.AllocateDefaultClass s (Types.FromDotNetType s exceptionType)
+        let reference, s = Memory.AllocateDefaultClass s (Types.FromDotNetType exceptionType)
         let withResult result (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = Some result}}
         x.ReduceFunctionSignature s ctor (Some reference) (Specified arguments) false (fun state ->
         x.ReduceFunction {cilState with state = state} ctor (fun cilStates ->
@@ -225,7 +225,7 @@ type public ExplorerBase() =
             if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> IFunctionIdentifier, state, false
             else
                 let fullyGenericMethod, genericArgs, genericDefs = Reflection.generalizeMethodBase methodBase
-                let genericArgs = genericArgs |> Seq.map (Types.FromDotNetType state) |> List.ofSeq
+                let genericArgs = genericArgs |> Seq.map Types.FromDotNetType |> List.ofSeq
                 let genericDefs = genericDefs |> Seq.map Id |> List.ofSeq
                 if List.isEmpty genericDefs then methodId :> IFunctionIdentifier, state, false
                 else

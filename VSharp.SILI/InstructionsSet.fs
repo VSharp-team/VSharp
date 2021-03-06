@@ -113,7 +113,7 @@ module internal InstructionsSet =
 
     let resolveFieldFromMetadata (cfg : cfgData) = Instruction.resolveFieldFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTypeFromMetadata (cfg : cfgData) = Instruction.resolveTypeFromMetadata cfg.methodBase cfg.ilBytes
-    let resolveTermTypeFromMetadata state (cfg : cfgData) = resolveTypeFromMetadata cfg >> Types.FromDotNetType state
+    let resolveTermTypeFromMetadata (cfg : cfgData) = resolveTypeFromMetadata cfg >> Types.FromDotNetType
     let resolveMethodFromMetadata (cfg : cfgData) = Instruction.resolveMethodFromMetadata cfg.methodBase cfg.ilBytes
     let resolveTokenFromMetadata (cfg : cfgData) = Instruction.resolveTokenFromMetadata cfg.methodBase cfg.ilBytes
 
@@ -175,7 +175,7 @@ module internal InstructionsSet =
         Types.Cast term typ
     let ldc numberCreator t (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let num = numberCreator cfg.ilBytes shiftedOffset
-        let termType = Types.FromDotNetType cilState.state t
+        let termType = Types.FromDotNetType t
         push (Concrete num termType) cilState |> List.singleton
 
     let ldloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
@@ -211,9 +211,9 @@ module internal InstructionsSet =
     let stloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let variableIndex = numberCreator cfg.ilBytes shiftedOffset
         let right, cilState = pop cilState
-        let state = cilState.state
-        let left = referenceLocalVariable variableIndex cfg.methodBase // TODO: change mb #do
+        let left = referenceLocalVariable variableIndex cfg.methodBase
         let typ = TypeOf left
+        let state = cilState.state
         let value = castUnchecked typ right state
         let states = Memory.WriteSafe state left value
         states |> List.map (fun state -> cilState |> withState state)
@@ -244,7 +244,7 @@ module internal InstructionsSet =
         let resultTyp =
             match cfg.methodBase with
             | :? ConstructorInfo -> Void
-            | :? MethodInfo as mi -> mi.ReturnType |> Types.FromDotNetType cilState.state
+            | :? MethodInfo as mi -> Types.FromDotNetType mi.ReturnType
             | _ -> __notImplemented__()
         let term, cilState =
             if not <| Reflection.HasNonVoidResult cfg.methodBase then None, cilState
@@ -340,7 +340,7 @@ module internal InstructionsSet =
         let castParameter parameter (parInfo : ParameterInfo) =
             if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
             else
-                let typ = parInfo.ParameterType |> Types.FromDotNetType cilState.state
+                let typ = Types.FromDotNetType parInfo.ParameterType
                 castUnchecked typ parameter cilState.state
         let parameters = Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
         parameters, withOpStack opStack cilState
@@ -395,20 +395,19 @@ module internal InstructionsSet =
     let ldtoken (cfg : cfgData) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
         let res =
-            let state = cilState.state
             match memberInfo with
-            | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle (Types.FromDotNetType state typeof<RuntimeFieldHandle>)
-            | :? Type as t -> Terms.Concrete t.TypeHandle (Types.FromDotNetType state typeof<RuntimeTypeHandle>)
-            | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle (Types.FromDotNetType state typeof<RuntimeMethodHandle>)
+            | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle (Types.FromDotNetType typeof<RuntimeFieldHandle>)
+            | :? Type as t -> Terms.Concrete t.TypeHandle (Types.FromDotNetType typeof<RuntimeTypeHandle>)
+            | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle (Types.FromDotNetType typeof<RuntimeMethodHandle>)
             | _ -> internalfailf "Could not resolve token"
         push res cilState |> List.singleton
     let ldftn (cfg : cfgData) offset (cilState : cilState) =
         let methodInfo = resolveMethodFromMetadata cfg (offset + OpCodes.Ldftn.Size)
-        let methodPtr = Terms.Concrete methodInfo (Types.FromDotNetType cilState.state (methodInfo.GetType()))
+        let methodPtr = Terms.Concrete methodInfo (Types.FromDotNetType (methodInfo.GetType()))
         push methodPtr cilState |> List.singleton
     let initobj (cfg : cfgData) offset (cilState : cilState) =
         let targetAddress, cilState = pop cilState
-        let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Initobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Initobj.Size)
         let states = Memory.WriteSafe cilState.state targetAddress (Memory.DefaultOf typ)
         states |> List.map (fun state -> cilState |> withState state)
     let ldind valueCast (cilState : cilState) =
@@ -427,7 +426,7 @@ module internal InstructionsSet =
         else __notImplemented__()
     let isinst (cfg : cfgData) offset (cilState : cilState) =
         let object, cilState = pop cilState
-        let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Isinst.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Isinst.Size)
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference object, state))
             (fun cilState k -> cilState |> push NullRef |> List.singleton |> k)
@@ -445,13 +444,13 @@ module internal InstructionsSet =
         else binaryOperationWithBoolResult OperationType.Greater makeUnsignedInteger makeUnsignedInteger cilState
     let ldobj (cfg : cfgData) offset (cilState : cilState) =
         let address, cilState = pop cilState
-        let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Ldobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldobj.Size)
         let value = Memory.ReadSafe cilState.state address
         let typedValue = castUnchecked typ value cilState.state
         cilState |> push typedValue |> List.singleton
     let stobj (cfg : cfgData) offset (cilState : cilState) =
         let src, dest, cilState = pop2 cilState
-        let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Stobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stobj.Size)
         let value = castUnchecked typ src cilState.state
         let states = Memory.WriteSafe cilState.state dest value
         states |> List.map (fun state -> cilState |> withState state)
@@ -461,7 +460,7 @@ module internal InstructionsSet =
         let states = Memory.WriteSafe cilState.state address value
         states |> List.map (fun state -> cilState |> withState state)
     let sizeofInstruction (cfg : cfgData) offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cilState.state cfg (offset + OpCodes.Sizeof.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
         cilState |> push (MakeNumber size) |> List.singleton
     let throw _ _ (cilState : cilState) =

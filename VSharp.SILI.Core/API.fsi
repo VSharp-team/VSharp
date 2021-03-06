@@ -72,7 +72,7 @@ module API =
         val ObjectType : symbolicType
         val IndexType : symbolicType
 
-        val FromDotNetType : state -> System.Type -> symbolicType
+        val FromDotNetType : System.Type -> symbolicType
         val ToDotNetType : symbolicType -> System.Type
 
         val SizeOf : symbolicType -> int
@@ -82,6 +82,7 @@ module API =
         val IsBool : symbolicType -> bool
         val IsInteger : symbolicType -> bool
         val IsReal : symbolicType -> bool
+        val IsNumeric : symbolicType -> bool
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
         val IsArrayType : symbolicType -> bool

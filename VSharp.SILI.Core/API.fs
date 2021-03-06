@@ -91,7 +91,7 @@ module API =
         let ObjectType = Types.objectType
         let IndexType = Types.indexType
 
-        let FromDotNetType (state : state) t = t |> Types.Constructor.fromDotNetType |> Memory.substituteTypeVariables state
+        let FromDotNetType t = Types.Constructor.fromDotNetType t
         let ToDotNetType t = Types.toDotNetType t
 
         let SizeOf t = Types.sizeOf t
@@ -101,6 +101,7 @@ module API =
         let IsBool t = Types.isBool t
         let IsInteger t = Types.isInteger t
         let IsReal t = Types.isReal t
+        let IsNumeric t = Types.isNumeric t
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
         let IsArrayType t = Types.isArray t
