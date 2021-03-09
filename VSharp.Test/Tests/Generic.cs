@@ -34,13 +34,11 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        [TestSvmFixture]
         public static class NonGenericClassInsideGenericClass
         {
-            [TestSvm]
-            public static int GenericMethodOfNonGenericType(U a)
+            public static K GenericMethodOfNonGenericType(K k)
             {
-                return 0;
+                return k;
             }
         }
 
@@ -56,7 +54,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
@@ -72,19 +70,19 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static U RetU(U u)
         {
             return u;
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static P RetP(P p)
         {
             return p;
@@ -96,7 +94,7 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static N RetN(N n)
         {
             return n;
@@ -120,13 +118,12 @@ namespace VSharp.Test.Tests.Generic
             return r;
         }
 
-
         public static object Ret0(R r)
         {
             return 0;
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static V RetV(V v)
         {
             return v;
@@ -141,6 +138,12 @@ namespace VSharp.Test.Tests.Generic
         {
             return GenericClass<object, int>.RetR(0);
         }
+
+        // [TestSvm]
+        // public static object RetConstructedRWithInt2()
+        // {
+        //     return GenericClass<int, int>.RetR(0, 0);
+        // }
 
         [TestSvm]
         public static object RetConstructedR0()
@@ -240,6 +243,11 @@ namespace VSharp.Test.Tests.Generic
             return t;
         }
 
+        public static T MixedGenericParameterAndTypeGenerics_RetT<W>(W w, V r, T t, V v)
+        {
+            return t;
+        }
+
         public static V MixedGenericParameterAndTypeGenerics_RetV<W>(W w, T t, R r, V v)
         {
             return v;
@@ -263,13 +271,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public T GetFields()
         {
             return _field;
         }
 
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public void SetField(T f)
         {
             _field = f;
@@ -290,34 +298,34 @@ namespace VSharp.Test.Tests.Generic
     [TestSvmFixture]
     public static class TetsUnion
     {
-//        public static Coord RetCoord(Object obj, Coord coord, int field)
-//        {
-//            if (obj is BlackPawn)
-//            {
-//                coord.X = 42;
-//            }
-//            if (obj is Pawn)
-//            {
-//                coord.X += 66;
-//            }
-//            return coord;
-//        }
+        public static Coord RetCoord(Object obj, Coord coord, int field)
+        {
+            if (obj is BlackPawn)
+            {
+                coord.X = 42;
+            }
+            if (obj is Pawn)
+            {
+                coord.X += 66;
+            }
+            return coord;
+        }
 
-//        public static Object Ret(Object obj)
-//        {
-//            var f = obj as BlackPawn;
-//            if (f != null)
-//            {
-//                f.SetNewField(42);
-//            }
-//            var a = obj as Pawn;
-//            if (a != null)
-//            {
-//                int b = a.GetNewField();
-//                a.SetNewField(b + 66);
-//            }
-//            return obj;
-//        }
+        public static Object Ret(Object obj)
+        {
+            var f = obj as BlackPawn;
+            if (f != null)
+            {
+                f.SetNewField(42);
+            }
+            var a = obj as Pawn;
+            if (a != null)
+            {
+                int b = a.GetNewField();
+                a.SetNewField(b + 66);
+            }
+            return obj;
+        }
 
         [TestSvm]
         public static int RetWorked(Object obj, int a)

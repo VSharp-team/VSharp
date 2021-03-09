@@ -185,7 +185,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        // TODO: check why array contents is empty?
         public static void EnsureConcreteType_1()
         {
             int[] array = EnsureConcreteTypeForArrayCreation<int>(10);
@@ -223,7 +222,6 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        // TODO: why is not 123 returned?
         public static int CanNotInstantiateUnknownType()
         {
             GenericClass<GenericClass<int>> genericClass = new GenericClass<GenericClass<int>>();
@@ -236,7 +234,6 @@ namespace VSharp.Test.Tests
 
 
         [TestSvm]
-        // TODO: check why array contents is empty?
         public static void EnsureConcreteType_3()
         {
             PDR.ClassWithOneField[] array = new PDR.ClassWithOneField[15];

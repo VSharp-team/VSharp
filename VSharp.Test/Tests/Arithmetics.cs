@@ -410,6 +410,45 @@ namespace VSharp.Test.Tests
             return checked ((x / 0.01) + x1);
         }
 
+        // Expecting +Infinity
+        [TestSvm]
+        public static double CheckOverflow4()
+        {
+            double x = Double.MaxValue;
+            double y = Double.MaxValue;
+            return checked (x + y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndUint(int a, uint b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfSingedAndUnsigned()
+        {
+            int x = 42;
+            uint y = UInt32.MaxValue;
+            return SumOfIntAndUint(x, y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndShort(int a, short b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfIntAndShort()
+        {
+            int x = 42;
+            short y = Int16.MaxValue;
+            return SumOfIntAndShort(x, y);
+        }
+
         // Expecting devide by zero error
         [Ignore("Exceptions handling")]
         public static int CheckDivideByZeroException0(int x1)
@@ -510,6 +549,35 @@ namespace VSharp.Test.Tests
         public static ulong ShiftDevision4(ulong a)
         {
             return (a >> 31) / 1024;
+        }
+
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUn(int a)
+        {
+            uint b = (uint) a;
+            return b >> 1;
+        }
+
+        [TestSvm]
+        public static uint Shr(int a)
+        {
+            return (uint)(a >> 1);
+        }
+
+        // expecting 4294967295
+        [TestSvm]
+        public static uint ShrTest()
+        {
+            int a = -1;
+            return Shr(a);
+        }
+
+        // expecting 2147483647
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUnTest()
+        {
+            int a = -1;
+            return ShrUn(a);
         }
 
         // Expecting 0

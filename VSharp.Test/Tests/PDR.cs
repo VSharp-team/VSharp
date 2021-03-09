@@ -481,7 +481,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting f -> 100, !f -> 20
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static int TestLengths_6(bool f)
         {
             Array array = new int[4, 5];
@@ -856,6 +856,31 @@ namespace VSharp.Test.Tests
             array[0] = new A();
 
             return array[0];
+        }
+
+        // Hypothetical situation with reservedVariable's peaks:
+        // left state: only one frame {funcId = RecursiveF; entries = n = 7, localVariable with peaks 1; isEffect = false}
+        // right state: 4 frames
+        // {funcId = RecursiveF; entries = n = 3, localVariable with peaks 4; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 4, localVariable with peaks 3; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 5, localVariable with peaks 2; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 6, localVariable with peaks 1; isEffect = false}
+
+        // Result state: 5 frames
+        // {funcId = RecursiveF; entries = n = 3, localVariable with peaks 5; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 4, localVariable with peaks 4; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 5, localVariable with peaks 3; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 6, localVariable with peaks 2; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 7, localVariable with peaks 1; isEffect = false}
+
+        [Ignore("Forward exploration does not handle recursion now")]
+        public static int RecursiveF(int n)
+        {
+            if (n > 0)
+                return RecursiveF(n - 1) + n;
+
+            int localVariable = n * n;
+            return localVariable;
         }
 
         [TestSvm]
