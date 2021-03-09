@@ -8,6 +8,7 @@ using VSharp.Interpreter.IL;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
+using VSharp.CSharpUtils;
 using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Interpreter.IL.codeLocationSummary>;
 
 
@@ -160,10 +161,11 @@ namespace VSharp.Test
             }
 
             int count = 0;
-            if (summary == null || (count = summary.Summaries.Count()) == 0)
+            if ((count = summary.Summaries.Count()) == 0)
                 return "No states were obtained!";
             var suffix = count > 1 ? "s" : "";
-            return $"Totally {count} state{suffix}:\n{String.Join("\n", summary.Summaries.Select(SummaryToString))}";
+            var sortedResults = summary.Summaries.Select(SummaryToString).OrderBy(x => x.GetDeterministicHashCode());
+            return $"Totally {count} state{suffix}:\n{String.Join("\n", sortedResults)}";
         }
 
         public string ExploreOne(MethodInfo m)
