@@ -1,12 +1,10 @@
 METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeConcreteMove(VSharp.Test.Tests.Typecast.Coord)
-RESULT: (HeapRef 1)
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Typecast.Piece CLASS [
-	| VSharp::Test::Tests::Typecast::Piece::Rate ~> 0
-	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> c.VSharp::Test::Tests::Typecast::Coord::X
-	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> c.VSharp::Test::Tests::Typecast::Coord::Y]
----------- s1 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
-VSharp.Test.Tests.Typecast.Piece ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef 4 to VSharp.Test.Tests.Typecast.IMovable)
+MEMORY DUMP:
+--------------- Fields: ---------------
+_xCoord ==> {4 <- X}
+_yCoord ==> {4 <- Y}
+--------------- Types tokens: ---------------
+4 ==> VSharp.Test.Tests.Typecast.Piece
+Initialized types = { VSharp.Test.Tests.Methods.VirtualMethod, System.Object, VSharp.Test.Tests.Typecast.Piece }

@@ -1,0 +1,14 @@
+METHOD: System.Void VSharp.Test.Tests.InsInfException.EnsureConcreteType_3()
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+--------------- Array contents: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {
+        3[0] <- (HeapRef 5 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+--------------- Array lengths: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {3[0] <- 15}
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField[]
+5 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+Initialized types = { VSharp.Test.Tests.InsInfException, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

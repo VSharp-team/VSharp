@@ -1,24 +1,37 @@
 METHOD: System.Double VSharp.Test.Tests.Typecast.Helper.CastStructToInterface(VSharp.Test.Tests.Typecast.Coord)
-RESULT: sqrt((System.Double)(arg.VSharp::Test::Tests::Typecast::Coord::X * arg.VSharp::Test::Tests::Typecast::Coord::X + arg.VSharp::Test::Tests::Typecast::Coord::Y * arg.VSharp::Test::Tests::Typecast::Coord::Y))
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Typecast.Coord STRUCT [
-	| VSharp::Test::Tests::Typecast::Coord::X ~> arg.VSharp::Test::Tests::Typecast::Coord::X
-	| VSharp::Test::Tests::Typecast::Coord::Y ~> arg.VSharp::Test::Tests::Typecast::Coord::Y]
-2 ==> [| 0 ~> 1; 1 ~> 10; 2 ~> 100; 3 ~> 1000; 4 ~> 10000; 5 ~> 100000; 6 ~> 1000000; 7 ~> 10000000; 8 ~> 100000000; 9 ~> 1000000000; 10 ~> 10000000000; 11 ~> 100000000000; 12 ~> 1000000000000; 13 ~> 10000000000000; 14 ~> 100000000000000; 15 ~> 1000000000000000 ... 16 ... |]
----------- s1 = ----------
-System.Math ==> CLASS [
-	| E ~> UNION[
-		| !hasKey#3 ~> 2.718281828459045
-		| hasKey#3 ~> System.Math.E]
-	| PI ~> UNION[
-		| !hasKey#3 ~> 3.141592653589793
-		| hasKey#3 ~> System.Math.PI]
-	| roundPower10Double ~> UNION[
-		| !hasKey#3 ~> (HeapRef 2)
-		| hasKey#3 ~> (HeapRef System.Math.roundPower10Double)]]
-System.Runtime.CompilerServices.RuntimeHelpers ==> CLASS []
-VSharp.Test.Tests.Typecast.Coord ==> VSharp.Test.Tests.Typecast.Coord STRUCT []
-VSharp.Test.Tests.Typecast.Helper ==> CLASS []
-VSharp.Test.Tests.Typecast.INormalize ==> CLASS []
+RESULT: Totally 1 state:
+sqrt((System.Double (X * X + Y * Y)))
+MEMORY DUMP:
+--------------- Array contents: ---------------
+System.Double[] ==> {
+        4.3[0] <- 1
+        4.3[1] <- 10
+        4.3[2] <- 100
+        4.3[3] <- 1000
+        4.3[4] <- 10000
+        4.3[5] <- 100000
+        4.3[6] <- 1000000
+        4.3[7] <- 10000000
+        4.3[8] <- 100000000
+        4.3[9] <- 1000000000
+        4.3[10] <- 10000000000
+        4.3[11] <- 100000000000
+        4.3[12] <- 1000000000000
+        4.3[13] <- 10000000000000
+        4.3[14] <- 100000000000000
+        4.3[15] <- 1000000000000000
+    }
+--------------- Array lengths: ---------------
+System.Double[] ==> {4.3[0] <- 16}
+--------------- Boxed items: ---------------
+3 ==> VSharp.Test.Tests.Typecast.Coord STRUCT [
+	| X ~> X
+	| Y ~> Y]
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.Typecast.Coord
+4.3 ==> System.Double[]
+--------------- Static fields: ---------------
+E ==> {System.Math <- 2.718281828459045}
+PI ==> {System.Math <- 3.141592653589793}
+roundPower10Double ==> {System.Math <- (HeapRef 4.3 to System.Double[])}
+Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Typecast.INormalize, VSharp.Test.Tests.Typecast.Helper, VSharp.Test.Tests.Typecast.Coord, System.Math }

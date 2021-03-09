@@ -1,12 +1,3 @@
 METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeInterfaceMove(VSharp.Test.Tests.Typecast.IMovable, VSharp.Test.Tests.Typecast.Coord)
-RESULT: UNION[
-	| !(0 == p) ~> (HeapRef λ[MakeMove]_1)
-	| 0 == p ~> null]
-HEAP:
-{ heap = merge[
-	(0 == p, <empty>),
-	(!(0 == p), app((HeapRef λ[MakeMove]_1)))], statics = merge[
-	(0 == p, s0),
-	(!(0 == p), app((HeapRef λ[MakeMove]_1)))] } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
+RESULT: Totally 1 state:
+Insufficient information! Can't call abstract method MakeMove, need more information about the object type

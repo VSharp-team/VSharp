@@ -1,0 +1,7 @@
+METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.CheckSumOfIntAndShort()
+RESULT: Totally 1 state:
+32809
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = 32767
+Initialized types = { VSharp.Test.Tests.Arithmetics }

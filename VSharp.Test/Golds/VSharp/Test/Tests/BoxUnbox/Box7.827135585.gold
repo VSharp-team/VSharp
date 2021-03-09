@@ -1,6 +1,6 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.Box7()
 RESULT: Totally 1 state:
-(HeapRef 5 to System.Int32)
+(HeapRef 5 to System.Object)
 MEMORY DUMP:
 --------------- Boxed items: ---------------
 5 ==> 7

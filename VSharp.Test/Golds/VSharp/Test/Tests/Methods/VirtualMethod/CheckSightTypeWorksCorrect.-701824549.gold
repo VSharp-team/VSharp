@@ -1,15 +1,3 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.CheckSightTypeWorksCorrect(VSharp.Test.Tests.Methods.VirtualMethod+C)
-RESULT: UNION[
-	| !(0 == c) & !(VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)) ~> λ[F]_1
-	| !(0 == c) & (VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)) ~> 3
-	| 0 == c ~> 0]
-HEAP:
-{ heap = merge[
-	((VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)) | 0 == c, <empty>),
-	(!(0 == c) & !(VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)), app(λ[F]_1))], statics = merge[
-	((VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)) | 0 == c, s0),
-	(!(0 == c) & !(VSharp.Test.Tests.Methods.VirtualMethod+C <: (HeapRef c)), app(λ[F]_1))] } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
-VSharp.Test.Tests.Methods.VirtualMethod+A ==> CLASS []
-VSharp.Test.Tests.Methods.VirtualMethod+C ==> CLASS []
+RESULT: Totally 1 state:
+Insufficient information! Can't call abstract method F, need more information about the object type

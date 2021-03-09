@@ -1,0 +1,3 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.CallVirtualMethod_IIE_1(VSharp.Test.Tests.Methods.VirtualC)
+RESULT: Totally 1 state:
+Insufficient information! Can't call abstract method F, need more information about the object type

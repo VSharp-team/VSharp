@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.ArrayRank_CATCH_IIE_1(System.Array)
+RESULT: Totally 1 state:
+3
+MEMORY DUMP:
+--------------- Array lengths: ---------------
+System.Int32[,,] ==> {4[0] <- 2; 4[1] <- 3; 4[2] <- 5}
+--------------- Types tokens: ---------------
+4 ==> System.Int32[,,]
+Initialized types = { VSharp.Test.Tests.InsInfException, System.Array, System.Int32[,,] }

@@ -1,22 +1,3 @@
 METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.Test.Tests.Typecast.Pawn, VSharp.Test.Tests.Typecast.Coord)
-RESULT: UNION[
-	| !(0 == p) ~> (HeapRef p)
-	| 0 == p ~> null]
-HEAP:
-{ heap = merge[
-	((VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) | 0 == p, h0),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)), app((HeapRef λ[MakeMove]_1)))], statics = merge[
-	((VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) | 0 == p, s1),
-	(!(0 == p) & !(VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)), app((HeapRef λ[MakeMove]_1)))] } where
----------- h0 = ----------
-p ==> VSharp.Test.Tests.Typecast.Pawn CLASS [
-	| VSharp::Test::Tests::Typecast::Piece::_xCoord ~> UNION[
-		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) ~> c.VSharp::Test::Tests::Typecast::Coord::X + c.VSharp::Test::Tests::Typecast::Coord::Y
-		| 0 == p ~> p.VSharp::Test::Tests::Typecast::Piece::_xCoord]
-	| VSharp::Test::Tests::Typecast::Piece::_yCoord ~> UNION[
-		| !(0 == p) & (VSharp.Test.Tests.Typecast.Pawn <: (HeapRef p)) ~> -c.VSharp::Test::Tests::Typecast::Coord::Y + c.VSharp::Test::Tests::Typecast::Coord::X
-		| 0 == p ~> p.VSharp::Test::Tests::Typecast::Piece::_yCoord]]
----------- s1 = ----------
-VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
-VSharp.Test.Tests.Typecast.Pawn ==> CLASS []
-VSharp.Test.Tests.Typecast.Piece ==> CLASS []
+RESULT: Totally 1 state:
+Insufficient information! Can't call abstract method MakeMove, need more information about the object type

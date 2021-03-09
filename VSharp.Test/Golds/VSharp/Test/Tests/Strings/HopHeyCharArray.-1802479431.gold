@@ -2,22 +2,6 @@ METHOD: System.String VSharp.Test.Tests.Strings.HopHeyCharArray(System.Char[])
 RESULT: Totally 2 states:
 (HeapRef 5 to System.String)
 MEMORY DUMP:
-Path condition: a == null
---------------- Fields: ---------------
-_stringLength ==> {4 <- 0}
---------------- Array contents: ---------------
-System.Char[] ==> {4[0] <- '\000'}
---------------- Array lengths: ---------------
-System.Char[] ==> {4[0] <- 1}
---------------- Types tokens: ---------------
-4 ==> System.String
-5 ==> System.String
---------------- Static fields: ---------------
-Empty ==> {System.String <- (HeapRef 4 to System.String)}
-Initialized types = { System.String, VSharp.Test.Tests.Strings }
-
-(HeapRef 5 to System.String)
-MEMORY DUMP:
 Path condition: !(a == null)
 --------------- Fields: ---------------
 _stringLength ==> {4 <- 0; 5 <- Length(a, 0)}
@@ -32,4 +16,20 @@ System.Char[] ==> {4[0] <- 1; 5[0] <- 1 + Length(a, 0)}
 Empty ==> {System.String <- (HeapRef 4 to System.String)}
 --------------- Array copies: ---------------
 5 ==> from a with updates {}
+Initialized types = { System.String, VSharp.Test.Tests.Strings }
+
+(HeapRef 5 to System.String)
+MEMORY DUMP:
+Path condition: a == null
+--------------- Fields: ---------------
+_stringLength ==> {4 <- 0}
+--------------- Array contents: ---------------
+System.Char[] ==> {4[0] <- '\000'}
+--------------- Array lengths: ---------------
+System.Char[] ==> {4[0] <- 1}
+--------------- Types tokens: ---------------
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- (HeapRef 4 to System.String)}
 Initialized types = { System.String, VSharp.Test.Tests.Strings }

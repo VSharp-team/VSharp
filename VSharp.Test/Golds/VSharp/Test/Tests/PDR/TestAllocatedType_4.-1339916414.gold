@@ -1,12 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.PDR.TestAllocatedType_4(System.Boolean)
 RESULT: Totally 2 states:
-42
-MEMORY DUMP:
-Path condition: !f
---------------- Stack: ---------------
-key = __loc__0, value = 42
-Initialized types = { VSharp.Test.Tests.PDR }
-
 100
 MEMORY DUMP:
 Path condition: f
@@ -17,3 +10,10 @@ x ==> {6 <- 100}
 --------------- Stack: ---------------
 key = __loc__0, value = 100
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }
+
+42
+MEMORY DUMP:
+Path condition: !f
+--------------- Stack: ---------------
+key = __loc__0, value = 42
+Initialized types = { VSharp.Test.Tests.PDR }

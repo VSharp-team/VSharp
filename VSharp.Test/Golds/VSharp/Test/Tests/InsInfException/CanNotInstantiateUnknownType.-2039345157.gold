@@ -1,0 +1,15 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.CanNotInstantiateUnknownType()
+RESULT: Totally 1 state:
+123
+MEMORY DUMP:
+--------------- Fields: ---------------
+_field ==> {5 <- 123}
+_field ==> {
+        3 <- (HeapRef 5 to VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32])
+    }
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32]]
+5 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 5 to VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32])
+Initialized types = { VSharp.Test.Tests.InsInfException, System.Object, VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32]], VSharp.Test.Tests.InsInfException+GenericClass`1[System.Int32] }

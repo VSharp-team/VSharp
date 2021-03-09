@@ -1,11 +1,15 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.BoxNullable(System.Nullable`1[System.Int32])
-RESULT: UNION[
-	| !x.System::Nullable`1::hasValue ~> null
-	| x.System::Nullable`1::hasValue ~> (HeapRef 1)]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> x.System::Nullable`1::value
----------- s1 = ----------
-System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
-VSharp.Test.Tests.BoxUnbox ==> CLASS []
+RESULT: Totally 2 states:
+(HeapRef 3 to System.Object)
+MEMORY DUMP:
+Path condition: hasValue
+--------------- Boxed items: ---------------
+3 ==> value
+--------------- Types tokens: ---------------
+3 ==> System.Int32
+Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }
+
+NullRef
+MEMORY DUMP:
+Path condition: !hasValue
+Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }

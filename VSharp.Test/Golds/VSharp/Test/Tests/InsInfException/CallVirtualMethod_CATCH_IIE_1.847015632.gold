@@ -1,0 +1,7 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.CallVirtualMethod_CATCH_IIE_1(VSharp.Test.Tests.Methods.VirtualC)
+RESULT: Totally 1 state:
+71
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+3 ==> VSharp.Test.Tests.Methods.VirtualG
+Initialized types = { VSharp.Test.Tests.Methods.VirtualC, VSharp.Test.Tests.InsInfException, VSharp.Test.Tests.Methods.VirtualB, VSharp.Test.Tests.Methods.VirtualG, System.Object, VSharp.Test.Tests.Methods.IVirtual }

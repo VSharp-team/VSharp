@@ -2,17 +2,18 @@ METHOD: System.Void VSharp.Test.Tests.ClassesSimplePropertyAccess.TestProperty1(
 RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Fields: ---------------
 <SecretProperty>k__BackingField ==> {
-        3 <- (HeapRef 3.6 to System.Collections.Generic.List`1[System.Boolean])
+        3 <- (HeapRef 3.5.5 to System.Collections.Generic.List`1[System.Boolean])
     }
-_items ==> {3.6 <- (HeapRef 3.5.3 to System.Boolean[])}
+_items ==> {3.5.5 <- (HeapRef 3.5.3 to System.Boolean[])}
 --------------- Array lengths: ---------------
 System.Boolean[] ==> {3.5.3[0] <- 0}
 --------------- Types tokens: ---------------
 3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess
 3.5.3 ==> System.Boolean[]
-3.6 ==> System.Collections.Generic.List`1[System.Boolean]
+3.5.5 ==> System.Collections.Generic.List`1[System.Boolean]
 --------------- Static fields: ---------------
 s_emptyArray ==> {
         System.Collections.Generic.List`1[System.Boolean] <- (HeapRef 3.5.3 to System.Boolean[])

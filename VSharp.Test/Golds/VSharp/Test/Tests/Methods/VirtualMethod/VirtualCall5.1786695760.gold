@@ -1,20 +1,3 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.VirtualCall5(VSharp.Test.Tests.Methods.VirtualH, System.Int32)
-RESULT: UNION[
-	| !(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & !(n <= 10) ~> λ[F]_1
-	| !(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10 ~> λ[F]_2
-	| !(0 == a) & !(n <= 10) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) ~> -7777777
-	| !(0 == a) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10 ~> 71
-	| 0 == a ~> 0]
-HEAP:
-{ heap = merge[
-	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & !(n <= 10), app(λ[F]_1)),
-	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10, app(λ[F]_2)),
-	((!(0 == a) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10 | (!(n <= 10) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) | 0 == a) & (!(n <= 10) | 0 == a)) & (!(n <= 10) | (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) | 0 == a), <empty>)], statics = merge[
-	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & !(n <= 10), app(λ[F]_1)),
-	(!(0 == a) & !(VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10, app(λ[F]_2)),
-	((!(0 == a) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) & n <= 10 | (!(n <= 10) & (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) | 0 == a) & (!(n <= 10) | 0 == a)) & (!(n <= 10) | (VSharp.Test.Tests.Methods.VirtualH <: (HeapRef a)) | 0 == a), s0)] } where
----------- s0 = ----------
-VSharp.Test.Tests.Methods.IVirtual ==> CLASS []
-VSharp.Test.Tests.Methods.VirtualC ==> CLASS []
-VSharp.Test.Tests.Methods.VirtualH ==> CLASS []
-VSharp.Test.Tests.Methods.VirtualMethod ==> CLASS []
+RESULT: Totally 1 state:
+Insufficient information! Can't call abstract method F, need more information about the object type

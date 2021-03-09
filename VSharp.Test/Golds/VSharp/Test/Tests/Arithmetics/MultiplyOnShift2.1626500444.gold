@@ -1,5 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.MultiplyOnShift2(System.Int16)
 RESULT: Totally 1 state:
-(System.Int32)a << 16
+(System.Int32 a) << 16
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Arithmetics }

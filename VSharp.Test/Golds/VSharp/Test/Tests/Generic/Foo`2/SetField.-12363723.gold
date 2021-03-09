@@ -1,11 +1,3 @@
 METHOD: System.Void VSharp.Test.Tests.Generic.Foo`2[T,U].SetField(T)
-RESULT: <VOID>
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-this ==> VSharp.Test.Tests.Generic.Foo`2[T,U] CLASS [
-	| VSharp::Test::Tests::Generic::Foo`2::_filed ~> UNION[
-		| !IsValueType(T) ~> (HeapRef f)
-		| IsValueType(T) ~> f]]
----------- s1 = ----------
-VSharp.Test.Tests.Generic.Foo`2[T,U] ==> CLASS []
+RESULT: Totally 1 state:
+Insufficient information! Can't determine if T is a value type or not!
