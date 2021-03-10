@@ -14,7 +14,7 @@ namespace VSharp.Test.Tests
         }
 
         [Ignore("Exceptions handling")]
-        public static string SymbolicString(string s) // TODO: keys of MemoryCell are equal, but FQLs are not
+        public static string SymbolicString(string s)
         {
             var len = s.Length;
             return s;

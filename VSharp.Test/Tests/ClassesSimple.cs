@@ -273,7 +273,7 @@ namespace VSharp.Test.Tests
         public static int Y;
         public static int Z;
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public void Set(int x)
         {
             X = x;

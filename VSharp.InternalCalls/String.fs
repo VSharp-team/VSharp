@@ -12,11 +12,11 @@ module internal String =
         assert (List.length args = 2)
         let this, arrayRef = List.item 0 args, List.item 1 args
         BranchStatementsOnNull state arrayRef
-            (fun state k -> k (this, state))
+            (fun state k -> k (Nop, state))
             (fun state k ->
                 let states = Memory.StringCtorOfCharArray state arrayRef this
                 match states with
-                | [state] -> k (this, state)
+                | [state] -> k (Nop, state)
                 | _ -> __notImplemented__())
             id
 

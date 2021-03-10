@@ -2,6 +2,7 @@ METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualG.F()
 RESULT: Totally 1 state:
 66
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Stack: ---------------
 key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualG)
 Initialized types = { VSharp.Test.Tests.Methods.VirtualG }

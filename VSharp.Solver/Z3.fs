@@ -196,7 +196,7 @@ module internal Z3 =
                 seq {
                     for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
                         if levelAtoms.[i] <> null then
-                            yield! pathAtoms.[uint32(i)]
+                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
                 }
             optCtx.Push()
             let weight = 1u
@@ -262,7 +262,7 @@ module internal Z3 =
 
             member x.AddPath (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
-                printLogLazy Trace "    %s" (lazy(p.state.pc |> PC.mapSeq toString |> join " /\\ \n     "))
+                printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
                 let pathAtom = addPath p
-                let encoded = PC.mapSeq builder.EncodeTerm p.state.pc |> ctx.MkAnd
+                let encoded = PathConditionToSeq p.state.pc |> Seq.map builder.EncodeTerm |> ctx.MkAnd
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))

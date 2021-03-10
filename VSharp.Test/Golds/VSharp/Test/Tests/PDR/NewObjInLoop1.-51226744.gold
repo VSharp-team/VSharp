@@ -14,6 +14,6 @@ MEMORY DUMP:
 12.12.12.11 ==> System.Object
 12.12.12.12.11 ==> System.Object
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
+key = __loc__0, value = (HeapRef 3 to System.Object)
 key = __loc__1, value = 5
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -39,7 +39,8 @@ type heapAddressKey =
             let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
             let newReg =
                 if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
-                    let rightBound = mapTime VectorTime.infty |> List.lastAndRest |> snd
+                    let rightBound = mapTime []
+                    assert(not <| VectorTime.isEmpty rightBound)
                     if rightBound.IsEmpty then reg
                     else
                         let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
@@ -216,7 +217,7 @@ module MemoryRegion =
 
     let validateWrite value cellType =
         let typ = typeOf value
-        typ = Null && (not <| Types.isValueType cellType) || Types.isConcreteSubtype typ cellType // do not reorder operands of "OR"!
+        Types.isConcreteSubtype typ cellType
 
     let write mr key value =
         assert(validateWrite value mr.typ)

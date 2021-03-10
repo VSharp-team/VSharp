@@ -1,0 +1,3 @@
+METHOD: System.Object VSharp.Test.Tests.BoxUnboxWithGeneric`4[G,T,U,V].BoxValueOrReference(G)
+RESULT: Totally 1 state:
+Insufficient information! Can't determine if G is a value type or not!

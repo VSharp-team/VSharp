@@ -2,13 +2,13 @@ METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.TestStack(VSharp.Test.Tes
 RESULT: Totally 3 states:
 0
 MEMORY DUMP:
-Path condition: b == null
-Initialized types = { VSharp.Test.Tests.RecursiveAccess }
+Path condition: !(b == null) /\ b.b == null
+Initialized types = { VSharp.Test.Tests.Second, VSharp.Test.Tests.RecursiveAccess }
 
 0
 MEMORY DUMP:
-Path condition: !(b == null) /\ b.b == null
-Initialized types = { VSharp.Test.Tests.Second, VSharp.Test.Tests.RecursiveAccess }
+Path condition: b == null
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }
 
 1 + b.b.B
 MEMORY DUMP:

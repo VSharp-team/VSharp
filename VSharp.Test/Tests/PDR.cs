@@ -481,7 +481,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting f -> 100, !f -> 20
-        [Ignore("Insufficient information is correct result")]
+        [TestSvm]
         public static int TestLengths_6(bool f)
         {
             Array array = new int[4, 5];
@@ -684,6 +684,10 @@ namespace VSharp.Test.Tests
             {
                 return x;
             }
+            public void SetX(int newX)
+            {
+                x = newX;
+            }
         }
 
         public class ClassWithStructInside
@@ -854,6 +858,31 @@ namespace VSharp.Test.Tests
             return array[0];
         }
 
+        // Hypothetical situation with reservedVariable's peaks:
+        // left state: only one frame {funcId = RecursiveF; entries = n = 7, localVariable with peaks 1; isEffect = false}
+        // right state: 4 frames
+        // {funcId = RecursiveF; entries = n = 3, localVariable with peaks 4; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 4, localVariable with peaks 3; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 5, localVariable with peaks 2; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 6, localVariable with peaks 1; isEffect = false}
+
+        // Result state: 5 frames
+        // {funcId = RecursiveF; entries = n = 3, localVariable with peaks 5; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 4, localVariable with peaks 4; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 5, localVariable with peaks 3; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 6, localVariable with peaks 2; isEffect = false}
+        // {funcId = RecursiveF; entries = n = 7, localVariable with peaks 1; isEffect = false}
+
+        [Ignore("Forward exploration does not handle recursion now")]
+        public static int RecursiveF(int n)
+        {
+            if (n > 0)
+                return RecursiveF(n - 1) + n;
+
+            int localVariable = n * n;
+            return localVariable;
+        }
+
         [TestSvm]
         public static int TestWithHandlers(int x, int y) {
             //A[] array = new A[15];
@@ -1012,6 +1041,92 @@ namespace VSharp.Test.Tests
             var obj5 = new object();
 
             return Math.Log(y);
+        }
+
+        private static UnboxAny.A CreateA()
+        {
+            return new UnboxAny.A();
+        }
+
+        public class ClassWithStaticField1
+        {
+            public static ClassWithOneField ClassWithOneField = new ClassWithOneField();
+        }
+
+        private static ClassWithOneField CreateC()
+        {
+            ClassWithOneField c = new ClassWithOneField();
+            c.x = 42;
+            return c;
+        }
+
+        [TestSvm]
+        public static ClassWithOneField Test100500()
+        {
+            ClassWithOneField c = CreateC();
+            c.x = 100500;
+            return c;
+        }
+
+
+        // [TestSvm]
+        [Ignore("Barrier: no static cctor initialization during CFA-construction and assumptions-Engine")]
+        public static void PropagateAllocatedTypes()
+        {
+            UnboxAny.A a1 = CreateA();
+            ClassWithOneField c2 = ClassWithStaticField1.ClassWithOneField;
+        }
+
+
+        private static object BoxT<T>(T t) where T : class
+        {
+            return t;
+        }
+
+        // [TestSvm]
+        [Ignore("stackKey type substitution should be done")]
+        public static object BoxReferenceType_1()
+        {
+            PDR.ClassWithOneField a = new PDR.ClassWithOneField();
+            a.x = 123;
+            return BoxT(a);
+        }
+
+        // [TestSvm]
+        [Ignore("stackKey type substitution should be done")]
+        public static object BoxReferenceType_2(bool f)
+        {
+            PDR.ClassWithOneField a = null;
+            if (f)
+            {
+                return BoxT(a);
+            }
+
+            return new PDR.ClassWithOneField();
+        }
+
+        public class ClassWithCCtor
+        {
+            public static object _f = new PDR.ClassWithOneField();
+        }
+
+        // [Ignore("Can't execute static cctor of System.Type, because of MemoryRegion.write's __notImplemented__()")]
+        [TestSvm]
+        public static object CallStaticCtor()
+        {
+            return ClassWithCCtor._f;
+        }
+
+        [Ignore("internalfail \"byref type is not implemented!\"")]
+        public static NullReferenceException CreateNullReferenceException()
+        {
+            return new NullReferenceException();
+        }
+
+        [Ignore("internalfail \"byref type is not implemented!\"")]
+        public static OverflowException CreateOverflowException()
+        {
+            return new OverflowException();
         }
     }
 }

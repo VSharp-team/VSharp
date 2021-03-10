@@ -66,7 +66,7 @@ and [<CustomEquality;CustomComparison>]
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Id h1, Id h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
+                    | Id h1, Id h2 -> compare (h1.GetDeterministicHashCode()) (h2.GetDeterministicHashCode())
                 | _ -> -1
 
 module internal Types =
@@ -182,18 +182,7 @@ module internal Types =
         | AddressType -> typeof<AddressTypeAgent>
         | Null -> __unreachable__()
 
-    let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
-        let internalSizeOf (typ: Type) : uint32 =
-            let meth = Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
-
-            let gen = meth.GetILGenerator()
-            gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
-            gen.Emit(Reflection.Emit.OpCodes.Ret)
-
-            meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
-            |> unbox
-        typ |> toDotNetType |> internalSizeOf |> int
-
+    let sizeOf typ = typ |> toDotNetType |> TypeUtils.internalSizeOf |> int
 
     let bitSizeOfType t (resultingType : System.Type) = System.Convert.ChangeType(sizeOf(t) * 8, resultingType)
 
@@ -260,8 +249,10 @@ module internal Types =
     open Constructor
 
     let public Char = Numeric typedefof<char>
-
     let public String = fromDotNetType typedefof<string>
+    let Int32 = Numeric typeof<int>
+    let Int64 = Numeric typeof<int64>
+    let F = Numeric typeof<float>
 
     let (|StringType|_|) = function
         | typ when typ = String -> Some()
@@ -280,8 +271,21 @@ module internal Types =
         | Null -> __unreachable__()
         | t -> (toDotNetType t).IsValueType
 
-    let isConcreteSubtype t1 t2 =
-        (toDotNetType t2).IsAssignableFrom (toDotNetType t1)
+    let private commonCanCast canCast leftType rightType =
+        match leftType, rightType with
+        | _ when leftType = rightType -> true
+        | Null, _ -> not <| isValueType rightType
+        | _, Null -> false
+        | _ -> canCast (toDotNetType leftType) (toDotNetType rightType)
+
+    // Works like isVerifierAssignable in .NET specification
+    let isConcreteSubtype leftType rightType =
+        commonCanCast (fun leftType rightType -> rightType.IsAssignableFrom(leftType)) leftType rightType
+
+    let canCastImplicitly leftType rightType =
+        let canCast leftType (rightType : Type) =
+            rightType.IsAssignableFrom(leftType) || TypeUtils.canConvert leftType rightType
+        commonCanCast canCast leftType rightType
 
 type symbolicType with
     interface IAtomicRegion<symbolicType> with

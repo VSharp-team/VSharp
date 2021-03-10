@@ -2,6 +2,7 @@ METHOD: System.Void VSharp.Test.Tests.Typecast.Pawn.SetNewField(System.Int32)
 RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Fields: ---------------
 _newField ==> {this <- field}
 --------------- Stack: ---------------

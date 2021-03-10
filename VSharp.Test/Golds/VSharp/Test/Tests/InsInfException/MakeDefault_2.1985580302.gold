@@ -1,0 +1,6 @@
+METHOD: VSharp.Test.Tests.PDR+A VSharp.Test.Tests.InsInfException.MakeDefault_2()
+RESULT: Totally 1 state:
+VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 0]
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.InsInfException }

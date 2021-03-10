@@ -2,6 +2,7 @@ METHOD: System.Int32 VSharp.Test.Tests.Lists.UpperBoundTest()
 RESULT: Totally 1 state:
 3
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Array contents: ---------------
 System.Int32[,] ==> {
         4[0, 0] <- 1

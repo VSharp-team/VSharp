@@ -7,7 +7,7 @@ type pathCondition = pset<term>
 // - PC does not contain True
 // - if PC contains False then False is the only element in PC
 
-module PC =
+module internal PC =
 
     let public empty = PersistentSet.empty<term>
     let public isEmpty pc = PersistentSet.isEmpty pc
@@ -15,7 +15,7 @@ module PC =
     let public toSeq pc = PersistentSet.toSeq pc
 
     let private falsePC = PersistentSet.add empty False
-    let private isFalse pc =
+    let public isFalse pc =
         let isFalsePC = PersistentSet.contains False pc
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
@@ -28,8 +28,6 @@ module PC =
         | _ when PersistentSet.contains !!cond pc -> falsePC
         | _ -> PersistentSet.add pc cond
 
-    let public remove pc cond : pathCondition = PersistentSet.remove pc cond
-
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =
             let acc' = mapper cond |> add acc
@@ -40,6 +38,3 @@ module PC =
     let toString pc = mapSeq toString pc |> Seq.sort |> join " /\ "
 
     let union (pc1 : pathCondition) (pc2 : pathCondition) = Seq.fold add pc1 (toSeq pc2)
-
-    let squashPC = PersistentSet.toSeq >> Propositional.conjunction
-    let squashPCWithCondition pc cond = PersistentSet.add pc cond |> squashPC

@@ -60,18 +60,13 @@ type stackKey =
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector
 
-type ICodeLocation =
-    abstract Location : obj
-
 type IFunctionIdentifier =
-    inherit ICodeLocation
     abstract ReturnType : Type
     abstract IsConstructor : bool
     abstract Method : System.Reflection.MethodBase
 
 type EmptyIdentifier() =
     interface IFunctionIdentifier with
-        override x.Location = null
         override x.ReturnType = typeof<Void>
         override x.IsConstructor = false
         override x.Method = null
@@ -86,7 +81,6 @@ type operation =
         | Operator op -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
-
 
 // TODO: symbolic type -> primitive type
 // TODO: get rid of Nop!
@@ -146,7 +140,7 @@ type termNode =
                         |> checkExpression operation.priority parentPriority
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority indent (List.head operands).term) |>
+                    sprintf "(%O %s)" dest (toStr operation.priority indent (List.head operands).term) |>
                         checkExpression operation.priority parentPriority
                 | Application f -> operands |> List.map (getTerm >> toStr -1 indent) |> join ", " |> sprintf "%O(%s)" f
             | Struct(fields, t) ->
@@ -186,7 +180,7 @@ and address =
     | PrimitiveStackLocation of stackKey
     | StructField of address * fieldId
     | StackBufferIndex of stackKey * term
-    | BoxedLocation of concreteHeapAddress * symbolicType
+    | BoxedLocation of concreteHeapAddress * symbolicType // TODO: delete type from boxed location?
     | ClassField of heapAddress * fieldId
     | ArrayIndex of heapAddress * term list * arrayType
     | ArrayLowerBound of heapAddress * term * arrayType
@@ -334,7 +328,7 @@ module internal Terms =
     let typeOfAddress = function
         | ClassField(_, field)
         | StructField(_, field)
-        | StaticField(_, field) -> field.typ |> Types.Constructor.fromDotNetType
+        | StaticField(_, field) -> field.typ |> fromDotNetType
         | ArrayIndex(_, _, (elementType, _, _)) -> elementType
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _
@@ -384,8 +378,8 @@ module internal Terms =
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
-    let isBool t =     typeOf t |> Types.isBool
-    let isNumeric t =  typeOf t |> Types.isNumeric
+    let isBool t =    typeOf t |> Types.isBool
+    let isNumeric t = typeOf t |> Types.isNumeric
 
     let rec isStruct term =
         match term.term with
@@ -400,39 +394,28 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
 
-    let canCastConcrete (value : obj) targetType =
+    // Only for concretes: there will never be null type
+    let canCastConcrete (concrete : obj) targetType =
+        assert(not <| Types.isNull targetType)
         let targetType = Types.toDotNetType targetType
-        let actualType = if box value = null then targetType else value.GetType()
-        actualType = targetType
-        || targetType.IsAssignableFrom(actualType)
-        || typedefof<IConvertible>.IsAssignableFrom(actualType) && (TypeUtils.isIntegral targetType || TypeUtils.isReal targetType)
+        let actualType = TypeUtils.getTypeOfConcrete concrete
+        actualType = targetType || targetType.IsAssignableFrom(actualType)
 
-    let castConcrete (value : obj) (t : System.Type) =
-        let actualType = if box value = null then t else value.GetType()
+    let castConcrete (concrete : obj) (t : Type) =
+        let actualType = TypeUtils.getTypeOfConcrete concrete
         let functionIsCastedToMethodPointer () =
-            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<System.IntPtr>.IsAssignableFrom(t)
-        try
-            if actualType = t then
-                Concrete value (fromDotNetType t)
-            elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
-                Concrete value (fromDotNetType t)
-            elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
-                let casted =
-                    if t.IsPointer then
-                        IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
-                    //TODO: ability to convert negative integers to UInt32 without overflowException
-                    elif TypeUtils.isIntegral t then
-                        TypeUtils.uncheckedChangeType value t
-                    else Convert.ChangeType(value, t)
-                Concrete casted (fromDotNetType t)
-            elif t.IsAssignableFrom(actualType) then
-                Concrete value (fromDotNetType t)
-            elif functionIsCastedToMethodPointer() then
-                Concrete value (fromDotNetType actualType)
-            else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-        with
-        | _ ->
-            internalfailf "cannot cast %s to %s!" actualType.FullName t.FullName
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
+        if actualType = t then
+            Concrete concrete (fromDotNetType t)
+        elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
+            Concrete concrete (fromDotNetType t)
+        elif TypeUtils.canConvert actualType t then
+            Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
+        elif t.IsAssignableFrom(actualType) then
+            Concrete concrete (fromDotNetType t)
+        elif functionIsCastedToMethodPointer() then
+            Concrete concrete (fromDotNetType actualType)
+        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" actualType.FullName t.FullName))
 
     let True =
         Concrete (box true) Bool
@@ -472,24 +455,35 @@ module internal Terms =
         assert(Operations.isUnary operation)
         Expression (Operator operation) [x] t
 
-    let private makeCast srcTyp dstTyp expr =
-        if srcTyp = dstTyp then expr
-        else Expression (Cast(srcTyp, dstTyp)) [expr] dstTyp
+    let (|CastExpr|_|) = term >> function
+        | Expression(Cast(srcType, dstType), [x], t) ->
+            assert(dstType = t)
+            Some(CastExpr(x, srcType, dstType))
+        | _ -> None
+
+    let rec private makeCast term fromType toType =
+        match term, toType with
+        | _ when fromType = toType -> term
+        | CastExpr(x, xType, Numeric(Id t)), Numeric(Id dstType) when not <| TypeUtils.isLessForNumericTypes t dstType ->
+            makeCast x xType toType
+        | CastExpr(x, (Numeric(Id srcType) as xType), Numeric(Id t)), Numeric(Id dstType)
+            when not <| TypeUtils.isLessForNumericTypes t srcType && not <| TypeUtils.isLessForNumericTypes dstType t ->
+            makeCast x xType toType
+        | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
         match term.term with
         | _ when typeOf term = targetType -> term
         | Concrete(value, _) -> castConcrete value (Types.toDotNetType targetType)
+        // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t)
-        | Expression(_, _, t) -> makeCast t targetType term
+        | Expression(_, _, t) -> makeCast term t targetType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
-        | HeapRef _ when Types.isObject targetType -> term
         | _ -> __unreachable__()
 
     let negate term =
         assert(isBool term)
         makeUnary OperationType.LogicalNeg term Bool
-
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
@@ -556,6 +550,11 @@ module internal Terms =
 
     let (|ShiftRight|_|) = term >> function
         | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t))
+        | _ -> None
+
+    let (|ShiftRightThroughCast|_|) = function
+        | CastExpr(ShiftRight(a, b, Numeric(Id t)), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
     let (|ConcreteHeapAddress|_|) = function

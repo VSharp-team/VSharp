@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Reflection
 open System.Collections.Generic
 
@@ -10,17 +11,29 @@ open VSharp
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
 
-    type public cfgData = {
-        methodBase : MethodBase
-        ilBytes : byte []
-        sortedOffsets : List<offset>
-        dfsOut : Dictionary<offset, int>
-        sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
-        graph : graph
-        reverseGraph : graph
-        clauses : ExceptionHandlingClause list
-        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
-    }
+    [<CustomEquality; CustomComparison>]
+    type public cfgData =
+        {
+            methodBase : MethodBase
+            ilBytes : byte []
+            sortedOffsets : List<offset>
+            dfsOut : Dictionary<offset, int>
+            sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
+            graph : graph
+            reverseGraph : graph
+            clauses : ExceptionHandlingClause list
+            offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
+        }
+        interface IComparable with
+            override x.CompareTo (obj : obj) =
+                match obj with
+                | :? cfgData as other -> x.methodBase.GetHashCode().CompareTo(other.GetHashCode())
+                | _ -> -1
+        override x.Equals (obj : obj) =
+            match obj with
+            | :? cfgData as other -> x.methodBase = other.methodBase
+            | _ -> false
+        override x.GetHashCode() = x.methodBase.GetHashCode()
 
     type private interimData = {
         opCodes : OpCode [] //  for debug
@@ -33,7 +46,8 @@ module public CFG =
         member x.AddEdge src dst =
             if not <| x.edges.ContainsKey src then
                 x.edges.Add (src, List<_>())
-            x.edges.[src].Add dst
+                x.edges.[src].Add dst
+            elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
     let private createData (methodBase : MethodBase) =
         let mb = methodBase.GetMethodBody()
@@ -77,7 +91,7 @@ module public CFG =
             if used.Contains src then ()
             else
                 let wasAdded = used.Add src
-                Prelude.releaseAssert2 (wasAdded, "offset %d couldn't be added")
+                assert(wasAdded)
                 match interimData.fallThroughOffset.[src] with
                 | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
                     addEdge currentVertex dst
@@ -118,7 +132,7 @@ module public CFG =
                     if Instruction.isLeaveOpCode opCode then
                         let ehcs = methodBase.GetMethodBody().ExceptionHandlingClauses
                                    |> Seq.filter Instruction.isFinallyClause
-                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause (Instruction src) (Instruction dst))
+                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause (ip.Instruction src) (ip.Instruction dst))
                                    |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
                         let chainSequentialFinallyBlocks prevOffset (ehc : ExceptionHandlingClause) =
                             let startOffset = ehc.HandlerOffset
@@ -165,15 +179,15 @@ module public CFG =
             let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
             cfg.dfsOut.[u] <- tOut
             u::vertices, tOut + 1
-        let propagateMaxTOutForSCC (used : HashSet<offset>) max v =
+        let propagateMaxTOutForSCC (usedForSCC : HashSet<offset>) max v =
             let rec helper v =
-                used.Add v |> ignore
+                usedForSCC.Add v |> ignore
                 cfg.sccOut.[v] <- max
-                cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| used.Contains u then helper u)
+                cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| usedForSCC.Contains u then helper u)
             helper v
-        let vertices, _ = bypass ([], 1) 0 // TODO: what about final handlers (they are separated from main) ?
-        let used = HashSet<offset>()
-        vertices |> List.iter (fun v -> if not <| used.Contains v then propagateMaxTOutForSCC used cfg.dfsOut.[v] v)
+        let vertices, _ = Seq.fold (fun acc u -> if used.Contains u then acc else bypass acc u)  ([], 1) cfg.sortedOffsets
+        let usedForSCC = HashSet<offset>()
+        vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
 
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase

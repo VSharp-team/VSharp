@@ -1,0 +1,3 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.ArrayRank_IIE_1(System.Array)
+RESULT: Totally 1 state:
+Insufficient information! Can't get precise array rank of System.Array object!

@@ -2,6 +2,7 @@ METHOD: System.Int32 VSharp.Test.Tests.Lists.RankTest()
 RESULT: Totally 1 state:
 2
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Array contents: ---------------
 System.Int32[,] ==> {
         4[0, 0] <- 1

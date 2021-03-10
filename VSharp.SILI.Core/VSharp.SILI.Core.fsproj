@@ -5,7 +5,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Options.fs" />
         <Compile Include="Operations.fs" />
         <Compile Include="Types.fs" />
         <Compile Include="Terms.fs" />
@@ -18,6 +17,7 @@
         <Compile Include="Operators.fs" />
         <Compile Include="Substitution.fs" />
         <Compile Include="MemoryRegion.fs" />
+        <Compile Include="OperationStack.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="TypeCasting.fs" />
         <Compile Include="Database.fs" />
@@ -25,7 +25,6 @@
         <Compile Include="Explorer.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />
-        <Compile Include="InterpreterBase.fs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,11 +1,11 @@
 METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.TryUpCast(VSharp.Test.Tests.Typecast.Piece)
 RESULT: Totally 2 states:
-42
-MEMORY DUMP:
-Path condition: null == piece
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
-
 33
 MEMORY DUMP:
 Path condition: !(null == piece)
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
+
+42
+MEMORY DUMP:
+Path condition: null == piece
 Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

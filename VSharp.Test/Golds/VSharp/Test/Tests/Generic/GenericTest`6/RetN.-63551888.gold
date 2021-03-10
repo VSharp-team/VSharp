@@ -1,0 +1,3 @@
+METHOD: N VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetN(N)
+RESULT: Totally 1 state:
+Insufficient information! Can't determine if N is a value type or not!

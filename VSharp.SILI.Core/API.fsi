@@ -22,7 +22,7 @@ module API =
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
-    val PerformUnaryOperation : OperationType -> symbolicType -> term -> (term -> 'a) -> 'a
+    val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     [<AutoOpen>]
     module Terms =
@@ -46,7 +46,7 @@ module API =
         val MakeNumber : 'a -> term
 
         val TypeOf : term -> symbolicType
-        val BaseTypeOfHeapRef : state -> term -> symbolicType
+        val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
 
         val IsStruct : term -> bool
         val IsReference : term -> bool
@@ -64,13 +64,15 @@ module API =
         val HeapReferenceToBoxReference : term -> term
 
         val WithPathCondition : state -> term -> state
+        val IsFalsePathCondition : state -> bool
+        val PathConditionToSeq : pathCondition -> term seq
 
     module Types =
         val Numeric : System.Type -> symbolicType
         val ObjectType : symbolicType
         val IndexType : symbolicType
 
-        val FromDotNetType : state -> System.Type -> symbolicType
+        val FromDotNetType : System.Type -> symbolicType
         val ToDotNetType : symbolicType -> System.Type
 
         val SizeOf : symbolicType -> int
@@ -80,6 +82,7 @@ module API =
         val IsBool : symbolicType -> bool
         val IsInteger : symbolicType -> bool
         val IsReal : symbolicType -> bool
+        val IsNumeric : symbolicType -> bool
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
         val IsArrayType : symbolicType -> bool
@@ -90,12 +93,11 @@ module API =
 
         val TypeIsType : symbolicType -> symbolicType -> term
         val TypeIsNullable : symbolicType -> bool
-        val TypeIsRef : symbolicType -> term -> term
-        val RefIsType : term -> symbolicType -> term
-        val RefIsRef : term -> term -> term
-        val IsCast : symbolicType -> term -> term
+        val TypeIsRef :  state -> symbolicType -> term -> term
+        val RefIsType : state -> term -> symbolicType -> term
+        val IsCast : state -> term -> symbolicType -> term
+        val CanCastImplicitly : term -> symbolicType -> bool
         val Cast : term -> symbolicType -> term
-        val CastConcrete : 'a -> System.Type -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]
@@ -123,12 +125,20 @@ module API =
     module public Memory =
         val EmptyState : state
 
-        val PopStack : state -> state
+        val PopFromOpStack : operationStack -> term * operationStack
+        val PopArgumentsFromOpStack : int -> operationStack -> term list * operationStack
+        val PushToOpStack : term -> operationStack -> operationStack
+        val GetOpStackItem : int -> operationStack -> term
+        val FilterOpStack : (term -> bool) -> operationStack -> operationStack
+        val MapiOpStack : (int -> term -> term) -> operationStack -> operationStack
+        val OpStackToList : operationStack -> term list
+
+        val PopFrame : state -> state
         val PopTypeVariables : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
-        val ReferenceField : term -> fieldId -> term
+        val ReferenceField : state -> term -> fieldId -> term
         val ReferenceArrayIndex : term -> term list -> term
 
         val ReadSafe : state -> term -> term
@@ -155,7 +165,7 @@ module API =
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
 
         val BoxValueType : state -> term -> term * state
-        val AllocateDefaultStatic : state -> symbolicType -> state
+        val InitializeStaticMembers : state -> symbolicType -> state
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
@@ -172,12 +182,11 @@ module API =
         val StringCtorOfCharArray : state -> term -> term -> state list
 
         // TODO: get rid of all unnecessary stuff below!
-        val ComposeStates : state -> state -> (state list -> 'a) -> 'a
+        val ComposeStates : state -> state -> state list
 
-        val Merge2States : state -> state -> state
+        val Merge2States : state -> state -> state list
+        val Merge2Results : term * state -> term * state -> (term * state) list
 
-    module Options =
-        val HandleNativeInt : 'a -> 'a -> 'a
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state

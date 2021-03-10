@@ -4,6 +4,7 @@ VSharp.Test.Tests.Typecast.Coord STRUCT [
 	| X ~> this._xCoord
 	| Y ~> this._yCoord]
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Stack: ---------------
 key = this, value = (HeapRef this to VSharp.Test.Tests.Typecast.Piece)
 key = __loc__0, value = VSharp.Test.Tests.Typecast.Coord STRUCT [

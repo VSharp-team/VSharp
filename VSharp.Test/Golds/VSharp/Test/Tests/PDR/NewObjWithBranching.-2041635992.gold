@@ -2,9 +2,9 @@ METHOD: VSharp.Test.Tests.PDR+ClassWithOneField VSharp.Test.Tests.PDR.NewObjWith
 RESULT: Totally 2 states:
 (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 MEMORY DUMP:
-Path condition: !f
+Path condition: f
 --------------- Fields: ---------------
-x ==> {3 <- 456}
+x ==> {3 <- 42}
 --------------- Types tokens: ---------------
 3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------
@@ -13,9 +13,9 @@ Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PD
 
 (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
 MEMORY DUMP:
-Path condition: f
+Path condition: !f
 --------------- Fields: ---------------
-x ==> {3 <- 42}
+x ==> {3 <- 456}
 --------------- Types tokens: ---------------
 3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------

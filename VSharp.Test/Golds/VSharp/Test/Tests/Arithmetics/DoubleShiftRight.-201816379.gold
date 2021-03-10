@@ -1,5 +1,5 @@
 METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.DoubleShiftRight(System.Int32)
 RESULT: Totally 1 state:
-(System.Int64)(a >> 15 >> 18)
+(System.Int64 (a >> 15 >> 18))
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Arithmetics }

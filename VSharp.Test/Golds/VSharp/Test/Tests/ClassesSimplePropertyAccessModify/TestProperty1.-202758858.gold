@@ -2,6 +2,7 @@ METHOD: System.Int32 VSharp.Test.Tests.ClassesSimplePropertyAccessModify.TestPro
 RESULT: Totally 1 state:
 anyVarName
 MEMORY DUMP:
+Path condition: !(null == this)
 --------------- Fields: ---------------
 <ContainerProperty>k__BackingField ==> {
         3 <- (HeapRef 5 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)

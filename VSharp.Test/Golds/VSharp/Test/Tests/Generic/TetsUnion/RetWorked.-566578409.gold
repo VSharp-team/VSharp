@@ -5,9 +5,11 @@ MEMORY DUMP:
 Path condition: null == obj
 Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
 
-a
+5
 MEMORY DUMP:
-Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn)
+Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn) /\ (obj <: VSharp.Test.Tests.Typecast.BlackPawn)
+--------------- Stack: ---------------
+key = a, value = 5
 Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
 
 6 + a
@@ -17,16 +19,14 @@ Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.BlackPawn)
 key = a, value = 6 + a
 Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
 
-5
-MEMORY DUMP:
-Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn) /\ (obj <: VSharp.Test.Tests.Typecast.BlackPawn)
---------------- Stack: ---------------
-key = a, value = 5
-Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
-
 11
 MEMORY DUMP:
 Path condition: !(null == obj) /\ (obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ (obj <: VSharp.Test.Tests.Typecast.Pawn)
 --------------- Stack: ---------------
 key = a, value = 11
+Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }
+
+a
+MEMORY DUMP:
+Path condition: !(null == obj) /\ !(obj <: VSharp.Test.Tests.Typecast.BlackPawn) /\ !(obj <: VSharp.Test.Tests.Typecast.Pawn)
 Initialized types = { VSharp.Test.Tests.Generic.TetsUnion }

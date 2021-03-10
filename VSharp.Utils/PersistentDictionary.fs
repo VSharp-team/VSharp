@@ -3,11 +3,10 @@ namespace VSharp
 open FSharpx.Collections
 open VSharp
 
-
 // TODO: migrate on System.Collections.Immutable?
 // TODO: We do not really need equality of 'value, but PersistentHashMap requires it
 [<CustomEquality;NoComparison>]
-type public pdict<'key, 'value> when 'key : equality and 'value : equality=
+type public pdict<'key, 'value> when 'key : equality and 'value : equality =
     {impl : PersistentHashMap<'key, 'value>}
     static member Empty() = {impl = PersistentHashMap<'key, 'value>.Empty()}
     member x.Item

@@ -6,7 +6,7 @@ namespace VSharp.CSharpUtils
     /// Calculates the result of applying unary or binary operator to objects with unknown types using 'dynamic's.
     /// Casts the result of each operation to a given type.
     /// </summary>
-    public static class Calculator
+    public static class Calculator // TODO: use opcode emit for all concrete operations
     {
         /// <summary>
         /// Returns true if <paramref name="x"/> is fuzzy equal to zero with the given precision <paramref name="eps"/>.

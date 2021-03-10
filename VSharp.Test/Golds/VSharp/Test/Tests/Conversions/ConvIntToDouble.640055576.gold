@@ -1,0 +1,5 @@
+METHOD: System.Double VSharp.Test.Tests.Conversions.ConvIntToDouble(System.Int32)
+RESULT: Totally 1 state:
+(System.Double number)
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Conversions }

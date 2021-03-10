@@ -125,20 +125,20 @@ namespace VSharp.Test.Tests.Methods
     [TestSvmFixture]
     public static class VirtualMethod
     {
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static IMovable MakeVirtualMove(Pawn p, Coord c)
         {
             p?.MakeMove(c);
             return p;
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static IMovable MakeConcreteMove(Coord c)
         {
             var p = new Piece(0, 0);
@@ -152,7 +152,7 @@ namespace VSharp.Test.Tests.Methods
             return p.MakeMove(c);
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall(IVirtual a)
         {
             if (a == null) return 0;
@@ -182,7 +182,7 @@ namespace VSharp.Test.Tests.Methods
             }
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall1(VirtualC a, int n)
         {
             if (a == null) return 0;
@@ -194,7 +194,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall2(VirtualB a)
         {
             if (a == null) return 0;
@@ -206,7 +206,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall3(VirtualG a, int n)
         {
             if (a == null) return 0;
@@ -218,7 +218,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall4(VirtualH a, int n)
         {
             if (a == null) return 0;
@@ -230,7 +230,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall5(VirtualH a, int n)
         {
             if (a == null) return 0;
@@ -242,7 +242,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall6(VirtualI<double> a, int n)
         {
             if (a == null) return 0;
@@ -254,7 +254,7 @@ namespace VSharp.Test.Tests.Methods
             return ((IVirtual) a).F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall7(VirtualJ<float> a, int n)
         {
             if (a == null) return 0;
@@ -266,7 +266,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F<float, int>();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int VirtualCall8(VirtualK a, int n)
         {
             if (a == null) return 0;
@@ -288,7 +288,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static int CheckSightTypeWorksCorrect(C c)
         {
             if (c == null) return 0;

@@ -231,7 +231,7 @@ namespace VSharp.Test.Tests
             return fenMappings;
         }
 
-        [Ignore("Works very long")]
+        [TestSvm]
         public static Dictionary<char, Piece> CreateSymbolicDictionary(char c)
         {
             Dictionary<char, Piece> fenMappings = new Dictionary<char, Piece>();
