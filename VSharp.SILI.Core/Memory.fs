@@ -151,7 +151,6 @@ module internal Memory =
         x = VectorTime.zero
 
     let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
-    let removePathCondition (s : state) cond : state = { s with pc = PC.remove s.pc cond }
 
 // ------------------------------- Stack -------------------------------
 
@@ -568,10 +567,9 @@ module internal Memory =
         | Union gvs ->
             let foldFunc (g, v) k =
                 // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
-                let pc = PC.squashPCWithCondition state.pc g
-                match pc with
-                | False -> k None
-                | _ -> f (withPathCondition state g) v (Some >> k)
+                let pc = PC.add state.pc g
+                if PC.isFalse pc then k None
+                else f (withPathCondition state g) v (Some >> k)
             Cps.List.choosek foldFunc gvs (mergeResults >> k)
         | _ -> f state term (List.singleton >> k)
     let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
@@ -591,11 +589,11 @@ module internal Memory =
         conditionInvocation state (fun (condition, conditionState) ->
         // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
         // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenCondition = PC.squashPCWithCondition conditionState.pc condition
-        let elseCondition = PC.squashPCWithCondition conditionState.pc (!!condition)
+        let thenCondition = PC.add conditionState.pc condition
+        let elseCondition = PC.add conditionState.pc (!!condition)
         match thenCondition, elseCondition with
-        | False, _ -> elseBranch conditionState (List.singleton >> k)
-        | _, False -> thenBranch conditionState (List.singleton >> k)
+        | _ when PC.isFalse thenCondition -> elseBranch conditionState (List.singleton >> k)
+        | _ when PC.isFalse elseCondition -> thenBranch conditionState (List.singleton >> k)
         | _ -> execution conditionState condition k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =

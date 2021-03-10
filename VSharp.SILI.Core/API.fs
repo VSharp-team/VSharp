@@ -83,8 +83,8 @@ module API =
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
         let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
-        let RemovePathCondition conditionState condition = Memory.removePathCondition conditionState condition
-        let GetConditionOfState state = PC.squashPC state.pc
+        let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
+        let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
 
     module Types =
         let Numeric t = Types.Numeric t

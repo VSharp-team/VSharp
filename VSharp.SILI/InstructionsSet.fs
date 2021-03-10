@@ -218,9 +218,8 @@ module internal InstructionsSet =
         let states = Memory.WriteSafe state left value
         states |> List.map (fun state -> cilState |> withState state)
     let private simplifyConditionResult state res k =
-        let pc = GetConditionOfState state
-        if pc &&& !!res = False then k True
-        elif pc &&& res = False then k False
+        if WithPathCondition state !!res |> IsFalsePathCondition then k True
+        elif WithPathCondition state res |> IsFalsePathCondition then k False
         else k res
     let performCILUnaryOperation op (cilState : cilState) =
         let x, cilState = pop cilState

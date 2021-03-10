@@ -41,13 +41,8 @@ type public ExplorerBase() =
         let k = API.Reset(); fun x -> API.Restore(); k x
         CurrentlyBeingExploredLocations.Add funcId |> ignore
         let initialStates = x.FormInitialState funcId
-        let removePCs this thisIsNotNull (cilState : cilState) =
-            if Option.isSome this && thisIsNotNull <> True then
-                {cilState with state = RemovePathCondition cilState.state thisIsNotNull}
-            else cilState
-        let invoke (cilState, this, thisIsNotNull) = x.Invoke funcId cilState (List.map (removePCs this thisIsNotNull))
-        let resultsAndStates =
-            initialStates |> List.collect invoke |> List.map (fun cilState -> {cilState = cilState})
+        let invoke cilState = x.Invoke funcId cilState (List.map (fun cilState -> {cilState = cilState}))
+        let resultsAndStates = initialStates |> List.collect invoke
         CurrentlyBeingExploredLocations.Remove funcId |> ignore
         k resultsAndStates
 
@@ -171,13 +166,12 @@ type public ExplorerBase() =
                 let initialState = Memory.InitializeStaticMembers Memory.EmptyState declaringType
                 (if m.IsStatic then None else Memory.MakeSymbolicThis m.Method |> Some), initialState
             | _ -> __notImplemented__()
-        let thisIsNotNull = if Option.isSome this then !!(IsNullReference(Option.get this)) else Nop
-        let state = if Option.isSome this && thisIsNotNull <> True then WithPathCondition state thisIsNotNull else state
-        x.ReduceFunctionSignature state funcId.Method this Unspecified true (fun state -> state, this, thisIsNotNull)
-    member x.FormInitialState (funcId : IFunctionIdentifier) : (cilState * term option * term) list =
-        let state, this, thisIsNotNull = x.FormInitialStateWithoutStatics funcId
+        let state = Option.fold (fun state this -> !!(IsNullReference this) |> WithPathCondition state) state this
+        x.ReduceFunctionSignature state funcId.Method this Unspecified true id
+    member x.FormInitialState (funcId : IFunctionIdentifier) : cilState list =
+        let state = x.FormInitialStateWithoutStatics funcId
         let cilState = makeInitialState state
-        x.InitializeStatics cilState funcId.Method.DeclaringType (List.map (fun cilState -> cilState, this, thisIsNotNull(*, isMethodOfStruct*)))
+        x.InitializeStatics cilState funcId.Method.DeclaringType id
 
     abstract CreateInstance : System.Type -> term list -> cilState -> cilState list
     default x.CreateInstance exceptionType arguments cilState =

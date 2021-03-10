@@ -64,8 +64,8 @@ module API =
         val HeapReferenceToBoxReference : term -> term
 
         val WithPathCondition : state -> term -> state
-        val RemovePathCondition : state -> term -> state
-        val GetConditionOfState : state -> term
+        val IsFalsePathCondition : state -> bool
+        val PathConditionToSeq : pathCondition -> term seq
 
     module Types =
         val Numeric : System.Type -> symbolicType

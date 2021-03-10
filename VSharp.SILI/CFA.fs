@@ -262,8 +262,7 @@ module public CFA =
         member x.Src = src
         member x.Dst = dst
         member x.Method = x.Src.Method
-        member x.CommonFilterStates state =
-            PC.squashPC state.pc <> Terms.False
+        member x.CommonFilterStates = not << IsFalsePathCondition
         override x.ToString() = x.commonToString()
         member x.commonToString() =
             sprintf "%s ID:[%d --> %d] IP:[%O --> %O] Method:%s"
@@ -671,7 +670,7 @@ module public CFA =
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
-                let initialState, _, _ = methodInterpreter.FormInitialStateWithoutStatics funcId
+                let initialState = methodInterpreter.FormInitialStateWithoutStatics funcId
                 assert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
 
                 let cfg = CFG.build methodBase
