@@ -268,7 +268,7 @@ module internal Types =
         | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> true
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
         | TypeVariable _ as t -> __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | Null -> __unreachable__()
+        | Null -> false // TODO: __unreachable__() #do
         | t -> (toDotNetType t).IsValueType
 
     let private commonCanCast canCast leftType rightType =

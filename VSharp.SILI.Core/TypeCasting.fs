@@ -30,18 +30,18 @@ module internal TypeCasting =
         let source = {left = left; right = right}
         Constant subtypeName source Bool
 
-    let rec typeIsType leftType rightType = // left is subtype of right
+    let rec commonTypeIsType nullCase leftType rightType =
         let boolConst left right = makeSubtypeBoolConst (ConcreteType left) (ConcreteType right)
         match leftType, rightType with
         | _ when leftType = rightType -> True
-        | Null, _
-        | Void, _   | _, Void -> False
+        | Null, _ -> nullCase rightType
+        | Void, _ | _, Void -> False
         | ArrayType _, ClassType(Id obj, _) when obj <> typedefof<obj> -> False // TODO: use more common heuristics
         | Numeric _, Numeric _ when isConcreteSubtype leftType rightType -> True
         | Pointer _, Pointer _ -> True
         | ArrayType _, ArrayType(_, SymbolicDimension) -> True
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
-            if d1 = d2 then typeIsType t1 t2 else False
+            if d1 = d2 then commonTypeIsType nullCase t1 t2 else False
         | ComplexType, ComplexType ->
             let lt = toDotNetType leftType
             let rt = toDotNetType rightType
@@ -50,14 +50,19 @@ module internal TypeCasting =
             else boolConst leftType rightType
         | _ -> False
 
-    let addressIsType leftAddress leftType targetTyp =
+    // left is subtype of right
+    let typeIsType = commonTypeIsType (always False)
+
+    let commonAddressIsType nullCase leftAddress leftType targetTyp =
         let typeCheck address =
             let boolConst address =
                 match address.term with
                 | ConcreteHeapAddress _ -> False
                 | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetTyp)
-            typeIsType leftType targetTyp ||| boolConst address
+            commonTypeIsType nullCase leftType targetTyp ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
+
+    let addressIsType = commonAddressIsType (always False)
 
     let typeIsAddress leftType rightAddress rightType =
         let typeCheck rightAddress =
@@ -89,13 +94,16 @@ module internal TypeCasting =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, typeIsRef state typ v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
-    let rec refIsType state ref typ =
+    let rec commonRefIsType nullCase state ref typ = // TODO: make isAssignable #do (handle null case)
         match ref.term with
         | HeapRef(addr, sightType) ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
-            addressIsType addr leftType typ
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, refIsType state v typ)) |> Merging.merge
+            commonAddressIsType nullCase addr leftType typ
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType nullCase state v typ)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
+
+    let refIsType = commonRefIsType (always False)
+    let refIsAssignableToType = commonRefIsType (fun x -> if isValueType x then False else True) // TODO: make code better #do
 
     let rec refIsRef state leftRef rightRef =
         match leftRef.term, rightRef.term with
@@ -129,7 +137,7 @@ module internal TypeCasting =
         match termType with
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
         | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
-        | Null -> __unreachable__()
+        | Null -> false // TODO: was __unreachable__() #do
         | _ -> System.Nullable.GetUnderlyingType(toDotNetType termType) <> null
 
     let private doCast term targetType =

@@ -97,7 +97,7 @@ namespace VSharp.Test
             }
         }
 
-        public void PrintExceptionsStats()
+        public void PrintExceptionsStats() // TODO: use #do
         {
             Console.WriteLine($"INFO: exceptions types number: {_allExceptions.Keys.Count.ToString()}");
             Console.WriteLine($"INFO: methods number: {_methodsNumber}");

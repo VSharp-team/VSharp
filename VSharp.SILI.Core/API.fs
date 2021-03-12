@@ -114,6 +114,7 @@ module API =
         let TypeIsNullable typ = TypeCasting.isNullable typ
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
+        let RefIsAssignableToType state ref typ = TypeCasting.refIsAssignableToType state ref typ
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
         let CanCastImplicitly term targetType =

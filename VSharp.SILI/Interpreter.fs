@@ -580,7 +580,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 if Types.IsValueType typeOfValue then
                     checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
                 else
-                    checkTypeMismatchBasedOnTypeOfValue (Types.RefIsType cilState.state value baseType) cilState k
+                    checkTypeMismatchBasedOnTypeOfValue (Types.RefIsAssignableToType cilState.state value baseType) cilState k
             let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkedStElem id
@@ -643,8 +643,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let termType = Types.FromDotNetType t
         assert(IsReference obj)
         assert(Types.IsValueType termType)
-        let nullCase (cilState : cilState) (k : cilState list -> 'a) : 'a =
-            if Types.TypeIsNullable termType then
+        let nullCase (cilState : cilState) (k : cilState list -> 'a) : 'a = // TODO: mb too complex #do
+            if Types.TypeIsNullable termType then // TODO: here can be type Null #do
                 let nullableTerm = Memory.DefaultOf termType
                 let address, state = Memory.BoxValueType cilState.state nullableTerm
                 let res, state = handleRestResults (HeapReferenceToBoxReference address, state)
@@ -656,13 +656,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             StatedConditionalExecutionAppendResultsCIL cilState
                 (fun state k -> k (Types.RefIsType state obj (Types.FromDotNetType underlyingTypeOfNullableT), state))
                 (fun cilState k ->
-                    let value = Memory.ReadSafe cilState.state obj
+                    let value = HeapReferenceToBoxReference obj |> Memory.ReadSafe cilState.state
                     let nullableTerm = Memory.DefaultOf termType
                     let valueField, hasValueField = Reflection.fieldsOfNullable t
                     let nullableTerm = Memory.WriteStructField nullableTerm valueField value
                     let nullableTerm = Memory.WriteStructField nullableTerm hasValueField (MakeBool true)
                     let address, state = Memory.BoxValueType cilState.state nullableTerm
-                    let res, state = handleRestResults (address, state)
+                    let res, state = handleRestResults (HeapReferenceToBoxReference address, state)
                     nonExceptionCont cilState res state k)
                 (x.Raise x.InvalidCastException)
         let nonNullCase (cilState : cilState) =

@@ -117,7 +117,7 @@ namespace VSharp.Test.Tests
             return x;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool AlwaysNull()
         {
             return BoxNullable(null) == null;
@@ -130,13 +130,13 @@ namespace VSharp.Test.Tests
             return x == y;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool True1()
         {
             return AlwaysTrueForNullable(null);
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool True2()
         {
             int? x = 55;
