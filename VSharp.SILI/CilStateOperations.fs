@@ -99,7 +99,7 @@ module internal CilStateOperations =
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 
     let stateOf (cilState : cilState) = cilState.state
-    let popStackOf (cilState : cilState) =
+    let popFrameOf (cilState : cilState) =
         let s = Memory.PopFrame cilState.state
         let ip = List.tail cilState.ipStack
         {cilState with state = s; ipStack = ip}
@@ -169,14 +169,16 @@ module internal CilStateOperations =
                     | ExceptionMechanism -> findingHandler m offset :: []
                     | ConditionalBranch targets -> targets |> List.map (instruction m)
             List.map (fun ip -> withLastIp ip cilState) newIps
+        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 ->
+            // TODO: add popFrameOf here (golds will change)
+            // the whole method is executed
+            withCurrentTime [] cilState :: [] // TODO: #ask Misha about current time
         | {label = Exit} :: [] ->
-            // TODO: add popStackOf here (golds will change)
-            //|> withCurrentTime [] //TODO: #ask Misha about current time
-            cilState :: []
+            cilState :: [] // some part of method is executed
         | {label = Exit; method = m} :: ips' when Reflection.isStaticConstructor m ->
-            cilState |> popStackOf |> withIp ips' |> List.singleton
+            cilState |> popFrameOf |> withIp ips' |> List.singleton
         | {label = Exit} :: ({label = Instruction offset; method = m} as ip) :: ips' ->
-            //TODO: assert(isCallIp ip)
+            // TODO: assert(isCallIp ip)
             let callSite = Instruction.parseCallSite m offset
             let cilState =
                 if callSite.HasNonVoidResult then
@@ -185,7 +187,7 @@ module internal CilStateOperations =
                 elif callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
                     pushNewObjForValueTypes cilState
                 else cilState
-            cilState |> popStackOf |> withIp (ip :: ips') |> moveIpStack
+            cilState |> popFrameOf |> withIp (ip :: ips') |> moveIpStack
         | {label = Exit} :: {label = Exit} :: _ -> __unreachable__()
         | _ -> __notImplemented__()
 

@@ -200,7 +200,7 @@ type public ExplorerBase() =
                                    |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
         assert(List.length ctors = 1)
         let ctor = List.head ctors
-        let fullConstructorName = Reflection.GetFullMethodName ctor
+        let fullConstructorName = Reflection.getFullMethodName ctor
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName
         x.ReduceFunctionSignatureCIL cilState proxyCtor None (Specified arguments) false List.singleton
@@ -230,7 +230,7 @@ type public ExplorerBase() =
     member x.ExploreAndCompose (funcId : IFunctionIdentifier) (cilState : cilState) (k : cilState list -> 'a) =
         let prepareGenericsLessState (methodId : IMethodIdentifier) state =
             let methodBase = methodId.Method
-            if not <| Reflection.IsGenericOrDeclaredInGenericType methodBase then methodId :> IFunctionIdentifier, state, false
+            if not <| Reflection.isGenericOrDeclaredInGenericType methodBase then methodId :> IFunctionIdentifier, state, false
             else
                 let fullyGenericMethod, genericArgs, genericDefs = Reflection.generalizeMethodBase methodBase
                 let genericArgs = genericArgs |> Seq.map Types.FromDotNetType |> List.ofSeq

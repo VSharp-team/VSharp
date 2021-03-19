@@ -17,14 +17,14 @@ type stackKey =
         | ThisKey _ -> "this"
         | ParameterKey pi -> pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
-        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" typ.FullName
+        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
+            | ThisKey m -> sprintf "%s##this" (Reflection.getFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.GetFullMethodName m) (lvi.ToString())
-            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" typ.FullName
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.getFullMethodName m) (lvi.ToString())
+            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -415,7 +415,7 @@ module internal Terms =
             Concrete concrete (fromDotNetType t)
         elif functionIsCastedToMethodPointer() then
             Concrete concrete (fromDotNetType actualType)
-        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" actualType.FullName t.FullName))
+        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" (Reflection.getFullTypeName actualType) (Reflection.getFullTypeName t)))
 
     let True =
         Concrete (box true) Bool

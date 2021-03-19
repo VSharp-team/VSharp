@@ -50,31 +50,35 @@ module public Reflection =
     // --------------------------------- Methods --------------------------------
 
     // TODO: what if return type is generic?
-    let public GetMethodReturnType : MethodBase -> Type = function
+    let public getMethodReturnType : MethodBase -> Type = function
         | :? ConstructorInfo -> typeof<System.Void>
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let public HasNonVoidResult m = GetMethodReturnType m <> typeof<System.Void>
+    let hasNonVoidResult m = getMethodReturnType m <> typeof<System.Void>
 
-    let public GetFullMethodName (methodBase : MethodBase) =
-        let returnType = GetMethodReturnType methodBase
-        methodBase.GetParameters()
-        |> Seq.map (fun param -> param.ParameterType.FullName)
-        |> if methodBase.IsStatic then id else Seq.cons "this"
-        |> join ", "
-        |> sprintf "%s %s.%s(%s)" returnType.FullName methodBase.DeclaringType.FullName methodBase.Name
+    let getFullTypeName (typ : Type) = typ.ToString()
 
-    let public IsArrayConstructor (methodBase : MethodBase) =
+    let getFullMethodName (methodBase : MethodBase) =
+        let returnType = getMethodReturnType methodBase |> getFullTypeName
+        let declaringType = getFullTypeName methodBase.DeclaringType
+        let parameters =
+            methodBase.GetParameters()
+            |> Seq.map (fun param -> getFullTypeName param.ParameterType)
+            |> if methodBase.IsStatic then id else Seq.cons "this"
+            |> join ", "
+        sprintf "%s %s.%s(%s)" returnType declaringType methodBase.Name parameters
+
+    let isArrayConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 
-    let public IsDelegateConstructor (methodBase : MethodBase) =
+    let isDelegateConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
 
-    let public IsGenericOrDeclaredInGenericType (methodBase : MethodBase) =
+    let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
 
-    let public isStaticConstructor (m : MethodBase) =
+    let isStaticConstructor (m : MethodBase) =
         m.IsStatic && m.Name = ".cctor"
 
     // --------------------------------- Substitute generics ---------------------------------
@@ -103,7 +107,7 @@ module public Reflection =
 
     let private substituteMethodBase<'a> methodType (m : MethodBase) (groundK : MethodBase -> 'a) genericK =
         match m with
-        | _ when not <| IsGenericOrDeclaredInGenericType m -> groundK m
+        | _ when not <| isGenericOrDeclaredInGenericType m -> groundK m
         | :? MethodInfo as mi ->
             substituteMethodInfo methodType mi groundK genericK
         | :? ConstructorInfo as ci ->
@@ -131,7 +135,7 @@ module public Reflection =
 
     // --------------------------------- Concretization ---------------------------------
 
-    let rec public concretizeType (subst : Type -> Type) (typ : Type) =
+    let rec concretizeType (subst : Type -> Type) (typ : Type) =
         if typ.IsGenericParameter then subst typ
         elif typ.IsGenericType then
             let args = typ.GetGenericArguments()
@@ -187,7 +191,7 @@ module public Reflection =
         match fs with
         | [|(f1, _); (f2, _)|] when f1.name.Contains("value", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("hasValue", StringComparison.OrdinalIgnoreCase) -> f1, f2
         | [|(f1, _); (f2, _)|] when f1.name.Contains("hasValue", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("value", StringComparison.OrdinalIgnoreCase) -> f2, f1
-        | _ -> internalfailf "%O has unexpected fields {%O}! Probably your .NET implementation is not supported :(" typ.FullName (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+        | _ -> internalfailf "%O has unexpected fields {%O}! Probably your .NET implementation is not supported :(" (getFullTypeName typ) (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
     let stringLengthField, stringFirstCharField =
         let fs = fieldsOf false typeof<string>

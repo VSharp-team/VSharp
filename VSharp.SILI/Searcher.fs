@@ -37,31 +37,27 @@ type ISearcher() =
 
     member x.GetResults initialState (q : IndexedQueue) =
         let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
-
-        let isResult (s : cilState) =
+        let isStartingDescender (s : cilState) =
             let lastFrame = List.last s.state.frames
-            let method = initialState.startingIP.method
-            s.startingIP = initialState.startingIP && not lastFrame.isEffect && s.ipStack = [{label = Exit; method = method}]
-
-        let allStates = q.GetStates() |> List.filter isResult
+            s.startingIP = initialState.startingIP && not lastFrame.isEffect
+        let allStates = List.filter isStartingDescender (q.GetStates())
         let iieStates, nonIIEstates = List.partition isIIEState allStates
-
+        let isFinished (s : cilState) = s.ipStack = [{label = Exit; method = initialState.startingIP.method}]
+        let finishedStates = List.filter isFinished nonIIEstates
         let printInfoForDebug () =
             let allStatesInQueue = q.GetStates()
             Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
             Logger.info "Indexed queue size = %d\n" (List.length allStatesInQueue)
             List.iteri (fun i -> dump >> Logger.info "Queue.[%d]:\n%s\n" i) allStatesInQueue
             true
-
         match iieStates with
         | CilStateWithIIE iie :: _ -> raise iie
         | _ :: _ -> __unreachable__()
 //        | _, _ :: _ -> internalfailf "exception handling is not implemented yet"
-        | _ when nonIIEstates = [] ->
+        | _ when finishedStates = [] ->
             assert(printInfoForDebug())
             internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-        | _ -> nonIIEstates
-
+        | _ -> finishedStates
 
 type DummySearcher() =
     inherit ISearcher() with

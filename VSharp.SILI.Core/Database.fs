@@ -31,7 +31,7 @@ type ip = { label : label; method : MethodBase}
             | :? ip as y when x.method.Equals(y.method) -> compare x.label y.label
             | :? ip as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
             | _ -> -1
-    override x.ToString() = sprintf "{label = %O; method = %s}" x.label (Reflection.GetFullMethodName x.method)
+    override x.ToString() = sprintf "{label = %O; method = %s}" x.label (Reflection.getFullMethodName x.method)
 
 type level = pdict<ip, uint>
 type ipStack = ip list
@@ -82,7 +82,7 @@ type query =
 type databaseId =
     { m : MethodBase; ip : ip } with
     override x.ToString() =
-        sprintf "%O.%O[ip=%O]" x.m.DeclaringType.FullName x.m.Name x.ip
+        sprintf "%O.%O[ip=%O]" (Reflection.getFullTypeName x.m.DeclaringType) x.m.Name x.ip
 
 module internal Database =
     let private lemmas = new Dictionary<databaseId, HashSet<lemma>>()

@@ -44,7 +44,7 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
         let results = x.Interpret funcId cilState
         let printResults (cilStates : cilState list) =
             let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
-            let fullMethodName = Reflection.GetFullMethodName funcId.Method
+            let fullMethodName = Reflection.getFullMethodName funcId.Method
             Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
         printResults results
         k results
@@ -184,7 +184,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let state = cilState.state
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
         let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
-        let fullMethodName = Reflection.GetFullMethodName methodBase
+        let fullMethodName = Reflection.getFullMethodName methodBase
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let moveIp (cilState : cilState) =
             let ip =
@@ -219,12 +219,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
 
     member x.CallMethodFromTermType (cilState : cilState) (*this parameters *) termType (calledMethod : MethodInfo) (k : cilState list -> 'a) =
         let t = termType |> Types.ToDotNetType
-        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod
+        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod // TODO: need this [generalize only in string]?
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | t1 when t1.IsInterface ->
                 let createSignature (m : MethodInfo) =
-                    m.GetParameters() |> Seq.map (fun p -> (p.ParameterType |> safeGenericTypeDefinition).FullName)
+                    m.GetParameters()
+                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName) // TODO: need this [generalize only in string]?
                     |> join ","
                 let onlyLastName (m : MethodInfo) =
                     match m.Name.LastIndexOf('.') with
@@ -249,7 +250,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 let this = Memory.ReadThis cilState.state calledMethod
                 let args = calledMethod.GetParameters() |> Seq.map (Memory.ReadArgument cilState.state) |> List.ofSeq
                 // Popping frame created for ancestor calledMethod
-                let cilState = popStackOf cilState
+                let cilState = popFrameOf cilState
                 // Creating valid frame with stackKeys corresponding to actual targetMethod
                 methodInterpreter.ReduceFunctionSignatureCIL cilState targetMethod (Some this) (Specified args) false (fun cilState ->
                 x.InlineMethodBaseCallIfNeeded targetMethod cilState k)
@@ -493,7 +494,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let k (reference, state) =
             cilState |> withState state |> push reference |> moveIpStack
 
-        if Reflection.IsDelegateConstructor constructorInfo then
+        if Reflection.isDelegateConstructor constructorInfo then
             x.CommonCreateDelegate constructorInfo cilState args k
         elif typ.IsArray && constructorInfo.GetMethodBody() = null then
             x.ReduceArrayCreation typ cilState args k
@@ -628,14 +629,14 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let hasValueResults = x.LdFldWithFieldInfo hasValueFieldInfo false (push v cilState) |> List.map pop
         Cps.List.mapk boxNullable hasValueResults (List.concat >> pushResultToOperationalStack)
 
-    member x.Box (cfg : cfg) offset (cilState : cilState) =
+    member x.Box (cfg : cfg) offset (initialCilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Box.Size)
         let termType = Types.FromDotNetType t
-        let v, cilState = pop cilState
+        let v, cilState = pop initialCilState
         if Types.IsValueType termType then
             if Types.TypeIsNullable termType then x.BoxNullable t v cilState
             else allocateValueTypeInHeap v cilState
-        else cilState |> List.singleton
+        else initialCilState |> List.singleton
     member private x.UnboxCommon (cilState : cilState) (obj : term) (t : System.Type) (handleRestResults : term * state -> term * state) (k : cilState list -> 'a) =
         let nonExceptionCont (cilState : cilState) res state k =
             cilState |> withState state |> push res |> List.singleton |> k

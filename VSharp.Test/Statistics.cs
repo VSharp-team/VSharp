@@ -85,7 +85,7 @@ namespace VSharp.Test
                 {
                     Console.WriteLine(message);
                     Console.WriteLine("CNT = " + exceptions[message].Count);
-                    string fullName = Reflection.GetFullMethodName(exceptions[message][0]);
+                    string fullName = Reflection.getFullMethodName(exceptions[message][0]);
                     Console.WriteLine($@"Method For Debugging = {fullName}");
                     Console.WriteLine("");
                 }

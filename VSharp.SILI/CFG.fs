@@ -125,7 +125,7 @@ module public CFG =
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
                 let opCode = Instruction.parseInstruction methodBase v
-                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.GetFullMethodName methodBase) v opCode
+                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.getFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
 
                 let dealWithJump src dst =

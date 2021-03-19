@@ -249,7 +249,7 @@ module internal InstructionsSet =
         Instruction.isDemandingCallOpCode opCode
 
     let ret (cfg : cfgData) _ _ (cilState : cilState) : cilState list =
-        let resultTyp = Reflection.GetMethodReturnType cfg.methodBase |> Types.FromDotNetType
+        let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
         let cilState =
             if resultTyp = Void then withNoResult cilState
             else
@@ -340,7 +340,7 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = Memory.PopArgumentsFromOpStack paramsNumber cilState.state.opStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            if Reflection.IsDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
+            if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
             else
                 let typ = Types.FromDotNetType parInfo.ParameterType
                 castUnchecked typ parameter cilState.state

@@ -267,7 +267,7 @@ module public CFA =
         override x.ToString() = x.commonToString()
         member x.commonToString() =
             sprintf "%s ID:[%d --> %d] IP:[%O --> %O] Method:%s"
-                x.Type x.Src.Id x.Dst.Id x.Src.Ip x.Dst.Ip (Reflection.GetFullMethodName x.Method)
+                x.Type x.Src.Id x.Dst.Id x.Src.Ip x.Dst.Ip (Reflection.getFullMethodName x.Method)
 
 
     type 'a unitBlock =
@@ -402,8 +402,8 @@ module public CFA =
             | [state] ->
                 let cilState = {cilStateBeforeCall with state = state}
                 match callSite.opCode with
-                | Instruction.NewObj   when Reflection.IsDelegateConstructor callSite.calledMethod -> k [popStackOf cilState]
-                | Instruction.NewObj   when Reflection.IsArrayConstructor callSite.calledMethod -> k [popStackOf cilState]
+                | Instruction.NewObj   when Reflection.isDelegateConstructor callSite.calledMethod -> k [popFrameOf cilState]
+                | Instruction.NewObj   when Reflection.isArrayConstructor callSite.calledMethod -> k [popFrameOf cilState]
                 | Instruction.Call
                 | Instruction.NewObj   ->
                     interpreter.CommonCall callSite.calledMethod cilState k
@@ -712,8 +712,8 @@ type CFASearcher() =
 
 type MethodSearcher() =
     inherit ISearcher() with
-    let shouldStartExploringInIsolation (q :IndexedQueue) (s : cilState) =
-        let all = q.GetStates()
+    let shouldStartExploringInIsolation (q : IndexedQueue) (s : cilState) =
+        let all = q.GetStates() // TODO: mb all without iie states?
         match currentIp s with
         | _ when List.length all = 1 -> true
         | {label = Instruction 0} as ip when List.length (List.filter (startingIpOf >> (=) ip) all) = 0 -> true

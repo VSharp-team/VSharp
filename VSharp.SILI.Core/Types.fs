@@ -39,7 +39,7 @@ type symbolicType =
             if t.IsGenericType
                 then
                     let args = String.Join(",", (Seq.map toString g))
-                    sprintf "%s[%s]" (t.GetGenericTypeDefinition().FullName) args
+                    sprintf "%s[%s]" (t.GetGenericTypeDefinition() |> Reflection.getFullTypeName) args
                 else toString t
         | TypeVariable(Id t) -> toString t
         | ArrayType(t, Vector) -> t.ToString() + "[]"

@@ -26,8 +26,8 @@ type offset = int
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
     with
-    member x.HasNonVoidResult = Reflection.HasNonVoidResult x.calledMethod
-    member x.SymbolicType = x.calledMethod |> Reflection.GetMethodReturnType |> fromDotNetType
+    member x.HasNonVoidResult = Reflection.hasNonVoidResult x.calledMethod
+    member x.SymbolicType = x.calledMethod |> Reflection.getMethodReturnType |> fromDotNetType
     override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
     override x.Equals(o : obj) =
         match o with
@@ -41,7 +41,7 @@ type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
             | _ -> -1
     override x.ToString() =
         sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
-            (Reflection.GetFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.GetFullMethodName x.calledMethod)
+            (Reflection.getFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.getFullMethodName x.calledMethod)
 
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
@@ -881,7 +881,7 @@ module internal Memory =
 
     let composeCallSiteResultsOf (state : state) (callSiteResults : callSiteResults) =
         Map.fold (fun (acc : callSiteResults) key value ->
-            assert(not <| Map.exists (fun k _ -> k = key) acc)
+            assert(not <| Map.exists (fun k _ -> k = key) acc) // TODO: this thing falls #do
             match value with
             | None -> acc
             | Some v -> Map.add key (fillHoles state v |> Some) acc

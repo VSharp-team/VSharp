@@ -183,6 +183,9 @@ module internal TypeCasting =
 
     let castToOpStackType x =
         match typeOf x with
+        // TODO: do we need & type? #do
+        // This case is needed for references to primitive types
+        | _ when isReference x -> x
         // TODO: need to add conversion from bool to int?
         // | Bool -> cast x Int32
         | Numeric(Id typ) when typ = typeof<int8>   -> cast x Int32
