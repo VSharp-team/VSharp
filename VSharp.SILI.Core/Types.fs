@@ -271,11 +271,13 @@ module internal Types =
         | Null -> false // TODO: __unreachable__() #do
         | t -> (toDotNetType t).IsValueType
 
-    let private commonCanCast canCast leftType rightType =
+    let private commonCanCast canCast leftType rightType = // TODO: unify with Types
         match leftType, rightType with
         | _ when leftType = rightType -> true
         | Null, _ -> not <| isValueType rightType
         | _, Null -> false
+        | Numeric _, Numeric (Id typ) when typ.IsEnum -> true // TODO: it's hack #do
+        | Numeric (Id typ), Numeric _ when typ.IsEnum -> true // TODO: it's hack #do
         | _ -> canCast (toDotNetType leftType) (toDotNetType rightType)
 
     // Works like isVerifierAssignable in .NET specification

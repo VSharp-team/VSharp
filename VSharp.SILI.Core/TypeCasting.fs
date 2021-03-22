@@ -38,6 +38,8 @@ module internal TypeCasting =
         | Void, _ | _, Void -> False
         | ArrayType _, ClassType(Id obj, _) when obj <> typedefof<obj> -> False // TODO: use more common heuristics
         | Numeric _, Numeric _ when isConcreteSubtype leftType rightType -> True
+        | Numeric _, Numeric (Id typ) when typ.IsEnum -> True // TODO: it's hack #do
+        | Numeric (Id typ), Numeric _ when typ.IsEnum -> True // TODO: it's hack #do
         | Pointer _, Pointer _ -> True
         | ArrayType _, ArrayType(_, SymbolicDimension) -> True
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->

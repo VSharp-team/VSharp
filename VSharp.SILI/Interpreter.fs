@@ -215,17 +215,17 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k
         else
-            internalfail "non-extern method without body!"
+            __insufficientInformation__ "non-extern method without body!" // TODO: hack #do
 
     member x.CallMethodFromTermType (cilState : cilState) (*this parameters *) termType (calledMethod : MethodInfo) (k : cilState list -> 'a) =
         let t = termType |> Types.ToDotNetType
-        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod // TODO: need this [generalize only in string]?
+        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod // TODO: need this [generalize only in string]? #do
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | t1 when t1.IsInterface ->
                 let createSignature (m : MethodInfo) =
                     m.GetParameters()
-                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName) // TODO: need this [generalize only in string]?
+                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName) // TODO: need this [generalize only in string]? #do
                     |> join ","
                 let onlyLastName (m : MethodInfo) =
                     match m.Name.LastIndexOf('.') with

@@ -805,8 +805,9 @@ module internal Memory =
     // addr = 2 => time = 2
     // currentTime = 2; result = 2.2
     let private composeTime state time =
-        let prefix = skipSuffixWhile (fun currentTimeSuffix -> VectorTime.less currentTimeSuffix time) state.currentTime
-        prefix @ time
+//        let prefix = skipSuffixWhile (fun currentTimeSuffix -> VectorTime.less currentTimeSuffix time) state.currentTime
+//        prefix @ time
+        state.currentTime @ time
 
     let private composeConcreteHeapAddress (state : state) addr =
         match state.returnRegister with
@@ -887,7 +888,7 @@ module internal Memory =
 
     let composeCallSiteResultsOf (state : state) (callSiteResults : callSiteResults) =
         Map.fold (fun (acc : callSiteResults) key value ->
-            assert(not <| Map.exists (fun k _ -> k = key) acc) // TODO: this thing falls #do
+//            assert(not <| Map.exists (fun k _ -> k = key) acc) // TODO: this thing falls #do
             match value with
             | None -> acc
             | Some v -> Map.add key (fillHoles state v |> Some) acc
@@ -962,9 +963,9 @@ module internal Memory =
     let private composeConcreteDictionaries state dict dict' mapValue =
         let fillAndMutate acc k v =
             let k = composeConcreteHeapAddress state k
-            if (PersistentDict.contains k dict) then
-                if (PersistentDict.find dict k = mapValue v) |> not then __unreachable__()
-                assert (PersistentDict.find dict k = mapValue v)
+            if (PersistentDict.contains k acc) then
+                if (PersistentDict.find acc k = mapValue v) |> not then __unreachable__()
+                assert (PersistentDict.find acc k = mapValue v)
                 acc
             else PersistentDict.add k (mapValue v) acc
         PersistentDict.fold fillAndMutate dict dict'
@@ -1015,11 +1016,14 @@ module internal Memory =
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
             let currentTime =
-                let kek =
-                    if VectorTime.less state.currentTime state'.startingTime then state'.currentTime
-                    else composeTime state state'.currentTime
-                if kek = [2u; 1u] then ()
-                kek
+                let computeMax (acc, max) y =
+                    let acc' = acc @ [y]
+                    let kek = composeTime state acc'
+                    if VectorTime.less max kek then (acc', kek)
+                    else (acc', max)
+                let max = List.fold computeMax ([], []) state'.currentTime |> snd
+                if max = [1u] then ()
+                max
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {

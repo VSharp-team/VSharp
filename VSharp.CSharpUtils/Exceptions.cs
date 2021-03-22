@@ -27,6 +27,5 @@ namespace VSharp.CSharpUtils
         {
             throw new IndexOutOfRangeException();
         }
-
     }
 }
