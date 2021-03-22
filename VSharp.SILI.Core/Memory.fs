@@ -694,6 +694,11 @@ module internal Memory =
         let state = {state with currentTime = VectorTime.advance state.currentTime}
         state.currentTime, state
 
+    let allocateType state typ =
+        let concreteAddress, state = freshAddress state
+        assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
+        ConcreteHeapAddress concreteAddress, {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
+
     let allocateOnStack state key term =
         let oldFrame = Stack.peek state.frames
         let newStack = pushToCurrentStackFrame state key term
@@ -705,16 +710,11 @@ module internal Memory =
     let allocateClass state typ =
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.String>)
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.Delegate>)
-        let concreteAddress, state = freshAddress state
-        assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
-        let state = {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
-        let address = ConcreteHeapAddress concreteAddress
+        let address, state = allocateType state typ
         HeapRef address typ, state
 
     let allocateArray state typ lowerBounds lengths =
-        let concreteAddress, state = freshAddress state
-        let address = ConcreteHeapAddress concreteAddress
-        let state = {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
+        let address, state = allocateType state typ
         let arrayType = symbolicTypeToArrayType typ
         let state =
             let d = List.length lengths
@@ -740,7 +740,8 @@ module internal Memory =
         let address, state = allocateConcreteVector state Char (str.Length + 1) (Seq.append str (Seq.singleton '\000'))
         let heapAddress = getConcreteHeapAddress address
         let state = writeClassField state address Reflection.stringLengthField (Concrete str.Length lengthType)
-        HeapRef address Types.String, {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
+        let state = {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
+        HeapRef address String, state
 
     let allocateDelegate state delegateTerm =
         let concreteAddress, state = freshAddress state
@@ -798,6 +799,11 @@ module internal Memory =
             else List.take (List.length ys - List.length acc) ys
         Cps.List.foldrk skipIfNeed [] ys (always [])
 
+    // compose currentTime:
+    // time = 2.1; state.currentTime = 2; result = 2.1 #mbwrong mbresult = 2.2.1
+
+    // addr = 2 => time = 2
+    // currentTime = 2; result = 2.2
     let private composeTime state time =
         let prefix = skipSuffixWhile (fun currentTimeSuffix -> VectorTime.less currentTimeSuffix time) state.currentTime
         prefix @ time
@@ -954,13 +960,14 @@ module internal Memory =
         SymbolicSet.union state.initializedTypes it'
 
     let private composeConcreteDictionaries state dict dict' mapValue =
-        dict' |> PersistentDict.fold (fun acc k v ->
-                        let k = composeConcreteHeapAddress state k
-                        if (PersistentDict.contains k dict) then
-                            assert (PersistentDict.find dict k = mapValue v)
-                            acc
-                        else PersistentDict.add k (mapValue v) acc
-                 ) dict
+        let fillAndMutate acc k v =
+            let k = composeConcreteHeapAddress state k
+            if (PersistentDict.contains k dict) then
+                if (PersistentDict.find dict k = mapValue v) |> not then __unreachable__()
+                assert (PersistentDict.find dict k = mapValue v)
+                acc
+            else PersistentDict.add k (mapValue v) acc
+        PersistentDict.fold fillAndMutate dict dict'
 
     let private composeArrayCopyInfo state (addr, reg) =
         let addr = fillHoles state addr
@@ -1008,8 +1015,11 @@ module internal Memory =
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
             let currentTime =
-                if VectorTime.less state.currentTime state'.startingTime then state'.currentTime
-                else composeTime state state'.currentTime
+                let kek =
+                    if VectorTime.less state.currentTime state'.startingTime then state'.currentTime
+                    else composeTime state state'.currentTime
+                if kek = [2u; 1u] then ()
+                kek
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
