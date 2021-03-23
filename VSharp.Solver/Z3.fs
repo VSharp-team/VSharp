@@ -53,6 +53,7 @@ module internal Z3 =
                 | InterfaceType _
                 | TypeVariable _
                 | AddressType
+                | ByRef _
                 | Pointer _ -> __notImplemented__())
 
         member private x.EncodeConcrete (obj : obj) typ =

@@ -478,6 +478,7 @@ module internal Terms =
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t)
         | Expression(_, _, t) -> makeCast term t targetType
+        | Ref _ when Types.isByRef targetType -> term
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 

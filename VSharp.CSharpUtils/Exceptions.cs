@@ -2,7 +2,7 @@ using System;
 
 namespace VSharp.CSharpUtils
 {
-    public class Exceptions
+    public static class Exceptions
     {
         [Implements("System.Void System.InvalidCastException..ctor(this, System.String)")]
         public static void CreateInvalidCastException(string msg)

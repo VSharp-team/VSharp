@@ -1213,11 +1213,36 @@ namespace VSharp.Test.Tests
             public static object _f = new PDR.ClassWithOneField();
         }
 
-        // [Ignore("Can't execute static cctor of System.Type, because of MemoryRegion.write's __notImplemented__()")]
         [TestSvm]
         public static object CallStaticCtor()
         {
             return ClassWithCCtor._f;
+        }
+
+        [TestSvm]
+        public static int ByRefTest1(ref int x)
+        {
+            return x;
+        }
+
+        [TestSvm]
+        public static void ByRefTest2(out int x)
+        {
+            x = 10;
+        }
+
+        [TestSvm]
+        public static int ByRefTest2Call(int x)
+        {
+            x = 42;
+            ByRefTest2(out x);
+            return x;
+        }
+
+        [TestSvm]
+        public static int ByRefTest3(in int x)
+        {
+            return x;
         }
 
         [Ignore("internalfail \"byref type is not implemented!\"")]

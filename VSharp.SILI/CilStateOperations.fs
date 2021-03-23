@@ -172,7 +172,7 @@ module internal CilStateOperations =
         | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 ->
             // TODO: add popFrameOf here (golds will change)
             // the whole method is executed
-            withCurrentTime [] cilState :: [] // TODO: #ask Misha about current time
+            withCurrentTime [] cilState |> List.singleton // TODO: #ask Misha about current time
         | {label = Exit} :: [] ->
             cilState :: [] // some part of method is executed
         | {label = Exit; method = m} :: ips' when Reflection.isStaticConstructor m ->

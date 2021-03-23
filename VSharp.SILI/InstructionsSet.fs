@@ -261,7 +261,7 @@ module internal InstructionsSet =
         | ip :: ips -> {cilState with ipStack = {label = Exit; method = ip.method} :: ips} |> List.singleton
         | [] -> __unreachable__()
 
-    let transform2BooleanTerm pc (term : term) =
+    let transform2BooleanTerm pc (term : term) = // TODO: optimize using TypeUtils.convert #do
         let check term =
             match TypeOf term with
             | Bool -> term

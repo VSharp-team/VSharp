@@ -8,7 +8,7 @@ module Logger =
     let Info = 3
     let Trace = 4
 
-    let mutable current_log_level = Trace
+    let mutable current_log_level = Info
     let mutable current_text_writer = Console.Out
 
     let LevelToString = function

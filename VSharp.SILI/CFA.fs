@@ -712,12 +712,12 @@ type CFASearcher() =
 
 type MethodSearcher() =
     inherit ISearcher() with
-    let shouldStartExploringInIsolation (q : IndexedQueue) (s : cilState) =
-        let all = q.GetStates() // TODO: mb all without iie states?
-        match currentIp s with
-        | _ when List.length all = 1 -> true
-        | {label = Instruction 0} as ip when List.length (List.filter (startingIpOf >> (=) ip) all) = 0 -> true
-        | _ -> false
+    let shouldStartExploringInIsolation (q : IndexedQueue) (s : cilState) = false // TODO: hack #do
+//        let all = q.GetStates()
+//        match currentIp s with
+//        | _ when List.length all = 1 -> true
+//        | {label = Instruction 0} as ip when List.length (List.filter (startingIpOf >> (=) ip) all) = 0 -> true
+//        | _ -> false
 
     let effectsFirst (s1 : cilState) (s2 : cilState) =
         if s1 = s2 then 0

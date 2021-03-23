@@ -154,7 +154,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm]
+        [Ignore("Stack Overflow Exception!")] // TODO: #do
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];

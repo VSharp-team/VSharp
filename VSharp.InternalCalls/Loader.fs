@@ -16,8 +16,10 @@ module Loader =
         |> Map.ofSeq
 
     let public concreteExternalImplementations =
-        Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
-        |> Seq.singleton
+        seq [
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Monitor")
+        ]
         |> collectImplementations
 
     let public internalImplementations =

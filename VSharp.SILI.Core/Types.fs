@@ -25,6 +25,7 @@ type symbolicType =
     | TypeVariable of typeId
     | ArrayType of symbolicType * arrayDimensionType
     | Pointer of symbolicType // C-style pointers like int*
+    | ByRef of symbolicType // only for byref
 
     override x.ToString() =
         match x with
@@ -47,6 +48,7 @@ type symbolicType =
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(_, SymbolicDimension) -> "System.Array"
         | Pointer t -> sprintf "<Pointer to %O>" t
+        | ByRef t -> sprintf "<ByRef to %O>" t
     interface IAtomicRegion<symbolicType>
 
 and [<CustomEquality;CustomComparison>]
@@ -151,6 +153,10 @@ module internal Types =
         | Pointer _ -> true
         | _ -> false
 
+    let isByRef = function
+        | ByRef _ -> true
+        | _ -> false
+
     let elementType = function
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
@@ -180,6 +186,7 @@ module internal Types =
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Pointer t -> (toDotNetType t).MakePointerType()
         | AddressType -> typeof<AddressTypeAgent>
+        | ByRef t -> (toDotNetType t).MakeByRefType()
         | Null -> __unreachable__()
 
     let sizeOf typ = typ |> toDotNetType |> TypeUtils.internalSizeOf |> int
@@ -228,7 +235,9 @@ module internal Types =
         and fromDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
-            | t when t.IsByRef -> __insufficientInformation__ "byref type is not implemented!" // TODO: care about byref type
+            | t when t.IsByRef ->
+               t.GetElementType() |> fromDotNetType |> ByRef
+//               __insufficientInformation__ "byref type is not implemented!" // TODO: care about byref type
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)

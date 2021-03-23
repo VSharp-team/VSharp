@@ -213,6 +213,7 @@ module internal Memory =
             if MappedStack.containsKey key ms then MappedStack.find key ms else typ
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
         | Pointer t -> Pointer(substituteTypeVariables t)
+        | ByRef t -> ByRef(substituteTypeVariables t)
 
     let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
         (substituteTypeVariables state et, i, b)
@@ -354,11 +355,12 @@ module internal Memory =
                 let fieldSource = {baseSource = source; field = field}
                 makeSymbolicValue fieldSource (toString field) typ
             makeStruct false makeField typ
-        | Types.ReferenceType ->
+        | ReferenceType ->
             let addressSource : heapAddressSource = {baseSource = source}
             let address = makeSymbolicValue addressSource name AddressType
             HeapRef address typ
-        | Types.ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
+        | ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
+        | ByRef _ -> __insufficientInformation__ "Can't instantiate symbolic value of ByRef type %O" typ
         | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
 
     let private makeSymbolicStackRead key typ time =
@@ -1015,15 +1017,13 @@ module internal Memory =
             let entireCopies = composeConcreteDictionaries state state.entireCopies state'.entireCopies (composeArrayCopyInfo state)
             let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
-            let currentTime =
-                let computeMax (acc, max) y =
-                    let acc' = acc @ [y]
-                    let kek = composeTime state acc'
-                    if VectorTime.less max kek then (acc', kek)
-                    else (acc', max)
-                let max = List.fold computeMax ([], []) state'.currentTime |> snd
-                if max = [1u] then ()
-                max
+            let currentTime = composeTime state state'.currentTime // TODO: hack #do
+//                let computeMax (acc, max) y = // TODO: hack? #do
+//                    let acc' = acc @ [y]
+//                    let kek = composeTime state acc'
+//                    if VectorTime.less max kek then (acc', kek)
+//                    else (acc', max)
+//                List.fold computeMax ([], []) state'.currentTime |> snd
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
