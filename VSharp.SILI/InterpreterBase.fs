@@ -128,11 +128,13 @@ type public ExplorerBase() =
         assert(f.IsStatic)
         let fieldType = Types.FromDotNetType f.FieldType
         let value, state =
-            // TODO: change this to default(f.FieldType)
-            match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
-            | null -> NullRef, state
-            | :? string as str -> Memory.AllocateString str state
-            | v -> Terms.Concrete v fieldType, state
+            if f.IsLiteral then
+                match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
+                | null -> NullRef, state
+                | :? string as str -> Memory.AllocateString str state
+                | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Terms.Concrete v fieldType, state
+                | _ -> __unreachable__()
+            else Memory.DefaultOf fieldType, state
         let targetType = Types.FromDotNetType f.DeclaringType
         let fieldId = Reflection.wrapField f
         Memory.WriteStaticField state targetType fieldId value

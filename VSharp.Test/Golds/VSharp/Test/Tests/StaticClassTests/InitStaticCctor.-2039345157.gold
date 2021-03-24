@@ -1,0 +1,43 @@
+METHOD: System.Int32 VSharp.Test.Tests.StaticClassTests.InitStaticCctor()
+RESULT: Totally 1 state:
+0
+MEMORY DUMP:
+--------------- Fields: ---------------
+x ==> {3 <- 78}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+--------------- Static fields: ---------------
+_a1 ==> {
+        VSharp.Test.Tests.ClassWithStaticCctor <- VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 90]
+    }
+_a2 ==> {
+        VSharp.Test.Tests.ClassWithStaticCctor <- VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 190]
+    }
+_a3 ==> {
+        VSharp.Test.Tests.ClassWithStaticCctor <- VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 0]
+    }
+_classWithOneField1 ==> {
+        VSharp.Test.Tests.ClassWithStaticCctor <- (HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+_classWithOneField2 ==> {
+        VSharp.Test.Tests.ClassWithStaticCctor <- (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+_classWithOneField3 ==> {VSharp.Test.Tests.ClassWithStaticCctor <- NullRef}
+_classWithOneField4 ==> {VSharp.Test.Tests.ClassWithStaticCctor <- NullRef}
+_e ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 0}
+_fortyTwo_byte ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 42}
+_fortyTwo_char ==> {VSharp.Test.Tests.ClassWithStaticCctor <- '*'}
+_fortyTwo_int ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 42}
+_fortyTwo_sbyte ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 42}
+_fortyTwo_short ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 42}
+_fortyTwo_ushort ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 42}
+_pi_double ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 3.14}
+_pi_float ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 3.14}
+c1 ==> {VSharp.Test.Tests.ClassWithStaticCctor <- 1}
+c2 ==> {VSharp.Test.Tests.ClassWithStaticCctor <- Yellow}
+c3 ==> {VSharp.Test.Tests.ClassWithStaticCctor <- Red}
+Initialized types = { VSharp.Test.Tests.PDR+A, VSharp.Test.Tests.ClassWithStaticCctor, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField, VSharp.Test.Tests.StaticClassTests }
