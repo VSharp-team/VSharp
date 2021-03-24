@@ -51,7 +51,7 @@ namespace VSharp.Test.Tests
             Console.ReadKey();
         }
 
-        // [TestSvm]
+        [TestSvm]
         public static bool CreateGame2()
         {
             var game = new ChessGame();
@@ -61,5 +61,13 @@ namespace VSharp.Test.Tests
             MoveType type = game.ApplyMove(e2e4, true);
             return game.HasAnyValidMoves(Player.Black) || type == MoveType.Invalid || isValid;
         }
+
+        [TestSvm]
+        public static ChessGame CreateGame3()
+        {
+            var game = new ChessGame();
+            return game;
+        }
+
     }
 }

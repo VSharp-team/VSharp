@@ -1,6 +1,5 @@
 namespace VSharp.Interpreter.IL
 
-open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
 open FSharpx.Collections
@@ -21,7 +20,7 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
         let hasAnyProgress (s : cilState) = [s.startingIP] <> s.ipStack
         let isEffectFor currentIp (s : cilState) = hasAnyProgress s && startingIpOf s = currentIp
         let step s =
-            let states = List.filter (isEffectFor (currentIp s)) (q.GetStates() @ [s])
+            let states = List.filter (isEffectFor (currentIp s)) (q.GetStates() @ [s]) // TODO: need to add to tail? #do
             match states with
             | [] ->
                 let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s

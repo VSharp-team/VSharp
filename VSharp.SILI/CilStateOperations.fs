@@ -169,15 +169,17 @@ module internal CilStateOperations =
                     | ExceptionMechanism -> findingHandler m offset :: []
                     | ConditionalBranch targets -> targets |> List.map (instruction m)
             List.map (fun ip -> withLastIp ip cilState) newIps
-        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 ->
+        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 -> // TODO: popFrameOf! #do
             // TODO: add popFrameOf here (golds will change)
             // the whole method is executed
-            withCurrentTime [] cilState |> List.singleton // TODO: #ask Misha about current time
+            withCurrentTime [] cilState |> popFrameOf |> List.singleton // TODO: #ask Misha about current time
         | {label = Exit} :: [] ->
-            cilState :: [] // some part of method is executed
+            popFrameOf cilState :: [] // some part of method is executed
         | {label = Exit; method = m} :: ips' when Reflection.isStaticConstructor m ->
+            Logger.info "Done with method %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
             cilState |> popFrameOf |> withIp ips' |> List.singleton
-        | {label = Exit} :: ({label = Instruction offset; method = m} as ip) :: ips' ->
+        | {label = Exit; method = curM} :: ({label = Instruction offset; method = m} as ip) :: ips' ->
+            Logger.info "Done with method %s" (Reflection.getFullMethodName curM) // TODO: delete (for info) #do
             // TODO: assert(isCallIp ip)
             let callSite = Instruction.parseCallSite m offset
             let cilState =

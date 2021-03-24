@@ -126,19 +126,16 @@ type public ExplorerBase() =
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert(f.IsStatic)
-        if f.IsLiteral then
+        let fieldType = Types.FromDotNetType f.FieldType
+        let value, state =
+            // TODO: change this to default(f.FieldType)
             match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
-            | null -> state
-            | value ->
-                let fieldType = Types.FromDotNetType f.FieldType
-                let value, state =
-                    match value with
-                    | :? string as str -> Memory.AllocateString str state
-                    | v -> Terms.Concrete v fieldType, state
-                let targetType = Types.FromDotNetType f.DeclaringType
-                let fieldId = Reflection.wrapField f
-                Memory.WriteStaticField state targetType fieldId value
-        else state
+            | null -> NullRef, state
+            | :? string as str -> Memory.AllocateString str state
+            | v -> Terms.Concrete v fieldType, state
+        let targetType = Types.FromDotNetType f.DeclaringType
+        let fieldId = Reflection.wrapField f
+        Memory.WriteStaticField state targetType fieldId value
 
     member x.InitializeStatics (cilState : cilState) (t : System.Type) whenInitializedCont : cilState list =
         let fields = t.GetFields(Reflection.staticBindingFlags)

@@ -15,7 +15,16 @@ module Type =
             match handle.term with
             |  Concrete(:? System.RuntimeTypeHandle as handle, _) -> System.Type.GetTypeFromHandle handle
             | _ -> __notImplemented__()
-        Memory.AllocateDefaultClass state (Types.FromDotNetType typeof<System.Type>) // TODO: hack #do
+        let t = typeof<Object>.GetType()
+        Memory.AllocateDefaultClass state (Types.FromDotNetType t) // TODO: hack #do
+//        TypeOfMethod state (Types.FromDotNetType state t)
+        // TODO: restore it after rewriting marshaling/unmarshaling
+//        __notImplemented__()
+
+    let internal GetAssembly (state : state) (args : term list) : term * state =
+        assert (List.length args = 1)
+        let t = typeof<Object>.Assembly.GetType()
+        Memory.AllocateDefaultClass state (Types.FromDotNetType t) // TODO: hack #do
 //        TypeOfMethod state (Types.FromDotNetType state t)
         // TODO: restore it after rewriting marshaling/unmarshaling
 //        __notImplemented__()

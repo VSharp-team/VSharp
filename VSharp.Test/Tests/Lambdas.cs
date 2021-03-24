@@ -55,6 +55,22 @@ namespace VSharp.Test.Tests
             return a + b + c == n + n;
         }
 
+        public static bool CheckIsLambda<T>(object o)
+        {
+            T unbox = (T) o;
+            return o is Action<int>;
+        }
+
+        [TestSvm]
+        public static bool LambdaAsObjectIsLambda(bool flag)
+        {
+            Action<int> nop;
+            nop = x => {};
+            object o = nop;
+            return CheckIsLambda<Action<int>>(o);
+        }
+
+
 /*        public static int ForToLambdaDelegateSmokeTest(int n)
         {
             int s = 0;

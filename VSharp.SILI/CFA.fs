@@ -741,7 +741,7 @@ type MethodSearcher() =
         | [] -> None
         | s :: _ when shouldStartExploringInIsolation q s ->
             let currentIp = currentIp s
-            let ilMethodMtd : ILMethodMetadata = {methodBase = currentIp.method} // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase
+            let ilMethodMtd : ILMethodMetadata = {methodBase = currentIp.method} // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
             try
                 let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics true ilMethodMtd
                 let cilStateForComposition = makeInitialState currentIp.method stateForComposition

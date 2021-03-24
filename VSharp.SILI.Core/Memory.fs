@@ -742,13 +742,17 @@ module internal Memory =
         let address, state = allocateConcreteVector state Char (str.Length + 1) (Seq.append str (Seq.singleton '\000'))
         let heapAddress = getConcreteHeapAddress address
         let state = writeClassField state address Reflection.stringLengthField (Concrete str.Length lengthType)
-        let state = {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
-        HeapRef address String, state
+        HeapRef address String, {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
 
-    let allocateDelegate state delegateTerm =
+    let allocateDelegate state delegateTerm = // TODO: bug! need to allocate in allocatedTypes! #do
         let concreteAddress, state = freshAddress state
         let address = ConcreteHeapAddress concreteAddress
-        HeapRef address (typeOf delegateTerm), {state with delegates = PersistentDict.add concreteAddress delegateTerm state.delegates}
+        let state =
+            { state with
+                delegates = PersistentDict.add concreteAddress delegateTerm state.delegates
+                allocatedTypes = PersistentDict.add concreteAddress (typeOf delegateTerm) state.allocatedTypes
+            }
+        HeapRef address (typeOf delegateTerm), state
 
     let rec lengthOfString state heapRef =
         match heapRef.term with
@@ -879,7 +883,7 @@ module internal Memory =
             let k' = k.Map (typeVariableSubst state)
             let v' = fillHoles state v
 //            writeStackLocation accState k' v'
-            { accState with stack = MappedStack.addWithIdx k' v' accState.stack p}
+            { accState with stack = MappedStack.addWithIdxPlus k' v' accState.stack p} // TODO: check #do
         | None when isEffect -> accState // already reserved
         | None -> reserveLocation accState k p // new frame, so we need to reserve
 
@@ -896,27 +900,24 @@ module internal Memory =
             | Some v -> Map.add key (fillHoles state v |> Some) acc
         ) state.callSiteResults callSiteResults
 
-    let private composeStacksAndFramesOf state state' : stack * frames =
+    let private composeStacksAndFramesOf state state' : stack * frames = // TODO: check #do
         let composeFramesOf state frames' : frames =
             let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
             List.append frames' state.frames
-        let bottomAndRestFrames (s : state) : (stack option * stack * frames) =
-            let bottomFrame, restFrames =
-                let bottomFrame, restFrames = Stack.bottomAndRest s.frames
-                if bottomFrame.isEffect then (Some bottomFrame), restFrames
-                else None, s.frames
+        let bottomAndRestFrames (s : state) : (stack * stack * frames) = // TODO: выкинуть из левого и накатить правые
+            let bottomFrame, restFrames = Stack.bottomAndRest s.frames // TODO: именно выкинуть из левого или можно просто на него накатить эффект?
             let getStackFrame locations =
                 let pushOne stack (entry : entry) =
                     match MappedStack.tryFind entry.key s.stack with
                     | Some v -> MappedStack.push entry.key v stack
                     | None -> MappedStack.reserve entry.key 1u stack
                 List.fold pushOne MappedStack.empty locations
-            let bottom = bottomFrame |> Option.map (entriesOfFrame >> getStackFrame)
+            let bottom = entriesOfFrame bottomFrame |> getStackFrame
             let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
             bottom, rest, restFrames
         let state'Bottom, state'RestStack, state'RestFrames = bottomAndRestFrames state'
         // apply effect of bottom frame
-        let state2 = Option.fold (MappedStack.fold (fillAndMutateStackLocation true state)) state state'Bottom
+        let state2 = MappedStack.fold (fillAndMutateStackLocation true state) state state'Bottom
         // add rest frames
         let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}
         // fill and copy effect of rest frames
