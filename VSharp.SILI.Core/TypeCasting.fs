@@ -149,6 +149,7 @@ module internal TypeCasting =
             | Pointer typ' -> castReferenceToPointer typ' term
             | _ -> internalfailf "Can't cast pointer %O to type %O" term targetType
         | HeapRef(addr, _) -> HeapRef addr targetType
+        | Ref _ when isByRef targetType -> term
         | Ref _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
         | Struct _ -> term
         | _ -> __unreachable__()
