@@ -1,0 +1,19 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.LdelemaTest1()
+RESULT: Totally 1 state:
+0
+MEMORY DUMP:
+--------------- Fields: ---------------
+x ==> {3 <- 56; 4 <- 42}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {
+        2[0] <- (HeapRef 5 to VSharp.Test.Tests.PDR+ClassWithOneField)
+        2[1] <- (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+--------------- Array lengths: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {2[0] <- 2}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField[]
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+5 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -62,6 +62,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Ldflda]         <- zipWithOneOffset <| this.LdFld true
         opcode2Function.[hashFunction OpCodes.Stfld]          <- zipWithOneOffset <| this.StFld
         opcode2Function.[hashFunction OpCodes.Ldelem]         <- zipWithOneOffset <| this.LdElem
+        opcode2Function.[hashFunction OpCodes.Ldelema]        <- zipWithOneOffset <| this.LdElema
         opcode2Function.[hashFunction OpCodes.Ldelem_I1]      <- zipWithOneOffset <| fun _ _ -> this.LdElemTyp TypeUtils.int8Type
         opcode2Function.[hashFunction OpCodes.Ldelem_I2]      <- zipWithOneOffset <| fun _ _ -> this.LdElemTyp TypeUtils.int16Type
         opcode2Function.[hashFunction OpCodes.Ldelem_I4]      <- zipWithOneOffset <| fun _ _ -> this.LdElemTyp TypeUtils.int32Type
@@ -562,6 +563,24 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelem.Size)
         x.LdElemTyp typ cilState
     member private x.LdElemRef = x.LdElemWithCast always
+    //TODO: unify ``(x.Raise x.ArrayTypeMismatchException)'' with one from StElemWithCast #Kostya
+    member private x.LdElema (cfg : cfg) offset (cilState : cilState) =
+        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelema.Size)
+        let index, arrayRef, cilState = pop2 cilState
+        let referenceLocation (cilState : cilState) k =
+            let value = Memory.ReferenceArrayIndex arrayRef [index]
+            push value cilState |> List.singleton |> k
+        let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
+            let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
+                referenceLocation
+                (x.Raise x.ArrayTypeMismatchException)
+                k
+        let checkIndex (cilState : cilState) k =
+            let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
+            x.AccessArray checkTypeMismatch cilState length index k
+        x.NpeOrInvokeStatementCIL cilState arrayRef checkIndex id
     member private x.StElemWithCast cast (cilState : cilState) =
         let value, index, arrayRef, cilState = pop3 cilState
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
@@ -576,7 +595,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                     (x.Raise x.ArrayTypeMismatchException)
             let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
-                if Types.IsValueType typeOfValue then
+                if Types.IsValueType typeOfValue then  //TODO: why this if is needed? #Kostya
                     checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
                 else
                     checkTypeMismatchBasedOnTypeOfValue (Types.RefIsAssignableToType cilState.state value baseType) cilState k

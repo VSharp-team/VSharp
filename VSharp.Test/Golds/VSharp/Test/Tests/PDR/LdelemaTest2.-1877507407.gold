@@ -1,0 +1,21 @@
+METHOD: System.Void VSharp.Test.Tests.PDR.LdelemaTest2(System.Boolean)
+RESULT: Totally 1 state:
+<VOID>
+MEMORY DUMP:
+Path condition: !f
+--------------- Fields: ---------------
+x ==> {3 <- 56; 4 <- 42}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {
+        2[0] <- (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
+        2[1] <- (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+--------------- Array lengths: ---------------
+VSharp.Test.Tests.PDR+ClassWithOneField[] ==> {2[0] <- 2}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField[]
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField[])
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -283,6 +283,12 @@ namespace VSharp.Test.Tests
             return c.x;
         }
 
+        private static void TestRefClass2(ref object c)
+        {
+            ClassWithOneField c1 = (ClassWithOneField) c;
+            c1.x = 100;
+        }
+
         private static void TestRefClass1(ref object c)
         {
             ClassWithOneField c1 = (ClassWithOneField) c;
@@ -297,6 +303,26 @@ namespace VSharp.Test.Tests
             object o = c;
             TestRefClass1(ref o);
             return c.x;
+        }
+
+        [TestSvm]
+        public static int LdelemaTest1()
+        {
+            var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
+            TestRefClass(ref array[0]);
+            return array[0].x;
+        }
+
+        // expecting System.ArrayTypeMismatchException
+        [TestSvm]
+        public static void LdelemaTest2(bool f)
+        {
+            var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
+            if (f)
+            {
+                object[] objectArray = array;
+                TestRefClass2(ref objectArray[0]);
+            }
         }
 
         private static int Abs(int x)

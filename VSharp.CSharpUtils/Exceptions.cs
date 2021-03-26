@@ -27,5 +27,11 @@ namespace VSharp.CSharpUtils
         {
             throw new IndexOutOfRangeException();
         }
+
+        [Implements("System.Void System.ArrayTypeMismatchException..ctor(this)")]
+        public static void CreateArrayTypeMismatchException()
+        {
+            throw new ArrayTypeMismatchException();
+        }
     }
 }
