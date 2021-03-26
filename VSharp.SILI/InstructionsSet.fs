@@ -461,6 +461,10 @@ module internal InstructionsSet =
         let value = castUnchecked typ value cilState.state
         let states = Memory.WriteSafe cilState.state address value
         states |> List.map (fun state -> cilState |> withState state)
+    let stindref (cilState : cilState) =
+        let value, address, cilState = pop2 cilState
+        let states = Memory.WriteSafe cilState.state address value
+        states |> List.map (fun state -> cilState |> withState state)
     let sizeofInstruction (cfg : cfgData) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
@@ -624,7 +628,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Stind_I8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int64Type
     opcode2Function.[hashFunction OpCodes.Stind_R4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float32Type
     opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float64Type
-    opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
+    opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ -> stindref)
     opcode2Function.[hashFunction OpCodes.Sizeof]             <- zipWithOneOffset <| sizeofInstruction
     opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| throw
     opcode2Function.[hashFunction OpCodes.Leave]              <- zipWithOneOffset <| leave

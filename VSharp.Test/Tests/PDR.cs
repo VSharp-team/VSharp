@@ -270,6 +270,35 @@ namespace VSharp.Test.Tests
             ReadFieldOfCLass(null);
         }
 
+        private static void TestRefClass(ref ClassWithOneField c)
+        {
+            c = new ClassWithOneField();
+        }
+
+        [TestSvm]
+        public static int TestRefClass()
+        {
+            var c = new ClassWithOneField() {x = 56};
+            TestRefClass(ref c);
+            return c.x;
+        }
+
+        private static void TestRefClass1(ref object c)
+        {
+            ClassWithOneField c1 = (ClassWithOneField) c;
+            c1.x = 100;
+            c = new object();
+        }
+
+        [TestSvm]
+        public static int TestRefClass1()
+        {
+            var c = new ClassWithOneField() {x = 56};
+            object o = c;
+            TestRefClass1(ref o);
+            return c.x;
+        }
+
         private static int Abs(int x)
         {
             if (x > 0) return x;

@@ -214,7 +214,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k
         else
-            __insufficientInformation__ "non-extern method without body!" // TODO: hack #do
+            __insufficientInformation__ "non-extern method %s without body!" (Reflection.getFullMethodName methodBase) // TODO: hack #do
 
     member x.CallMethodFromTermType (cilState : cilState) (*this parameters *) termType (calledMethod : MethodInfo) (k : cilState list -> 'a) =
         let t = termType |> Types.ToDotNetType
