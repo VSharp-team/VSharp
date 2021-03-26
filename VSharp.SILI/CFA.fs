@@ -341,8 +341,6 @@ module public CFA =
 
     type StepEdge(src : Vertex, dst : Vertex, effect : cilState) =
         inherit Edge(src, dst)
-        do
-            assert(Map.isEmpty effect.state.callSiteResults)
         override x.Type = "StepEdge"
         override x.PropagatePath (cilState : cilState) =
             let print cilStates =
@@ -382,17 +380,17 @@ module public CFA =
                         match resultState.returnRegister with
                         | Some r ->
                             assert(callSite.HasNonVoidResult)
-                            { resultState with callSiteResults = Map.add callSite resultState.returnRegister initialState.callSiteResults
+                            { resultState with
                                                returnRegister = None
                                                opStack = Memory.PushToOpStack r opStack }
                         | None when callSite.opCode = OpCodes.Newobj ->
                             assert(not callSite.HasNonVoidResult)
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
                             let modifiedCilState = pushNewObjResultOnOpStack (withOpStack opStack resultCilState) reference callSite.calledMethod
-                            { modifiedCilState.state with callSiteResults = initialState.callSiteResults }
+                            modifiedCilState.state
                         | None ->
                             assert(not callSite.HasNonVoidResult)
-                            { resultState with callSiteResults = initialState.callSiteResults; opStack = opStack}
+                            resultState
                     if x.CommonFilterStates stateAfterCall then
                         (resultCilState |> withLastIp dst.Ip |> withState stateAfterCall) :: acc
                     else acc
@@ -508,6 +506,12 @@ module public CFA =
                 ArrayLength(address, dim, aType)
             | address -> address
 
+        let makeFunctionResultConstant state (t : System.Type) =
+            let typ = Types.FromDotNetType t
+            let source = {shift = 1u; typ = typ; time = state.currentTime}
+            let name = sprintf "FunctionResult of type = %O" t
+            Memory.MakeSymbolicValue source name typ
+
         let makeSymbolicOpStack time (opStack : operationStack) : operationStack =
             let mkSource (index : int) typ =
                 {shift = uint32 index; typ = typ; time = time}
@@ -539,7 +543,7 @@ module public CFA =
             let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
             let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
                 if methodInfo.ReturnType = typeof<System.Void> then cilState
-                else push (Terms.MakeFunctionResultConstant cilState.state callSite) cilState
+                else push (makeFunctionResultConstant cilState.state methodInfo.ReturnType) cilState
 
             let args, cilStateWithoutArgs = InstructionsSet.retrieveActualParameters calledMethod cilState
             let this, cilState =
@@ -681,7 +685,7 @@ module public CFA =
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
                 let initialState = ExplorerBase.FormInitialStateWithoutStatics true funcId
-                assert(Map.isEmpty initialState.callSiteResults && Option.isNone initialState.returnRegister)
+                assert(Option.isNone initialState.returnRegister)
 
                 let cfg = CFG.build methodBase
                 let cfa = createEmptyCFA cfg methodBase

@@ -42,7 +42,6 @@ module API =
 
         val MakeBool : bool -> term
 
-        val MakeFunctionResultConstant : state -> callSite -> term
         val MakeNumber : 'a -> term
 
         val TypeOf : term -> symbolicType

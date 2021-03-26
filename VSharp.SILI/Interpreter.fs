@@ -360,18 +360,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             else reference
         push valueOnStack cilState
 
-//    member private x.RenewCallSiteResultsAndOpStack (initialState : state) (callSite : callSite) (cilState : cilState) =
-//        let cilState : cilState = cilState |> withOpStack initialState.opStack |> withCallSiteResults initialState.callSiteResults
-//        let resultState = cilState.state
-//        match resultState.returnRegister with
-//        | Some res as rr ->
-//            assert(callSite.HasNonVoidResult)
-//            cilState |> pushToOpStack res |> addToCallSiteResults callSite res |> withNoResult
-//        | None when callSite.opCode = OpCodes.Newobj ->
-//            let reference = Memory.ReadThis initialState callSite.calledMethod
-//            x.PushNewObjResultOnOpStack cilState reference callSite.calledMethod
-//        | None -> cilState
-
     member x.CommonCall (calledMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let call cilState k = x.InlineMethodBaseCallIfNeeded calledMethodBase cilState k
         match calledMethodBase.IsStatic with

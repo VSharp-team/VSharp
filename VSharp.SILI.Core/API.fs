@@ -59,9 +59,6 @@ module API =
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
 
-        let MakeFunctionResultConstant state (callSite : callSite) =
-            Memory.makeFunctionResultConstant state.currentTime callSite
-
         let IsStruct term = isStruct term
         let IsReference term = isReference term
         let IsNullReference term = Pointers.isNull term

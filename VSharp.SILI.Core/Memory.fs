@@ -22,6 +22,7 @@ type stackBufferKey = concreteHeapAddress
 type offset = int
 
 // last fields are determined by above fields
+// TODO: remove it when CFA is gone #Kostya
 [<CustomEquality;CustomComparison>]
 type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
                   calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
@@ -78,8 +79,6 @@ type exceptionRegister =
         | Caught e -> Caught <| f e
         | NoException -> NoException
 
-type callSiteResults = Map<callSite, term option>
-
 type arrayCopyInfo =
     {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; dstType : symbolicType} with
         override x.ToString() =
@@ -107,7 +106,6 @@ and state = {
     startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     returnRegister : term option
     exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    callSiteResults : callSiteResults                          // Computed results of delayed calls
 }
 
 type IStatedSymbolicConstantSource =
@@ -127,7 +125,6 @@ module internal Memory =
         opStack = OperationStack.empty
         returnRegister = None
         exceptionsRegister = NoException
-        callSiteResults = Map.empty
         stack = MappedStack.empty
         stackBuffers = PersistentDict.empty
         frames = Stack.empty
@@ -318,14 +315,6 @@ module internal Memory =
         interface IStatedSymbolicConstantSource  with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
-
-    [<StructuralEquality;NoComparison>]
-    type private functionResultConstantSource =
-        { callSite : callSite; calledTime : vectorTime }
-        interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
-            override x.TypeOfLocation = x.callSite.SymbolicType
-            override x.Time = x.calledTime
 
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ
@@ -770,11 +759,6 @@ module internal Memory =
             else state
         { state with initializedTypes = SymbolicSet.add {typ=typ} state.initializedTypes }
 
-    let makeFunctionResultConstant time (callSite : callSite) =
-        let name = sprintf "FunctionResult(%O)" callSite
-        let typ = callSite.SymbolicType
-        makeSymbolicValue {callSite = callSite; calledTime = time} name typ
-
 // ------------------------------- Copying -------------------------------
 
     let copyArray state srcAddress arrayType dstAddress =
@@ -892,14 +876,6 @@ module internal Memory =
         | NoException, _ -> error |> exceptionRegister.map (fillHoles state)
         | _ -> __unreachable__()
 
-    let composeCallSiteResultsOf (state : state) (callSiteResults : callSiteResults) =
-        Map.fold (fun (acc : callSiteResults) key value ->
-//            assert(not <| Map.exists (fun k _ -> k = key) acc) // TODO: this thing falls #do
-            match value with
-            | None -> acc
-            | Some v -> Map.add key (fillHoles state v |> Some) acc
-        ) state.callSiteResults callSiteResults
-
     let private composeStacksAndFramesOf state state' : stack * frames = // TODO: check #do
         let composeFramesOf state frames' : frames =
             let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
@@ -1003,7 +979,6 @@ module internal Memory =
             let opStack = composeOpStacksOf state state'.opStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
-            let callSiteResults = composeCallSiteResultsOf state state'.callSiteResults
             let stack, frames = composeStacksAndFramesOf state state'
             let! g1, stackBuffers = composeMemoryRegions state state.stackBuffers state'.stackBuffers
             let! g2, classFields = composeMemoryRegions state state.classFields state'.classFields
@@ -1032,7 +1007,6 @@ module internal Memory =
                     opStack = opStack
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
-                    callSiteResults = callSiteResults
                     stack = stack
                     frames = frames
                     stackBuffers = stackBuffers
@@ -1059,17 +1033,6 @@ module internal Memory =
                 let typ = substituteTypeVariables state x.typ
                 let newTypes = composeInitializedTypes state x.matchingTypes
                 isTypeInitialized {state with initializedTypes = newTypes} typ
-
-    type functionResultConstantSource with
-        interface IMemoryAccessConstantSource with
-            override x.Compose state =
-                if Map.containsKey x.callSite state.callSiteResults then
-                    match state.callSiteResults.[x.callSite] with
-                    | Some value -> value
-                    | _ -> __unreachable__()
-                else
-                    let newTime = composeConcreteHeapAddress state x.calledTime
-                    makeFunctionResultConstant newTime x.callSite
 
 // ------------------------------- Pretty-printing -------------------------------
 

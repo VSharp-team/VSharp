@@ -107,10 +107,6 @@ module internal CilStateOperations =
     let emptyOpStack = Memory.EmptyState.opStack
     let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
     let withOpStack opStack (cilState : cilState) = {cilState with state = {cilState.state with opStack = opStack}}
-    let withCallSiteResults callSiteResults (cilState : cilState) = {cilState with state = {cilState.state with callSiteResults = callSiteResults}}
-    let addToCallSiteResults callSite res (cilState : cilState) =
-        let s = cilState.state
-        {cilState with state = {s with callSiteResults = Map.add callSite res s.callSiteResults}}
 
     let withState state (cilState : cilState) = {cilState with state = state}
     let changeState (cilState : cilState) state = {cilState with state = state}
@@ -183,10 +179,7 @@ module internal CilStateOperations =
             // TODO: assert(isCallIp ip)
             let callSite = Instruction.parseCallSite m offset
             let cilState =
-                if callSite.HasNonVoidResult then
-                    let result, _ = pop cilState
-                    addToCallSiteResults callSite (Some result) cilState
-                elif callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
+                if callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
                     pushNewObjForValueTypes cilState
                 else cilState
             cilState |> popFrameOf |> withIp (ip :: ips') |> moveIpStack
