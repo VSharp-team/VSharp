@@ -32,5 +32,29 @@ namespace VSharp.Test.Tests
         {
             return new string(a);
         }
+
+        [TestSvm]
+        public static string StringOfConcreteCharArray()
+        {
+            char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
+            string str = new string(a);
+            return str;
+        }
+
+        [TestSvm]
+        public static char GetCharOfString()
+        {
+            char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
+            string str = new string(a);
+            return str[3];
+        }
+
+        [TestSvm]
+        public static int StringOfNullCharArray()
+        {
+            char[] a = null;
+            string str = new string(a);
+            return str.Length;
+        }
     }
 }

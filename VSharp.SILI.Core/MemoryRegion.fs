@@ -162,7 +162,7 @@ module private UpdateTree =
             if isDefault key then makeDefault() else makeSymbolic (Node d)
         elif PersistentDict.size d = 1 then
             match PersistentDict.tryFind d reg with
-            | Some({key=key'; value=v}, _) when key = key' -> v
+            | Some({key=key'; value=v}, _) when key = key' -> v // TODO: this is not okay, because of coping #do
             | Some _ -> makeSymbolic (Node d)
             | _ -> makeSymbolic (Node d)
         else makeSymbolic (Node d)
@@ -211,7 +211,7 @@ module MemoryRegion =
         {typ = typ; updates = UpdateTree.empty}
 
     let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ <| {typ=mr.typ; updates=tree}
+        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}
         let makeDefault () = makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
@@ -242,7 +242,7 @@ module MemoryRegion =
     let toString indent mr = UpdateTree.print indent toString mr.updates
 
     let localizeArray address dimension mr =
-        let anyIndexRegion = (List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq)
+        let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
         let reg = productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) anyIndexRegion
         {typ=mr.typ; updates = UpdateTree.localize reg mr.updates}
 

@@ -155,6 +155,41 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static int CopyConcreteToConcreteArray()
+        {
+            int[] arr = new int[5] {10, 2, 3, 4, 5};
+            int[] a = new int[5] {1, 1, 1, 1, 1};
+            Array.Copy(arr, 1, a, 1, 3);
+            return a[2];
+        }
+
+        [TestSvm]
+        public static int[] CopyConcreteToSymbolicArray(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            Array.Copy(arr, 2, a, 2, 2);
+            return a;
+        }
+
+        [TestSvm]
+        public static int[] CopyAndThenWrite(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            Array.Copy(arr, 2, a, 2, 2);
+            a[2] = 42;
+            return a;
+        }
+
+        [TestSvm]
+        public static int[] WriteAndThenCopy(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            a[2] = 42;
+            Array.Copy(arr, 2, a, 2, 2);
+            return a;
+        }
+
+        [TestSvm]
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];

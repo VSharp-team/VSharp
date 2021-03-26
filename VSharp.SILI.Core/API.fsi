@@ -149,6 +149,7 @@ module API =
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> term
+        val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> symbolicType -> fieldId -> term
         val ReadDelegate : state -> term -> term
 
@@ -172,6 +173,8 @@ module API =
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
+
+        val CopyArrayExt : state -> term -> term -> term -> term -> term -> state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string

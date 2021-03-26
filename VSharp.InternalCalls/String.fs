@@ -23,4 +23,9 @@ module internal String =
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)
         let length = Memory.StringLength state (List.head args)
-        [length, state]
+        length, state
+
+    let GetChars (state : state) (args : term list) =
+        assert (List.length args = 2)
+        let this, index = List.item 0 args, List.item 1 args
+        Memory.ReadStringChar state this index, state

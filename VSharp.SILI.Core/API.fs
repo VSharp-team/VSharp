@@ -200,7 +200,13 @@ module API =
                 assert(dim = List.length indices)
                 Memory.readArrayIndex state addr indices arrayType
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadArrayIndex state v indices)) |> Merging.merge
-            | _ -> internalfailf "Reading field of class: expected reference, but got %O" reference
+            | _ -> internalfailf "Reading array index: expected reference, but got %O" reference
+        let rec ReadStringChar state reference index =
+            match reference.term with
+            | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
+                Memory.readArrayIndex state addr [index] (Types.Char, 1, true)
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadStringChar state v index)) |> Merging.merge
+            | _ -> internalfailf "Reading string char: expected reference, but got %O" reference
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
@@ -252,10 +258,19 @@ module API =
             let address, state = Memory.allocateArray state typ None dimensions
             HeapRef address typ, state
 
-        let AllocateDelegate state delegateTerm =
-            Memory.allocateDelegate state delegateTerm
+        let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
         let AllocateString string state = Memory.allocateString state string
+
+        let CopyArrayExt state src srcIndex dst dstIndex length =
+            match src.term, dst.term, length.term with
+            | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType), Concrete(len, _) ->
+                let len = len :?> int
+                let srcType = Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType |> symbolicTypeToArrayType // TODO: make better #do
+                let dstType = Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType |> symbolicTypeToArrayType
+                Memory.copyArrayExt state srcAddress srcIndex srcType dstAddress dstIndex dstType len
+            | HeapRef _, HeapRef _, _ -> __insufficientInformation__ "Coping arrays with symbolic length"
+            | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state

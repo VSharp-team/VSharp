@@ -425,6 +425,12 @@ namespace VSharp.Test.Tests
             return b + a;
         }
 
+        [TestSvm]
+        public static IntPtr AddNativeInts(IntPtr a, IntPtr b)
+        {
+            return a + 5;
+        }
+
         // Expecting +Infinity
         [TestSvm]
         public static long CheckSumOfSingedAndUnsigned()
