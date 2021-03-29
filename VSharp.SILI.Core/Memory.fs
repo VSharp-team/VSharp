@@ -474,7 +474,7 @@ module internal Memory =
     let readLowerBound state addr dimension arrayType =
         let extractor state = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "LowerBound(%O, %O)" key.address key.index
-        let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
+        let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
         let key = {address = addr; index = dimension}
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)

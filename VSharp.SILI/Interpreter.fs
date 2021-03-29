@@ -561,7 +561,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
             let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionAppendResultsCIL cilState
-                (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
+                (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state)) // TODO: only one subtyping? #do
                 referenceLocation
                 (x.Raise x.ArrayTypeMismatchException)
                 k
