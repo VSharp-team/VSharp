@@ -47,3 +47,6 @@ module Type =
 
     let internal op_Equality (state : state) (args : term list) =
         equality id state args
+
+    let internal isGenericTypeDefinition (state : state) (args : term list) =
+        MakeBool false, state

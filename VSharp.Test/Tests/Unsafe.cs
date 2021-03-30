@@ -48,6 +48,40 @@ namespace VSharp.Test.Tests
             return **&p;
         }
 
+        [TestSvm]
+        public static IntPtr IntPtrZero() // TODO: IntPtr is number or Ptr or Struct? #Dima #do
+        {
+            return IntPtr.Zero;
+        }
+
+        [TestSvm]
+        public static bool CreateIntPtrAndCheckEquals()
+        {
+            IntPtr ptr1 = new IntPtr(0);
+            IntPtr ptr2 = new IntPtr(null);
+            return ptr1 == ptr2;
+        }
+
+        [TestSvm]
+        public static IntPtr IntPtrSum()
+        {
+            IntPtr ptr = new IntPtr(0);
+            return ptr + 10;
+        }
+
+        private static unsafe bool Identity(int startValue)
+        {
+            void* nativeInt = (void*) startValue;
+            int back = (int) nativeInt;
+            return startValue == back;
+        }
+
+        [Ignore("Casting from pointer to number results in pointer, so we try to 'Ptr == 5'")]
+        public static unsafe bool IdentityTest()
+        {
+            return Identity(5);
+        }
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {

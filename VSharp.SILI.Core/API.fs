@@ -50,6 +50,18 @@ module API =
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
+        let MakeIntPtr value state =
+            match value.term with
+            // Case for references
+            | Ref _ -> TypeCasting.castReferenceToPointer state value
+            // Case for numerics, that need to be converted to IntPtr (native int)
+            | Concrete(v, Numeric _) ->
+                // We will never create IntPtr from another numeric, because it's pointless
+                assert(v :?> int = 0)
+                Ptr None Void (Some value)
+            // Case for native int
+            | Ptr(_, Void, _) -> value
+            | _ -> __unreachable__()
 
         let TypeOf term = typeOf term
         let rec MostConcreteTypeOfHeapRef state ref =
@@ -262,14 +274,12 @@ module API =
 
         let AllocateString string state = Memory.allocateString state string
 
-        let CopyArrayExt state src srcIndex dst dstIndex length =
-            match src.term, dst.term, length.term with
-            | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType), Concrete(len, _) ->
-                let len = len :?> int
-                let srcType = Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType |> symbolicTypeToArrayType // TODO: make better #do
+        let CopyArray state src srcIndex dst dstIndex length =
+            match src.term, dst.term with
+            | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType) ->
+                let srcType = Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType |> symbolicTypeToArrayType
                 let dstType = Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType |> symbolicTypeToArrayType
-                Memory.copyArrayExt state srcAddress srcIndex srcType dstAddress dstIndex dstType len
-            | HeapRef _, HeapRef _, _ -> __insufficientInformation__ "Coping arrays with symbolic length"
+                Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
             | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
@@ -300,7 +310,7 @@ module API =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))
-                        Memory.copyCharArrayToString state arrayAddr dstAddr
+                        Copying.copyCharArrayToString state arrayAddr dstAddr
                     | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef)
                     state arrayRef
             | HeapRef _

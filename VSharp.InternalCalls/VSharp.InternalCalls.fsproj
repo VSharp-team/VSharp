@@ -19,6 +19,8 @@
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fs" />
         <Compile Include="Type.fsi" />
         <Compile Include="Type.fs" />
+        <Compile Include="IntPtr.fsi" />
+        <Compile Include="IntPtr.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

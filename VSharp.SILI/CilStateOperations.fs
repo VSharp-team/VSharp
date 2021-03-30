@@ -150,6 +150,7 @@ module internal CilStateOperations =
     let rec moveIpStack (cilState : cilState) : cilState list =
         match cilState.ipStack with
         | {label = Instruction offset; method = m} :: _ ->
+            if offset = 0 then Logger.info "Starting to explore method %O:" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
             let cfg = CFG.findCfg m
             let opCode = Instruction.parseInstruction m offset
             let m = cfg.methodBase
@@ -165,8 +166,7 @@ module internal CilStateOperations =
                     | ExceptionMechanism -> findingHandler m offset :: []
                     | ConditionalBranch targets -> targets |> List.map (instruction m)
             List.map (fun ip -> withLastIp ip cilState) newIps
-        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 -> // TODO: popFrameOf! #do
-            // TODO: add popFrameOf here (golds will change)
+        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 ->
             // the whole method is executed
             withCurrentTime [] cilState |> popFrameOf |> List.singleton // TODO: #ask Misha about current time
         | {label = Exit} :: [] ->

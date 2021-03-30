@@ -20,6 +20,7 @@
         <Compile Include="OperationStack.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="TypeCasting.fs" />
+        <Compile Include="Copying.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="Marshalling.fs" />
         <Compile Include="Explorer.fs" />

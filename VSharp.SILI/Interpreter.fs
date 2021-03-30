@@ -85,22 +85,22 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I2]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int64Type
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I]     <- zipWithOneOffset <| fun _ _ -> convi // TODO: overflow? #do
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U1]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U2]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint64Type
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U]     <- zipWithOneOffset <| fun _ _ -> convu // TODO: overflow? #do
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I1_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I2_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint64Type TypeUtils.int64Type
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I_Un]  <- zipWithOneOffset <| fun _ _ -> convi // TODO: overflow? #do
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U1_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U2_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint64Type TypeUtils.uint64Type
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I]     <- Options.HandleNativeInt opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4]    opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8]
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I_Un]  <- Options.HandleNativeInt opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4_Un] opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8_Un]
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U]     <- Options.HandleNativeInt opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4]    opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8]
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U_Un]  <- Options.HandleNativeInt opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4_Un] opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8_Un]
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U_Un]  <- zipWithOneOffset <| fun _ _ -> convu // TODO: overflow? #do
         opcode2Function.[hashFunction OpCodes.Castclass]      <- zipWithOneOffset <| this.CastClass
         opcode2Function.[hashFunction OpCodes.Ldlen]          <- zipWithOneOffset <| fun _ _ -> this.LdLen
         opcode2Function.[hashFunction OpCodes.Ldvirtftn]      <- zipWithOneOffset <| this.LdVirtFtn
@@ -119,7 +119,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Rem_Un]         <- zipWithOneOffset <| fun _ _ -> this.RemUn
         opcode2Function.[hashFunction OpCodes.Newarr]         <- zipWithOneOffset <| this.Newarr
 
-    let internalImplementations : Map<string, (cilState -> term option -> term list -> cilState list)> =
+    let internalCILImplementations : Map<string, (cilState -> term option -> term list -> cilState list)> =
         Map.ofList [
             "System.Int32 System.Array.GetLength(this, System.Int32)", this.CommonGetArrayLength
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
@@ -186,14 +186,15 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
         let fullMethodName = Reflection.getFullMethodName methodBase
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         let moveIp (cilState : cilState) =
             let ip =
                 match cilState.ipStack with
                 | ip :: _ -> {label = Exit; method = ip.method}
                 | _ -> __unreachable__()
             cilState |> withLastIp ip
-        if Map.containsKey fullMethodName internalImplementations then
-            (internalImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
+        if Map.containsKey fullMethodName internalCILImplementations then
+            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
         elif Map.containsKey fullMethodName Loader.internalImplementations then
             let thisAndArguments = optCons args thisOption
             internalCall Loader.internalImplementations.[fullMethodName] thisAndArguments state (List.map (changeState cilState >> moveIp) >> k)
@@ -210,7 +211,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let state = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id
             // NOTE: callsite of cilState is explicitly untouched
             cilState |> withState state |> withLastIp (instruction methodInfo 0) |> List.singleton |> k
-        elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 then
+        elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
             internalfailf "new extern method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k
@@ -459,7 +460,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         assert(Option.isNone this)
         let constructedTermType = Types.FromDotNetType typ
         let wasConstructorCalled (beforeCall : cilState) (afterCall : cilState) =
-               List.length afterCall.state.frames = List.length beforeCall.state.frames
+            List.length afterCall.state.frames = List.length beforeCall.state.frames
         let modifyValueResultIfConstructorWasCalled (beforeCall : cilState) (afterCall : cilState) =
             if wasConstructorCalled beforeCall afterCall then pushNewObjForValueTypes afterCall
             else afterCall
@@ -469,7 +470,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Specified args) false (fun cilState ->
                 x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
 
-            if Types.IsValueType constructedTermType then
+            if Types.IsValueType constructedTermType || typ = typeof<System.IntPtr> then
                 let freshValue = Memory.DefaultOf constructedTermType
                 let ref, state = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
                 let cilState = cilState |> withState state |> push ref // NOTE: ref is used to retrieve constructed struct
@@ -519,8 +520,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let loadWhenTargetIsNotNull (cilState : cilState) k =
             let createCilState value = push value cilState |> List.singleton |> k
             let fieldId = Reflection.wrapField fieldInfo
-            if addressNeeded then Memory.ReferenceField cilState.state target fieldId |> createCilState
-            else Memory.ReadField cilState.state target fieldId |> createCilState
+            if fieldInfo.DeclaringType = typeof<System.IntPtr> then // TODO: make better #do
+                if addressNeeded then createCilState target
+                else Memory.ReadSafe cilState.state target |> createCilState
+            else
+                if addressNeeded then Memory.ReferenceField cilState.state target fieldId |> createCilState
+                else Memory.ReadField cilState.state target fieldId |> createCilState
         x.NpeOrInvokeStatementCIL cilState target loadWhenTargetIsNotNull id
     member x.LdFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldfld.Size)
@@ -531,9 +536,10 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let value, targetRef, cilState = pop2 cilState
         let storeWhenTargetIsNotNull (cilState : cilState) k =
             let fieldType = Types.FromDotNetType fieldInfo.FieldType
-            let fieldId = Reflection.wrapField fieldInfo
-            let reference = Memory.ReferenceField cilState.state targetRef fieldId
             let value = castUnchecked fieldType value cilState.state
+            let reference =
+                if fieldInfo.DeclaringType = typeof<System.IntPtr> then targetRef
+                else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
             Memory.WriteSafe cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemWithCast cast (cilState : cilState) : cilState list =

@@ -147,6 +147,8 @@ module internal TypeCasting =
         | Ptr _ ->
             match targetType with
             | Pointer typ' -> castReferenceToPointer typ' term
+            // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
+            | Numeric _ -> term
             | _ -> internalfailf "Can't cast pointer %O to type %O" term targetType
         | HeapRef(addr, _) -> HeapRef addr targetType
         | Ref _ when isByRef targetType -> term

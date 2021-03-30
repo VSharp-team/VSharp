@@ -717,6 +717,7 @@ type CFASearcher() =
 type MethodSearcher() =
     inherit ISearcher() with
     let shouldStartExploringInIsolation (q : IndexedQueue) (s : cilState) = false // TODO: hack #do
+//        s.ipStack.Head.method.GetParameters().Length = 0 // TODO: try #do
 //        let all = q.GetStates()
 //        match currentIp s with
 //        | _ when List.length all = 1 -> true

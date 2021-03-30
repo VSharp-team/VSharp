@@ -496,25 +496,14 @@ module internal Memory =
             | Some(srcAddr, reg) -> readArrayRegion state arrayType extractor reg srcAddr indices |> Some
         | _ -> None
 
-//            let emptyReg = MemoryRegion.empty (fst3 arrayType)
-//                let key = {address = addr; indices = indices}
-//                    MemoryRegion.write emptyReg key copiedValue
-
-    and readArrayRegion state arrayType extractor region addr indices = // TODO: bug: if array is concrete? then we will not go to copies! #do
+    and readArrayRegion state arrayType extractor region addr indices =
         let key = {address = addr; indices = indices}
+        let isDefault state (key : heapArrayIndexKey) = isHeapAddressDefault state key.address
         let instantiate typ memory =
-            let copiedValue = readArrayCopy state arrayType extractor addr indices
-            match copiedValue with // TODO: make better #do
-            | Some v when isHeapAddressDefault state addr -> v
-            | None when isHeapAddressDefault state addr -> makeDefaultValue typ
-            | _ ->
-                let isDefault state (key : heapArrayIndexKey) = isHeapAddressDefault state key.address
-                let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = toString; isDefaultKey = isDefault}
-                let key = {address = addr; indices = indices}
-                // TODO: order matters! if we mutated something after copy than we need to read new value (not copy effect) #do
-                let memoryWithCopiedValue = Option.fold (fun m v -> MemoryRegion.write m key v) memory copiedValue
-                makeSymbolicHeapRead picker key state.startingTime typ memoryWithCopiedValue
-        MemoryRegion.read region key (always false) instantiate
+            let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
+            let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault}
+            makeSymbolicHeapRead picker key state.startingTime typ memory
+        MemoryRegion.read region key (isDefault state) instantiate
 
     let readArrayIndex state addr indices arrayType =
         let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
@@ -759,70 +748,6 @@ module internal Memory =
                 writeStaticField state Types.String Reflection.emptyStringField reference
             else state
         { state with initializedTypes = SymbolicSet.add {typ=typ} state.initializedTypes }
-
-// ------------------------------- Copying -------------------------------
-
-    let copyArray state srcAddress arrayType dstAddress =
-        let contents = MemoryRegion.localizeArray srcAddress (snd3 arrayType) state.arrays.[arrayType]
-        {state with entireCopies = PersistentDict.add dstAddress (srcAddress, contents) state.entireCopies}
-
-//    let copyArrayExt state srcAddress srcIndices srcType dstAddress dstIndices dstType =
-//        // TODO: implement memmove for multidimensional arrays, i.e. consider the case of overlapping src and dest arrays.
-//        // TODO: See Array.Copy documentation for detalis.
-//        __notImplemented__()
-
-    let private delinearizeArrayIndex ind lens lbs = // TODO: check #do
-        let mapper (acc, lens) lb =
-            let lensProd = List.fold mul (makeNumber 1) (List.tail lens)
-            let curOffset = div acc lensProd
-            let curIndex = add curOffset lb
-            let rest = rem acc lensProd // TODO: (mul and sub) or rem
-            curIndex, (rest, List.tail lens)
-        List.mapFold mapper (ind, lens) lbs |> fst
-
-    let private linearizeArrayIndex (lens : term list) (lbs : term list) (indices : term list) =
-        let length = List.length indices
-        let folder acc i =
-            let a = indices.[i]
-            let lb = lbs.[i]
-            let offset = sub a lb
-            let prod acc j =
-                mul acc lens.[j]
-            let lensProd = List.fold prod (makeNumber 1) [i .. length - 1]
-            let kek = mul offset lensProd
-            add acc kek
-        List.fold folder (makeNumber 0) [0 .. length - 1]
-
-    // TODO: handle exceptions of this #do
-    let copyArrayExt state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
-        // TODO: consider the case of overlapping src and dest arrays #do
-        let srcDim = snd3 srcType
-        let dstDim = snd3 dstType
-        let srcLBs = List.init srcDim (fun dim -> readLowerBound state srcAddress (makeNumber dim) srcType)
-        let srcLens = List.init srcDim (fun dim -> readLength state srcAddress (makeNumber dim) srcType)
-        let dstLBs = List.init dstDim (fun dim -> readLowerBound state dstAddress (makeNumber dim) dstType)
-        let dstLens = List.init dstDim (fun dim -> readLength state dstAddress (makeNumber dim) dstType)
-        let offsets = List.init length id
-        let copyOneElem state offset =
-            let srcIndex = add srcIndex (makeNumber offset)
-            let srcIndices = delinearizeArrayIndex srcIndex srcLens srcLBs
-            let srcElem = readArrayIndex state srcAddress srcIndices srcType
-            let casted = srcElem // TODO: cast to dst elem type here! #do
-            let dstIndex = add dstIndex (makeNumber offset)
-            let dstIndices = delinearizeArrayIndex dstIndex dstLens dstLBs
-            writeArrayIndex state dstAddress dstIndices srcType srcElem
-        List.fold copyOneElem state offsets
-
-    let copyCharArrayToString state arrayAddress dstAddress =
-        let arrayType = (Char, 1, true)
-        let length = readLength state arrayAddress (makeNumber 0) arrayType
-        let lengthPlus1 = Arithmetics.add length (makeNumber 1)
-        let state = copyArray state arrayAddress arrayType dstAddress
-        let dstAddress = ConcreteHeapAddress dstAddress
-        let state = writeLength state dstAddress (makeNumber 0) arrayType lengthPlus1
-        let state = writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Char)
-        let state = writeClassField state dstAddress Reflection.stringLengthField length
-        state
 
 // ------------------------------- Composition -------------------------------
 

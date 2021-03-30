@@ -472,14 +472,15 @@ module internal Terms =
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
-        match term.term with
+        match term.term, targetType with // TODO: make better #do
         | _ when typeOf term = targetType -> term
-        | Concrete(value, _) -> castConcrete value (Types.toDotNetType targetType)
+        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr None typ (Some term)
+        | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
         // TODO: make cast to Bool like function Transform2BooleanTerm
-        | Constant(_, _, t)
-        | Expression(_, _, t) -> makeCast term t targetType
-        | Ref _ when Types.isByRef targetType -> term
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
+        | Constant(_, _, t), _
+        | Expression(_, _, t), _ -> makeCast term t targetType
+        | Ref _, ByRef _ -> term
+        | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 
     let negate term =

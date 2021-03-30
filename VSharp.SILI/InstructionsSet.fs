@@ -367,13 +367,11 @@ module internal InstructionsSet =
         let address, state = Memory.BoxValueType cilState.state v
         cilState |> withState state |> push address |> List.singleton
     let ldnull (cilState : cilState) = push NullRef cilState |> List.singleton
-    let convu (cilState : cilState) =
-        let value, cilState = pop cilState
-        if IsReference value then
-            let ptr = Types.CastReferenceToPointer cilState.state value
-            cilState |> push ptr |> List.singleton
-        else cilState :: []
-    let convi (cilState : cilState) = cilState :: []
+    let convu (initialCilState : cilState) =
+        let value, cilState = pop initialCilState
+        let ptr = MakeIntPtr value cilState.state
+        cilState |> push ptr |> List.singleton
+    let convi = convu
     let castTopOfOperationalStackUnchecked targetType (cilState : cilState) =
         let t, cilState = pop cilState
         let termForStack = castUnchecked targetType t cilState.state
@@ -417,7 +415,6 @@ module internal InstructionsSet =
         let value = Memory.ReadSafe cilState.state address
         let value = valueCast value cilState.state
         cilState |> push value |> List.singleton
-    let ldindref = ldind always
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
     let cltun = binaryOperationWithBoolResult OperationType.Less makeUnsignedInteger makeUnsignedInteger
     let bgeHelper (cilState : cilState) =
@@ -456,13 +453,9 @@ module internal InstructionsSet =
         let value = castUnchecked typ src cilState.state
         let states = Memory.WriteSafe cilState.state dest value
         states |> List.map (fun state -> cilState |> withState state)
-    let stind typ (cilState : cilState) =
+    let stind valueCast (cilState : cilState) =
         let value, address, cilState = pop2 cilState
-        let value = castUnchecked typ value cilState.state
-        let states = Memory.WriteSafe cilState.state address value
-        states |> List.map (fun state -> cilState |> withState state)
-    let stindref (cilState : cilState) =
-        let value, address, cilState = pop2 cilState
+        let value = valueCast value cilState.state
         let states = Memory.WriteSafe cilState.state address value
         states |> List.map (fun state -> cilState |> withState state)
     let sizeofInstruction (cfg : cfgData) offset (cilState : cilState) =
@@ -490,12 +483,10 @@ module internal InstructionsSet =
         let newIp = List.head newIps
         let cilStates = op cfgData offset cilState
         let errors, goods = cilStates |> List.partition isError
-
         let changeIpIfNeeded (newState : cilState) =
             // case when constructing runtime exception
             if List.length newState.state.frames = List.length cilState.state.frames then withIp newIp newState
             else newState
-
         errors @ List.map changeIpIfNeeded goods
 
     let opcode2Function : (cfgData -> offset -> ipStack list -> cilState -> cilState list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
@@ -597,8 +588,8 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Conv_U2]            <- zipWithOneOffset <| fun _ _ -> castTopOfOperationalStackUnchecked TypeUtils.uint16Type
     opcode2Function.[hashFunction OpCodes.Conv_U4]            <- zipWithOneOffset <| fun _ _ -> castTopOfOperationalStackUnchecked TypeUtils.uint32Type
     opcode2Function.[hashFunction OpCodes.Conv_U8]            <- zipWithOneOffset <| fun _ _ -> castTopOfOperationalStackUnchecked TypeUtils.uint64Type
-    opcode2Function.[hashFunction OpCodes.Conv_I]             <- zipWithOneOffset <| fun _ _ -> convi //castTopOfOperationalStackUnchecked TypeUtils.nativeintType TypeUtils.nativeintType
-    opcode2Function.[hashFunction OpCodes.Conv_U]             <- zipWithOneOffset <| fun _ _ -> convu //castTopOfOperationalStackUnchecked TypeUtils.unativeintType TypeUtils.nativeintType
+    opcode2Function.[hashFunction OpCodes.Conv_I]             <- zipWithOneOffset <| fun _ _ -> convi
+    opcode2Function.[hashFunction OpCodes.Conv_U]             <- zipWithOneOffset <| fun _ _ -> convu
     opcode2Function.[hashFunction OpCodes.Conv_R_Un]          <- zipWithOneOffset <| fun _ _ -> castTopOfOperationalStackUnchecked TypeUtils.float64Type
     opcode2Function.[hashFunction OpCodes.Switch]             <- fun _ _ -> switch
     opcode2Function.[hashFunction OpCodes.Ldtoken]            <- zipWithOneOffset <| ldtoken
@@ -607,28 +598,28 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Initobj]            <- zipWithOneOffset <| initobj
     opcode2Function.[hashFunction OpCodes.Ldarga]             <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Ldarga_S]           <- zipWithOneOffset <| ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int)
-    opcode2Function.[hashFunction OpCodes.Ldind_I4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int8Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int16Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_I8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.int64Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint8Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint16Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_U4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.uint32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float32Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked <| TypeUtils.float64Type)
-    opcode2Function.[hashFunction OpCodes.Ldind_Ref]          <- zipWithOneOffset <| fun _ _ -> ldindref
-    opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind always
+    opcode2Function.[hashFunction OpCodes.Ldind_I4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.int32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.int8Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.int16Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_I8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.int64Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U1]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.uint8Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U2]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.uint16Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_U4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.uint32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.float32Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.float64Type)
+    opcode2Function.[hashFunction OpCodes.Ldind_Ref]          <- zipWithOneOffset <| fun _ _ -> ldind always
+    opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind always // TODO: unify with stind (use handle native int?) #do
     opcode2Function.[hashFunction OpCodes.Isinst]             <- zipWithOneOffset isinst
     opcode2Function.[hashFunction OpCodes.Stobj]              <- zipWithOneOffset <| stobj
     opcode2Function.[hashFunction OpCodes.Ldobj]              <- zipWithOneOffset <| ldobj
-    opcode2Function.[hashFunction OpCodes.Stind_I]            <- Options.HandleNativeInt opcode2Function.[hashFunction OpCodes.Stind_I4] opcode2Function.[hashFunction OpCodes.Stind_I8]
-    opcode2Function.[hashFunction OpCodes.Stind_I1]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int8Type
-    opcode2Function.[hashFunction OpCodes.Stind_I2]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int16Type
-    opcode2Function.[hashFunction OpCodes.Stind_I4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int32Type
-    opcode2Function.[hashFunction OpCodes.Stind_I8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.int64Type
-    opcode2Function.[hashFunction OpCodes.Stind_R4]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float32Type
-    opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind TypeUtils.float64Type
-    opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| (fun _ _ -> stindref)
+    opcode2Function.[hashFunction OpCodes.Stind_I1]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.int8Type)
+    opcode2Function.[hashFunction OpCodes.Stind_I2]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.int16Type)
+    opcode2Function.[hashFunction OpCodes.Stind_I4]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.int32Type)
+    opcode2Function.[hashFunction OpCodes.Stind_I8]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.int64Type)
+    opcode2Function.[hashFunction OpCodes.Stind_R4]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.float32Type)
+    opcode2Function.[hashFunction OpCodes.Stind_R8]           <- zipWithOneOffset <| fun _ _ -> stind (castUnchecked TypeUtils.float64Type)
+    opcode2Function.[hashFunction OpCodes.Stind_Ref]          <- zipWithOneOffset <| fun _ _ -> stind always
+    opcode2Function.[hashFunction OpCodes.Stind_I]            <- zipWithOneOffset <| fun _ _ -> stind MakeIntPtr
     opcode2Function.[hashFunction OpCodes.Sizeof]             <- zipWithOneOffset <| sizeofInstruction
     opcode2Function.[hashFunction OpCodes.Throw]              <- zipWithOneOffset <| throw
     opcode2Function.[hashFunction OpCodes.Leave]              <- zipWithOneOffset <| leave

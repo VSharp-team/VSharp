@@ -41,8 +41,8 @@ module API =
         val NullRef : term
 
         val MakeBool : bool -> term
-
         val MakeNumber : 'a -> term
+        val MakeIntPtr : term -> state -> term
 
         val TypeOf : term -> symbolicType
         val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
@@ -174,7 +174,7 @@ module API =
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
 
-        val CopyArrayExt : state -> term -> term -> term -> term -> term -> state
+        val CopyArray : state -> term -> term -> term -> term -> term -> state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string

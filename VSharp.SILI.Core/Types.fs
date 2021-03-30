@@ -235,9 +235,8 @@ module internal Types =
         and fromDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
-            | t when t.IsByRef ->
-               t.GetElementType() |> fromDotNetType |> ByRef
-//               __insufficientInformation__ "byref type is not implemented!" // TODO: care about byref type
+            | t when t.IsByRef -> t.GetElementType() |> fromDotNetType |> ByRef
+            | _ when dotNetType = typeof<IntPtr> -> Pointer Void
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)

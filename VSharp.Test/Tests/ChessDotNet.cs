@@ -69,5 +69,20 @@ namespace VSharp.Test.Tests
             return game;
         }
 
+        [TestSvm]
+        public static Position CreateGame4()
+        {
+            Position a1 = new Position("A1");
+            return a1;
+        }
+
+        [TestSvm]
+        public static Piece CreateGame5()
+        {
+            var game = new ChessGame();
+            Piece pieceAtA1 = game.GetPieceAt(new Position("A1")); // Or "a1", the casing doesn't matter
+            return  pieceAtA1;
+        }
+
     }
 }

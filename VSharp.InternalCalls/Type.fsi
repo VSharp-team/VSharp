@@ -14,8 +14,11 @@ module internal Type =
     [<Implements("System.Type System.Object.GetType(this)")>]
     val internal GetType : state -> term list -> term * state
 
-     [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
+    [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
     val internal op_Inequality : state -> term list -> term * state
 
-     [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
+    [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
     val internal op_Equality : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.RuntimeTypeHandle.IsGenericTypeDefinition(System.RuntimeType)")>]
+    val internal isGenericTypeDefinition : state -> term list -> term * state

@@ -28,6 +28,7 @@ module internal SystemArray =
         GuardedApplyExpression (List.head args) getLengthFromRank, state
 
     let Copy (state : state) args =
+        // TODO: handle exceptions #do
         assert(List.length args = 6)
         let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
-        Nop, Memory.CopyArrayExt state src srcIndex dst dstIndex length
+        Nop, Memory.CopyArray state src srcIndex dst dstIndex length

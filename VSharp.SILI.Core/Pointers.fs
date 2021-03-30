@@ -5,6 +5,7 @@ open VSharp.Core.Common
 
 module internal Pointers =
     let private underlyingPointerTypeSizeof = term >> function // for `T* ptr` returns `sizeof(T)`
+        | Ptr(_, Void, _) -> makeNumber 1
         | Ptr(_, typ, _) -> makeNumber (Types.sizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 

@@ -14,9 +14,3 @@ module internal Options =
 
     let mutable private recursionUnrollingMode = NeverUnroll
     let public RecursionUnrollingMode () = recursionUnrollingMode
-    let mutable private nativeIntExplorationMode = if System.Environment.Is64BitOperatingSystem then Arch64 else Arch32
-    let public HandleNativeInt f g =
-        match nativeIntExplorationMode with
-        | Arch32 -> f
-        | Arch64 -> g
-        | Unknown -> VSharp.Prelude.__notImplemented__() // TODO: mbdo create constant source

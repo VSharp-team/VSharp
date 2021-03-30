@@ -189,6 +189,46 @@ namespace VSharp.Test.Tests
             return a;
         }
 
+        [TestSvm] // TODO: this test should break solving array constraints, because of copying #do
+        public static int TestSolvingCopy(int[] a, int[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Fill(a, 1);
+                Array.Copy(a, b, b.Length);
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm]
+        public static int MakeDefaultAndWrite(int k)
+        {
+            int[] arr = new int[5];
+            arr[k] = 42;
+            return arr[2];
+        }
+
+        [TestSvm]
+        public static int SymbolicWriteAfterConcreteWrite(int k)
+        {
+            int[] arr = new int[5];
+            arr[2] = 42;
+            arr[k] = 12;
+            return arr[2];
+        }
+
+        [TestSvm]
+        public static int SymbolicWriteAfterConcreteWrite2(int[] a, int k)
+        {
+            a[2] = 42;
+            a[k] = 12;
+            return a[2];
+        }
+
         [TestSvm]
         public static int[] RetOneDArray2(int n)
         {
