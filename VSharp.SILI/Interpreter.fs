@@ -183,8 +183,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         assert(let ip = currentIp cilState in ip.method = methodBase && ip.label = Instruction 0)
         let state = cilState.state
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
-        let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
-        let fullMethodName = Reflection.getFullMethodName methodBase
+        let args = // TODO: make better #do
+            let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
+            if methodBase.IsGenericMethod then
+                let typeParams = methodBase.GetGenericArguments() |> Seq.map (fun arg -> Concrete arg (Types.FromDotNetType typeof<System.Type>)) |> List.ofSeq
+                typeParams @ args
+            else args
+        let fullMethodName = Reflection.getFullMethodName methodBase // TODO: check generic parameters of type! #do
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         let moveIp (cilState : cilState) =
@@ -213,6 +218,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             cilState |> withState state |> withLastIp (instruction methodInfo 0) |> List.singleton |> k
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
             internalfailf "new extern method: %s" fullMethodName
+        elif methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = "System.Runtime.CompilerServices.IntrinsicAttribute") then
+            internalfailf "new intrinsic method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k
         else

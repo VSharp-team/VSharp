@@ -1,7 +1,6 @@
 namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
-open System.Threading
 open VSharp
 open CilStateOperations
 open VSharp.Core

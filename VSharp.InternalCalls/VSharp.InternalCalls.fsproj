@@ -21,6 +21,14 @@
         <Compile Include="Type.fs" />
         <Compile Include="IntPtr.fsi" />
         <Compile Include="IntPtr.fs" />
+        <Compile Include="Unsafe.fsi" />
+        <Compile Include="Unsafe.fs" />
+        <Compile Include="ByReference.fsi" />
+        <Compile Include="ByReference.fs" />
+        <Compile Include="Span.fsi" />
+        <Compile Include="Span.fs" />
+        <Compile Include="ChessDotNet.fsi" />
+        <Compile Include="ChessDotNet.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

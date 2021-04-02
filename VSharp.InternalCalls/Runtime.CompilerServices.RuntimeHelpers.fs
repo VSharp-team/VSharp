@@ -3,10 +3,10 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open System.Runtime.InteropServices
+open System.Reflection
 
 module Runtime_CompilerServices_RuntimeHelpers =
-    open System.Runtime.InteropServices
-    open System.Reflection
 
     let private reinterpretValueTypeAsByteArray (value : obj) size =
         let rawData = Array.create size Byte.MinValue
@@ -132,3 +132,12 @@ module Runtime_CompilerServices_RuntimeHelpers =
         GuardedStatedApplyStatementK state arrayRef (fun state arrayRef k ->
         GuardedStatedApplyStatementK state handleTerm (fun state handleTerm k ->
         initializeArray state arrayRef handleTerm |> k) (List.map k >> List.concat)) (List.map snd)
+
+    // This function checks, whether type can be checked on equality using only it's bits
+    // Example: any value type, because it doesn't have metadata
+    let IsBitwiseEquatable (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let typ = List.head args
+        match typ with
+        | {term = Concrete(:? System.Type as typ, _)} -> MakeBool typ.IsValueType, state
+        | _ -> __unreachable__()

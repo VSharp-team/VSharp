@@ -275,7 +275,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
-                term !== MakeNumber (t.GetEnumValues().GetValue(0))
+                term !== MakeNumber 0 // TODO: need to cast term to int? #do
             | _ when IsReference term -> !!(IsNullReference term)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check

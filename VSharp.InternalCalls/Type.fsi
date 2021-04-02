@@ -6,19 +6,22 @@ open VSharp.Core
 
 module internal Type =
     [<Implements("System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)")>]
-    val internal GetTypeFromHandle : state -> term list -> term * state
+    val GetTypeFromHandle : state -> term list -> term * state
 
     [<Implements("System.Reflection.RuntimeAssembly System.RuntimeTypeHandle.GetAssembly(System.RuntimeType)")>]
-    val internal GetAssembly : state -> term list -> term * state
+    val GetAssembly : state -> term list -> term * state
 
     [<Implements("System.Type System.Object.GetType(this)")>]
-    val internal GetType : state -> term list -> term * state
+    val GetType : state -> term list -> term * state
 
     [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
-    val internal op_Inequality : state -> term list -> term * state
+    val op_Inequality : state -> term list -> term * state
 
     [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
-    val internal op_Equality : state -> term list -> term * state
+    val op_Equality : state -> term list -> term * state
 
     [<Implements("System.Boolean System.RuntimeTypeHandle.IsGenericTypeDefinition(System.RuntimeType)")>]
-    val internal isGenericTypeDefinition : state -> term list -> term * state
+    val isGenericTypeDefinition : state -> term list -> term * state
+
+    [<Implements("System.String System.RuntimeType.get_Name(this)")>]
+    val get_Name : state -> term list -> term * state

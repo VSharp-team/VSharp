@@ -158,6 +158,7 @@ module API =
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> state list
+        val WriteStringChar : state -> term -> term list -> term -> state list
         val WriteStaticField : state -> symbolicType -> fieldId -> term -> state
 
         val DefaultOf : symbolicType -> term

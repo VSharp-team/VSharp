@@ -81,7 +81,7 @@ namespace VSharp.Test.Tests
         {
             var game = new ChessGame();
             Piece pieceAtA1 = game.GetPieceAt(new Position("A1")); // Or "a1", the casing doesn't matter
-            return  pieceAtA1;
+            return pieceAtA1;
         }
 
     }

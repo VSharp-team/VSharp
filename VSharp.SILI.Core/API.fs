@@ -242,6 +242,14 @@ module API =
                         Memory.writeArrayIndex state addr indices arrayType value
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
                 state reference
+        let WriteStringChar state reference index value =
+            Memory.guardedStatedMap
+                (fun state reference ->
+                    match reference.term with
+                    | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
+                        Memory.writeArrayIndex state addr index (Types.Char, 1, true) value
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                state reference
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
         let DefaultOf typ = makeDefaultValue typ

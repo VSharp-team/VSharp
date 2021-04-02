@@ -21,7 +21,7 @@ module private MemoryKeyUtils =
         | addr -> intervals<vectorTime>.Closed VectorTime.zero (timeOf addr)
 
     let regionOfIntegerTerm = function
-        | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType-> points<int>.Singleton value
+        | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType -> points<int>.Singleton value
         | _ -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
