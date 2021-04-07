@@ -10,6 +10,7 @@ module Logger =
 
     let mutable current_log_level = Info
     let mutable current_text_writer = Console.Out
+    let public ConfigureWriter writer = current_text_writer <- writer
 
     let LevelToString = function
         | 1 -> "Error"
