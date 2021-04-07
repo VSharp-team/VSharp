@@ -157,7 +157,7 @@ namespace VSharp.Test
             {
                 if (summary.Summaries != null)
                     return "Test summary contains both InsInfExc and ordinary Summaries";
-                return $"Totally 1 state:\n{summary.Exception.Data0}\n";
+                return $"Totally 1 state:\n{summary.Exception.Message}\n";
             }
 
             int count = 0;

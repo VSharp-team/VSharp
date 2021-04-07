@@ -160,7 +160,7 @@ module private UpdateTree =
             if isDefault key then makeDefault() else makeSymbolic (Node d)
         elif PersistentDict.size d = 1 then
             match PersistentDict.tryFind d reg with
-            | Some({key=key'; value=v}, _) when key = key' -> v // TODO: this is not okay, because of coping #do
+            | Some({key=key'; value=v}, _) when key = key' -> v
             | Some _ -> makeSymbolic (Node d)
             | _ -> makeSymbolic (Node d)
         else makeSymbolic (Node d)

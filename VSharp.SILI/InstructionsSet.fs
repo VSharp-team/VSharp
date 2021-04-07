@@ -48,7 +48,7 @@ module internal TypeUtils =
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
         | Numeric (Id typ) when typ = typedefof<double> -> float64Type
-        | typ when isEnum typ -> typ
+        | typ when isEnum typ -> typ // TODO: this is right? #do
         | _ -> __unreachable__()
     let unsigned2signedOrId = function
         | Bool -> int32Type
@@ -145,10 +145,10 @@ module internal InstructionsSet =
                 Logger.trace "InternalCall got TargetInvocationException %s" targetException.Message
                 let actualException = targetException.GetBaseException()
                 Logger.trace "TargetInvocationException.GetBaseException %s" actualException.Message
-                raise <| actualException
+                raise actualException
             | e ->
                 Logger.trace "InternalCall got exception %s" e.Message
-                raise e
+                reraise()
 
         let pushOnOpStack (term : term, state : state) =
             match term.term with
@@ -636,7 +636,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Break]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Calli]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ckfinite]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
+    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| (fun _ _ s -> List.singleton s) // TODO: implement this someday! #do
     opcode2Function.[hashFunction OpCodes.Cpblk]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Cpobj]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Localloc]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())

@@ -27,6 +27,8 @@
         <Compile Include="ByReference.fs" />
         <Compile Include="Span.fsi" />
         <Compile Include="Span.fs" />
+        <Compile Include="EqualityComparer.fsi" />
+        <Compile Include="EqualityComparer.fs" />
         <Compile Include="ChessDotNet.fsi" />
         <Compile Include="ChessDotNet.fs" />
         <Compile Include="Loader.fs" />
@@ -34,6 +36,12 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="ChessDotNet, Version=0.9.4.0, Culture=neutral, PublicKeyToken=95fb3ccd1157343b">
+        <HintPath>..\VSharp.Test\Tests\Chess.NET\ChessDotNet.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>

@@ -125,7 +125,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
         ]
-    let __corruptedStack__() = raise (System.InvalidProgramException())
 
     member private x.Raise createException (cilState : cilState) k =
         let statesWithCreatedExceptions = createException cilState
@@ -740,7 +739,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         | _, TypeUtils.Int64
         | _, TypeUtils.UInt64 -> integerCase cilState x y TypeUtils.Int64.MinusOne TypeUtils.Int64.MinValue
         | _ -> integerCase cilState x y TypeUtils.Int32.MinusOne TypeUtils.Int32.MinValue
-        | _ -> __corruptedStack__()
+        | _ -> __unreachable__()
     member private this.Div (cilState : cilState) =
         let div x y = API.PerformBinaryOperation OperationType.Divide x y id
         this.CommonDivRem div cilState

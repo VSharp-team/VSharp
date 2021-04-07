@@ -24,8 +24,10 @@ module ReadOnlySpan =
         assert(Array.length byRefFields = 1)
         let byRefField = fst byRefFields.[0]
         let ptrToStringArray = Memory.ReadField state byRefStruct byRefField
-        match ptrToStringArray.term with
-        | Ptr(Some(ClassField(addr, field)), _, None) when field = Reflection.stringFirstCharField ->
-            let ref = HeapRef addr (ArrayType(Types.FromDotNetType typeof<char>, Vector))
-            Memory.ReferenceArrayIndex ref [index], state
-        | _ -> __insufficientInformation__ "now Span works only for String"
+        let ref =
+            match ptrToStringArray.term with
+            // Case for char span made from string
+            | Ptr(Some(ClassField(addr, field)), _, None) when field = Reflection.stringFirstCharField ->
+                HeapRef addr (ArrayType(Types.FromDotNetType typeof<char>, Vector))
+            | _ -> __notImplemented__() // TODO: check span for arrays! #do
+        Memory.ReferenceArrayIndex ref [index], state
