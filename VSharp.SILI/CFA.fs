@@ -714,16 +714,8 @@ type CFASearcher() =
             | x :: _ -> Some x
             | [] -> None
 
-type MethodSearcher() =
-    inherit ISearcher() with
-    let shouldStartExploringInIsolation (q : IndexedQueue) (s : cilState) = false // TODO: hack #do
-//        s.ipStack.Head.method.GetParameters().Length = 0 // TODO: try #do
-//        let all = q.GetStates()
-//        match currentIp s with
-//        | _ when List.length all = 1 -> true
-//        | {label = Instruction 0} as ip when List.length (List.filter (startingIpOf >> (=) ip) all) = 0 -> true
-//        | _ -> false
-
+type EffectsFirstSearcher() =
+    inherit ISearcher()
     let effectsFirst (s1 : cilState) (s2 : cilState) =
         if s1 = s2 then 0
         else
@@ -735,7 +727,6 @@ type MethodSearcher() =
             | _ when List.length s1.ipStack > List.length s2.ipStack -> 1
             | _ when List.length s1.ipStack < List.length s2.ipStack -> -1
             | _ -> compare s1.ipStack s2.ipStack
-
     override x.PickNext q =
         let canBePropagated (s : cilState) =
             let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
@@ -744,7 +735,7 @@ type MethodSearcher() =
         let states = q.GetStates() |> List.filter canBePropagated |> List.sortWith effectsFirst
         match states with
         | [] -> None
-        | s :: _ when shouldStartExploringInIsolation q s ->
+        | s :: _ when x.ShouldStartExploringInIsolation (q, s) ->
             let currentIp = currentIp s
             let ilMethodMtd : ILMethodMetadata = {methodBase = currentIp.method} // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
             try
@@ -754,3 +745,28 @@ type MethodSearcher() =
             with
             | :? InsufficientInformationException -> Some s
         | s :: _ -> Some s
+    abstract member ShouldStartExploringInIsolation: IndexedQueue * cilState -> bool
+    default x.ShouldStartExploringInIsolation (_,_) = false
+
+type AllMethodsExplorationSearcher() =
+    inherit EffectsFirstSearcher()
+    override x.ShouldStartExploringInIsolation (q, s) =
+        let all = q.GetStates()
+        match currentIp s with
+        | {label = Instruction 0} as ip when all |> List.filter (startingIpOf >> (=) ip) |> List.length = 0 -> true
+        | _ -> false
+
+type ParameterlessMethodsExplorationSearcher() =
+    inherit AllMethodsExplorationSearcher()
+    override x.ShouldStartExploringInIsolation (q, s) =
+        base.ShouldStartExploringInIsolation(q, s) &&
+            let m = let f = List.head s.state.frames in f.func.Method
+            (m.IsConstructor || m.IsStatic) && m.GetParameters().Length = 0
+
+type ExceptionsExplorationSearcher() =
+    inherit ParameterlessMethodsExplorationSearcher()
+    override x.ShouldStartExploringInIsolation (q, s) =
+        base.ShouldStartExploringInIsolation(q, s) &&
+            let m = let f = List.head s.state.frames in f.func.Method
+            m.DeclaringType.IsSubclassOf(typeof<Exception>)
+
