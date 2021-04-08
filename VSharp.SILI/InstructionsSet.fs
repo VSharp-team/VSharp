@@ -477,6 +477,29 @@ module internal InstructionsSet =
         else __notImplemented__()
     let endfinally _ _ (cilState : cilState) =
         cilState |> withOpStack emptyOpStack |> List.singleton
+    let constrained cfg offset (initialCilState : cilState) = // TODO: implement fully #do
+//        let x = Instruction.parseInstruction cfg.methodBase (offset + 1)
+        let a = Instruction.findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset
+        match a with
+        | FallThrough offset ->
+            let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
+            let n = method.GetParameters().Length
+            let args, opStack = Memory.PopArgumentsFromOpStack n initialCilState.state.opStack // TODO: need to pop all arguments and then this! #do
+            let cilState = withOpStack opStack initialCilState
+            let thisForCallVirt, cilState = pop cilState
+            match thisForCallVirt.term with // TODO do better! #do
+            | HeapRef _ -> List.singleton initialCilState
+            | Ref _ when TypeOf thisForCallVirt |> Types.IsValueType ->
+                let thisStruct = Memory.ReadSafe cilState.state thisForCallVirt
+                let heapRef, state = Memory.BoxValueType cilState.state thisStruct
+                let cilStateWithNewThis = withState state cilState |> push heapRef
+                List.foldBack push args cilStateWithNewThis |> List.singleton
+            | Ref _ ->
+                let this = Memory.ReadSafe cilState.state thisForCallVirt
+                let cilStateWithNewThis = push this cilState
+                List.foldBack push args cilStateWithNewThis |> List.singleton
+            | _ -> __unreachable__()
+        | _ -> __unreachable__()
     let zipWithOneOffset op cfgData offset newIps cilState =
         assert(List.length newIps = 1)
         assert(not <| isError cilState)
@@ -636,7 +659,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Break]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Calli]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ckfinite]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| (fun _ _ s -> List.singleton s) // TODO: implement this someday! #do
+    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| constrained // TODO: implement this someday! #do
     opcode2Function.[hashFunction OpCodes.Cpblk]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Cpobj]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Localloc]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
@@ -649,7 +672,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Prefix6]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefix7]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefixref]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Readonly]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
+    opcode2Function.[hashFunction OpCodes.Readonly]           <- zipWithOneOffset <| (fun _ _ s -> List.singleton s)
     opcode2Function.[hashFunction OpCodes.Refanytype]         <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Refanyval]          <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Tailcall]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())

@@ -12,7 +12,4 @@ module internal EqualityComparer =
     [<Implements("System.Collections.Generic.EqualityComparer`1[ChessDotNet.Piece] System.Collections.Generic.EqualityComparer`1[ChessDotNet.Piece].get_Default()")>]
     val internal get_Default : state -> term list -> term * state
 
-    val internal equalsForTwoFieldsBlock : state -> term -> term -> term
-
-    [<Implements("System.Boolean System.Collections.Generic.EqualityComparer`1[ChessDotNet.Piece].Equals(this, ChessDotNet.Piece, ChessDotNet.Piece)")>]
-    val internal PieceEquals : state -> term list -> term * state
+    val internal structuralEquality : state -> term -> term -> term

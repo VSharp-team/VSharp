@@ -25,21 +25,15 @@ module EqualityComparer =
         assert(List.length args = 0)
         createEqualityComparer state
 
-    let internal equalsForTwoFieldsBlock (state : state) block1 block2 =
+    let internal structuralEquality (state : state) block1 block2 =
         let block1Type = Terms.MostConcreteTypeOfHeapRef state block1
         let block2Type = Terms.MostConcreteTypeOfHeapRef state block2
         let checkContents () =
+            let compareOneField acc (field, _) =
+                let block1Field = Memory.ReadField state block1 field
+                let block2Field = Memory.ReadField state block2 field
+                block1Field === block2Field &&& acc
             let blockFields = Types.ToDotNetType block1Type |> Reflection.fieldsOf false
-            assert(Array.length blockFields = 2)
-            let block1FstField = fst blockFields.[0] |> Memory.ReadField state block1
-            let block1SndField = fst blockFields.[1] |> Memory.ReadField state block1
-            let block2FstField = fst blockFields.[0] |> Memory.ReadField state block2
-            let block2SndField = fst blockFields.[1] |> Memory.ReadField state block2
-            block1FstField === block2FstField &&& block1SndField === block2SndField
+            Array.fold compareOneField True blockFields
         if block1Type <> block2Type then False // TODO: make this check symbolic #do
         else checkContents ()
-
-    let internal PieceEquals (state : state) (args : term list) : term * state =
-        assert(List.length args = 3)
-        let piece1, piece2 = List.item 1 args, List.item 2 args
-        equalsForTwoFieldsBlock state piece1 piece2, state
