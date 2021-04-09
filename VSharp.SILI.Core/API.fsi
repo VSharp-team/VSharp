@@ -5,6 +5,7 @@ open System.Reflection
 
 [<AutoOpen>]
 module API =
+    val ConfigureSolver : SolverInteraction.ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
@@ -24,6 +25,7 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
+    val Solve : term -> SolverInteraction.smtResult
     [<AutoOpen>]
     module Terms =
         val Nop : term
@@ -57,6 +59,15 @@ module API =
         val (|False|_|) : term -> unit option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
+
+        val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
+        val (|ArrayIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
+        val (|VectorIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
+        val (|StackBufferReading|_|) : IMemoryAccessConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
+        val (|StaticsReading|_|) : IMemoryAccessConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<symbolicType>>>
+        val (|StructFieldSource|_|) : IMemoryAccessConstantSource -> option<fieldId>
+        val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<unit>
+        val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
 
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
@@ -172,6 +183,7 @@ module API =
         val InitializeStaticMembers : state -> symbolicType -> state
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
+        val AllocateVectorArray : state -> term -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateDelegate : state -> term -> term * state
 

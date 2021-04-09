@@ -44,6 +44,11 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
         let iieStates, nonIIEstates = List.partition isIIEState allStates
         let isFinished (s : cilState) = s.ipStack = [{label = Exit; method = initialState.startingIP.method}]
         let finishedStates = List.filter isFinished nonIIEstates
+        let isValid (cilState : cilState) =
+           match Solve (conjunction cilState.state.pc) with
+           | SolverInteraction.SmtUnsat _ -> false
+           | _ -> true
+        let validStates = List.filter isValid
         let printInfoForDebug () =
             let allStatesInQueue = q.GetStates()
             Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"

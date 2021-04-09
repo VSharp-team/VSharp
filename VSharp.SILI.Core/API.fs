@@ -4,8 +4,11 @@ open FSharpx.Collections
 open VSharp
 
 module API =
+    let ConfigureSolver solver =
+        SolverInteraction.configureSolver solver
     let ConfigureSimplifier simplifier =
         Propositional.configureSimplifier simplifier
+
     let Reset() =
         IdGenerator.reset()
     let SaveConfiguration() =
@@ -32,6 +35,7 @@ module API =
     let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = Operators.simplifyUnaryOperation op arg k
 
+    let Solve t = SolverInteraction.solve t
     [<AutoOpen>]
     module public Terms =
         let Nop = Nop
@@ -81,6 +85,15 @@ module API =
         let (|False|_|) t = (|False|_|) t
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
+
+        let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
+        let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src
+        let (|VectorIndexReading|_|) src = Memory.(|VectorIndexReading|_|) src
+        let (|StackBufferReading|_|) src = Memory.(|StackBufferReading|_|) src
+        let (|StaticsReading|_|) src = Memory.(|StaticsReading|_|) src
+        let (|StructFieldSource|_|) src = Memory.(|StructFieldSource|_|) src
+        let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
+        let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
 
         let ConstantsOf terms = discoverConstants terms
 
@@ -133,25 +146,25 @@ module API =
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 
     module public Operators =
-        let (!!) x = Propositional.simplifyNegation x id
-        let (&&&) x y = Propositional.simplifyAnd x y id
-        let (|||) x y = Propositional.simplifyOr x y id
-        let (===) x y = Operators.ksimplifyEquality x y id
-        let (!==) x y = Operators.ksimplifyEquality x y (!!)
+        let (!!) x = simplifyNegation x id
+        let (&&&) x y = simplifyAnd x y id
+        let (|||) x y = simplifyOr x y id
+        let (===) x y = ksimplifyEquality x y id
+        let (!==) x y = ksimplifyEquality x y (!!)
         let conjunction xs = conjunction xs
         let disjunction xs = disjunction xs
 
     module public Arithmetics =
-        let (===) x y = Arithmetics.simplifyEqual x y id
-        let (!==) x y = Arithmetics.simplifyNotEqual x y id
-        let (<<) x y = Arithmetics.simplifyLess x y id
-        let (<<=) x y = Arithmetics.simplifyLessOrEqual x y id
-        let (>>) x y = Arithmetics.simplifyGreater x y id
-        let (>>=) x y = Arithmetics.simplifyGreaterOrEqual x y id
-        let (%%%) x y = Arithmetics.simplifyRemainder (x |> TypeOf |> Types.ToDotNetType) x y id
+        let (===) x y = simplifyEqual x y id
+        let (!==) x y = simplifyNotEqual x y id
+        let (<<) x y = simplifyLess x y id
+        let (<<=) x y = simplifyLessOrEqual x y id
+        let (>>) x y = simplifyGreater x y id
+        let (>>=) x y = simplifyGreaterOrEqual x y id
+        let (%%%) x y = simplifyRemainder (x |> TypeOf |> Types.ToDotNetType) x y id
 
-        let Mul x y = Arithmetics.mul x y
-        let IsZero term = Arithmetics.checkEqualZero term id
+        let Mul x y = mul x y
+        let IsZero term = checkEqualZero term id
 
     module public Memory =
         let EmptyState = Memory.empty
@@ -274,9 +287,13 @@ module API =
         let AllocateDefaultClass state typ =
             Memory.allocateClass state typ
 
-        let AllocateDefaultArray state dimensions typ =
-            let address, state = Memory.allocateArray state typ None dimensions
+        let AllocateDefaultArray state lengths typ =
+            let address, state = Memory.allocateArray state typ None lengths
             HeapRef address typ, state
+
+        let AllocateVectorArray state length elementType =
+            let address, state = Memory.allocateVector state elementType length
+            HeapRef address (ArrayType(elementType, Vector)), state
 
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 

@@ -979,7 +979,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
             (fun cilState k ->
-                let ref, state = Memory.AllocateDefaultArray cilState.state [numElements] (ArrayType(elemType, Vector))
+                let ref, state = Memory.AllocateVectorArray cilState.state numElements elemType
                 cilState |> withState state |> push ref |> List.singleton |> k)
             (this.Raise this.OverflowException)
             id

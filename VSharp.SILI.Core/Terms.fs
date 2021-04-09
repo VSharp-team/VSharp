@@ -174,7 +174,7 @@ type termNode =
 
         toStr -1 "\t" x
 
-and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type HeapAddressType!
+and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 
 and address =
     | PrimitiveStackLocation of stackKey

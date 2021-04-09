@@ -250,6 +250,21 @@ namespace VSharp.Test.Tests
             public int x;
         }
 
+        [TestSvm]
+        public static int ReadFieldOfCLass1(ClassWithOneField a, ClassWithOneField b)
+        {
+            var c1 = new ClassWithOneField();
+            c1.x = 42;
+            var c2 = new ClassWithOneField();
+            c2.x = 12;
+            var c3 = new ClassWithOneField();
+            c3.x = 7;
+            a.x = b.x * 2;
+            if (a.x > 127)
+                b.x = a.x * 2;
+            return a.x;
+        }
+
         private static int ReadFieldOfCLass(ClassWithOneField classWithOneField)
         {
             return classWithOneField.x;

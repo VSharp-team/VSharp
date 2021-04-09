@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
 using VSharp.CSharpUtils;
 using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Interpreter.IL.codeLocationSummary>;
-
+using VSharp.Solver;
 
 namespace VSharp.Test
 {
@@ -178,6 +178,11 @@ namespace VSharp.Test
         {
             var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.Explore);
             return ResultToString(summary);
+        }
+
+        public void ConfigureSolver()
+        {
+            API.ConfigureSolver(SolverPool.mkSolver());
         }
 
         public IDictionary<MethodInfo, string> Run(Assembly assembly, List<string> ignoredList)

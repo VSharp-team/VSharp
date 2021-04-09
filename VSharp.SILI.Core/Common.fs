@@ -4,10 +4,6 @@
 
 open VSharp
 
-//type SolverResult = Sat | Unsat | Unknown
-//type ISolver =
-//    abstract Solve : term -> SolverResult
-//    abstract SolvePathCondition : term -> term list -> SolverResult
 
 module internal Common =
 //    let mutable private solver : ISolver option = None

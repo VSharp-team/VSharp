@@ -115,7 +115,44 @@ type IMemoryAccessConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract TypeOfLocation : symbolicType
 
+module public SolverInteraction =
+
+    type model() = class end
+    type unsatCore() = class end
+
+    type level = uint32
+    type formula = term
+
+    type path =
+        { lvl : level; state : state }
+    type lemma =
+        { lvl : level; lemFml : formula }
+    type query =
+        { lvl : level; queryFml : formula }
+
+    type satInfo = { mdl : model; usedPaths : path seq }
+    type unsatInfo = { core : unsatCore }
+
+    type smtResult =
+        | SmtSat of satInfo
+        | SmtUnsat of unsatInfo
+        | SmtUnknown of string
+
+    type ISolver =
+        abstract CheckSat : query -> smtResult
+        abstract Assert : level -> formula -> unit
+        abstract AddPath : path -> unit
+
+    let mutable private solver : ISolver option = None
+    let configureSolver s = solver <- Some s
+    let internal solve term =
+        match solver with
+        | Some s -> s.CheckSat {lvl = 0u; queryFml = term}
+        | None -> SmtUnknown ""
+
 module internal Memory =
+
+    open SolverInteraction
 
 // ------------------------------- Primitives -------------------------------
 
@@ -290,6 +327,37 @@ module internal Memory =
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
+    let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
+        | _ -> None
+
+    let (|ArrayIndexReading|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as ar ->
+            Some(isConcreteHeapAddress ar.key.address, ar.key, ar.memoryObject)
+        | _ -> None
+
+    let (|VectorIndexReading|_|) (src : IMemoryAccessConstantSource) =
+        let hasDefaultValue = function
+            | ArrayLowerBoundSort _ -> true
+            | _ -> false
+        match src with
+        | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> as vr ->
+            Some(hasDefaultValue vr.picker.sort, vr.key, vr.memoryObject)
+        | _ -> None
+
+    let (|StackBufferReading|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapReading<stackBufferIndexKey, int points> as sbr -> Some(sbr.key, sbr.memoryObject)
+        | _ -> None
+
+    let (|StaticsReading|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapReading<symbolicTypeKey, freeRegion<symbolicType>> as sr -> Some(sr.key, sr.memoryObject)
+        | _ -> None
+
+
     [<StructuralEquality;NoComparison>]
     type private structField =
         {baseSource : IMemoryAccessConstantSource; field : fieldId}
@@ -297,6 +365,11 @@ module internal Memory =
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.field.typ |> fromDotNetType
+
+    let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? structField as sf -> Some(sf.field)
+        | _ -> None
 
     [<StructuralEquality;NoComparison>]
     type private heapAddressSource =
@@ -306,12 +379,22 @@ module internal Memory =
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.baseSource.TypeOfLocation
 
+    let (|HeapAddressSource|_|) (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapAddressSource -> Some()
+        | _ -> None
+
     [<StructuralEquality;NoComparison>]
     type private typeInitialized =
         {typ : symbolicType; matchingTypes : symbolicTypeSet}
         interface IStatedSymbolicConstantSource  with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+
+    let (|TypeInitializedSource|_|) (src : IStatedSymbolicConstantSource) =
+        match src with
+        | :? typeInitialized as ti -> Some(ti.typ, ti.matchingTypes)
+        | _ -> None
 
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ
@@ -364,79 +447,6 @@ module internal Memory =
         if Types.isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 
-// ------------------------------- Merging -------------------------------
-
-    let rec findCommonSuffix common pc1 pc2 =
-        match pc1, pc2 with
-        | [], [] -> [], [], common
-        | [], rest2 -> [], rest2, common
-        | rest1, [] -> rest1, [], common
-        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
-        | _ -> pc1, pc2, common
-
-    let private merge2StatesInternal state1 state2 =
-        if state1.frames <> state2.frames then None
-        else
-            // TODO: implement it! See InterpreterBase::interpret::merge
-            None
-
-    let merge2States state1 state2 =
-        match merge2StatesInternal state1 state2 with
-        | Some state -> [state]
-        | None -> [state1; state2]
-
-    let merge2Results (term1 : term, state1) (term2, state2) =
-        match merge2StatesInternal state1 state2 with
-        | Some state -> __notImplemented__()
-        | None -> [(term1, state1); (term2, state2)]
-
-    let mergeStates states =
-        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
-        states
-
-    let mergeResults (results : (term * state) list) =
-        // TODO
-        results
-
-    let commonGuardedStatedApplyk f state term mergeResults k =
-        match term.term with
-        | Union gvs ->
-            let foldFunc (g, v) k =
-                // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
-                let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
-                else f (withPathCondition state g) v (Some >> k)
-            Cps.List.choosek foldFunc gvs (mergeResults >> k)
-        | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
-    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
-
-    let guardedStatedMap mapper state term =
-        match term.term with
-        | Union gvs -> gvs |> List.map (fun (g, v) -> mapper (withPathCondition state g) v)
-        | _ -> [mapper state term]
-
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let execution conditionState condition k =
-            assert (condition <> True && condition <> False)
-            thenBranch (withPathCondition conditionState condition) (fun thenResult ->
-            elseBranch (withPathCondition conditionState !!condition) (fun elseResult ->
-            merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->
-        // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
-        // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenCondition = PC.add conditionState.pc condition
-        let elseCondition = PC.add conditionState.pc (!!condition)
-        match thenCondition, elseCondition with
-        | _ when PC.isFalse thenCondition -> elseBranch conditionState (List.singleton >> k)
-        | _ when PC.isFalse elseCondition -> thenBranch conditionState (List.singleton >> k)
-        | _ -> execution conditionState condition k)
-
-    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
-    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
-        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
-
 // ------------------------------- Reading -------------------------------
 
     let private readConcreteDict = PersistentDict.find
@@ -451,6 +461,10 @@ module internal Memory =
         | HeapRef(address, _) -> address
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, extractAddress v)) |> Merging.merge
         | _ -> internalfail "Extracting heap address: expected heap reference, but got %O" reference
+
+    let isConcreteHeapAddress = term >> function
+        | ConcreteHeapAddress _ -> true
+        | _ -> false
 
     let private isHeapAddressDefault state = term >> function
         | ConcreteHeapAddress addr -> VectorTime.less state.startingTime addr
@@ -538,7 +552,7 @@ module internal Memory =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readDelegate state v)) |> Merging.merge
         | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
 
-    let rec readAddress state = function
+    let rec private readAddress state = function
         | PrimitiveStackLocation key -> readStackLocation state key
         | ClassField(addr, field) -> readClassField state addr field
         | ArrayIndex(addr, indices, typ) -> readArrayIndex state addr indices typ // TODO: what if typ if not the most concrete? #do
@@ -567,6 +581,86 @@ module internal Memory =
             let name = sprintf "%O_initialized" typ
             let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
             Constant name source Bool
+
+
+// ------------------------------- Merging -------------------------------
+
+    let rec findCommonSuffix common pc1 pc2 =
+        match pc1, pc2 with
+        | [], [] -> [], [], common
+        | [], rest2 -> [], rest2, common
+        | rest1, [] -> rest1, [], common
+        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
+        | _ -> pc1, pc2, common
+
+    let private merge2StatesInternal state1 state2 =
+        if state1.frames <> state2.frames then None
+        else
+            // TODO: implement it! See InterpreterBase::interpret::merge
+            None
+
+    let merge2States state1 state2 =
+        match merge2StatesInternal state1 state2 with
+        | Some state -> [state]
+        | None -> [state1; state2]
+
+    let merge2Results (term1 : term, state1) (term2, state2) =
+        match merge2StatesInternal state1 state2 with
+        | Some state -> __notImplemented__()
+        | None -> [(term1, state1); (term2, state2)]
+
+    let mergeStates states =
+        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
+        states
+
+    let mergeResults (results : (term * state) list) =
+        // TODO
+        results
+
+    let commonGuardedStatedApplyk f state term mergeResults k =
+        match term.term with
+        | Union gvs ->
+            let foldFunc (g, v) k =
+                // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
+                let pc = PC.add state.pc g
+                if PC.isFalse pc then k None
+                else f (withPathCondition state g) v (Some >> k)
+            Cps.List.choosek foldFunc gvs (mergeResults >> k)
+        | _ -> f state term (List.singleton >> k)
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
+    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
+
+    let guardedStatedMap mapper state term =
+        match term.term with
+        | Union gvs -> gvs |> List.map (fun (g, v) -> mapper (withPathCondition state g) v)
+        | _ -> [mapper state term]
+
+    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let execution conditionState condition k =
+            assert (condition <> True && condition <> False)
+            thenBranch (withPathCondition conditionState condition) (fun thenResult ->
+            elseBranch (withPathCondition conditionState !!condition) (fun elseResult ->
+            merge2Results thenResult elseResult |> k))
+        conditionInvocation state (fun (condition, conditionState) ->
+        // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
+        // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
+        let thenCondition = PC.add conditionState.pc condition
+        let elseCondition = PC.add conditionState.pc (!!condition)
+        match thenCondition, elseCondition with
+        | _ when PC.isFalse thenCondition -> elseBranch conditionState (List.singleton >> k)
+        | _ when PC.isFalse elseCondition -> thenBranch conditionState (List.singleton >> k)
+        | _ ->
+            match solve thenCondition with
+            | SmtUnsat _ -> elseBranch conditionState (List.singleton >> k)
+            | _ ->
+                match solve elseCondition with
+                | SmtUnsat _ -> thenBranch conditionState (List.singleton >> k)
+                | _ -> execution conditionState condition k)
+
+    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
+    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
+        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
 
 // ------------------------------- Writing -------------------------------
 
@@ -694,12 +788,13 @@ module internal Memory =
                 List.fold2 (fun state l i -> writeLowerBound state address (Concrete i lengthType) arrayType l) state lowerBounds [0 .. d-1]
         address, state
 
-    let allocateVector state typ length =
-        let address, state = allocateArray state typ None [length]
-        HeapRef address typ, state
+    let allocateVector state elementType length =
+        let lbs = Some [makeNumber 0]
+        let typ = ArrayType(elementType, Vector)
+        allocateArray state typ lbs [length]
 
     let private allocateConcreteVector state elementType length contents =
-        let address, state = allocateArray state (ArrayType(elementType, Vector)) None [makeNumber length]
+        let address, state = allocateVector state elementType (makeNumber length)
         // TODO: optimize this for large concrete arrays (like images)!
         address, Seq.foldi (fun state i value -> writeArrayIndex state address [Concrete i lengthType] (elementType, 1, true) (Concrete value elementType)) state contents
 

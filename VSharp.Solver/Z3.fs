@@ -4,6 +4,7 @@ open Microsoft.Z3
 open System.Collections.Generic
 open VSharp
 open VSharp.Core
+open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
@@ -44,6 +45,7 @@ module internal Z3 =
                 | Numeric(Id t) when t.IsEnum -> ctx.MkIntSort() :> Sort
                 | Numeric _ as t when Types.IsInteger t -> ctx.MkIntSort() :> Sort
                 | Numeric _ as t when Types.IsReal t -> ctx.MkRealSort() :> Sort
+                | AddressType -> ctx.MkIntSort() :> Sort
                 | Numeric _
                 | ArrayType _
                 | Void
@@ -52,9 +54,14 @@ module internal Z3 =
                 | ClassType _
                 | InterfaceType _
                 | TypeVariable _
-                | AddressType
                 | ByRef _
                 | Pointer _ -> __notImplemented__())
+
+        member private x.EncodeConcreteAddress (addr : concreteHeapAddress) =
+            let pairingFunction acc x =
+                let sum = x + acc
+                sum * (sum + 1u) / 2u + x
+            ctx.MkNumeral(List.fold pairingFunction (addr |> List.length |> uint32) addr, x.Type2Sort AddressType)
 
         member private x.EncodeConcrete (obj : obj) typ =
             match typ with
@@ -62,17 +69,74 @@ module internal Z3 =
             | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
             | Numeric(Id t) ->
                 match obj with
-                | :? concreteHeapAddress as addr ->
-                    match addr with
-                    | [addr] -> ctx.MkNumeral(addr.ToString(), x.Type2Sort typ)
-                    | _ -> __notImplemented__()
                 | _ when TypeUtils.isIntegral (obj.GetType()) -> ctx.MkInt(obj.ToString()) :> Expr
                 | _ when t.IsEnum -> ctx.MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
                 | _ -> ctx.MkNumeral(obj.ToString(), x.Type2Sort typ)
+            | AddressType ->
+                match obj with
+                | :? concreteHeapAddress as addr ->
+                    assert(List.isEmpty addr |> not)
+                    x.EncodeConcreteAddress addr
+                | _ -> __unreachable__()
             | _ -> __notImplemented__()
 
-        member private x.EncodeConstant name typ term =
+        member private x.CreateConstant name typ term =
             cache.Get term (fun () -> ctx.MkConst(x.ValidateId name, x.Type2Sort typ))
+
+        member private x.EncodeSymbolicAddress (addr : term) name = x.CreateConstant name AddressType addr
+
+        member private x.EncodeMemoryAccessConstant (name : string) (source : IMemoryAccessConstantSource) typ term =
+            let memoryReading encodeKey hasDefaultValue sort store select key mo =
+                let updates = MemoryRegion.flatten mo
+                let memoryRegionConst =
+                    if hasDefaultValue then ctx.MkConstArray(sort, ctx.MkNumeral(0, ctx.MkIntSort()))
+                    else ctx.MkConst(name, sort) :?> ArrayExpr
+                let array = List.fold (fun acc (k, v) -> store acc (encodeKey k) (x.EncodeTerm v)) memoryRegionConst updates
+                let res = select array (encodeKey key)
+                res
+            let heapReading key mo = // TODO: is this code dead? -- no, this must handle class fields heap!
+                let encodeKey (k : heapAddressKey) = x.EncodeTerm k.address
+                let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+                let store array (k : Expr) v = ctx.MkStore(array, k, v)
+                let select array (k : Expr) = ctx.MkSelect(array, k)
+                memoryReading encodeKey false sort store select key mo
+            let arrayReading encodeKey hasDefaultValue indices key mo =
+                let sort = // TODO: mb Array.replicate (List.length indices + 1) (ctx.MkIntSort() :> Sort)?
+                    let domainSort = x.Type2Sort AddressType :: List.map (ctx.MkIntSort() :> Sort |> always) indices |> Array.ofList
+                    ctx.MkArraySort(domainSort, x.Type2Sort typ)
+                let store array (k : Expr[]) v = ctx.MkStore(array, k, v)
+                let select array (k : Expr[]) = ctx.MkSelect(array, k)
+                memoryReading encodeKey hasDefaultValue sort store select key mo
+            let stackBufferReading key mo = // TODO: is it for structs?
+                let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm k.index
+                let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+                let store array (k : Expr) v = ctx.MkStore(array, k, v)
+                let select array (k : Expr) = ctx.MkSelect(array, k)
+                memoryReading encodeKey false sort store select key mo
+            let staticsReading key mo = // TODO: mb const array?
+                let memoryRegionConst = ctx.MkArrayConst(name, ctx.MkIntSort(), x.Type2Sort typ)
+                let updates = MemoryRegion.flatten mo
+                let value = Seq.tryFind (fun (k, _) -> k = key) updates
+                match value with
+                | Some (_, v) -> x.EncodeTerm v
+                | None -> ctx.MkSelect(memoryRegionConst, ctx.MkNumeral(0, ctx.MkIntSort()))
+            match source with // TODO: add caching #encode
+            | HeapReading(key, mo) -> heapReading key mo
+            | ArrayIndexReading(hasDefaultValue, key, mo) ->
+                let encodeKey (k : heapArrayIndexKey) = k.address :: k.indices |> Array.ofList |> Array.map x.EncodeTerm
+                arrayReading encodeKey hasDefaultValue key.indices key mo
+            | VectorIndexReading(hasDefaultValue, key, mo) ->
+                let encodeKey (k : heapVectorIndexKey) = Array.map x.EncodeTerm [|k.address; k.index|]
+                arrayReading encodeKey hasDefaultValue [key.index] key mo
+            | StackBufferReading(key, mo) -> stackBufferReading key mo
+            | StaticsReading(key, mo) -> staticsReading key mo
+            | HeapAddressSource -> x.EncodeSymbolicAddress term name
+            | _ -> x.CreateConstant name typ term
+
+        member private x.EncodeConstant name (source : ISymbolicConstantSource) typ term =
+            match source with
+            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant name source typ term
+            | _ -> x.CreateConstant name typ term
 
         member private x.EncodeExpression stopper term op args typ =
             cache.Get term (fun () ->
@@ -80,7 +144,7 @@ module internal Z3 =
                 | Operator operator ->
                     if stopper operator args then
                         let name = IdGenerator.startingWith "%tmp"
-                        x.EncodeConstant name typ term
+                        x.CreateConstant name typ term
                     else
                         match operator with
                         | OperationType.LogicalNeg -> x.MakeUnary stopper ctx.MkNot args :> Expr
@@ -130,9 +194,9 @@ module internal Z3 =
         member private x.EncodeTermExt<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (t : term) : 'a =
             match t.term with
             | Concrete(obj, typ) -> x.EncodeConcrete obj typ :?> 'a
-            | Constant(name, _, typ) -> x.EncodeConstant name.v typ t :?> 'a
+            | Constant(name, source, typ) -> x.EncodeConstant name.v source typ t :?> 'a
             | Expression(op, args, typ) -> x.EncodeExpression stopper t op args typ :?> 'a
-            | _ -> __notImplemented__()
+            | _ -> __notImplemented__() // TODO: need to encode HeapRef? #encode
 
         member public x.EncodeTerm<'a when 'a :> Expr> (t : term) : 'a =
             x.EncodeTermExt<'a> (fun _ _ -> false) t

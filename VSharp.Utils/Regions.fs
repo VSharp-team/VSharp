@@ -155,6 +155,7 @@ type points<'a when 'a : equality> =
             | true, false -> {points = PersistentSet.subtract other.points this.points; thrown = false}
             | false, true -> {points = PersistentSet.subtract this.points other.points; thrown = false}
             | true, true -> {points = PersistentSet.union other.points this.points; thrown = true}
+    override x.ToString() = x.points |> PersistentSet.toSeq |> Seq.map toString |> join ", " |> sprintf (if x.thrown then "Z \ {%s}" else "{%s}")
 
 // -------------------- Cartesian product of regions  --------------------
 

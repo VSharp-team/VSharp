@@ -5,7 +5,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Solver.fs" />
         <Compile Include="Z3.fs" />
         <Compile Include="SolverPool.fs" />
     </ItemGroup>
