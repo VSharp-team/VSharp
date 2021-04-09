@@ -465,7 +465,10 @@ module internal InstructionsSet =
     let throw _ _ (cilState : cilState) =
         let error, _ = pop cilState
         cilState |> withException (Unhandled error) |> withOpStack emptyOpStack |> List.singleton
-    let leave _ _ (cilState : cilState) = cilState :: []
+    let leave _ _ (cilState : cilState) =
+        // The leave instruction empties the evaluation stack and ensures that the appropriate surrounding finally blocks are executed.
+        // TODO: empty opStack (only for this frame)! #do
+        cilState :: []
     let rethrow _ _ (cilState : cilState) =
         let state = cilState.state
         assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
@@ -478,9 +481,7 @@ module internal InstructionsSet =
     let endfinally _ _ (cilState : cilState) =
         cilState |> withOpStack emptyOpStack |> List.singleton
     let constrained cfg offset (initialCilState : cilState) = // TODO: implement fully #do
-//        let x = Instruction.parseInstruction cfg.methodBase (offset + 1)
-        let a = Instruction.findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset
-        match a with
+        match Instruction.findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
@@ -501,6 +502,7 @@ module internal InstructionsSet =
             | _ -> __unreachable__()
         | _ -> __unreachable__()
     let zipWithOneOffset op cfgData offset newIps cilState =
+        // TODO: this fails in method 'ChessGame.IsInCheck' on instruction 742 #do
         assert(List.length newIps = 1)
         assert(not <| isError cilState)
         let newIp = List.head newIps
