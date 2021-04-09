@@ -1023,48 +1023,9 @@ namespace VSharp.Test.Tests
             return localVariable;
         }
 
-        [TestSvm]
-        public static int TestWithHandlers(int x, int y) {
-            //A[] array = new A[15];
-            int addition = 1;
-            try
-            {
-                return x / y;
-            }
-            catch (OverflowException e)
-            {
-                return addition + 100500;
-            }
-            catch (DivideByZeroException e) when (x == 100)
-            {
-                return addition + 90;
-            }
-            finally
-            {
-                addition++;
-            }
 
-            return checked(x + y);
-        }
 
-        // expecting 111
-        [TestSvm]
-        public static int TestWithNestedFinallyHandlers(int x, int y)
-        {
-            int addition = 1;
-            try  {}
-            finally
-            {
-                try { }
-                finally
-                {
-                    addition += 10;
-                }
-                addition += 100;
-            }
 
-            return addition;
-        }
 
         public static void MutateField(ClassWithOneField a)
         {

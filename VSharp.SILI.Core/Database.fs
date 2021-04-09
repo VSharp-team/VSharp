@@ -7,6 +7,7 @@ open VSharp
 type label =
     | Instruction of offset
     | Exit
+    | Leave of offset
     | FindingHandler of offset // offset -- source of exception
 
 [<CustomComparison; CustomEquality>]
