@@ -14,6 +14,22 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
 
+type regionSort =
+    | HeapFieldSort of fieldId
+    | StaticFieldSort of fieldId
+    | ArrayIndexSort of arrayType
+    | ArrayLengthSort of arrayType
+    | ArrayLowerBoundSort of arrayType
+    | StackBufferSort of stackKey
+    member x.TypeOfLocation =
+        match x with
+        | HeapFieldSort field
+        | StaticFieldSort field -> field.typ |> Types.Constructor.fromDotNetType
+        | ArrayIndexSort(elementType, _, _)
+        | ArrayLengthSort(elementType, _, _)
+        | ArrayLowerBoundSort(elementType, _, _) -> elementType
+        | StackBufferSort _ -> Types.Numeric typeof<int8>
+
 module private MemoryKeyUtils =
 
     let regionOfHeapAddress = function

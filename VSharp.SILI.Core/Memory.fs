@@ -10,103 +10,6 @@ open VSharp.Utils
 
 #nowarn "69"
 
-type stack = mappedStack<stackKey, term>
-type entry = { key : stackKey; typ : symbolicType }
-type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
-type frames = stackFrame stack // TODO: is it invariant ``there could not be two sequential stackFrames that are effects'' ?
-
-type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
-
-type stackBufferKey = concreteHeapAddress
-
-type offset = int
-
-// last fields are determined by above fields
-// TODO: remove it when CFA is gone #Kostya
-[<CustomEquality;CustomComparison>]
-type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
-                  calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
-    with
-    member x.HasNonVoidResult = Reflection.hasNonVoidResult x.calledMethod
-    member x.SymbolicType = x.calledMethod |> Reflection.getMethodReturnType |> fromDotNetType
-    override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
-    override x.Equals(o : obj) =
-        match o with
-        | :? callSite as other -> x.offset = other.offset && x.sourceMethod = other.sourceMethod
-        | _ -> false
-    interface System.IComparable with
-        override x.CompareTo(other) =
-            match other with
-            | :? callSite as other when x.sourceMethod.Equals(other.sourceMethod) -> x.offset.CompareTo(other.offset)
-            | :? callSite as other -> x.sourceMethod.MetadataToken.CompareTo(other.sourceMethod.MetadataToken)
-            | _ -> -1
-    override x.ToString() =
-        sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
-            (Reflection.getFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.getFullMethodName x.calledMethod)
-
-// TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
-type exceptionRegister =
-    | Unhandled of term
-    | Caught of term
-    | NoException
-    with
-    member x.GetError () =
-        match x with
-        | Unhandled error -> error
-        | Caught error -> error
-        | _ -> internalfail "no error"
-
-    member x.TransformToCaught () =
-        match x with
-        | Unhandled e -> Caught e
-        | _ -> internalfail "unable TransformToCaught"
-    member x.TransformToUnhandled () =
-        match x with
-        | Caught e -> Unhandled e
-        | _ -> internalfail "unable TransformToUnhandled"
-    member x.UnhandledError =
-        match x with
-        | Unhandled _ -> true
-        | _ -> false
-    member x.ExceptionTerm =
-        match x with
-        | Unhandled error
-        | Caught error -> Some error
-        | _ -> None
-    static member map f x =
-        match x with
-        | Unhandled e -> Unhandled <| f e
-        | Caught e -> Caught <| f e
-        | NoException -> NoException
-
-type arrayCopyInfo =
-    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : symbolicType; dstSightType : symbolicType} with
-        override x.ToString() =
-            sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
-
-and state = {
-    pc : pathCondition
-    opStack : operationStack
-    stack : stack                                             // Arguments and local variables
-    stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
-    frames : frames                                           // Meta-information about stack frames
-    classFields : pdict<fieldId, heapRegion>                  // Fields of classes in heap
-    arrays : pdict<arrayType, arrayRegion>                    // Contents of arrays in heap
-    lengths : pdict<arrayType, vectorRegion>                  // Lengths by dimensions of arrays in heap
-    lowerBounds : pdict<arrayType, vectorRegion>              // Lower bounds by dimensions of arrays in heap
-    staticFields : pdict<fieldId, staticsRegion>              // Static fields of types without type variables
-    boxedLocations : pdict<concreteHeapAddress, term>         // Value types boxed in heap
-    initializedTypes : symbolicTypeSet                        // Types with initialized static members
-    allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
-    typeVariables : typeVariables                             // Type variables assignment in the current state
-    // TODO: only for string ctors? if not then it's bug, because we can write full copy and after that write partial copy: so we don't know what order was #do
-    delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
-    currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
-    startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-    returnRegister : term option
-    exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-}
-
 type IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
     abstract Compose : state -> term
@@ -114,54 +17,6 @@ type IStatedSymbolicConstantSource =
 type IMemoryAccessConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract TypeOfLocation : symbolicType
-
-module public SolverInteraction =
-
-    type model() = class end
-    type unsatCore() = class end
-
-    type level = uint32
-    type formula = term
-
-    type path =
-        { lvl : level; state : state }
-    type lemma =
-        { lvl : level; lemFml : formula }
-    type query =
-        { lvl : level; queryFml : formula }
-
-    type encodingContext =
-        { addressOrder : Map<concreteHeapAddress, int>}
-
-    type satInfo = { mdl : model; usedPaths : path seq }
-    type unsatInfo = { core : unsatCore }
-
-    type smtResult =
-        | SmtSat of satInfo
-        | SmtUnsat of unsatInfo
-        | SmtUnknown of string
-
-    type ISolver =
-        abstract CheckSat : encodingContext -> query -> smtResult
-        abstract Assert : level -> formula -> unit
-        abstract AddPath : path -> unit
-
-    let mutable private solver : ISolver option = None
-
-    let configureSolver s = solver <- Some s
-
-    let getEncodingContext (state : state) =
-        let addresses = PersistentDict.keys state.allocatedTypes
-        let sortedAddresses = Seq.sortWith VectorTime.compare addresses
-        let order = Seq.foldi (fun map i address -> Map.add address i map) Map.empty sortedAddresses
-        { addressOrder = order }
-
-    let internal isValid state =
-        let ctx = getEncodingContext state
-        let formula = PC.toSeq state.pc |> conjunction
-        match solver with
-        | Some s -> s.CheckSat ctx {lvl = 0u; queryFml = formula }
-        | None -> SmtUnknown ""
 
 module internal Memory =
 
@@ -247,9 +102,9 @@ module internal Memory =
         | Bool
         | AddressType
         | Numeric _ -> typ
-        | StructType(t, args) -> substitute Types.StructType t args
-        | ClassType(t, args) -> substitute Types.ClassType t args
-        | InterfaceType(t, args) -> substitute Types.InterfaceType t args
+        | StructType(t, args) -> substitute StructType t args
+        | ClassType(t, args) -> substitute ClassType t args
+        | InterfaceType(t, args) -> substitute InterfaceType t args
         | TypeVariable(Id _ as key) ->
             let ms = state.typeVariables |> fst
             if MappedStack.containsKey key ms then MappedStack.find key ms else typ
@@ -260,7 +115,7 @@ module internal Memory =
     let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
         (substituteTypeVariables state et, i, b)
 
-    let typeVariableSubst state (t : System.Type) =
+    let typeVariableSubst state (t : Type) =
         match MappedStack.tryFind (Id t) (fst state.typeVariables) with
         | Some typ -> typ |> toDotNetType
         | None -> t
@@ -293,22 +148,6 @@ module internal Memory =
         | _ -> typeOfAddress address
 
 // ------------------------------- Instantiation -------------------------------
-
-    type regionSort =
-        | HeapFieldSort of fieldId
-        | StaticFieldSort of fieldId
-        | ArrayIndexSort of arrayType
-        | ArrayLengthSort of arrayType
-        | ArrayLowerBoundSort of arrayType
-        | StackBufferSort of stackKey
-        member x.TypeOfLocation =
-            match x with
-            | HeapFieldSort field
-            | StaticFieldSort field -> field.typ |> fromDotNetType
-            | ArrayIndexSort(elementType, _, _)
-            | ArrayLengthSort(elementType, _, _)
-            | ArrayLowerBoundSort(elementType, _, _) -> elementType
-            | StackBufferSort _ -> Numeric typeof<int8>
 
     [<CustomEquality;NoComparison>]
     type regionPicker<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
@@ -369,6 +208,14 @@ module internal Memory =
         | :? heapReading<symbolicTypeKey, freeRegion<symbolicType>> as sr -> Some(sr.key, sr.memoryObject)
         | _ -> None
 
+    let getHeapReadingRegionSort (src : IMemoryAccessConstantSource) =
+        match src with
+        | :? heapReading<heapAddressKey, vectorTime intervals>                                                 as hr -> hr.picker.sort
+        | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as hr -> hr.picker.sort
+        | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>                  as hr -> hr.picker.sort
+        | :? heapReading<stackBufferIndexKey, int points>                                                      as hr -> hr.picker.sort
+        | :? heapReading<symbolicTypeKey, freeRegion<symbolicType>>                                            as hr -> hr.picker.sort
+        | _ -> __unreachable__()
 
     [<StructuralEquality;NoComparison>]
     type private structField =
@@ -409,7 +256,7 @@ module internal Memory =
         | _ -> None
 
     let private foldFields isStatic folder acc typ =
-        let dotNetType = Types.toDotNetType typ
+        let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
         let addField heap (field, typ) =
             let termType = typ |> fromDotNetType
@@ -456,7 +303,7 @@ module internal Memory =
 
     let makeSymbolicThis (m : System.Reflection.MethodBase) =
         let declaringType = m.DeclaringType |> fromDotNetType
-        if Types.isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
+        if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 
 // ------------------------------- Reading -------------------------------
@@ -485,7 +332,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         match MappedStack.tryFind key s.stack with
         | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if Types.isValueType key.TypeOfLocation then None else Some s.startingTime)
+        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if isValueType key.TypeOfLocation then None else Some s.startingTime)
 
     let readStruct (structTerm : term) (field : fieldId) = // TODO: falls in Conv_Ovf_short_int (native int != IntPtr) #do
         match structTerm with
@@ -618,7 +465,7 @@ module internal Memory =
 
     let merge2Results (term1 : term, state1) (term2, state2) =
         match merge2StatesInternal state1 state2 with
-        | Some state -> __notImplemented__()
+        | Some _ -> __notImplemented__()
         | None -> [(term1, state1); (term2, state2)]
 
     let mergeStates states =
@@ -780,8 +627,8 @@ module internal Memory =
 
     // Strings and delegates should be allocated using the corresponding functions (see allocateString and allocateDelegate)!
     let allocateClass state typ =
-        assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.String>)
-        assert (not <| (toDotNetType typ).IsSubclassOf typeof<System.Delegate>)
+        assert (not <| (toDotNetType typ).IsSubclassOf typeof<String>)
+        assert (not <| (toDotNetType typ).IsSubclassOf typeof<Delegate>)
         let address, state = allocateType state typ
         HeapRef address typ, state
 
@@ -813,7 +660,7 @@ module internal Memory =
         let address, state = allocateConcreteVector state Char (str.Length + 1) (Seq.append str (Seq.singleton '\000'))
         let heapAddress = getConcreteHeapAddress address
         let state = writeClassField state address Reflection.stringLengthField (Concrete str.Length lengthType)
-        HeapRef address String, {state with allocatedTypes = PersistentDict.add heapAddress Types.String state.allocatedTypes}
+        HeapRef address String, {state with allocatedTypes = PersistentDict.add heapAddress String state.allocatedTypes}
 
     let allocateDelegate state delegateTerm = // TODO: bug! need to allocate in allocatedTypes! #do
         let concreteAddress, state = freshAddress state
@@ -835,9 +682,9 @@ module internal Memory =
 
     let initializeStaticMembers state typ =
         let state =
-            if typ = Types.String then
+            if typ = String then
                 let reference, state = allocateString state ""
-                writeStaticField state Types.String Reflection.emptyStringField reference
+                writeStaticField state String Reflection.emptyStringField reference
             else state
         { state with initializedTypes = SymbolicSet.add {typ=typ} state.initializedTypes }
 

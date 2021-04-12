@@ -18,10 +18,12 @@
         <Compile Include="Substitution.fs" />
         <Compile Include="MemoryRegion.fs" />
         <Compile Include="OperationStack.fs" />
+        <Compile Include="State.fs" />
+        <Compile Include="Database.fs" />
+        <Compile Include="SolverInteraction.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="TypeCasting.fs" />
         <Compile Include="Copying.fs" />
-        <Compile Include="Database.fs" />
         <Compile Include="Marshalling.fs" />
         <Compile Include="Explorer.fs" />
         <Compile Include="API.fsi" />

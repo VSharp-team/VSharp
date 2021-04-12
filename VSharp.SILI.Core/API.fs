@@ -96,6 +96,8 @@ module API =
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
 
+        let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
+
         let ConstantsOf terms = discoverConstants terms
 
         let rec HeapReferenceToBoxReference reference =

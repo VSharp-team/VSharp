@@ -70,6 +70,8 @@ module API =
         val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<unit>
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
 
+        val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort
+
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
         val HeapReferenceToBoxReference : term -> term

@@ -977,7 +977,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let elemType = resolveTermTypeFromMetadata cfg (offset + OpCodes.Newarr.Size)
         let numElements, cilState = pop cilState
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state)) // TODO: exception #do
             (fun cilState k ->
                 let ref, state = Memory.AllocateVectorArray cilState.state numElements elemType
                 cilState |> withState state |> push ref |> List.singleton |> k)

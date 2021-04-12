@@ -46,8 +46,9 @@ module ipOperations =
     let methodOf (ip : ip) = ip.method
 
 module Level =
-    let zero : level = __notImplemented__()
-    let inf : level = __notImplemented__()
+    // TODO: implement level
+    let zero : level = PersistentDict.empty
+    let inf : level = PersistentDict.empty
 
     let isZero (l : level) = (l = zero)
     let isInf (l : level) = (l = inf)
@@ -57,7 +58,7 @@ module Level =
     let prev (l : level) : level = __notImplemented__()
     let toUInt (l : level) : uint32 = __notImplemented__()
 
-    let toInt (l : level) : int = __notImplemented__()
+    let toInt (l : level) : int = 0
 
     let toString (lvl : level) =
         if isInf lvl then "inf" else lvl.ToString()
