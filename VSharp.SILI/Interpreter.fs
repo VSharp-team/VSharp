@@ -177,6 +177,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let cilResults = List.map (fun state -> withState state cilState) results
             k cilResults) k) id
         | _ -> internalfail "unexpected number of arguments"
+
+    member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) = // TODO: do better #do
+        let implementedIntrinsics = typeof<System.IntPtr>.GetMethods(Reflection.allBindingFlags) |> Array.map (fun mi -> mi :> MethodBase)
+        let isIntrinsic = methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = "System.Runtime.CompilerServices.IntrinsicAttribute")
+        isIntrinsic && (Array.contains methodBase implementedIntrinsics |> not)
+
     member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         // because we have correspondence between ips and frames
         assert(let ip = currentIp cilState in ip.method = methodBase && ip.label = Instruction 0)
@@ -217,7 +223,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             cilState |> withState state |> withLastIp (instruction methodInfo 0) |> List.singleton |> k
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
             internalfailf "new extern method: %s" fullMethodName
-        elif methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = "System.Runtime.CompilerServices.IntrinsicAttribute") then
+        elif x.IsNotImplementedIntrinsic methodBase then
             internalfailf "new intrinsic method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k

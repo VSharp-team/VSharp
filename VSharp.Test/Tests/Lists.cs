@@ -189,7 +189,7 @@ namespace VSharp.Test.Tests
             return a;
         }
 
-        [TestSvm] // TODO: this test should break solving array constraints, because of copying #do
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int TestSolvingCopy(int[] a, int[] b, int i)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)

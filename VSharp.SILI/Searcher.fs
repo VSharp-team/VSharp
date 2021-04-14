@@ -28,7 +28,7 @@ type IndexedQueue() =
 
 [<AbstractClass>]
 type ISearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
-    let maxBound = 1000u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    let maxBound = 50u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     abstract member PickNext : IndexedQueue -> cilState option
 
     member x.Used (cilState : cilState) =

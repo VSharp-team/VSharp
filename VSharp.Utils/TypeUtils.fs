@@ -2,7 +2,6 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
-open System.Collections.Immutable
 open System.Reflection
 open System.Reflection.Emit
 open FSharpx.Collections
@@ -12,22 +11,21 @@ module TypeUtils =
     // ---------------------------------- Basic type groups ----------------------------------
 
     let private integralTypes =
-        new HashSet<Type>([typedefof<byte>; typedefof<sbyte>;
-                           typedefof<int16>; typedefof<uint16>;
-                           typedefof<int32>; typedefof<uint32>;
-                           typedefof<int64>; typedefof<uint64>;
-                           typedefof<char>])
+        HashSet<Type>([typedefof<byte>; typedefof<sbyte>;
+                       typedefof<int16>; typedefof<uint16>;
+                       typedefof<int32>; typedefof<uint32>;
+                       typedefof<int64>; typedefof<uint64>;
+                       typedefof<char>])
 
     let private unsignedTypes =
-        new HashSet<Type>([typedefof<byte>; typedefof<uint16>;
-                           typedefof<uint32>; typedefof<uint64>;])
+        HashSet<Type>([typedefof<byte>; typedefof<uint16>;
+                       typedefof<uint32>; typedefof<uint64>;])
 
-    let private realTypes =
-        new HashSet<Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
+    let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
 
-    let private numericTypes = new HashSet<Type>(Seq.append integralTypes realTypes)
+    let private numericTypes = HashSet<Type>(Seq.append integralTypes realTypes)
 
-    let private primitiveTypes = new HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
+    let private primitiveTypes = HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
 
     // ---------------------------------- Basic type predicates ----------------------------------
 
@@ -75,7 +73,9 @@ module TypeUtils =
             (typeof<uint64>,  widerThan64)
             (typeof<float>,   widerThan64) ]
 
-    let isLessForNumericTypes t1 t2 =
+    let isLessForNumericTypes (t1 : Type) (t2 : Type) =
+        let t1 = if t1.IsEnum then t1.GetEnumUnderlyingType() else t1
+        let t2 = if t2.IsEnum then t2.GetEnumUnderlyingType() else t2
         assert(isNumeric t1 && isNumeric t2)
         Array.contains t2 isWiderForNumericTypesMap.[t1]
 
@@ -103,7 +103,7 @@ module TypeUtils =
 
     type private convType = delegate of obj -> obj
 
-    let private convs = new Dictionary<Type * Type, convType>()
+    let private convs = Dictionary<Type * Type, convType>()
 
     let private emitConv t =
         match t with

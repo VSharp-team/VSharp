@@ -150,7 +150,7 @@ module internal CilStateOperations =
     let rec moveIpStack (cilState : cilState) : cilState list =
         match cilState.ipStack with
         | {label = Instruction offset; method = m} :: _ ->
-            if offset = 0 then Logger.info "Starting to explore method %O:" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
+            if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
             let cfg = CFG.findCfg m
             let opCode = Instruction.parseInstruction m offset
             let m = cfg.methodBase

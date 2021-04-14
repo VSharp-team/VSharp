@@ -988,7 +988,7 @@ namespace VSharp.Test.Tests
             return Math.Atan2(1, Double.PositiveInfinity);
         }
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void Mult(int x, int y)
         {
             int z = 0;

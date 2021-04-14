@@ -100,9 +100,6 @@ and state = {
     allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
     typeVariables : typeVariables                             // Type variables assignment in the current state
     // TODO: only for string ctors? if not then it's bug, because we can write full copy and after that write partial copy: so we don't know what order was #do
-    entireCopies : pdict<concreteHeapAddress, heapAddress * arrayRegion>  // Address and contents of (entirely) copied arrays
-    // TODO: why only concreteHeapAddress? #do
-    extendedCopies : pdict<concreteHeapAddress, arrayCopyInfo> // Address, contents, source and destination indices and target type of copied arrays
     delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
     currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
     startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
@@ -139,8 +136,6 @@ module internal Memory =
         initializedTypes = SymbolicSet.empty
         allocatedTypes = PersistentDict.empty
         typeVariables = (MappedStack.empty, Stack.empty)
-        entireCopies = PersistentDict.empty
-        extendedCopies = PersistentDict.empty
         delegates = PersistentDict.empty
         currentTime = [1u]
         startingTime = VectorTime.zero
@@ -487,16 +482,7 @@ module internal Memory =
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
-    let rec readArrayCopy state arrayType extractor addr indices =
-        match addr.term with
-        | ConcreteHeapAddress concreteAddr ->
-            // TODO: what if array exists in entireCopies and extendedCopies? #do
-            match PersistentDict.tryFind state.entireCopies concreteAddr with
-            | None -> None
-            | Some(srcAddr, reg) -> readArrayRegion state arrayType extractor reg srcAddr indices |> Some
-        | _ -> None
-
-    and readArrayRegion state arrayType extractor region addr indices =
+    let readArrayRegion state arrayType extractor region addr indices =
         let key = {address = addr; indices = indices}
         let isDefault state (key : heapArrayIndexKey) = isHeapAddressDefault state key.address
         let instantiate typ memory =
@@ -959,8 +945,6 @@ module internal Memory =
             let initializedTypes = composeInitializedTypes state state'.initializedTypes
             let allocatedTypes = composeConcreteDictionaries state state.allocatedTypes state'.allocatedTypes (substituteTypeVariables state)
             let typeVariables = composeTypeVariablesOf state state'
-            let entireCopies = composeConcreteDictionaries state state.entireCopies state'.entireCopies (composeArrayCopyInfo state)
-            let extendedCopies = composeConcreteDictionaries state state.extendedCopies state'.extendedCopies (composeArrayCopyInfoExt state)
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
             let currentTime = composeTime state state'.currentTime // TODO: hack #do
 //                let computeMax (acc, max) y = // TODO: hack? #do
@@ -988,8 +972,6 @@ module internal Memory =
                     initializedTypes = initializedTypes
                     allocatedTypes = allocatedTypes
                     typeVariables = typeVariables
-                    entireCopies = entireCopies
-                    extendedCopies = extendedCopies
                     delegates = delegates
                     currentTime = currentTime
                     startingTime = state.startingTime
@@ -1049,8 +1031,6 @@ module internal Memory =
         let sb = dumpDict "Boxed items" sortVectorTime VectorTime.print toString sb s.boxedLocations
         let sb = dumpDict "Types tokens" sortVectorTime VectorTime.print toString sb s.allocatedTypes
         let sb = dumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.staticFields
-        let sb = dumpDict "Array copies" sortVectorTime VectorTime.print (fun (addr, mr) -> sprintf "from %O with updates %O" addr (MemoryRegion.toString "    " mr)) sb s.entireCopies
-        let sb = dumpDict "Array copies (ext)" sortVectorTime VectorTime.print toString sb s.extendedCopies
         let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
         let sb = dumpInitializedTypes sb s.initializedTypes

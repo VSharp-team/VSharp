@@ -51,7 +51,7 @@ namespace VSharp.Test.Tests
             Console.ReadKey();
         }
 
-        [TestSvm]
+        // [TestSvm]
         public static bool CreateGame2()
         {
             var game = new ChessGame();
