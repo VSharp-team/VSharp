@@ -244,9 +244,11 @@ module internal InstructionsSet =
         cilState |> push x |> push x |> List.singleton
 
     let isCallIp (ip : ip) =
-        let offset = ip.Offset()
-        let opCode = Instruction.parseInstruction ip.method offset
-        Instruction.isDemandingCallOpCode opCode
+        match ip with
+        | Instruction(offset, m) ->
+            let opCode = Instruction.parseInstruction m offset
+            Instruction.isDemandingCallOpCode opCode
+        | _ -> false
 
     let ret (cfg : cfgData) _ _ (cilState : cilState) : cilState list =
         let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
@@ -257,7 +259,7 @@ module internal InstructionsSet =
                 let castedResult = castUnchecked resultTyp res cilState.state // TODO: need to cast to resulting type? #do
                 push castedResult cilState
         match cilState.ipStack with
-        | ip :: ips -> {cilState with ipStack = {label = Exit; method = ip.method} :: ips} |> List.singleton
+        | ip :: ips -> {cilState with ipStack = (Exit cfg.methodBase) :: ips} |> List.singleton
         | [] -> __unreachable__()
 
     let transform2BooleanTerm pc (term : term) = // TODO: optimize using TypeUtils.convert #do

@@ -244,8 +244,14 @@ module public CFA =
         member x.Ip with get() = ip
         member x.OpStack with get() = opStack
         member x.Method with get() = m
-        member x.IsMethodStartVertex with get() = ip.label = Instruction 0
-        member x.IsMethodExitVertex with get() = ip.label = Exit
+        member x.IsMethodStartVertex with get() =
+            match ip with
+            | Instruction(0, _) -> true
+            | _ -> false
+        member x.IsMethodExitVertex with get() =
+            match ip with
+            | Exit _ -> true
+            | _ -> false
         override x.ToString() =
             sprintf "(Method = %O, ip = %O, id = %d)\n" m ip id +
             sprintf "Edges count = %d\n" x.OutgoingEdges.Count +
@@ -538,7 +544,8 @@ module public CFA =
 
         let private executeSeparatedOpCode (methodInterpreter : MethodInterpreter) (cfg : cfg) (cilState : cilState) =
             let ip = currentIp cilState
-            let offset = ip.Offset()
+            let offset =
+                ip.Offset()
             let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
             let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
             let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
@@ -569,7 +576,9 @@ module public CFA =
             let stateWithArgsOnFrame = ExplorerBase.ReduceFunctionSignature cilState.state (methodInterpreter.MakeMethodIdentifier calledMethod) this (Specified args) false id
             let nextIp =
                 assert(cfg.graph.[offset].Count = 1)
-                {ip with label = Instruction cfg.graph.[offset].[0]}
+                match ip with
+                | Instruction(_, m) -> Instruction(cfg.graph.[offset].[0], m)
+                | _ -> __notImplemented__()
 
             let cilState = cilState |> withLastIp nextIp |> withState stateWithArgsOnFrame
             cilState, callSite, numberToDrop
@@ -584,17 +593,17 @@ module public CFA =
 
         let updateQueue (cfg : cfg) newU (d : bypassDataForEdges) (q, used) =
             let changeData w =
-                match w.label with
-                | Instruction wOffset -> {d with v = w; vOut = cfg.dfsOut.[wOffset]; minSCCs = min cfg.sccOut.[wOffset] cfg.sccOut.[wOffset]}
-                | Exit -> {d with v = w; vOut = -1; minSCCs = -1}
+                match w with
+                | Instruction(wOffset, _) -> {d with v = w; vOut = cfg.dfsOut.[wOffset]; minSCCs = min cfg.sccOut.[wOffset] cfg.sccOut.[wOffset]}
+                | Exit _ -> {d with v = w; vOut = -1; minSCCs = -1}
                 | _ -> __notImplemented__()
             let addIfNotUsed (q, used) d =
                 if PersistentSet.contains d used then q, used
                 else PriorityQueue.insert d q, PersistentSet.add used d
-            match newU.label with
-            | Exit -> q, used
-            | Instruction offset when cfg.graph.[offset].Count = 0 -> (changeData <| withExit newU) |> addIfNotUsed (q, used)
-            | Instruction vOffset -> cfg.graph.[vOffset] |> Seq.fold (fun acc wOffset -> changeData (withOffset wOffset newU) |> addIfNotUsed acc) (q, used)
+            match newU with
+            | Exit _ -> q, used
+            | Instruction(offset, m) when cfg.graph.[offset].Count = 0 -> (changeData (Exit m)) |> addIfNotUsed (q, used)
+            | Instruction(vOffset, m) -> cfg.graph.[vOffset] |> Seq.fold (fun acc wOffset -> changeData (instruction m wOffset) |> addIfNotUsed acc) (q, used)
             | _ -> __notImplemented__()
 
         let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
@@ -642,7 +651,7 @@ module public CFA =
                 let d, q = PriorityQueue.pop q
                 assert(PersistentSet.contains d used)
                 let srcVertex = d.srcVertex
-                assert(d.u.label <> Exit)
+                assert(not <| isExit d.u)
                 let offset = d.u.Offset()
 
                 let currentTime = VectorTime.advance currentTime
@@ -736,11 +745,11 @@ type EffectsFirstSearcher() =
         match states with
         | [] -> None
         | s :: _ when x.ShouldStartExploringInIsolation (q, s) ->
-            let currentIp = currentIp s
-            let ilMethodMtd : ILMethodMetadata = {methodBase = currentIp.method} // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
             try
-                let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics true ilMethodMtd
-                let cilStateForComposition = makeInitialState currentIp.method stateForComposition
+                let currentIp = currentIp s
+                let m = currentMethod currentIp
+                let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics true { methodBase = m } // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
+                let cilStateForComposition = makeInitialState m stateForComposition
                 Some cilStateForComposition
             with
             | :? InsufficientInformationException -> Some s
@@ -753,7 +762,7 @@ type AllMethodsExplorationSearcher() =
     override x.ShouldStartExploringInIsolation (q, s) =
         let all = q.GetStates()
         match currentIp s with
-        | {label = Instruction 0} as ip when all |> List.filter (startingIpOf >> (=) ip) |> List.length = 0 -> true
+        | Instruction(0, _) as ip when all |> List.filter (startingIpOf >> (=) ip) |> List.length = 0 -> true
         | _ -> false
 
 type ParameterlessMethodsExplorationSearcher() =

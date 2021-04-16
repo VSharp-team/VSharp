@@ -4,47 +4,117 @@ open System.Collections.Generic
 open System.Reflection
 open VSharp
 
-type label =
-    | Instruction of offset
-    | Exit
-    | Leave of offset
-    | FindingHandler of offset // offset -- source of exception
 
-[<CustomComparison; CustomEquality>]
-type ip = { label : label; method : MethodBase}
+[<CustomEquality; CustomComparison>]
+type codeLocation = {offset : offset; method : MethodBase}
     with
-    member x.CanBeExpanded () =
-        match x.label with
-        | Instruction _ -> true
-        | _ -> false
-    member x.Offset () =
-        match x.label with
-        | Instruction i -> i
-        | _              -> internalfail "Could not get vertex from destination"
     override x.Equals y =
         match y with
-        | :? ip as y -> x.label = y.label && x.method = y.method
+        | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
         | _ -> false
-    override x.GetHashCode() = (x.label, x.method).GetHashCode()
+    override x.GetHashCode() = (x.offset, x.method).GetHashCode()
     interface System.IComparable with
         override x.CompareTo y =
             match y with
-            | :? ip as y when x.method.Equals(y.method) -> compare x.label y.label
-            | :? ip as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
+            | :? codeLocation as y when x.method.Equals(y.method) -> compare x.offset y.offset
+            | :? codeLocation as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
             | _ -> -1
-    override x.ToString() = sprintf "{label = %O; method = %s}" x.label (Reflection.getFullMethodName x.method)
 
-type level = pdict<ip, uint>
-type ipStack = ip list
+[<CustomEquality; CustomComparison>]
+type ip =
+    | Exit of MethodBase
+    | Instruction of offset * MethodBase
+    | Leave of ip * offset * MethodBase
+    // offsets to observe; stack frames to be popped
+    | SearchingForHandler of codeLocation list * int
+    // ip of filter function; previous searching handler information
+    | InFilterHandler of ip * codeLocation list * int
+    // ``None'' -- we are seeking for next finally or fault handler, ``Some _'' -- we are executing handler;
+    // rest frames of possible handlers; starting offset of handler
+    | SecondBypass of ip option * codeLocation list * offset
+    with
+    member x.CanBeExpanded () =
+        match x with
+        | Exit _ -> false
+        | _ -> false
+    member x.Offset () =
+        match x with
+        | Instruction(i, _) -> i
+        | _              -> internalfail "Could not get vertex from destination"
+    override x.Equals y =
+        match y with
+        | :? ip as y ->
+            match x, y with
+            | Exit mx, Exit my -> mx = my
+            | Instruction(ix, mx), Instruction(iy, my) -> ix = iy && mx.Equals(my)
+            | Leave(ix, ipx, mx), Leave(iy, ipy, my) -> ix = iy && ipx.Equals(ipy) && mx.Equals(my)
+            | SearchingForHandler(toObserve1, n1), SearchingForHandler(toObserve2, n2) ->
+                toObserve1.Equals(toObserve2) && n1 = n2
+            | InFilterHandler(ip1, toObserve1, n1), InFilterHandler(ip2, toObserve2, n2) ->
+                ip1.Equals(ip2) && toObserve1.Equals(toObserve2) && n1 = n2
+            | SecondBypass(ip1, toFinalize1, offset1), SecondBypass(ip2, toFinalize2, offset2) ->
+                ip1.Equals(ip2) && toFinalize1.Equals(toFinalize2) && offset1 = offset2
+            | _ -> false
+        | _ -> false
+    override x.GetHashCode() = x.ToString().GetHashCode()
+    interface System.IComparable with
+        override x.CompareTo y =
+            let methodCompare (m1 : MethodBase) (m2 : MethodBase) =
+                m1.MetadataToken.CompareTo(m2.MetadataToken)
+            match y with
+            | :? ip as y ->
+                match x, y with
+                | Exit m1, Exit m2 -> methodCompare m1 m2
+                | Exit _, _ -> -1
+                | Instruction(offset1, m1), Instruction(offset2, m2) when methodCompare m1 m2 = 0 ->
+                    compare offset1 offset2
+                | Instruction(_, m1), Instruction(_, m2) -> methodCompare m1 m2
+                | Instruction _, _ -> -1
+                | Leave(ip1, offset1, m1), Leave(ip2, offset2, m2)
+                    when compare ip1 ip2 = 0 && methodCompare m1 m2 = 0 ->compare offset1 offset2
+                | Leave(ip1, _, m1), Leave(ip2, _, m2) when compare ip1 ip2 = 0 -> methodCompare m1 m2
+                | Leave(ip1,_,_), Leave(ip2,_, _) -> compare ip1 ip2
+                | Leave _, _ -> -1
+                | SearchingForHandler(toObserve1, pop1), SearchingForHandler(toObserve2, pop2)
+                    when compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
+                | SearchingForHandler(toObserve1, _), SearchingForHandler(toObserve2, _) -> compare toObserve1 toObserve2
+                | SearchingForHandler _, _ -> -1
+                | InFilterHandler(ip1, toObserve1, pop1), InFilterHandler(ip2 ,toObserve2, pop2)
+                    when compare ip1 ip2 = 0 && compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
+                | InFilterHandler(ip1, toObserve1, _), InFilterHandler(ip2 ,toObserve2, _)
+                    when compare ip1 ip2 = 0 -> compare toObserve1 toObserve2
+                | InFilterHandler(ip1, _, _), InFilterHandler(ip2 ,_, _) -> compare ip1 ip2
+                | InFilterHandler _, _ -> -1
+                | SecondBypass(ip1, toFinalize1, offset1), SecondBypass(ip2, toFinalize2, offset2)
+                    when compare ip1 ip2 = 0 && compare toFinalize1 toFinalize2 = 0 -> compare offset1 offset2
+                | SecondBypass(ip1, toFinalize1,_), SecondBypass(ip2, toFinalize2, _)
+                    when compare ip1 ip2 = 0 -> compare toFinalize1 toFinalize2
+                | SecondBypass(ip1, _, _), SecondBypass(ip2, _, _) -> compare ip1 ip2
+                | SecondBypass _, _ -> -1
+            | _ -> -1
+    override x.ToString() =
+        match x with
+        | Instruction(offset, m) -> sprintf "{Instruction = %d; M = %s}" offset (Reflection.getFullMethodName m)
+        | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
+        | Leave(ip, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
+        | _ -> __notImplemented__()
+
+and ipStack = ip list
+
+// TODO: #mbdo use ``ip'' instead of ``codeLocation''
+type level = pdict<codeLocation, uint>
 
 module ipOperations =
-    let exit m = {label = Exit; method = m}
-    let instruction m i = {label = Instruction i; method = m}
-    let findingHandler m i = {label = FindingHandler i; method = m}
-    let withExit ip = {ip with label = Exit}
-    let withOffset offset ip = {ip with label = Instruction offset}
-    let labelOf (ip : ip) = ip.label
-    let methodOf (ip : ip) = ip.method
+    let exit m = Exit m
+    let isExit = function
+        | Exit _ -> true
+        | _ -> false
+    let instruction m i = Instruction(i, m)
+    let searchingForHandler toObserve toPop = SearchingForHandler(toObserve, toPop)
+//    let withExit ip = {ip with label = Exit}
+//    let withOffset offset ip = {ip with label = Instruction offset}
+//    let labelOf (ip : ip) = ip.label
+//    let methodOf (ip : ip) = ip.method
 
 module Level =
     // TODO: implement level

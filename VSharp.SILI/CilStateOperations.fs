@@ -10,6 +10,8 @@ type cilState =
     { ipStack : ipStack
       state : state
       filterResult : term option
+      //TODO: #mb frames list #mb transfer to Core.State
+      framesForBypass : frames                             // Observed stack frames not having an exception handler
       iie : InsufficientInformationException option
       level : level
       startingIP : ip
@@ -22,6 +24,7 @@ module internal CilStateOperations =
         { ipStack = [curV]
           state = state
           filterResult = None
+          framesForBypass = []
           iie = None
           level = PersistentDict.empty
           startingIP = curV
@@ -35,7 +38,7 @@ module internal CilStateOperations =
     let isExecutable (s : cilState) =
         match s.ipStack with
         | [] -> __unreachable__()
-        | {label = Exit} :: [] -> false
+        | Exit _ :: [] -> false
         | _ -> true
 
     let isError (s : cilState) =
@@ -48,6 +51,18 @@ module internal CilStateOperations =
         | _ -> false
 
     let currentIp (s : cilState) = List.head s.ipStack
+
+    // obtaining Method where Execution occurs
+    let rec currentMethod = function
+        | Exit m
+        | Instruction(_, m)
+        | Leave(_, _, m) -> m
+        | _ -> __notImplemented__()
+    let startsFromMethodBeginning (s : cilState) =
+        match s.startingIP with
+        | Instruction (0, _) -> true
+        | _ -> false
+//    let currentMethod (s : cilState) = (List.head s.state.frames).func.Method
     let pushToIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: cilState.ipStack}
 
     let rec withLastIp (ip : ip) (cilState : cilState) =
@@ -149,11 +164,10 @@ module internal CilStateOperations =
 
     let rec moveIpStack (cilState : cilState) : cilState list =
         match cilState.ipStack with
-        | {label = Instruction offset; method = m} :: _ ->
+        | Instruction(offset, m) :: _ ->
             if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
             let cfg = CFG.findCfg m
             let opCode = Instruction.parseInstruction m offset
-            let m = cfg.methodBase
             let newIps =
                 if Instruction.isLeaveOpCode opCode || opCode = Emit.OpCodes.Endfinally
                 then cfg.graph.[offset] |> Seq.map (instruction m) |> List.ofSeq
@@ -163,27 +177,29 @@ module internal CilStateOperations =
                     | UnconditionalBranch nextInstruction
                     | FallThrough nextInstruction -> instruction m nextInstruction :: []
                     | Return -> exit m :: []
-                    | ExceptionMechanism -> findingHandler m offset :: []
+                    | ExceptionMechanism ->
+                        let toObserve = __notImplemented__()
+                        searchingForHandler toObserve 0 :: []
                     | ConditionalBranch targets -> targets |> List.map (instruction m)
             List.map (fun ip -> withLastIp ip cilState) newIps
-        | {label = Exit} :: [] when cilState.startingIP.label = Instruction 0 ->
+        | Exit _ :: [] when startsFromMethodBeginning cilState ->
             // the whole method is executed
             withCurrentTime [] cilState |> popFrameOf |> List.singleton // TODO: #ask Misha about current time
-        | {label = Exit} :: [] ->
+        | Exit _ :: [] ->
             popFrameOf cilState :: [] // some part of method is executed
-        | {label = Exit; method = m} :: ips' when Reflection.isStaticConstructor m ->
+        | Exit m :: ips' when Reflection.isStaticConstructor m ->
             Logger.info "Done with method %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
             cilState |> popFrameOf |> withIp ips' |> List.singleton
-        | {label = Exit; method = curM} :: ({label = Instruction offset; method = m} as ip) :: ips' ->
-            Logger.info "Done with method %s" (Reflection.getFullMethodName curM) // TODO: delete (for info) #do
+        | Exit callee :: (Instruction(offset, caller) as ip) :: ips' ->
+            Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
             // TODO: assert(isCallIp ip)
-            let callSite = Instruction.parseCallSite m offset
+            let callSite = Instruction.parseCallSite caller offset
             let cilState =
                 if callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
                     pushNewObjForValueTypes cilState
                 else cilState
             cilState |> popFrameOf |> withIp (ip :: ips') |> moveIpStack
-        | {label = Exit} :: {label = Exit} :: _ -> __unreachable__()
+        | Exit _ :: Exit _ :: _ -> __unreachable__()
         | _ -> __notImplemented__()
 
     let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
@@ -220,8 +236,8 @@ module internal CilStateOperations =
     let private dumpIp (ipStack : ipStack) =
         List.fold (fun acc entry -> sprintf "%s\n%O" acc entry) "" ipStack
 
-    let ipAndMethodBase2String (ip : ip) =
-        sprintf "Method: %O, label = %O" ip.method ip.label
+    let ipAndMethodBase2String (codeLocation : codeLocation) =
+        sprintf "Method: %O, offset = %d" codeLocation.method codeLocation.offset
 
     // TODO: print filterResult and IIE ?
     let dump (cilState : cilState) : string =

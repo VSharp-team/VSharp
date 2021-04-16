@@ -203,8 +203,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         isIntrinsic && (Array.contains methodBase implementedIntrinsics |> not)
 
     member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
+        let canInline =
+            match currentIp cilState with
+            | Instruction(0, m) -> m = methodBase
+            | _ -> false
+
         // because we have correspondence between ips and frames
-        assert(let ip = currentIp cilState in ip.method = methodBase && ip.label = Instruction 0)
+        assert(canInline)
         let state = cilState.state
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
         let args = // TODO: make better #do
@@ -219,7 +224,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let moveIp (cilState : cilState) =
             let ip =
                 match cilState.ipStack with
-                | ip :: _ -> {label = Exit; method = ip.method}
+                | ip :: _ -> Exit methodBase
                 | _ -> __unreachable__()
             cilState |> withLastIp ip
         if Map.containsKey fullMethodName internalCILImplementations then
@@ -1037,8 +1042,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             else cfg.sortedOffsets.[index + 1]
 
         let isIpOfCurrentBasicBlock (ip : ip) =
-            match ip.label with
-            | Instruction i when ip.method = cfg.methodBase -> startingOffset <= i && i < endOffset
+            match ip with
+            | Instruction(i, m) when m = cfg.methodBase -> startingOffset <= i && i < endOffset
             | _ -> false
         x.ExecuteAllInstructionsWhile isIpOfCurrentBasicBlock cilState
 
@@ -1070,7 +1075,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
             else false
         if offset = 0 || isRecursiveVertex offset then
-            incrementLevel cilState (instruction cfg.methodBase offset)
+            incrementLevel cilState {offset = offset; method = cfg.methodBase}
         else cilState
 
     member x.MakeStepForErroredCilState (cilState : cilState) =
@@ -1084,7 +1089,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member private x.ExecuteInstruction (cilState : cilState) =
         Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
         match cilState.ipStack with
-        | {label = Instruction offset; method = m} :: _ ->
+        | Instruction(offset, m) :: _ ->
             let cfg = CFG.findCfg m
             let opCode = Instruction.parseInstruction m offset
             let newIps = moveIpStack cilState |> List.map (fun cilState -> cilState.ipStack)
@@ -1095,6 +1100,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 else
                     x.IncrementLevelIfNeeded cfg offset cilState
             newSts |> List.map renewInstructionsInfo
-        | {label = Exit} :: _ -> moveIpStack cilState
+        | Exit _ :: _ -> moveIpStack cilState
         | [] -> __unreachable__()
         | _ -> __notImplemented__()

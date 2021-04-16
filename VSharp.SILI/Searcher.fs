@@ -32,8 +32,11 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
     abstract member PickNext : IndexedQueue -> cilState option
 
     member x.Used (cilState : cilState) =
-        let ip = currentIp cilState
-        PersistentDict.contains ip cilState.level && PersistentDict.find cilState.level ip >= maxBound
+        match currentIp cilState with
+        | Instruction(offset, m) ->
+            let codeLocation = {offset = offset; method = m}
+            PersistentDict.contains codeLocation cilState.level && PersistentDict.find cilState.level codeLocation >= maxBound
+        | _ -> false
 
     member x.GetResults initialState (q : IndexedQueue) =
         let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
@@ -42,7 +45,7 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
             s.startingIP = initialState.startingIP && not lastFrame.isEffect
         let allStates = List.filter isStartingDescender (q.GetStates())
         let iieStates, nonIIEstates = List.partition isIIEState allStates
-        let isFinished (s : cilState) = s.ipStack = [{label = Exit; method = initialState.startingIP.method}]
+        let isFinished (s : cilState) = s.ipStack = [Exit <| currentMethod initialState.startingIP]
         let finishedStates = List.filter isFinished nonIIEstates
         let isValid (cilState : cilState) =
            match IsValid cilState.state with

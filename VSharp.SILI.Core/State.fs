@@ -8,6 +8,9 @@ open VSharp.Utils
 type stack = mappedStack<stackKey, term>
 type entry = { key : stackKey; typ : symbolicType }
 type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
+
+// frames of active execution stackTrace;
+// that is when searching for exception handler some frames might be temporary dropped
 type frames = stackFrame stack // TODO: is it invariant ``there could not be two sequential stackFrames that are effects'' ?
 
 type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
