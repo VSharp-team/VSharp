@@ -9,24 +9,47 @@ open Logger
 
 module internal Z3 =
 
+    [<CustomEquality;NoComparison>]
+    type 'a encodingResult when 'a :> Expr and 'a : equality =
+        {expr : 'a; assumptions: BoolExpr list}
+        static member Create(expr : 'a) = {expr = expr; assumptions = List.empty}
+        static member Create(expr : 'a, conditions) = {expr = expr; assumptions = conditions}
+
+        override x.GetHashCode() = x.expr.GetHashCode()
+
+        override x.Equals(o : obj) =
+            match o with
+            | :? encodingResult<'a> as res -> x.expr = res.expr
+            | _ -> __unreachable__() // TODO: test this: need false #do
+
+    let getExpr encodingResult = encodingResult.expr
+    let toTuple encodingResult = encodingResult.assumptions, encodingResult.expr
+
 // ------------------------------- Cache -------------------------------
 
     type private encodingCache = {
         sorts : IDictionary<symbolicType, Sort>
         e2t : IDictionary<Expr, term>
-        t2e : IDictionary<term, Expr>
+        t2e : IDictionary<term, Expr encodingResult>
     } with
-        member x.Get term encoder =
+        member x.Get(term, encoder : unit -> Expr) =
             Dict.tryGetValue2 x.t2e term (fun () ->
-                let result = encoder()
-                x.e2t.[result] <- term
+                let result = {expr = encoder(); assumptions = List.empty}
+                x.e2t.[result.expr] <- term
                 x.t2e.[term] <- result
                 result)
+        member x.Get(term, encoder : unit -> Expr encodingResult) =
+            Dict.tryGetValue2 x.t2e term (fun () ->
+                let result = encoder()
+                x.e2t.[result.expr] <- term
+                x.t2e.[term] <- result
+                result)
+
 
     let private freshCache () = {
         sorts = Dictionary<symbolicType, Sort>()
         e2t = Dictionary<Expr, term>()
-        t2e = Dictionary<term, Expr>()
+        t2e = Dictionary<term, Expr encodingResult>()
     }
 
     let private regionConstants = Dictionary<regionSort, ArrayExpr>()
@@ -59,34 +82,36 @@ module internal Z3 =
                 | ByRef _
                 | Pointer _ -> __notImplemented__())
 
-        member private x.EncodeConcreteAddress (encCtx : encodingContext) (addr : concreteHeapAddress) =
-            ctx.MkNumeral(encCtx.addressOrder.[addr], x.Type2Sort AddressType)
+        member private x.EncodeConcreteAddress (encCtx : encodingContext) (address : concreteHeapAddress) =
+            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
 
-        member private x.EncodeConcrete encCtx (obj : obj) typ =
-            match typ with
-            | Bool -> ctx.MkBool(obj :?> bool) :> Expr
-            | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-            | Numeric(Id t) ->
-                match obj with
-                | _ when TypeUtils.isIntegral (obj.GetType()) -> ctx.MkInt(obj.ToString()) :> Expr
-                | _ when t.IsEnum -> ctx.MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
-                | _ -> ctx.MkNumeral(obj.ToString(), x.Type2Sort typ)
-            | AddressType ->
-                match obj with
-                | :? concreteHeapAddress as addr ->
-                    assert(List.isEmpty addr |> not)
-                    x.EncodeConcreteAddress encCtx addr
-                | _ -> __unreachable__()
-            | _ -> __notImplemented__()
+        member private x.EncodeConcrete encCtx (obj : obj) typ : Expr encodingResult =
+            let expr =
+                match typ with
+                | Bool -> ctx.MkBool(obj :?> bool) :> Expr
+                | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(System.Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
+                | Numeric(Id t) ->
+                    match obj with
+                    | _ when TypeUtils.isIntegral (obj.GetType()) -> ctx.MkInt(obj.ToString()) :> Expr
+                    | _ when t.IsEnum -> ctx.MkInt(System.Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
+                    | _ -> ctx.MkNumeral(obj.ToString(), x.Type2Sort typ)
+                | AddressType ->
+                    match obj with
+                    | :? concreteHeapAddress as addr ->
+                        assert(List.isEmpty addr |> not)
+                        x.EncodeConcreteAddress encCtx addr
+                    | _ -> __unreachable__()
+                | _ -> __notImplemented__()
+            encodingResult<Expr>.Create(expr)
 
         member private x.CreateConstant name typ term =
-            cache.Get term (fun () -> ctx.MkConst(x.ValidateId name, x.Type2Sort typ))
+            cache.Get(term, fun () -> ctx.MkConst(x.ValidateId name, x.Type2Sort typ))
 
         member private x.EncodeSymbolicAddress (addr : term) name = x.CreateConstant name AddressType addr
 
         // TODO: encode everything into BV? Yes, and arrays!
         // TODO: need arrays? Yes, because of last value (if not any update, then a[x])
-        member public x.EncodeTerm<'a when 'a :> Expr> encCtx (t : term) : 'a =
+        member public x.EncodeTerm<'a when 'a :> Expr and 'a : equality> encCtx (t : term) : 'a encodingResult =
             x.EncodeTermExt<'a> (fun _ _ -> false) encCtx t
 
 // ------------------------------- Encoding: memory reading -------------------------------
@@ -101,13 +126,12 @@ module internal Z3 =
                     | OpenLeft -> ctx.MkGt(key :?> ArithExpr, bound)
                     | ClosedLeft -> ctx.MkGe(key :?> ArithExpr, bound)
                 ctx.MkAnd(acc, condition)
-            List.fold onePointCondition acc region.points
+            let intervalWithoutLeftZeroBound = List.except [{elem = VectorTime.zero; sort = ClosedLeft}] region.points
+            List.fold onePointCondition acc intervalWithoutLeftZeroBound
 
-        member private x.HeapAddressKeyMatch (encCtx : encodingContext) (left : Expr) (right : heapAddressKey) = // TODO: check #do
-            let rightRegion = (right :> IMemoryKey<heapAddressKey, vectorTime intervals>).Region
-            let rightExpr = x.EncodeTerm encCtx right.address
-            let rightInRegion = x.KeyInVectorTimeIntervals encCtx rightExpr (ctx.MkTrue()) rightRegion
-            ctx.MkAnd(ctx.MkEq(left, rightExpr), rightInRegion)
+        member private x.HeapAddressKeyInRegion (encCtx : encodingContext) acc (key : heapAddressKey) (keyExpr : Expr) = // TODO: check #do
+            let region = (key :> IMemoryKey<heapAddressKey, vectorTime intervals>).Region
+            x.KeyInVectorTimeIntervals encCtx keyExpr acc region
 
         member private x.KeyInIntPoints key acc (region : int points) = // TODO: check #do
             match region with
@@ -126,113 +150,126 @@ module internal Z3 =
             let checkKeyInOne acc (fst, snd) = ctx.MkAnd(acc, ctx.MkAnd(keyInFst acc fst, keyInSnd acc snd))
             List.fold checkKeyInOne acc region.products
 
-        member private x.KeysInIntPointsListProductRegion (keys : Expr list) acc (region : int points listProductRegion) : BoolExpr = // TODO: check #do
+        member private x.KeysInIntPointsListProductRegion (keys : Expr seq) acc (region : int points listProductRegion) : BoolExpr = // TODO: check #do
             match region with
-            | NilRegion when List.isEmpty keys -> acc
+            | NilRegion when Seq.isEmpty keys -> acc
             | ConsRegion products ->
-                let key = List.head keys
+                let key = Seq.head keys
                 let keyInPoints = x.KeyInIntPoints key
-                let keysInProductList = x.KeysInIntPointsListProductRegion (List.tail keys)
+                let keysInProductList = x.KeysInIntPointsListProductRegion (Seq.tail keys)
                 x.KeyInProductRegion keyInPoints keysInProductList acc products
             | NilRegion _ -> __unreachable__()
 
-        member private x.ArrayIndexKeyMatch (encCtx : encodingContext) (left : Expr[]) (right : heapArrayIndexKey) = // TODO: check #do
-            assert(Array.length left = List.length right.indices + 1)
-            let rightRegion = (right :> IMemoryKey<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>).Region
-            let rightAddress = x.EncodeTerm encCtx right.address
-            let rightIndices = List.map (x.EncodeTerm encCtx) right.indices
-            let rightAddressInRegion = x.KeyInVectorTimeIntervals encCtx rightAddress
-            let rightIndicesInRegion = x.KeysInIntPointsListProductRegion rightIndices
-            let rightInRegion = x.KeyInProductRegion rightAddressInRegion rightIndicesInRegion (ctx.MkTrue()) rightRegion
-            let keysAreEqual =
-                let leftAddress = Array.head left
-                let leftIndices = Array.tail left
-                let addressesAreEqual = ctx.MkEq(leftAddress, rightAddress)
-                let oneIndexEqual (acc, leftIndices) (rightIndex : Expr) =
-                    let leftIndex = Array.head leftIndices
-                    let oneIndexEq = ctx.MkEq(leftIndex, rightIndex)
-                    (ctx.MkAnd(acc, oneIndexEq), Array.tail leftIndices)
-                List.fold oneIndexEqual (addressesAreEqual, leftIndices) rightIndices |> fst
-            ctx.MkAnd(keysAreEqual, rightInRegion)
+        member private x.ArrayIndexKeyInRegion (encCtx : encodingContext) acc (key : heapArrayIndexKey) (keyExpr : Expr[]) = // TODO: check #do
+            assert(Array.length keyExpr = List.length key.indices + 1)
+            let region = (key :> IMemoryKey<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>).Region
+            let addressInRegion = x.KeyInVectorTimeIntervals encCtx (Array.head keyExpr)
+            let indicesInRegion = x.KeysInIntPointsListProductRegion (Array.tail keyExpr)
+            x.KeyInProductRegion addressInRegion indicesInRegion acc region
 
-        member private x.VectorIndexKeyMatch (encCtx : encodingContext) (left : Expr[]) (right : heapVectorIndexKey) = // TODO: check #do
-            assert(Array.length left = 2)
-            let rightRegion = (right :> IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>).Region
-            let rightAddress = x.EncodeTerm encCtx right.address
-            let rightIndex = x.EncodeTerm encCtx right.index
-            let rightAddressInRegion = x.KeyInVectorTimeIntervals encCtx rightAddress
-            let rightIndicesInRegion = x.KeyInIntPoints rightIndex
-            let rightInRegion = x.KeyInProductRegion rightAddressInRegion rightIndicesInRegion (ctx.MkTrue()) rightRegion
-            let keysAreEqual =
-                let leftAddress = left.[0]
-                let leftIndex = left.[1]
-                let addressesAreEqual = ctx.MkEq(leftAddress, rightAddress)
-                let indicesAreEqual = ctx.MkEq(leftIndex, rightIndex)
-                ctx.MkAnd(addressesAreEqual, indicesAreEqual)
-            ctx.MkAnd(keysAreEqual, rightInRegion)
+        member private x.VectorIndexKeyInRegion (encCtx : encodingContext) acc (key : heapVectorIndexKey) (keyExpr : Expr[]) = // TODO: check #do
+            assert(Array.length keyExpr = 2)
+            let region = (key :> IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>).Region
+            let addressInRegion = x.KeyInVectorTimeIntervals encCtx keyExpr.[0]
+            let indicesInRegion = x.KeyInIntPoints keyExpr.[1]
+            x.KeyInProductRegion addressInRegion indicesInRegion acc region
 
-        member private x.stackBufferIndexKeyMatch (encCtx : encodingContext) (left : Expr) (right : stackBufferIndexKey) = // TODO: check #do
-            let rightRegion = (right :> IMemoryKey<stackBufferIndexKey, int points>).Region
-            let rightExpr = x.EncodeTerm encCtx right.index
-            let rightInRegion = x.KeyInIntPoints rightExpr (ctx.MkTrue()) rightRegion
-            let keysAreEqual = ctx.MkEq(left, rightExpr)
-            ctx.MkAnd(keysAreEqual, rightInRegion)
+        member private x.stackBufferIndexKeyInRegion (encCtx : encodingContext) acc (key : stackBufferIndexKey) keyExpr = // TODO: check #do
+            let region = (key :> IMemoryKey<stackBufferIndexKey, int points>).Region
+            x.KeyInIntPoints keyExpr acc region
+
+        member private x.GetRegionConstant hasDefaultValue (name : string) arraySort regSort =
+            let mkConst () =
+                if hasDefaultValue then ctx.MkConstArray(arraySort, ctx.MkNumeral(0, ctx.MkIntSort()))
+                else ctx.MkConst(name, arraySort) :?> ArrayExpr
+            let result : ArrayExpr ref = ref null
+            if regionConstants.TryGetValue(regSort, result) then !result
+            else
+                let regConst = mkConst()
+                regionConstants.Add(regSort, regConst)
+                regConst
+
+        // TODO: delete all this generics! #do
+        member private x.MemoryReading<'a, 'b, 'c when 'b : equality and 'b :> IMemoryKey<'b, 'c> and 'c :> IRegion<'c> and 'c : equality>
+            (encCtx : encodingContext)
+            (keyInRegion : BoolExpr -> 'b -> 'a -> BoolExpr)
+            keysAreEqual
+            (encodeKey : 'b -> BoolExpr list * 'a)
+            hasDefaultValue sort select (left : 'b) mo source name =
+                let updates = MemoryRegion.flatten mo
+                let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name sort
+                let assumptions, leftExpr = encodeKey left
+                let leftInRegion = keyInRegion (ctx.MkTrue()) left leftExpr
+                let assumptions = leftInRegion :: assumptions
+                let inst = select memoryRegionConst leftExpr
+                let checkOneKey (acc, assumptions) (right, value) =
+                    let rightAssumptions, rightExpr = encodeKey right
+                    let assumptions = List.append assumptions rightAssumptions // TODO: make better (mb monad) #do
+                    // NOTE: we need constraints on right key, because value may contain it
+                    let keysEquality = keysAreEqual leftExpr rightExpr
+                    let keysAreMatch = keyInRegion keysEquality right rightExpr
+                    let valueExpr = x.EncodeTerm encCtx value
+                    let assumptions = List.append assumptions valueExpr.assumptions
+                    ctx.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+                let expr, assumptions = List.fold checkOneKey (inst, assumptions) updates
+                encodingResult<Expr>.Create(expr, assumptions)
+
+        member private x.DefaultEquality left right = ctx.MkEq(left, right)
+
+        member private x.HeapReading encCtx key mo typ source name =
+            let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
+            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let select array (k : Expr) = ctx.MkSelect(array, k)
+            let keyInRegion = x.HeapAddressKeyInRegion encCtx
+            x.MemoryReading encCtx keyInRegion x.DefaultEquality encodeKey false sort select key mo source name
+
+        member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source name =
+            let sort =
+                let domainSort = x.Type2Sort AddressType :: List.map (ctx.MkIntSort() :> Sort |> always) indices |> Array.ofList
+                ctx.MkArraySort(domainSort, x.Type2Sort typ)
+            let select array (k : Expr[]) = ctx.MkSelect(array, k)
+            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue sort select key mo source name
+
+        member private x.StackBufferReading encCtx key mo typ source name =
+            let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
+            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let select array (k : Expr) = ctx.MkSelect(array, k)
+            let keyInRegion = x.stackBufferIndexKeyInRegion encCtx
+            x.MemoryReading encCtx keyInRegion x.DefaultEquality encodeKey false sort select key mo source name
+
+        member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source name = // TODO: make this, using equality of keys #do
+            let encodeKey (k : symbolicTypeKey) = __notImplemented__() // TODO: how to encode symbolicType? Enumerate! #do
+            let sort = ctx.MkArraySort(ctx.MkIntSort(), x.Type2Sort typ)
+            let select array (k : Expr) = ctx.MkSelect(array, k)
+            let keyInRegion _ _ _ = ctx.MkTrue()
+            x.MemoryReading encCtx keyInRegion x.DefaultEquality encodeKey false sort select key mo source name
+//            let staticsReading (key : symbolicTypeKey) mo =
+//                let memoryRegionConst = ctx.MkArrayConst(name, ctx.MkIntSort(), x.Type2Sort typ)
+//                let updates = MemoryRegion.flatten mo
+//                let value = Seq.tryFind (fun (k, _) -> k = key) updates
+//                match value with
+//                | Some (_, v) -> x.EncodeTerm encCtx v
+//                | None -> ctx.MkSelect(memoryRegionConst, ctx.MkNumeral(0, ctx.MkIntSort())) :?> Expr // TODO: what goes here?
 
         member private x.EncodeMemoryAccessConstant (encCtx : encodingContext) (name : string) (source : IMemoryAccessConstantSource) typ term =
-            let getRegionConstant mkConst regSort =
-                let result : ArrayExpr ref = ref null
-                if regionConstants.TryGetValue(regSort, result) then !result
-                else
-                    let regConst = mkConst()
-                    regionConstants.Add(regSort, regConst)
-                    regConst
-            let memoryReading keysAreMatch encodeKey hasDefaultValue sort select key mo = // TODO: strange warning here #do
-                let updates = MemoryRegion.flatten mo
-                let memoryRegionConst =
-                    let mkConst () =
-                        if hasDefaultValue then ctx.MkConstArray(sort, ctx.MkNumeral(0, ctx.MkIntSort()))
-                        else ctx.MkConst(name, sort) :?> ArrayExpr
-                    GetHeapReadingRegionSort source |> getRegionConstant mkConst
-                let inst = select memoryRegionConst (encodeKey key)
-                let key' = encodeKey key // TODO: key must be in it's region! #do
-                let res = List.fold (fun acc (k, v) -> ctx.MkITE(keysAreMatch key' k, (x.EncodeTerm encCtx v), acc)) inst updates
-                res
-            let heapReading key mo =
-                let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address
-                let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
-                let select array (k : Expr) = ctx.MkSelect(array, k)
-                let keysAreMatch = x.HeapAddressKeyMatch encCtx
-                memoryReading keysAreMatch encodeKey false sort select key mo
-            let arrayReading keysAreMatch encodeKey hasDefaultValue indices key mo =
-                let sort = // TODO: mb Array.replicate (List.length indices + 1) (ctx.MkIntSort() :> Sort)?
-                    let domainSort = x.Type2Sort AddressType :: List.map (ctx.MkIntSort() :> Sort |> always) indices |> Array.ofList
-                    ctx.MkArraySort(domainSort, x.Type2Sort typ)
-                let select array (k : Expr[]) = ctx.MkSelect(array, k)
-                memoryReading keysAreMatch encodeKey hasDefaultValue sort select key mo
-            let stackBufferReading key mo =
-                let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index
-                let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
-                let select array (k : Expr) = ctx.MkSelect(array, k)
-                let keysAreMatch = x.stackBufferIndexKeyMatch encCtx
-                memoryReading keysAreMatch encodeKey false sort select key mo
-            let staticsReading (key : symbolicTypeKey) mo =
-                let encodeKey (k : symbolicTypeKey) = __notImplemented__() // TODO: how to encode symbolicType? #do
-                let sort = ctx.MkArraySort(ctx.MkIntSort(), x.Type2Sort typ)
-                let select array (k : Expr) = ctx.MkSelect(array, k)
-                let keysAreMatch = __notImplemented__()
-                memoryReading keysAreMatch encodeKey false sort select key mo
             match source with // TODO: add caching #encode
-            | HeapReading(key, mo) -> heapReading key mo
+            | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
-                let encodeKey (k : heapArrayIndexKey) = k.address :: k.indices |> Array.ofList |> Array.map (x.EncodeTerm encCtx)
-                let keysAreMatch = x.ArrayIndexKeyMatch encCtx
-                arrayReading keysAreMatch encodeKey hasDefaultValue key.indices key mo
+                let encodeKey (k : heapArrayIndexKey) =
+                    k.address :: k.indices |> x.EncodeTerms (fun _ _ -> false) encCtx
+                let keyInRegion = x.ArrayIndexKeyInRegion encCtx
+                let arraysEquality left right =
+                    Seq.zip left right |> Seq.fold (fun acc (x, y) -> ctx.MkAnd(acc, ctx.MkEq(x, y))) (ctx.MkTrue())
+                x.ArrayReading encCtx keyInRegion arraysEquality encodeKey hasDefaultValue key.indices key mo typ source name
             | VectorIndexReading(hasDefaultValue, key, mo) ->
-                let encodeKey (k : heapVectorIndexKey) = Array.map (x.EncodeTerm encCtx) [|k.address; k.index|]
-                let keysAreMatch = x.VectorIndexKeyMatch encCtx
-                arrayReading keysAreMatch encodeKey hasDefaultValue [key.index] key mo
-            | StackBufferReading(key, mo) -> stackBufferReading key mo
-            | StaticsReading(key, mo) -> staticsReading key mo
+                let encodeKey (k : heapVectorIndexKey) =
+                    [|k.address; k.index|] |> x.EncodeTerms (fun _ _ -> false) encCtx
+                let keyInRegion = x.VectorIndexKeyInRegion encCtx
+                let keysAreEqual (left : Expr[]) (right : Expr[]) =
+                    ctx.MkAnd(ctx.MkEq(left.[0], right.[0]), ctx.MkEq(left.[1], right.[1]))
+                x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue [key.index] key mo typ source name
+            | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source name
+            | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source name
             | StructFieldSource field -> __notImplemented__() // TODO: #do
             | HeapAddressSource -> x.EncodeSymbolicAddress term name
             | _ -> x.CreateConstant name typ term
@@ -242,8 +279,9 @@ module internal Z3 =
             | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source typ term
             | _ -> x.CreateConstant name typ term
 
-        member private x.EncodeExpression stopper (encCtx : encodingContext) term op args typ = // TODO: need stopper? delete? #do
-            cache.Get term (fun () ->
+        // TODO: make better! #do
+        member private x.EncodeExpression stopper (encCtx : encodingContext) term op args typ : Expr encodingResult = // TODO: need stopper? delete? #do
+            cache.Get(term, fun () ->
                 match op with
                 | Operator operator ->
                     if stopper operator args then
@@ -251,58 +289,106 @@ module internal Z3 =
                         x.CreateConstant name typ term
                     else
                         match operator with
-                        | OperationType.LogicalNeg -> x.MakeUnary stopper encCtx ctx.MkNot args :> Expr
-                        | OperationType.LogicalAnd -> ctx.MkAnd(x.EncodeTerms stopper encCtx args) :> Expr
-                        | OperationType.LogicalOr -> ctx.MkOr(x.EncodeTerms stopper encCtx args) :> Expr
-                        | OperationType.Equal -> x.MakeBinary stopper encCtx ctx.MkEq args :> Expr
-                        | OperationType.Greater -> x.MakeBinary stopper encCtx ctx.MkGt args :> Expr
-                        | OperationType.GreaterOrEqual -> x.MakeBinary stopper encCtx ctx.MkGe args :> Expr
-                        | OperationType.Less -> x.MakeBinary stopper encCtx ctx.MkLt args :> Expr
-                        | OperationType.LessOrEqual -> x.MakeBinary stopper encCtx ctx.MkLe args :> Expr
-                        | OperationType.Add -> ctx.MkAdd(x.EncodeTerms stopper encCtx args) :> Expr
-                        | OperationType.Multiply -> ctx.MkMul(x.EncodeTerms stopper encCtx args) :> Expr
-                        | OperationType.Subtract -> ctx.MkSub(x.EncodeTerms stopper encCtx args) :> Expr
-                        | OperationType.Divide -> x.MakeBinary stopper encCtx ctx.MkDiv args :> Expr
-                        | OperationType.Remainder -> x.MakeBinary stopper encCtx ctx.MkRem args :> Expr
-                        | OperationType.UnaryMinus -> x.MakeUnary stopper encCtx ctx.MkUnaryMinus args :> Expr
-                        | OperationType.Not -> x.MakeUnary stopper encCtx ctx.MkNot args :> Expr
+                        | OperationType.LogicalNeg ->
+                            let res = x.MakeUnary stopper encCtx ctx.MkNot args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.LogicalAnd ->
+                            let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                            {expr = ctx.MkAnd(expressions) :> Expr; assumptions = assumptions}
+                        | OperationType.LogicalOr ->
+                            let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                            {expr = ctx.MkOr(expressions) :> Expr; assumptions = assumptions}
+                        | OperationType.Equal ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkEq args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.Greater ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkGt args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.GreaterOrEqual ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkGe args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.Less ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkLt args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.LessOrEqual ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkLe args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.Add ->
+                            let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                            {expr = ctx.MkAdd(expressions) :> Expr; assumptions = assumptions}
+                        | OperationType.Multiply ->
+                            let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                            {expr = ctx.MkMul(expressions) :> Expr; assumptions = assumptions}
+                        | OperationType.Subtract ->
+                            let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                            {expr = ctx.MkSub(expressions) :> Expr; assumptions = assumptions}
+                        | OperationType.Divide ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkDiv args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.Remainder ->
+                            let res = x.MakeBinary stopper encCtx ctx.MkRem args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.UnaryMinus ->
+                            let res = x.MakeUnary stopper encCtx ctx.MkUnaryMinus args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
+                        | OperationType.Not ->
+                            let res = x.MakeUnary stopper encCtx ctx.MkNot args
+                            {expr = res.expr :> Expr; assumptions = res.assumptions}
                         | OperationType.ShiftLeft
                         | OperationType.ShiftRight -> __notImplemented__()
                         | _ -> __notImplemented__()
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
-                    ctx.MkApp(decl, x.EncodeTerms stopper encCtx args)
-                | Cast(Numeric _, Numeric _) -> x.EncodeTermExt stopper encCtx (List.head args) :> Expr
+                    let assumptions, expressions = x.EncodeTerms stopper encCtx args
+                    {expr = ctx.MkApp(decl, expressions); assumptions = assumptions}
+                | Cast(Numeric _, Numeric _) ->
+                    let res = x.EncodeTermExt stopper encCtx (List.head args)
+                    {expr = res.expr :> Expr; assumptions = res.assumptions}
                 | Cast _ ->
                     __notImplemented__())
 
-        member private x.EncodeTermExt<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) encCtx (t : term) : 'a =
+        member private x.EncodeTermExt<'a when 'a :> Expr and 'a : equality> (stopper : OperationType -> term list -> bool) encCtx (t : term) : 'a encodingResult =
             match t.term with
-            | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ :?> 'a
-            | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ t :?> 'a
-            | Expression(op, args, typ) -> x.EncodeExpression stopper encCtx t op args typ :?> 'a
+            | Concrete(obj, typ) ->
+                let result = x.EncodeConcrete encCtx obj typ
+                {expr = result.expr :?> 'a; assumptions = result.assumptions}
+            | Constant(name, source, typ) ->
+                let result = x.EncodeConstant encCtx name.v source typ t
+                {expr = result.expr :?> 'a; assumptions = result.assumptions}
+            | Expression(op, args, typ) ->
+                let result = x.EncodeExpression stopper encCtx t op args typ
+                {expr = result.expr :?> 'a; assumptions = result.assumptions}
             | _ -> __notImplemented__() // TODO: need to encode HeapRef? #do
 
-        member private this.MakeUnary<'a, 'b when 'a :> Expr and 'b :> Expr>
+        member private this.MakeUnary<'a, 'b when 'a :> Expr and 'a : equality and 'b :> Expr and 'b : equality>
                 (stopper : OperationType -> term list -> bool)
                 (encCtx : encodingContext)
                 (constructor : 'a -> 'b)
-                (args : term list) : 'b =
+                (args : term list) : 'b encodingResult =
             match args with
-            | [x] -> constructor (this.EncodeTermExt<'a> stopper encCtx x)
+            | [x] ->
+                let result = this.EncodeTermExt<'a> stopper encCtx x
+                {expr = constructor result.expr; assumptions = result.assumptions}
             | _ -> internalfail "unary operation should have exactly one argument"
 
-        member private this.MakeBinary<'a, 'b, 'c when 'a :> Expr and 'b :> Expr and 'c :> Expr>
+        member private this.MakeBinary<'a, 'b, 'c when 'a :> Expr and 'a : equality and 'b :> Expr and 'b : equality and 'c :> Expr and 'c : equality>
                 (stopper : OperationType -> term list -> bool)
                 (encCtx : encodingContext)
                 (constructor : 'a * 'b -> 'c)
-                (args : term list) : 'c =
+                (args : term list) : 'c encodingResult =
             match args with
-            | [x; y] -> constructor(this.EncodeTermExt<'a> stopper encCtx x, this.EncodeTermExt<'b> stopper encCtx y)
+            | [x; y] ->
+                let x' = this.EncodeTermExt<'a> stopper encCtx x
+                let y' = this.EncodeTermExt<'b> stopper encCtx y
+                {expr = constructor(x'.expr, y'.expr); assumptions = x'.assumptions @ y'.assumptions}
             | _ -> internalfail "binary operation should have exactly two arguments"
 
-        member private x.EncodeTerms<'a when 'a :> Expr> (stopper : OperationType -> term list -> bool) (encCtx : encodingContext) (ts : term seq) : 'a array =
-            ts |> Seq.map (x.EncodeTermExt<'a> stopper encCtx) |> FSharp.Collections.Array.ofSeq
+        member internal x.EncodeTerms<'a when 'a :> Expr and 'a : equality> (stopper : OperationType -> term list -> bool) (encCtx : encodingContext) (ts : term seq) : BoolExpr list * 'a array =
+            let encodeOne acc term =
+                let result = x.EncodeTermExt<'a> stopper encCtx term
+                result.expr, acc @ result.assumptions
+            let expressions, assumptions = Seq.mapFold encodeOne List.empty ts
+            assumptions, Array.ofSeq expressions
 
     // ------------------------------- Decoding -------------------------------
 
@@ -382,6 +468,7 @@ module internal Z3 =
                 printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
                 printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
                 let query = builder.EncodeTerm encCtx q.queryFml
+                let assumptions = query.assumptions
                 let assumptions =
                     seq {
                         for i in 0 .. levelAtoms.Count - 1 do
@@ -389,7 +476,9 @@ module internal Z3 =
                             if atom <> null then
                                 let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
                                 yield lit :> Expr
-                        yield query
+                        for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
+                            yield assumptions.[i] :> Expr
+                        yield query.expr
                     } |> Array.ofSeq
                 let pathAtoms = addSoftConstraints q.lvl
                 try
@@ -421,6 +510,7 @@ module internal Z3 =
                 printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl
                 printLogLazy Trace "%s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml // TODO: make this generic #do
+                let encoded = List.fold (fun acc x -> ctx.MkAnd(acc, x)) encoded.expr encoded.assumptions
                 let leveled =
                     if Level.isInf lvl then encoded
                     else
@@ -432,5 +522,6 @@ module internal Z3 =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
                 printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
                 let pathAtom = addPath p
-                let encoded = PathConditionToSeq p.state.pc |> Seq.map (builder.EncodeTerm encCtx) |> ctx.MkAnd
+                let assumptions, encoded = PathConditionToSeq p.state.pc |> builder.EncodeTerms (fun _ _ -> false) encCtx
+                let encoded = ctx.MkAnd(Seq.append assumptions encoded)
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))

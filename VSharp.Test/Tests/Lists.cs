@@ -230,6 +230,48 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static int SolverTestArrayKey(int[] a, int x)
+        {
+            a[1] = 12;
+            a[x] = 12;
+            if (x != 10)
+            {
+                a[10] = 42;
+            }
+            var res = 0;
+            if (a[x] == 12)
+            {
+                res = 1;
+            }
+            return res;
+        }
+
+        [TestSvm]
+        public static int SolverTestConcreteArray(int x)
+        {
+            var res = 0;
+            var a = new int[3] {1, 2, 3};
+            a[2] = x;
+            var len = a.Length;
+            var lb = a.GetLowerBound(0);
+            if (len == 3 && lb == 0)
+                res = 1;
+            return res;
+        }
+
+        [TestSvm]
+        public static int SolverTestMultiDimensionArray(int[,] a, int x, int y)
+        {
+            var res = 0;
+            var b = new int[x + 1, y + 1];
+            var axy = a[x, y];
+            var bxy = b[x, y];
+            if (axy == bxy)
+                res = 1;
+            return res;
+        }
+
+        [TestSvm]
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];
@@ -523,65 +565,6 @@ namespace VSharp.Test.Tests
             LinkedListNode<int> x = G(l.First, n);
             LinkedListNode<int> m = new LinkedListNode<int>(42);
             return x.Value;
-        }
-
-        [TestSvm]
-        public static int SolverTestArrayKey(int[] a, int x)
-        {
-            a[1] = 12;
-            a[x] = 12;
-            if (x != 10)
-            {
-                a[10] = 42;
-            }
-            var res = 0;
-            if (a[x] == 12)
-            {
-                res = 1;
-            }
-            return res;
-        }
-
-        public static class StaticTestClass
-        {
-            public static int Field = 0;
-        }
-
-        [TestSvm]
-        public static int SolverTestStaticsKey(int a)
-        {
-            var res = 0;
-            StaticTestClass.Field = 10;
-            if (StaticTestClass.Field == a)
-                res = 1;
-            return res;
-        }
-
-        // public static int SolverTestStackBufferKey(int a) // TODO: what is stackBuffer? #do
-
-        [TestSvm]
-        public static int SolverTestConcreteArray(int x)
-        {
-            var res = 0;
-            var a = new int[3] {1, 2, 3};
-            a[2] = x;
-            var len = a.Length;
-            var lb = a.GetLowerBound(0);
-            if (len == 3 && lb == 0)
-                res = 1;
-            return res;
-        }
-
-        [TestSvm]
-        public static int SolverTestMultiDimensionArray(int[,] a, int x, int y)
-        {
-            var res = 0;
-            var b = new int[x + 1, y + 1];
-            var axy = a[x, y];
-            var bxy = b[x, y];
-            if (axy == bxy)
-                res = 1;
-            return res;
         }
     }
 

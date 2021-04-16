@@ -53,7 +53,7 @@ module public Prelude =
     let inline public (|??) lhs rhs = Option.defaultValue rhs lhs
     let inline public (||??) (lhs : 'a option) (rhs : 'a Lazy) = Option.defaultWith rhs.Force lhs
 
-    let safeGenericTypeDefinition (t : System.Type) = // TODO: need this [generalize only in string]?
+    let safeGenericTypeDefinition (t : System.Type) = // TODO: need this [generalize only in string]? #do
         if t.IsGenericType && not t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
 
     type ListMonad() =

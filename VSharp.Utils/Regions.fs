@@ -21,7 +21,7 @@ type endpointSort = // TODO: need eneum? #do
     | OpenLeft
 
 [<StructuralEquality;StructuralComparison>]
-type endpoint<'a when 'a : comparison> =
+type endpoint<'a when 'a : comparison> = // TODO: make ADT #do
     { elem : 'a; sort : endpointSort }
 
 module private Intervals =
