@@ -130,6 +130,18 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let statesWithCreatedExceptions = createException cilState
         k statesWithCreatedExceptions
 
+    member private x.MultiDimensionalAccessArray accessor (cilState : cilState) upperBound (index : term list) k = __notImplemented__()
+//        let checkArrayBounds upperBound x =
+//            let lowerBound = Concrete 0 Types.TLength
+//            let notTooSmall = Arithmetics.(>>=) x lowerBound
+//            let notTooLarge = Arithmetics.(<<) x upperBound
+//            notTooSmall &&& notTooLarge
+//        StatedConditionalExecutionAppendResultsCIL cilState
+//            (fun state k -> k (checkArrayBounds upperBound index, state))
+//            accessor
+//            (x.Raise x.IndexOutOfRangeException)
+//            k
+
     member private x.AccessArray accessor (cilState : cilState) upperBound index k =
         let checkArrayBounds upperBound x =
             let lowerBound = Concrete 0 Types.TLength
@@ -145,6 +157,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member private x.AccessArrayDimension accessor (cilState : cilState) (this : term) (dimension : term) =
         let upperBound = Memory.ArrayRank cilState.state this
         x.AccessArray (accessor this dimension) cilState upperBound dimension id
+
     member private x.CommonGetArrayLength (cilState : cilState) thisOption args =
         match args with
         | dimensionsKey :: [] ->
@@ -160,6 +173,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 cilState |> push (Memory.ArrayLowerBoundByDimension cilState.state arrayRef index) |> List.singleton |> k
             x.AccessArrayDimension arrayLowerBoundByDimension cilState (Option.get this) dimension
         | _ -> internalfail "unexpected number of arguments"
+
+//    member private x.SetArrayElement (cilState : cilState) (this : term option) args =
+//        match this with
+//        | Some arrayRef ->
+//            let setElement
+//        | None -> __unreachable__()
 
     member private x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
          StatedConditionalExecutionCIL cilState
@@ -221,6 +240,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let state = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id
             // NOTE: callsite of cilState is explicitly untouched
             cilState |> withState state |> withLastIp (instruction methodInfo 0) |> List.singleton |> k
+        elif fullMethodName.Contains "System.Array.Set(" then // TODO: do better #do
+            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
             internalfailf "new extern method: %s" fullMethodName
         elif x.IsNotImplementedIntrinsic methodBase then
@@ -569,7 +590,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelem.Size)
         x.LdElemTyp typ cilState
     member private x.LdElemRef = x.LdElemWithCast always
-    //TODO: unify ``(x.Raise x.ArrayTypeMismatchException)'' with one from StElemWithCast #Kostya
     member private x.LdElema (cfg : cfg) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelema.Size)
         let index, arrayRef, cilState = pop2 cilState
@@ -579,7 +599,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
             let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionAppendResultsCIL cilState
-                (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state)) // TODO: only one subtyping? #do
+                // TODO: types must be equal or we need to cast? #do
+                (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
                 referenceLocation
                 (x.Raise x.ArrayTypeMismatchException)
                 k
@@ -601,7 +622,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                     (x.Raise x.ArrayTypeMismatchException)
             let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
-                if Types.IsValueType typeOfValue then  //TODO: why this if is needed? #Kostya
+                if Types.IsValueType typeOfValue then
                     checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
                 else
                     checkTypeMismatchBasedOnTypeOfValue (Types.RefIsAssignableToType cilState.state value baseType) cilState k
