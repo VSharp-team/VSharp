@@ -227,7 +227,7 @@ module internal Memory =
 
     let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
-        | :? structField as sf -> Some(sf.field)
+        | :? structField as sf -> Some(sf.baseSource, sf.field)
         | _ -> None
 
     [<StructuralEquality;NoComparison>]

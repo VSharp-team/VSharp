@@ -290,6 +290,17 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
+        [TestSvm]
+        public static int TestConnectionBetweenIndicesAndValues(int[] a, int i, int j)
+        {
+            int x = a[i];
+            int y = a[j];
+            int res = 0;
+            if (i == j && x != y)
+                res = 1;
+            return res;
+        }
+
         [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray1(Array arr)
         {
