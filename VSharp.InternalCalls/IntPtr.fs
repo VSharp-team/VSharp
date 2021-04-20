@@ -22,4 +22,7 @@ module IntPtr =
         let this, ptrTerm = List.item 0 args, List.item 1 args
         ctor state this ptrTerm
 
-    let internal ctorFromLong = ctorFromInt
+    let internal ctorFromLong (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 2)
+        let this, intTerm = List.item 0 args, List.item 1 args
+        ctor state this intTerm

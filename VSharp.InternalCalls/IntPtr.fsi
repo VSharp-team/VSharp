@@ -15,4 +15,4 @@ module internal IntPtr =
     val internal ctorFromPtr : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.IntPtr..ctor(this, System.Int64)")>]
-    val internal ctorFromLong : (state -> term list -> (term * state) list)
+    val internal ctorFromLong : state -> term list -> (term * state) list

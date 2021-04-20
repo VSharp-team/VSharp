@@ -95,7 +95,7 @@ module internal Z3 =
             else ctx.MkAnd(left, right)
 
         member x.MkAnd ([<ParamArray>] elems) = // TODO: array or seq? #do
-            let nonTrueElems = Array.filter (fun elem -> elem = x.True) elems
+            let nonTrueElems = Array.filter (fun elem -> elem <> x.True) elems
             match nonTrueElems with
             | Seq.Empty -> x.True
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
