@@ -289,7 +289,7 @@ module internal InstructionsSet =
             if TypeUtils.isBool x || TypeUtils.isBool y
             then fun t k -> k (transform2BooleanTerm cilState.state.pc t)
             else idTransformation
-        binaryOperationWithBoolResult OperationType.Equal transform transform cilState
+        binaryOperationWithBoolResult Equal transform transform cilState
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
         let argTerm =
@@ -321,21 +321,28 @@ module internal InstructionsSet =
         | _ -> internalfail errorStr
     let boolToInt b =
         BranchExpressions (fun k -> k b) (fun k -> k TypeUtils.Int32.One) (fun k -> k TypeUtils.Int32.Zero) id
-    let bitwiseOrBoolOperation op (cilState : cilState) =
+    let bitwiseOrBoolOperation bitwiseOp boolOp (cilState : cilState) =
         let arg2, arg1, _ = pop2 cilState
         let typ1, typ2 = TypeOf arg1, TypeOf arg2
         match typ1, typ2 with
         | Bool, Bool ->
-            binaryOperationWithBoolResult op idTransformation idTransformation cilState
+            binaryOperationWithBoolResult boolOp idTransformation idTransformation cilState
         | _ when TypeUtils.isIntegerTermType typ1 && TypeUtils.isIntegerTermType typ2 ->
-            standardPerformBinaryOperation op cilState
+            standardPerformBinaryOperation bitwiseOp cilState
         | Bool, typ2 when TypeUtils.isIntegerTermType typ2 ->
             let newArg1 = boolToInt arg1
-            performCILBinaryOperation op (fun _ k -> k newArg1) idTransformation idTransformation cilState
+            performCILBinaryOperation bitwiseOp (fun _ k -> k newArg1) idTransformation idTransformation cilState
         | typ1, Bool when TypeUtils.isIntegerTermType typ1 ->
             let newArg2 = boolToInt arg2
-            performCILBinaryOperation op idTransformation (fun _ k -> k newArg2) idTransformation cilState
-        | typ1, typ2 -> internalfailf "unhandled case for Bitwise operation %O and types: %O %O" op typ1 typ2
+            performCILBinaryOperation bitwiseOp idTransformation (fun _ k -> k newArg2) idTransformation cilState
+        | typ1, typ2 -> internalfailf "unhandled case for Bitwise operation %O and types: %O %O" bitwiseOp typ1 typ2
+    let bitwiseOrBoolNot (cilState : cilState) =
+        let arg, _ = pop cilState
+        let op =
+            match TypeOf arg with
+            | Bool -> LogicalNot
+            | _ -> BitwiseNot
+        performCILUnaryOperation op cilState
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, opStack = Memory.PopArgumentsFromOpStack paramsNumber cilState.state.opStack
@@ -517,22 +524,22 @@ module internal InstructionsSet =
     let opcode2Function : (cfgData -> offset -> ipStack list -> cilState -> cilState list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
     opcode2Function.[hashFunction OpCodes.Br]                 <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
     opcode2Function.[hashFunction OpCodes.Br_S]               <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
-    opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Add // TODO: check float overflow [spec]
-    opcode2Function.[hashFunction OpCodes.Mul]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Multiply
-    opcode2Function.[hashFunction OpCodes.Sub]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Subtract
-    opcode2Function.[hashFunction OpCodes.Shl]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftLeft
-    opcode2Function.[hashFunction OpCodes.Shr]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftRight
-    opcode2Function.[hashFunction OpCodes.Shr_Un]             <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftRight // TODO: implement using specification
+    opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Add // TODO: check float overflow [spec]
+    opcode2Function.[hashFunction OpCodes.Mul]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Multiply
+    opcode2Function.[hashFunction OpCodes.Sub]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Subtract
+    opcode2Function.[hashFunction OpCodes.Shl]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftLeft
+    opcode2Function.[hashFunction OpCodes.Shr]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftRight
+    opcode2Function.[hashFunction OpCodes.Shr_Un]             <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftRight // TODO: implement using specification
     opcode2Function.[hashFunction OpCodes.Ceq]                <- zipWithOneOffset <| fun _ _ -> ceq
-    opcode2Function.[hashFunction OpCodes.Cgt]                <- zipWithOneOffset <| fun _ _ -> binaryOperationWithBoolResult OperationType.Greater idTransformation idTransformation
+    opcode2Function.[hashFunction OpCodes.Cgt]                <- zipWithOneOffset <| fun _ _ -> binaryOperationWithBoolResult Greater idTransformation idTransformation
     opcode2Function.[hashFunction OpCodes.Cgt_Un]             <- zipWithOneOffset <| fun _ _ -> cgtun
     opcode2Function.[hashFunction OpCodes.Clt]                <- zipWithOneOffset <| fun _ _ -> clt
     opcode2Function.[hashFunction OpCodes.Clt_Un]             <- zipWithOneOffset <| fun _ _ -> cltun
-    opcode2Function.[hashFunction OpCodes.And]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.LogicalAnd
-    opcode2Function.[hashFunction OpCodes.Or]                 <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.LogicalOr
-    opcode2Function.[hashFunction OpCodes.Xor]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.LogicalXor
-    opcode2Function.[hashFunction OpCodes.Neg]                <- zipWithOneOffset <| fun _ _ -> performCILUnaryOperation OperationType.UnaryMinus
-    opcode2Function.[hashFunction OpCodes.Not]                <- zipWithOneOffset <| fun _ _ -> performCILUnaryOperation OperationType.LogicalNeg
+    opcode2Function.[hashFunction OpCodes.And]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseAnd LogicalAnd
+    opcode2Function.[hashFunction OpCodes.Or]                 <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseOr LogicalOr
+    opcode2Function.[hashFunction OpCodes.Xor]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseXor LogicalXor
+    opcode2Function.[hashFunction OpCodes.Neg]                <- zipWithOneOffset <| fun _ _ -> performCILUnaryOperation UnaryMinus
+    opcode2Function.[hashFunction OpCodes.Not]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolNot
     opcode2Function.[hashFunction OpCodes.Stloc]              <- zipWithOneOffset <| stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Stloc.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Stloc_0]            <- zipWithOneOffset <| stloc (fun _ _ -> 0)
     opcode2Function.[hashFunction OpCodes.Stloc_1]            <- zipWithOneOffset <| stloc (fun _ _ -> 1)
@@ -579,27 +586,27 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Brfalse_S]          <- fun _ _ -> brfalse
     opcode2Function.[hashFunction OpCodes.Brtrue]             <- fun _ _ -> brtrue
     opcode2Function.[hashFunction OpCodes.Brtrue_S]           <- fun _ _ -> brtrue
-    opcode2Function.[hashFunction OpCodes.Beq]                <- applyAndBranch "Beq" (opcode2Function.[hashFunction OpCodes.Ceq]) brtrue
-    opcode2Function.[hashFunction OpCodes.Beq_S]              <- applyAndBranch "Beq_S" (opcode2Function.[hashFunction OpCodes.Ceq]) brtrue
+    opcode2Function.[hashFunction OpCodes.Beq]                <- applyAndBranch "Beq" opcode2Function.[hashFunction OpCodes.Ceq] brtrue
+    opcode2Function.[hashFunction OpCodes.Beq_S]              <- applyAndBranch "Beq_S" opcode2Function.[hashFunction OpCodes.Ceq] brtrue
     opcode2Function.[hashFunction OpCodes.Bge]                <- applyAndBranch "Bge" (zipWithOneOffset <| fun _ _ -> bgeHelper) brfalse
     opcode2Function.[hashFunction OpCodes.Bge_S]              <- applyAndBranch "Bge_S" (zipWithOneOffset <| fun _ _ -> bgeHelper) brfalse
 
-    opcode2Function.[hashFunction OpCodes.Bgt]                <- applyAndBranch "Bgt" (opcode2Function.[hashFunction OpCodes.Cgt]) brtrue
-    opcode2Function.[hashFunction OpCodes.Bgt_S]              <- applyAndBranch "Bgt_S" (opcode2Function.[hashFunction OpCodes.Cgt]) brtrue
-    opcode2Function.[hashFunction OpCodes.Bgt_Un]             <- applyAndBranch "Bgt_Un" (opcode2Function.[hashFunction OpCodes.Cgt_Un]) brtrue
-    opcode2Function.[hashFunction OpCodes.Bgt_Un_S]           <- applyAndBranch "Bgt_Un_S" (opcode2Function.[hashFunction OpCodes.Cgt_Un]) brtrue
-    opcode2Function.[hashFunction OpCodes.Ble]                <- applyAndBranch "Ble" (opcode2Function.[hashFunction OpCodes.Cgt]) brfalse
-    opcode2Function.[hashFunction OpCodes.Ble_S]              <- applyAndBranch "Ble_S" (opcode2Function.[hashFunction OpCodes.Cgt]) brfalse
-    opcode2Function.[hashFunction OpCodes.Ble_Un]             <- applyAndBranch "Ble_Un" (opcode2Function.[hashFunction OpCodes.Cgt_Un]) brfalse
-    opcode2Function.[hashFunction OpCodes.Ble_Un_S]           <- applyAndBranch "Ble_Un_S" (opcode2Function.[hashFunction OpCodes.Cgt_Un]) brfalse
-    opcode2Function.[hashFunction OpCodes.Blt]                <- applyAndBranch "Blt" (opcode2Function.[hashFunction OpCodes.Clt]) brtrue
-    opcode2Function.[hashFunction OpCodes.Blt_S]              <- applyAndBranch "Blt_S" (opcode2Function.[hashFunction OpCodes.Clt]) brtrue
-    opcode2Function.[hashFunction OpCodes.Blt_Un]             <- applyAndBranch "Blt_Un" (opcode2Function.[hashFunction OpCodes.Clt_Un]) brtrue
-    opcode2Function.[hashFunction OpCodes.Blt_Un_S]           <- applyAndBranch "Blt_Un_S" (opcode2Function.[hashFunction OpCodes.Clt_Un]) brtrue
-    opcode2Function.[hashFunction OpCodes.Bne_Un]             <- applyAndBranch "Bne_Un" (opcode2Function.[hashFunction OpCodes.Ceq]) brfalse
-    opcode2Function.[hashFunction OpCodes.Bne_Un_S]           <- applyAndBranch "Bne_Un_S" (opcode2Function.[hashFunction OpCodes.Ceq]) brfalse
-    opcode2Function.[hashFunction OpCodes.Bge_Un]             <- applyAndBranch "Bge_Un" (opcode2Function.[hashFunction OpCodes.Clt_Un]) brfalse
-    opcode2Function.[hashFunction OpCodes.Bge_Un_S]           <- applyAndBranch "Bge_Un_S" (opcode2Function.[hashFunction OpCodes.Clt_Un]) brfalse
+    opcode2Function.[hashFunction OpCodes.Bgt]                <- applyAndBranch "Bgt" opcode2Function.[hashFunction OpCodes.Cgt] brtrue
+    opcode2Function.[hashFunction OpCodes.Bgt_S]              <- applyAndBranch "Bgt_S" opcode2Function.[hashFunction OpCodes.Cgt] brtrue
+    opcode2Function.[hashFunction OpCodes.Bgt_Un]             <- applyAndBranch "Bgt_Un" opcode2Function.[hashFunction OpCodes.Cgt_Un] brtrue
+    opcode2Function.[hashFunction OpCodes.Bgt_Un_S]           <- applyAndBranch "Bgt_Un_S" opcode2Function.[hashFunction OpCodes.Cgt_Un] brtrue
+    opcode2Function.[hashFunction OpCodes.Ble]                <- applyAndBranch "Ble" opcode2Function.[hashFunction OpCodes.Cgt] brfalse
+    opcode2Function.[hashFunction OpCodes.Ble_S]              <- applyAndBranch "Ble_S" opcode2Function.[hashFunction OpCodes.Cgt] brfalse
+    opcode2Function.[hashFunction OpCodes.Ble_Un]             <- applyAndBranch "Ble_Un" opcode2Function.[hashFunction OpCodes.Cgt_Un] brfalse
+    opcode2Function.[hashFunction OpCodes.Ble_Un_S]           <- applyAndBranch "Ble_Un_S" opcode2Function.[hashFunction OpCodes.Cgt_Un] brfalse
+    opcode2Function.[hashFunction OpCodes.Blt]                <- applyAndBranch "Blt" opcode2Function.[hashFunction OpCodes.Clt] brtrue
+    opcode2Function.[hashFunction OpCodes.Blt_S]              <- applyAndBranch "Blt_S" opcode2Function.[hashFunction OpCodes.Clt] brtrue
+    opcode2Function.[hashFunction OpCodes.Blt_Un]             <- applyAndBranch "Blt_Un" opcode2Function.[hashFunction OpCodes.Clt_Un] brtrue
+    opcode2Function.[hashFunction OpCodes.Blt_Un_S]           <- applyAndBranch "Blt_Un_S" opcode2Function.[hashFunction OpCodes.Clt_Un] brtrue
+    opcode2Function.[hashFunction OpCodes.Bne_Un]             <- applyAndBranch "Bne_Un" opcode2Function.[hashFunction OpCodes.Ceq] brfalse
+    opcode2Function.[hashFunction OpCodes.Bne_Un_S]           <- applyAndBranch "Bne_Un_S" opcode2Function.[hashFunction OpCodes.Ceq] brfalse
+    opcode2Function.[hashFunction OpCodes.Bge_Un]             <- applyAndBranch "Bge_Un" opcode2Function.[hashFunction OpCodes.Clt_Un] brfalse
+    opcode2Function.[hashFunction OpCodes.Bge_Un_S]           <- applyAndBranch "Bge_Un_S" opcode2Function.[hashFunction OpCodes.Clt_Un] brfalse
 
     opcode2Function.[hashFunction OpCodes.Ldstr]              <- zipWithOneOffset <| ldstr
     opcode2Function.[hashFunction OpCodes.Ldnull]             <- zipWithOneOffset <| fun _ _ -> ldnull

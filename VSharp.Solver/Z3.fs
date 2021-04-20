@@ -12,6 +12,7 @@ module internal Z3 =
 
     [<CustomEquality;NoComparison>]
     type encodingResult =
+        // TODO: use type for assumptions -- add only if element is not True #do
         {expr : Expr; assumptions: BoolExpr list} // TODO: mb assumptions = Expr seq? #do
         static member Create(expr : 'a) = {expr = expr; assumptions = List.empty}
         static member Create(expr : 'a, conditions) = {expr = expr; assumptions = conditions}
@@ -73,24 +74,26 @@ module internal Z3 =
             assert(not <| String.IsNullOrWhiteSpace id)
             if Char.IsDigit id.[0] then "_" + id else id
 
+        member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
+
         member private x.Type2Sort typ =
             Dict.getValueOrUpdate cache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
-                | Numeric(Id t) when t.IsEnum -> ctx.MkIntSort() :> Sort
-                | Numeric _ as t when Types.IsInteger t -> ctx.MkIntSort() :> Sort
-                | Numeric _ as t when Types.IsReal t -> ctx.MkRealSort() :> Sort
-                | AddressType -> ctx.MkIntSort() :> Sort
-                | Numeric _
+                | Numeric(Id typ) when typ.IsEnum -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
+                | Numeric(Id typ) as t when Types.IsInteger t -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
+                | Numeric _ as t when Types.IsReal t -> internalfail "encoding real numbers is not implemented"
+                | AddressType -> x.AddressSort
+                | StructType(Id typ, _) -> ctx.MkBitVecSort(TypeUtils.internalSizeOf typ) :> Sort
+                | Numeric _ -> __notImplemented__()
                 | ArrayType _
                 | Void
                 | Null
-                | StructType _
                 | ClassType _
                 | InterfaceType _
                 | TypeVariable _
                 | ByRef _
-                | Pointer _ -> __notImplemented__())
+                | Pointer _ -> __unreachable__())
 
         member private x.True = ctx.MkTrue()
 
@@ -139,11 +142,8 @@ module internal Z3 =
                 match typ with
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
                 | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-                | Numeric(Id t) ->
-                    match obj with
-                    | _ when TypeUtils.isIntegral (obj.GetType()) -> ctx.MkInt(obj.ToString()) :> Expr
-                    | _ when t.IsEnum -> ctx.MkInt(Convert.ChangeType(obj, t.GetEnumUnderlyingType()).ToString()) :> Expr
-                    | _ -> ctx.MkNumeral(obj.ToString(), x.Type2Sort typ)
+                | Numeric(Id t) when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
+                | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
                     | :? concreteHeapAddress as addr ->
@@ -169,24 +169,28 @@ module internal Z3 =
                         x.CreateConstant name typ
                     else
                         match operator with
-                        | OperationType.LogicalNeg -> x.MakeUnary stopper encCtx ctx.MkNot args
-                        | OperationType.LogicalAnd -> x.MakeOperation stopper encCtx x.MkAnd args
-                        | OperationType.LogicalOr -> x.MakeOperation stopper encCtx ctx.MkOr args
-                        | OperationType.Equal -> x.MakeBinary stopper encCtx x.MkEq args
-                        | OperationType.Greater -> x.MakeBinary stopper encCtx ctx.MkGt args
-                        | OperationType.GreaterOrEqual -> x.MakeBinary stopper encCtx ctx.MkGe args
-                        | OperationType.Less -> x.MakeBinary stopper encCtx ctx.MkLt args
-                        | OperationType.LessOrEqual -> x.MakeBinary stopper encCtx ctx.MkLe args
-                        | OperationType.Add -> x.MakeOperation stopper encCtx ctx.MkAdd args
-                        | OperationType.Multiply -> x.MakeOperation stopper encCtx ctx.MkMul args
-                        | OperationType.Subtract -> x.MakeOperation stopper encCtx (fun x -> ctx.MkSub x) args
-                        | OperationType.Divide -> x.MakeBinary stopper encCtx ctx.MkDiv args
-                        | OperationType.Remainder -> x.MakeBinary stopper encCtx ctx.MkRem args
-                        | OperationType.UnaryMinus -> x.MakeUnary stopper encCtx ctx.MkUnaryMinus args
-                        | OperationType.Not -> x.MakeUnary stopper encCtx ctx.MkNot args
-                        | OperationType.ShiftLeft
-                        | OperationType.ShiftRight -> __notImplemented__()
-                        | _ -> __notImplemented__()
+                        | BitwiseNot -> x.MakeUnary stopper encCtx ctx.MkBVNot args
+                        | BitwiseAnd -> x.MakeBinary stopper encCtx ctx.MkBVAND args
+                        | BitwiseOr -> x.MakeBinary stopper encCtx ctx.MkBVOR args
+                        | BitwiseXor -> x.MakeBinary stopper encCtx ctx.MkBVXOR args
+                        | ShiftLeft -> x.MakeBinary stopper encCtx ctx.MkBVSHL args
+                        | ShiftRight -> x.MakeBinary stopper encCtx ctx.MkBVLSHR args
+                        | LogicalNot -> x.MakeUnary stopper encCtx ctx.MkNot args
+                        | LogicalAnd -> x.MakeOperation stopper encCtx x.MkAnd args
+                        | LogicalOr -> x.MakeOperation stopper encCtx ctx.MkOr args
+                        | LogicalXor -> x.MakeOperation stopper encCtx ctx.MkXor args
+                        | Equal -> x.MakeBinary stopper encCtx x.MkEq args
+                        | NotEqual -> x.MakeBinary stopper encCtx (ctx.MkNot << x.MkEq) args
+                        | Greater -> x.MakeBinary stopper encCtx ctx.MkBVSGT args
+                        | GreaterOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSGE args
+                        | Less -> x.MakeBinary stopper encCtx ctx.MkBVSLT args
+                        | LessOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSLE args
+                        | Add -> x.MakeBinary stopper encCtx ctx.MkBVAdd args
+                        | Multiply -> x.MakeBinary stopper encCtx ctx.MkBVMul args
+                        | Subtract -> x.MakeBinary stopper encCtx ctx.MkBVSub args
+                        | Divide -> x.MakeBinary stopper encCtx ctx.MkBVSDiv args
+                        | Remainder -> x.MakeBinary stopper encCtx ctx.MkBVSRem args
+                        | UnaryMinus -> x.MakeUnary stopper encCtx ctx.MkBVNeg args
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation stopper encCtx (fun x -> ctx.MkApp(decl, x)) args
@@ -236,13 +240,13 @@ module internal Z3 =
 
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
             let onePointCondition acc (y : vectorTime endpoint) =
-                let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort AddressType) :?> ArithExpr
+                let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort AddressType) :?> BitVecExpr
                 let condition =
                     match y.sort with
-                    | OpenRight -> ctx.MkLt(key :?> ArithExpr, bound)
-                    | ClosedRight -> ctx.MkLe(key :?> ArithExpr, bound)
-                    | OpenLeft -> ctx.MkGt(key :?> ArithExpr, bound)
-                    | ClosedLeft -> ctx.MkGe(key :?> ArithExpr, bound)
+                    | OpenRight -> ctx.MkBVSLT(key :?> BitVecExpr, bound)
+                    | ClosedRight -> ctx.MkBVSLE(key :?> BitVecExpr, bound)
+                    | OpenLeft -> ctx.MkBVSGT(key :?> BitVecExpr, bound)
+                    | ClosedLeft -> ctx.MkBVSGE(key :?> BitVecExpr, bound)
                 x.MkAnd(acc, condition)
             let intervalWithoutLeftZeroBound = List.except [{elem = VectorTime.zero; sort = ClosedLeft}] region.points
             List.fold onePointCondition acc intervalWithoutLeftZeroBound
@@ -257,7 +261,7 @@ module internal Z3 =
                 | {points = points; thrown = true} -> points, ctx.MkNot << x.MkEq
                 | {points = points; thrown = false} -> points, x.MkEq
             let handleOne acc (point : int) =
-                let pointExpr = ctx.MkNumeral(point, ctx.MkIntSort())
+                let pointExpr = ctx.MkNumeral(point, x.Type2Sort Types.IndexType)
                 x.MkAnd(acc, operation(key, pointExpr))
             PersistentSet.fold handleOne acc points
 
@@ -327,7 +331,7 @@ module internal Z3 =
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source name =
             let sort =
-                let domainSort = x.Type2Sort AddressType :: List.map (ctx.MkIntSort() :> Sort |> always) indices |> Array.ofList
+                let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
                 ctx.MkArraySort(domainSort, x.Type2Sort typ)
             let select array (k : Expr[]) = ctx.MkSelect(array, k)
             x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue sort select key mo source name
@@ -340,7 +344,7 @@ module internal Z3 =
 
         member private x.StaticsReading encCtx key mo typ source name = // TODO: make this, using equality of keys #do
             let encodeKey (k : symbolicTypeKey) = __notImplemented__() // TODO: how to encode symbolicType? Enumerate! #do
-            let sort = ctx.MkArraySort(ctx.MkIntSort(), x.Type2Sort typ)
+            let sort = ctx.MkArraySort(x.Type2Sort Types.IndexType, x.Type2Sort typ)
             let select array (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion _ _ _ = x.True
             x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false sort select key mo source name
@@ -395,7 +399,7 @@ module internal Z3 =
                 | _ ->
                     if expr.IsTrue then True
                     elif expr.IsFalse then False
-                    elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNeg expr
+                    elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
                     elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
                     elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
                     elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr

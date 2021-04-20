@@ -97,6 +97,22 @@ module TypeUtils =
         gen.Emit(OpCodes.Ret)
         meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
 
+    let numericSizeOf (typ: Type) : uint32 =
+        let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
+        assert(isNumeric typ)
+        match typ with
+        | _ when typ = typeof<int8> -> 8u
+        | _ when typ = typeof<uint8> -> 8u
+        | _ when typ = typeof<int16> -> 16u
+        | _ when typ = typeof<uint16> -> 16u
+        | _ when typ = typeof<int32> -> 32u
+        | _ when typ = typeof<uint32> -> 32u
+        | _ when typ = typeof<float32> -> 32u
+        | _ when typ = typeof<int64> -> 64u
+        | _ when typ = typeof<uint64> -> 64u
+        | _ when typ = typeof<float> -> 64u
+        | _ -> __unreachable__()
+
     // --------------------------------------- Conversions ---------------------------------------
 
     let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType

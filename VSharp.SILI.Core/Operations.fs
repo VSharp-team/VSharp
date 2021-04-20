@@ -1,25 +1,28 @@
 ﻿namespace VSharp.Core
 
 type OperationType =
-    | Not = 0
-    | UnaryMinus = 1
-    | LogicalNeg = 2
-    | LogicalAnd = 3
-    | LogicalOr = 4
-    | LogicalXor = 5
-    | Equal = 6
-    | NotEqual = 7
-    | Greater = 8
-    | Less = 9
-    | GreaterOrEqual = 10
-    | LessOrEqual = 11
-    | Add = 12
-    | Subtract = 13
-    | Divide = 14
-    | Multiply = 15
-    | Remainder = 16
-    | ShiftLeft = 17
-    | ShiftRight = 18
+    | UnaryMinus
+    | BitwiseNot
+    | BitwiseAnd
+    | BitwiseOr
+    | BitwiseXor
+    | LogicalNot
+    | LogicalAnd
+    | LogicalOr
+    | LogicalXor
+    | Equal
+    | NotEqual
+    | Greater
+    | Less
+    | GreaterOrEqual
+    | LessOrEqual
+    | Add
+    | Subtract
+    | Divide
+    | Multiply
+    | Remainder
+    | ShiftLeft
+    | ShiftRight
 
 type StandardFunction =
     | Arccosine
@@ -70,8 +73,8 @@ module internal Operations =
     open VSharp
 
     let operationArity = function
-        | OperationType.LogicalNeg
-        | OperationType.Not
+        | OperationType.LogicalNot
+        | OperationType.BitwiseNot
         | OperationType.UnaryMinus
             -> 1
         | _ -> 2
@@ -80,9 +83,9 @@ module internal Operations =
 
     let maxPriority = 10
     let operationPriority = function
-        | OperationType.LogicalNeg
-        | OperationType.Not
-        | OperationType.UnaryMinus-> maxPriority
+        | OperationType.BitwiseNot
+        | OperationType.LogicalNot
+        | OperationType.UnaryMinus -> maxPriority
         | OperationType.Multiply
         | OperationType.Divide
         | OperationType.Remainder -> maxPriority - 1
@@ -96,15 +99,20 @@ module internal Operations =
         | OperationType.GreaterOrEqual -> maxPriority - 4
         | OperationType.Equal
         | OperationType.NotEqual -> maxPriority - 5
+        | OperationType.BitwiseAnd
         | OperationType.LogicalAnd -> maxPriority - 6
+        | OperationType.BitwiseXor
         | OperationType.LogicalXor -> maxPriority - 7
+        | OperationType.BitwiseOr
         | OperationType.LogicalOr -> maxPriority - 8
-        | _ -> -1
 
     let isCommutative = function
         | OperationType.Add
         | OperationType.Multiply
         | OperationType.Equal
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor -> true
@@ -119,12 +127,14 @@ module internal Operations =
         | OperationType.GreaterOrEqual -> " >= "
         | OperationType.Less -> " < "
         | OperationType.LessOrEqual -> " <= "
+        | OperationType.BitwiseAnd -> " && "
         | OperationType.LogicalAnd -> " & "
+        | OperationType.BitwiseOr -> " || "
         | OperationType.LogicalOr -> " | "
-        | OperationType.LogicalNeg -> "!%s"
+        | OperationType.BitwiseNot -> "~%s"
+        | OperationType.LogicalNot -> "!%s"
         | OperationType.LogicalXor -> " ^ "
         | OperationType.Multiply -> " * "
-        | OperationType.Not -> "~%s"
         | OperationType.Remainder -> " % "
         | OperationType.ShiftLeft -> " << "
         | OperationType.ShiftRight -> " >> "
@@ -147,7 +157,7 @@ module internal Operations =
         | OperationType.Remainder -> TypeUtils.deduceSimpleArithmeticOperationTargetType x y
         | OperationType.ShiftLeft
         | OperationType.ShiftRight -> TypeUtils.deduceShiftTargetType x y
-        | OperationType.LogicalAnd
-        | OperationType.LogicalOr
-        | OperationType.LogicalXor -> TypeUtils.deduceLogicalArithmeticOperationTargetType x y
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor -> TypeUtils.deduceLogicalArithmeticOperationTargetType x y
         | _ -> TypeUtils.failDeduceBinaryTargetType (operationToString op) x y

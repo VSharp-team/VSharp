@@ -193,7 +193,7 @@ module internal Propositional =
 
     and internal simplifyNegation x k =
         match simplifier with
-        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNeg x Bool) |> k
+        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNot x Bool) |> k
         | None ->
             match x.term with
             | Concrete(b, t) -> Concrete (not (b :?> bool)) t |> k
@@ -202,7 +202,7 @@ module internal Propositional =
             | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l Bool |> k)
             | Terms.GuardedValues(gs, vs) ->
                 Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
-            | _ -> makeUnary OperationType.LogicalNeg x Bool |> k
+            | _ -> makeUnary OperationType.LogicalNot x Bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =
         simplifyExt op co stopValue ignoreValue x y matched unmatched
@@ -258,27 +258,27 @@ module internal Propositional =
 
     let simplifyBinaryConnective op x y k =
         match op with
-        | OperationType.LogicalAnd -> simplifyAnd x y k
-        | OperationType.LogicalOr -> simplifyOr x y k
-        | OperationType.LogicalXor ->
+        | LogicalAnd -> simplifyAnd x y k
+        | LogicalOr -> simplifyOr x y k
+        | LogicalXor ->
             simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
             simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
-        | OperationType.Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
-        | OperationType.NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
+        | Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
+        | NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
         | _ -> internalfailf "%O is not a binary logical operator" op
 
     let simplifyUnaryConnective op x k =
         match op with
-        | OperationType.LogicalNeg -> simplifyNegation x k
+        | LogicalNot -> simplifyNegation x k
         | _ -> internalfailf "%O is not an unary logical operator" op
 
     let isLogicalOperation op t1 t2 =
         Types.isBool t1 && Types.isBool t2 &&
         match op with
-        | OperationType.LogicalAnd
-        | OperationType.LogicalOr
-        | OperationType.LogicalXor
-        | OperationType.LogicalNeg
-        | OperationType.Equal
-        | OperationType.NotEqual -> true
+        | LogicalAnd
+        | LogicalOr
+        | LogicalXor
+        | LogicalNot
+        | Equal
+        | NotEqual -> true
         | _ -> false

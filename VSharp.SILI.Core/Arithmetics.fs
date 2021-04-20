@@ -128,6 +128,11 @@ module internal Arithmetics =
         simplifyUnaryMinus t y (fun minusY ->
         simplifyAddition t x minusY k)
 
+// ------------------------------ Simplification of bitwise not ------------------------------
+
+    and private simplifyBinaryNot t x k =
+        k <| makeUnary OperationType.BitwiseNot x (fromDotNetType t)
+
 // ------------------------------- Simplification of unary "-" -------------------------------
 
     and private simplifyConcreteUnaryMinus t x =
@@ -432,9 +437,9 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, _), Concrete(y, _) ->
             match op with
-            | OperationType.LogicalAnd -> k <| Concrete (Calculator.BitwiseAnd(x, y, t)) resType
-            | OperationType.LogicalOr -> k <| Concrete (Calculator.BitwiseOr(x, y, t)) resType
-            | OperationType.LogicalXor -> k <| Concrete (Calculator.BitwiseXor(x, y, t)) resType
+            | BitwiseAnd -> k <| Concrete (Calculator.BitwiseAnd(x, y, t)) resType
+            | BitwiseOr -> k <| Concrete (Calculator.BitwiseOr(x, y, t)) resType
+            | BitwiseXor -> k <| Concrete (Calculator.BitwiseXor(x, y, t)) resType
             | _ -> __notImplemented__()
         | _ -> k (Expression (Operator op) [x; y] resType)
 
@@ -517,14 +522,14 @@ module internal Arithmetics =
         | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y k
         | OperationType.Less -> simplifyLess x y k
         | OperationType.LessOrEqual -> simplifyLessOrEqual x y k
-        | OperationType.LogicalAnd
-        | OperationType.LogicalOr
-        | OperationType.LogicalXor -> simplifyBitwise op x y t (typeOf x) k
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor -> simplifyBitwise op x y t (typeOf x) k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let simplifyUnaryOperation op x t k =
         match op with
-        | OperationType.LogicalNeg -> __notImplemented__()
+        | OperationType.BitwiseNot -> simplifyBinaryNot t x k
         | OperationType.UnaryMinus -> simplifyUnaryMinus t x k
         | _ -> internalfailf "%O is not an unary arithmetical operator" op
 
@@ -544,10 +549,10 @@ module internal Arithmetics =
         | OperationType.GreaterOrEqual
         | OperationType.Less
         | OperationType.LessOrEqual
-        | OperationType.LogicalAnd
-        | OperationType.LogicalOr
-        | OperationType.LogicalXor
-        | OperationType.LogicalNeg
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor
+        | OperationType.BitwiseNot
         | OperationType.UnaryMinus -> true
         | _ -> false
 

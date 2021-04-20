@@ -485,7 +485,7 @@ module internal Terms =
 
     let negate term =
         assert(isBool term)
-        makeUnary OperationType.LogicalNeg term Bool
+        makeUnary OperationType.LogicalNot term Bool
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
@@ -529,7 +529,7 @@ module internal Terms =
         | _ -> None
 
     let (|Negation|_|) = function
-        | Expression(Operator OperationType.LogicalNeg, [x], _) -> Some(Negation x)
+        | Expression(Operator OperationType.LogicalNot, [x], _) -> Some(Negation x)
         | _ -> None
 
     let (|NegationT|_|) = term >> (|Negation|_|)

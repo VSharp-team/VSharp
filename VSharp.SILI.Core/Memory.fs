@@ -189,13 +189,15 @@ module internal Memory =
             Some(isConcreteHeapAddress ar.key.address, ar.key, ar.memoryObject)
         | _ -> None
 
+    // VectorIndexKey is used for length and lower bounds
+    // We suppose, that lower bounds will always be default -- 0
     let (|VectorIndexReading|_|) (src : IMemoryAccessConstantSource) =
-        let hasDefaultValue = function
+        let isLowerBoundKey = function
             | ArrayLowerBoundSort _ -> true
             | _ -> false
         match src with
         | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> as vr ->
-            Some(hasDefaultValue vr.picker.sort, vr.key, vr.memoryObject)
+            Some(isConcreteHeapAddress vr.key.address || isLowerBoundKey vr.picker.sort, vr.key, vr.memoryObject)
         | _ -> None
 
     let (|StackBufferReading|_|) (src : IMemoryAccessConstantSource) =
