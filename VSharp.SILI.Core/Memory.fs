@@ -240,7 +240,7 @@ module internal Memory =
 
     let (|HeapAddressSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
-        | :? heapAddressSource -> Some()
+        | :? heapAddressSource as heapAddress -> Some(heapAddress.baseSource)
         | _ -> None
 
     [<StructuralEquality;NoComparison>]

@@ -19,27 +19,24 @@ module internal Copying =
 
 // ------------------------------- Copying -------------------------------
 
-    let private delinearizeArrayIndex ind lens lbs = // TODO: check #do
-        let mapper (acc, lens) lb =
+    let private delinearizeArrayIndex ind lens lbs =
+        let detachOne (acc, lens) lb =
             let lensProd = List.fold mul (makeNumber 1) (List.tail lens)
             let curOffset = div acc lensProd
             let curIndex = add curOffset lb
-            let rest = rem acc lensProd // TODO: (mul and sub) or rem
+            let rest = rem acc lensProd
             curIndex, (rest, List.tail lens)
-        List.mapFold mapper (ind, lens) lbs |> fst
+        List.mapFold detachOne (ind, lens) lbs |> fst
 
     let private linearizeArrayIndex (lens : term list) (lbs : term list) (indices : term list) =
         let length = List.length indices
-        let folder acc i =
-            let a = indices.[i]
-            let lb = lbs.[i]
-            let offset = sub a lb
-            let prod acc j =
-                mul acc lens.[j]
+        let attachOne acc i =
+            let relOffset = sub indices.[i] lbs.[i]
+            let prod acc j = mul acc lens.[j]
             let lensProd = List.fold prod (makeNumber 1) [i .. length - 1]
-            let kek = mul offset lensProd
-            add acc kek
-        List.fold folder (makeNumber 0) [0 .. length - 1]
+            let absOffset = mul relOffset lensProd
+            add acc absOffset
+        List.fold attachOne (makeNumber 0) [0 .. length - 1]
 
     let copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstElemType dstLens dstLBs length =
         let offsets = List.init length id
@@ -65,7 +62,7 @@ module internal Copying =
         let dstIndices = delinearizeArrayIndex (add dstIndex constant) dstLens dstLBs
         writeArrayIndex stateWithPC dstAddress dstIndices srcType casted
 
-    let copyArray state srcAddress srcIndex ((_, srcDim, _) as srcType) dstAddress dstIndex ((dstElemType, dstDim, _) as dstType) length =
+    let copyArray state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex (dstElemType, dstDim, _ as dstType) length =
         // TODO: consider the case of overlapping src and dest arrays. Done? #do
         let srcLBs = List.init srcDim (fun dim -> readLowerBound state srcAddress (makeNumber dim) srcType)
         let srcLens = List.init srcDim (fun dim -> readLength state srcAddress (makeNumber dim) srcType)

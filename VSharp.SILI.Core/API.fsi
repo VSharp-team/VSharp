@@ -67,7 +67,7 @@ module API =
         val (|StackBufferReading|_|) : IMemoryAccessConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
         val (|StaticsReading|_|) : IMemoryAccessConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<symbolicType>>>
         val (|StructFieldSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource * fieldId>
-        val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<unit>
+        val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource>
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
 
         val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort

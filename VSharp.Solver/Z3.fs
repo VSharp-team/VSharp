@@ -55,8 +55,17 @@ module internal Z3 =
 
     let private regionConstants = Dictionary<regionSort, ArrayExpr>()
 
+    let private getMemoryConstant mkConst (typ : regionSort) =
+        let result : ArrayExpr ref = ref null
+        if regionConstants.TryGetValue(typ, result) then !result
+        else
+            let regConst = mkConst()
+            regionConstants.Add(typ, regConst)
+            regConst
+
 // ------------------------------- Encoding: primitives -------------------------------
 
+    // TODO: use unified architecture for any solver #do
     type private Z3Builder(ctx : Context) =
         let cache = freshCache()
 
@@ -101,13 +110,15 @@ module internal Z3 =
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
             | _ -> ctx.MkAnd(nonTrueElems)
 
+        member private x.DefaultValue typ = ctx.MkNumeral(0, x.Type2Sort typ)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
             ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
 
-        member private x.EncodeSymbolicAddress address name = x.CreateConstant name AddressType address
+        member private x.EncodeSymbolicAddress encCtx (heapRefSource : IMemoryAccessConstantSource) name =
+            x.EncodeConstant encCtx name heapRefSource AddressType
 
-        member private x.CreateConstant name typ term =
-            cache.Get(term, fun () -> ctx.MkConst(x.ValidateId name, x.Type2Sort typ))
+        member private x.CreateConstant name typ =
+            ctx.MkConst(x.ValidateId name, x.Type2Sort typ) |> encodingResult.Create
 
 // ------------------------------- Encoding: common -------------------------------
 
@@ -115,11 +126,13 @@ module internal Z3 =
             x.EncodeTermExt (fun _ _ -> false) encCtx t
 
         member private x.EncodeTermExt (stopper : OperationType -> term list -> bool) encCtx (t : term) : encodingResult =
-            match t.term with
-            | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ
-            | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ t
-            | Expression(op, args, typ) -> x.EncodeExpression stopper encCtx t op args typ
-            | _ -> __notImplemented__()
+            let getResult () =
+                match t.term with
+                | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ
+                | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
+                | Expression(op, args, typ) -> x.EncodeExpression stopper encCtx t op args typ
+                | _ -> __notImplemented__()
+            cache.Get(t, getResult)
 
         member private x.EncodeConcrete encCtx (obj : obj) typ : encodingResult =
             let expr =
@@ -140,20 +153,20 @@ module internal Z3 =
                 | _ -> __notImplemented__()
             encodingResult.Create(expr)
 
-        member private x.EncodeConstant encCtx name (source : ISymbolicConstantSource) typ term =
+        member private x.EncodeConstant encCtx name (source : ISymbolicConstantSource) typ : encodingResult =
             match source with
-            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source typ term
-            | _ -> x.CreateConstant name typ term
+            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source typ
+            | _ -> x.CreateConstant name typ
 
 // ------------------------------- Encoding: expression -------------------------------
 
-        member private x.EncodeExpression stopper encCtx term op args typ : encodingResult = // TODO: need stopper? delete? #do
+        member private x.EncodeExpression stopper encCtx term op args typ = // TODO: need stopper? delete? #do
             cache.Get(term, fun () ->
                 match op with
                 | Operator operator ->
                     if stopper operator args then
                         let name = IdGenerator.startingWith "%tmp"
-                        x.CreateConstant name typ term
+                        x.CreateConstant name typ
                     else
                         match operator with
                         | OperationType.LogicalNeg -> x.MakeUnary stopper encCtx ctx.MkNot args
@@ -279,36 +292,31 @@ module internal Z3 =
             let region = (key :> IMemoryKey<stackBufferIndexKey, int points>).Region
             x.KeyInIntPoints keyExpr acc region
 
-        member private x.GetRegionConstant hasDefaultValue (name : string) arraySort regSort =
+        member private x.GetRegionConstant hasDefaultValue (name : string) arraySort (regSort : regionSort) =
             let mkConst () =
-                if hasDefaultValue then ctx.MkConstArray(arraySort, ctx.MkNumeral(0, ctx.MkIntSort()))
+                if hasDefaultValue then ctx.MkConstArray(arraySort, x.DefaultValue regSort.TypeOfLocation)
                 else ctx.MkConst(name, arraySort) :?> ArrayExpr
-            let result : ArrayExpr ref = ref null
-            if regionConstants.TryGetValue(regSort, result) then !result
-            else
-                let regConst = mkConst()
-                regionConstants.Add(regSort, regConst)
-                regConst
+            getMemoryConstant mkConst regSort
 
         // TODO: delete some arguments #do
         member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue sort select left mo source name =
-                let updates = MemoryRegion.flatten mo
-                let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name sort
-                let assumptions, leftExpr = encodeKey left
-                let leftInRegion = keyInRegion x.True left leftExpr
-                let assumptions = leftInRegion :: assumptions
-                let inst = select memoryRegionConst leftExpr
-                let checkOneKey (acc, assumptions) (right, value) =
-                    let rightAssumptions, rightExpr = encodeKey right
-                    let assumptions = List.append assumptions rightAssumptions // TODO: make better (mb monad) #do
-                    // NOTE: we need constraints on right key, because value may contain it // TODO: ? #do
-                    let keysEquality = keysAreEqual(leftExpr, rightExpr)
-                    let keysAreMatch = keyInRegion keysEquality right rightExpr
-                    let valueExpr = x.EncodeTerm encCtx value
-                    let assumptions = List.append assumptions valueExpr.assumptions
-                    ctx.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
-                let expr, assumptions = List.fold checkOneKey (inst, assumptions) updates
-                encodingResult.Create(expr, assumptions)
+            let updates = MemoryRegion.flatten mo
+            let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name sort
+            let assumptions, leftExpr = encodeKey left
+            let leftInRegion = keyInRegion x.True left leftExpr
+            let assumptions = leftInRegion :: assumptions
+            let inst = select memoryRegionConst leftExpr
+            let checkOneKey (acc, assumptions) (right, value) =
+                let rightAssumptions, rightExpr = encodeKey right
+                let assumptions = List.append assumptions rightAssumptions // TODO: make better (mb monad) #do
+                // NOTE: we need constraints on right key, because value may contain it // TODO: ? #do
+                let keysEquality = keysAreEqual(leftExpr, rightExpr)
+                let keysAreMatch = keyInRegion keysEquality right rightExpr
+                let valueExpr = x.EncodeTerm encCtx value
+                let assumptions = List.append assumptions valueExpr.assumptions
+                ctx.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+            let expr, assumptions = List.fold checkOneKey (inst, assumptions) updates
+            encodingResult.Create(expr, assumptions)
 
         member private x.HeapReading encCtx key mo typ source name =
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
@@ -347,7 +355,7 @@ module internal Z3 =
         member private x.StructReading structSource field typ source name =
             __notImplemented__()
 
-        member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) typ term =
+        member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) typ : encodingResult =
             match source with // TODO: add caching #encode
             | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
@@ -367,8 +375,8 @@ module internal Z3 =
             | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source name
             | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source name
             | StructFieldSource(structSource, field) -> x.StructReading structSource field typ source name
-            | HeapAddressSource -> x.EncodeSymbolicAddress term name
-            | _ -> x.CreateConstant name typ term
+            | HeapAddressSource source -> x.EncodeSymbolicAddress encCtx source name
+            | _ -> x.CreateConstant name typ
 
     // ------------------------------- Decoding -------------------------------
 

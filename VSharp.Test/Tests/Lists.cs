@@ -301,6 +301,22 @@ namespace VSharp.Test.Tests
             return res;
         }
 
+        public class MyClass
+        {
+            private int x;
+        }
+
+        [TestSvm]
+        public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
+        {
+            MyClass x = a[i];
+            MyClass y = a[j];
+            int res = 0;
+            if (i == j && x != y)
+                res = 1;
+            return res;
+        }
+
         [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray1(Array arr)
         {
