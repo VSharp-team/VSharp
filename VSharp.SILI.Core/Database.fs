@@ -24,7 +24,7 @@ type codeLocation = {offset : offset; method : MethodBase}
 type ip =
     | Exit of MethodBase
     | Instruction of offset * MethodBase
-    | Leave of ip * offset * MethodBase
+    | Leave of ip * ExceptionHandlingClause list * offset * MethodBase
     // offsets to observe; stack frames to be popped
     | SearchingForHandler of codeLocation list * int
     // ip of filter function; previous searching handler information
@@ -47,7 +47,7 @@ type ip =
             match x, y with
             | Exit mx, Exit my -> mx = my
             | Instruction(ix, mx), Instruction(iy, my) -> ix = iy && mx.Equals(my)
-            | Leave(ix, ipx, mx), Leave(iy, ipy, my) -> ix = iy && ipx.Equals(ipy) && mx.Equals(my)
+            | Leave(ix, _, ipx, mx), Leave(iy, _, ipy, my) -> ix = iy && ipx.Equals(ipy) && mx.Equals(my)
             | SearchingForHandler(toObserve1, n1), SearchingForHandler(toObserve2, n2) ->
                 toObserve1.Equals(toObserve2) && n1 = n2
             | InFilterHandler(ip1, toObserve1, n1), InFilterHandler(ip2, toObserve2, n2) ->
@@ -70,10 +70,10 @@ type ip =
                     compare offset1 offset2
                 | Instruction(_, m1), Instruction(_, m2) -> methodCompare m1 m2
                 | Instruction _, _ -> -1
-                | Leave(ip1, offset1, m1), Leave(ip2, offset2, m2)
+                | Leave(ip1, _, offset1, m1), Leave(ip2, _, offset2, m2)
                     when compare ip1 ip2 = 0 && methodCompare m1 m2 = 0 ->compare offset1 offset2
-                | Leave(ip1, _, m1), Leave(ip2, _, m2) when compare ip1 ip2 = 0 -> methodCompare m1 m2
-                | Leave(ip1,_,_), Leave(ip2,_, _) -> compare ip1 ip2
+                | Leave(ip1, _, _, m1), Leave(ip2, _, _, m2) when compare ip1 ip2 = 0 -> methodCompare m1 m2
+                | Leave(ip1,_,_,_), Leave(ip2,_,_, _) -> compare ip1 ip2
                 | Leave _, _ -> -1
                 | SearchingForHandler(toObserve1, pop1), SearchingForHandler(toObserve2, pop2)
                     when compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
@@ -96,7 +96,7 @@ type ip =
         match x with
         | Instruction(offset, m) -> sprintf "{Instruction = %d; M = %s}" offset (Reflection.getFullMethodName m)
         | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
-        | Leave(ip, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
+        | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
         | _ -> __notImplemented__()
 
 and ipStack = ip list
@@ -110,7 +110,17 @@ module ipOperations =
         | Exit _ -> true
         | _ -> false
     let instruction m i = Instruction(i, m)
+    let leave ip ehcs dst m = Leave(ip, ehcs, dst, m)
     let searchingForHandler toObserve toPop = SearchingForHandler(toObserve, toPop)
+
+    let rec moveInstruction (newOffset : offset) = function
+        | Instruction(_, m) -> Instruction(newOffset, m)
+        | Exit _ -> __unreachable__()
+        | Leave(ip, x, y, z) -> Leave(moveInstruction newOffset ip, x, y, z)
+        | InFilterHandler(ip, x, y) -> InFilterHandler(moveInstruction newOffset ip, x, y)
+        | SearchingForHandler _ -> __notImplemented__()
+        | _ -> __unreachable__()
+
 //    let withExit ip = {ip with label = Exit}
 //    let withOffset offset ip = {ip with label = Instruction offset}
 //    let labelOf (ip : ip) = ip.label

@@ -8,6 +8,7 @@ open CilStateOperations
 open VSharp
 open VSharp.Core
 open ipOperations
+open Instruction
 
 type cfg = CFG.cfgData
 
@@ -118,6 +119,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Rem]            <- zipWithOneOffset <| fun _ _ -> this.Rem
         opcode2Function.[hashFunction OpCodes.Rem_Un]         <- zipWithOneOffset <| fun _ _ -> this.RemUn
         opcode2Function.[hashFunction OpCodes.Newarr]         <- zipWithOneOffset <| this.Newarr
+        opcode2Function.[hashFunction OpCodes.Throw]          <- this.Throw
 
     let internalCILImplementations : Map<string, (cilState -> term option -> term list -> cilState list)> =
         Map.ofList [
@@ -207,7 +209,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             match currentIp cilState with
             | Instruction(0, m) -> m = methodBase
             | _ -> false
-
         // because we have correspondence between ips and frames
         assert(canInline)
         let state = cilState.state
@@ -220,18 +221,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             else args
         let fullMethodName = Reflection.getFullMethodName methodBase // TODO: check generic parameters of type! #do
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        let moveIp (cilState : cilState) =
-            let ip =
-                match cilState.ipStack with
-                | ip :: _ -> Exit methodBase
-                | _ -> __unreachable__()
-            cilState |> withLastIp ip
+        let moveIpToExit (cilState : cilState) = cilState |> setCurrentIp (Exit methodBase)
         if Map.containsKey fullMethodName internalCILImplementations then
-            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
+            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
         elif Map.containsKey fullMethodName Loader.internalImplementations then
             let thisAndArguments = optCons args thisOption
-            internalCall Loader.internalImplementations.[fullMethodName] thisAndArguments state (List.map (changeState cilState >> moveIp) >> k)
+            internalCall Loader.internalImplementations.[fullMethodName] thisAndArguments state (List.map (changeState cilState >> moveIpToExit) >> k)
         elif Map.containsKey fullMethodName Loader.concreteExternalImplementations then
             // TODO: check that all parameters were specified
             let methodInfo = Loader.concreteExternalImplementations.[fullMethodName]
@@ -243,11 +238,11 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let state = Memory.PopFrame state
             let methodId = methodInterpreter.MakeMethodIdentifier methodInfo
             let cilState = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id |> changeState cilState
-            let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (withLastIp (instruction methodInfo 0) >> List.singleton)
+            let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (setCurrentIp (instruction methodInfo 0) >> List.singleton)
             // NOTE: callsite of cilState is explicitly untouched
             k cilStates
         elif fullMethodName.Contains "System.Array.Set(" then // TODO: do better #do
-            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
+            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
             internalfailf "new extern method: %s" fullMethodName
         elif x.IsNotImplementedIntrinsic methodBase then
@@ -413,7 +408,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this, cilState = if hasThis then pop cilState |> mapfst Some else None, cilState
         this, args, cilState
 
-    member x.Call (cfg : cfg) offset _ (cilState : cilState) =
+    member x.Call (cfg : cfg) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
         methodInterpreter.InitializeStatics cilState calledMethod.DeclaringType (fun cilState ->
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
@@ -430,7 +425,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             else
                 x.InlineMethodBaseCallIfNeeded ancestorMethodBase cilState k
         x.NpeOrInvokeStatementCIL cilState this call k
-    member x.CallVirt (cfg : cfg) offset _ (cilState : cilState) =
+    member x.CallVirt (cfg : cfg) offset (cilState : cilState) =
         let ancestorMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
@@ -490,7 +485,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
 //            then x.CommonCreateDelegate constructorInfo cilState args k
 //            else nonDelegateCase cilState |> k
 
-    member x.NewObj (cfg : cfg) offset _ (cilState : cilState) =
+    member x.NewObj (cfg : cfg) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Newobj.Size)
         assert(calledMethod.IsConstructor)
         let constructorInfo = calledMethod :?> ConstructorInfo
@@ -521,7 +516,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 callConstructor cilState ref id
 
         let k (reference, state) =
-            cilState |> withState state |> push reference |> moveIpStack
+            let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState)
+            cilState |> withState state |> push reference |> setCurrentIp newIp |> List.singleton
 
         if Reflection.isDelegateConstructor constructorInfo then
             x.CommonCreateDelegate constructorInfo cilState args k
@@ -529,9 +525,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             x.ReduceArrayCreation typ cilState args k
         else blockCase cilState)
 
-    member x.LdsFld addressNeeded (cfg : cfg) offset newIps (cilState : cilState) =
-        assert(List.length newIps = 1)
-        let newIp = List.head newIps
+    member x.LdsFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
+        let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState)
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldsfld.Size)
         assert (fieldInfo.IsStatic)
         methodInterpreter.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
@@ -540,10 +535,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let value = if addressNeeded
                     then StaticField(declaringTermType, fieldId) |> Ref
                     else Memory.ReadStaticField cilState.state declaringTermType fieldId
-        push value cilState |> withIp newIp |> List.singleton)
-    member private x.StsFld (cfg : cfg) offset newIps (cilState : cilState) =
-        assert(List.length newIps = 1)
-        let newIp = List.head newIps
+        push value cilState |> setCurrentIp newIp |> List.singleton)
+    member private x.StsFld (cfg : cfg) offset (cilState : cilState) =
+        let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState) // TODO: remove this copy-paste
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stsfld.Size)
         assert(fieldInfo.IsStatic)
         methodInterpreter.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
@@ -553,7 +547,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let fieldType = Types.FromDotNetType fieldInfo.FieldType
         let value = castUnchecked fieldType value cilState.state
         let state = Memory.WriteStaticField cilState.state declaringTermType fieldId value
-        cilState |> withState state |> withIp newIp |> List.singleton)
+        cilState |> withState state |> setCurrentIp newIp |> List.singleton)
     member x.LdFldWithFieldInfo (fieldInfo : FieldInfo) addressNeeded (cilState : cilState) =
         assert(not fieldInfo.IsStatic)
         let target, cilState = pop cilState
@@ -732,6 +726,14 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             nonNullCase
             k
 
+    member private x.Throw (_ : cfg) _ (cilState : cilState) =
+        let error, _ = pop cilState
+        BranchOnNullCIL cilState error
+            (x.Raise x.NullReferenceException)
+            (fun cilState k -> // TODO: opStack should be framed
+                //TODO: change current ip
+                cilState |> withException (Unhandled error) |> withOpStack emptyOpStack |> List.singleton |> k)
+            id
     member private x.Unbox (cfg : cfg) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox.Size)
         let obj, cilState = pop cilState
@@ -1064,7 +1066,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 | _ -> goodStates @ finishedStates, incompleteStates, errors
             with
             | :? InsufficientInformationException as iie ->
-                let iieCilState = { cilState with iie = Some iie} |> withLastIp ip
+                let iieCilState = { cilState with iie = Some iie} |> setCurrentIp ip
                 finishedStates, iieCilState :: incompleteStates, errors
         executeAllInstructions ([],[],[]) cilState
 
@@ -1078,28 +1080,58 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             incrementLevel cilState {offset = offset; method = cfg.methodBase}
         else cilState
 
-    member x.MakeStepForErroredCilState (cilState : cilState) =
-        match cilState.state.exceptionsRegister with
-        | _ -> __notImplemented__()
-
     member x.MakeStep (cilState : cilState) =
-        if isError cilState then x.MakeStepForErroredCilState cilState
-        else x.ExecuteInstruction cilState
+        let updateIp f (cilState : cilState) =
+            match cilState.ipStack with
+            | ip :: ips -> {cilState with ipStack = f ip :: ips}
+            | _ -> __unreachable__()
 
-    member private x.ExecuteInstruction (cilState : cilState) =
+        let exit () : cilState =
+            match cilState.ipStack with
+            | Exit _ :: [] when startsFromMethodBeginning cilState ->
+                // the whole method is executed
+                withCurrentTime [] cilState |> popFrameOf // TODO: #ask Misha about current time
+            | Exit _ :: [] ->
+                popFrameOf cilState // some part of method is executed
+            | Exit m :: ips' when Reflection.isStaticConstructor m ->
+                Logger.info "Done with static cctor %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
+                cilState |> popFrameOf |> withIpStack ips'
+            | Exit callee :: (Instruction(offset, caller) as ip) :: ips'
+            | Exit callee :: (InFilterHandler(Instruction(offset, caller), _, _) as ip) :: ips' ->
+                Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
+                // TODO: assert(isCallIp ip)
+                let callSite = parseCallSite caller offset
+                let cilState =
+                    if callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
+                        pushNewObjForValueTypes cilState
+                    else cilState
+                let newIp = moveInstruction (fallThroughTarget caller offset) ip
+                cilState |> popFrameOf |> withIpStack (newIp :: ips')
+            | Exit _ :: Exit _ :: _ -> __unreachable__()
+            | _ -> __unreachable__()
+
+        let rec makeStep' = function
+            | Instruction(offset, m) -> x.ExecuteInstruction m offset cilState
+            | Exit _ -> exit () |> List.singleton
+            //TODO: Endfinally should clear evaluation stack as side-effect
+            | Leave(EndFinally, [],  dst, m) -> setCurrentIp (instruction m dst) cilState |> List.singleton
+            | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
+                let ip' = leave (instruction m ehc.HandlerOffset) ehcs dst m
+                setCurrentIp ip' cilState |> List.singleton
+            | Leave(ip, ehcs, dst, m) ->
+                let states = makeStep' ip
+                List.map (updateIp (fun ip -> leave ip ehcs dst m)) states
+            | _ -> __notImplemented__()
+        makeStep' (currentIp cilState)
+
+    member private x.ExecuteInstruction m offset (cilState : cilState) =
         Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
-        match cilState.ipStack with
-        | Instruction(offset, m) :: _ ->
-            let cfg = CFG.findCfg m
-            let opCode = Instruction.parseInstruction m offset
-            let newIps = moveIpStack cilState |> List.map (fun cilState -> cilState.ipStack)
-            let newSts = opcode2Function.[hashFunction opCode] cfg offset newIps cilState
-
-            let renewInstructionsInfo cilState =
-                if isError cilState then cilState
-                else
-                    x.IncrementLevelIfNeeded cfg offset cilState
-            newSts |> List.map renewInstructionsInfo
-        | Exit _ :: _ -> moveIpStack cilState
-        | [] -> __unreachable__()
-        | _ -> __notImplemented__()
+        let cfg = CFG.findCfg m
+        let opCode = parseInstruction m offset
+//        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)
+        let newSts = opcode2Function.[hashFunction opCode] cfg offset cilState
+        let renewInstructionsInfo cilState =
+            if isError cilState then cilState
+            else
+                x.IncrementLevelIfNeeded cfg offset cilState
+        newSts |> List.map renewInstructionsInfo

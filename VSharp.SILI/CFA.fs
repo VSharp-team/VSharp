@@ -398,7 +398,7 @@ module public CFA =
                             assert(not callSite.HasNonVoidResult)
                             resultState
                     if x.CommonFilterStates stateAfterCall then
-                        (resultCilState |> withLastIp dst.Ip |> withState stateAfterCall) :: acc
+                        (resultCilState |> setCurrentIp dst.Ip |> withState stateAfterCall) :: acc
                     else acc
                 List.fold propagateStateAfterCall [] cilStates
             let states = Memory.ComposeStates cilStateBeforeCall.state stateWithArgsOnFrameAndAllocatedType
@@ -580,7 +580,7 @@ module public CFA =
                 | Instruction(_, m) -> Instruction(cfg.graph.[offset].[0], m)
                 | _ -> __notImplemented__()
 
-            let cilState = cilState |> withLastIp nextIp |> withState stateWithArgsOnFrame
+            let cilState = cilState |> setCurrentIp nextIp |> withState stateWithArgsOnFrame
             cilState, callSite, numberToDrop
 
         let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationStack, Vertex>) =

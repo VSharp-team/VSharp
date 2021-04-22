@@ -131,29 +131,12 @@ module public CFG =
                 let dealWithJump src dst =
                     markVertex data.verticesOffsets src
                     markVertex data.verticesOffsets dst
-
-                    if Instruction.isLeaveOpCode opCode then
-                        let ehcs = methodBase.GetMethodBody().ExceptionHandlingClauses
-                                   |> Seq.filter Instruction.isFinallyClause
-                                   |> Seq.filter (Instruction.shouldExecuteFinallyClause src dst)
-                                   |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
-                        let chainSequentialFinallyBlocks prevOffset (ehc : ExceptionHandlingClause) =
-                            let startOffset = ehc.HandlerOffset
-                            let endOffset = ehc.HandlerOffset + ehc.HandlerLength - 1
-                            markVertex data.verticesOffsets startOffset
-                            data.AddEdge prevOffset startOffset
-                            dfs' startOffset
-                            markVertex data.verticesOffsets endOffset
-                            endOffset
-                        let lastVertex = ehcs |> Seq.fold chainSequentialFinallyBlocks src
-                        data.AddEdge lastVertex dst
-                    else data.AddEdge src dst
                     dfs' dst
 
                 let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
-                    let calledMethod = Instruction.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
                     data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
                     markVertex data.verticesOffsets v
                     markVertex data.verticesOffsets offset

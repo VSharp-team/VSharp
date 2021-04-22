@@ -42,8 +42,7 @@ module internal NumberCreator =
     let public extractFloat32 (ilBytes : byte []) pos =
         System.BitConverter.ToSingle(ilBytes, pos)
 
-module internal Instruction =
-
+module internal TokenResolver =
     let private extractToken = NumberCreator.extractInt32
 
     let resolveFieldFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveField methodBase
@@ -51,6 +50,7 @@ module internal Instruction =
     let resolveMethodFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveMethod methodBase
     let resolveTokenFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveToken methodBase
 
+module internal Instruction =
     let private isSingleByteOpCodeValue = (<) 0
     let private isSingleByteOpCode = (<>) 0xFEuy
 
@@ -121,6 +121,7 @@ module internal Instruction =
 
     let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
 
+
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
         || opCode = OpCodes.Calli
@@ -152,8 +153,34 @@ module internal Instruction =
         elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[pos + 1]]
 
+    let (|EndFinally|_|) (ip : ip) =
+        match ip with
+        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some ()
+        | _ -> None
+
     let parseCallSite (m : MethodBase) pos =
         let opCode = parseInstruction m pos
         let ilBytes = m.GetMethodBody().GetILAsByteArray()
-        let calledMethod = resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
+        let calledMethod = TokenResolver.resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
         {sourceMethod = m; calledMethod = calledMethod; opCode = opCode; offset = pos}
+
+    let unconditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | UnconditionalBranch target -> target
+        | _ -> __unreachable__()
+
+    let fallThroughTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | FallThrough target -> target
+        | _ -> __unreachable__()
+
+    let conditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | ConditionalBranch targets -> targets
+        | _ -> __unreachable__()

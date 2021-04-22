@@ -56,34 +56,24 @@ module internal CilStateOperations =
     let rec currentMethod = function
         | Exit m
         | Instruction(_, m)
-        | Leave(_, _, m) -> m
+        | Leave(_, _, _, m) -> m
         | _ -> __notImplemented__()
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
         | Instruction (0, _) -> true
         | _ -> false
-//    let currentMethod (s : cilState) = (List.head s.state.frames).func.Method
     let pushToIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: cilState.ipStack}
+    let setCurrentIp (ip : ip) (cilState : cilState) =
+        match ip with
+        | Instruction(offset, m) when offset = 0 ->
+            Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
+        | _ -> ()
+        {cilState with ipStack = ip :: List.tail cilState.ipStack}
 
-    let rec withLastIp (ip : ip) (cilState : cilState) =
-        match cilState.ipStack with
-        | _ :: ips -> {cilState with ipStack = ip :: ips}
-        | [] -> __unreachable__()
-//        | {label = Exit} :: ips -> moveCurrentIp ips
-//        | {label = Instruction _} as ip :: ips ->
-//            let nextIps = CFG.moveCurrentIp ip
-//            assert(List.length nextIps = 1)
-//            List.head nextIps :: ips
-//        | [] -> __unreachable__()
-//        | _ -> __notImplemented__()
-    let withIp (ipStack : ipStack) (cilState : cilState) = {cilState with ipStack = ipStack}
+    let withIpStack (ipStack : ipStack) (cilState : cilState) = {cilState with ipStack = ipStack}
     let startingIpOf (cilState : cilState) = cilState.startingIP
 
     let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
-//        match newIps, oldIps with
-//        | {label = Exit} :: [] as exit, [] -> exit
-//        | {label = Exit} :: [], _ -> oldIps // no need to moveCurrentIp, maybe we want to execute current ip
-//        | _ -> newIps @ oldIps
 
     let composePopsCount (min1, cnt1) (_, cnt2) =
         let cnt = cnt1 + cnt2
@@ -162,45 +152,20 @@ module internal CilStateOperations =
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
-    let rec moveIpStack (cilState : cilState) : cilState list =
-        match cilState.ipStack with
-        | Instruction(offset, m) :: _ ->
-            if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
-            let cfg = CFG.findCfg m
-            let opCode = Instruction.parseInstruction m offset
-            let newIps =
-                if Instruction.isLeaveOpCode opCode || opCode = Emit.OpCodes.Endfinally
-                then cfg.graph.[offset] |> Seq.map (instruction m) |> List.ofSeq
-                else
-                    let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
-                    match nextTargets with
-                    | UnconditionalBranch nextInstruction
-                    | FallThrough nextInstruction -> instruction m nextInstruction :: []
-                    | Return -> exit m :: []
-                    | ExceptionMechanism ->
-                        let toObserve = __notImplemented__()
-                        searchingForHandler toObserve 0 :: []
-                    | ConditionalBranch targets -> targets |> List.map (instruction m)
-            List.map (fun ip -> withLastIp ip cilState) newIps
-        | Exit _ :: [] when startsFromMethodBeginning cilState ->
-            // the whole method is executed
-            withCurrentTime [] cilState |> popFrameOf |> List.singleton // TODO: #ask Misha about current time
-        | Exit _ :: [] ->
-            popFrameOf cilState :: [] // some part of method is executed
-        | Exit m :: ips' when Reflection.isStaticConstructor m ->
-            Logger.info "Done with method %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
-            cilState |> popFrameOf |> withIp ips' |> List.singleton
-        | Exit callee :: (Instruction(offset, caller) as ip) :: ips' ->
-            Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
-            // TODO: assert(isCallIp ip)
-            let callSite = Instruction.parseCallSite caller offset
-            let cilState =
-                if callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
-                    pushNewObjForValueTypes cilState
-                else cilState
-            cilState |> popFrameOf |> withIp (ip :: ips') |> moveIpStack
-        | Exit _ :: Exit _ :: _ -> __unreachable__()
-        | _ -> __notImplemented__()
+    let moveIp offset m cilState =
+        let cfg = CFG.findCfg m
+        let opCode = Instruction.parseInstruction m offset
+        let newIps =
+            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
+            match nextTargets with
+            | UnconditionalBranch nextInstruction
+            | FallThrough nextInstruction -> instruction m nextInstruction :: []
+            | Return -> exit m :: []
+            | ExceptionMechanism ->
+                let toObserve = __notImplemented__()
+                searchingForHandler toObserve 0 :: []
+            | ConditionalBranch targets -> targets |> List.map (instruction m)
+        List.map (fun ip -> setCurrentIp ip cilState) newIps
 
     let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
         StatedConditionalExecution cilState.state condition
