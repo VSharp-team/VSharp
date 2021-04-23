@@ -3,10 +3,10 @@ RESULT: Totally 1 state:
 1
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-4 ==> System.Object
-7 ==> System.Object
+2 ==> System.Object
+3 ==> System.Object
 --------------- Stack: ---------------
 key = __loc__2, value = 2
-key = __loc__0, value = (HeapRef 4 to System.Object)
-key = __loc__1, value = (HeapRef 7 to System.Object)
+key = __loc__0, value = (HeapRef 2 to System.Object)
+key = __loc__1, value = (HeapRef 3 to System.Object)
 Initialized types = { System.Object, VSharp.Test.Tests.Generic.GenericMethodInsideGenericType`3[System.Object,System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }

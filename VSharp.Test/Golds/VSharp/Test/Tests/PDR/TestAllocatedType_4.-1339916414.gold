@@ -4,9 +4,9 @@ RESULT: Totally 2 states:
 MEMORY DUMP:
 Path condition: f
 --------------- Fields: ---------------
-x ==> {6 <- 100}
+x ==> {2 <- 100}
 --------------- Types tokens: ---------------
-6 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------
 key = __loc__0, value = 100
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

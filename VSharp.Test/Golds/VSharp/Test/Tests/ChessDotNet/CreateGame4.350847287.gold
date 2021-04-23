@@ -1,0 +1,691 @@
+METHOD: ChessDotNet.Position VSharp.Test.Tests.ChessDotNet.CreateGame4()
+RESULT: Totally 1 state:
+(HeapRef 3 to ChessDotNet.Position)
+MEMORY DUMP:
+--------------- Fields: ---------------
+_currencyDecimalDigits ==> {7 <- 2}
+_currencyDecimalSeparator ==> {7 <- (HeapRef 16 to System.String)}
+_currencyGroupSeparator ==> {7 <- (HeapRef 15 to System.String)}
+_currencyGroupSizes ==> {7 <- (HeapRef 9 to System.Int32[])}
+_currencySymbol ==> {7 <- (HeapRef 17 to System.String)}
+_digitSubstitution ==> {7 <- 1}
+_file ==> {3 <- 0}
+_hasInvariantNumberSigns ==> {7 <- True}
+_nanSymbol ==> {7 <- (HeapRef 18 to System.String)}
+_nativeDigits ==> {7 <- (HeapRef 25 to System.String[])}
+_negativeInfinitySymbol ==> {7 <- (HeapRef 20 to System.String)}
+_negativeSign ==> {7 <- (HeapRef 12 to System.String)}
+_numberDecimalDigits ==> {7 <- 2}
+_numberDecimalSeparator ==> {7 <- (HeapRef 13 to System.String)}
+_numberGroupSeparator ==> {7 <- (HeapRef 14 to System.String)}
+_numberGroupSizes ==> {7 <- (HeapRef 8 to System.Int32[])}
+_numberNegativePattern ==> {7 <- 1}
+_perMilleSymbol ==> {7 <- (HeapRef 24 to System.String)}
+_percentDecimalDigits ==> {7 <- 2}
+_percentDecimalSeparator ==> {7 <- (HeapRef 21 to System.String)}
+_percentGroupSeparator ==> {7 <- (HeapRef 22 to System.String)}
+_percentGroupSizes ==> {7 <- (HeapRef 10 to System.Int32[])}
+_percentSymbol ==> {7 <- (HeapRef 23 to System.String)}
+_positiveInfinitySymbol ==> {7 <- (HeapRef 19 to System.String)}
+_positiveSign ==> {7 <- (HeapRef 11 to System.String)}
+_rank ==> {3 <- 1}
+_stringLength ==> {
+        2 <- 2
+        4 <- 0
+        5 <- 2
+        6 <- 1
+        11 <- 1
+        12 <- 1
+        13 <- 1
+        14 <- 1
+        15 <- 1
+        16 <- 1
+        17 <- 1
+        18 <- 3
+        19 <- 8
+        20 <- 9
+        21 <- 1
+        22 <- 1
+        23 <- 1
+        24 <- 1
+        26 <- 1
+        27 <- 1
+        28 <- 1
+        29 <- 1
+        30 <- 1
+        31 <- 1
+        32 <- 1
+        33 <- 1
+        34 <- 1
+        35 <- 1
+        37 <- 1
+        38 <- 1
+        39 <- 1
+        40 <- 1
+        41 <- 1
+        42 <- 1
+        43 <- 1
+        44 <- 1
+        45 <- 1
+        46 <- 1
+        48 <- 2
+        49 <- 2
+        50 <- 3
+        51 <- 3
+        53 <- 4
+        54 <- 3
+        55 <- 3
+        56 <- 3
+        57 <- 4
+        58 <- 3
+        59 <- 3
+        60 <- 3
+        61 <- 4
+        62 <- 4
+        63 <- 4
+        64 <- 4
+        65 <- 4
+        66 <- 4
+        67 <- 5
+        68 <- 5
+        70 <- 3
+        71 <- 2
+        72 <- 2
+        73 <- 3
+        75 <- 4
+        76 <- 3
+        77 <- 3
+        78 <- 3
+        79 <- 3
+        80 <- 3
+        81 <- 3
+        82 <- 4
+        83 <- 4
+        84 <- 4
+        85 <- 4
+        86 <- 4
+        88 <- 3
+        89 <- 2
+        90 <- 3
+        91 <- 2
+        92 <- 3
+    }
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- 'A'
+        2[1] <- '1'
+        2[2] <- '\000'
+        4[0] <- '\000'
+        5[0] <- 'A'
+        5[1] <- '1'
+        5[2] <- '\000'
+        6[0] <- '1'
+        6[1] <- '\000'
+        11[0] <- '+'
+        11[1] <- '\000'
+        12[0] <- '-'
+        12[1] <- '\000'
+        13[0] <- '.'
+        13[1] <- '\000'
+        14[0] <- ','
+        14[1] <- '\000'
+        15[0] <- ','
+        15[1] <- '\000'
+        16[0] <- '.'
+        16[1] <- '\000'
+        17[0] <- '¤'
+        17[1] <- '\000'
+        18[0] <- 'N'
+        18[1] <- 'a'
+        18[2] <- 'N'
+        18[3] <- '\000'
+        19[0] <- 'I'
+        19[1] <- 'n'
+        19[2] <- 'f'
+        19[3] <- 'i'
+        19[4] <- 'n'
+        19[5] <- 'i'
+        19[6] <- 't'
+        19[7] <- 'y'
+        19[8] <- '\000'
+        20[0] <- '-'
+        20[1] <- 'I'
+        20[2] <- 'n'
+        20[3] <- 'f'
+        20[4] <- 'i'
+        20[5] <- 'n'
+        20[6] <- 'i'
+        20[7] <- 't'
+        20[8] <- 'y'
+        20[9] <- '\000'
+        21[0] <- '.'
+        21[1] <- '\000'
+        22[0] <- ','
+        22[1] <- '\000'
+        23[0] <- '%'
+        23[1] <- '\000'
+        24[0] <- '‰'
+        24[1] <- '\000'
+        26[0] <- '0'
+        26[1] <- '\000'
+        27[0] <- '1'
+        27[1] <- '\000'
+        28[0] <- '2'
+        28[1] <- '\000'
+        29[0] <- '3'
+        29[1] <- '\000'
+        30[0] <- '4'
+        30[1] <- '\000'
+        31[0] <- '5'
+        31[1] <- '\000'
+        32[0] <- '6'
+        32[1] <- '\000'
+        33[0] <- '7'
+        33[1] <- '\000'
+        34[0] <- '8'
+        34[1] <- '\000'
+        35[0] <- '9'
+        35[1] <- '\000'
+        37[0] <- '0'
+        37[1] <- '\000'
+        38[0] <- '1'
+        38[1] <- '\000'
+        39[0] <- '2'
+        39[1] <- '\000'
+        40[0] <- '3'
+        40[1] <- '\000'
+        41[0] <- '4'
+        41[1] <- '\000'
+        42[0] <- '5'
+        42[1] <- '\000'
+        43[0] <- '6'
+        43[1] <- '\000'
+        44[0] <- '7'
+        44[1] <- '\000'
+        45[0] <- '8'
+        45[1] <- '\000'
+        46[0] <- '9'
+        46[1] <- '\000'
+        48[0] <- '$'
+        48[1] <- '#'
+        48[2] <- '\000'
+        49[0] <- '#'
+        49[1] <- '$'
+        49[2] <- '\000'
+        50[0] <- '$'
+        50[1] <- ' '
+        50[2] <- '#'
+        50[3] <- '\000'
+        51[0] <- '#'
+        51[1] <- ' '
+        51[2] <- '$'
+        51[3] <- '\000'
+        53[0] <- '('
+        53[1] <- '$'
+        53[2] <- '#'
+        53[3] <- ')'
+        53[4] <- '\000'
+        54[0] <- '-'
+        54[1] <- '$'
+        54[2] <- '#'
+        54[3] <- '\000'
+        55[0] <- '$'
+        55[1] <- '-'
+        55[2] <- '#'
+        55[3] <- '\000'
+        56[0] <- '$'
+        56[1] <- '#'
+        56[2] <- '-'
+        56[3] <- '\000'
+        57[0] <- '('
+        57[1] <- '#'
+        57[2] <- '$'
+        57[3] <- ')'
+        57[4] <- '\000'
+        58[0] <- '-'
+        58[1] <- '#'
+        58[2] <- '$'
+        58[3] <- '\000'
+        59[0] <- '#'
+        59[1] <- '-'
+        59[2] <- '$'
+        59[3] <- '\000'
+        60[0] <- '#'
+        60[1] <- '$'
+        60[2] <- '-'
+        60[3] <- '\000'
+        61[0] <- '-'
+        61[1] <- '#'
+        61[2] <- ' '
+        61[3] <- '$'
+        61[4] <- '\000'
+        62[0] <- '-'
+        62[1] <- '$'
+        62[2] <- ' '
+        62[3] <- '#'
+        62[4] <- '\000'
+        63[0] <- '#'
+        63[1] <- ' '
+        63[2] <- '$'
+        63[3] <- '-'
+        63[4] <- '\000'
+        64[0] <- '$'
+        64[1] <- ' '
+        64[2] <- '#'
+        64[3] <- '-'
+        64[4] <- '\000'
+        65[0] <- '$'
+        65[1] <- ' '
+        65[2] <- '-'
+        65[3] <- '#'
+        65[4] <- '\000'
+        66[0] <- '#'
+        66[1] <- '-'
+        66[2] <- ' '
+        66[3] <- '$'
+        66[4] <- '\000'
+        67[0] <- '('
+        67[1] <- '$'
+        67[2] <- ' '
+        67[3] <- '#'
+        67[4] <- ')'
+        67[5] <- '\000'
+        68[0] <- '('
+        68[1] <- '#'
+        68[2] <- ' '
+        68[3] <- '$'
+        68[4] <- ')'
+        68[5] <- '\000'
+        70[0] <- '#'
+        70[1] <- ' '
+        70[2] <- '%'
+        70[3] <- '\000'
+        71[0] <- '#'
+        71[1] <- '%'
+        71[2] <- '\000'
+        72[0] <- '%'
+        72[1] <- '#'
+        72[2] <- '\000'
+        73[0] <- '%'
+        73[1] <- ' '
+        73[2] <- '#'
+        73[3] <- '\000'
+        75[0] <- '-'
+        75[1] <- '#'
+        75[2] <- ' '
+        75[3] <- '%'
+        75[4] <- '\000'
+        76[0] <- '-'
+        76[1] <- '#'
+        76[2] <- '%'
+        76[3] <- '\000'
+        77[0] <- '-'
+        77[1] <- '%'
+        77[2] <- '#'
+        77[3] <- '\000'
+        78[0] <- '%'
+        78[1] <- '-'
+        78[2] <- '#'
+        78[3] <- '\000'
+        79[0] <- '%'
+        79[1] <- '#'
+        79[2] <- '-'
+        79[3] <- '\000'
+        80[0] <- '#'
+        80[1] <- '-'
+        80[2] <- '%'
+        80[3] <- '\000'
+        81[0] <- '#'
+        81[1] <- '%'
+        81[2] <- '-'
+        81[3] <- '\000'
+        82[0] <- '-'
+        82[1] <- '%'
+        82[2] <- ' '
+        82[3] <- '#'
+        82[4] <- '\000'
+        83[0] <- '#'
+        83[1] <- ' '
+        83[2] <- '%'
+        83[3] <- '-'
+        83[4] <- '\000'
+        84[0] <- '%'
+        84[1] <- ' '
+        84[2] <- '#'
+        84[3] <- '-'
+        84[4] <- '\000'
+        85[0] <- '%'
+        85[1] <- ' '
+        85[2] <- '-'
+        85[3] <- '#'
+        85[4] <- '\000'
+        86[0] <- '#'
+        86[1] <- '-'
+        86[2] <- ' '
+        86[3] <- '%'
+        86[4] <- '\000'
+        88[0] <- '('
+        88[1] <- '#'
+        88[2] <- ')'
+        88[3] <- '\000'
+        89[0] <- '-'
+        89[1] <- '#'
+        89[2] <- '\000'
+        90[0] <- '-'
+        90[1] <- ' '
+        90[2] <- '#'
+        90[3] <- '\000'
+        91[0] <- '#'
+        91[1] <- '-'
+        91[2] <- '\000'
+        92[0] <- '#'
+        92[1] <- ' '
+        92[2] <- '-'
+        92[3] <- '\000'
+    }
+System.Double[] ==> {
+        94[0] <- 1
+        94[1] <- 10
+        94[2] <- 100
+        94[3] <- 1000
+        94[4] <- 10000
+        94[5] <- 100000
+        94[6] <- 1000000
+        94[7] <- 10000000
+        94[8] <- 100000000
+        94[9] <- 1000000000
+        94[10] <- 10000000000
+        94[11] <- 100000000000
+        94[12] <- 1000000000000
+        94[13] <- 10000000000000
+        94[14] <- 100000000000000
+        94[15] <- 1000000000000000
+        94[16] <- 10000000000000000
+        94[17] <- 1E+17
+        94[18] <- 1E+18
+        94[19] <- 1E+19
+        94[20] <- 1E+20
+        94[21] <- 1E+21
+        94[22] <- 1E+22
+    }
+System.Int32[] ==> {8[0] <- 3; 9[0] <- 3; 10[0] <- 3}
+System.Single[] ==> {
+        93[0] <- 1
+        93[1] <- 10
+        93[2] <- 100
+        93[3] <- 1000
+        93[4] <- 10000
+        93[5] <- 100000
+        93[6] <- 1000000
+        93[7] <- 10000000
+        93[8] <- 100000000
+        93[9] <- 1E+09
+        93[10] <- 1E+10
+    }
+System.String[] ==> {
+        25[0] <- (HeapRef 26 to System.String)
+        25[1] <- (HeapRef 27 to System.String)
+        25[2] <- (HeapRef 28 to System.String)
+        25[3] <- (HeapRef 29 to System.String)
+        25[4] <- (HeapRef 30 to System.String)
+        25[5] <- (HeapRef 31 to System.String)
+        25[6] <- (HeapRef 32 to System.String)
+        25[7] <- (HeapRef 33 to System.String)
+        25[8] <- (HeapRef 34 to System.String)
+        25[9] <- (HeapRef 35 to System.String)
+        36[0] <- (HeapRef 37 to System.String)
+        36[1] <- (HeapRef 38 to System.String)
+        36[2] <- (HeapRef 39 to System.String)
+        36[3] <- (HeapRef 40 to System.String)
+        36[4] <- (HeapRef 41 to System.String)
+        36[5] <- (HeapRef 42 to System.String)
+        36[6] <- (HeapRef 43 to System.String)
+        36[7] <- (HeapRef 44 to System.String)
+        36[8] <- (HeapRef 45 to System.String)
+        36[9] <- (HeapRef 46 to System.String)
+        47[0] <- (HeapRef 48 to System.String)
+        47[1] <- (HeapRef 49 to System.String)
+        47[2] <- (HeapRef 50 to System.String)
+        47[3] <- (HeapRef 51 to System.String)
+        52[0] <- (HeapRef 53 to System.String)
+        52[1] <- (HeapRef 54 to System.String)
+        52[2] <- (HeapRef 55 to System.String)
+        52[3] <- (HeapRef 56 to System.String)
+        52[4] <- (HeapRef 57 to System.String)
+        52[5] <- (HeapRef 58 to System.String)
+        52[6] <- (HeapRef 59 to System.String)
+        52[7] <- (HeapRef 60 to System.String)
+        52[8] <- (HeapRef 61 to System.String)
+        52[9] <- (HeapRef 62 to System.String)
+        52[10] <- (HeapRef 63 to System.String)
+        52[11] <- (HeapRef 64 to System.String)
+        52[12] <- (HeapRef 65 to System.String)
+        52[13] <- (HeapRef 66 to System.String)
+        52[14] <- (HeapRef 67 to System.String)
+        52[15] <- (HeapRef 68 to System.String)
+        69[0] <- (HeapRef 70 to System.String)
+        69[1] <- (HeapRef 71 to System.String)
+        69[2] <- (HeapRef 72 to System.String)
+        69[3] <- (HeapRef 73 to System.String)
+        74[0] <- (HeapRef 75 to System.String)
+        74[1] <- (HeapRef 76 to System.String)
+        74[2] <- (HeapRef 77 to System.String)
+        74[3] <- (HeapRef 78 to System.String)
+        74[4] <- (HeapRef 79 to System.String)
+        74[5] <- (HeapRef 80 to System.String)
+        74[6] <- (HeapRef 81 to System.String)
+        74[7] <- (HeapRef 82 to System.String)
+        74[8] <- (HeapRef 83 to System.String)
+        74[9] <- (HeapRef 84 to System.String)
+        74[10] <- (HeapRef 85 to System.String)
+        74[11] <- (HeapRef 86 to System.String)
+        87[0] <- (HeapRef 88 to System.String)
+        87[1] <- (HeapRef 89 to System.String)
+        87[2] <- (HeapRef 90 to System.String)
+        87[3] <- (HeapRef 91 to System.String)
+        87[4] <- (HeapRef 92 to System.String)
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {
+        2[0] <- 3
+        4[0] <- 1
+        5[0] <- 3
+        6[0] <- 2
+        11[0] <- 2
+        12[0] <- 2
+        13[0] <- 2
+        14[0] <- 2
+        15[0] <- 2
+        16[0] <- 2
+        17[0] <- 2
+        18[0] <- 4
+        19[0] <- 9
+        20[0] <- 10
+        21[0] <- 2
+        22[0] <- 2
+        23[0] <- 2
+        24[0] <- 2
+        26[0] <- 2
+        27[0] <- 2
+        28[0] <- 2
+        29[0] <- 2
+        30[0] <- 2
+        31[0] <- 2
+        32[0] <- 2
+        33[0] <- 2
+        34[0] <- 2
+        35[0] <- 2
+        37[0] <- 2
+        38[0] <- 2
+        39[0] <- 2
+        40[0] <- 2
+        41[0] <- 2
+        42[0] <- 2
+        43[0] <- 2
+        44[0] <- 2
+        45[0] <- 2
+        46[0] <- 2
+        48[0] <- 3
+        49[0] <- 3
+        50[0] <- 4
+        51[0] <- 4
+        53[0] <- 5
+        54[0] <- 4
+        55[0] <- 4
+        56[0] <- 4
+        57[0] <- 5
+        58[0] <- 4
+        59[0] <- 4
+        60[0] <- 4
+        61[0] <- 5
+        62[0] <- 5
+        63[0] <- 5
+        64[0] <- 5
+        65[0] <- 5
+        66[0] <- 5
+        67[0] <- 6
+        68[0] <- 6
+        70[0] <- 4
+        71[0] <- 3
+        72[0] <- 3
+        73[0] <- 4
+        75[0] <- 5
+        76[0] <- 4
+        77[0] <- 4
+        78[0] <- 4
+        79[0] <- 4
+        80[0] <- 4
+        81[0] <- 4
+        82[0] <- 5
+        83[0] <- 5
+        84[0] <- 5
+        85[0] <- 5
+        86[0] <- 5
+        88[0] <- 4
+        89[0] <- 3
+        90[0] <- 4
+        91[0] <- 3
+        92[0] <- 4
+    }
+System.Double[] ==> {94[0] <- 23}
+System.Int32[] ==> {8[0] <- 1; 9[0] <- 1; 10[0] <- 1}
+System.Single[] ==> {93[0] <- 11}
+System.String[] ==> {
+        25[0] <- 10
+        36[0] <- 10
+        47[0] <- 4
+        52[0] <- 16
+        69[0] <- 4
+        74[0] <- 12
+        87[0] <- 5
+    }
+--------------- Types tokens: ---------------
+2 ==> System.String
+3 ==> ChessDotNet.Position
+4 ==> System.String
+5 ==> System.String
+6 ==> System.String
+7 ==> System.Globalization.NumberFormatInfo
+8 ==> System.Int32[]
+9 ==> System.Int32[]
+10 ==> System.Int32[]
+11 ==> System.String
+12 ==> System.String
+13 ==> System.String
+14 ==> System.String
+15 ==> System.String
+16 ==> System.String
+17 ==> System.String
+18 ==> System.String
+19 ==> System.String
+20 ==> System.String
+21 ==> System.String
+22 ==> System.String
+23 ==> System.String
+24 ==> System.String
+25 ==> System.String[]
+26 ==> System.String
+27 ==> System.String
+28 ==> System.String
+29 ==> System.String
+30 ==> System.String
+31 ==> System.String
+32 ==> System.String
+33 ==> System.String
+34 ==> System.String
+35 ==> System.String
+36 ==> System.String[]
+37 ==> System.String
+38 ==> System.String
+39 ==> System.String
+40 ==> System.String
+41 ==> System.String
+42 ==> System.String
+43 ==> System.String
+44 ==> System.String
+45 ==> System.String
+46 ==> System.String
+47 ==> System.String[]
+48 ==> System.String
+49 ==> System.String
+50 ==> System.String
+51 ==> System.String
+52 ==> System.String[]
+53 ==> System.String
+54 ==> System.String
+55 ==> System.String
+56 ==> System.String
+57 ==> System.String
+58 ==> System.String
+59 ==> System.String
+60 ==> System.String
+61 ==> System.String
+62 ==> System.String
+63 ==> System.String
+64 ==> System.String
+65 ==> System.String
+66 ==> System.String
+67 ==> System.String
+68 ==> System.String
+69 ==> System.String[]
+70 ==> System.String
+71 ==> System.String
+72 ==> System.String
+73 ==> System.String
+74 ==> System.String[]
+75 ==> System.String
+76 ==> System.String
+77 ==> System.String
+78 ==> System.String
+79 ==> System.String
+80 ==> System.String
+81 ==> System.String
+82 ==> System.String
+83 ==> System.String
+84 ==> System.String
+85 ==> System.String
+86 ==> System.String
+87 ==> System.String[]
+88 ==> System.String
+89 ==> System.String
+90 ==> System.String
+91 ==> System.String
+92 ==> System.String
+93 ==> System.Single[]
+94 ==> System.Double[]
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+MaxValue ==> {System.Char <- '￿'}
+MaxValue ==> {System.Int32 <- 2147483647}
+MinValue ==> {System.Int32 <- -2147483648}
+MinValue ==> {System.Char <- '\000'}
+s_Pow10DoubleTable ==> {System.Number <- (HeapRef 94 to System.Double[])}
+s_Pow10SingleTable ==> {System.Number <- (HeapRef 93 to System.Single[])}
+s_invariantInfo ==> {System.Globalization.NumberFormatInfo <- NullRef}
+s_negCurrencyFormats ==> {System.Number <- (HeapRef 52 to System.String[])}
+s_negNumberFormats ==> {System.Number <- (HeapRef 87 to System.String[])}
+s_negPercentFormats ==> {System.Number <- (HeapRef 74 to System.String[])}
+s_posCurrencyFormats ==> {System.Number <- (HeapRef 47 to System.String[])}
+s_posPercentFormats ==> {System.Number <- (HeapRef 69 to System.String[])}
+s_singleDigitStringCache ==> {System.Number <- (HeapRef 36 to System.String[])}
+Initialized types = { System.Int32, System.String, System.Object, System.Runtime.CompilerServices.RuntimeHelpers, System.Globalization.NumberFormatInfo, System.ReadOnlySpan`1[System.Char], System.ByReference`1[System.Char], VSharp.CSharpUtils.NumberFormatInfo, ChessDotNet.Position, System.Char, VSharp.Test.Tests.ChessDotNet, System.Number }

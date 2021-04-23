@@ -1,29 +1,15 @@
 METHOD: System.Boolean VSharp.Test.Tests.PDR.AbsPpEqualsAbs(System.Int32)
-RESULT: Totally 4 states:
-0 == x
-MEMORY DUMP:
-Path condition: !(x <= 0) /\ x < 0
---------------- Stack: ---------------
-key = __loc__0, value = 0
-Initialized types = { VSharp.Test.Tests.PDR }
-
+RESULT: Totally 2 states:
 True
 MEMORY DUMP:
-Path condition: !(-x < 0) /\ x <= 0
---------------- Stack: ---------------
-key = __loc__0, value = -x
-Initialized types = { VSharp.Test.Tests.PDR }
-
-True
-MEMORY DUMP:
-Path condition: !(x < 0) /\ !(x <= 0)
+Path condition: !(x <= 0)
 --------------- Stack: ---------------
 key = __loc__0, value = x
 Initialized types = { VSharp.Test.Tests.PDR }
 
--x == 0
+True
 MEMORY DUMP:
-Path condition: -x < 0 /\ x <= 0
+Path condition: x <= 0
 --------------- Stack: ---------------
-key = __loc__0, value = 0
+key = __loc__0, value = -x
 Initialized types = { VSharp.Test.Tests.PDR }

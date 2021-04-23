@@ -1,7 +1,7 @@
 METHOD: System.Collections.Generic.LinkedList`1[System.Int32] VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetDictionary()
 RESULT: Totally 1 state:
-(HeapRef 3 to System.Collections.Generic.LinkedList`1[System.Int32])
+(HeapRef 2 to System.Collections.Generic.LinkedList`1[System.Int32])
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-3 ==> System.Collections.Generic.LinkedList`1[System.Int32]
+2 ==> System.Collections.Generic.LinkedList`1[System.Int32]
 Initialized types = { System.Object, VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z], System.Collections.Generic.LinkedList`1[System.Int32] }

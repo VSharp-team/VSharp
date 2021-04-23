@@ -4,10 +4,10 @@ VSharp.Test.Tests.Conversions+S STRUCT [
 	| x ~> 0]
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-3 ==> VSharp.Test.Tests.Conversions+S STRUCT [
+2 ==> VSharp.Test.Tests.Conversions+S STRUCT [
 	| x ~> 0]
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.Conversions+S
+2 ==> VSharp.Test.Tests.Conversions+S
 --------------- Stack: ---------------
 key = __loc__0, value = VSharp.Test.Tests.Conversions+S STRUCT [
 	| x ~> 0]

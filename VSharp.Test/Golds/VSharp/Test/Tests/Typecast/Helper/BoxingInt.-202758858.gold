@@ -3,7 +3,7 @@ RESULT: Totally 1 state:
 obj
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-3 ==> obj
+2 ==> obj
 --------------- Types tokens: ---------------
-3 ==> System.Int32
+2 ==> System.Int32
 Initialized types = { VSharp.Test.Tests.Typecast.Helper }

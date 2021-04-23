@@ -3,9 +3,9 @@ RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 --------------- Array contents: ---------------
-System.Int32[] ==> {3.3[9] <- 42}
+System.Int32[] ==> {2[9] <- 42}
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3.3[0] <- 10}
+System.Int32[] ==> {2[0] <- 10}
 --------------- Types tokens: ---------------
-3.3 ==> System.Int32[]
+2 ==> System.Int32[]
 Initialized types = { VSharp.Test.Tests.InsInfException }

@@ -4,22 +4,22 @@ RESULT: Totally 2 states:
 MEMORY DUMP:
 Path condition: !f
 --------------- Array lengths: ---------------
-System.Int32[,] ==> {4[0] <- 4; 4[1] <- 5}
+System.Int32[,] ==> {2[0] <- 4; 2[1] <- 5}
 --------------- Types tokens: ---------------
-4 ==> System.Int32[,]
+2 ==> System.Int32[,]
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 4 to System.Array)
+key = __loc__0, value = (HeapRef 2 to System.Array)
 Initialized types = { System.Array, VSharp.Test.Tests.PDR, System.Int32[,] }
 
 100
 MEMORY DUMP:
 Path condition: f
 --------------- Array lengths: ---------------
-System.Int32[,] ==> {4[0] <- 4; 4[1] <- 5}
-System.Int32[] ==> {9[0] <- 100}
+System.Int32[,] ==> {2[0] <- 4; 2[1] <- 5}
+System.Int32[] ==> {3[0] <- 100}
 --------------- Types tokens: ---------------
-4 ==> System.Int32[,]
-9 ==> System.Int32[]
+2 ==> System.Int32[,]
+3 ==> System.Int32[]
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 9 to System.Array)
+key = __loc__0, value = (HeapRef 3 to System.Array)
 Initialized types = { System.Array, VSharp.Test.Tests.PDR, System.Int32[,] }

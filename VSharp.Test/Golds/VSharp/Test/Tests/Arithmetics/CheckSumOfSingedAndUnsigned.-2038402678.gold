@@ -1,6 +1,6 @@
 METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.CheckSumOfSingedAndUnsigned()
 RESULT: Totally 1 state:
-41
+4294967337
 MEMORY DUMP:
 --------------- Stack: ---------------
 key = __loc__0, value = 4294967295

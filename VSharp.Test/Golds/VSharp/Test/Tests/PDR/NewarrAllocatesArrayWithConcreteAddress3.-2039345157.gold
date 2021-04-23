@@ -4,19 +4,19 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 --------------- Array contents: ---------------
 System.Int32[] ==> {
-        3[0] <- 0
-        3[1] <- 1
-        3[2] <- 2
-        3[3] <- 3
-        3[4] <- 4
-        3[5] <- 42
-        3[6] <- 6
-        3[7] <- 7
-        3[8] <- 8
-        3[9] <- 9
+        2[0] <- 0
+        2[1] <- 1
+        2[2] <- 2
+        2[3] <- 3
+        2[4] <- 4
+        2[5] <- 42
+        2[6] <- 6
+        2[7] <- 7
+        2[8] <- 8
+        2[9] <- 9
     }
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- 10}
+System.Int32[] ==> {2[0] <- 10}
 --------------- Types tokens: ---------------
-3 ==> System.Int32[]
+2 ==> System.Int32[]
 Initialized types = { VSharp.Test.Tests.PDR, System.Runtime.CompilerServices.RuntimeHelpers }

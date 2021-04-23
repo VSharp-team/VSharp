@@ -1,75 +1,75 @@
 METHOD: System.Double VSharp.Test.Tests.PDR.AddressesBecomeComplicated(System.Double)
 RESULT: Totally 2 states:
-log(-x)
-MEMORY DUMP:
-Path condition: x < 0
---------------- Array contents: ---------------
-System.Double[] ==> {
-        19.3[0] <- 1
-        19.3[1] <- 10
-        19.3[2] <- 100
-        19.3[3] <- 1000
-        19.3[4] <- 10000
-        19.3[5] <- 100000
-        19.3[6] <- 1000000
-        19.3[7] <- 10000000
-        19.3[8] <- 100000000
-        19.3[9] <- 1000000000
-        19.3[10] <- 10000000000
-        19.3[11] <- 100000000000
-        19.3[12] <- 1000000000000
-        19.3[13] <- 10000000000000
-        19.3[14] <- 100000000000000
-        19.3[15] <- 1000000000000000
-    }
---------------- Array lengths: ---------------
-System.Double[] ==> {19.3[0] <- 16}
---------------- Types tokens: ---------------
-11 ==> System.Object
-14 ==> System.Object
-17 ==> System.Object
-19.3 ==> System.Double[]
---------------- Static fields: ---------------
-E ==> {System.Math <- 2.718281828459045}
-PI ==> {System.Math <- 3.141592653589793}
-roundPower10Double ==> {System.Math <- (HeapRef 19.3 to System.Double[])}
---------------- Stack: ---------------
-key = __loc__0, value = -x
-Initialized types = { VSharp.Test.Tests.PDR, System.Object, System.Runtime.CompilerServices.RuntimeHelpers, System.Math }
-
 log(x)
 MEMORY DUMP:
 Path condition: !(x < 0)
 --------------- Array contents: ---------------
 System.Double[] ==> {
-        19.3[0] <- 1
-        19.3[1] <- 10
-        19.3[2] <- 100
-        19.3[3] <- 1000
-        19.3[4] <- 10000
-        19.3[5] <- 100000
-        19.3[6] <- 1000000
-        19.3[7] <- 10000000
-        19.3[8] <- 100000000
-        19.3[9] <- 1000000000
-        19.3[10] <- 10000000000
-        19.3[11] <- 100000000000
-        19.3[12] <- 1000000000000
-        19.3[13] <- 10000000000000
-        19.3[14] <- 100000000000000
-        19.3[15] <- 1000000000000000
+        5[0] <- 1
+        5[1] <- 10
+        5[2] <- 100
+        5[3] <- 1000
+        5[4] <- 10000
+        5[5] <- 100000
+        5[6] <- 1000000
+        5[7] <- 10000000
+        5[8] <- 100000000
+        5[9] <- 1000000000
+        5[10] <- 10000000000
+        5[11] <- 100000000000
+        5[12] <- 1000000000000
+        5[13] <- 10000000000000
+        5[14] <- 100000000000000
+        5[15] <- 1000000000000000
     }
 --------------- Array lengths: ---------------
-System.Double[] ==> {19.3[0] <- 16}
+System.Double[] ==> {5[0] <- 16}
 --------------- Types tokens: ---------------
-11 ==> System.Object
-14 ==> System.Object
-17 ==> System.Object
-19.3 ==> System.Double[]
+2 ==> System.Object
+3 ==> System.Object
+4 ==> System.Object
+5 ==> System.Double[]
 --------------- Static fields: ---------------
 E ==> {System.Math <- 2.718281828459045}
 PI ==> {System.Math <- 3.141592653589793}
-roundPower10Double ==> {System.Math <- (HeapRef 19.3 to System.Double[])}
+roundPower10Double ==> {System.Math <- (HeapRef 5 to System.Double[])}
 --------------- Stack: ---------------
 key = __loc__0, value = x
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, System.Runtime.CompilerServices.RuntimeHelpers, System.Math }
+
+log(-x)
+MEMORY DUMP:
+Path condition: x < 0
+--------------- Array contents: ---------------
+System.Double[] ==> {
+        5[0] <- 1
+        5[1] <- 10
+        5[2] <- 100
+        5[3] <- 1000
+        5[4] <- 10000
+        5[5] <- 100000
+        5[6] <- 1000000
+        5[7] <- 10000000
+        5[8] <- 100000000
+        5[9] <- 1000000000
+        5[10] <- 10000000000
+        5[11] <- 100000000000
+        5[12] <- 1000000000000
+        5[13] <- 10000000000000
+        5[14] <- 100000000000000
+        5[15] <- 1000000000000000
+    }
+--------------- Array lengths: ---------------
+System.Double[] ==> {5[0] <- 16}
+--------------- Types tokens: ---------------
+2 ==> System.Object
+3 ==> System.Object
+4 ==> System.Object
+5 ==> System.Double[]
+--------------- Static fields: ---------------
+E ==> {System.Math <- 2.718281828459045}
+PI ==> {System.Math <- 3.141592653589793}
+roundPower10Double ==> {System.Math <- (HeapRef 5 to System.Double[])}
+--------------- Stack: ---------------
+key = __loc__0, value = -x
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, System.Runtime.CompilerServices.RuntimeHelpers, System.Math }

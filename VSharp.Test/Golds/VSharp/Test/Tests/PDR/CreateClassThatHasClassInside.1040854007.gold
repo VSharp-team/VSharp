@@ -1,13 +1,13 @@
 METHOD: VSharp.Test.Tests.PDR+ClassWithClassInside VSharp.Test.Tests.PDR.CreateClassThatHasClassInside(System.Int32)
 RESULT: Totally 1 state:
-(HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithClassInside)
+(HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithClassInside)
 MEMORY DUMP:
 --------------- Fields: ---------------
 _classWithOneField ==> {
-        4 <- (HeapRef 4.5 to VSharp.Test.Tests.PDR+ClassWithOneField)
+        2 <- (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
     }
-x ==> {4.5 <- n}
+x ==> {3 <- n}
 --------------- Types tokens: ---------------
-4 ==> VSharp.Test.Tests.PDR+ClassWithClassInside
-4.5 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+2 ==> VSharp.Test.Tests.PDR+ClassWithClassInside
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 Initialized types = { VSharp.Test.Tests.PDR+ClassWithClassInside, VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

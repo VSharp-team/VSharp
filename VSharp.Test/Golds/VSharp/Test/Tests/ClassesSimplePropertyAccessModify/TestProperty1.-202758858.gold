@@ -5,14 +5,14 @@ MEMORY DUMP:
 Path condition: !(null == this)
 --------------- Fields: ---------------
 <ContainerProperty>k__BackingField ==> {
-        3 <- (HeapRef 5 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
+        2 <- (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
     }
-X ==> {5 <- anyVarName}
+X ==> {3 <- anyVarName}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify
-5 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer
+2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify
+3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer
 --------------- Stack: ---------------
 key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccessModify)
-key = __loc__0, value = (HeapRef 5 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
+key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
 key = __loc__1, value = anyVarName
 Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccessModify, VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer, System.Object }

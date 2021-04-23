@@ -1,9 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.Generic.SpecializeGenerics.RetConstructedRWithInt()
 RESULT: Totally 1 state:
-(HeapRef 3 to System.Object)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-3 ==> 0
+2 ==> 0
 --------------- Types tokens: ---------------
-3 ==> System.Int32
+2 ==> System.Int32
 Initialized types = { VSharp.Test.Tests.Generic.GenericClass`2[System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }

@@ -5,18 +5,18 @@ MEMORY DUMP:
 Path condition: !(null == this)
 --------------- Fields: ---------------
 <SecretProperty>k__BackingField ==> {
-        3 <- (HeapRef 3.5.5 to System.Collections.Generic.List`1[System.Boolean])
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[System.Boolean])
     }
-_items ==> {3.5.5 <- (HeapRef 3.5.3 to System.Boolean[])}
+_items ==> {4 <- (HeapRef 3 to System.Boolean[])}
 --------------- Array lengths: ---------------
-System.Boolean[] ==> {3.5.3[0] <- 0}
+System.Boolean[] ==> {3[0] <- 0}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess
-3.5.3 ==> System.Boolean[]
-3.5.5 ==> System.Collections.Generic.List`1[System.Boolean]
+2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess
+3 ==> System.Boolean[]
+4 ==> System.Collections.Generic.List`1[System.Boolean]
 --------------- Static fields: ---------------
 s_emptyArray ==> {
-        System.Collections.Generic.List`1[System.Boolean] <- (HeapRef 3.5.3 to System.Boolean[])
+        System.Collections.Generic.List`1[System.Boolean] <- (HeapRef 3 to System.Boolean[])
     }
 --------------- Stack: ---------------
 key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)

@@ -1,51 +1,38 @@
 METHOD: System.Int32[] VSharp.Test.Tests.Lists.RetOneDArray2(System.Int32)
-RESULT: Totally 4 states:
-(HeapRef 3 to System.Int32[])
-MEMORY DUMP:
-Path condition: !(n < 0) /\ 1 < n /\ 4 < n /\ 5 == n /\ 7 < n /\ 8 == n
---------------- Array contents: ---------------
-System.Int32[] ==> {3[1] <- 89; 3[4] <- 99; 3[7] <- 66}
---------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- n}
---------------- Types tokens: ---------------
-3 ==> System.Int32[]
---------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to System.Int32[])
-Initialized types = { VSharp.Test.Tests.Lists }
-
-(HeapRef 3 to System.Int32[])
+RESULT: Totally 3 states:
+(HeapRef 2 to System.Int32[])
 MEMORY DUMP:
 Path condition: !(5 == n) /\ !(8 == n) /\ !(n < 0)
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- n}
+System.Int32[] ==> {2[0] <- n}
 --------------- Types tokens: ---------------
-3 ==> System.Int32[]
+2 ==> System.Int32[]
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to System.Int32[])
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
 Initialized types = { VSharp.Test.Tests.Lists }
 
-(HeapRef 3 to System.Int32[])
+(HeapRef 2 to System.Int32[])
 MEMORY DUMP:
-Path condition: !(5 == n) /\ !(n < 0) /\ 1 < n /\ 7 < n /\ 8 == n
+Path condition: !(n < 0) /\ 5 == n
 --------------- Array contents: ---------------
-System.Int32[] ==> {3[1] <- 89; 3[7] <- 66}
+System.Int32[] ==> {2[1] <- 42; 2[4] <- 99}
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- n}
+System.Int32[] ==> {2[0] <- n}
 --------------- Types tokens: ---------------
-3 ==> System.Int32[]
+2 ==> System.Int32[]
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to System.Int32[])
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
 Initialized types = { VSharp.Test.Tests.Lists }
 
-(HeapRef 3 to System.Int32[])
+(HeapRef 2 to System.Int32[])
 MEMORY DUMP:
-Path condition: !(8 == n) /\ !(n < 0) /\ 1 < n /\ 4 < n /\ 5 == n
+Path condition: !(5 == n) /\ !(n < 0) /\ 8 == n
 --------------- Array contents: ---------------
-System.Int32[] ==> {3[1] <- 42; 3[4] <- 99}
+System.Int32[] ==> {2[1] <- 89; 2[7] <- 66}
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- n}
+System.Int32[] ==> {2[0] <- n}
 --------------- Types tokens: ---------------
-3 ==> System.Int32[]
+2 ==> System.Int32[]
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to System.Int32[])
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
 Initialized types = { VSharp.Test.Tests.Lists }

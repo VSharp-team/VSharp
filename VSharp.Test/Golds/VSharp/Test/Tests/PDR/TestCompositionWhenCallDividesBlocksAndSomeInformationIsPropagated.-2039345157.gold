@@ -3,15 +3,15 @@ RESULT: Totally 1 state:
 64
 MEMORY DUMP:
 --------------- Array lengths: ---------------
-System.Double[] ==> {12[0] <- 32; 13[0] <- 32}
-System.Int32[] ==> {9[0] <- 32; 9.9[0] <- 32}
+System.Double[] ==> {5[0] <- 32; 6[0] <- 32}
+System.Int32[] ==> {3[0] <- 32; 4[0] <- 32}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-9 ==> System.Int32[]
-9.9 ==> System.Int32[]
-12 ==> System.Double[]
-13 ==> System.Double[]
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> System.Int32[]
+4 ==> System.Int32[]
+5 ==> System.Double[]
+6 ==> System.Double[]
 --------------- Stack: ---------------
 key = __loc__1, value = 2
-key = __loc__0, value = (HeapRef 13 to System.Double[])
+key = __loc__0, value = (HeapRef 6 to System.Double[])
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

@@ -3,11 +3,11 @@ RESULT: Totally 1 state:
 X + X + X * Y
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-3 ==> VSharp.Test.Tests.Typecast.Coord2 STRUCT [
+2 ==> VSharp.Test.Tests.Typecast.Coord2 STRUCT [
 	| X ~> X + X * Y
 	| Y ~> Y]
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.Typecast.Coord2
+2 ==> VSharp.Test.Tests.Typecast.Coord2
 --------------- Stack: ---------------
 key = __loc__0, value = X + X * Y
-Initialized types = { VSharp.Test.Tests.Typecast.Coord2, VSharp.Test.Tests.Typecast.INormalize, VSharp.Test.Tests.Typecast.Helper }
+Initialized types = { VSharp.Test.Tests.Typecast.INormalize, VSharp.Test.Tests.Typecast.Helper }

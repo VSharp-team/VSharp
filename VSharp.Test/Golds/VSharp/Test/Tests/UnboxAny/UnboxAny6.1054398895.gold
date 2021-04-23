@@ -1,11 +1,11 @@
 METHOD: System.Int32[] VSharp.Test.Tests.UnboxAny.UnboxAny6()
 RESULT: Totally 1 state:
-(HeapRef 3 to System.Int32[])
+(HeapRef 2 to System.Int32[])
 MEMORY DUMP:
 --------------- Array contents: ---------------
-System.UInt32[] ==> {3[0] <- 1; 3[1] <- 2; 3[2] <- 3}
+System.UInt32[] ==> {2[0] <- 1; 2[1] <- 2; 2[2] <- 3}
 --------------- Array lengths: ---------------
-System.UInt32[] ==> {3[0] <- 3}
+System.UInt32[] ==> {2[0] <- 3}
 --------------- Types tokens: ---------------
-3 ==> System.UInt32[]
+2 ==> System.UInt32[]
 Initialized types = { VSharp.Test.Tests.UnboxAny, System.Runtime.CompilerServices.RuntimeHelpers }

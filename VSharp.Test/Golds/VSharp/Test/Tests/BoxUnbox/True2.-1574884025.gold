@@ -1,12 +1,17 @@
 METHOD: System.Boolean VSharp.Test.Tests.BoxUnbox.True2()
-RESULT: True
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> 55
-2 ==> System.Nullable`1[System.Int32] STRUCT [
-	| System::Nullable`1::hasValue ~> True
-	| System::Nullable`1::value ~> 55]
----------- s1 = ----------
-System.Nullable`1[System.Int32] ==> System.Nullable`1[System.Int32] STRUCT []
-VSharp.Test.Tests.BoxUnbox ==> CLASS []
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+--------------- Boxed items: ---------------
+2 ==> 55
+3 ==> System.Nullable`1[System.Int32] STRUCT [
+	| hasValue ~> True
+	| value ~> 55]
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+3 ==> System.Nullable`1[System.Int32]
+--------------- Stack: ---------------
+key = __tmp__System.Nullable`1[System.Int32], value = System.Nullable`1[System.Int32] STRUCT [
+	| hasValue ~> True
+	| value ~> 55]
+Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }

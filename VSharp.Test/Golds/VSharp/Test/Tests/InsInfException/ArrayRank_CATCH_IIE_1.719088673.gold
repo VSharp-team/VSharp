@@ -3,7 +3,7 @@ RESULT: Totally 1 state:
 3
 MEMORY DUMP:
 --------------- Array lengths: ---------------
-System.Int32[,,] ==> {4[0] <- 2; 4[1] <- 3; 4[2] <- 5}
+System.Int32[,,] ==> {2[0] <- 2; 2[1] <- 3; 2[2] <- 5}
 --------------- Types tokens: ---------------
-4 ==> System.Int32[,,]
+2 ==> System.Int32[,,]
 Initialized types = { VSharp.Test.Tests.InsInfException, System.Array, System.Int32[,,] }

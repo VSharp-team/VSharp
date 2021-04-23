@@ -1,11 +1,11 @@
 METHOD: VSharp.Test.Tests.PDR+ClassWithLotsOFFields VSharp.Test.Tests.PDR.TestDefaultFieldsAllocation()
 RESULT: Totally 1 state:
-(HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithLotsOFFields)
+(HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithLotsOFFields)
 MEMORY DUMP:
 --------------- Fields: ---------------
-_forty ==> {3 <- 40}
-_fortyTwo ==> {3 <- 42}
-_pi ==> {3 <- 3.14}
+_forty ==> {2 <- 40}
+_fortyTwo ==> {2 <- 42}
+_pi ==> {2 <- 3.14}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.PDR+ClassWithLotsOFFields
+2 ==> VSharp.Test.Tests.PDR+ClassWithLotsOFFields
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithLotsOFFields }

@@ -1,0 +1,5 @@
+METHOD: System.Single VSharp.Test.Tests.Conversions.ConvOvfMaxDoubleToSingle()
+RESULT: Totally 1 state:
+Infinity
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Conversions }

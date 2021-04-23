@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.MakeDefaultAndWrite(System.Int32)
+RESULT: Totally 1 state:
+2[2]
+MEMORY DUMP:
+Path condition: !(k < 0) & k < 5
+--------------- Array contents: ---------------
+System.Int32[] ==> {2[k] <- 42}
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+Initialized types = { VSharp.Test.Tests.Lists }

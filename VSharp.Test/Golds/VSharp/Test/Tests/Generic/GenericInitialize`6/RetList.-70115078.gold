@@ -1,16 +1,16 @@
 METHOD: System.Collections.Generic.List`1[System.Double] VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z].RetList()
 RESULT: Totally 1 state:
-(HeapRef 5 to System.Collections.Generic.List`1[System.Double])
+(HeapRef 3 to System.Collections.Generic.List`1[System.Double])
 MEMORY DUMP:
 --------------- Fields: ---------------
-_items ==> {5 <- (HeapRef 3 to System.Double[])}
+_items ==> {3 <- (HeapRef 2 to System.Double[])}
 --------------- Array lengths: ---------------
-System.Double[] ==> {3[0] <- 0}
+System.Double[] ==> {2[0] <- 0}
 --------------- Types tokens: ---------------
-3 ==> System.Double[]
-5 ==> System.Collections.Generic.List`1[System.Double]
+2 ==> System.Double[]
+3 ==> System.Collections.Generic.List`1[System.Double]
 --------------- Static fields: ---------------
 s_emptyArray ==> {
-        System.Collections.Generic.List`1[System.Double] <- (HeapRef 3 to System.Double[])
+        System.Collections.Generic.List`1[System.Double] <- (HeapRef 2 to System.Double[])
     }
 Initialized types = { System.Object, System.Collections.Generic.List`1[System.Double], VSharp.Test.Tests.Generic.GenericInitialize`6[T,U,P,K,N,Z] }

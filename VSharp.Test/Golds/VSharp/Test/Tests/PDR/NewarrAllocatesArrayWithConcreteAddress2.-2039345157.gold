@@ -3,9 +3,9 @@ RESULT: Totally 1 state:
 42
 MEMORY DUMP:
 --------------- Array contents: ---------------
-System.Int32[] ==> {3[5] <- 42}
+System.Int32[] ==> {2[5] <- 42}
 --------------- Array lengths: ---------------
-System.Int32[] ==> {3[0] <- 10}
+System.Int32[] ==> {2[0] <- 10}
 --------------- Types tokens: ---------------
-3 ==> System.Int32[]
+2 ==> System.Int32[]
 Initialized types = { VSharp.Test.Tests.PDR }

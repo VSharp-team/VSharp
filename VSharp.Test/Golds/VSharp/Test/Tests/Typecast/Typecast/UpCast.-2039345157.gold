@@ -3,13 +3,13 @@ RESULT: Totally 1 state:
 15
 MEMORY DUMP:
 --------------- Fields: ---------------
-Rate ==> {4 <- 1}
-_newField ==> {4 <- 25}
-_xCoord ==> {4 <- 1}
-_yCoord ==> {4 <- 1}
+Rate ==> {2 <- 1}
+_newField ==> {2 <- 25}
+_xCoord ==> {2 <- 1}
+_yCoord ==> {2 <- 1}
 --------------- Types tokens: ---------------
-4 ==> VSharp.Test.Tests.Typecast.Pawn
+2 ==> VSharp.Test.Tests.Typecast.Pawn
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 4 to System.Object)
-key = __loc__1, value = (HeapRef 4 to VSharp.Test.Tests.Typecast.Piece)
+key = __loc__0, value = (HeapRef 2 to System.Object)
+key = __loc__1, value = (HeapRef 2 to VSharp.Test.Tests.Typecast.Piece)
 Initialized types = { VSharp.Test.Tests.Typecast.Pawn, VSharp.Test.Tests.Typecast.Typecast, System.Object, VSharp.Test.Tests.Typecast.Piece }

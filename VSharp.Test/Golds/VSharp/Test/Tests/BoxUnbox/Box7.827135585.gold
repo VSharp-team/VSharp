@@ -1,13 +1,13 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.Box7()
 RESULT: Totally 1 state:
-(HeapRef 5 to System.Object)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-5 ==> 7
+2 ==> 7
 --------------- Types tokens: ---------------
-5 ==> System.Int32
+2 ==> System.Int32
 --------------- Stack: ---------------
-key = __tmp__System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], value = System.Nullable`1[System.Int32] STRUCT [
+key = __tmp__System.Nullable`1[System.Int32], value = System.Nullable`1[System.Int32] STRUCT [
 	| hasValue ~> True
 	| value ~> 7]
 Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }

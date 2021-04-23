@@ -1,0 +1,17 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lambdas.LambdaAsObjectIsLambda(System.Boolean)
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Lambdas+<>c
+3 ==> System.Action`1[System.Int32]
+--------------- Static fields: ---------------
+<>9 ==> {
+        VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 2 to VSharp.Test.Tests.Lambdas+<>c)
+    }
+<>9__4_0 ==> {
+        VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 3 to System.Action`1[System.Int32])
+    }
+--------------- Delegates: ---------------
+3 ==> <Lambda Expression System.Action`1[System.Int32]>
+Initialized types = { System.Action`1[System.Int32], System.Object, VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c }

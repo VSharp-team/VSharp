@@ -1,5 +1,5 @@
 METHOD: System.UInt32 VSharp.Test.Tests.Conversions.TestConvDoubleToUInt()
 RESULT: Totally 1 state:
-2147483648
+-2147483648
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Conversions }

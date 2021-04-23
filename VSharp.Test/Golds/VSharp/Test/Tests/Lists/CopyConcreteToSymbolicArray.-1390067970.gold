@@ -1,0 +1,19 @@
+METHOD: System.Int32[] VSharp.Test.Tests.Lists.CopyConcreteToSymbolicArray(System.Int32[])
+RESULT: Totally 1 state:
+(HeapRef a to System.Int32[])
+MEMORY DUMP:
+--------------- Array contents: ---------------
+System.Int32[] ==> {
+        2[0] <- 1
+        2[1] <- 2
+        2[2] <- 3
+        2[3] <- 4
+        2[4] <- 5
+        a[2] <- 3
+        a[3] <- 4
+    }
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+Initialized types = { System.Array, System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Lists }

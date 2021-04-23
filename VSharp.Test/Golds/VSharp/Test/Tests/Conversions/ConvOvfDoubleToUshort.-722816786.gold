@@ -1,6 +1,6 @@
 METHOD: System.UInt16 VSharp.Test.Tests.Conversions.ConvOvfDoubleToUshort(System.Double)
 RESULT: Totally 1 state:
-(System.UInt16 number)
+(System.Int32 (System.UInt16 number))
 MEMORY DUMP:
-Path condition: 0 <= number & number <= -9223372036854775808
+Path condition: 0 <= number & number <= 65535
 Initialized types = { VSharp.Test.Tests.Conversions }

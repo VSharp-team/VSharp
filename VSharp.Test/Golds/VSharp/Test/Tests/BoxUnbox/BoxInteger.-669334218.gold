@@ -1,9 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.BoxInteger(System.Int32)
 RESULT: Totally 1 state:
-(HeapRef 3 to System.Object)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 --------------- Boxed items: ---------------
-3 ==> x
+2 ==> x
 --------------- Types tokens: ---------------
-3 ==> System.Int32
+2 ==> System.Int32
 Initialized types = { VSharp.Test.Tests.BoxUnbox }

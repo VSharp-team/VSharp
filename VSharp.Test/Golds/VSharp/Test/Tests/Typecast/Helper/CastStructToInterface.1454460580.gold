@@ -4,34 +4,34 @@ sqrt((System.Double (X * X + Y * Y)))
 MEMORY DUMP:
 --------------- Array contents: ---------------
 System.Double[] ==> {
-        4.3[0] <- 1
-        4.3[1] <- 10
-        4.3[2] <- 100
-        4.3[3] <- 1000
-        4.3[4] <- 10000
-        4.3[5] <- 100000
-        4.3[6] <- 1000000
-        4.3[7] <- 10000000
-        4.3[8] <- 100000000
-        4.3[9] <- 1000000000
-        4.3[10] <- 10000000000
-        4.3[11] <- 100000000000
-        4.3[12] <- 1000000000000
-        4.3[13] <- 10000000000000
-        4.3[14] <- 100000000000000
-        4.3[15] <- 1000000000000000
+        3[0] <- 1
+        3[1] <- 10
+        3[2] <- 100
+        3[3] <- 1000
+        3[4] <- 10000
+        3[5] <- 100000
+        3[6] <- 1000000
+        3[7] <- 10000000
+        3[8] <- 100000000
+        3[9] <- 1000000000
+        3[10] <- 10000000000
+        3[11] <- 100000000000
+        3[12] <- 1000000000000
+        3[13] <- 10000000000000
+        3[14] <- 100000000000000
+        3[15] <- 1000000000000000
     }
 --------------- Array lengths: ---------------
-System.Double[] ==> {4.3[0] <- 16}
+System.Double[] ==> {3[0] <- 16}
 --------------- Boxed items: ---------------
-3 ==> VSharp.Test.Tests.Typecast.Coord STRUCT [
+2 ==> VSharp.Test.Tests.Typecast.Coord STRUCT [
 	| X ~> X
 	| Y ~> Y]
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.Typecast.Coord
-4.3 ==> System.Double[]
+2 ==> VSharp.Test.Tests.Typecast.Coord
+3 ==> System.Double[]
 --------------- Static fields: ---------------
 E ==> {System.Math <- 2.718281828459045}
 PI ==> {System.Math <- 3.141592653589793}
-roundPower10Double ==> {System.Math <- (HeapRef 4.3 to System.Double[])}
-Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Typecast.INormalize, VSharp.Test.Tests.Typecast.Helper, VSharp.Test.Tests.Typecast.Coord, System.Math }
+roundPower10Double ==> {System.Math <- (HeapRef 3 to System.Double[])}
+Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Typecast.INormalize, VSharp.Test.Tests.Typecast.Helper, System.Math }

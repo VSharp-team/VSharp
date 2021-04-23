@@ -3,17 +3,17 @@ RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 --------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-5.3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-5.6 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-5.9 ==> VSharp.Test.Tests.PDR+ClassWithOneField
-5.12 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+5 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+6 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+7 ==> System.Object
+8 ==> System.Object
+9 ==> System.Object
+10 ==> System.Object
 11 ==> System.Object
-12.11 ==> System.Object
-12.12.11 ==> System.Object
-12.12.12.11 ==> System.Object
-12.12.12.12.11 ==> System.Object
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 3 to System.Object)
+key = __loc__0, value = (HeapRef 2 to System.Object)
 key = __loc__1, value = 5
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

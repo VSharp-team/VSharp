@@ -1,9 +1,9 @@
 METHOD: System.Object VSharp.Test.Tests.UnboxAny.UnboxAny4()
 RESULT: Totally 1 state:
-(HeapRef 3 to System.Object)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 --------------- Fields: ---------------
-x ==> {3 <- 123}
+x ==> {2 <- 123}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.UnboxAny+A
+2 ==> VSharp.Test.Tests.UnboxAny+A
 Initialized types = { VSharp.Test.Tests.UnboxAny+A, VSharp.Test.Tests.UnboxAny, System.Object }

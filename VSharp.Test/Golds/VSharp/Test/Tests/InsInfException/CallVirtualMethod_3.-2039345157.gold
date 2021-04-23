@@ -3,5 +3,5 @@ RESULT: Totally 1 state:
 8
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.Methods.VirtualG
+2 ==> VSharp.Test.Tests.Methods.VirtualG
 Initialized types = { VSharp.Test.Tests.Methods.VirtualC, VSharp.Test.Tests.InsInfException, VSharp.Test.Tests.Methods.VirtualB, VSharp.Test.Tests.Methods.VirtualG, System.Object }

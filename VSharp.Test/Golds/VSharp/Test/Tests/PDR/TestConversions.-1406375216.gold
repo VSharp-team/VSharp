@@ -1,0 +1,5 @@
+METHOD: System.UInt32 VSharp.Test.Tests.PDR.TestConversions(System.UInt32)
+RESULT: Totally 1 state:
+(System.Int32 x)
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.PDR }

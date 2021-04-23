@@ -1,9 +1,9 @@
 METHOD: VSharp.Test.Tests.PDR+ClassWithOneField VSharp.Test.Tests.PDR.Test100500()
 RESULT: Totally 1 state:
-(HeapRef 2.3 to VSharp.Test.Tests.PDR+ClassWithOneField)
+(HeapRef 2 to VSharp.Test.Tests.PDR+ClassWithOneField)
 MEMORY DUMP:
 --------------- Fields: ---------------
-x ==> {2.3 <- 100500}
+x ==> {2 <- 100500}
 --------------- Types tokens: ---------------
-2.3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

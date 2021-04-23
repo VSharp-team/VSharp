@@ -1,5 +1,5 @@
 METHOD: System.Int16 VSharp.Test.Tests.Conversions.ConvDoubleToShort(System.Double)
 RESULT: Totally 1 state:
-(System.Int16 number)
+(System.Int32 (System.Int16 number))
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Conversions }

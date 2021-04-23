@@ -1,17 +1,8 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.NestedForsHard(System.Int32)
-RESULT: Totally 2 states:
+RESULT: Totally 1 state:
 x
 MEMORY DUMP:
 Path condition: !(0 < x)
 --------------- Stack: ---------------
 key = __loc__0, value = 0
-Initialized types = { VSharp.Test.Tests.ControlFlow }
-
-1 + x
-MEMORY DUMP:
-Path condition: !(1 < 1 + x) /\ 0 < x
---------------- Stack: ---------------
-key = __loc__1, value = 0
-key = __loc__0, value = 1
-key = x, value = 1 + x
 Initialized types = { VSharp.Test.Tests.ControlFlow }

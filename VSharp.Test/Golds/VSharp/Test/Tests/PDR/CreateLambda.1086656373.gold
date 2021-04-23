@@ -1,33 +1,35 @@
 METHOD: System.Action`1[System.Int32] VSharp.Test.Tests.PDR.CreateLambda(System.Boolean)
 RESULT: Totally 2 states:
-(HeapRef 12 to System.Action`1[System.Int32])
+(HeapRef 3 to System.Action`1[System.Int32])
 MEMORY DUMP:
 Path condition: flag
 --------------- Fields: ---------------
-a ==> {3 <- 0}
-b ==> {3 <- 0}
-c ==> {3 <- 0}
+a ==> {2 <- 0}
+b ==> {2 <- 0}
+c ==> {2 <- 0}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass1_0
+2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass2_0
+3 ==> System.Action`1[System.Int32]
 --------------- Delegates: ---------------
-12 ==> <Lambda Expression System.Action`1[System.Int32]>
+3 ==> <Lambda Expression System.Action`1[System.Int32]>
 --------------- Stack: ---------------
-key = __loc__1, value = (HeapRef 12 to System.Action`1[System.Int32])
-key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+<>c__DisplayClass1_0)
-Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass1_0 }
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+<>c__DisplayClass2_0)
+key = __loc__1, value = (HeapRef 3 to System.Action`1[System.Int32])
+Initialized types = { System.Action`1[System.Int32], VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass2_0 }
 
-(HeapRef 8 to System.Action`1[System.Int32])
+(HeapRef 3 to System.Action`1[System.Int32])
 MEMORY DUMP:
 Path condition: !flag
 --------------- Fields: ---------------
-a ==> {3 <- 0}
-b ==> {3 <- 0}
-c ==> {3 <- 0}
+a ==> {2 <- 0}
+b ==> {2 <- 0}
+c ==> {2 <- 0}
 --------------- Types tokens: ---------------
-3 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass1_0
+2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass2_0
+3 ==> System.Action`1[System.Int32]
 --------------- Delegates: ---------------
-8 ==> <Lambda Expression System.Action`1[System.Int32]>
+3 ==> <Lambda Expression System.Action`1[System.Int32]>
 --------------- Stack: ---------------
-key = __loc__1, value = (HeapRef 8 to System.Action`1[System.Int32])
-key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.PDR+<>c__DisplayClass1_0)
-Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass1_0 }
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.PDR+<>c__DisplayClass2_0)
+key = __loc__1, value = (HeapRef 3 to System.Action`1[System.Int32])
+Initialized types = { System.Action`1[System.Int32], VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+<>c__DisplayClass2_0 }

@@ -3,8 +3,8 @@ RESULT: Totally 1 state:
 38
 MEMORY DUMP:
 --------------- Fields: ---------------
-_xCoord ==> {4 <- 1}
-_yCoord ==> {4 <- 3}
+_xCoord ==> {2 <- 1}
+_yCoord ==> {2 <- 3}
 --------------- Types tokens: ---------------
-4 ==> VSharp.Test.Tests.Typecast.Piece
+2 ==> VSharp.Test.Tests.Typecast.Piece
 Initialized types = { VSharp.Test.Tests.Typecast.Typecast, System.Object, VSharp.Test.Tests.Typecast.Piece }

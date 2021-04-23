@@ -1,5 +1,5 @@
 METHOD: System.UInt32 VSharp.Test.Tests.Arithmetics.Shr(System.Int32)
 RESULT: Totally 1 state:
-(System.UInt32 (a >> 1))
+a >> 1
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Arithmetics }

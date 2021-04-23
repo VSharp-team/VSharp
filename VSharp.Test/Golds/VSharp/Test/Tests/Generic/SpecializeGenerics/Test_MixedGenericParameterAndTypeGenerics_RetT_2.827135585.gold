@@ -1,10 +1,10 @@
 METHOD: System.Object VSharp.Test.Tests.Generic.SpecializeGenerics.Test_MixedGenericParameterAndTypeGenerics_RetT_2()
 RESULT: Totally 1 state:
-(HeapRef 4 to System.Object)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 --------------- Types tokens: ---------------
-4 ==> System.Object
+2 ==> System.Object
 --------------- Stack: ---------------
-key = __loc__0, value = (HeapRef 4 to System.Object)
+key = __loc__0, value = (HeapRef 2 to System.Object)
 key = __loc__1, value = 2
 Initialized types = { System.Object, VSharp.Test.Tests.Generic.GenericMethodInsideGenericType`3[System.Object,System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }
