@@ -148,6 +148,7 @@ module API =
         val MakeSymbolicOpStackActiveFrame : (int -> term -> term) -> operationStack -> operationStack
         val OpStackLength : operationStack -> int
         val OpStackToList : operationStack -> term list
+        val ClearOpStackActiveFrame : operationStack -> operationStack
 
         val PopFrame : state -> state
         val PopTypeVariables : state -> state

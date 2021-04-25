@@ -188,6 +188,7 @@ type public ExplorerBase() =
     abstract CreateException : System.Type -> term list -> cilState -> cilState list
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
+        let cilState = clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
         let argumentsTypes =

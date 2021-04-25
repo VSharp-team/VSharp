@@ -183,6 +183,7 @@ module API =
         let MakeSymbolicOpStackActiveFrame f opStack = OperationStack.makeSymbolicActiveFrame f opStack
         let OpStackLength opStack = OperationStack.length opStack
         let OpStackToList opStack = OperationStack.toList opStack
+        let ClearOpStackActiveFrame opStack = OperationStack.clearActiveFrame opStack
 
         let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state

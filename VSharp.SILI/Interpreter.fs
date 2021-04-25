@@ -730,9 +730,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let error, _ = pop cilState
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
-            (fun cilState k -> // TODO: opStack should be framed
+            (fun cilState k ->
                 //TODO: change current ip
-                cilState |> withException (Unhandled error) |> withOpStack emptyOpStack |> List.singleton |> k)
+                cilState |> withException (Unhandled error) |> clearEvaluationStackLastFrame |> List.singleton |> k)
             id
     member private x.Unbox (cfg : cfg) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox.Size)
@@ -1085,7 +1085,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             match cilState.ipStack with
             | ip :: ips -> {cilState with ipStack = f ip :: ips}
             | _ -> __unreachable__()
-
         let exit () : cilState =
             match cilState.ipStack with
             | Exit _ :: [] when startsFromMethodBeginning cilState ->
@@ -1102,22 +1101,21 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 // TODO: assert(isCallIp ip)
                 let callSite = parseCallSite caller offset
                 let cilState =
-                    if callSite.opCode = Emit.OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
+                    if callSite.opCode = OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
                         pushNewObjForValueTypes cilState
                     else cilState
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
                 cilState |> popFrameOf |> withIpStack (newIp :: ips')
             | Exit _ :: Exit _ :: _ -> __unreachable__()
             | _ -> __unreachable__()
-
         let rec makeStep' = function
             | Instruction(offset, m) -> x.ExecuteInstruction m offset cilState
             | Exit _ -> exit () |> List.singleton
-            //TODO: Endfinally should clear evaluation stack as side-effect
-            | Leave(EndFinally, [],  dst, m) -> setCurrentIp (instruction m dst) cilState |> List.singleton
+            | Leave(EndFinally, [],  dst, m) ->
+                setCurrentIp (instruction m dst) cilState |> clearEvaluationStackLastFrame |> List.singleton
             | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
                 let ip' = leave (instruction m ehc.HandlerOffset) ehcs dst m
-                setCurrentIp ip' cilState |> List.singleton
+                setCurrentIp ip' cilState |> clearEvaluationStackLastFrame |> List.singleton
             | Leave(ip, ehcs, dst, m) ->
                 let states = makeStep' ip
                 List.map (updateIp (fun ip -> leave ip ehcs dst m)) states

@@ -26,7 +26,10 @@ module internal OperationStack =
         match opStack.contents with
         | l :: ls -> {contents = (List.mapi f l) :: ls}
         | [] -> __corruptedStack__()
-
+    let clearActiveFrame opStack =
+        match opStack.contents with
+        | _ :: ls -> {contents = [] :: ls}
+        | _ -> __corruptedStack__()
     let newStackFrame opStack = {contents = [] :: opStack.contents}
     let popStackFrame opStack =
         // TODO: #mb use returnRegister

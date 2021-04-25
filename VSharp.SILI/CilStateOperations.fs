@@ -113,6 +113,9 @@ module internal CilStateOperations =
     let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
     let withOpStack opStack (cilState : cilState) = {cilState with state = {cilState.state with opStack = opStack}}
 
+    let clearEvaluationStackLastFrame (cilState : cilState) =
+        {cilState with state = {cilState.state with opStack = Memory.ClearOpStackActiveFrame cilState.state.opStack}}
+
     let withState state (cilState : cilState) = {cilState with state = state}
     let changeState (cilState : cilState) state = {cilState with state = state}
 
