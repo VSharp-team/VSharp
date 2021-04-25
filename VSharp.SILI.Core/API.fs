@@ -178,9 +178,9 @@ module API =
             let x' = TypeCasting.castToOpStackType x
             OperationStack.push x' opStack
         let GetOpStackItem index opStack = OperationStack.item index opStack
-        let FilterOpStack f opStack = OperationStack.filter f opStack
+        let FilterActiveFrame f opStack = OperationStack.filterActiveFrame f opStack
         let UnionOpStacks opStack opStack' = OperationStack.union opStack opStack'
-        let MapiOpStack f opStack = OperationStack.mapi f opStack
+        let MakeSymbolicOpStackActiveFrame f opStack = OperationStack.makeSymbolicActiveFrame f opStack
         let OpStackLength opStack = OperationStack.length opStack
         let OpStackToList opStack = OperationStack.toList opStack
 

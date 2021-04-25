@@ -539,7 +539,7 @@ module public CFA =
                         Ptr addr typ shift
                     | _ -> Memory.MakeSymbolicValue source name typ
 
-            let symbolicOpStack = Memory.MapiOpStack makeSymbolic opStack
+            let symbolicOpStack = Memory.MakeSymbolicOpStackActiveFrame makeSymbolic opStack
             symbolicOpStack
 
         let private executeSeparatedOpCode (methodInterpreter : MethodInterpreter) (cfg : cfg) (cilState : cilState) =
@@ -584,7 +584,7 @@ module public CFA =
             cilState, callSite, numberToDrop
 
         let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationStack, Vertex>) =
-            let concreteOpStack = Memory.FilterOpStack shouldRemainOnOpStack opStack
+            let concreteOpStack = Memory.FilterActiveFrame shouldRemainOnOpStack opStack
             if PersistentDict.contains (v, concreteOpStack) vertices then
                 PersistentDict.find vertices (v, concreteOpStack), vertices
             else

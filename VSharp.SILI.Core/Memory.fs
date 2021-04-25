@@ -58,14 +58,16 @@ module internal Memory =
             | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key 1u map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let frames' = Stack.push s.frames { func = funcId; entries = locations; isEffect = isEffect }
-        { s with stack = newStack; frames = frames' }
+        let opStack' = OperationStack.newStackFrame s.opStack
+        { s with stack = newStack; frames = frames'; opStack = opStack' }
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popFrame (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
         let entries = (Stack.peek s.frames).entries
         let frames' = Stack.pop s.frames
-        { s with stack = List.fold popOne s.stack entries; frames = frames' }
+        let opStack' = OperationStack.popStackFrame s.opStack
+        { s with stack = List.fold popOne s.stack entries; frames = frames'; opStack = opStack' }
 
     let inline entriesOfFrame f = f.entries
 

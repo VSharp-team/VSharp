@@ -143,9 +143,9 @@ module API =
         val PopArgumentsFromOpStack : int -> operationStack -> term list * operationStack
         val PushToOpStack : term -> operationStack -> operationStack
         val GetOpStackItem : int -> operationStack -> term
-        val FilterOpStack : (term -> bool) -> operationStack -> operationStack
+        val FilterActiveFrame : (term -> bool) -> operationStack -> operationStack
         val UnionOpStacks : operationStack -> operationStack -> operationStack
-        val MapiOpStack : (int -> term -> term) -> operationStack -> operationStack
+        val MakeSymbolicOpStackActiveFrame : (int -> term -> term) -> operationStack -> operationStack
         val OpStackLength : operationStack -> int
         val OpStackToList : operationStack -> term list
 
