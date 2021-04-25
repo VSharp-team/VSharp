@@ -55,14 +55,14 @@ module internal TermUtils =
         | _ -> false
 
 [<StructuralEquality;NoComparison>]
-type opStackSource =
+type evaluationStackSource =
     {shift : uint32; typ : symbolicType; time : vectorTime}
     interface IMemoryAccessConstantSource with
         override x.SubTerms = Seq.empty
         override x.Time = x.time
         override x.TypeOfLocation = x.typ
         override x.Compose state =
-            let result = Memory.GetOpStackItem (int x.shift) state.opStack
+            let result = EvaluationStack.GetItem (int x.shift) state.evaluationStack
             assert(Types.CanCastImplicitly result x.typ)
             Types.Cast result x.typ
 
@@ -203,14 +203,14 @@ module Properties =
 module public CFA =
     open TermUtils
 
-    let pushNewObjResultOnOpStack (cilState : cilState) reference (calledMethod : MethodBase) =
+    let pushNewObjResultOnEvaluationStack (cilState : cilState) reference (calledMethod : MethodBase) =
         let valueOnStack =
             if calledMethod.DeclaringType.IsValueType then
                   Memory.ReadSafe cilState.state reference
             else reference
         push valueOnStack cilState
 
-    type Vertex private(id, m : MethodBase, ip : ip, opStack : operationStack) =
+    type Vertex private(id, m : MethodBase, ip : ip, evaluationStack : evaluationStack) =
         static let ids : Dictionary<MethodBase, int> = Dictionary<_,_>()
         let lemmas = Lemmas(m, ip)
         let paths = Paths(m, ip)
@@ -242,7 +242,7 @@ module public CFA =
         member x.IncomingEdges = incomingEdges
         member x.OutgoingEdges = outgoingEdges
         member x.Ip with get() = ip
-        member x.OpStack with get() = opStack
+        member x.EvaluationStack with get() = evaluationStack
         member x.Method with get() = m
         member x.IsMethodStartVertex with get() =
             match ip with
@@ -256,10 +256,10 @@ module public CFA =
             sprintf "(Method = %O, ip = %O, id = %d)\n" m ip id +
             sprintf "Edges count = %d\n" x.OutgoingEdges.Count +
             "Edges: \n" + Seq.fold (fun acc edge -> acc + edge.ToString() + "\n") "" x.OutgoingEdges
-        static member CreateVertex method offset opStack =
+        static member CreateVertex method offset evaluationStack =
             let id = Dict.getValueOrUpdate ids method (always 0)
             ids.[method] <- id + 1
-            Vertex(id, method, offset, opStack)
+            Vertex(id, method, offset, evaluationStack)
     and
         [<AbstractClass>]
         Edge(src : Vertex, dst : Vertex) =
@@ -292,8 +292,8 @@ module public CFA =
         member x.FindCallVertex id = x.vertices.[id]
 
         static member private CreateEmpty entity method entryIp exitIp =
-            let entry = Vertex.CreateVertex method entryIp emptyOpStack
-            let exit = Vertex.CreateVertex method exitIp emptyOpStack
+            let entry = Vertex.CreateVertex method entryIp emptyEvaluationStack
+            let exit = Vertex.CreateVertex method exitIp emptyEvaluationStack
             let vertices = Dictionary<int, Vertex>()
             vertices.Add(entry.Id, entry)
             vertices.Add(exit.Id, exit)
@@ -382,17 +382,17 @@ module public CFA =
                     x.PrintLog "call edge: composition left" (dump cilStateBeforeCall)
                     x.PrintLog "call edge: composition result" (dump resultCilState)
                     let stateAfterCall =
-                        let _, opStack = Memory.PopArgumentsFromOpStack numberToDrop initialState.opStack
+                        let _, evaluationStack = EvaluationStack.PopArguments numberToDrop initialState.evaluationStack
                         match resultState.returnRegister with
                         | Some r ->
                             assert(callSite.HasNonVoidResult)
                             { resultState with
                                                returnRegister = None
-                                               opStack = Memory.PushToOpStack r opStack }
+                                               evaluationStack = EvaluationStack.Push r evaluationStack }
                         | None when callSite.opCode = OpCodes.Newobj ->
                             assert(not callSite.HasNonVoidResult)
                             let reference = Memory.ReadThis stateWithArgsOnFrameAndAllocatedType callSite.calledMethod
-                            let modifiedCilState = pushNewObjResultOnOpStack (withOpStack opStack resultCilState) reference callSite.calledMethod
+                            let modifiedCilState = pushNewObjResultOnEvaluationStack (withEvaluationStack evaluationStack resultCilState) reference callSite.calledMethod
                             modifiedCilState.state
                         | None ->
                             assert(not callSite.HasNonVoidResult)
@@ -430,18 +430,18 @@ module public CFA =
               uOut : int
               vOut : int
               minSCCs : int
-              opStack : operationStack
+              evaluationStack : evaluationStack
               allocatedTypes : pdict<concreteHeapAddress, symbolicType>
               lengths : pdict<arrayType, vectorRegion>
               lowerBounds : pdict<arrayType, vectorRegion>
             }
             override x.ToString() =
-                let emptyState = {API.Memory.EmptyState with opStack = x.opStack }
+                let emptyState = {API.Memory.EmptyState with evaluationStack = x.evaluationStack }
                 sprintf "u = %O, id = %d; v = %O; state = %s" x.u x.srcVertex.Id x.v (Memory.Dump emptyState)
             override x.GetHashCode() = (x.u, x.v, x.srcVertex).GetHashCode()
             override x.Equals y =
                 match y with
-                | :? bypassDataForEdges as y -> x.u = y.u && x.srcVertex.Equals(y.srcVertex) && x.v = y.v && x.opStack = y.opStack
+                | :? bypassDataForEdges as y -> x.u = y.u && x.srcVertex.Equals(y.srcVertex) && x.v = y.v && x.evaluationStack = y.evaluationStack
                 | _ -> false
             interface IComparable with
                 override x.CompareTo (obj : obj) =
@@ -465,7 +465,7 @@ module public CFA =
             edge.Src.OutgoingEdges.Add edge
             edge.Dst.IncomingEdges.Add edge
 
-        let internal shouldRemainOnOpStack (term : term) =
+        let internal shouldRemainEvaluationStack (term : term) =
             match term.term with
             | Concrete _ -> true
             | Ref addr -> isConcreteAddress addr
@@ -518,17 +518,17 @@ module public CFA =
             let name = sprintf "FunctionResult of type = %O" t
             Memory.MakeSymbolicValue source name typ
 
-        let makeSymbolicOpStack time (opStack : operationStack) : operationStack =
+        let makeSymbolicEvaluationStack time (evaluationStack : evaluationStack) : evaluationStack =
             let mkSource (index : int) typ =
                 {shift = uint32 index; typ = typ; time = time}
 
             let makeSymbolic index (v : term) =
-                if shouldRemainOnOpStack v then v
+                if shouldRemainEvaluationStack v then v
                 else
                     let shift = index
                     let typ = TypeOf v
                     let source = mkSource shift typ
-                    let name = sprintf "opStack.[%d] from top" shift
+                    let name = sprintf "evaluationStack.[%d] from top" shift
                     match v.term with
                     | Ref address ->
                         makeSymbolicAddress source address |> Ref
@@ -539,8 +539,8 @@ module public CFA =
                         Ptr addr typ shift
                     | _ -> Memory.MakeSymbolicValue source name typ
 
-            let symbolicOpStack = Memory.MakeSymbolicOpStackActiveFrame makeSymbolic opStack
-            symbolicOpStack
+            let symbolicEvaluationStack = EvaluationStack.MakeSymbolicActiveFrame makeSymbolic evaluationStack
+            symbolicEvaluationStack
 
         let private executeSeparatedOpCode (methodInterpreter : MethodInterpreter) (cfg : cfg) (cilState : cilState) =
             let ip = currentIp cilState
@@ -548,7 +548,7 @@ module public CFA =
                 ip.Offset()
             let opCode, calledMethod = cfg.offsetsDemandingCall.[offset]
             let callSite = { sourceMethod = cfg.methodBase; offset = offset; calledMethod = calledMethod; opCode = opCode }
-            let pushFunctionResultOnOpStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
+            let pushFunctionResultOnEvaluationStackIfNeeded (cilState : cilState) (methodInfo : MethodInfo) =
                 if methodInfo.ReturnType = typeof<System.Void> then cilState
                 else push (makeFunctionResultConstant cilState.state methodInfo.ReturnType) cilState
 
@@ -562,14 +562,14 @@ module public CFA =
                     let cilState = List.head cilStates
                     assert(Option.isSome cilState.state.returnRegister)
                     let reference = Option.get cilState.state.returnRegister
-                    let cilState = pushNewObjResultOnOpStack cilState reference calledMethod
+                    let cilState = pushNewObjResultOnEvaluationStack cilState reference calledMethod
                     Some reference, withNoResult cilState
                 | :? ConstructorInfo -> pop cilStateWithoutArgs |> mapfst Some
                 | :? MethodInfo as methodInfo when not calledMethod.IsStatic ->
                     let this, cilState = pop cilStateWithoutArgs
-                    Some this, pushFunctionResultOnOpStackIfNeeded cilState methodInfo
+                    Some this, pushFunctionResultOnEvaluationStackIfNeeded cilState methodInfo
                 | :? MethodInfo as methodInfo ->
-                    None, pushFunctionResultOnOpStackIfNeeded cilStateWithoutArgs methodInfo
+                    None, pushFunctionResultOnEvaluationStackIfNeeded cilStateWithoutArgs methodInfo
                 | _ -> internalfailf "unknown methodBase %O" calledMethod
 
             let numberToDrop = List.length args + if Option.isNone this || callSite.opCode = OpCodes.Newobj then 0 else 1
@@ -583,13 +583,13 @@ module public CFA =
             let cilState = cilState |> setCurrentIp nextIp |> withState stateWithArgsOnFrame
             cilState, callSite, numberToDrop
 
-        let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationStack, Vertex>) =
-            let concreteOpStack = Memory.FilterActiveFrame shouldRemainOnOpStack opStack
-            if PersistentDict.contains (v, concreteOpStack) vertices then
-                PersistentDict.find vertices (v, concreteOpStack), vertices
+        let private createVertexIfNeeded methodBase evaluationStack (v : ip) (vertices : pdict<ip * evaluationStack, Vertex>) =
+            let concreteEvaluationStack = EvaluationStack.FilterActiveFrame shouldRemainEvaluationStack evaluationStack
+            if PersistentDict.contains (v, concreteEvaluationStack) vertices then
+                PersistentDict.find vertices (v, concreteEvaluationStack), vertices
             else
-                let dstVertex = Vertex.CreateVertex methodBase v opStack
-                dstVertex, PersistentDict.add (v, concreteOpStack) dstVertex vertices
+                let dstVertex = Vertex.CreateVertex methodBase v evaluationStack
+                dstVertex, PersistentDict.add (v, concreteEvaluationStack) dstVertex vertices
 
         let updateQueue (cfg : cfg) newU (d : bypassDataForEdges) (q, used) =
             let changeData w =
@@ -609,10 +609,10 @@ module public CFA =
         let addEdgeAndRenewQueue createEdge (d : bypassDataForEdges) (cfg : cfg) (currentTime, vertices, q, used) (cilState' : cilState) =
             let s' = cilState'.state
             let dstIp = currentIp cilState'
-            let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.opStack dstIp vertices
+            let dstVertex, vertices = createVertexIfNeeded cfg.methodBase s'.evaluationStack dstIp vertices
             addEdge <| createEdge cilState' dstVertex
 
-            let bypassData = {d with u = dstIp; srcVertex = dstVertex; uOut = d.vOut; opStack = s'.opStack
+            let bypassData = {d with u = dstIp; srcVertex = dstVertex; uOut = d.vOut; evaluationStack = s'.evaluationStack
                                      allocatedTypes = s'.allocatedTypes; lengths = s'.lengths; lowerBounds = s'.lowerBounds }
             let newQ, newUsed =
                 match cilState'.iie with
@@ -631,7 +631,7 @@ module public CFA =
             | _ -> __unreachable__()
 
         let private prepareStateWithConcreteInfo (s : state) (d : bypassDataForEdges) =
-            let concreteHeapAddresses = s.opStack |> Memory.OpStackToList |> List.filter isConcreteHeapRef |> List.map getTermConcreteHeapAddress
+            let concreteHeapAddresses = s.evaluationStack |> EvaluationStack.ToList |> List.filter isConcreteHeapRef |> List.map getTermConcreteHeapAddress
             let appendAllocatedTypes acc k v = if List.contains k concreteHeapAddresses then PersistentDict.add k v acc else acc
             let allocatedTypes = PersistentDict.fold appendAllocatedTypes PersistentDict.empty d.allocatedTypes
             let allocatedTypesValues = PersistentDict.values allocatedTypes
@@ -647,7 +647,7 @@ module public CFA =
         let private computeCFAForBlock (methodInterpreter : MethodInterpreter) (initialState : state) (cfa : cfa) (block : unitBlock<'a>) =
             let ilInterpreter = ILInterpreter(methodInterpreter)
             let cfg = cfa.cfg
-            let rec bypass (cfg : cfg) (q : IPriorityQueue<bypassDataForEdges>) (used : pset<bypassDataForEdges>) (vertices : pdict<ip * operationStack, Vertex>) currentTime =
+            let rec bypass (cfg : cfg) (q : IPriorityQueue<bypassDataForEdges>) (used : pset<bypassDataForEdges>) (vertices : pdict<ip * evaluationStack, Vertex>) currentTime =
                 let d, q = PriorityQueue.pop q
                 assert(PersistentSet.contains d used)
                 let srcVertex = d.srcVertex
@@ -655,10 +655,10 @@ module public CFA =
                 let offset = d.u.Offset()
 
                 let currentTime = VectorTime.advance currentTime
-                let symbolicOpStack = makeSymbolicOpStack currentTime d.opStack
-                let modifiedState = prepareStateWithConcreteInfo {initialState with currentTime = currentTime; startingTime = currentTime; opStack = symbolicOpStack} d
+                let symbolicEvaluationStack = makeSymbolicEvaluationStack currentTime d.evaluationStack
+                let modifiedState = prepareStateWithConcreteInfo {initialState with currentTime = currentTime; startingTime = currentTime; evaluationStack = symbolicEvaluationStack} d
 
-                let initialCilState = makeCilState d.u (uint32 <| Memory.OpStackLength symbolicOpStack) modifiedState
+                let initialCilState = makeCilState d.u (uint32 <| EvaluationStack.Length symbolicEvaluationStack) modifiedState
                 if cfg.offsetsDemandingCall.ContainsKey offset then
                     let cilState', callSite, numberToDrop = executeSeparatedOpCode methodInterpreter cfg initialCilState
                     let createEdge (cilState' : cilState) dstVertex = CallEdge (srcVertex, dstVertex, callSite, cilState'.state, numberToDrop, ilInterpreter)
@@ -678,13 +678,13 @@ module public CFA =
                     else vertices
             let offset = block.entryPoint.Ip.Offset()
             let d0 = { u = block.entryPoint.Ip; srcVertex = block.entryPoint; uOut = cfg.dfsOut.[offset]
-                       v = block.entryPoint.Ip; vOut = 0; minSCCs = 0; opStack = initialState.opStack
+                       v = block.entryPoint.Ip; vOut = 0; minSCCs = 0; evaluationStack = initialState.evaluationStack
                        allocatedTypes = initialState.allocatedTypes; lengths = initialState.lengths; lowerBounds = initialState.lowerBounds }
 
             let q, used = updateQueue cfg block.entryPoint.Ip d0 (PriorityQueue.empty false, PersistentSet.empty)
             let vertices = PersistentDict.empty
-                           |> PersistentDict.add (block.entryPoint.Ip, initialState.opStack) block.entryPoint
-                           |> PersistentDict.add (block.exitVertex.Ip, block.exitVertex.OpStack) block.exitVertex
+                           |> PersistentDict.add (block.entryPoint.Ip, initialState.evaluationStack) block.entryPoint
+                           |> PersistentDict.add (block.exitVertex.Ip, block.exitVertex.EvaluationStack) block.exitVertex
             let vertices = bypass cfg q used vertices initialState.currentTime
             vertices |> PersistentDict.values |> Seq.iter block.AddVertex
 
@@ -712,7 +712,7 @@ type CFASearcher() =
             // 1) should append states to Queue
             // 2) should stop executing states and produce states with proper
             //    a) current time
-            //    b) opStack (including FRCS)
+            //    b) evaluationStack (including FRCS)
 
             let canBePropagated (s : cilState) =
                 let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]

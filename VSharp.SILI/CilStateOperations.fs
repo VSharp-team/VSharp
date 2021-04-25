@@ -15,12 +15,12 @@ type cilState =
       iie : InsufficientInformationException option
       level : level
       startingIP : ip
-      initialOpStackSize : uint32
+      initialEvaluationStackSize : uint32
     }
 
 module internal CilStateOperations =
 
-    let makeCilState curV initialOpStackSize state =
+    let makeCilState curV initialEvaluationStackSize state =
         { ipStack = [curV]
           state = state
           filterResult = None
@@ -28,7 +28,7 @@ module internal CilStateOperations =
           iie = None
           level = PersistentDict.empty
           startingIP = curV
-          initialOpStackSize = initialOpStackSize
+          initialEvaluationStackSize = initialEvaluationStackSize
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
@@ -89,10 +89,10 @@ module internal CilStateOperations =
         let iie = None // we might concretize state, so we should try executed instructions again
         let ip = composeIps (List.tail cilState1.ipStack) cilState2.ipStack
         let states = Memory.ComposeStates cilState1.state cilState2.state
-        let _, leftOpStack = Memory.PopArgumentsFromOpStack (int cilState2.initialOpStackSize) cilState1.state.opStack
+        let _, leftEvaluationStack = EvaluationStack.PopArguments (int cilState2.initialEvaluationStackSize) cilState1.state.evaluationStack
         let makeResultState (state : state) =
-            let state' = {state with opStack = Memory.UnionOpStacks state.opStack leftOpStack}
-            {cilState2 with state = state'; ipStack = ip; level = level; initialOpStackSize = cilState1.initialOpStackSize
+            let state' = {state with evaluationStack = EvaluationStack.Union state.evaluationStack leftEvaluationStack}
+            {cilState2 with state = state'; ipStack = ip; level = level; initialEvaluationStackSize = cilState1.initialEvaluationStackSize
                             startingIP = cilState1.startingIP; iie = iie}
         List.map makeResultState states
 
@@ -109,12 +109,12 @@ module internal CilStateOperations =
         let ip = List.tail cilState.ipStack
         {cilState with state = s; ipStack = ip}
 
-    let emptyOpStack = Memory.EmptyState.opStack
+    let emptyEvaluationStack = Memory.EmptyState.evaluationStack
     let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
-    let withOpStack opStack (cilState : cilState) = {cilState with state = {cilState.state with opStack = opStack}}
+    let withEvaluationStack evaluationStack (cilState : cilState) = {cilState with state = {cilState.state with evaluationStack = evaluationStack}}
 
     let clearEvaluationStackLastFrame (cilState : cilState) =
-        {cilState with state = {cilState.state with opStack = Memory.ClearOpStackActiveFrame cilState.state.opStack}}
+        {cilState with state = {cilState.state with evaluationStack = EvaluationStack.ClearActiveFrame cilState.state.evaluationStack}}
 
     let withState state (cilState : cilState) = {cilState with state = state}
     let changeState (cilState : cilState) state = {cilState with state = state}
@@ -122,10 +122,10 @@ module internal CilStateOperations =
     let withNoResult (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = None}}
     let withException exc (cilState : cilState) = {cilState with state = {cilState.state with exceptionsRegister = exc}}
 
-    let push v (cilState : cilState) = {cilState with state = {cilState.state with opStack = Memory.PushToOpStack v cilState.state.opStack}}
+    let push v (cilState : cilState) = {cilState with state = {cilState.state with evaluationStack = EvaluationStack.Push v cilState.state.evaluationStack}}
     let pop (cilState : cilState) =
-        let v, opStack = Memory.PopFromOpStack cilState.state.opStack
-        v, {cilState with state = {cilState.state with opStack = opStack}}
+        let v, evaluationStack = EvaluationStack.Pop cilState.state.evaluationStack
+        v, {cilState with state = {cilState.state with evaluationStack = evaluationStack}}
     let pop2 (cilState : cilState) =
         let arg2, cilState = pop cilState
         let arg1, cilState = pop cilState
@@ -141,16 +141,16 @@ module internal CilStateOperations =
         let value = Memory.ReadSafe cilState.state ref
         push value cilState
 
-    let pushResultToOperationalStack (cilStates : cilState list) =
+    let pushResultToEvaluationStack (cilStates : cilState list) =
         cilStates |> List.map (fun (cilState : cilState) ->
             let state = cilState.state
-            if state.exceptionsRegister.UnhandledError then cilState // TODO: check whether opStack := [] is needed
+            if state.exceptionsRegister.UnhandledError then cilState // TODO: check whether evaluationStack := [] is needed
             else
-                let opStack =
+                let evaluationStack =
                     match state.returnRegister with
-                    | None -> state.opStack
-                    | Some r -> Memory.PushToOpStack r state.opStack
-                let state = {state with returnRegister = None; opStack = opStack}
+                    | None -> state.evaluationStack
+                    | Some r -> EvaluationStack.Push r state.evaluationStack
+                let state = {state with returnRegister = None; evaluationStack = evaluationStack}
                 {cilState with state = state})
 
     // ------------------------------- Helper functions for cilState -------------------------------
@@ -213,7 +213,7 @@ module internal CilStateOperations =
         let sb = dumpSectionValue "Starting ip" (sprintf "%O" cilState.startingIP) sb
         let sb = dumpSectionValue "IP" (dumpIp cilState.ipStack) sb
         let sb = dumpSectionValue "IIE" (sprintf "%O" cilState.iie) sb
-        let sb = dumpSectionValue "Initial OpStack Size" (sprintf "%O" cilState.initialOpStackSize) sb
+        let sb = dumpSectionValue "Initial EvaluationStack Size" (sprintf "%O" cilState.initialEvaluationStackSize) sb
         let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
         let stateDump = Memory.Dump cilState.state
         let sb = dumpSectionValue "State" stateDump sb

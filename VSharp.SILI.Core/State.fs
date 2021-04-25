@@ -84,7 +84,7 @@ type arrayCopyInfo =
 
 and state = {
     pc : pathCondition
-    opStack : operationStack
+    evaluationStack : evaluationStack
     stack : stack                                             // Arguments and local variables
     stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
     frames : frames                                           // Meta-information about stack frames

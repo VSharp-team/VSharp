@@ -169,22 +169,22 @@ module API =
         let Mul x y = mul x y
         let IsZero term = checkEqualZero term id
 
+    module public EvaluationStack =
+        let Pop evaluationStack = EvaluationStack.pop evaluationStack
+        let PopArguments n evaluationStack = EvaluationStack.popMany n evaluationStack
+        let Push x evaluationStack =
+            let x' = TypeCasting.castToEvaluationStackType x
+            EvaluationStack.push x' evaluationStack
+        let GetItem index evaluationStack = EvaluationStack.item index evaluationStack
+        let FilterActiveFrame f evaluationStack = EvaluationStack.filterActiveFrame f evaluationStack
+        let Union evaluationStack evaluationStack' = EvaluationStack.union evaluationStack evaluationStack'
+        let MakeSymbolicActiveFrame f evaluationStack = EvaluationStack.makeSymbolicActiveFrame f evaluationStack
+        let Length evaluationStack = EvaluationStack.length evaluationStack
+        let ToList evaluationStack = EvaluationStack.toList evaluationStack
+        let ClearActiveFrame evaluationStack = EvaluationStack.clearActiveFrame evaluationStack
+
     module public Memory =
         let EmptyState = Memory.empty
-
-        let PopFromOpStack opStack = OperationStack.pop opStack
-        let PopArgumentsFromOpStack n opStack = OperationStack.popMany n opStack
-        let PushToOpStack x opStack =
-            let x' = TypeCasting.castToOpStackType x
-            OperationStack.push x' opStack
-        let GetOpStackItem index opStack = OperationStack.item index opStack
-        let FilterActiveFrame f opStack = OperationStack.filterActiveFrame f opStack
-        let UnionOpStacks opStack opStack' = OperationStack.union opStack opStack'
-        let MakeSymbolicOpStackActiveFrame f opStack = OperationStack.makeSymbolicActiveFrame f opStack
-        let OpStackLength opStack = OperationStack.length opStack
-        let OpStackToList opStack = OperationStack.toList opStack
-        let ClearOpStackActiveFrame opStack = OperationStack.clearActiveFrame opStack
-
         let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state funcId parametersAndThis isEffect = Memory.newStackFrame state funcId parametersAndThis isEffect

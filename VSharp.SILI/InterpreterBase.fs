@@ -14,9 +14,9 @@ open ipOperations
 
 type codeLocationSummary = { cilState : cilState } // state.returnRegister is used as result
     with
-    member x.State = withOpStack emptyOpStack x.cilState |> stateOf
+    member x.State = withEvaluationStack emptyEvaluationStack x.cilState |> stateOf
     member x.Result =
-        if Memory.OpStackLength x.cilState.state.opStack = 0 then Nop
+        if EvaluationStack.Length x.cilState.state.evaluationStack = 0 then Nop
         else pop x.cilState |> fst
 
 type codeLocationSummaries = codeLocationSummary list

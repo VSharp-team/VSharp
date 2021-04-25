@@ -150,13 +150,13 @@ module internal InstructionsSet =
                 Logger.trace "InternalCall got exception %s" e.Message
                 reraise()
 
-        let pushOnOpStack (term : term, state : state) =
+        let pushOnEvaluationStack (term : term, state : state) =
             match term.term with
             | Nop -> state
-            | _ -> {state with opStack = Memory.PushToOpStack term state.opStack}
+            | _ -> {state with evaluationStack = EvaluationStack.Push term state.evaluationStack}
         match result with
-        | :? (term * state) as r -> pushOnOpStack r |> List.singleton |> k
-        | :? ((term * state) list) as r -> List.map pushOnOpStack r |> k
+        | :? (term * state) as r -> pushOnEvaluationStack r |> List.singleton |> k
+        | :? ((term * state) list) as r -> List.map pushOnEvaluationStack r |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
     // ------------------------------- CIL instructions -------------------------------
@@ -346,14 +346,14 @@ module internal InstructionsSet =
         performCILUnaryOperation op cilState
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
-        let parameters, opStack = Memory.PopArgumentsFromOpStack paramsNumber cilState.state.opStack
+        let parameters, evaluationStack = EvaluationStack.PopArguments paramsNumber cilState.state.evaluationStack
         let castParameter parameter (parInfo : ParameterInfo) =
             if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
             else
                 let typ = Types.FromDotNetType parInfo.ParameterType
                 castUnchecked typ parameter cilState.state
         let parameters = Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
-        parameters, withOpStack opStack cilState
+        parameters, withEvaluationStack evaluationStack cilState
 
     let makeUnsignedInteger term k =
         let typ = Terms.TypeOf term
@@ -492,7 +492,7 @@ module internal InstructionsSet =
         { cilState with state = state} |> List.singleton
     let endfilter _ _ (cilState : cilState) =
         let value, tmp = pop cilState
-        if tmp.state.opStack = emptyOpStack then {cilState with filterResult = Some value} :: []
+        if tmp.state.evaluationStack = emptyEvaluationStack then {cilState with filterResult = Some value} :: []
         else __notImplemented__()
     let endfinally _ _ _ =
         // Should be handled in makeStep function
@@ -502,8 +502,8 @@ module internal InstructionsSet =
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
-            let args, opStack = Memory.PopArgumentsFromOpStack n initialCilState.state.opStack // TODO: need to pop all arguments and then this! #do
-            let cilState = withOpStack opStack initialCilState
+            let args, evaluationStack = EvaluationStack.PopArguments n initialCilState.state.evaluationStack // TODO: need to pop all arguments and then this! #do
+            let cilState = withEvaluationStack evaluationStack initialCilState
             let thisForCallVirt, cilState = pop cilState
             match thisForCallVirt.term with // TODO do better! #do
             | HeapRef _ -> List.singleton initialCilState

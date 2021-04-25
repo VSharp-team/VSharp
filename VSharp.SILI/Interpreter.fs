@@ -386,9 +386,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     member private x.CastClass (cfg : cfg) offset (cilState : cilState) : cilState list =
         let term, cilState = pop cilState
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Castclass.Size)
-        x.CommonCastClass cilState term typ pushResultToOperationalStack
+        x.CommonCastClass cilState term typ pushResultToEvaluationStack
 
-    member private x.PushNewObjResultOnOpStack (cilState : cilState) reference (calledMethod : MethodBase) =
+    member private x.PushNewObjResultOnEvaluationStack (cilState : cilState) reference (calledMethod : MethodBase) =
         let valueOnStack =
             if calledMethod.DeclaringType.IsValueType then
                   Memory.ReadSafe cilState.state reference
@@ -673,7 +673,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 k
         let hasValueFieldInfo = t.GetField("hasValue", Reflection.instanceBindingFlags)
         let hasValueResults = x.LdFldWithFieldInfo hasValueFieldInfo false (push v cilState) |> List.map pop
-        Cps.List.mapk boxNullable hasValueResults (List.concat >> pushResultToOperationalStack)
+        Cps.List.mapk boxNullable hasValueResults (List.concat >> pushResultToEvaluationStack)
 
     member x.Box (cfg : cfg) offset (initialCilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Box.Size)
@@ -739,7 +739,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let obj, cilState = pop cilState
         // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
         if t.IsGenericParameter then __insufficientInformation__ "Unboxing generic parameter"
-        x.UnboxCommon cilState obj t id pushResultToOperationalStack
+        x.UnboxCommon cilState obj t id pushResultToEvaluationStack
     member private x.UnboxAny (cfg : cfg) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox_Any.Size)
         let termType = Types.FromDotNetType t
@@ -753,7 +753,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 let handleRestResults (address, state : state) = Memory.ReadSafe state address, state
                 x.UnboxCommon cilState obj t handleRestResults k)
             (fun state k -> x.CommonCastClass state obj termType k)
-            pushResultToOperationalStack
+            pushResultToEvaluationStack
 
     member private this.CommonDivRem performAction (cilState : cilState) =
         let integerCase (cilState : cilState) x y minusOne minValue =

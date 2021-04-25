@@ -136,20 +136,20 @@ module API =
         val Mul : term -> term -> term
         val IsZero : term -> term
 
+    module public EvaluationStack =
+        val Pop : evaluationStack -> term * evaluationStack
+        val PopArguments : int -> evaluationStack -> term list * evaluationStack
+        val Push : term -> evaluationStack -> evaluationStack
+        val GetItem : int -> evaluationStack -> term
+        val FilterActiveFrame : (term -> bool) -> evaluationStack -> evaluationStack
+        val Union : evaluationStack -> evaluationStack -> evaluationStack
+        val MakeSymbolicActiveFrame : (int -> term -> term) -> evaluationStack -> evaluationStack
+        val Length : evaluationStack -> int
+        val ToList : evaluationStack -> term list
+        val ClearActiveFrame : evaluationStack -> evaluationStack
+
     module public Memory =
         val EmptyState : state
-
-        val PopFromOpStack : operationStack -> term * operationStack
-        val PopArgumentsFromOpStack : int -> operationStack -> term list * operationStack
-        val PushToOpStack : term -> operationStack -> operationStack
-        val GetOpStackItem : int -> operationStack -> term
-        val FilterActiveFrame : (term -> bool) -> operationStack -> operationStack
-        val UnionOpStacks : operationStack -> operationStack -> operationStack
-        val MakeSymbolicOpStackActiveFrame : (int -> term -> term) -> operationStack -> operationStack
-        val OpStackLength : operationStack -> int
-        val OpStackToList : operationStack -> term list
-        val ClearOpStackActiveFrame : operationStack -> operationStack
-
         val PopFrame : state -> state
         val PopTypeVariables : state -> state
         val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state

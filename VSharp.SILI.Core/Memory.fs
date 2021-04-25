@@ -24,7 +24,7 @@ module internal Memory =
 
     let empty = {
         pc = PC.empty
-        opStack = OperationStack.empty
+        evaluationStack = EvaluationStack.empty
         returnRegister = None
         exceptionsRegister = NoException
         stack = MappedStack.empty
@@ -58,16 +58,16 @@ module internal Memory =
             | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key 1u map
         let locations, newStack = frame |> List.mapFold pushOne s.stack
         let frames' = Stack.push s.frames { func = funcId; entries = locations; isEffect = isEffect }
-        let opStack' = OperationStack.newStackFrame s.opStack
-        { s with stack = newStack; frames = frames'; opStack = opStack' }
+        let evaluationStack' = EvaluationStack.newStackFrame s.evaluationStack
+        { s with stack = newStack; frames = frames'; evaluationStack = evaluationStack' }
 
     let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popFrame (s : state) : state =
         let popOne (map : stack) entry = MappedStack.remove map entry.key
         let entries = (Stack.peek s.frames).entries
         let frames' = Stack.pop s.frames
-        let opStack' = OperationStack.popStackFrame s.opStack
-        { s with stack = List.fold popOne s.stack entries; frames = frames'; opStack = opStack' }
+        let evaluationStack' = EvaluationStack.popStackFrame s.evaluationStack
+        { s with stack = List.fold popOne s.stack entries; frames = frames'; evaluationStack = evaluationStack' }
 
     let inline entriesOfFrame f = f.entries
 
@@ -875,8 +875,8 @@ module internal Memory =
         let dstSightType = substituteTypeVariables state info.dstSightType
         {srcAddress=srcAddress; contents=contents; srcIndex=srcIndex; dstIndex=dstIndex; length=length; dstSightType=dstSightType; srcSightType = srcSightType}
 
-    let composeOpStacksOf state opStack =
-        OperationStack.map (fillHoles state) opStack
+    let composeEvaluationStacksOf state evaluationStack =
+        EvaluationStack.map (fillHoles state) evaluationStack
 
     let composeStates state state' =
         assert(VectorTime.isDescending state.currentTime)
@@ -887,8 +887,8 @@ module internal Memory =
             // Hacking return register to propagate starting and current time of state' into composeTime
             let state = {state with returnRegister = Some(Concrete (state'.startingTime, state'.currentTime) (fromDotNetType typeof<vectorTime * vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
-            // Note: this is not final opStack of resulting cilState, here we forget left state's opStack at all
-            let opStack = composeOpStacksOf state state'.opStack
+            // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
+            let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
             let stack, frames = composeStacksAndFramesOf state state'
@@ -914,7 +914,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     pc = if isTrue g then pc else PC.add pc g
-                    opStack = opStack
+                    evaluationStack = evaluationStack
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     stack = stack
@@ -963,11 +963,11 @@ module internal Memory =
         if SymbolicSet.isEmpty initializedTypes then sb
         else sprintf "Initialized types = %s" (SymbolicSet.print initializedTypes) |> PrettyPrinting.appendLine sb
 
-    let private dumpOpStack (sb : StringBuilder) opStack =
-        if OperationStack.length opStack = 0 then sb
+    let private dumpEvaluationStack (sb : StringBuilder) evaluationStack =
+        if EvaluationStack.length evaluationStack = 0 then sb
         else
             let sb = PrettyPrinting.dumpSection "Operation stack" sb
-            OperationStack.toString opStack |> PrettyPrinting.appendLine sb
+            EvaluationStack.toString evaluationStack |> PrettyPrinting.appendLine sb
 
     let private arrayTypeToString (elementType, dimension, isVector) =
         if isVector then ArrayType(elementType, Vector)
@@ -991,5 +991,5 @@ module internal Memory =
         let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb s.delegates
         let sb = dumpStack sb s.stack
         let sb = dumpInitializedTypes sb s.initializedTypes
-        let sb = dumpOpStack sb s.opStack
+        let sb = dumpEvaluationStack sb s.evaluationStack
         if sb.Length = 0 then "<Empty>" else sb.ToString()

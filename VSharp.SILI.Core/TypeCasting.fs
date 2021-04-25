@@ -194,7 +194,7 @@ module internal TypeCasting =
             Terms.castReferenceToPointer typ reference
         Merging.guardedApply doCast reference
 
-    let rec private nearestBiggerTypeForOpStack (t : System.Type) =
+    let rec private nearestBiggerTypeForEvaluationStack (t : System.Type) =
         match t with
         | _ when t = typeof<int8>    -> Int32
         | _ when t = typeof<int16>   -> Int32
@@ -207,15 +207,15 @@ module internal TypeCasting =
         | _ when t = typeof<uint64>  -> Int64
         | _ when t = typeof<float32> -> F
         | _ when t = typeof<float>   -> F
-        | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForOpStack
+        | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 
-    let castToOpStackType x =
+    let castToEvaluationStackType x =
         match typeOf x with
         // TODO: do we need & type? #do
         // This case is needed for references to primitive types
         | _ when isReference x -> x
         // TODO: need to add conversion from bool to int?
         // | Bool -> cast x Int32
-        | Numeric(Id typ) -> nearestBiggerTypeForOpStack typ |> cast x
+        | Numeric(Id typ) -> nearestBiggerTypeForEvaluationStack typ |> cast x
         | _ -> x
