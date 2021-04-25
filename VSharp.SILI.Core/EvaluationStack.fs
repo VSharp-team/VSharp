@@ -61,7 +61,8 @@ module internal EvaluationStack =
         | [] -> __corruptedStack__()
 
     let union evaluationStack evaluationStack' =
-        { contents = List.append evaluationStack.contents evaluationStack'.contents }
+        let leftStack = List.tail evaluationStack.contents // TODO: they always intersect in one frame
+        { contents = List.append leftStack evaluationStack'.contents }
 
     let toList evaluationStack = List.concat evaluationStack.contents
 
