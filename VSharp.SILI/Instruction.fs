@@ -20,7 +20,7 @@ type ipTransition =
     | FallThrough of offset
     | Return
     | UnconditionalBranch of offset
-    | ConditionalBranch of offset list
+    | ConditionalBranch of offset * offset list
     | ExceptionMechanism
 
 
@@ -89,14 +89,14 @@ module internal Instruction =
     let private inlineBrTarget extract (opCode : OpCode) ilBytes pos =
         let offset = extract ilBytes (pos + opCode.Size)
         let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
-        ConditionalBranch [nextInstruction; nextInstruction + offset]
+        ConditionalBranch(nextInstruction, [nextInstruction + offset])
 
     let private inlineSwitch (opCode : OpCode) ilBytes pos =
         let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opCode.Size) |> int
         let nextInstruction = pos + opCode.Size + 4 * n + 4
         let nextOffsets =
             List.init n (fun x -> nextInstruction + NumberCreator.extractInt32 ilBytes (pos + opCode.Size + 4 * (x + 1)))
-        ConditionalBranch <| nextInstruction :: nextOffsets
+        ConditionalBranch(nextInstruction, nextOffsets)
 
     let private jumpTargetsForReturn _ _ _ = Return
     let private jumpTargetsForThrow _ _ _ = ExceptionMechanism
@@ -182,5 +182,5 @@ module internal Instruction =
         let opCode = parseInstruction m pos // TODO: remove this copy-paste
         let bytes = m.GetMethodBody().GetILAsByteArray()
         match findNextInstructionOffsetAndEdges opCode bytes pos with
-        | ConditionalBranch targets -> targets
+        | ConditionalBranch(fallThrough, rest) -> fallThrough, rest
         | _ -> __unreachable__()

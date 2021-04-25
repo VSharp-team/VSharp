@@ -164,7 +164,7 @@ module internal CilStateOperations =
             | ExceptionMechanism ->
                 let toObserve = __notImplemented__()
                 searchingForHandler toObserve 0 :: []
-            | ConditionalBranch targets -> targets |> List.map (instruction m)
+            | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
         List.map (fun ip -> setCurrentIp ip cilState) newIps
 
     let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =

@@ -148,7 +148,7 @@ module public CFG =
                 | ExceptionMechanism -> ()
                 | Return -> markVertex data.verticesOffsets v
                 | UnconditionalBranch target -> dealWithJump v target
-                | ConditionalBranch offsets -> offsets |> List.iter (dealWithJump v)
+                | ConditionalBranch (fallThrough, offsets) -> fallThrough :: offsets |> List.iter (dealWithJump v)
         dfs' v
     let private dfsComponent methodBase (data : interimData) used (ilBytes : byte []) startOffset =
         markVertex data.verticesOffsets startOffset
