@@ -176,6 +176,13 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static Single ConvOvfMaxDoubleToSingle()
+        {
+            var number = Double.MaxValue;
+            return (Single)number;
+        }
+
+        [TestSvm]
         public static double ConvIntToDouble(int number) {
             return number;
         }

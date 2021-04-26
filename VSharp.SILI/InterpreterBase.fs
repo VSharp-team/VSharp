@@ -139,9 +139,8 @@ type public ExplorerBase() =
         let fieldId = Reflection.wrapField f
         Memory.WriteStaticField state targetType fieldId value
 
-    member x.InitializeStatics (cilState : cilState) (t : System.Type) whenInitializedCont : cilState list =
+    member x.InitializeStatics (cilState : cilState) (t : Type) whenInitializedCont =
         let fields = t.GetFields(Reflection.staticBindingFlags)
-
         match t with
         | _ when t.IsGenericParameter -> whenInitializedCont cilState
         | _ ->

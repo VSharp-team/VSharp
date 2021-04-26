@@ -237,9 +237,10 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 | _ -> thisOption, args
             let state = Memory.PopFrame state
             let methodId = methodInterpreter.MakeMethodIdentifier methodInfo
-            let state = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id
+            let cilState = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id |> changeState cilState
+            let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (withLastIp (instruction methodInfo 0) >> List.singleton)
             // NOTE: callsite of cilState is explicitly untouched
-            cilState |> withState state |> withLastIp (instruction methodInfo 0) |> List.singleton |> k
+            k cilStates
         elif fullMethodName.Contains "System.Array.Set(" then // TODO: do better #do
             (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIp >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
@@ -294,7 +295,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
-            let callForConcreteType typ state k =
+            let callForConcreteType typ state k = // TODO: initialize statics? #do
                 x.CallMethodFromTermType state typ ancestorMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionAppendResultsCIL cilState
@@ -325,18 +326,18 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 TypeUtils.float32Type, [|TypeUtils.float32Type; TypeUtils.float64Type|]
                 TypeUtils.float64Type, [|TypeUtils.float64Type|] ]
         let isSubset leftTyp rightTyp = Array.contains rightTyp supersetsOf.[leftTyp]
-        let minMaxOf =
+        let minMaxOf = // TODO: implement big numbers, instead of double #hack
             PersistentDict.ofSeq [
-                TypeUtils.int8Type,    (System.SByte.MinValue |> int64, System.SByte.MaxValue |> int64)
-                TypeUtils.int16Type,   (System.Int16.MinValue |> int64, System.Int16.MaxValue |> int64)
-                TypeUtils.int32Type,   (System.Int32.MinValue |> int64, System.Int32.MaxValue |> int64)
-                TypeUtils.int64Type,   (System.Int64.MinValue, System.Int64.MaxValue)
-                TypeUtils.uint8Type,   (System.Byte.MinValue |> int64, System.Byte.MaxValue |> int64)
-                TypeUtils.uint16Type,  (System.UInt16.MinValue |> int64, System.UInt16.MaxValue |> int64)
-                TypeUtils.uint32Type,  (System.UInt32.MinValue |> int64, System.UInt32.MaxValue |> int64)
-                TypeUtils.uint64Type,  (System.UInt64.MinValue |> int64, System.UInt64.MaxValue |> int64)
-                TypeUtils.float32Type, (System.Single.MinValue |> int64, System.Single.MaxValue |> int64)
-                TypeUtils.float64Type, (System.Double.MinValue |> int64, System.Double.MaxValue |> int64) ]
+                TypeUtils.int8Type,    (System.SByte.MinValue  |> double, System.SByte.MaxValue  |> double)
+                TypeUtils.int16Type,   (System.Int16.MinValue  |> double, System.Int16.MaxValue  |> double)
+                TypeUtils.int32Type,   (System.Int32.MinValue  |> double, System.Int32.MaxValue  |> double)
+                TypeUtils.int64Type,   (System.Int64.MinValue  |> double, System.Int64.MaxValue  |> double)
+                TypeUtils.uint8Type,   (System.Byte.MinValue   |> double, System.Byte.MaxValue   |> double)
+                TypeUtils.uint16Type,  (System.UInt16.MinValue |> double, System.UInt16.MaxValue |> double)
+                TypeUtils.uint32Type,  (System.UInt32.MinValue |> double, System.UInt32.MaxValue |> double)
+                TypeUtils.uint64Type,  (System.UInt64.MinValue |> double, System.UInt64.MaxValue |> double)
+                TypeUtils.float32Type, (System.Single.MinValue |> double, System.Single.MaxValue |> double)
+                TypeUtils.float64Type, (System.Double.MinValue |> double, System.Double.MaxValue |> double) ]
         let getSegment leftTyp rightTyp =
             let min1, max1 = minMaxOf.[leftTyp]
             let min2, max2 = minMaxOf.[rightTyp]
@@ -429,8 +430,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         // NOTE: It is not quite strict to ReduceFunctionSignature here because, but it does not matter because signatures of virtual methods are the same
+        methodInterpreter.InitializeStatics cilState ancestorMethod.DeclaringType (fun cilState ->
         methodInterpreter.ReduceFunctionSignatureCIL cilState ancestorMethod this (Specified args) false (fun cilState ->
-        x.CommonCallVirt ancestorMethod cilState id)
+        x.CommonCallVirt ancestorMethod cilState id))
     member x.ReduceArrayCreation (arrayType : System.Type) (cilState : cilState) (parameters : term list) k =
         let arrayTyp = Types.FromDotNetType arrayType
         Memory.AllocateDefaultArray cilState.state parameters arrayTyp |> k

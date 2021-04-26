@@ -49,7 +49,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static IntPtr IntPtrZero() // TODO: IntPtr is number or Ptr or Struct? #Dima #do
+        public static IntPtr IntPtrZero()
         {
             return IntPtr.Zero;
         }

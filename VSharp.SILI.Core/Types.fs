@@ -39,8 +39,9 @@ type symbolicType =
         | InterfaceType(Id t, g) ->
             if t.IsGenericType
                 then
+                    assert(t.IsGenericTypeDefinition)
                     let args = String.Join(",", (Seq.map toString g))
-                    sprintf "%s[%s]" (t.GetGenericTypeDefinition() |> Reflection.getFullTypeName) args
+                    sprintf "%s[%s]" t.FullName args
                 else toString t
         | TypeVariable(Id t) -> toString t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
@@ -178,7 +179,9 @@ module internal Types =
         | InterfaceType(Id t, args)
         | ClassType(Id t, args) ->
             if t.IsGenericType
-                then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
+                then
+                    assert(t.IsGenericTypeDefinition)
+                    t.MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
         | TypeVariable(Id t) -> t
         | ArrayType(_, SymbolicDimension) -> typedefof<System.Array>
