@@ -1,6 +1,7 @@
 namespace VSharp.Solver
 
 open System
+open System.Runtime.InteropServices
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp
@@ -370,12 +371,29 @@ module internal Z3 =
             | None -> {expr = ctx.MkSelect(memoryRegionConst, ctx.MkConst(key.ToString(), keyType)); assumptions = List.empty}
 
         member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ source name =
+//            let structType = field.declaringType
+//            let layout = structType.StructLayoutAttribute
+//            let sequentialOffsetFolder currentOffset (field : FieldInfo) =
+//                let pack = layout.Pack // TODO: use!
+//                let fieldSize = sizeOfSystemType field.FieldType
+//                let offset =
+//                    if Seq.exists (fun (x : CustomAttributeData) -> x.AttributeType.Equals(typeof<FixedBufferAttribute>)) field.CustomAttributes then currentOffset
+//                    else
+//                        let realPack = min fieldSize pack
+//                        let packedOffset = Prelude.roundUpToPow2 currentOffset realPack // TODO: take min(pack, max of sizes of fields)
+//                        if currentOffset + fieldSize > packedOffset then packedOffset else currentOffset // TODO: do better
+//                ((field, Some offset), offset + fieldSize)
+//            if layout = null then FSharp.Collections.Array.map (withSnd None)
+//            else
+//                match layout.Value with
+//                | LayoutKind.Auto -> failToEncode "encoding field reading from struct with auto layout is not implemented"
+//                | LayoutKind.Sequential -> (FSharp.Collections.Array.mapFold sequentialOffsetFolder 0) >> fst
+//                | LayoutKind.Explicit -> FSharp.Collections.Array.map (fun field -> field, getOffsetFromAttribute field |> Some) // TODO: check Pack field?!
             if field.declaringType.IsLayoutSequential then
                 let structName = sprintf "struct of %s" name
                 let structExpr = x.EncodeMemoryAccessConstant encCtx structName structSource structSource.TypeOfLocation
-                field.
-            else failToEncode "encoding struct field reading is not implemented"
-            __notImplemented__()
+                failToEncode "encoding field reading from struct is not implemented"
+            else failToEncode "encoding field reading from struct with explicit or auto layout is not implemented"
 
         member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) typ : encodingResult =
             match source with // TODO: add caching #encode
@@ -396,7 +414,7 @@ module internal Z3 =
                 x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue [key.index] key mo typ source name
             | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source name
             | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source name
-            | StructFieldSource(structSource, field) -> x.StructReading structSource field typ source name
+            | StructFieldSource(structSource, field) -> x.StructReading encCtx structSource field typ source name
             | HeapAddressSource source -> x.EncodeSymbolicAddress encCtx source name
             | _ -> x.CreateConstant name typ
 
