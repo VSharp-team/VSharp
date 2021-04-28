@@ -131,6 +131,7 @@ module public CFG =
                 let dealWithJump src dst =
                     markVertex data.verticesOffsets src
                     markVertex data.verticesOffsets dst
+                    data.AddEdge src dst
                     dfs' dst
 
                 let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
