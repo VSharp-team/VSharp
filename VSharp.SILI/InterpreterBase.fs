@@ -139,6 +139,15 @@ type public ExplorerBase() =
         let fieldId = Reflection.wrapField f
         Memory.WriteStaticField state targetType fieldId value
 
+    // NOTE: When executing ldsfld, call and so on, we should previously initialize statics.
+    // NOTE: Continuation 'whenInitializedCont' contains exploration of current instruction 'I' on ipStack.
+    // NOTE: If statics was already initialized or we have no static constructor,
+    //       then we can continue to explore instructions in continuation 'whenInitializedCont'.
+    // NOTE: Otherwise, we need to add static constructor to ipStack (so queue will explore it instruction by instruction)
+    //       without calling continuation 'whenInitializedCont'.
+    // NOTE: After exploration of static constructor, queue will contain the same instruction 'I',
+    //       that caused statics initialization, so queue will try again to explore this instruction,
+    //       but at that moment statics will be already initialized
     member x.InitializeStatics (cilState : cilState) (t : Type) whenInitializedCont =
         let fields = t.GetFields(Reflection.staticBindingFlags)
         match t with
@@ -154,13 +163,7 @@ type public ExplorerBase() =
                 let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
                 let cilState = withState state cilState
                 match staticConstructor with
-                | Some cctor ->
-//                    let removeCallSiteResultAndPopStack (cilStateAfterCallingCCtor : cilState) =
-//                        let stateAfterCallingCCtor = Memory.PopFrame cilStateAfterCallingCCtor.state
-//                        let stateWithoutCallSiteResult = {stateAfterCallingCCtor with callSiteResults = state.callSiteResults; opStack = state.opStack}
-//                        {cilStateAfterCallingCCtor with state = stateWithoutCallSiteResult}
-                    x.ReduceFunctionSignatureCIL cilState cctor None (Specified []) false (List.singleton)
-//                    staticConstructor, cilState
+                | Some cctor -> x.ReduceFunctionSignatureCIL cilState cctor None (Specified []) false List.singleton
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 

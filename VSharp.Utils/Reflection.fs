@@ -88,7 +88,6 @@ module public Reflection =
 
     let private substituteMethod methodType (m : MethodBase) getMethods =
         let method = getMethods methodType |> Array.tryFind (fun (x : #MethodBase) -> x.MetadataToken = m.MetadataToken)
-//        Option.defaultWith (fun () -> internalfailf "unable to find method %s token" m.Name) method
         match method with
         | Some x -> x
         | None -> internalfailf "unable to find method %s token" m.Name

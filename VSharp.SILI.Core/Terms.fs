@@ -328,7 +328,7 @@ module internal Terms =
     let typeOfAddress = function
         | ClassField(_, field)
         | StructField(_, field)
-        | StaticField(_, field) -> field.typ |> fromDotNetType
+        | StaticField(_, field) -> fromDotNetType field.typ
         | ArrayIndex(_, _, (elementType, _, _)) -> elementType
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _

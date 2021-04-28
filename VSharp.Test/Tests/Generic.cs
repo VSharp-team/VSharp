@@ -181,7 +181,7 @@ namespace VSharp.Test.Tests.Generic
         {
             int w = 1;
             object t = new object();
-            object r  = new object();
+            object r = new object();
             int v = 2;
             return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetW<int>(w, t, r, v);
         }
@@ -191,7 +191,7 @@ namespace VSharp.Test.Tests.Generic
         {
             int w = 1;
             object t = new object();
-            object r  = new object();
+            object r = new object();
             int v = 2;
             return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetT<int>(w, t, r, v);
         }
@@ -210,7 +210,7 @@ namespace VSharp.Test.Tests.Generic
         {
             int w = 1;
             object t = new object();
-            object r  = new object();
+            object r = new object();
             int v = 2;
             return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetV<int>(w, t, r, v);
         }

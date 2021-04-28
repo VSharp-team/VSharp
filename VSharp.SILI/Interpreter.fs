@@ -1042,11 +1042,11 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | _ -> false
         x.ExecuteAllInstructionsWhile isIpOfCurrentBasicBlock cilState
 
-    member x.ExecuteOnlyOneInstruction (cilState : cilState) : (cilState list * cilState list * cilState list)  =
+    member x.ExecuteOnlyOneInstruction (cilState : cilState) : (cilState list * cilState list * cilState list) =
         x.ExecuteAllInstructionsWhile (always false) cilState
 
     // returns finishedStates, incompleteStates, erroredStates
-    member x.ExecuteAllInstructionsWhile (condition : ip -> bool) (cilState : cilState) : (cilState list * cilState list * cilState list)  =
+    member x.ExecuteAllInstructionsWhile (condition : ip -> bool) (cilState : cilState) : (cilState list * cilState list * cilState list) =
         let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState =
             let ip = currentIp cilState
             try

@@ -254,9 +254,8 @@ module internal InstructionsSet =
             if resultTyp = Void then withNoResult cilState
             else
                 let res, cilState = pop cilState
-                let castedResult = castUnchecked resultTyp res cilState.state
+                let castedResult = castUnchecked resultTyp res cilState.state // TODO: need to cast to resulting type? #do
                 push castedResult cilState
-
         match cilState.ipStack with
         | ip :: ips -> {cilState with ipStack = {label = Exit; method = ip.method} :: ips} |> List.singleton
         | [] -> __unreachable__()

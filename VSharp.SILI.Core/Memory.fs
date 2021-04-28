@@ -225,7 +225,7 @@ module internal Memory =
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
-            override x.TypeOfLocation = x.field.typ |> fromDotNetType
+            override x.TypeOfLocation = fromDotNetType x.field.typ
 
     let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -261,7 +261,7 @@ module internal Memory =
         let dotNetType = toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
         let addField heap (field, typ) =
-            let termType = typ |> fromDotNetType
+            let termType = fromDotNetType typ
             folder heap field termType
         FSharp.Collections.Array.fold addField acc fields
 
@@ -304,7 +304,7 @@ module internal Memory =
         makeSymbolicValue source name typ
 
     let makeSymbolicThis (m : System.Reflection.MethodBase) =
-        let declaringType = m.DeclaringType |> fromDotNetType
+        let declaringType = fromDotNetType m.DeclaringType
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 

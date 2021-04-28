@@ -574,7 +574,7 @@ module public CFA =
             let cilState = cilState |> withLastIp nextIp |> withState stateWithArgsOnFrame
             cilState, callSite, numberToDrop
 
-        let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationStack, Vertex>)  =
+        let private createVertexIfNeeded methodBase opStack (v : ip) (vertices : pdict<ip * operationStack, Vertex>) =
             let concreteOpStack = Memory.FilterOpStack shouldRemainOnOpStack opStack
             if PersistentDict.contains (v, concreteOpStack) vertices then
                 PersistentDict.find vertices (v, concreteOpStack), vertices
