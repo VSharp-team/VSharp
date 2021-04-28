@@ -997,5 +997,26 @@ namespace VSharp.Test.Tests
                 throw new Exception();
             }
         }
+
+        [TestSvm]
+        public static int PossibleBug(int n) {
+            if (n <= 0 && -n < 0) {
+                throw new Exception("Possible Impossible bug");
+            }
+            return 42;
+        }
+
+        [TestSvm]
+        public static int ImpossibleBug(int n) {
+            try {
+                if (n <= 0 && checked(-n) < 0) {
+                    throw new Exception("Possible Impossible bug");
+                }
+            } catch (OverflowException) {
+                return 100;
+            }
+
+            return 42;
+        }
     }
 }

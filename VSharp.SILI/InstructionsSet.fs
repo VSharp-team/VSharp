@@ -286,7 +286,7 @@ module internal InstructionsSet =
     let ceq (cilState : cilState) =
         let y, x, _ = pop2 cilState
         let transform =
-            if TypeUtils.isBool x || TypeUtils.isBool y
+            if TypeUtils.isBool x || TypeUtils.isBool y // TODO: why to Bool? #do
             then fun t k -> k (transform2BooleanTerm cilState.state.pc t)
             else idTransformation
         binaryOperationWithBoolResult Equal transform transform cilState

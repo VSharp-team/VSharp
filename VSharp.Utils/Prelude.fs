@@ -2,15 +2,12 @@
 open System
 open VSharp.CSharpUtils
 
-//exception UnreachableException of string
 type UnreachableException(msg : string) =
     inherit Exception(msg)
 
-//exception InternalException of string
 type InternalException(msg : string) =
     inherit Exception(msg)
 
-//exception InsufficientInformationException of string
 type InsufficientInformationException(msg : string) =
     inherit Exception(msg)
 
@@ -90,18 +87,6 @@ type fieldId =
                     (y.declaringType.AssemblyQualifiedName, y.name, y.typ.AssemblyQualifiedName)
             | _ -> -1
     override x.ToString() = x.name
-
-
-//type [<CustomEquality;NoComparison>] fieldId =
-//    | FieldId of string
-//    override x.GetHashCode() =
-//        match x with
-//        | FieldId s -> s.GetDeterministicHashCode()
-//    override x.Equals(other) =
-//        match other with
-//        | :? fieldId as other -> hash x = hash other
-//        | _ -> false
-//    override x.ToString() = match x with FieldId s -> s
 
 type 'a symbolicValue =
     | Specified of 'a

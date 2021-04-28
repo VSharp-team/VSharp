@@ -58,7 +58,6 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
         match iieStates with // TODO: write error states? #do
         | CilStateWithIIE iie :: _ -> raise iie
         | _ :: _ -> __unreachable__()
-//        | _, _ :: _ -> internalfailf "exception handling is not implemented yet"
         | _ when validStates = [] ->
             assert(printInfoForDebug())
             internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"

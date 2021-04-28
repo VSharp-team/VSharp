@@ -50,12 +50,12 @@ module public Reflection =
     // --------------------------------- Methods --------------------------------
 
     // TODO: what if return type is generic?
-    let public getMethodReturnType : MethodBase -> Type = function
-        | :? ConstructorInfo -> typeof<System.Void>
+    let getMethodReturnType : MethodBase -> Type = function
+        | :? ConstructorInfo -> typeof<Void>
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let hasNonVoidResult m = getMethodReturnType m <> typeof<System.Void>
+    let hasNonVoidResult m = getMethodReturnType m <> typeof<Void>
 
     let getFullTypeName (typ : Type) = typ.ToString()
 
@@ -76,7 +76,7 @@ module public Reflection =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 
     let isDelegateConstructor (methodBase : MethodBase) =
-        methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate>
+        methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<Delegate>
 
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType

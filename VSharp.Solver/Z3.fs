@@ -10,6 +10,14 @@ open Logger
 
 module internal Z3 =
 
+// ------------------------------- Exceptions -------------------------------
+
+    type EncodingException(msg : string) =
+        inherit Exception(msg)
+
+    let failToEncode msg = raise (EncodingException msg)
+
+// ---------------------------- Encoding result -----------------------------
     [<CustomEquality;NoComparison>]
     type encodingResult =
         // TODO: use type for assumptions -- add only if element is not True #do
@@ -24,7 +32,6 @@ module internal Z3 =
             | :? encodingResult as res -> x.expr = res.expr
             | _ -> false
 
-    let getExpr encodingResult = encodingResult.expr
     let toTuple encodingResult = encodingResult.assumptions, encodingResult.expr
 
 // ------------------------------- Cache -------------------------------
@@ -76,13 +83,13 @@ module internal Z3 =
 
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
 
-        member private x.Type2Sort typ =
+        member private x.Type2Sort typ = // TODO: unsigned encoded to signed, so need to use bitvecsize + 1? #do
             Dict.getValueOrUpdate cache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
                 | Numeric(Id typ) when typ.IsEnum -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
                 | Numeric(Id typ) as t when Types.IsInteger t -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
-                | Numeric _ as t when Types.IsReal t -> internalfail "encoding real numbers is not implemented"
+                | Numeric _ as t when Types.IsReal t -> failToEncode "encoding real numbers is not implemented"
                 | AddressType -> x.AddressSort
                 | StructType(Id typ, _) -> ctx.MkBitVecSort(TypeUtils.internalSizeOf typ) :> Sort
                 | Numeric _ -> __notImplemented__()
@@ -194,7 +201,18 @@ module internal Z3 =
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation stopper encCtx (fun x -> ctx.MkApp(decl, x)) args
-                | Cast(Numeric _, Numeric _) -> x.EncodeTermExt stopper encCtx (List.head args)
+                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isLessForNumericTypes t1 t2 ->
+                    let expr = x.EncodeTermExt stopper encCtx (List.head args)
+                    let difference = TypeUtils.numericSizeOf t2 - TypeUtils.numericSizeOf t1
+                    {expr = ctx.MkSignExt(difference, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
+                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isLessForNumericTypes t2 t1 -> // TODO: what bits to slice? #do
+                    let expr = x.EncodeTermExt stopper encCtx (List.head args)
+                    let from = TypeUtils.numericSizeOf t2 - 1u
+                    {expr = ctx.MkExtract(from, 0u, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
+                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isReal t1 || TypeUtils.isReal t2 ->
+                    failToEncode "encoding real numbers is not implemented"
+                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.numericSizeOf t1 = TypeUtils.numericSizeOf t2 ->
+                    x.EncodeTermExt stopper encCtx (List.head args)
                 | Cast _ ->
                     __notImplemented__())
 
@@ -342,21 +360,21 @@ module internal Z3 =
             let select array (k : Expr) = ctx.MkSelect(array, k)
             x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey false sort select key mo source name
 
-        member private x.StaticsReading encCtx key mo typ source name = // TODO: make this, using equality of keys #do
-            let encodeKey (k : symbolicTypeKey) = __notImplemented__() // TODO: how to encode symbolicType? Enumerate! #do
-            let sort = ctx.MkArraySort(x.Type2Sort Types.IndexType, x.Type2Sort typ)
-            let select array (k : Expr) = ctx.MkSelect(array, k)
-            let keyInRegion _ _ _ = x.True
-            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false sort select key mo source name
-//            let staticsReading (key : symbolicTypeKey) mo =
-//                let memoryRegionConst = ctx.MkArrayConst(name, ctx.MkIntSort(), x.Type2Sort typ)
-//                let updates = MemoryRegion.flatten mo
-//                let value = Seq.tryFind (fun (k, _) -> k = key) updates
-//                match value with
-//                | Some (_, v) -> x.EncodeTerm encCtx v
-//                | None -> ctx.MkSelect(memoryRegionConst, ctx.MkNumeral(0, ctx.MkIntSort())) :?> Expr // TODO: what goes here?
+        member private x.StaticsReading encCtx key mo typ source (name : string) =
+            let keyType = x.Type2Sort Types.IndexType
+            let memoryRegionConst = ctx.MkArrayConst(name, keyType, x.Type2Sort typ)
+            let updates = MemoryRegion.flatten mo
+            let value = Seq.tryFind (fun (k, _) -> k = key) updates
+            match value with
+            | Some (_, v) -> x.EncodeTerm encCtx v
+            | None -> {expr = ctx.MkSelect(memoryRegionConst, ctx.MkConst(key.ToString(), keyType)); assumptions = List.empty}
 
-        member private x.StructReading structSource field typ source name =
+        member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ source name =
+            if field.declaringType.IsLayoutSequential then
+                let structName = sprintf "struct of %s" name
+                let structExpr = x.EncodeMemoryAccessConstant encCtx structName structSource structSource.TypeOfLocation
+                field.
+            else failToEncode "encoding struct field reading is not implemented"
             __notImplemented__()
 
         member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) typ : encodingResult =
@@ -459,22 +477,22 @@ module internal Z3 =
             member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
                 printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
                 printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
-                let query = builder.EncodeTerm encCtx q.queryFml
-                let assumptions = query.assumptions
-                let assumptions =
-                    seq {
-                        for i in 0 .. levelAtoms.Count - 1 do
-                            let atom = levelAtoms.[i]
-                            if atom <> null then
-                                let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
-                                yield lit :> Expr
-                        for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
-                            yield assumptions.[i] :> Expr
-                        yield query.expr
-                    } |> Array.ofSeq
-                let pathAtoms = addSoftConstraints q.lvl
                 try
                     try
+                        let query = builder.EncodeTerm encCtx q.queryFml
+                        let assumptions = query.assumptions
+                        let assumptions =
+                            seq {
+                                for i in 0 .. levelAtoms.Count - 1 do
+                                    let atom = levelAtoms.[i]
+                                    if atom <> null then
+                                        let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
+                                        yield lit :> Expr
+                                for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
+                                    yield assumptions.[i] :> Expr
+                                yield query.expr
+                            } |> Array.ofSeq
+                        let pathAtoms = addSoftConstraints q.lvl
                         let result = optCtx.Check assumptions
                         printLog Info "SOLVER: got %O" result
                         match result with
@@ -495,8 +513,12 @@ module internal Z3 =
                     | :? Z3Exception as e ->
                         printLog Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: fail to encode: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
-                    optCtx.Pop()
+//                    optCtx.Pop() // TODO: need this? #do
+                    ()
 
             member x.Assert encCtx (lvl : level) (fml : formula) =
                 printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl
