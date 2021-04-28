@@ -482,8 +482,10 @@ module internal InstructionsSet =
                     |> Seq.filter (Instruction.shouldExecuteFinallyClause offset dst)
                     |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
                     |> List.ofSeq
-        let firstIp = (List.head ehcs).HandlerOffset
-        let currentIp = Leave(Instruction(firstIp, m), List.tail ehcs, dst, m)
+        let currentIp =
+            match ehcs with
+            | [] -> Instruction(dst, m)
+            | e :: ehcs -> Leave(Instruction(e.HandlerOffset, m), ehcs, dst, m)
         setCurrentIp currentIp cilState :: []
     let rethrow _ _ (cilState : cilState) =
         let state = cilState.state
@@ -497,6 +499,11 @@ module internal InstructionsSet =
     let endfinally _ _ _ =
         // Should be handled in makeStep function
         __unreachable__()
+    let br (cfgData : cfgData) offset (cilState : cilState) =
+        let m = cfgData.methodBase
+        let newIp = instruction m (Instruction.unconditionalBranchTarget m offset)
+        setCurrentIp newIp cilState |> List.singleton
+
     let constrained cfg offset (initialCilState : cilState) = // TODO: implement fully #do
         match Instruction.findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset with
         | FallThrough offset ->
@@ -530,8 +537,8 @@ module internal InstructionsSet =
         errors @ List.map changeIpIfNeeded goods
 
     let opcode2Function : (cfgData -> offset -> cilState -> cilState list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
-    opcode2Function.[hashFunction OpCodes.Br]                 <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
-    opcode2Function.[hashFunction OpCodes.Br_S]               <- zipWithOneOffset <| fun _ _ cilState -> cilState :: []
+    opcode2Function.[hashFunction OpCodes.Br]                 <- br
+    opcode2Function.[hashFunction OpCodes.Br_S]               <- br
     opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Add // TODO: check float overflow [spec]
     opcode2Function.[hashFunction OpCodes.Mul]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Multiply
     opcode2Function.[hashFunction OpCodes.Sub]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Subtract

@@ -177,7 +177,7 @@ module API =
             EvaluationStack.push x' evaluationStack
         let GetItem index evaluationStack = EvaluationStack.item index evaluationStack
         let FilterActiveFrame f evaluationStack = EvaluationStack.filterActiveFrame f evaluationStack
-        let Union evaluationStack evaluationStack' = EvaluationStack.union evaluationStack evaluationStack'
+        let Union oldStack newStack = EvaluationStack.union oldStack newStack
         let MakeSymbolicActiveFrame f evaluationStack = EvaluationStack.makeSymbolicActiveFrame f evaluationStack
         let Length evaluationStack = EvaluationStack.length evaluationStack
         let ToList evaluationStack = EvaluationStack.toList evaluationStack

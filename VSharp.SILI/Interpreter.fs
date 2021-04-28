@@ -1099,13 +1099,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | Exit callee :: (InFilterHandler(Instruction(offset, caller), _, _) as ip) :: ips' ->
                 Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
                 // TODO: assert(isCallIp ip)
-                let callSite = parseCallSite caller offset
-                let cilState =
-                    if callSite.opCode = OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
-                        pushNewObjForValueTypes cilState
-                    else cilState
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
-                cilState |> popFrameOf |> withIpStack (newIp :: ips')
+                let cilState = cilState |> popFrameOf |> setCurrentIp newIp
+                let callSite = parseCallSite caller offset
+                if callSite.opCode = OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
+                    pushNewObjForValueTypes cilState
+                else cilState
             | Exit _ :: Exit _ :: _ -> __unreachable__()
             | _ -> __unreachable__()
         let rec makeStep' = function

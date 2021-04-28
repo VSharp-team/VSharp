@@ -91,7 +91,7 @@ module internal CilStateOperations =
         let states = Memory.ComposeStates cilState1.state cilState2.state
         let _, leftEvaluationStack = EvaluationStack.PopArguments (int cilState2.initialEvaluationStackSize) cilState1.state.evaluationStack
         let makeResultState (state : state) =
-            let state' = {state with evaluationStack = EvaluationStack.Union state.evaluationStack leftEvaluationStack}
+            let state' = {state with evaluationStack = EvaluationStack.Union leftEvaluationStack state.evaluationStack }
             {cilState2 with state = state'; ipStack = ip; level = level; initialEvaluationStackSize = cilState1.initialEvaluationStackSize
                             startingIP = cilState1.startingIP; iie = iie}
         List.map makeResultState states

@@ -60,9 +60,17 @@ module internal EvaluationStack =
             args, { contents = rest :: ls }
         | [] -> __corruptedStack__()
 
-    let union evaluationStack evaluationStack' =
-        let leftStack = List.tail evaluationStack.contents // TODO: they always intersect in one frame
-        { contents = List.append leftStack evaluationStack'.contents }
+    // oldStack = [[1]; []]
+    // newStack = [[2]]
+    // b = [2], bs = []
+    // result = [[1]] @ [[] @ [2]] @ [] = [[1]] @ [[2]] = [[1]; [2]]
+    let union oldStack newStack =
+        let y2, zs = List.lastAndRest newStack.contents
+        let y1, xs =
+            match oldStack.contents with
+            | y1 :: xs -> y1, xs
+            | [] -> __unreachable__()
+        { contents = zs @ [y2 @ y1] @ xs }
 
     let toList evaluationStack = List.concat evaluationStack.contents
 
