@@ -83,7 +83,7 @@ module internal Instruction =
 
         let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
         if offset = 0 && opCode <> OpCodes.Leave && opCode <> OpCodes.Leave_S
-        then FallThrough nextInstruction
+        then UnconditionalBranch nextInstruction
         else UnconditionalBranch <| offset + nextInstruction
 
     let private inlineBrTarget extract (opCode : OpCode) ilBytes pos =

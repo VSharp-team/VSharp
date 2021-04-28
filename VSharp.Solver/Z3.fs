@@ -528,11 +528,10 @@ module internal Z3 =
                             SmtUnknown optCtx.ReasonUnknown
                         | _ -> __unreachable__()
                     with
-                    | :? Z3Exception as e ->
+                    | :? Z3Exception
+                    | :? EncodingException
+                    | :? Reflection.TargetInvocationException as e ->
                         printLog Info "SOLVER: exception was thrown: %s" e.Message
-                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
-                    | :? EncodingException as e ->
-                        printLog Info "SOLVER: fail to encode: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
 //                    optCtx.Pop() // TODO: need this? #do
