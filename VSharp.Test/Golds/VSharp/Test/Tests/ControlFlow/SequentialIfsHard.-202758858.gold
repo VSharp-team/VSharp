@@ -1,12 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.SequentialIfsHard(System.Int32)
-RESULT: Totally 5 states:
-101 + x
-MEMORY DUMP:
-Path condition: 2 * x == 50
---------------- Stack: ---------------
-key = x, value = 101 + x
-Initialized types = { VSharp.Test.Tests.ControlFlow }
-
+RESULT: Totally 6 states:
 1 + 2 * x
 MEMORY DUMP:
 Path condition: !(-12 + 2 * x < 0) /\ !(2 * x == 50) /\ 5 == x % 7
@@ -19,6 +12,20 @@ MEMORY DUMP:
 Path condition: !(-12 + x < 0) /\ !(2 * x == 50) /\ !(5 == x % 7)
 --------------- Stack: ---------------
 key = x, value = 1 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+100 + x
+MEMORY DUMP:
+Path condition: 2 * x == 50 /\ 88 + x < 0
+--------------- Stack: ---------------
+key = x, value = 100 + x
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+101 + x
+MEMORY DUMP:
+Path condition: !(88 + x < 0) /\ 2 * x == 50
+--------------- Stack: ---------------
+key = x, value = 101 + x
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
 x
