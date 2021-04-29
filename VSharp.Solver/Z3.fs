@@ -92,7 +92,7 @@ module internal Z3 =
                 | Numeric(Id typ) as t when Types.IsInteger t -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
                 | Numeric _ as t when Types.IsReal t -> failToEncode "encoding real numbers is not implemented"
                 | AddressType -> x.AddressSort
-                | StructType(Id typ, _) -> ctx.MkBitVecSort(TypeUtils.internalSizeOf typ) :> Sort
+                | StructType _ -> ctx.MkBitVecSort(Types.SizeOf typ |> uint) :> Sort
                 | Numeric _ -> __notImplemented__()
                 | ArrayType _
                 | Void
@@ -529,8 +529,7 @@ module internal Z3 =
                         | _ -> __unreachable__()
                     with
                     | :? Z3Exception
-                    | :? EncodingException
-                    | :? Reflection.TargetInvocationException as e ->
+                    | :? EncodingException as e ->
                         printLog Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
