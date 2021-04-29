@@ -63,12 +63,7 @@ module internal CilStateOperations =
         | Instruction (0, _) -> true
         | _ -> false
     let pushToIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: cilState.ipStack}
-    let setCurrentIp (ip : ip) (cilState : cilState) =
-        match ip with
-        | Instruction(offset, m) when offset = 0 ->
-            Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
-        | _ -> ()
-        {cilState with ipStack = ip :: List.tail cilState.ipStack}
+    let setCurrentIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: List.tail cilState.ipStack}
 
     let withIpStack (ipStack : ipStack) (cilState : cilState) = {cilState with ipStack = ipStack}
     let startingIpOf (cilState : cilState) = cilState.startingIP

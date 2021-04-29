@@ -1095,8 +1095,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | Exit m :: ips' when Reflection.isStaticConstructor m ->
                 Logger.info "Done with static cctor %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
                 cilState |> popFrameOf |> withIpStack ips'
-            | Exit callee :: (Instruction(offset, caller) as ip) :: ips'
-            | Exit callee :: (InFilterHandler(Instruction(offset, caller), _, _) as ip) :: ips' ->
+            | Exit callee :: (Instruction(offset, caller) as ip) :: _
+            | Exit callee :: (InFilterHandler(Instruction(offset, caller), _, _) as ip) :: _ ->
                 Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
                 // TODO: assert(isCallIp ip)
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
@@ -1108,7 +1108,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | Exit _ :: Exit _ :: _ -> __unreachable__()
             | _ -> __unreachable__()
         let rec makeStep' = function
-            | Instruction(offset, m) -> x.ExecuteInstruction m offset cilState
+            | Instruction(offset, m) ->
+                if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
+                x.ExecuteInstruction m offset cilState
             | Exit _ -> exit () |> List.singleton
             | Leave(EndFinally, [],  dst, m) ->
                 setCurrentIp (instruction m dst) cilState |> clearEvaluationStackLastFrame |> List.singleton
