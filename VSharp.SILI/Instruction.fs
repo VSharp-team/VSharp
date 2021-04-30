@@ -153,9 +153,14 @@ module internal Instruction =
         elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[pos + 1]]
 
-    let (|EndFinally|_|) (ip : ip) =
-        match ip with
+    let (|EndFinally|_|) = function
         | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some ()
+        | _ -> None
+
+    let rec (|InstructionEndingIp|_|) = function
+        | Instruction(offset, m)
+        | InFilterHandler(offset, m, _, _) -> Some (offset, m)
+        | Leave(ip, _, _, _) -> (|InstructionEndingIp|_|) ip
         | _ -> None
 
     let parseCallSite (m : MethodBase) pos =

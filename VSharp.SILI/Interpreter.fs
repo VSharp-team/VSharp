@@ -1081,10 +1081,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         else cilState
 
     member x.MakeStep (cilState : cilState) =
-        let updateIp f (cilState : cilState) =
-            match cilState.ipStack with
-            | ip :: ips -> {cilState with ipStack = f ip :: ips}
-            | _ -> __unreachable__()
         let exit () : cilState =
             match cilState.ipStack with
             | Exit _ :: [] when startsFromMethodBeginning cilState ->
@@ -1095,8 +1091,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | Exit m :: ips' when Reflection.isStaticConstructor m ->
                 Logger.info "Done with static cctor %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
                 cilState |> popFrameOf |> withIpStack ips'
-            | Exit callee :: (Instruction(offset, caller) as ip) :: _
-            | Exit callee :: (InFilterHandler(Instruction(offset, caller), _, _) as ip) :: _ ->
+            | Exit callee :: (InstructionEndingIp(offset, caller) as ip) :: _ ->
                 Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
                 // TODO: assert(isCallIp ip)
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
@@ -1119,7 +1114,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 setCurrentIp ip' cilState |> clearEvaluationStackLastFrame |> List.singleton
             | Leave(ip, ehcs, dst, m) ->
                 let states = makeStep' ip
-                List.map (updateIp (fun ip -> leave ip ehcs dst m)) states
+                let makeLeaveIfNeeded (result : cilState) =
+                    if List.length result.ipStack = List.length cilState.ipStack then
+                        match result.ipStack with
+                        | ip :: ips -> {result with ipStack = leave ip ehcs dst m :: ips}
+                        | _ -> __unreachable__()
+                    else result
+                List.map makeLeaveIfNeeded states
             | _ -> __notImplemented__()
         makeStep' (currentIp cilState)
 
