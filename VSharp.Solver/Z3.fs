@@ -62,9 +62,9 @@ module internal Z3 =
         t2e = Dictionary<term, encodingResult>()
     }
 
-    let private regionConstants = Dictionary<regionSort, ArrayExpr>()
+    let private regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
 
-    let private getMemoryConstant mkConst (typ : regionSort) =
+    let private getMemoryConstant mkConst (typ : regionSort * fieldId list) =
         let result : ArrayExpr ref = ref null
         if regionConstants.TryGetValue(typ, result) then !result
         else
@@ -92,7 +92,7 @@ module internal Z3 =
                 | Numeric(Id typ) as t when Types.IsInteger t -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
                 | Numeric _ as t when Types.IsReal t -> failToEncode "encoding real numbers is not implemented"
                 | AddressType -> x.AddressSort
-                | StructType _ -> ctx.MkBitVecSort(Types.SizeOf typ |> uint) :> Sort
+                | StructType _ -> internalfailf "struct should not appear while encoding! type: %O" typ
                 | Numeric _ -> __notImplemented__()
                 | ArrayType _
                 | Void
@@ -121,12 +121,9 @@ module internal Z3 =
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
             | _ -> ctx.MkAnd(nonTrueElems)
 
-        member private x.DefaultValue typ = ctx.MkNumeral(0, x.Type2Sort typ)
+        member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
             ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
-
-        member private x.EncodeSymbolicAddress encCtx (heapRefSource : IMemoryAccessConstantSource) name =
-            x.EncodeConstant encCtx name heapRefSource AddressType
 
         member private x.CreateConstant name typ =
             ctx.MkConst(x.ValidateId name, x.Type2Sort typ) |> encodingResult.Create
@@ -163,7 +160,7 @@ module internal Z3 =
 
         member private x.EncodeConstant encCtx name (source : ISymbolicConstantSource) typ : encodingResult =
             match source with
-            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source typ
+            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source List.empty typ
             | _ -> x.CreateConstant name typ
 
 // ------------------------------- Encoding: expression -------------------------------
@@ -257,6 +254,9 @@ module internal Z3 =
 
 // ------------------------------- Encoding: memory reading -------------------------------
 
+        member private x.EncodeSymbolicAddress encCtx (heapRefSource : IMemoryAccessConstantSource) structFields name =
+            x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields AddressType
+
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
             let onePointCondition acc (y : vectorTime endpoint) =
                 let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort AddressType) :?> BitVecExpr
@@ -315,16 +315,18 @@ module internal Z3 =
             let region = (key :> IMemoryKey<stackBufferIndexKey, int points>).Region
             x.KeyInIntPoints keyExpr acc region
 
-        member private x.GetRegionConstant hasDefaultValue (name : string) arraySort (regSort : regionSort) =
+        member private x.GetRegionConstant hasDefaultValue (name : string) makeSort (structFields : fieldId list) typ (regSort : regionSort) =
+            let valueSort = x.Type2Sort typ
+            let sort = makeSort valueSort
             let mkConst () =
-                if hasDefaultValue then ctx.MkConstArray(arraySort, x.DefaultValue regSort.TypeOfLocation)
-                else ctx.MkConst(name, arraySort) :?> ArrayExpr
-            getMemoryConstant mkConst regSort
+                if hasDefaultValue then ctx.MkConstArray(sort, x.DefaultValue valueSort)
+                else ctx.MkConst(name, sort) :?> ArrayExpr
+            getMemoryConstant mkConst (regSort, structFields)
 
         // TODO: delete some arguments #do
-        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue sort select left mo source name =
+        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort select left mo source structFields name typ =
             let updates = MemoryRegion.flatten mo
-            let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name sort
+            let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name makeSort structFields typ
             let assumptions, leftExpr = encodeKey left
             let leftInRegion = keyInRegion x.True left leftExpr
             let assumptions = leftInRegion :: assumptions
@@ -341,27 +343,27 @@ module internal Z3 =
             let expr, assumptions = List.fold checkOneKey (inst, assumptions) updates
             encodingResult.Create(expr, assumptions)
 
-        member private x.HeapReading encCtx key mo typ source name =
+        member private x.HeapReading encCtx key mo typ source structFields name =
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let makeSort valueSort = ctx.MkArraySort(x.Type2Sort AddressType, valueSort)
             let select array (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false sort select key mo source name
+            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false makeSort select key mo source structFields name typ
 
-        member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source name =
-            let sort =
-                let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
-                ctx.MkArraySort(domainSort, x.Type2Sort typ)
+        member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
+            let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
+            let makeSort valueSort =
+                ctx.MkArraySort(domainSort, valueSort)
             let select array (k : Expr[]) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue sort select key mo source name
+            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort select key mo source structFields name typ
 
-        member private x.StackBufferReading encCtx key mo typ source name =
+        member private x.StackBufferReading encCtx key mo typ source structFields name =
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let makeSort valueType = ctx.MkArraySort(x.Type2Sort AddressType, valueType)
             let select array (k : Expr) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey false sort select key mo source name
+            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey false makeSort select key mo source structFields name typ
 
-        member private x.StaticsReading encCtx key mo typ source (name : string) =
+        member private x.StaticsReading encCtx key mo typ source structFields (name : string) = // TODO: redo #do
             let keyType = x.Type2Sort Types.IndexType
             let memoryRegionConst = ctx.MkArrayConst(name, keyType, x.Type2Sort typ)
             let updates = MemoryRegion.flatten mo
@@ -370,52 +372,32 @@ module internal Z3 =
             | Some (_, v) -> x.EncodeTerm encCtx v
             | None -> {expr = ctx.MkSelect(memoryRegionConst, ctx.MkConst(key.ToString(), keyType)); assumptions = List.empty}
 
-        member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ source name =
-//            let structType = field.declaringType
-//            let layout = structType.StructLayoutAttribute
-//            let sequentialOffsetFolder currentOffset (field : FieldInfo) =
-//                let pack = layout.Pack // TODO: use!
-//                let fieldSize = sizeOfSystemType field.FieldType
-//                let offset =
-//                    if Seq.exists (fun (x : CustomAttributeData) -> x.AttributeType.Equals(typeof<FixedBufferAttribute>)) field.CustomAttributes then currentOffset
-//                    else
-//                        let realPack = min fieldSize pack
-//                        let packedOffset = Prelude.roundUpToPow2 currentOffset realPack // TODO: take min(pack, max of sizes of fields)
-//                        if currentOffset + fieldSize > packedOffset then packedOffset else currentOffset // TODO: do better
-//                ((field, Some offset), offset + fieldSize)
-//            if layout = null then FSharp.Collections.Array.map (withSnd None)
-//            else
-//                match layout.Value with
-//                | LayoutKind.Auto -> failToEncode "encoding field reading from struct with auto layout is not implemented"
-//                | LayoutKind.Sequential -> (FSharp.Collections.Array.mapFold sequentialOffsetFolder 0) >> fst
-//                | LayoutKind.Explicit -> FSharp.Collections.Array.map (fun field -> field, getOffsetFromAttribute field |> Some) // TODO: check Pack field?!
-            if field.declaringType.IsLayoutSequential then
-                let structName = sprintf "struct of %s" name
-                let structExpr = x.EncodeMemoryAccessConstant encCtx structName structSource structSource.TypeOfLocation
-                failToEncode "encoding field reading from struct is not implemented"
-            else failToEncode "encoding field reading from struct with explicit or auto layout is not implemented"
+        member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ structFields name =
+            x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
 
-        member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) typ : encodingResult =
+        member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) (structFields : fieldId list) typ : encodingResult =
             match source with // TODO: add caching #encode
-            | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source name
+            | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source structFields name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
                 let encodeKey (k : heapArrayIndexKey) =
                     k.address :: k.indices |> x.EncodeTerms (fun _ _ -> false) encCtx
                 let keyInRegion = x.ArrayIndexKeyInRegion encCtx
                 let arraysEquality (left, right) =
                     Seq.zip left right |> Seq.fold (fun acc (left, right) -> x.MkAnd(acc, x.MkEq(left, right))) x.True
-                x.ArrayReading encCtx keyInRegion arraysEquality encodeKey hasDefaultValue key.indices key mo typ source name
+                x.ArrayReading encCtx keyInRegion arraysEquality encodeKey hasDefaultValue key.indices key mo typ source structFields name
             | VectorIndexReading(hasDefaultValue, key, mo) ->
                 let encodeKey (k : heapVectorIndexKey) =
                     [|k.address; k.index|] |> x.EncodeTerms (fun _ _ -> false) encCtx
                 let keyInRegion = x.VectorIndexKeyInRegion encCtx
                 let keysAreEqual (left : Expr[], right : Expr[]) =
                     x.MkAnd(x.MkEq(left.[0], right.[0]), x.MkEq(left.[1], right.[1]))
-                x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue [key.index] key mo typ source name
-            | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source name
-            | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source name
-            | StructFieldSource(structSource, field) -> x.StructReading encCtx structSource field typ source name
-            | HeapAddressSource source -> x.EncodeSymbolicAddress encCtx source name
+                x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue [key.index] key mo typ source structFields name
+            | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source structFields name
+            | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source structFields name
+            | StructFieldSource(structSource, field) -> x.StructReading encCtx structSource field typ structFields name
+            | HeapAddressSource source ->
+                assert(typ = AddressType)
+                x.EncodeSymbolicAddress encCtx source structFields name
             | _ -> x.CreateConstant name typ
 
     // ------------------------------- Decoding -------------------------------
