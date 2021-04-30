@@ -67,5 +67,65 @@ namespace VSharp.Test.Tests
             res++;
             return res;
         }
+
+        private static int Alway42() => 42;
+        private static int Alway84() => Alway42() * 2;
+
+        // expecting 111111
+        [Ignore("FilterHandler support")]
+        public static int FilterInsideFinally(bool f)
+        {
+            int globalMemory = 0;
+            try
+            {
+                globalMemory++;
+            }
+            finally
+            {
+                try
+                {
+                    globalMemory += 10;
+                    throw new Exception();
+                }
+                catch (Exception) when ((globalMemory += 100) > 50 && f && Alway42() == 42)
+                {
+                    globalMemory += 1000;
+                }
+
+                globalMemory += 10000;
+            }
+
+            globalMemory += 100000;
+            return globalMemory;
+        }
+
+
+        [TestSvm]
+        public static int CallInsideFinally(bool f)
+        {
+            int res = 0;
+            try
+            {
+                res += Alway42();
+            }
+            finally
+            {
+                if (f)
+                {
+                    try
+                    {
+                        res += Alway42();
+                    }
+                    finally
+                    {
+                        res += Alway84();
+                    }
+                }
+            }
+
+            return res;
+        }
+
+
     }
 }
