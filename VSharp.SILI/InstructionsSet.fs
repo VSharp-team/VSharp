@@ -485,7 +485,7 @@ module internal InstructionsSet =
         let currentIp =
             match ehcs with
             | [] -> Instruction(dst, m)
-            | e :: ehcs -> Leave(Instruction(e.HandlerOffset, m), ehcs, dst, m)
+            | e :: ehcs -> leave (Instruction(e.HandlerOffset, m)) ehcs dst m
         setCurrentIp currentIp cilState :: []
     let rethrow _ _ (cilState : cilState) =
         let state = cilState.state

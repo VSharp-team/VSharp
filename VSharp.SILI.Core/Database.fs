@@ -110,13 +110,16 @@ module ipOperations =
         | Exit _ -> true
         | _ -> false
     let instruction m i = Instruction(i, m)
-    let leave ip ehcs dst m = Leave(ip, ehcs, dst, m)
+    let leave ip ehcs dst m =
+        match ip with
+        | Exit _ -> internalfail "Leave over Exit!"
+        | _ -> Leave(ip, ehcs, dst, m)
     let searchingForHandler toObserve toPop = SearchingForHandler(toObserve, toPop)
 
     let rec moveInstruction (newOffset : offset) = function
         | Instruction(_, m) -> Instruction(newOffset, m)
         | Exit _ -> __unreachable__()
-        | Leave(ip, x, y, z) -> Leave(moveInstruction newOffset ip, x, y, z)
+        | Leave(ip, ehcs, dst, m) -> leave (moveInstruction newOffset ip) ehcs dst m
         | InFilterHandler(ip, x, y) -> InFilterHandler(moveInstruction newOffset ip, x, y)
         | SearchingForHandler _ -> __notImplemented__()
         | _ -> __unreachable__()

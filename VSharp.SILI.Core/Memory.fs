@@ -181,7 +181,6 @@ module internal Memory =
 
     let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
         match src with
-        // TODO: check: this works correctly? #do
         | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
         | _ -> None
 
