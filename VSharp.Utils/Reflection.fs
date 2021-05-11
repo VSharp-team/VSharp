@@ -96,7 +96,6 @@ module public Reflection =
         let getMethods (t : Type) = t.GetMethods(allBindingFlags)
         let substituteGeneric (mi : MethodInfo) =
             let args = mi.GetGenericArguments()
-            let num = Array.length args
             let genericMethod = mi.GetGenericMethodDefinition()
             let mi = substituteMethod methodType genericMethod getMethods
             genericK mi args
@@ -118,7 +117,7 @@ module public Reflection =
 
     // --------------------------------- Generalization ---------------------------------
 
-    let private getGenericTypeDefinition (typ : Type) =
+    let getGenericTypeDefinition (typ : Type) =
         if typ.IsGenericType then
             let args = typ.GetGenericArguments()
             let genericType = typ.GetGenericTypeDefinition()

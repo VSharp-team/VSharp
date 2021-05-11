@@ -47,7 +47,7 @@ module internal String =
                 let len = obj :?> int
                 let indices = List.init len id
                 let string = List.map readOneChar indices |> String.Concat
-                Memory.AllocateString string state
+                Memory.AllocateString (string.ToUpperInvariant()) state
             | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete length strings right now"
         | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete address strings right now"
 
@@ -57,3 +57,13 @@ module internal String =
         let string, state = Memory.AllocateString " " state
         let states = Memory.WriteStringChar state string [Concrete 0 Types.IndexType] char
         List.map (withFst string) states
+
+    let CharToUpper (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let char = List.head args
+        match char.term with
+        | Concrete(symbol, Numeric(Id typ)) when typ = typeof<char> ->
+            let char = symbol :?> char
+            let term = Char.ToUpper(char) |> MakeNumber
+            term, state
+        | _ -> __insufficientInformation__ "Char.ToUpper works only for concrete chars right now"

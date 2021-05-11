@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Reflection
 open System.Reflection.Emit
 open FSharpx.Collections
@@ -29,10 +30,16 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
 
-        let rec iter s =
-            q.Remove s
-            step s
-            Option.iter iter (searcher.PickNext q)
+        let rec iter s = // TODO: recursion! #do
+            let mutable b = true
+            let mutable s = s
+            while b do
+                q.Remove s
+                step s
+                let x = searcher.PickNext q
+                match x with
+                | Some x -> s <- x
+                | None -> b <- false
 
         Option.iter iter (searcher.PickNext q)
         searcher.GetResults initialState q
@@ -252,15 +259,16 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         else
             __insufficientInformation__ "non-extern method %s without body!" (Reflection.getFullMethodName methodBase) // TODO: hack #do
 
+     // TODO: think about generalization #do
     member x.CallMethodFromTermType (cilState : cilState) (*this parameters *) termType (calledMethod : MethodInfo) (k : cilState list -> 'a) =
         let t = termType |> Types.ToDotNetType
-        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod // TODO: need this [generalize only in string]? #do
+        let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | t1 when t1.IsInterface ->
                 let createSignature (m : MethodInfo) =
                     m.GetParameters()
-                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName) // TODO: need this [generalize only in string]? #do
+                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName)
                     |> join ","
                 let onlyLastName (m : MethodInfo) =
                     match m.Name.LastIndexOf('.') with
@@ -270,14 +278,23 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 let lastName = onlyLastName genericCalledMethod
                 let methods =
                     match t with
-                    | _ when t.IsArray -> t.GetMethods()
+                    | _ when t.IsArray ->
+                        let methodsFromSystemArray =
+                            Array.append
+                                (System.Type.GetType("System.SZArrayHelper").GetMethods(Reflection.allBindingFlags))
+                                (typeof<System.Array>.GetMethods(Reflection.allBindingFlags))
+                        let f (m : MethodInfo) = // TODO: hack #do
+                            if m.IsGenericMethod && Array.length (m.GetGenericArguments()) = 1 then m.MakeGenericMethod(t.GetElementType()) else m
+                        let concreteMethodsFromSystemArray = Array.map f methodsFromSystemArray
+//                            methodsFromSystemArray |> Array.map (fun m -> Reflection.concretizeMethodBase m f :?> MethodInfo)
+                        Array.append (t.GetMethods(Reflection.allBindingFlags)) concreteMethodsFromSystemArray
                     | _ -> t.GetInterfaceMap(t1).TargetMethods
                 methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
             | _ ->
                 let (|||) = Microsoft.FSharp.Core.Operators.(|||)
                 let allMethods = t.GetMethods(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic)
                 Seq.find (fun (mi : MethodInfo) -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition()) allMethods
-        let targetMethod = if genericMethodInfo.IsGenericMethod then genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments()) else genericMethodInfo
+        let targetMethod = if genericMethodInfo.IsGenericMethodDefinition then genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments()) else genericMethodInfo
         if targetMethod.IsAbstract
             then x.CallAbstract (methodInterpreter.MakeMethodIdentifier targetMethod) cilState k
             else
@@ -414,25 +431,34 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
         methodInterpreter.ReduceFunctionSignatureCIL cilState calledMethod this (Specified args) false (fun cilState ->
         x.CommonCall calledMethod cilState id))
-     member x.CommonCallVirt (ancestorMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
+    member x.CommonCallVirt (ancestorMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethodBase
         let call (cilState : cilState) k =
-            if ancestorMethodBase.DeclaringType.IsSubclassOf typedefof<System.Delegate> && ancestorMethodBase.Name = "Invoke" then
-                Lambdas.invokeDelegate cilState this k
-            elif ancestorMethodBase.IsVirtual && not ancestorMethodBase.IsFinal then
+            if ancestorMethodBase.IsVirtual && not ancestorMethodBase.IsFinal then
                 let methodInfo = ancestorMethodBase :?> MethodInfo
                 x.CallVirtualMethod methodInfo cilState k
             else
                 x.InlineMethodBaseCallIfNeeded ancestorMethodBase cilState k
         x.NpeOrInvokeStatementCIL cilState this call k
     member x.CallVirt (cfg : cfg) offset (cilState : cilState) =
+        let retrieveMethodInfo methodPtr =
+            match methodPtr.term with
+            | Concrete(:? Tuple<MethodInfo, term> as tuple, _) -> snd tuple, (fst tuple :> MethodBase)
+            | _ -> __unreachable__()
         let ancestorMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
-        let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
+        let thisOption, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
+        let this, methodToCall = // TODO: do better #do
+            match thisOption with
+            | Some this when ancestorMethod.DeclaringType.IsSubclassOf typedefof<Delegate> && ancestorMethod.Name = "Invoke" && this <> NullRef ->
+                let deleg = Memory.ReadDelegate cilState.state this
+                let target, mi = retrieveMethodInfo deleg
+                if target = NullRef then thisOption, mi else Some target, mi
+            | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         // NOTE: It is not quite strict to ReduceFunctionSignature here because, but it does not matter because signatures of virtual methods are the same
-        methodInterpreter.InitializeStatics cilState ancestorMethod.DeclaringType (fun cilState ->
-        methodInterpreter.ReduceFunctionSignatureCIL cilState ancestorMethod this (Specified args) false (fun cilState ->
-        x.CommonCallVirt ancestorMethod cilState id))
+        methodInterpreter.InitializeStatics cilState methodToCall.DeclaringType (fun cilState ->
+        methodInterpreter.ReduceFunctionSignatureCIL cilState methodToCall this (Specified args) false (fun cilState ->
+        x.CommonCallVirt methodToCall cilState id))
     member x.ReduceArrayCreation (arrayType : System.Type) (cilState : cilState) (parameters : term list) k =
         let arrayTyp = Types.FromDotNetType arrayType
         Memory.AllocateDefaultArray cilState.state parameters arrayTyp |> k
@@ -447,13 +473,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let invoke cilState =
             GuardedApplyCIL cilState methodPtr
                 (fun cilState methodPtr k ->
-                    BranchOnNullCIL cilState target
+                    BranchOnNullCIL cilState target // TODO: can target be null? #do
                         (x.Raise x.NullReferenceException)
                         (x.InlineMethodBaseCallIfNeeded (retrieveMethodInfo methodPtr))
                         k)
         let typ = Types.FromDotNetType ctor.DeclaringType
-        Lambdas.make invoke typ (fun lambda ->
-        Memory.AllocateDelegate cilState.state lambda |> k)
+        let lambda = Lambdas.make (retrieveMethodInfo methodPtr, target) typ
+        Memory.AllocateDelegate cilState.state lambda |> k
 
     member x.CommonNewObj isCallNeeded (constructorInfo : ConstructorInfo) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =
         __notImplemented__()

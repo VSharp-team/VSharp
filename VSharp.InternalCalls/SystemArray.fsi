@@ -19,3 +19,6 @@ module internal SystemArray =
 
     [<Implements("System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)")>]
     val Copy : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.SZArrayHelper.Contains(this, System.Char)")>]
+    val ContainsChar : state -> term list -> term * state

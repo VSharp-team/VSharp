@@ -24,3 +24,6 @@ module internal String =
 
     [<Implements("System.String System.String.CreateFromChar(System.Char)")>]
     val CreateFromChar : state -> term list -> (term * state) list
+
+    [<Implements("System.Char System.Char.ToUpper(System.Char)")>]
+    val CharToUpper : state -> term list -> term * state

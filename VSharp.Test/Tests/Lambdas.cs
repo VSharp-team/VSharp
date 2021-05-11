@@ -27,14 +27,16 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
-        [Ignore("ThisKey for lambda function is not in stack")]
+        // [Ignore("ThisKey for lambda function is not in stack")]
+        [TestSvm]
         public static int Always18()
         {
             return Mult2(9);
         }
 
         // Expecting always true
-        [Ignore("ThisKey for lambda function is not in stack")]
+        // [Ignore("ThisKey for lambda function is not in stack")]
+        [TestSvm]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;
@@ -57,7 +59,6 @@ namespace VSharp.Test.Tests
 
         public static bool CheckIsLambda<T>(object o)
         {
-            T unbox = (T) o;
             return o is Action<int>;
         }
 
@@ -70,6 +71,52 @@ namespace VSharp.Test.Tests
             return CheckIsLambda<Action<int>>(o);
         }
 
+        public static bool FunctionInsideFunc(int x)
+        {
+            return x > 0;
+        }
+
+        [TestSvm]
+        public static bool FuncFromFunction(int x)
+        {
+            var func = new Func<int, bool>(FunctionInsideFunc);
+            return func.Invoke(x);
+        }
+
+        [TestSvm]
+        public static bool FuncFromLambda(int x)
+        {
+            var func = new Func<int, bool>(i => i <= 0);
+            return func.Invoke(x);
+        }
+
+        [TestSvm]
+        public static Action<int> NullLambdaInvoke()
+        {
+            Action<int> nullAction = null;
+            nullAction(42);
+            return nullAction;
+        }
+
+        [TestSvm]
+        public static bool SymbolicLambdaInvoke(Func<int, bool> f)
+        {
+            return f.Invoke(42);
+        }
+
+        [TestSvm]
+        public static bool ConcreteLambdaInvokeSymbolic()
+        {
+            Func<int, bool> f = i => i < 0;
+            return SymbolicLambdaInvoke(f);
+        }
+
+        [TestSvm]
+        public static bool NullLambdaInvokeSymbolic()
+        {
+            Func<int, bool> f = null;
+            return SymbolicLambdaInvoke(f);
+        }
 
 /*        public static int ForToLambdaDelegateSmokeTest(int n)
         {

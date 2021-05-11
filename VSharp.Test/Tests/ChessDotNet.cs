@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ChessDotNet;
+using ChessDotNet.Pieces;
 
 namespace VSharp.Test.Tests
 {
@@ -84,5 +85,49 @@ namespace VSharp.Test.Tests
             return pieceAtA1;
         }
 
+        [TestSvm]
+        public static bool CreateGame6()
+        {
+            var game = new ChessGame();
+            return game.HasAnyValidMoves(Player.Black);
+        }
+
+        [TestSvm]
+        public static bool CreateGame7()
+        {
+            var game = new ChessGame();
+            var e2e4 = new Move("E2", "E4", Player.White);
+            MoveType type = game.ApplyMove(e2e4, true);
+            return game.HasAnyValidMoves(Player.Black) || type == MoveType.Invalid;
+        }
+
+        [TestSvm]
+        public static bool CheckEquality()
+        {
+            var p1 = new Pawn(Player.Black);
+            var p2 = new Pawn(Player.White);
+            return p1 == p2;
+        }
+
+        [TestSvm]
+        public static bool CreateGame8()
+        {
+            var game = new ChessGame();
+            var e2e4 = new Move("E2", "E4", Player.White);
+            Piece pawn = game.GetPieceAt(new Position("E2"));
+            MoveType type = game.ApplyMove(e2e4, true);
+            bool isValid = pawn.IsValidMove(e2e4, game);
+            return isValid && type == MoveType.Invalid;
+        }
+
+        [TestSvm]
+        public static bool CreateGame9()
+        {
+            var game = new ChessGame();
+            var e2e4 = new Move("E2", "E4", Player.White);
+            bool isValid = game.IsValidMove(e2e4);
+            MoveType type = game.ApplyMove(e2e4, true);
+            return type == MoveType.Invalid || isValid;
+        }
     }
 }

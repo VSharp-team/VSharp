@@ -5,7 +5,7 @@ open VSharp.Core
 type public 'a symbolicLambda = cilState -> (cilState list -> 'a) -> 'a
 
 module internal Lambdas =
-    let make (body : 'a symbolicLambda) typ (k : term -> 'a) = Concrete body typ |> k
+    let make methodWithThis typ = Concrete methodWithThis typ
 
     let private (|Lambda|_|) = function
         | Concrete(lambda, _) when (lambda :? 'a symbolicLambda) ->

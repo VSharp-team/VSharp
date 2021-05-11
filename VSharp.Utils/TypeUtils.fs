@@ -32,7 +32,7 @@ module TypeUtils =
     let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
 
-    let isNumeric = numericTypes.Contains
+    let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral = integralTypes.Contains
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains

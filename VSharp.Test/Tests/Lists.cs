@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 
 namespace VSharp.Test.Tests
@@ -315,6 +316,24 @@ namespace VSharp.Test.Tests
             if (i == j && x != y)
                 res = 1;
             return res;
+        }
+
+        [TestSvm]
+        public static int AddManyElementsToList()
+        {
+            List<int> l = new List<int>();
+            for (var i = 0; i < 1000000; i++)
+            {
+                l.Add(i);
+            }
+            return l.Last();
+        }
+
+        [TestSvm]
+        public static bool CheckArrayContains()
+        {
+            char[] l = {'c', 'h', 'a', 'r', 's'};
+            return l.Contains('a');
         }
 
         [Ignore("System.Array.Set(...) is not implemented")]

@@ -411,7 +411,7 @@ module public CFA =
                 | Instruction.Call
                 | Instruction.NewObj   ->
                     interpreter.CommonCall callSite.calledMethod cilState k
-                | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod cilState k
+                | Instruction.CallVirt -> interpreter.CommonCallVirt callSite.calledMethod cilState k // TODO: care about deleagete! #do
                 | _ ->  __notImplemented__()
             | _ -> internalfailf "Calling %s: composition with frames unexpectedly forked!" callSite.calledMethod.Name
         member x.ExitNodeForCall() = __notImplemented__()

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
+      <ProjectReference Include="..\VSharp.Test\VSharp.Test.csproj" />
+    </ItemGroup>
+
+</Project>
