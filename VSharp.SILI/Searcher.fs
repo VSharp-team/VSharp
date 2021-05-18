@@ -28,14 +28,16 @@ type IndexedQueue() =
 
 [<AbstractClass>]
 type ISearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
-    let maxBound = 1000u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     abstract member PickNext : IndexedQueue -> cilState option
 
     member x.Used (cilState : cilState) =
         match currentIp cilState with
         | Instruction(offset, m) ->
             let codeLocation = {offset = offset; method = m}
-            PersistentDict.contains codeLocation cilState.level && PersistentDict.find cilState.level codeLocation >= maxBound
+            match PersistentDict.tryFind cilState.level codeLocation with
+            | Some current -> current >= maxBound
+            | None -> false
         | _ -> false
 
     member x.GetResults initialState (q : IndexedQueue) =
