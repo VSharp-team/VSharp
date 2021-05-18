@@ -366,6 +366,23 @@ namespace VSharp.Test.Tests
             return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
 
+        [TestSvm]
+        public static int BigSum(int x)
+        {
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+        }
+
+        [TestSvm]
+        public static int BigSumCycle(int x)
+        {
+            int res = 0;
+            for (int i = 0; i < 20; i++)
+            {
+                res += x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+            }
+            return res;
+        }
+
         // Expecting true
         [TestSvm]
         public static bool Decreasing(int x)

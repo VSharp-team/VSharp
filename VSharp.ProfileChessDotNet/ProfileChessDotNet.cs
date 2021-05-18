@@ -11,9 +11,10 @@ namespace VSharp.ProfileChessDotNet
         static void Main(string[] args)
         {
             var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher()));
-            var chessDotNetClass = new Test.Tests.ChessDotNet();
-            var chessDotNetType = chessDotNetClass.GetType();
-            var chessDotNetMethod = chessDotNetType.GetMethod("CreateGame7");
+            svm.ConfigureSolver();
+            // var chessDotNetClass = typeof(Test.Tests.PDR);
+            var chessDotNetType = typeof(Test.Tests.PDR);
+            var chessDotNetMethod = chessDotNetType.GetMethod("BreakCallSitesCompositionRecursion");
             svm.ExploreOne(chessDotNetMethod);
         }
     }
