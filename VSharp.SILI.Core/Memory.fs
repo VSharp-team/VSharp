@@ -777,7 +777,10 @@ module internal Memory =
             let k' = k.Map (typeVariableSubst state)
             let v' = fillHoles state v
 //            writeStackLocation accState k' v'
-            { accState with stack = MappedStack.addWithIdxPlus k' v' accState.stack p} // TODO: check #do
+            let stack =
+                if isEffect then MappedStack.add k' v' accState.stack
+                else MappedStack.addWithIdxPlus k' v' accState.stack p
+            { accState with stack = stack} // TODO: check #do
         | None when isEffect -> accState // already reserved
         | None -> reserveLocation accState k p // new frame, so we need to reserve
 
