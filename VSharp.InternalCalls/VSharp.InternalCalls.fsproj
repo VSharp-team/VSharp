@@ -4,6 +4,10 @@
         <TargetFramework>netcoreapp3.0</TargetFramework>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <Tailcalls>true</Tailcalls>
+    </PropertyGroup>
+
     <ItemGroup>
         <Compile Include="String.fsi" />
         <Compile Include="String.fs" />
