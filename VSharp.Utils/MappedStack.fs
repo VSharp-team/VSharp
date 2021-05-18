@@ -34,7 +34,7 @@ module public MappedStack =
         let peaks' = Map.add key idx peaks
         contents, peaks'
 
-    let push key value ((_, peaks) as stack) =
+    let push key value (_, peaks as stack) =
         let idx = peakIdx peaks key + 1ul
         addWithIdx key value stack idx
 

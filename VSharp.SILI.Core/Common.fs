@@ -32,7 +32,7 @@ module internal Common =
                 Merging.merge (List.zip guards values') |> matched)
         | _ -> unmatched x matched
 
-    let rec simplifyGenericBinary _ x y matched concrete unmatched repeat =
+    let simplifyGenericBinary _ x y matched concrete unmatched repeat =
         match x.term, y.term with
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY |> matched
         | Union(gvsx), Union(gvsy) ->

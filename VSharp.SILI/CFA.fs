@@ -445,11 +445,10 @@ module public CFA =
                 | _ -> false
             interface IComparable with
                 override x.CompareTo (obj : obj) =
-                    let rec compareData a1 a2 a3 b1 b2 b3 =
+                    let compareData a1 a2 a3 b1 b2 b3 =
                         if a1 > b1 || a1 = b1 && a2 > b2 || a1 = b1 && a2 = b2 && a3 > b3 then -1
                         elif a1 = b1 && a2 = b2 && a3 = b3 then 0
                         else 1
-
                     match obj with
                     | :? bypassDataForEdges as other -> compareData x.minSCCs x.uOut x.vOut other.minSCCs other.uOut other.vOut
                     | _ -> -1

@@ -255,7 +255,7 @@ module MemoryRegion =
 
     let toString indent mr = UpdateTree.print indent toString mr.updates
 
-    let rec flatten mr =
+    let flatten mr =
         RegionTree.foldr (fun _ k acc -> (k.key, k.value)::acc) [] mr.updates
 
     let localizeArray address dimension mr =

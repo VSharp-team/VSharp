@@ -53,7 +53,7 @@ module internal CilStateOperations =
     let currentIp (s : cilState) = List.head s.ipStack
 
     // obtaining Method where Execution occurs
-    let rec currentMethod = function
+    let currentMethod = function
         | Exit m
         | Instruction(_, m)
         | Leave(_, _, _, m) -> m

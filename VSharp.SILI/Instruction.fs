@@ -121,7 +121,6 @@ module internal Instruction =
 
     let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
 
-
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
         || opCode = OpCodes.Calli
