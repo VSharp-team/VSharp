@@ -69,20 +69,21 @@ module internal Propositional =
                     (fun x -> combineOne x tl failed k)
                     (fun () -> combineOne x tl (h::failed) k)
 
-        let rec combine xs ys acc =
+        let rec combine xs ys acc k =
             match xs with
             | [] ->
                 // Here we traversed all xs, checking for something matched...
-                if List.length ys = List.length initialYs then unmatched () // Nothing matched, the whole process is failed
+                if List.length ys = List.length initialYs then unmatched () |> k // Nothing matched, the whole process is failed
                 else
                     // Something matched, the work is done, just combining results together...
                     let toReduce = List.append (List.rev acc) ys
                     // TODO: care about different types...
-                    Cps.List.reducek reduce toReduce (operand >> matched)
+                    Cps.List.reducek reduce toReduce (operand >> matched >> k)
             | x::xs ->
-                combineOne x ys [] (fun res ys -> combine xs ys (res::acc))
+                combineOne x ys [] (fun res ys ->
+                combine xs ys (res::acc) k)
 
-        combine xs ys []
+        combine xs ys [] id
 
     let rec private simplifyConnective operation opposite stopValue ignoreValue x y k =
         let defaultCase () = makeBin operation x y |> k in
@@ -138,13 +139,13 @@ module internal Propositional =
         // simplifying (OP list) op y at this step
         match xargs, y with
         | [x], y -> simplifyExt op co stopValue ignoreValue x y matched unmatched
-        | _ ->
+        | _ -> unmatched ()
             // Trying to simplify pairwise combinations of x- and y-summands
-            let yargs =
-                match y.term with
-                | Expression(Operator op', y', _) when op = op'-> y'
-                | _ -> [y]
-            simplifyPairwiseCombinations xargs yargs Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
+//            let yargs =
+//                match y.term with
+//                | Expression(Operator op', y', _) when op = op'-> y'
+//                | _ -> [y]
+//            simplifyPairwiseCombinations xargs yargs Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
 
     and simplifyCoOp op co stopValue ignoreValue x list y matched unmatched =
         match list, y.term with
@@ -174,7 +175,8 @@ module internal Propositional =
         // Co(...) op OP(...) -> pairwise
         | _, Expression(Operator op', y', _) when op = op' ->
             // Trying to simplify pairwise combinations of x- and y-summands
-            simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
+//            simplifyPairwiseCombinations [x] y' Bool id (simplifyExtWithType op co stopValue ignoreValue) (simplifyConnective op co stopValue ignoreValue) matched unmatched
+            unmatched ()
         | _ -> unmatched ()
 
     and private simplifyOpToExpr x y op co stopValue ignoreValue matched unmatched =

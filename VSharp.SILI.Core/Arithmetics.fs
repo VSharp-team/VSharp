@@ -40,21 +40,21 @@ module internal Arithmetics =
         | _, _, UnaryMinus(y, _) when a = y -> matched b
         // (a + b) + (-b) = a if unchecked
         | _, _, UnaryMinus(y, _) when b = y -> matched a
-        | _ ->
+        | _ -> unmatched ()
             // Trying to simplify pairwise combinations of x- and y-summands
-            let summandsOfY =
-                match y with
-                | Add(c, d, _) -> [c; d]
-                | _ -> [y]
-            simplifyPairwiseCombinations
-                [a; b]
-                summandsOfY
-                t
-                id
-                simplifyAdditionExt
-                (simplifyAddition t)
-                matched
-                unmatched
+//            let summandsOfY =
+//                match y with
+//                | Add(c, d, _) -> [c; d]
+//                | _ -> [y]
+//            simplifyPairwiseCombinations
+//                [a; b]
+//                summandsOfY
+//                t
+//                id
+//                simplifyAdditionExt
+//                (simplifyAddition t)
+//                matched
+//                unmatched
 
     and private simplifyAdditionToUnaryMinus t x y matched unmatched =
         // Simplifying (-x) + y at this step
@@ -177,21 +177,21 @@ module internal Arithmetics =
         | _, _, Div(c, d, _) when d = a -> simplifyMultiplication t b c matched
         // (a * b) * (c / b) = a * c if unchecked
         | _, _, Div(c, d, _) when d = b -> simplifyMultiplication t a c matched
-        | _ ->
+        | _ -> unmatched ()
             // Trying to simplify pairwise combinations of x- and y-factors
-            let factorsOfY =
-                match y with
-                | Mul(c, d, _) -> [c; d]
-                | _ -> [y]
-            simplifyPairwiseCombinations
-                [a; b]
-                factorsOfY
-                t
-                id
-                simplifyMultiplicationExt
-                (simplifyMultiplication t)
-                matched
-                unmatched
+//            let factorsOfY =
+//                match y with
+//                | Mul(c, d, _) -> [c; d]
+//                | _ -> [y]
+//            simplifyPairwiseCombinations
+//                [a; b]
+//                factorsOfY
+//                t
+//                id
+//                simplifyMultiplicationExt
+//                (simplifyMultiplication t)
+//                matched
+//                unmatched
 
     and private simplifyMultiplicationOfDivision t a b y matched unmatched =
         // Simplifying (a / b) * y at this step

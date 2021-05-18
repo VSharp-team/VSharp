@@ -30,7 +30,7 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
 
-        let rec iter s = // TODO: recursion! #do
+        let iter s = // TODO: recursion! #do
             let mutable b = true
             let mutable s = s
             while b do
@@ -623,7 +623,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let referenceLocation (cilState : cilState) k =
             let value = Memory.ReferenceArrayIndex arrayRef [index]
             push value cilState |> List.singleton |> k
-        let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
+        let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
             let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionAppendResultsCIL cilState
                 // TODO: types must be equal or we need to cast? #do
@@ -647,7 +647,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                     (fun state k -> k (cond, state))
                     uncheckedStElem
                     (x.Raise x.ArrayTypeMismatchException)
-            let rec checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
+            let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
                 if Types.IsValueType typeOfValue then
                     checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
@@ -1080,7 +1080,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
 
     // returns finishedStates, incompleteStates, erroredStates
     member x.ExecuteAllInstructionsWhile (condition : ip -> bool) (cilState : cilState) : (cilState list * cilState list * cilState list) =
-        let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState =
+        let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState k =
             let ip = currentIp cilState
             try
                 let allStates = x.MakeStep {cilState with iie = None}
@@ -1088,13 +1088,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 let errors = errors @ newErrors // TODO: check it
                 match goodStates with
                 | _ when List.forall (currentIp >> condition) goodStates ->
-                    List.fold executeAllInstructions (finishedStates, incompleteStates, errors) goodStates
-                | _ -> goodStates @ finishedStates, incompleteStates, errors
+                    Cps.List.foldlk executeAllInstructions (finishedStates, incompleteStates, errors) goodStates k
+                | _ -> (goodStates @ finishedStates, incompleteStates, errors) |> k
             with
             | :? InsufficientInformationException as iie ->
                 let iieCilState = { cilState with iie = Some iie} |> setCurrentIp ip
-                finishedStates, iieCilState :: incompleteStates, errors
-        executeAllInstructions ([],[],[]) cilState
+                (finishedStates, iieCilState :: incompleteStates, errors) |> k
+        executeAllInstructions ([],[],[]) cilState id
 
     member x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) : cilState =
         let isRecursiveVertex offset =
@@ -1128,27 +1128,28 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 else cilState
             | Exit _ :: Exit _ :: _ -> __unreachable__()
             | _ -> __unreachable__()
-        let rec makeStep' = function
+        let rec makeStep' ip k =
+            match ip with
             | Instruction(offset, m) ->
                 if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
-                x.ExecuteInstruction m offset cilState
-            | Exit _ -> exit () |> List.singleton
+                x.ExecuteInstruction m offset cilState |> k
+            | Exit _ -> exit () |> List.singleton |> k
             | Leave(EndFinally, [],  dst, m) ->
-                setCurrentIp (instruction m dst) cilState |> clearEvaluationStackLastFrame |> List.singleton
+                setCurrentIp (instruction m dst) cilState |> clearEvaluationStackLastFrame |> List.singleton |> k
             | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
                 let ip' = leave (instruction m ehc.HandlerOffset) ehcs dst m
-                setCurrentIp ip' cilState |> clearEvaluationStackLastFrame |> List.singleton
+                setCurrentIp ip' cilState |> clearEvaluationStackLastFrame |> List.singleton |> k
             | Leave(ip, ehcs, dst, m) ->
-                let states = makeStep' ip
                 let makeLeaveIfNeeded (result : cilState) =
                     if List.length result.ipStack = List.length cilState.ipStack then
                         match result.ipStack with
                         | ip :: ips -> {result with ipStack = leave ip ehcs dst m :: ips}
                         | _ -> __unreachable__()
                     else result
-                List.map makeLeaveIfNeeded states
+                makeStep' ip (fun states ->
+                List.map makeLeaveIfNeeded states |> k)
             | _ -> __notImplemented__()
-        makeStep' (currentIp cilState)
+        makeStep' (currentIp cilState) id
 
     member private x.ExecuteInstruction m offset (cilState : cilState) =
         Logger.trace "ExecuteInstruction:\n%s" (dump cilState)

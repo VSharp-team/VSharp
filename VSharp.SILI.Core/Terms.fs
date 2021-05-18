@@ -111,68 +111,74 @@ type termNode =
 
         let extendIndent = (+) "\t"
 
-        let rec toStr parentPriority indent term =
+        let rec toStr parentPriority indent term k =
             match term with
-            | Nop -> "<VOID>"
-            | Constant(name, _, _) -> name.v
+            | Nop -> k "<VOID>"
+            | Constant(name, _, _) -> k name.v
             | Concrete(_, (ClassType(Id t, _) as typ)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
-                sprintf "<Lambda Expression %O>" typ
-            | Concrete(_, Null) -> "null"
-            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> "null"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c
-            | Concrete(:? concreteHeapAddress as k, AddressType) -> VectorTime.print k
-            | Concrete(value, _) -> value.ToString()
+                sprintf "<Lambda Expression %O>" typ |> k
+            | Concrete(_, Null) -> k "null"
+            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> k "null"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> k "'\\000'"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c |> k
+            | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
+            | Concrete(value, _) -> value.ToString() |> k
             | Expression(operation, operands, _) ->
                 match operation with
                 | Operator operator when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
                     let operand = List.head operands
                     let opStr = Operations.operationToString operator |> checkExpression operation.priority parentPriority
-                    let printedOperand = toStr operation.priority indent operand.term
-                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
+                    toStr operation.priority indent operand.term (fun printedOperand ->
+                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand |> k)
                 | Operator operator ->
                     assert (List.length operands >= 2)
-                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority indent)
+                    Cps.List.mapk (fun x k -> toStr operation.priority indent (getTerm x) k) operands (fun printedOperands ->
                     let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
                     sortedOperands
                         |> String.concat (Operations.operationToString operator)
                         |> checkExpression operation.priority parentPriority
+                        |> k)
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O %s)" dest (toStr operation.priority indent (List.head operands).term) |>
-                        checkExpression operation.priority parentPriority
-                | Application f -> operands |> List.map (getTerm >> toStr -1 indent) |> join ", " |> sprintf "%O(%s)" f
+                    toStr operation.priority indent (List.head operands).term (fun term ->
+                    sprintf "(%O %s)" dest term
+                        |> checkExpression operation.priority parentPriority
+                        |> k)
+                | Application f ->
+                    Cps.List.mapk (getTerm >> toStr -1 indent) operands (fun results ->
+                    results |> join ", " |> sprintf "%O(%s)" f |> k)
             | Struct(fields, t) ->
-                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t
+                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
             | Union(guardedTerms) ->
-                let guardedToString (guard, term) =
-                    let guardString = toStringWithParentIndent indent guard
-                    let termString = toStringWithParentIndent indent term
-                    sprintf "| %s ~> %s" guardString termString
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]"
-            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> "NullRef"
-            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType
-            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address
+                let guardedToString (guard, term) k =
+                    toStringWithParentIndent indent guard (fun guardString ->
+                    toStringWithParentIndent indent term (fun termString ->
+                    sprintf "| %s ~> %s" guardString termString |> k))
+                Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
+                let printed = guards |> Seq.sort |> join ("\n" + indent)
+                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
+            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> k "NullRef"
+            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
+            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
             | Ptr(address, typ, shift) ->
                 let offset =
                     match shift with
                     | None -> ""
                     | Some shift -> ", offset = " + shift.ToString()
                 match address with
-                | None -> sprintf "(nullptr as %O%s)" typ offset
-                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset
+                | None -> sprintf "(nullptr as %O%s)" typ offset |> k
+                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
             formatIfNotEmpty (formatWithIndent indent) stringResult
 
-        and toStringWithIndent indent term = toStr -1 indent term.term
+        and toStringWithIndent indent term k = toStr -1 indent term.term k
 
-        and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
+        and toStringWithParentIndent parentIndent term k = toStringWithIndent (extendIndent parentIndent) term k
 
-        toStr -1 "\t" x
+        toStr -1 "\t" x id
 
 and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 

@@ -102,7 +102,7 @@ type ip =
 and ipStack = ip list
 
 // TODO: #mbdo use ``ip'' instead of ``codeLocation''
-type level = pdict<codeLocation, uint>
+type level = pdict<codeLocation, uint32>
 
 module ipOperations =
     let exit m = Exit m
@@ -116,13 +116,18 @@ module ipOperations =
         | _ -> Leave(ip, ehcs, dst, m)
     let searchingForHandler toObserve toPop = SearchingForHandler(toObserve, toPop)
 
-    let rec moveInstruction (newOffset : offset) = function
-        | Instruction(_, m) -> Instruction(newOffset, m)
-        | InFilterHandler(_, m, x, y) -> InFilterHandler(newOffset, m, x, y)
-        | Leave(ip, ehcs, dst, m) -> leave (moveInstruction newOffset ip) ehcs dst m
-        | SearchingForHandler _ -> __notImplemented__()
-        | Exit _ -> __unreachable__()
-        | _ -> __unreachable__()
+    let moveInstruction (newOffset : offset) ip =
+        let rec helper (newOffset : offset) ip k =
+            match ip with
+            | Instruction(_, m) -> Instruction(newOffset, m) |> k
+            | InFilterHandler(_, m, x, y) -> InFilterHandler(newOffset, m, x, y) |> k
+            | Leave(ip, ehcs, dst, m) ->
+                helper newOffset ip (fun ip' ->
+                leave ip' ehcs dst m |> k)
+            | SearchingForHandler _ -> __notImplemented__()
+            | Exit _ -> __unreachable__()
+            | _ -> __unreachable__()
+        helper newOffset ip id 
 
 //    let withExit ip = {ip with label = Exit}
 //    let withOffset offset ip = {ip with label = Instruction offset}
