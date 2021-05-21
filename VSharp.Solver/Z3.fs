@@ -74,7 +74,6 @@ module internal Z3 =
 
 // ------------------------------- Encoding: primitives -------------------------------
 
-    // TODO: use unified architecture for any solver #do
     type private Z3Builder(ctx : Context) =
         let cache = freshCache()
 
