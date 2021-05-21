@@ -1,5 +1,5 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.Or5(System.Boolean, System.Boolean)
 RESULT: Totally 1 state:
-True
+!a | a | b
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Logics }

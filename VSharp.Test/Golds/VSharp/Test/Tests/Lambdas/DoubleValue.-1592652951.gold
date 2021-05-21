@@ -1,19 +1,35 @@
 METHOD: System.Boolean VSharp.Test.Tests.Lambdas.DoubleValue(System.Int32, System.Boolean)
-RESULT: True
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0 CLASS [
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass2_0::a ~> n
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass2_0::b ~> UNION[
-		| !flag ~> 0
-		| flag ~> n]
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass2_0::c ~> UNION[
-		| !flag ~> n
-		| flag ~> 0]]
-2 ==> <Lambda Expression System.Action`1[System.Int32]>
+RESULT: Totally 2 states:
+True
+MEMORY DUMP:
+Path condition: !flag
+--------------- Fields: ---------------
+a ==> {2 <- n}
+b ==> {2 <- 0}
+c ==> {2 <- n}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0
+3 ==> System.Action`1[System.Int32]
+--------------- Delegates: ---------------
 3 ==> <Lambda Expression System.Action`1[System.Int32]>
----------- s1 = ----------
-System.Action`1[System.Int32] ==> CLASS []
-VSharp.Test.Tests.Lambdas ==> CLASS []
-VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0 ==> CLASS []
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0)
+key = __loc__1, value = (HeapRef 3 to System.Action`1[System.Int32])
+Initialized types = { System.Action`1[System.Int32], System.Object, VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0 }
+
+True
+MEMORY DUMP:
+Path condition: flag
+--------------- Fields: ---------------
+a ==> {2 <- n}
+b ==> {2 <- n}
+c ==> {2 <- 0}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0
+3 ==> System.Action`1[System.Int32]
+--------------- Delegates: ---------------
+3 ==> <Lambda Expression System.Action`1[System.Int32]>
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0)
+key = __loc__1, value = (HeapRef 3 to System.Action`1[System.Int32])
+Initialized types = { System.Action`1[System.Int32], System.Object, VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c__DisplayClass2_0 }

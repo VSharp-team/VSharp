@@ -4,7 +4,7 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 Path condition: !(null == this)
 --------------- Stack: ---------------
-key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
 key = __loc__0, value = VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
 	| X ~> 42]
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
 Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct, VSharp.Test.Tests.ClassesSimplePropertyAccess }

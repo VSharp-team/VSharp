@@ -1,0 +1,9 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lambdas.FuncFromFunction(System.Int32)
+RESULT: Totally 1 state:
+!(x <= 0)
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> System.Func`2[System.Int32,System.Boolean]
+--------------- Delegates: ---------------
+2 ==> <Lambda Expression System.Func`2[System.Int32,System.Boolean]>
+Initialized types = { System.Func`2[System.Int32,System.Boolean], VSharp.Test.Tests.Lambdas }

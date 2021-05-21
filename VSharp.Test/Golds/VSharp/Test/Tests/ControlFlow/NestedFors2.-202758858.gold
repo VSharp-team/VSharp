@@ -4,33 +4,33 @@ RESULT: Totally 4 states:
 MEMORY DUMP:
 Path condition: !(2 <= x) /\ 1 <= x
 --------------- Stack: ---------------
-key = __loc__2, value = 2
-key = __loc__1, value = 2
 key = __loc__0, value = 1
-Initialized types = { VSharp.Test.Tests.ControlFlow }
-
-0
-MEMORY DUMP:
-Path condition: !(1 <= x)
---------------- Stack: ---------------
-key = __loc__1, value = 1
-key = __loc__0, value = 0
-Initialized types = { VSharp.Test.Tests.ControlFlow }
-
-4
-MEMORY DUMP:
-Path condition: !(3 <= x) /\ 1 <= x /\ 2 <= x
---------------- Stack: ---------------
-key = __loc__2, value = 3
-key = __loc__1, value = 3
-key = __loc__0, value = 4
+key = __loc__1, value = 2
+key = __loc__2, value = 2
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
 10
 MEMORY DUMP:
 Path condition: !(4 <= x) /\ 1 <= x /\ 2 <= x /\ 3 <= x
 --------------- Stack: ---------------
-key = __loc__2, value = 4
-key = __loc__1, value = 4
 key = __loc__0, value = 10
+key = __loc__1, value = 4
+key = __loc__2, value = 4
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+0
+MEMORY DUMP:
+Path condition: !(1 <= x)
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+key = __loc__1, value = 1
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+4
+MEMORY DUMP:
+Path condition: !(3 <= x) /\ 1 <= x /\ 2 <= x
+--------------- Stack: ---------------
+key = __loc__0, value = 4
+key = __loc__1, value = 3
+key = __loc__2, value = 3
 Initialized types = { VSharp.Test.Tests.ControlFlow }

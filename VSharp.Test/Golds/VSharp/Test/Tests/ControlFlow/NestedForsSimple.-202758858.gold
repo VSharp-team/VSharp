@@ -1,21 +1,12 @@
 METHOD: System.Int32 VSharp.Test.Tests.ControlFlow.NestedForsSimple(System.Int32)
 RESULT: Totally 3 states:
-4
-MEMORY DUMP:
-Path condition: !(2 < x) /\ 0 < x /\ 1 < x
---------------- Stack: ---------------
-key = __loc__2, value = 2
-key = __loc__0, value = 4
-key = __loc__1, value = 2
-Initialized types = { VSharp.Test.Tests.ControlFlow }
-
 1
 MEMORY DUMP:
 Path condition: !(1 < x) /\ 0 < x
 --------------- Stack: ---------------
-key = __loc__2, value = 1
 key = __loc__0, value = 1
 key = __loc__1, value = 1
+key = __loc__2, value = 1
 Initialized types = { VSharp.Test.Tests.ControlFlow }
 
 0
@@ -24,4 +15,13 @@ Path condition: !(0 < x)
 --------------- Stack: ---------------
 key = __loc__0, value = 0
 key = __loc__1, value = 0
+Initialized types = { VSharp.Test.Tests.ControlFlow }
+
+4
+MEMORY DUMP:
+Path condition: !(2 < x) /\ 0 < x /\ 1 < x
+--------------- Stack: ---------------
+key = __loc__0, value = 4
+key = __loc__1, value = 2
+key = __loc__2, value = 2
 Initialized types = { VSharp.Test.Tests.ControlFlow }

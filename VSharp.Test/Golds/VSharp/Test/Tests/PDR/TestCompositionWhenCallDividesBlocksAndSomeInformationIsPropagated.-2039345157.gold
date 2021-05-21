@@ -12,6 +12,6 @@ System.Int32[] ==> {3[0] <- 32; 4[0] <- 32}
 5 ==> System.Double[]
 6 ==> System.Double[]
 --------------- Stack: ---------------
-key = __loc__1, value = 2
 key = __loc__0, value = (HeapRef 6 to System.Double[])
+key = __loc__1, value = 2
 Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

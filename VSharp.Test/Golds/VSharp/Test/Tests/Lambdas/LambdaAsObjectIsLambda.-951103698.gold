@@ -9,9 +9,11 @@ MEMORY DUMP:
 <>9 ==> {
         VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 2 to VSharp.Test.Tests.Lambdas+<>c)
     }
+<>9__10_0 ==> {VSharp.Test.Tests.Lambdas+<>c <- NullRef}
 <>9__4_0 ==> {
         VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 3 to System.Action`1[System.Int32])
     }
+<>9__7_0 ==> {VSharp.Test.Tests.Lambdas+<>c <- NullRef}
 --------------- Delegates: ---------------
 3 ==> <Lambda Expression System.Action`1[System.Int32]>
 Initialized types = { System.Action`1[System.Int32], System.Object, VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c }

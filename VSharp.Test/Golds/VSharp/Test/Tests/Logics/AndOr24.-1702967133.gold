@@ -1,5 +1,5 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.AndOr24(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
 RESULT: Totally 1 state:
-!c & (!a | b)
+(!a | !b | !c) & (!a | !c | b) & (!a | b | c) & (!c | a)
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Logics }

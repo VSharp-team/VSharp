@@ -12,7 +12,7 @@ X ==> {3 <- anyVarName}
 2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify
 3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer
 --------------- Stack: ---------------
-key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccessModify)
 key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
 key = __loc__1, value = anyVarName
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccessModify)
 Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccessModify, VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer, System.Object }

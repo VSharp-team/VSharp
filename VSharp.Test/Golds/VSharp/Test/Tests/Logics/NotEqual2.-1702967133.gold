@@ -1,6 +1,6 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.NotEqual2(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
 RESULT: Totally 1 state:
-False
+(!a | !b) & a & b
 MEMORY DUMP:
 --------------- Stack: ---------------
 key = __loc__0, value = a & b

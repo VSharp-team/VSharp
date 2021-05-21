@@ -1,15 +1,15 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.BoxNullable(System.Nullable`1[System.Int32])
 RESULT: Totally 2 states:
-(HeapRef 3 to System.Object)
-MEMORY DUMP:
-Path condition: hasValue
---------------- Boxed items: ---------------
-3 ==> value
---------------- Types tokens: ---------------
-3 ==> System.Int32
-Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }
-
 NullRef
 MEMORY DUMP:
 Path condition: !hasValue
-Initialized types = { System.Nullable`1[System.Int32], VSharp.Test.Tests.BoxUnbox }
+Initialized types = { VSharp.Test.Tests.BoxUnbox }
+
+(HeapRef 2 to System.Object)
+MEMORY DUMP:
+Path condition: hasValue
+--------------- Boxed items: ---------------
+2 ==> value
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+Initialized types = { VSharp.Test.Tests.BoxUnbox }

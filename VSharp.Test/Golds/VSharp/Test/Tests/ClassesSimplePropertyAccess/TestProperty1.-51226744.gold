@@ -19,7 +19,7 @@ s_emptyArray ==> {
         System.Collections.Generic.List`1[System.Boolean] <- (HeapRef 3 to System.Boolean[])
     }
 --------------- Stack: ---------------
-key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
 key = __loc__0, value = VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct STRUCT [
 	| X ~> 42]
+key = this, value = (HeapRef this to VSharp.Test.Tests.ClassesSimplePropertyAccess)
 Initialized types = { VSharp.Test.Tests.ClassesSimplePropertyAccess+SimpleStruct, System.Collections.Generic.List`1[System.Boolean], System.Object, VSharp.Test.Tests.ClassesSimplePropertyAccess }

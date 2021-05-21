@@ -2,5 +2,4 @@ METHOD: System.Int64 VSharp.Test.Tests.PDR.Many_Conversions(System.Int16)
 RESULT: Totally 1 state:
 (System.Int64 (System.Byte a))
 MEMORY DUMP:
-Path condition: (System.Int64 a) <= 2147483647 & -2147483648 <= (System.Int64 a)
 Initialized types = { VSharp.Test.Tests.PDR }

@@ -3,6 +3,6 @@ RESULT: Totally 1 state:
 14
 MEMORY DUMP:
 --------------- Stack: ---------------
-key = __loc__1, value = 14
 key = __loc__0, value = 14
+key = __loc__1, value = 14
 Initialized types = { VSharp.Test.Tests.Unsafe }

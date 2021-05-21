@@ -5,32 +5,14 @@ MEMORY DUMP:
 Path condition: n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
-(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * n
+(-1 + n) * (-10 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
 MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(n <= 0) /\ -5 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
+Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -11 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
-(-1 + n) * (-10 + n) * (-11 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
+(-1 + n) * n
 MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -12 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
-(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * (-7 + n) * (-8 + n) * (-9 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -10 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
-(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * (-7 + n) * (-8 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(n <= 0) /\ -9 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
+Path condition: !(-1 + n <= 0) /\ !(n <= 0) /\ -2 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
 n
@@ -38,72 +20,62 @@ MEMORY DUMP:
 Path condition: !(n <= 0) /\ -1 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
-(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(n <= 0) /\ -7 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
-(-1 + n) * (-10 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -11 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
-(-1 + n) * (-10 + n) * (-11 + n) * (-12 + n) * (-13 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-12 + n <= 0) /\ !(-13 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -14 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
 (-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * (-7 + n) * n
 MEMORY DUMP:
 Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(n <= 0) /\ -8 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
-Initialized types = { VSharp.Test.Tests.PDR }
-
-(-1 + n) * (-10 + n) * (-11 + n) * (-12 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
-MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-12 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -13 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
 Initialized types = { VSharp.Test.Tests.PDR }
 
 (-1 + n) * (-2 + n) * (-3 + n) * n
 MEMORY DUMP:
 Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(n <= 0) /\ -4 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-10 + n) * (-11 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -12 + n <= 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(n <= 0) /\ -7 + n <= 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-10 + n) * (-11 + n) * (-12 + n) * (-13 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-12 + n <= 0) /\ !(-13 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -14 + n <= 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(n <= 0) /\ -5 + n <= 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * (-7 + n) * (-8 + n) * (-9 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -10 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
 (-1 + n) * (-10 + n) * (-11 + n) * (-12 + n) * (-13 + n) * (-14 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
 MEMORY DUMP:
 Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-12 + n <= 0) /\ !(-13 + n <= 0) /\ !(-14 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -15 + n <= 0
---------------- Stack: ---------------
-key = n, value = -4 + n
 Initialized types = { VSharp.Test.Tests.PDR }
 
-(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * n
+(-1 + n) * (-10 + n) * (-11 + n) * (-12 + n) * (-9 + n) * (-8 + n) * (-7 + n) * (-6 + n) * (-5 + n) * (-4 + n) * (-3 + n) * (-2 + n) * n
 MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(n <= 0) /\ -6 + n <= 0
---------------- Stack: ---------------
-key = n, value = -2 + n
+Path condition: !(-1 + n <= 0) /\ !(-10 + n <= 0) /\ !(-11 + n <= 0) /\ !(-12 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(-9 + n <= 0) /\ !(n <= 0) /\ -13 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }
 
 (-1 + n) * (-2 + n) * n
 MEMORY DUMP:
 Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(n <= 0) /\ -3 + n <= 0
---------------- Stack: ---------------
-key = n, value = -1 + n
 Initialized types = { VSharp.Test.Tests.PDR }
 
-(-1 + n) * n
+(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * (-6 + n) * (-7 + n) * (-8 + n) * n
 MEMORY DUMP:
-Path condition: !(-1 + n <= 0) /\ !(n <= 0) /\ -2 + n <= 0
---------------- Stack: ---------------
-key = n, value = -1 + n
+Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(-6 + n <= 0) /\ !(-7 + n <= 0) /\ !(-8 + n <= 0) /\ !(n <= 0) /\ -9 + n <= 0
+Initialized types = { VSharp.Test.Tests.PDR }
+
+(-1 + n) * (-2 + n) * (-3 + n) * (-4 + n) * (-5 + n) * n
+MEMORY DUMP:
+Path condition: !(-1 + n <= 0) /\ !(-2 + n <= 0) /\ !(-3 + n <= 0) /\ !(-4 + n <= 0) /\ !(-5 + n <= 0) /\ !(n <= 0) /\ -6 + n <= 0
 Initialized types = { VSharp.Test.Tests.PDR }

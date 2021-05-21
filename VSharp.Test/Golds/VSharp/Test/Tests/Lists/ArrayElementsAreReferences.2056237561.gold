@@ -5,8 +5,8 @@ MEMORY DUMP:
 Path condition: !(a == null) /\ !(i < 0) & i < Length(a, 0) /\ !(j < 0) & j < Length(a, 0) /\ i == j
 --------------- Stack: ---------------
 key = __loc__0, value = (HeapRef a[i] to VSharp.Test.Tests.Lists+MyClass)
-key = __loc__2, value = 0
 key = __loc__1, value = (HeapRef a[j] to VSharp.Test.Tests.Lists+MyClass)
+key = __loc__2, value = 0
 Initialized types = { VSharp.Test.Tests.Lists }
 
 0
@@ -14,6 +14,6 @@ MEMORY DUMP:
 Path condition: !(a == null) /\ !(i < 0) & i < Length(a, 0) /\ !(i == j) /\ !(j < 0) & j < Length(a, 0)
 --------------- Stack: ---------------
 key = __loc__0, value = (HeapRef a[i] to VSharp.Test.Tests.Lists+MyClass)
-key = __loc__2, value = 0
 key = __loc__1, value = (HeapRef a[j] to VSharp.Test.Tests.Lists+MyClass)
+key = __loc__2, value = 0
 Initialized types = { VSharp.Test.Tests.Lists }

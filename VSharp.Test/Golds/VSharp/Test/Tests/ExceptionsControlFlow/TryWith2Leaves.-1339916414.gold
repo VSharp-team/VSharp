@@ -1,16 +1,16 @@
 METHOD: System.Int32 VSharp.Test.Tests.ExceptionsControlFlow.TryWith2Leaves(System.Boolean)
 RESULT: Totally 2 states:
+100
+MEMORY DUMP:
+Path condition: f
+--------------- Stack: ---------------
+key = __loc__0, value = 42
+key = __loc__1, value = 100
+Initialized types = { VSharp.Test.Tests.ExceptionsControlFlow }
+
 43
 MEMORY DUMP:
 Path condition: !f
 --------------- Stack: ---------------
 key = __loc__0, value = 43
-Initialized types = { VSharp.Test.Tests.ExceptionsControlFlow }
-
-100
-MEMORY DUMP:
-Path condition: f
---------------- Stack: ---------------
-key = __loc__1, value = 100
-key = __loc__0, value = 42
 Initialized types = { VSharp.Test.Tests.ExceptionsControlFlow }
