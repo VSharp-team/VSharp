@@ -187,7 +187,7 @@ module API =
         let EmptyState = Memory.empty
         let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis isEffect = Memory.newStackFrame state funcId parametersAndThis isEffect
+        let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state funcId parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
         let rec ReferenceArrayIndex arrayRef indices =
@@ -270,15 +270,13 @@ module API =
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
         let DefaultOf typ = makeDefaultValue typ
-        let AllocateOnStack state key term = Memory.allocateOnStack state key term
-        let AllocateTemporaryLocalVariable state typ term =
-            let tmpKey = TemporaryLocalVariableKey typ
-            let ref = PrimitiveStackLocation tmpKey |> Ref
-            ref, Memory.allocateOnStack state tmpKey term
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
-
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
+
+        let CallStackContainsFunction state funcId = CallStack.containsFunc state.stack funcId
+        let CallStackSize state = CallStack.size state.stack
+        let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 
         let BoxValueType state term =
             let address, state = Memory.freshAddress state
@@ -287,6 +285,11 @@ module API =
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
+
+        let AllocateTemporaryLocalVariable state typ term =
+            let tmpKey = TemporaryLocalVariableKey typ
+            let ref = PrimitiveStackLocation tmpKey |> Ref
+            ref, Memory.allocateOnStack state tmpKey term
 
         let AllocateDefaultClass state typ =
             Memory.allocateClass state typ

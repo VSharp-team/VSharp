@@ -87,7 +87,3 @@ type fieldId =
                     (y.declaringType.AssemblyQualifiedName, y.name, y.typ.AssemblyQualifiedName)
             | _ -> -1
     override x.ToString() = x.name
-
-type 'a symbolicValue =
-    | Specified of 'a
-    | Unspecified

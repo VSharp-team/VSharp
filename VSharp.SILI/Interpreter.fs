@@ -244,7 +244,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 | _ -> thisOption, args
             let state = Memory.PopFrame state
             let methodId = methodInterpreter.MakeMethodIdentifier methodInfo
-            let cilState = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Specified args) false id |> changeState cilState
+            let cilState = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Some args) id |> changeState cilState
             let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (setCurrentIp (instruction methodInfo 0) >> List.singleton)
             // NOTE: callsite of cilState is explicitly untouched
             k cilStates
@@ -304,7 +304,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 // Popping frame created for ancestor calledMethod
                 let cilState = popFrameOf cilState
                 // Creating valid frame with stackKeys corresponding to actual targetMethod
-                methodInterpreter.ReduceFunctionSignatureCIL cilState targetMethod (Some this) (Specified args) false (fun cilState ->
+                methodInterpreter.ReduceFunctionSignatureCIL cilState targetMethod (Some this) (Some args) (fun cilState ->
                 x.InlineMethodBaseCallIfNeeded targetMethod cilState k)
 
     member x.CallVirtualMethod (ancestorMethod : MethodInfo) (cilState : cilState) (k : cilState list -> 'a) =
@@ -429,7 +429,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
         methodInterpreter.InitializeStatics cilState calledMethod.DeclaringType (fun cilState ->
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
-        methodInterpreter.ReduceFunctionSignatureCIL cilState calledMethod this (Specified args) false (fun cilState ->
+        methodInterpreter.ReduceFunctionSignatureCIL cilState calledMethod this (Some args) (fun cilState ->
         x.CommonCall calledMethod cilState id))
     member x.CommonCallVirt (ancestorMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethodBase
@@ -457,7 +457,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         // NOTE: It is not quite strict to ReduceFunctionSignature here because, but it does not matter because signatures of virtual methods are the same
         methodInterpreter.InitializeStatics cilState methodToCall.DeclaringType (fun cilState ->
-        methodInterpreter.ReduceFunctionSignatureCIL cilState methodToCall this (Specified args) false (fun cilState ->
+        methodInterpreter.ReduceFunctionSignatureCIL cilState methodToCall this (Some args) (fun cilState ->
         x.CommonCallVirt methodToCall cilState id))
     member x.ReduceArrayCreation (arrayType : System.Type) (cilState : cilState) (parameters : term list) k =
         let arrayTyp = Types.FromDotNetType arrayType
@@ -521,14 +521,14 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         assert(Option.isNone this)
         let constructedTermType = Types.FromDotNetType typ
         let wasConstructorCalled (beforeCall : cilState) (afterCall : cilState) =
-            List.length afterCall.state.frames = List.length beforeCall.state.frames
+            Memory.CallStackSize afterCall.state = Memory.CallStackSize beforeCall.state // TODO: why equality?
         let modifyValueResultIfConstructorWasCalled (beforeCall : cilState) (afterCall : cilState) =
             if wasConstructorCalled beforeCall afterCall then pushNewObjForValueTypes afterCall
             else afterCall
 
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
-                methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Specified args) false (fun cilState ->
+                methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Some args) (fun cilState ->
                 x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
 
             if Types.IsValueType constructedTermType || typ = typeof<System.IntPtr> then

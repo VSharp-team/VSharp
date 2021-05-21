@@ -532,7 +532,7 @@ module internal InstructionsSet =
         let cilStates = op cfgData offset cilState
         let errors, goods = cilStates |> List.partition isError
         let changeIpIfNeeded (newState : cilState) =
-            if List.length newState.state.frames = List.length cilState.state.frames then setCurrentIp newIp newState
+            if Memory.CallStackSize newState.state = Memory.CallStackSize cilState.state then setCurrentIp newIp newState
             else newState // case when constructing runtime exception
         errors @ List.map changeIpIfNeeded goods
 

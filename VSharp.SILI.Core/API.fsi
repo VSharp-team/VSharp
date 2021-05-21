@@ -152,7 +152,7 @@ module API =
         val EmptyState : state
         val PopFrame : state -> state
         val PopTypeVariables : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * symbolicType) list -> bool -> state
+        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term option * symbolicType) list -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
         val ReferenceField : state -> term -> fieldId -> term
@@ -177,14 +177,19 @@ module API =
         val WriteStaticField : state -> symbolicType -> fieldId -> term -> state
 
         val DefaultOf : symbolicType -> term
-        val AllocateOnStack : state -> stackKey -> term -> state
-        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
-        val MakeSymbolicThis : System.Reflection.MethodBase -> term
 
+        val MakeSymbolicThis : MethodBase -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
 
+        val CallStackContainsFunction : state -> IFunctionIdentifier -> bool
+        val CallStackSize : state -> int
+        val GetCurrentExploringFunction : state -> IFunctionIdentifier
+
         val BoxValueType : state -> term -> term * state
+
         val InitializeStaticMembers : state -> symbolicType -> state
+
+        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateVectorArray : state -> term -> symbolicType -> term * state

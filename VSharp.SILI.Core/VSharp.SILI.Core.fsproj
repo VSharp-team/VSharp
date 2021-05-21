@@ -22,6 +22,7 @@
         <Compile Include="Substitution.fs" />
         <Compile Include="MemoryRegion.fs" />
         <Compile Include="EvaluationStack.fs" />
+        <Compile Include="CallStack.fs" />
         <Compile Include="State.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="SolverInteraction.fs" />

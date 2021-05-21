@@ -135,19 +135,13 @@ type 'a stack = 'a list
 
 module public Stack =
 
-    let peek = function
-        | [] -> failwith "Attempt to peak head of an empty stack"
-        | hd::_ -> hd
-
     let bottomAndRest = List.lastAndRest
 
     let pop = function
         | [] -> failwith "Attempt to pop an empty stack"
-        | _::tl -> tl
+        | head :: tl -> head, tl
 
     let push stack element = element::stack
-
-    let updateHead stack newHd = push (pop stack) newHd
 
     let empty = List.empty
 
@@ -162,3 +156,9 @@ module public Stack =
     let tryFindBottom = List.tryFindBack
 
     let exists = List.exists
+
+    let map = List.map
+
+    let union = List.append
+
+    let fold = List.fold

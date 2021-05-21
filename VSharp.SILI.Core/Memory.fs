@@ -27,9 +27,8 @@ module internal Memory =
         evaluationStack = EvaluationStack.empty
         returnRegister = None
         exceptionsRegister = NoException
-        stack = MappedStack.empty
+        stack = CallStack.empty
         stackBuffers = PersistentDict.empty
-        frames = Stack.empty
         classFields = PersistentDict.empty
         arrays = PersistentDict.empty
         lengths = PersistentDict.empty
@@ -51,33 +50,17 @@ module internal Memory =
 
 // ------------------------------- Stack -------------------------------
 
-    let newStackFrame (s : state) funcId frame isEffect : state =
-        let pushOne (map : stack) (key, value, typ) =
-            match value with
-            | Specified term -> { key = key; typ = typ }, MappedStack.push key term map
-            | Unspecified -> { key = key; typ = typ }, MappedStack.reserve key 1u map
-        let locations, newStack = frame |> List.mapFold pushOne s.stack
-        let frames' = Stack.push s.frames { func = funcId; entries = locations; isEffect = isEffect }
-        let evaluationStack' = EvaluationStack.newStackFrame s.evaluationStack
-        { s with stack = newStack; frames = frames'; evaluationStack = evaluationStack' }
+    let newStackFrame (s : state) funcId frame : state =
+        let stack = CallStack.newStackFrame s.stack funcId frame
+        let evaluationStack = EvaluationStack.newStackFrame s.evaluationStack
+        { s with stack = stack; evaluationStack = evaluationStack }
 
-    let pushToCurrentStackFrame (s : state) key value = MappedStack.push key value s.stack
     let popFrame (s : state) : state =
-        let popOne (map : stack) entry = MappedStack.remove map entry.key
-        let entries = (Stack.peek s.frames).entries
-        let frames' = Stack.pop s.frames
-        let evaluationStack' = EvaluationStack.popStackFrame s.evaluationStack
-        { s with stack = List.fold popOne s.stack entries; frames = frames'; evaluationStack = evaluationStack' }
+        let stack = CallStack.popFrame s.stack
+        let evaluationStack = EvaluationStack.popStackFrame s.evaluationStack
+        { s with stack = stack; evaluationStack = evaluationStack }
 
-    let inline entriesOfFrame f = f.entries
-
-    let inline private keyOfEntry en = en.key
-
-    let typeOfStackLocation (s : state) key =
-        let forMatch = List.tryPick (entriesOfFrame >> List.tryPick (fun { key = l; typ = t } -> if l = key then Some t else None)) s.frames
-        match forMatch with
-        | Some t -> t
-        | None -> internalfailf "stack does not contain key %O!" key
+    let typeOfStackLocation (s : state) key = CallStack.typeOfStackLocation s.stack key
 
 // ------------------------------- Types -------------------------------
 
@@ -90,10 +73,14 @@ module internal Memory =
 
     let popTypeVariablesSubstitution state =
         let oldMappedStack, oldStack = state.typeVariables
-        let toPop = Stack.peek oldStack
-        let newStack = Stack.pop oldStack
+        let toPop, newStack = Stack.pop oldStack
         let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
         { state with typeVariables = (newMappedStack, newStack) }
+
+    let commonTypeVariableSubst state (t : Type) someCase noneCase =
+        match MappedStack.tryFind (Id t) (fst state.typeVariables) with
+        | Some typ -> someCase typ
+        | None -> noneCase
 
     let rec substituteTypeVariables (state : state) typ =
         let substituteTypeVariables = substituteTypeVariables state
@@ -107,9 +94,7 @@ module internal Memory =
         | StructType(t, args) -> substitute StructType t args
         | ClassType(t, args) -> substitute ClassType t args
         | InterfaceType(t, args) -> substitute InterfaceType t args
-        | TypeVariable(Id _ as key) ->
-            let ms = state.typeVariables |> fst
-            if MappedStack.containsKey key ms then MappedStack.find key ms else typ
+        | TypeVariable(Id t as key) -> commonTypeVariableSubst state t id typ
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
         | Pointer t -> Pointer(substituteTypeVariables t)
         | ByRef t -> ByRef(substituteTypeVariables t)
@@ -117,10 +102,7 @@ module internal Memory =
     let private substituteTypeVariablesIntoArrayType state ((et, i, b) : arrayType) : arrayType =
         (substituteTypeVariables state et, i, b)
 
-    let typeVariableSubst state (t : Type) =
-        match MappedStack.tryFind (Id t) (fst state.typeVariables) with
-        | Some typ -> typ |> toDotNetType
-        | None -> t
+    let typeVariableSubst state (t : Type) = commonTypeVariableSubst state t toDotNetType t
 
     let private substituteTypeVariablesIntoField state (f : fieldId) =
         Reflection.concretizeField f (typeVariableSubst state)
@@ -333,9 +315,10 @@ module internal Memory =
         | _ -> false
 
     let readStackLocation (s : state) key =
-        match MappedStack.tryFind key s.stack with
-        | Some value -> value
-        | None -> makeSymbolicStackRead key (typeOfStackLocation s key) (if isValueType key.TypeOfLocation then None else Some s.startingTime)
+        let makeSymbolic typ =
+            let time = if isValueType typ then None else Some s.startingTime
+            makeSymbolicStackRead key typ time
+        CallStack.readStackLocation s.stack key makeSymbolic
 
     let readStruct (structTerm : term) (field : fieldId) = // TODO: falls in Conv_Ovf_short_int (native int != IntPtr) #do
         match structTerm with
@@ -456,7 +439,7 @@ module internal Memory =
         | _ -> pc1, pc2, common
 
     let private merge2StatesInternal state1 state2 =
-        if state1.frames <> state2.frames then None
+        if state1.stack <> state2.stack then None
         else
             // TODO: implement it! See InterpreterBase::interpret::merge
             None
@@ -529,7 +512,7 @@ module internal Memory =
         if isOpenType typ then __insufficientInformation__ "Cannot write value of generic type %O" typ
 
     let writeStackLocation (s : state) key value =
-        { s with stack = MappedStack.add key value s.stack }
+        { s with stack = CallStack.writeStackLocation s.stack key value }
 
     let writeStruct (structTerm : term) (field : fieldId) value =
         match structTerm with
@@ -622,11 +605,7 @@ module internal Memory =
         ConcreteHeapAddress concreteAddress, {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
 
     let allocateOnStack state key term =
-        let oldFrame = Stack.peek state.frames
-        let newStack = pushToCurrentStackFrame state key term
-        let newEntries = { key = key; typ = typeOf term }
-        let stackFrames = Stack.updateHead state.frames { oldFrame with entries = newEntries :: oldFrame.entries }
-        { state with stack = newStack; frames = stackFrames }
+        { state with stack = CallStack.allocate state.stack key term}
 
     // Strings and delegates should be allocated using the corresponding functions (see allocateString and allocateDelegate)!
     let allocateClass state typ =
@@ -763,55 +742,23 @@ module internal Memory =
             override x.Compose state =
                 x.baseSource.Compose state |> extractAddress
 
-    let private reserveLocation (state : state) key (n : uint32) =
-        {state with stack = MappedStack.reserve key n state.stack}
-
     // state is untouched. It is needed because of this situation:
     // Effect: x' <- y + 5, y' <- x + 10
     // Left state: x <- 0, y <- 0
     // After composition: {x <- 5, y <- 15} OR {y <- 10, x <- 15}
     // but expected result is {x <- 5, y <- 10}
-    let private fillAndMutateStackLocation isEffect state accState (k : stackKey) p (v : term option) =
-        match v with
-        | Some v ->
-            let k' = k.Map (typeVariableSubst state)
-            let v' = fillHoles state v
-//            writeStackLocation accState k' v'
-            let stack =
-                if isEffect then MappedStack.add k' v' accState.stack
-                else MappedStack.addWithIdxPlus k' v' accState.stack p
-            { accState with stack = stack} // TODO: check #do
-        | None when isEffect -> accState // already reserved
-        | None -> reserveLocation accState k p // new frame, so we need to reserve
+    let private fillHolesInStack state stack =
+        let keyMapper (k : stackKey) = k.Map (typeVariableSubst state)
+        CallStack.map keyMapper (fillHoles state) (substituteTypeVariables state) stack
 
     let composeRaisedExceptionsOf (state : state) (error : exceptionRegister) =
         match state.exceptionsRegister, error with
         | NoException, _ -> error |> exceptionRegister.map (fillHoles state)
         | _ -> __unreachable__()
 
-    let private composeStacksAndFramesOf state state' : stack * frames = // TODO: check #do
-        let composeFramesOf state frames' : frames =
-            let frames' = frames' |> List.map (fun f -> {f with entries = f.entries |> List.map (fun e -> {e with typ = substituteTypeVariables state e.typ})})
-            List.append frames' state.frames
-        let bottomAndRestFrames (s : state) : (stack * stack * frames) = // TODO: выкинуть из левого и накатить правые
-            let bottomFrame, restFrames = Stack.bottomAndRest s.frames // TODO: именно выкинуть из левого или можно просто на него накатить эффект?
-            let getStackFrame locations =
-                let pushOne stack (entry : entry) =
-                    match MappedStack.tryFind entry.key s.stack with
-                    | Some v -> MappedStack.push entry.key v stack
-                    | None -> MappedStack.reserve entry.key 1u stack
-                List.fold pushOne MappedStack.empty locations
-            let bottom = entriesOfFrame bottomFrame |> getStackFrame
-            let rest = restFrames |> List.collect entriesOfFrame |> getStackFrame
-            bottom, rest, restFrames
-        let state'Bottom, state'RestStack, state'RestFrames = bottomAndRestFrames state'
-        // apply effect of bottom frame
-        let state2 = MappedStack.fold (fillAndMutateStackLocation true state) state state'Bottom
-        // add rest frames
-        let state3 = {state2 with frames = composeFramesOf state2 state'RestFrames}
-        // fill and copy effect of rest frames
-        let finalState = MappedStack.fold (fillAndMutateStackLocation false state) state3 state'RestStack
-        finalState.stack, finalState.frames
+    let private composeStacksOf state state' : callStack =
+        let stack' = fillHolesInStack state state'.stack
+        CallStack.applyEffect state.stack stack'
 
     let private fillHolesInMemoryRegion state mr =
         let substTerm = fillHoles state
@@ -893,7 +840,7 @@ module internal Memory =
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
-            let stack, frames = composeStacksAndFramesOf state state'
+            let stack = composeStacksOf state state'
             let! g1, stackBuffers = composeMemoryRegions state state.stackBuffers state'.stackBuffers
             let! g2, classFields = composeMemoryRegions state state.classFields state'.classFields
             let! g3, arrays = composeMemoryRegions state state.arrays state'.arrays
@@ -920,7 +867,6 @@ module internal Memory =
                     returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     stack = stack
-                    frames = frames
                     stackBuffers = stackBuffers
                     classFields = classFields
                     arrays = arrays
@@ -947,13 +893,11 @@ module internal Memory =
 // ------------------------------- Pretty-printing -------------------------------
 
     let private dumpStack (sb : StringBuilder) stack =
-        let print (sb : StringBuilder) k _ v =
-            Option.fold (fun sb v -> sprintf "key = %O, value = %O" k v |> PrettyPrinting.appendLine sb) sb v
-        let sb1 = MappedStack.fold print (StringBuilder()) stack
-        if sb1.Length = 0 then sb
+        let stackString = CallStack.toString stack
+        if System.String.IsNullOrEmpty stackString then sb
         else
             let sb = PrettyPrinting.dumpSection "Stack" sb
-            sb.Append(sb1)
+            PrettyPrinting.appendLine sb stackString
 
     let private dumpDict section sort keyToString valueToString (sb : StringBuilder) d =
         if PersistentDict.isEmpty d then sb

@@ -5,14 +5,6 @@ open VSharp
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
 
-type stack = mappedStack<stackKey, term>
-type entry = { key : stackKey; typ : symbolicType }
-type stackFrame = { func : IFunctionIdentifier; entries : entry list; isEffect : bool }
-
-// frames of active execution stackTrace;
-// that is when searching for exception handler some frames might be temporary dropped
-type frames = stackFrame stack // TODO: is it invariant ``there could not be two sequential stackFrames that are effects'' ?
-
 type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
 
 type stackBufferKey = concreteHeapAddress
@@ -85,9 +77,8 @@ type arrayCopyInfo =
 and state = {
     pc : pathCondition
     evaluationStack : evaluationStack
-    stack : stack                                             // Arguments and local variables
+    stack : callStack                                       // Arguments and local variables
     stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
-    frames : frames                                           // Meta-information about stack frames
     classFields : pdict<fieldId, heapRegion>                  // Fields of classes in heap
     arrays : pdict<arrayType, arrayRegion>                    // Contents of arrays in heap
     lengths : pdict<arrayType, vectorRegion>                  // Lengths by dimensions of arrays in heap
@@ -97,9 +88,9 @@ and state = {
     initializedTypes : symbolicTypeSet                        // Types with initialized static members
     allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
     typeVariables : typeVariables                             // Type variables assignment in the current state
-    delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
-    currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
-    startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
+    delegates : pdict<concreteHeapAddress, term>              // Subtypes of System.Delegate allocated in heap
+    currentTime : vectorTime                                  // Current timestamp (and next allocated address as well) in this state
+    startingTime : vectorTime                                 // Timestamp before which all allocated addresses will be considered symbolic
     returnRegister : term option // TODO: still need this? - Only for timestamp hack #do delete!
-    exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+    exceptionsRegister : exceptionRegister                    // Heap-address of exception object
 }

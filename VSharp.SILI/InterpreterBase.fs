@@ -26,8 +26,7 @@ type public ExplorerBase() =
     static let CurrentlyBeingExploredLocations = HashSet<IFunctionIdentifier>()
 
     static let DetectUnboundRecursion (funcId : IFunctionIdentifier) (s : state) =
-        let isRecursiveFrame (frame : stackFrame) = funcId = frame.func
-        s.frames |> Stack.pop |> Stack.exists isRecursiveFrame
+        Memory.CallStackContainsFunction s funcId
 
     member x.InterpretEntryPoint (id : IFunctionIdentifier) k =
         match id with
@@ -39,7 +38,7 @@ type public ExplorerBase() =
         | _ -> internalfailf "unexpected entry point: expected regular method, but got %O" id
 
     member x.Explore (funcId : IFunctionIdentifier) (k : codeLocationSummary seq -> 'a) =
-        let k = API.Reset(); fun x -> API.Restore(); k x
+        let k = Reset(); fun x -> Restore(); k x
         CurrentlyBeingExploredLocations.Add funcId |> ignore
         let initialStates = x.FormInitialState funcId
         let invoke cilState = x.Invoke funcId cilState (List.map (fun cilState -> {cilState = cilState}))
@@ -83,17 +82,17 @@ type public ExplorerBase() =
 //            let invoke state k = x.Invoke methodId state k
 //            x.EnterRecursiveRegion methodId cilState invoke k
 
-    static member ReduceFunctionSignature state (funcId : IFunctionIdentifier) this paramValues isEffect k =
+    static member ReduceFunctionSignature state (funcId : IFunctionIdentifier) this paramValues k =
         let methodBase = funcId.Method
         let parameters = methodBase.GetParameters()
         let getParameterType (param : ParameterInfo) = Types.FromDotNetType param.ParameterType
         let values, areParametersSpecified =
             match paramValues with
-            | Specified values -> values, true
-            | Unspecified -> [], false
+            | Some values -> values, true
+            | None -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey(lvi, methodBase)
-            (stackKey, Unspecified, Types.FromDotNetType lvi.LocalType)
+            (stackKey, None, Types.FromDotNetType lvi.LocalType)
         let locals =
             match methodBase.GetMethodBody() with
             | null -> []
@@ -106,22 +105,22 @@ type public ExplorerBase() =
                 match areParametersSpecified with
                 | true when param.HasDefaultValue ->
                     let typ = getParameterType param
-                    (stackKey, Specified(Concrete param.DefaultValue typ), typ)
+                    (stackKey, Some(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
-                | _ -> (stackKey, Unspecified, getParameterType param)
-            | Some param, Some value -> (ParameterKey param, Specified value, getParameterType param)
+                | _ -> (stackKey, None, getParameterType param)
+            | Some param, Some value -> (ParameterKey param, Some value, getParameterType param)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
             match this with
             | Some thisValue ->
                 let thisKey = ThisKey methodBase
-                (thisKey, Specified thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+                (thisKey, Some thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
-        Memory.NewStackFrame state funcId (parametersAndThis @ locals) isEffect |> k
+        Memory.NewStackFrame state funcId (parametersAndThis @ locals) |> k
 
-    member x.ReduceFunctionSignatureCIL (cilState : cilState) (methodBase : MethodBase) this paramValues isEffect k =
+    member x.ReduceFunctionSignatureCIL (cilState : cilState) (methodBase : MethodBase) this paramValues k =
         let funcId = x.MakeMethodIdentifier methodBase
-        ExplorerBase.ReduceFunctionSignature cilState.state funcId this paramValues isEffect (fun state ->
+        ExplorerBase.ReduceFunctionSignature cilState.state funcId this paramValues (fun state ->
         cilState |> withState state |> pushToIp (instruction methodBase 0) |> k)
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
@@ -132,7 +131,7 @@ type public ExplorerBase() =
                 match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
                 | null -> NullRef, state
                 | :? string as str -> Memory.AllocateString str state
-                | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Terms.Concrete v fieldType, state
+                | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Concrete v fieldType, state
                 | _ -> __unreachable__()
             else Memory.DefaultOf fieldType, state
         let targetType = Types.FromDotNetType f.DeclaringType
@@ -163,14 +162,14 @@ type public ExplorerBase() =
                 let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
                 let cilState = withState state cilState
                 match staticConstructor with
-                | Some cctor -> x.ReduceFunctionSignatureCIL cilState cctor None (Specified []) false List.singleton
+                | Some cctor -> x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
     member x.CallAbstractMethod (funcId : IFunctionIdentifier) state k =
         __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" funcId
 
-    static member FormInitialStateWithoutStatics isEffect (funcId : IFunctionIdentifier) =
+    static member FormInitialStateWithoutStatics (funcId : IFunctionIdentifier) =
         let this, state(*, isMethodOfStruct*) =
             match funcId with
             | :? IMethodIdentifier as m ->
@@ -179,9 +178,9 @@ type public ExplorerBase() =
                 (if m.IsStatic then None else Memory.MakeSymbolicThis m.Method |> Some), initialState
             | _ -> __notImplemented__()
         let state = Option.fold (fun state this -> !!(IsNullReference this) |> WithPathCondition state) state this
-        ExplorerBase.ReduceFunctionSignature state funcId this Unspecified isEffect id
+        ExplorerBase.ReduceFunctionSignature state funcId this None id
     member x.FormInitialState (funcId : IFunctionIdentifier) : cilState list =
-        let state = ExplorerBase.FormInitialStateWithoutStatics false funcId
+        let state = ExplorerBase.FormInitialStateWithoutStatics funcId
         let cilState = makeInitialState funcId.Method state
         x.InitializeStatics cilState funcId.Method.DeclaringType (List.singleton)
 
@@ -205,7 +204,7 @@ type public ExplorerBase() =
         let fullConstructorName = Reflection.getFullMethodName ctor
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName
-        x.ReduceFunctionSignatureCIL cilState proxyCtor None (Specified arguments) false List.singleton
+        x.ReduceFunctionSignatureCIL cilState proxyCtor None (Some arguments) List.singleton
 
     member x.InvalidProgramException cilState =
         x.CreateException typeof<System.InvalidProgramException> [] cilState

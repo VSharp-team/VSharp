@@ -18,7 +18,7 @@ type IndexedQueue() =
 //            | _ -> false
 //        else false
     member x.Add (s : cilState) =
-        if List.length s.ipStack <> List.length s.state.frames then __unreachable__() // TODO: change to assert; this falls in factAgain #do
+        if List.length s.ipStack <> Memory.CallStackSize s.state then __unreachable__() // TODO: change to assert; this falls in factAgain #do
         q.Add s
 
     member x.Remove s =
@@ -42,9 +42,7 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
 
     member x.GetResults initialState (q : IndexedQueue) =
         let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
-        let isStartingDescender (s : cilState) =
-            let lastFrame = List.last s.state.frames
-            s.startingIP = initialState.startingIP && not lastFrame.isEffect
+        let isStartingDescender (s : cilState) = s.startingIP = initialState.startingIP
         let allStates = List.filter isStartingDescender (q.GetStates())
         let iieStates, nonIIEstates = List.partition isIIEState allStates
         let isFinished (s : cilState) = s.ipStack = [Exit <| currentMethod initialState.startingIP]

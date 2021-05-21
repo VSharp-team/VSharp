@@ -11,7 +11,6 @@ type cilState =
       state : state
       filterResult : term option
       //TODO: #mb frames list #mb transfer to Core.State
-      framesForBypass : frames                             // Observed stack frames not having an exception handler
       iie : InsufficientInformationException option
       level : level
       startingIP : ip
@@ -24,7 +23,6 @@ module internal CilStateOperations =
         { ipStack = [curV]
           state = state
           filterResult = None
-          framesForBypass = []
           iie = None
           level = PersistentDict.empty
           startingIP = curV

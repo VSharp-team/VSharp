@@ -355,7 +355,7 @@ module public CFA =
                 List.iter (dump >> x.PrintLog (sprintf "composition resulted")) cilStates
             let cilStates = compose cilState effect
             // Do NOT turn this List.forall into List.exists to be sure that EVERY returned state is propagated
-            assert(List.forall (fun (cilState' : cilState) -> cilState'.state.frames = cilState.state.frames) cilStates)
+            assert(List.forall (fun (cilState' : cilState) -> cilState'.state.stack = cilState.state.stack) cilStates)
             let goodStates = List.filter (stateOf >> x.CommonFilterStates) cilStates
             if List.length goodStates <> List.length cilStates
                 then Logger.trace "Some states were not propagated from %O to %O" src.Ip cilState.ipStack
@@ -370,14 +370,14 @@ module public CFA =
     type CallEdge(src : Vertex, dst : Vertex, callSite : callSite, stateWithArgsOnFrameAndAllocatedType : state, numberToDrop, interpreter : ILInterpreter) =
         inherit Edge(src, dst)
         do
-           assert(List.length stateWithArgsOnFrameAndAllocatedType.frames = 2)
+           assert(Memory.CallStackSize stateWithArgsOnFrameAndAllocatedType = 2)
         override x.Type = "Call"
         override x.PropagatePath (cilStateBeforeCall : cilState) =
             let k (cilStates : cilState list) =
                 let propagateStateAfterCall acc (resultCilState : cilState) =
                     let resultState = resultCilState.state
                     let initialState = cilStateBeforeCall.state
-                    assert(initialState.frames = resultState.frames)
+                    assert(initialState.stack = resultState.stack)
                     x.PrintLog "propagation through callEdge" callSite
                     x.PrintLog "call edge: composition left" (dump cilStateBeforeCall)
                     x.PrintLog "call edge: composition result" (dump resultCilState)
@@ -572,7 +572,7 @@ module public CFA =
                 | _ -> internalfailf "unknown methodBase %O" calledMethod
 
             let numberToDrop = List.length args + if Option.isNone this || callSite.opCode = OpCodes.Newobj then 0 else 1
-            let stateWithArgsOnFrame = ExplorerBase.ReduceFunctionSignature cilState.state (methodInterpreter.MakeMethodIdentifier calledMethod) this (Specified args) false id
+            let stateWithArgsOnFrame = ExplorerBase.ReduceFunctionSignature cilState.state (methodInterpreter.MakeMethodIdentifier calledMethod) this (Some args) id
             let nextIp =
                 assert(cfg.graph.[offset].Count = 1)
                 match ip with
@@ -692,7 +692,7 @@ module public CFA =
             match alreadyComputedCFAs.ContainsKey methodBase with
             | true -> alreadyComputedCFAs.[methodBase]
             | _ ->
-                let initialState = ExplorerBase.FormInitialStateWithoutStatics true funcId
+                let initialState = ExplorerBase.FormInitialStateWithoutStatics funcId
                 assert(Option.isNone initialState.returnRegister)
 
                 let cfg = CFG.build methodBase
@@ -725,16 +725,11 @@ type CFASearcher() =
 type EffectsFirstSearcher() =
     inherit ISearcher()
     let effectsFirst (s1 : cilState) (s2 : cilState) =
-        if s1 = s2 then 0
-        else
-            let lastFrame1 = List.last s1.state.frames
-            let lastFrame2 = List.last s2.state.frames
-            match lastFrame1.isEffect, lastFrame2.isEffect with
-            | true, false -> -1
-            | false, true -> 1
-            | _ when List.length s1.ipStack > List.length s2.ipStack -> 1
-            | _ when List.length s1.ipStack < List.length s2.ipStack -> -1
-            | _ -> compare s1.ipStack s2.ipStack
+        match s1, s2 with
+        | _ when s1 = s2 -> 0
+        | _ when List.length s1.ipStack > List.length s2.ipStack -> 1
+        | _ when List.length s1.ipStack < List.length s2.ipStack -> -1
+        | _ -> compare s1.ipStack s2.ipStack
     override x.PickNext q =
         let canBePropagated (s : cilState) =
             let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
@@ -743,22 +738,22 @@ type EffectsFirstSearcher() =
         let states = q.GetStates() |> List.filter canBePropagated |> List.sortWith effectsFirst
         match states with
         | [] -> None
-        | s :: _ when x.ShouldStartExploringInIsolation (q, s) ->
+        | s :: _ when x.ShouldStartExploringInIsolation(q, s) ->
             try
                 let currentIp = currentIp s
                 let m = currentMethod currentIp
-                let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics true { methodBase = m } // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
+                let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics { methodBase = m } // TODO: #mbdo replace IFunctionIdentifier from stackFrame with MethodBase -- актуально? #do
                 let cilStateForComposition = makeInitialState m stateForComposition
                 Some cilStateForComposition
             with
             | :? InsufficientInformationException -> Some s
         | s :: _ -> Some s
     abstract member ShouldStartExploringInIsolation: IndexedQueue * cilState -> bool
-    default x.ShouldStartExploringInIsolation (_,_) = false
+    default x.ShouldStartExploringInIsolation(_,_) = false
 
 type AllMethodsExplorationSearcher() =
     inherit EffectsFirstSearcher()
-    override x.ShouldStartExploringInIsolation (q, s) =
+    override x.ShouldStartExploringInIsolation(q, s) =
         let all = q.GetStates()
         match currentIp s with
         | Instruction(0, _) as ip when all |> List.filter (startingIpOf >> (=) ip) |> List.length = 0 -> true
@@ -766,15 +761,15 @@ type AllMethodsExplorationSearcher() =
 
 type ParameterlessMethodsExplorationSearcher() =
     inherit AllMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation (q, s) =
+    override x.ShouldStartExploringInIsolation(q, s) =
         base.ShouldStartExploringInIsolation(q, s) &&
-            let m = let f = List.head s.state.frames in f.func.Method
+            let m = let func = Memory.GetCurrentExploringFunction s.state in func.Method
             (m.IsConstructor || m.IsStatic) && m.GetParameters().Length = 0
 
 type ExceptionsExplorationSearcher() =
     inherit ParameterlessMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation (q, s) =
+    override x.ShouldStartExploringInIsolation(q, s) =
         base.ShouldStartExploringInIsolation(q, s) &&
-            let m = let f = List.head s.state.frames in f.func.Method
+            let m = let func = Memory.GetCurrentExploringFunction s.state in func.Method
             m.DeclaringType.IsSubclassOf(typeof<Exception>)
 

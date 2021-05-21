@@ -99,6 +99,7 @@ module public PersistentDict =
 type pset<'a when 'a : equality> = pdict<'a, int>
 
 module PersistentSet =
+
     let public empty<'a when 'a : equality> : pset<'a> = PersistentDict.empty<'a, int>
     let public isEmpty (d : pset<'a>) = PersistentDict.isEmpty d
 
