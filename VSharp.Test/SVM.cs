@@ -173,6 +173,12 @@ namespace VSharp.Test
             return ResultToString(summary);
         }
 
+        // public string AnswerPobs(MethodInfo m)
+        // {
+        //     var summary = PrepareAndInvoke(null, m, _explorer.Explore);
+        //     return ResultToString(summary);
+        // }
+
         public string ExploreOneWithoutStatistics(MethodInfo m)
         {
             var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.Explore);
@@ -202,6 +208,12 @@ namespace VSharp.Test
             _statistics.PrintExceptionsStats();
 
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
+        }
+
+        public IDictionary<pob, pobStatus> AnswerPobs(MethodInfo m)
+        {
+            var id = FSharpFunc<IDictionary<pob, pobStatus>, IDictionary<pob, pobStatus>>.FromConverter(x => x);
+            return _explorer.AnswerPobs(m, id);
         }
     }
 }

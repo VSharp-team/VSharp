@@ -218,6 +218,8 @@ module API =
 
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list
+        val WLP : state -> term -> term
+        val IsSAT : term -> bool
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list

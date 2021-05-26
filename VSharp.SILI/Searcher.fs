@@ -1,9 +1,12 @@
 namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
+open System.Reflection
 open VSharp
 open CilStateOperations
 open VSharp.Core
+
+
 
 type IndexedQueue() =
     let q = List<cilState>()
@@ -26,11 +29,30 @@ type IndexedQueue() =
         if not removed then Logger.trace "CilState was not removed from IndexedQueue:\n%O" s
     member x.GetStates () = List.ofSeq q
 
-[<AbstractClass>]
-type ISearcher() =
-    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-    abstract member PickNext : IndexedQueue -> cilState option
+type SearchDirection =
+    | Stop
+    | Start of ip
+    | GoForward of cilState
+    | GoBackward of pob * cilState
 
+type INewSearcher =
+    abstract member ChooseAction : list<cilState> * list<pob * cilState> * MethodBase -> SearchDirection
+
+[<AbstractClass>]
+type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
+    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    interface INewSearcher with
+        override x.ChooseAction(fq, bq, main) =
+            match fq, bq with
+            | _, ps :: _ -> GoBackward ps
+            | [], [] -> Start <| Instruction(0, main)
+            | _, [] ->
+                match x.PickNext fq with
+                | None -> Stop
+                | Some s -> GoForward s
+
+    abstract member PickNext : cilState list -> cilState option
+    default x.PickNext (_ : cilState list) = None
     member x.Used (cilState : cilState) =
         match currentIp cilState with
         | Instruction(offset, m) ->
@@ -40,59 +62,29 @@ type ISearcher() =
             | None -> false
         | _ -> false
 
-    member x.GetResults initialState (q : IndexedQueue) =
-        let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
-        let isStartingDescender (s : cilState) = s.startingIP = initialState.startingIP
-        let allStates = List.filter isStartingDescender (q.GetStates())
-        let iieStates, nonIIEstates = List.partition isIIEState allStates
-        let isFinished (s : cilState) = s.ipStack = [Exit <| methodOf initialState.startingIP]
-        let finishedStates = List.filter isFinished nonIIEstates
-        let isValid (cilState : cilState) =
-           match IsValid cilState.state with
-           | SolverInteraction.SmtUnsat _ -> false
-           | _ -> true
-        let validStates = List.filter isValid finishedStates
-        match iieStates with
-        | CilStateWithIIE iie :: _ -> raise iie
-        | _ :: _ -> __unreachable__()
-        | _ when validStates = [] ->
-            internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-        | _ -> validStates
 
     member x.CanBePropagated (s : cilState) =
         not (isIIEState s || isUnhandledError s || x.Used s) && isExecutable s
 
 type DummySearcher() =
-    inherit ISearcher() with
-        override x.PickNext q =
-            let states = q.GetStates() |> Seq.filter x.CanBePropagated
+    inherit ForwardSearcher() with
+        override x.PickNext fq =
+            let canBePropagated (s : cilState) =
+                not (isIIEState s || isUnhandledError s) && isExecutable s && not <| x.Used s
+            let states = fq |> List.filter canBePropagated
             match states with
-            | Seq.Cons(x, _) -> Some x
-            | Seq.Empty -> None
+            | x :: _ -> Some x
+            | [] -> None
 
-// Most probably won't be used in real testing
-// Aimed to test composition and Interpreter--Searcher feature
-type CFASearcher() =
-    inherit ISearcher() with
-        override x.PickNext q =
-            // 1) should append states to Queue
-            // 2) should stop executing states and produce states with proper
-            //    a) current time
-            //    b) evaluationStack (including FRCS)
-
-            let states = q.GetStates() |> Seq.filter x.CanBePropagated
-            match states with
-            | Seq.Cons(x, _) -> Some x
-            | Seq.Empty -> None
 
 type EffectsFirstSearcher() =
-    inherit ISearcher()
+    inherit ForwardSearcher()
     override x.PickNext q =
         let canBePropagated (s : cilState) =
             let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
             conditions |> List.fold (fun acc f -> acc || f s) false |> not
 
-        let states = q.GetStates() |> Seq.filter canBePropagated
+        let states = Seq.filter canBePropagated q
         match states with
         | Seq.Empty -> None
         | Seq.Cons(s, _) when x.ShouldStartExploringInIsolation (q, s) ->
@@ -104,27 +96,26 @@ type EffectsFirstSearcher() =
             with
             | :? InsufficientInformationException -> Some s
         | Seq.Cons(s, _) -> Some s
-    abstract member ShouldStartExploringInIsolation: IndexedQueue * cilState -> bool
+    abstract member ShouldStartExploringInIsolation: cilState list * cilState -> bool
     default x.ShouldStartExploringInIsolation (_,_) = false
 
 type AllMethodsExplorationSearcher() =
     inherit EffectsFirstSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        let states = q.GetStates()
+    override x.ShouldStartExploringInIsolation(states, s) =
         match currentIp s with
         | Instruction(0, _) as ip when states |> Seq.filter (startingIpOf >> (=) ip) |> Seq.length = 0 -> true
         | _ -> false
 
 type ParameterlessMethodsExplorationSearcher() =
     inherit AllMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        base.ShouldStartExploringInIsolation(q, s) &&
+    override x.ShouldStartExploringInIsolation(states, s) =
+        base.ShouldStartExploringInIsolation(states, s) &&
             let m = Memory.GetCurrentExploringFunction s.state
             (m.IsConstructor || m.IsStatic) && m.GetParameters().Length = 0
 
 type ExceptionsExplorationSearcher() =
     inherit ParameterlessMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        base.ShouldStartExploringInIsolation(q, s) &&
+    override x.ShouldStartExploringInIsolation(states, s) =
+        base.ShouldStartExploringInIsolation(states, s) &&
             let m = Memory.GetCurrentExploringFunction s.state
             m.DeclaringType.IsSubclassOf(typeof<System.Exception>)

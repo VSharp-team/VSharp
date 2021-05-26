@@ -129,6 +129,11 @@ module ipOperations =
             | _ -> __unreachable__()
         helper newOffset ip id
 
+    let methodOf = function
+        | Exit m
+        | Instruction(_, m)
+        | Leave(_,_,_,m) -> m
+        | _ -> __notImplemented__()
 //    let withExit ip = {ip with label = Exit}
 //    let withOffset offset ip = {ip with label = Instruction offset}
 //    let labelOf (ip : ip) = ip.label

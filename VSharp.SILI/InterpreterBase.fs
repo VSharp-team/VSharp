@@ -12,12 +12,20 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
+type pob = {loc : ip; lvl : int; fml : term}
+type pobStatus =
+    | Unknown
+    | Witnessed of cilState
+    | Unreachable
+
 type codeLocationSummary = { cilState : cilState }
     with
     member x.State = withEvaluationStack emptyEvaluationStack x.cilState |> stateOf
     member x.Result =
-        if EvaluationStack.Length x.cilState.state.evaluationStack = 0 then Nop
-        else pop x.cilState |> fst
+        match EvaluationStack.Length x.cilState.state.evaluationStack with
+        | 0 -> Nop
+        | 1 -> pop x.cilState |> fst
+        | _ -> internalfail "EvaluationStack size was bigger than 1"
 
 type codeLocationSummaries = codeLocationSummary list
 
@@ -254,6 +262,8 @@ type public ExplorerBase() =
             resultStates) >> List.ofSeq >> List.concat >> k)
 
     abstract member Invoke : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
+    abstract member AnswerPobs : MethodBase -> (IDictionary<pob, pobStatus> -> 'a) -> 'a
+    default x.AnswerPobs _ _ = __notImplemented__()
 
     abstract member ReproduceEffect : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
     default x.ReproduceEffect method state k = x.ExploreAndCompose method state k

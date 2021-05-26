@@ -13,9 +13,35 @@ open Instruction
 
 type cfg = CFG.cfgData
 
-type public MethodInterpreter(searcher : ISearcher) =
+type public MethodInterpreter(searcher : ForwardSearcher (*ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg*)) =
     inherit ExplorerBase()
-    member x.Interpret (_ : MethodBase) (initialState : cilState) =
+    member x.GetResults initialState (q : IndexedQueue) =
+        let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
+        let isStartingDescender (s : cilState) = s.startingIP = initialState.startingIP
+        let allStates = List.filter isStartingDescender (q.GetStates())
+        let iieStates, nonIIEstates = List.partition isIIEState allStates
+        let isFinished (s : cilState) = s.ipStack = [Exit <| methodOf initialState.startingIP]
+        let finishedStates = List.filter isFinished nonIIEstates
+        let isValid (cilState : cilState) =
+           match IsValid cilState.state with
+           | SolverInteraction.SmtUnsat _ -> false
+           | _ -> true
+        let validStates = List.filter isValid finishedStates
+        let printInfoForDebug () =
+            let allStatesInQueue = q.GetStates()
+            Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
+            Logger.info "Indexed queue size = %d\n" (List.length allStatesInQueue)
+            List.iteri (fun i -> dump >> Logger.info "Queue.[%d]:\n%s\n" i) allStatesInQueue
+            true
+        match iieStates with // TODO: write error states? #do
+        | CilStateWithIIE iie :: _ -> raise iie
+        | _ :: _ -> __unreachable__()
+        | _ when validStates = [] ->
+            assert(printInfoForDebug())
+            internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
+        | _ -> validStates
+
+    member x.Interpret (mainId : MethodBase) (initialState : cilState) =
         let q = IndexedQueue()
         q.Add initialState
 
@@ -29,15 +55,15 @@ type public MethodInterpreter(searcher : ISearcher) =
                 goodStates @ incompleteStates @ errors
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
-        let mutable s = searcher.PickNext q
+        let mutable s = searcher.PickNext (q.GetStates())
         while Option.isSome s do
             match s with
             | Some state ->
                 q.Remove state
                 step state
-                s <- searcher.PickNext q
+                s <- searcher.PickNext (q.GetStates())
             | None -> ()
-        searcher.GetResults initialState q
+        x.GetResults initialState q
 
     override x.Invoke method initialState k =
         let cilStates = x.InitializeStatics initialState method.DeclaringType List.singleton
@@ -51,7 +77,7 @@ type public MethodInterpreter(searcher : ISearcher) =
 //        printResults results
         k results
 
-and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
+and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
     do
         opcode2Function.[hashFunction OpCodes.Call]           <- this.Call
         opcode2Function.[hashFunction OpCodes.Callvirt]       <- this.CallVirt

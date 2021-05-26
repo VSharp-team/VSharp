@@ -122,6 +122,9 @@ module public CFG =
         let rec dfs' (v : offset) =
             if used.Contains v then ()
             else
+                //TODO: remove next line of code when generic pobs-generating mechanism is coded: for now ``markVertex''
+                //TODO: is done intentionally to bypass all opcodes and find ``hard-coded Throw'' that would be pobs
+                markVertex data.verticesOffsets v
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
                 let opCode = Instruction.parseInstruction methodBase v

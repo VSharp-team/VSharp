@@ -25,6 +25,7 @@
         <Compile Include="Lambdas.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="PobsInterpreter.fs" />
         <Compile Include="Variables.fs" />
     </ItemGroup>
 
