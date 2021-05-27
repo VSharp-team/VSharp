@@ -94,7 +94,7 @@ type ip =
             | _ -> -1
     override x.ToString() =
         match x with
-        | Instruction(offset, m) -> sprintf "{Instruction = %d; M = %s}" offset (Reflection.getFullMethodName m)
+        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" (offset.ToString("X")) (Reflection.getFullMethodName m)
         | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
         | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
         | _ -> __notImplemented__()
@@ -127,7 +127,7 @@ module ipOperations =
             | SearchingForHandler _ -> __notImplemented__()
             | Exit _ -> __unreachable__()
             | _ -> __unreachable__()
-        helper newOffset ip id 
+        helper newOffset ip id
 
 //    let withExit ip = {ip with label = Exit}
 //    let withOffset offset ip = {ip with label = Instruction offset}
