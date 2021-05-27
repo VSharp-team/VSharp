@@ -27,3 +27,9 @@ module internal String =
 
     [<Implements("System.Char System.Char.ToUpper(System.Char)")>]
     val CharToUpper : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.String.EqualsHelper(System.String, System.String)")>]
+    val Equals : state -> term list -> term * state
+
+    [<Implements("System.String System.String.FastAllocateString(System.Int32)")>]
+    val FastAllocateString : state -> term list -> term * state

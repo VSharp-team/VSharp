@@ -37,6 +37,8 @@
         <Compile Include="ChessDotNet.fs" />
         <Compile Include="SR.fsi" />
         <Compile Include="SR.fs" />
+        <Compile Include="Interlocked.fsi" />
+        <Compile Include="Interlocked.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

@@ -22,3 +22,9 @@ module internal SystemArray =
 
     [<Implements("System.Boolean System.SZArrayHelper.Contains(this, System.Char)")>]
     val ContainsChar : state -> term list -> term * state
+
+    [<Implements("System.Int32 System.SZArrayHelper.get_Count(this)")>]
+    val GetCount : state -> term list -> term * state
+
+    [<Implements("<>f__AnonymousType0`2[System.String,System.String] System.SZArrayHelper.get_Item(this, System.Int32)")>]
+    val GetItem : state -> term list -> term * state

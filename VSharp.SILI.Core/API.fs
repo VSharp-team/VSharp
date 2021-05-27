@@ -60,9 +60,9 @@ module API =
             // Case for references
             | Ref _ -> TypeCasting.castReferenceToPointer state value
             // Case for numerics, that need to be converted to IntPtr (native int)
-            | Concrete(v, Numeric _) ->
+            | Concrete(_, Numeric _) ->
                 // We will never create IntPtr from another numeric, because it's pointless
-                assert(v :?> int = 0)
+//                assert(v :?> int = 0) // localloc takes size in native int
                 Ptr None Void (Some value)
             // Case for native int
             | Ptr(_, Void, _) -> value
@@ -167,6 +167,7 @@ module API =
         let (%%%) x y = simplifyRemainder true (x |> TypeOf |> Types.ToDotNetType) x y id
 
         let Mul x y = mul x y
+        let Sub x y = sub x y
         let IsZero term = checkEqualZero term id
 
     module public EvaluationStack =
@@ -305,6 +306,7 @@ module API =
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
         let AllocateString string state = Memory.allocateString state string
+        let AllocateEmptyString state length = Memory.allocateEmptyString state length
 
         let CopyArray state src srcIndex dst dstIndex length =
             match src.term, dst.term with
@@ -312,6 +314,15 @@ module API =
                 let srcType = Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType |> symbolicTypeToArrayType
                 let dstType = Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType |> symbolicTypeToArrayType
                 Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
+            | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
+
+        let CopyStringArray state src srcIndex dst dstIndex length =
+            match src.term, dst.term with
+            | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType) ->
+                assert(Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType = Types.String)
+                assert(Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType = Types.String)
+                let stringArrayType = (Types.Char, 1, true)
+                Copying.copyArray state srcAddress srcIndex stringArrayType dstAddress dstIndex stringArrayType length
             | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ

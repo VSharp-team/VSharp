@@ -10,5 +10,24 @@ namespace VSharp.CSharpUtils
             // TODO: for a locale specified by name, maps an input character string to another using a specified transformation, or generates a sort key for the input string
             return 0;
         }
+
+        [Implements("System.Int32 Interop+Globalization.LoadICU()")]
+        public static int LoadICU()
+        {
+            return 1;
+        }
+
+        [Implements("System.Boolean System.Globalization.CultureData.GetDefaultLocaleName(System.String&)")]
+        public static bool GetDefaultLocaleName(out string name)
+        {
+            name = "user";
+            return true;
+        }
+
+        [Implements("System.Boolean System.Globalization.GlobalizationMode.GetInvariantSwitchValue()")]
+        public static bool GetInvariantSwitchValue()
+        {
+            return true;
+        }
     }
 }

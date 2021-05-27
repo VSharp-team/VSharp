@@ -133,6 +133,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             "System.Int32 System.Array.GetLength(this, System.Int32)", this.CommonGetArrayLength
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
+            "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
         ]
 
     member private x.Raise createException (cilState : cilState) k =
@@ -206,9 +207,31 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             k cilResults) k) id
         | _ -> internalfail "unexpected number of arguments"
 
+    member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 3)
+        let state = cilState.state
+        let dest, destPos, src = args.[0], args.[1], args.[2]
+        let srcPos = MakeNumber 0
+        let srcLength = Memory.StringLength state src
+        let destLength = Memory.StringLength state dest
+        let (<<=) = Arithmetics.(<<=)
+        let check = srcLength <<= (Arithmetics.Sub destLength destPos)
+        let copy (cilState : cilState) k =
+            let state' = Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
+            withState state' cilState |> List.singleton |> k
+        StatedConditionalExecutionAppendResultsCIL cilState
+            (fun state k -> k (check, state))
+            copy
+            (x.Raise x.IndexOutOfRangeException)
+            id
+
     member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) = // TODO: do better #do
-        let implementedIntrinsics = typeof<System.IntPtr>.GetMethods(Reflection.allBindingFlags) |> Array.map (fun mi -> mi :> MethodBase)
-        let isIntrinsic = methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = "System.Runtime.CompilerServices.IntrinsicAttribute")
+        let implementedIntrinsics =
+            typeof<IntPtr>.GetMethods(Reflection.allBindingFlags)
+            |> Array.map (fun mi -> mi :> MethodBase)
+        let isIntrinsic =
+            let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
+            methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains methodBase implementedIntrinsics |> not)
 
     member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
@@ -226,10 +249,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 let typeParams = methodBase.GetGenericArguments() |> Seq.map (fun arg -> Concrete arg (Types.FromDotNetType typeof<System.Type>)) |> List.ofSeq
                 typeParams @ args
             else args
-        let fullMethodName = Reflection.getFullMethodName methodBase // TODO: check generic parameters of type! #do
+        let fullMethodName = Reflection.getFullMethodName methodBase
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let moveIpToExit (cilState : cilState) = cilState |> setCurrentIp (Exit methodBase)
         if Map.containsKey fullMethodName internalCILImplementations then
+            // TODO: generalize method for internal call
+            // TODO: we may generalize only name! Can we generalize arguments? #do
             (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
         elif Map.containsKey fullMethodName Loader.internalImplementations then
             let thisAndArguments = optCons args thisOption

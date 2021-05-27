@@ -41,7 +41,7 @@ module internal String =
                 match Memory.ReadStringChar state this index with
                 | {term = Concrete(obj, _)} -> obj :?> char
                 | _ -> __insufficientInformation__ "ToUpperInvariant works only for fully concrete strings right now"
-            let length = Memory.ReadField state this Reflection.stringLengthField
+            let length = Memory.StringLength state this
             match length.term with
             | Concrete(obj, _) ->
                 let len = obj :?> int
@@ -67,3 +67,28 @@ module internal String =
             let term = Char.ToUpper(char) |> MakeNumber
             term, state
         | _ -> __insufficientInformation__ "Char.ToUpper works only for concrete chars right now"
+
+    let Equals (state : state) (args : term list) : term * state =
+        assert(List.length args = 2)
+        let str1, str2 = args.[0], args.[1]
+        let length1 = Memory.StringLength state str1
+        let length2 = Memory.StringLength state str2
+        match length1.term, length2.term with
+        | Concrete(obj1, _), Concrete(obj2, _) ->
+            let checkOneChar acc i =
+                let index = MakeNumber i
+                let char1 = Memory.ReadStringChar state str1 index
+                let char2 = Memory.ReadStringChar state str2 index
+                acc &&& (char1 === char2)
+            let len1 = obj1 :?> int
+            let len2 = obj2 :?> int
+            if len1 = len2 then
+                let indices = List.init len1 id
+                List.fold checkOneChar True indices, state
+            else MakeBool false, state
+        | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete length strings right now"
+
+    let FastAllocateString (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let length = List.head args
+        Memory.AllocateEmptyString state length

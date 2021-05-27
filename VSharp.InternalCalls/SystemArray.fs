@@ -50,3 +50,13 @@ module internal SystemArray =
                 List.fold checkOneElement False indices, state
             | _ -> __unreachable__()
         | _ -> __insufficientInformation__ "Contains works only for concrete address arrays"
+
+    let GetCount (state : state) (args : term list) =
+        assert(List.length args = 2)
+        let this = List.head args
+        get_Length state [this]
+
+    let GetItem (state : state) (args : term list) =
+        assert(List.length args = 3)
+        let this, index = args.[0], args.[2]
+        Memory.ReadArrayIndex state this [index], state

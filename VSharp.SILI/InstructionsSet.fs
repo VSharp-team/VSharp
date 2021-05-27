@@ -406,7 +406,7 @@ module internal InstructionsSet =
     let ldtoken (cfg : cfgData) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
         let res =
-            match memberInfo with
+            match memberInfo with // TODO: should create real RuntimeHandle struct #hack
             | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle (Types.FromDotNetType typeof<RuntimeFieldHandle>)
             | :? Type as t -> Terms.Concrete t.TypeHandle (Types.FromDotNetType typeof<RuntimeTypeHandle>)
             | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle (Types.FromDotNetType typeof<RuntimeMethodHandle>)
@@ -525,6 +525,9 @@ module internal InstructionsSet =
                 List.foldBack push args cilStateWithNewThis |> List.singleton
             | _ -> __unreachable__()
         | _ -> __unreachable__()
+    let localloc _ _ (cilState : cilState) =
+        // TODO: pushing nullptr #hack
+        push (Ptr None Void None) cilState |> List.singleton
     let zipWithOneOffset op (cfgData : cfgData) offset cilState =
         assert(not <| isError cilState)
         let m = cfgData.methodBase
@@ -673,7 +676,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Endfinally]         <- zipWithOneOffset <| endfinally
     opcode2Function.[hashFunction OpCodes.Rethrow]            <- zipWithOneOffset <| rethrow
     opcode2Function.[hashFunction OpCodes.Endfilter]          <- zipWithOneOffset <| endfilter
-
+    opcode2Function.[hashFunction OpCodes.Localloc]           <- zipWithOneOffset <| localloc
     // TODO: notImplemented instructions
     opcode2Function.[hashFunction OpCodes.Stelem_I]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ldelem_I]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
@@ -685,7 +688,6 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| constrained // TODO: implement this someday! #do
     opcode2Function.[hashFunction OpCodes.Cpblk]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Cpobj]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Localloc]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Mkrefany]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefix1]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Prefix2]            <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())

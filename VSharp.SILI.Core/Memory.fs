@@ -320,7 +320,7 @@ module internal Memory =
             makeSymbolicStackRead key typ time
         CallStack.readStackLocation s.stack key makeSymbolic
 
-    let readStruct (structTerm : term) (field : fieldId) = // TODO: falls in Conv_Ovf_short_int (native int != IntPtr) #do
+    let readStruct (structTerm : term) (field : fieldId) =
         match structTerm with
         | { term = Struct(fields, _) } -> fields.[field]
         | _ -> internalfailf "Reading field of structure: expected struct, but got %O" structTerm
@@ -634,17 +634,22 @@ module internal Memory =
         allocateArray state typ lbs [length]
 
     let private allocateConcreteVector state elementType length contents =
-        let address, state = allocateVector state elementType (makeNumber length)
+        let address, state = allocateVector state elementType length
         // TODO: optimize this for large concrete arrays (like images)!
         address, Seq.foldi (fun state i value -> writeArrayIndex state address [Concrete i lengthType] (elementType, 1, true) (Concrete value elementType)) state contents
 
-    let allocateString state (str : string) =
-        let address, state = allocateConcreteVector state Char (str.Length + 1) (Seq.append str (Seq.singleton '\000'))
+    let commonAllocateString state length contents =
+        let arrayLength = add length (Concrete 1 lengthType)
+        let address, state = allocateConcreteVector state Char arrayLength contents
+        let state = writeArrayIndex state address [length] (Char, 1, true) (Concrete '\000' Char)
         let heapAddress = getConcreteHeapAddress address
-        let state = writeClassField state address Reflection.stringLengthField (Concrete str.Length lengthType)
+        let state = writeClassField state address Reflection.stringLengthField length
         HeapRef address String, {state with allocatedTypes = PersistentDict.add heapAddress String state.allocatedTypes}
 
-    let allocateDelegate state delegateTerm = // TODO: bug! need to allocate in allocatedTypes! #do
+    let allocateEmptyString state length = commonAllocateString state length Seq.empty
+    let allocateString state (str : string) = commonAllocateString state (Concrete str.Length lengthType) str
+
+    let allocateDelegate state delegateTerm =
         let concreteAddress, state = freshAddress state
         let address = ConcreteHeapAddress concreteAddress
         let state =

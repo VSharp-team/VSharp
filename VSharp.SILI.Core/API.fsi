@@ -134,6 +134,7 @@ module API =
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
         val Mul : term -> term -> term
+        val Sub : term -> term -> term
         val IsZero : term -> term
 
     module public EvaluationStack =
@@ -194,9 +195,11 @@ module API =
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateVectorArray : state -> term -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
+        val AllocateEmptyString : state -> term -> term * state
         val AllocateDelegate : state -> term -> term * state
 
         val CopyArray : state -> term -> term -> term -> term -> term -> state
+        val CopyStringArray : state -> term -> term -> term -> term -> term -> state
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
