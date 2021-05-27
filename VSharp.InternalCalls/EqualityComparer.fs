@@ -11,19 +11,27 @@ open ChessDotNet
 
 module EqualityComparer =
 
-    let private createEqualityComparer state =
+    let private createEqualityComparer state (typ : Type) =
         let genericEqualityComparer = typeof<EqualityComparer<_>>.Assembly.GetType("System.Collections.Generic.ObjectEqualityComparer`1")
-        let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typeof<Piece>)
+        let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typ)
         Types.FromDotNetType genericEqualityComparer |> Memory.AllocateDefaultClass state
 
     // TODO: now it works only for Piece! #do
     let internal CreateDefaultEqualityComparer (state : state) (args : term list) : term * state =
         assert(List.length args = 1)
-        createEqualityComparer state
+        let runtimeType = List.head args
+        let typ = Type.getActualType state runtimeType
+        createEqualityComparer state typ
 
     let internal get_Default (state : state) (args : term list) : term * state =
         assert(List.length args = 0)
-        createEqualityComparer state
+        let typ = typeof<Piece>
+        createEqualityComparer state typ
+
+    let internal get_DefaultForString (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        let typ = typeof<String>
+        createEqualityComparer state typ
 
     let internal structuralEquality (state : state) block1 block2 =
         let block1Type = Terms.MostConcreteTypeOfHeapRef state block1
