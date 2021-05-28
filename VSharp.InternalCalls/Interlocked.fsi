@@ -6,5 +6,5 @@ open VSharp.Core
 
 module internal Interlocked =
 
-    [<Implements("System.Globalization.CultureInfo System.Threading.Interlocked.CompareExchange(System.Globalization.CultureInfo&, System.Globalization.CultureInfo, System.Globalization.CultureInfo)")>]
+    [<Implements("T System.Threading.Interlocked.CompareExchange(T&, T, T)")>]
     val internal compareExchange : state -> term list -> (term * state) list

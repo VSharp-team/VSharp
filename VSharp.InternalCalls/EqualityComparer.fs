@@ -24,13 +24,12 @@ module EqualityComparer =
         createEqualityComparer state typ
 
     let internal get_Default (state : state) (args : term list) : term * state =
-        assert(List.length args = 0)
-        let typ = typeof<Piece>
-        createEqualityComparer state typ
-
-    let internal get_DefaultForString (state : state) (args : term list) : term * state =
-        assert(List.length args = 0)
-        let typ = typeof<String>
+        assert(List.length args = 1)
+        let wrappedType = List.head args
+        let typ =
+            match wrappedType with
+            | {term = Concrete(:? Type as typ, _)} -> typ
+            | _ -> __unreachable__()
         createEqualityComparer state typ
 
     let internal structuralEquality (state : state) block1 block2 =

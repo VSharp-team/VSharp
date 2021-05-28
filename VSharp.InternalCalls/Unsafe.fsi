@@ -6,8 +6,8 @@ open VSharp.Core
 
 module internal Unsafe =
 
-    [<Implements("System.Void* Internal.Runtime.CompilerServices.Unsafe.AsPointer(System.RuntimeType&)")>]
+    [<Implements("System.Void* Internal.Runtime.CompilerServices.Unsafe.AsPointer(T&)")>]
     val internal AsPointer : state -> term list -> term * state
 
-    [<Implements("<>f__AnonymousType0`2[System.String,System.String][] Internal.Runtime.CompilerServices.Unsafe.As(System.Object)")>]
+    [<Implements("T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)")>]
     val internal As : state -> term list -> term * state

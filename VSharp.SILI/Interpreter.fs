@@ -243,25 +243,38 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         assert(canInline)
         let state = cilState.state
         let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
-        let args = // TODO: make better #do
-            let args = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
-            if methodBase.IsGenericMethod then
-                let typeParams = methodBase.GetGenericArguments() |> Seq.map (fun arg -> Concrete arg (Types.FromDotNetType typeof<System.Type>)) |> List.ofSeq
-                typeParams @ args
-            else args
-        let fullMethodName = Reflection.getFullMethodName methodBase
+        let state =
+            match thisOption with
+            | Some this ->
+                let thisType = TypeOf this
+                if Types.IsValueType thisType && methodBase.IsConstructor then
+                    let newThis = Memory.DefaultOf thisType
+                    let states = Memory.WriteSafe state this newThis
+                    assert(List.length states = 1)
+                    List.head states
+                else state
+            | None -> state
+        let cilState = withState state cilState
+        let fullyGenericMethod, genericArgs, _ = Reflection.generalizeMethodBase methodBase
+        let wrapType arg = Concrete arg (Types.FromDotNetType typeof<Type>)
+        let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
+        let termArgs = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
+        let args = typeArgs @ termArgs
+//        let fullGenericMethodName = Reflection.getFullMethodName methodBase
+        let fullGenericMethodName = Reflection.getFullMethodName fullyGenericMethod
+        if methodBase.Name = "get_CategoryLevel1Index" then ()
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let moveIpToExit (cilState : cilState) = cilState |> setCurrentIp (Exit methodBase)
-        if Map.containsKey fullMethodName internalCILImplementations then
+        if Map.containsKey fullGenericMethodName internalCILImplementations then
             // TODO: generalize method for internal call
             // TODO: we may generalize only name! Can we generalize arguments? #do
-            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
-        elif Map.containsKey fullMethodName Loader.internalImplementations then
+            (internalCILImplementations.[fullGenericMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
+        elif Map.containsKey fullGenericMethodName Loader.internalImplementations then
             let thisAndArguments = optCons args thisOption
-            internalCall Loader.internalImplementations.[fullMethodName] thisAndArguments state (List.map (changeState cilState >> moveIpToExit) >> k)
-        elif Map.containsKey fullMethodName Loader.concreteExternalImplementations then
+            internalCall Loader.internalImplementations.[fullGenericMethodName] thisAndArguments state (List.map (changeState cilState >> moveIpToExit) >> k)
+        elif Map.containsKey fullGenericMethodName Loader.concreteExternalImplementations then
             // TODO: check that all parameters were specified
-            let methodInfo = Loader.concreteExternalImplementations.[fullMethodName]
+            let methodInfo = Loader.concreteExternalImplementations.[fullGenericMethodName]
             let thisOption, args =
                 match thisOption, methodInfo.IsStatic with
                 | Some this, true -> None, this :: args
@@ -273,12 +286,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (setCurrentIp (instruction methodInfo 0) >> List.singleton)
             // NOTE: callsite of cilState is explicitly untouched
             k cilStates
-        elif fullMethodName.Contains "System.Array.Set(" then // TODO: do better #do
-            (internalCILImplementations.[fullMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
+        elif fullGenericMethodName.Contains "System.Array.Set(" then // TODO: do better #do
+            (internalCILImplementations.[fullGenericMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
         elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
-            internalfailf "new extern method: %s" fullMethodName
+            internalfailf "new extern method: %s" fullGenericMethodName
         elif x.IsNotImplementedIntrinsic methodBase then
-            internalfailf "new intrinsic method: %s" fullMethodName
+            internalfailf "new intrinsic method: %s" fullGenericMethodName
         elif methodBase.GetMethodBody() <> null then
             cilState |> List.singleton |> k
         else
@@ -549,7 +562,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Some args) (fun cilState ->
                 x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
 
-            if Types.IsValueType constructedTermType || typ = typeof<System.IntPtr> then
+            if Types.IsValueType constructedTermType || typ = typeof<IntPtr> then
                 let freshValue = Memory.DefaultOf constructedTermType
                 let ref, state = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
                 let cilState = cilState |> withState state |> push ref // NOTE: ref is used to retrieve constructed struct
