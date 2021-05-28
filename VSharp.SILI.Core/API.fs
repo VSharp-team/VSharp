@@ -210,7 +210,13 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
-        let ReadSafe state reference = Memory.readSafe state reference
+        let ReadSafe state reference =
+            let reference =
+                // TODO: check of reference is BoxedLocation
+                match reference.term with
+                | HeapRef _ -> HeapReferenceToBoxReference reference
+                | _ -> reference
+            Memory.readSafe state reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
