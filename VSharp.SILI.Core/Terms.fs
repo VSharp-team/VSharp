@@ -413,9 +413,10 @@ module internal Terms =
             typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
         if actualType = t then
             Concrete concrete (fromDotNetType t)
-        elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) then
-            Concrete concrete (fromDotNetType t)
-        elif actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
+        elif t.IsEnum && TypeUtils.isNumeric actualType then
+            let underlyingType = t.GetEnumUnderlyingType()
+            Concrete (TypeUtils.convert concrete underlyingType) (fromDotNetType t)
+        elif actualType.IsEnum && TypeUtils.isNumeric t then
             Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
         elif TypeUtils.canConvert actualType t then
             Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
