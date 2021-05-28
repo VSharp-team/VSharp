@@ -139,5 +139,5 @@ module Runtime_CompilerServices_RuntimeHelpers =
         assert(List.length args = 1)
         let typ = List.head args
         match typ with
-        | {term = Concrete(:? System.Type as typ, _)} -> MakeBool typ.IsValueType, state
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType, state
         | _ -> __unreachable__()
