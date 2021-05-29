@@ -1,18 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Runtime.InteropServices.ComTypes;
-using System.Text;
-using NUnit.Framework;
-using VSharp.Interpreter.IL;
-
 namespace VSharp.Test.Tests.Pobs
 {
-
-
-
     // [TestPobsFixture]
     public class SmokeTest
     {

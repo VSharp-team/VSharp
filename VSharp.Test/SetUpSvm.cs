@@ -25,8 +25,7 @@ namespace VSharp.Test
 
             // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
             Logger.ConfigureWriter(TestContext.Progress);
-            var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher()));
-            // var svm = new SVM(new PobsInterpreter(new DummySearcher()));
+            var svm = new SVM(new PobsInterpreter(new DFSSearcher()));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             TestSvmAttribute.SetUpSVM(svm);

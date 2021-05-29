@@ -130,4 +130,11 @@ namespace VSharp.Test
             exceptions[stackTrace].Add(m);
         }
     }
+
+    public class PobsStatistics
+    {
+        public int CilStatesGenerated { get; set; }
+        public int InstructionsExecuted { get; set; }
+    }
+
 }

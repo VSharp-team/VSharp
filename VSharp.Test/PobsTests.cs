@@ -1,19 +1,12 @@
 using System;
-using System.IO;
 using System.Reflection;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
+
 using NUnit.Framework;
-using NUnit.Framework.Interfaces;
-using NUnit.Framework.Internal;
-using NUnit.Framework.Internal.Builders;
-using NUnit.Framework.Internal.Commands;
+
 using VSharp.Interpreter.IL;
+using VSharp.Test.Tests.Pobs;
 
 namespace VSharp.Test
 {
@@ -45,29 +38,36 @@ namespace VSharp.Test
         }
 
 
-        [TestCaseSource(nameof(DivideCases))]
-        public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
+
+        private static void AnswerPobsForSearcher(Type t, string mainName, CodeLocationProxy[] proxies, INewSearcher searcher)
         {
             Core.codeLocation[] codeLocations = proxies.Select(p => new Core.codeLocation(p.Offset, p.Method)).ToArray();
-
-            var svm = new SVM(new PobsInterpreter(new DummySearcher()));
+            var svm = new SVM(new PobsInterpreter(searcher));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
 
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
             var dict = svm.AnswerPobs(t.GetMethod(mainName), codeLocations);
-            // var msg = new StringBuilder();
-            // foreach (var kvp in dict)
-            // {
-            //     msg.Append("Status = " + kvp.Value).AppendLine();
-            //     msg.Append("Pob = " + kvp.Key).AppendLine().AppendLine();
-            // }
+            stopWatch.Stop();
+
+            Console.WriteLine($"Searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
 
             foreach (var p in proxies)
             {
                 var loc = new Core.codeLocation(p.Offset, p.Method);
                 Assert.AreEqual(p.DesiredStatus, dict[loc], $"Checking location: {loc}");
             }
+        }
 
+        [TestCaseSource(nameof(DivideCases))]
+        public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
+        {
+            var searchers = new INewSearcher[] {new DFSSearcher(), new BFSSearcher() };
+            foreach (var s in searchers)
+            {
+                AnswerPobsForSearcher(t, mainName, proxies, s);
+            }
         }
 
         public static object[] DivideCases =

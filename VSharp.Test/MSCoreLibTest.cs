@@ -11,7 +11,7 @@ namespace VSharp.Test
         // [Test]
         public static void Test()
         {
-            var svm = new SVM(new MethodInterpreter(new DummySearcher()));
+            var svm = new SVM(new MethodInterpreter(new DFSSearcher()));
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             // svm.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
             var assembly = typeof(int).Assembly;

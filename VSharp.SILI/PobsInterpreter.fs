@@ -1,6 +1,8 @@
 namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
+open System.Reflection
+open System.Reflection.Emit
 open FSharpx.Collections
 open System.Reflection
 
@@ -205,3 +207,48 @@ type public PobsInterpreter(searcher : INewSearcher) =
             acc
         let result = codeLocations |> Seq.fold addLocationStatus (Dictionary<codeLocation, string>())
         k result
+
+type TargetedSearcher(codeLocations : codeLocation list) =
+    inherit ForwardSearcher() with
+
+    let intraReachability = Dictionary<codeLocation, codeLocation list>()
+    let interReachability = Dictionary<codeLocation, MethodBase list>()
+
+    let buildReachability (usedMethods : MethodBase list) methodsQueue (currentMethod : MethodBase) =
+        let cfg = CFG.build currentMethod
+
+        let appendComponent acc newOffset =
+            cfg.sccOut.[newOffset] :: acc
+
+        let addReachabilityInfo s t =
+            if intraReachability.ContainsKey s |> not then intraReachability.Add(s, [t])
+            else
+                let old = intraReachability.[s]
+                intraReachability.[s] <- t :: old
+
+        let rec dfsSCC (cfg : cfg) (usedSCC : int list) (v : offset) : int list =
+            let currentSCC = cfg.sccOut.[v]
+            if List.contains currentSCC usedSCC then usedSCC
+            else
+                let usedSCC = currentSCC :: usedSCC
+                let currentSCCOffsets = Seq.filter (fun offset -> currentSCC = cfg.sccOut.[offset]) cfg.sortedOffsets
+                let newUsed = Seq.fold (fun acc u1 -> Seq.fold (fun acc u2 -> dfsSCC cfg acc u2) acc cfg.graph.[u1]) usedSCC currentSCCOffsets
+                let reachableOffsets = HashSet<codeLocation>()
+                Seq.iter (fun u -> reachableOffsets.Add({offset = u; method = currentMethod}) |> ignore) currentSCCOffsets
+                let appendRest u1 =
+                    Seq.iter (fun u2 -> List.iter (fun loc -> reachableOffsets.Add(loc) |> ignore) intraReachability.[{offset = u2; method = currentMethod}]) cfg.graph.[u1]
+                Seq.iter appendRest currentSCCOffsets
+                Seq.iter (fun u -> intraReachability.[{offset = u; method = currentMethod}] <- List.ofSeq reachableOffsets) currentSCCOffsets
+                newUsed
+//                List.iter (fun offset -> List.iter addReachabilityInfo )
+
+        __notImplemented__()
+
+    override x.PickNext fq =
+        let canBePropagated (s : cilState) =
+            not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
+        let states = fq |> List.filter canBePropagated
+        match states with
+        | _ :: _ -> List.last states |> Some
+        | [] -> None
+

@@ -66,14 +66,24 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
     member x.CanBePropagated (s : cilState) =
         not (isIIEState s || isUnhandledError s || x.Used s) && isExecutable s
 
-type DummySearcher() =
+type DFSSearcher() =
     inherit ForwardSearcher() with
         override x.PickNext fq =
             let canBePropagated (s : cilState) =
-                not (isIIEState s || isUnhandledError s) && isExecutable s && not <| x.Used s
+                not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
             let states = fq |> List.filter canBePropagated
             match states with
             | x :: _ -> Some x
+            | [] -> None
+
+type BFSSearcher() =
+    inherit ForwardSearcher() with
+        override x.PickNext fq =
+            let canBePropagated (s : cilState) =
+                not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
+            let states = fq |> List.filter canBePropagated
+            match states with
+            | _ :: _ -> List.last states |> Some
             | [] -> None
 
 
