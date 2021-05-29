@@ -1,22 +1,16 @@
 namespace VSharp.Interpreter.IL
 
-open System
 open System.Collections.Generic
+open FSharpx.Collections
 open System.Reflection
-open System.Reflection.Emit
-open FSharpx.Collections
-open FSharpx.Collections
-open FSharpx.Collections
-open InstructionsSet
-open CilStateOperations
+
 open VSharp
 open VSharp.Core
-open ipOperations
-open Instruction
+open CilStateOperations
 
 type public PobsInterpreter(searcher : INewSearcher) =
     inherit ExplorerBase()
-    let infty = Int32.MaxValue
+    let infty = System.Int32.MaxValue
     let GlobalBound = 20
     let initialOpStackSize = 0u
     let qFront = List<cilState>()
@@ -128,9 +122,9 @@ type public PobsInterpreter(searcher : INewSearcher) =
             let p = {loc = s'.startingIP; lvl = lvl; fml = fml}
             addPob(p', p)
         | false ->
-            Logger.info "AnswerYes for pob = %O and s' = %O" p' s'
+            Logger.info "UNSAT for pob = %O and s' = %O" p' s'
     member x.PropDirSymExec (main : MethodBase) (EP : ip) mainPobsList =
-        List.iter (fun p -> mainPobs.Add p) mainPobsList
+        Seq.iter (fun p -> mainPobs.Add p) mainPobsList
 //        let clearStructures () =
 //            currentPobs.Clear()
 //            witnesses.Clear()
@@ -155,23 +149,23 @@ type public PobsInterpreter(searcher : INewSearcher) =
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
             curLvl <- curLvl + 1
 
-    member x.FindPobs (t : System.Type) : pob list =
-        let methods = t.GetMethods(Reflection.staticBindingFlags) |> List.ofSeq
-        let cfgs = methods |> List.map CFG.build
-        let rec bypassCfg (cfg : cfg) (pobs : pob list, used : codeLocation list) (v : offset)  =
-            let m = cfg.methodBase
-            let loc = {offset = v; method = m}
-            if List.contains loc used then (pobs, used)
-            else
-                let used = loc :: used
-                let opCode = parseInstruction m v
-                let pobs =
-                    if opCode <> OpCodes.Throw then pobs
-                    else {loc = Instruction(v, m); lvl = infty; fml = Terms.True} :: pobs
-                Seq.fold (bypassCfg cfg) (pobs, used) (cfg.graph.[v])
-        //TODO: what about EHC?
-        let pobs, _ = Seq.fold (fun acc cfg -> bypassCfg cfg acc 0) ([], []) cfgs
-        pobs
+//    member x.FindPobs (t : System.Type) : pob list =
+//        let methods = t.GetMethods(Reflection.staticBindingFlags) |> List.ofSeq
+//        let cfgs = methods |> List.map CFG.build
+//        let rec bypassCfg (cfg : cfg) (pobs : pob list, used : codeLocation list) (v : offset)  =
+//            let m = cfg.methodBase
+//            let loc = {offset = v; method = m}
+//            if List.contains loc used then (pobs, used)
+//            else
+//                let used = loc :: used
+//                let opCode = parseInstruction m v
+//                let pobs =
+//                    if opCode <> OpCodes.Throw then pobs
+//                    else {loc = Instruction(v, m); lvl = infty; fml = Terms.True} :: pobs
+//                Seq.fold (bypassCfg cfg) (pobs, used) (cfg.graph.[v])
+//        //TODO: what about EHC?
+//        let pobs, _ = Seq.fold (fun acc cfg -> bypassCfg cfg acc 0) ([], []) cfgs
+//        pobs
 
     member x.ClearStructures () =
         mainPobs.Clear()
@@ -187,10 +181,11 @@ type public PobsInterpreter(searcher : INewSearcher) =
         answeredPobs.Clear()
         parents.Clear()
     override x.Invoke _ _ _ = __notImplemented__()
-    override x.AnswerPobs entryMethod k =
+    override x.AnswerPobs entryMethod codeLocations k =
         x.ClearStructures()
-        let mainPobs = x.FindPobs entryMethod.DeclaringType
-        List.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
+        let mainPobs = Seq.map (fun (loc : codeLocation) ->
+            {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True}) codeLocations
+        Seq.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
         let EP = Instruction(0, entryMethod)
         curLvl <- 10
         x.PropDirSymExec entryMethod EP mainPobs
@@ -199,5 +194,14 @@ type public PobsInterpreter(searcher : INewSearcher) =
             | Unreachable -> Logger.info "NO: MainPob = %O" mp
             | Witnessed s -> Logger.info "YES: MainPob = %O, witness = %O" mp s
             | Unknown -> Logger.info "Unknown: MainPoob = %O" mp
-        List.iter showResultFor mainPobs
-        k answeredPobs
+        Seq.iter showResultFor mainPobs
+        let addLocationStatus (acc : Dictionary<codeLocation, string>) (loc : codeLocation) =
+            let pob = {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True}
+            let result =
+                match answeredPobs.[pob] with
+                | Witnessed _ -> "Witnessed"
+                | status -> status.ToString()
+            acc.Add(loc, result)
+            acc
+        let result = codeLocations |> Seq.fold addLocationStatus (Dictionary<codeLocation, string>())
+        k result

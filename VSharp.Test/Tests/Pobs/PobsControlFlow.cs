@@ -1,15 +1,22 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using NUnit.Framework;
+using VSharp.Interpreter.IL;
 
 namespace VSharp.Test.Tests.Pobs
 {
-    [TestPobsFixture]
+
+
+
+    // [TestPobsFixture]
     public class SmokeTest
     {
-        [TestPobs]
+        // [TestPobs]
         public static int EntryMethod(int x)
         {
             x++;
@@ -18,10 +25,10 @@ namespace VSharp.Test.Tests.Pobs
     }
 
 
-    [TestPobsFixture]
-    public class UnsatSmoke
+
+
+    public class UnsatCases
     {
-        [TestPobs]
         public static void EntryMethod(int x)
         {
             if (x > 0)
@@ -34,10 +41,11 @@ namespace VSharp.Test.Tests.Pobs
         }
     }
 
-    [TestPobsFixture]
+
+    // [TestPobsFixture]
     public class SwitchWithSequentialCases1
     {
-        [TestPobs]
+        // [TestPobs]
         public static int EntryMethod(int x)
         {
             switch (x)
@@ -58,7 +66,7 @@ namespace VSharp.Test.Tests.Pobs
         }
     }
 
-    [TestPobsFixture]
+    // [TestPobsFixture]
     public class CallsTest
     {
         public static int F()
@@ -78,7 +86,7 @@ namespace VSharp.Test.Tests.Pobs
         }
 
 
-        [TestPobs]
+        // [TestPobs]
         public static int EntryMethod2(int x)
         {
             if (x > 5)
@@ -90,10 +98,10 @@ namespace VSharp.Test.Tests.Pobs
         }
     }
 
-    [TestPobsFixture]
+    // [TestPobsFixture]
     public class LotsOfIfs
     {
-        [TestPobs]
+        // [TestPobs]
         public static int EntryMethod(bool f1, bool f2, bool f3, bool f4, int x)
         {
             int res = 0;

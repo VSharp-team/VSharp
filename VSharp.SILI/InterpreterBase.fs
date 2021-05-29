@@ -261,9 +261,9 @@ type public ExplorerBase() =
 //            List.iter (dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) resultStates
             resultStates) >> List.ofSeq >> List.concat >> k)
 
+    abstract member AnswerPobs : MethodBase -> codeLocation seq -> (IDictionary<codeLocation, string> -> 'a) -> 'a
+    default x.AnswerPobs _ _ _ = __notImplemented__()
     abstract member Invoke : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
-    abstract member AnswerPobs : MethodBase -> (IDictionary<pob, pobStatus> -> 'a) -> 'a
-    default x.AnswerPobs _ _ = __notImplemented__()
 
     abstract member ReproduceEffect : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
     default x.ReproduceEffect method state k = x.ExploreAndCompose method state k

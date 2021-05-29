@@ -210,10 +210,10 @@ namespace VSharp.Test
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
         }
 
-        public IDictionary<pob, pobStatus> AnswerPobs(MethodInfo m)
+        public IDictionary<codeLocation, string> AnswerPobs(MethodInfo m, codeLocation[] locs)
         {
-            var id = FSharpFunc<IDictionary<pob, pobStatus>, IDictionary<pob, pobStatus>>.FromConverter(x => x);
-            return _explorer.AnswerPobs(m, id);
+            var id = FSharpFunc<IDictionary<codeLocation, string>, IDictionary<codeLocation, string>>.FromConverter(x => x);
+            return _explorer.AnswerPobs(m, Microsoft.FSharp.Collections.ListModule.OfSeq(locs), id);
         }
     }
 }

@@ -6,7 +6,7 @@ open VSharp
 
 
 [<CustomEquality; CustomComparison>]
-type codeLocation = {offset : offset; method : MethodBase}
+type public codeLocation = {offset : offset; method : MethodBase}
     with
     override x.Equals y =
         match y with
