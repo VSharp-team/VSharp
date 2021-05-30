@@ -1,8 +1,10 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
+open System.Text
 open FSharpx.Collections
 open System.Reflection
 
@@ -13,7 +15,7 @@ open CilStateOperations
 type public PobsInterpreter(searcher : INewSearcher) =
     inherit ExplorerBase()
     let infty = System.Int32.MaxValue
-    let GlobalBound = 20
+    let GlobalBound = 200
     let initialOpStackSize = 0u
     let qFront = List<cilState>()
     let qBack = List<pob * cilState>()
@@ -22,15 +24,14 @@ type public PobsInterpreter(searcher : INewSearcher) =
     let blockedLocs = Dictionary<pob, ip list>()
     let possiblePobsLocs = List<ip>()
     let sPobs = Dictionary<cilState, pob list>()
-    let mutable curLvl = 0
-
+    let mutable curLvl = searcher.MaxBound
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()
     let answeredPobs = Dictionary<pob, pobStatus>()
     let parents = Dictionary<pob, pob>()
-    let canReach source target (blockedLocs : ip list) =
+    let canReach state (loc : ip) (blockedLocs : ip list) =
         //TODO: use CFG-reachability analysis
-        true
+        searcher.CanReach (state, loc, blockedLocs)
     let addToDictionaryWithListValue (d : Dictionary<'a, 'b list>) k elem =
         let v = d.GetValueOrDefault(k, [])
         d.[k] <- (elem :: v)
@@ -47,7 +48,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
     let addWitness(s : cilState, p : pob) =
         let sLvl = levelToInt s.level
         try
-            if sLvl <= p.lvl && canReach (currentIp s) p.loc blockedLocs.[p] then
+            if sLvl <= p.lvl && canReach s.ipStack p.loc blockedLocs.[p] then
                 addToDictionaryWithListValue witnesses p s
                 addToDictionaryWithListValue sPobs s p
         with
@@ -59,12 +60,13 @@ type public PobsInterpreter(searcher : INewSearcher) =
         | false ->
             addToDictionaryWithListValue blockedLocs p' s'.startingIP
             List.iter (fun (s : cilState) ->
-                if not <| canReach (currentIp s) p'.loc blockedLocs.[p'] then blockWitness(s, p')) witnesses.[p']
+                if not <| canReach s.ipStack p'.loc blockedLocs.[p'] then blockWitness(s, p')) witnesses.[p']
 
     let addPob(parent : pob, child : pob) =
         assert(parents.ContainsKey(child) |> not)
         parents.Add(child, parent)
         currentPobs.Add child
+        blockedLocs.Add(child, [])
         Seq.iter (fun s -> addWitness(s, child)) qFront
         Seq.iter (fun s -> qBack.Add(child, s)) transition.[child.loc]
 
@@ -91,7 +93,6 @@ type public PobsInterpreter(searcher : INewSearcher) =
 
     member x.Forward (s : cilState) =
         assert(sPobs.ContainsKey s)
-//        if (not <| sPobs.ContainsKey s) then ()
         let removed = qFront.Remove(s) in assert(removed)
         let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
         qFront.AddRange (goodStates @ incompleteStates @ errors)
@@ -137,12 +138,10 @@ type public PobsInterpreter(searcher : INewSearcher) =
                 witnesses.Add(p, [])
                 parents.Add(p, mp)
                 currentPobs.Add p)
-        while mainPobs.Count > 0 && curLvl <= GlobalBound do
-//            clearStructures()
+        while mainPobs.Count > 0 && curLvl <= searcher.MaxBound do
             createPobs()
-//            let pobs : List<pob> = List(createPobs ())
             while currentPobs.Count > 0 do
-                match searcher.ChooseAction(List.ofSeq qFront, List.ofSeq qBack, main) with
+                match searcher.ChooseAction(List.ofSeq qFront, List.ofSeq qBack, List.ofSeq currentPobs, main) with
                 | Stop -> currentPobs.Clear()
                 | Start loc -> x.Start(loc)
                 | GoForward s ->
@@ -150,26 +149,8 @@ type public PobsInterpreter(searcher : INewSearcher) =
                     x.Forward(s)
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
             curLvl <- curLvl + 1
-
-//    member x.FindPobs (t : System.Type) : pob list =
-//        let methods = t.GetMethods(Reflection.staticBindingFlags) |> List.ofSeq
-//        let cfgs = methods |> List.map CFG.build
-//        let rec bypassCfg (cfg : cfg) (pobs : pob list, used : codeLocation list) (v : offset)  =
-//            let m = cfg.methodBase
-//            let loc = {offset = v; method = m}
-//            if List.contains loc used then (pobs, used)
-//            else
-//                let used = loc :: used
-//                let opCode = parseInstruction m v
-//                let pobs =
-//                    if opCode <> OpCodes.Throw then pobs
-//                    else {loc = Instruction(v, m); lvl = infty; fml = Terms.True} :: pobs
-//                Seq.fold (bypassCfg cfg) (pobs, used) (cfg.graph.[v])
-//        //TODO: what about EHC?
-//        let pobs, _ = Seq.fold (fun acc cfg -> bypassCfg cfg acc 0) ([], []) cfgs
-//        pobs
-
     member x.ClearStructures () =
+        curLvl <- searcher.MaxBound
         mainPobs.Clear()
         qFront.Clear()
         qBack.Clear()
@@ -184,12 +165,17 @@ type public PobsInterpreter(searcher : INewSearcher) =
         parents.Clear()
     override x.Invoke _ _ _ = __notImplemented__()
     override x.AnswerPobs entryMethod codeLocations k =
+        let printLocInfo (loc : codeLocation) =
+            Logger.info "Got loc {%O, %O}" loc.offset loc.method
+        Seq.iter printLocInfo codeLocations
+
         x.ClearStructures()
-        let mainPobs = Seq.map (fun (loc : codeLocation) ->
-            {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True}) codeLocations
+        let mainPobs =
+            codeLocations
+            |> Seq.filter (fun loc -> loc.method.GetMethodBody().GetILAsByteArray().Length > loc.offset)
+            |> Seq.map (fun (loc : codeLocation) -> {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True})
         Seq.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
         let EP = Instruction(0, entryMethod)
-        curLvl <- 10
         x.PropDirSymExec entryMethod EP mainPobs
         let showResultFor (mp : pob) =
             match answeredPobs.[mp] with
@@ -208,47 +194,210 @@ type public PobsInterpreter(searcher : INewSearcher) =
         let result = codeLocations |> Seq.fold addLocationStatus (Dictionary<codeLocation, string>())
         k result
 
-type TargetedSearcher(codeLocations : codeLocation list) =
-    inherit ForwardSearcher() with
+ [<CustomComparison; CustomEquality>]
+ type reachabilityEvaluation =
+    | Unknown
+    | Reachable of int * int  // cost to go to target and cost to go to exit
+    with
+    override x.Equals y =
+        match y with
+        | :? reachabilityEvaluation as y ->
+            match x, y with
+            | Unknown, Unknown -> true
+            | Reachable(p1, p2), Reachable(p3, p4) -> p1 = p2 && p3 = p4
+            | _ -> false
+        | _ -> false
+    override x.GetHashCode() = x.ToString().GetHashCode()
+    interface IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? reachabilityEvaluation as r ->
+                match x, r with
+                | Unknown, Unknown -> 0
+                | Unknown, Reachable _ -> 1
+                | Reachable _, Unknown _ -> -1
+                | Reachable(p1, p2), Reachable(p3, p4) when p1 < p3 || p1 = p3 && p2 < p4 -> -1
+                | Reachable(p1, p2), Reachable(p3, p4) when p1 = p3 && p2 = p4 -> 0
+                | _ -> 1
+            | _ -> -1
 
-    let intraReachability = Dictionary<codeLocation, codeLocation list>()
-    let interReachability = Dictionary<codeLocation, MethodBase list>()
+type TargetedSearcher(maxBound) =
+    let COST_OF_MANY_CALLS = 300
+    let COST_OF_CALL = 100
+    let COST_OF_EXIT = 50
+    let REGULAR_COST = 20
+    let UNKNOWN_CONSTANT = Int32.MaxValue
 
-    let buildReachability (usedMethods : MethodBase list) methodsQueue (currentMethod : MethodBase) =
+    let reachableLocations = Dictionary<codeLocation, codeLocation list>()
+    let reachableMethods = Dictionary<codeLocation, MethodBase list>()
+    let methodsReachability = Dictionary<MethodBase, MethodBase list>()
+    let methodsReachabilityTransitiveClosure = Dictionary<MethodBase, MethodBase list>()
+
+    let mutable entryMethod : MethodBase = null
+    let appendReachableInfo (cfg : cfg) (reachableLocsForSCC : HashSet<codeLocation>) (reachableMethodsForSCC : HashSet<MethodBase>) (current : offset) =
+        let currentLoc = {offset = current; method = cfg.methodBase}
+        reachableLocsForSCC.Add(currentLoc) |> ignore
+        if cfg.offsetsDemandingCall.ContainsKey current then
+           let _, calledMethod = cfg.offsetsDemandingCall.[current]
+           if calledMethod.DeclaringType.Assembly = entryMethod.DeclaringType.Assembly then
+            reachableMethodsForSCC.Add(calledMethod) |> ignore
+
+        let helper (target : offset) =
+            let loc = {offset = target; method = cfg.methodBase}
+            if not <| reachableLocations.ContainsKey loc then ()
+            List.iter (reachableLocsForSCC.Add >> ignore) reachableLocations.[loc]
+            List.iter (reachableMethodsForSCC.Add >> ignore) reachableMethods.[loc]
+        let targets = cfg.graph.[current]
+        Seq.iter helper targets
+
+    let commitReachableInfo (cfg : cfg) (reachableLocsForSCC : HashSet<codeLocation>) (reachableMethodsForSCC : HashSet<MethodBase>) (current : offset) =
+        let currentLoc = {offset = current; method = cfg.methodBase}
+        reachableLocations.[currentLoc] <-  List.ofSeq (reachableLocsForSCC)
+        reachableMethods.[currentLoc] <- List.ofSeq (reachableMethodsForSCC)
+
+    let initReachableInfo (cfg : cfg) (current : offset) =
+        let currentLoc = {offset = current; method = cfg.methodBase}
+        reachableLocations.Add(currentLoc, [])
+        reachableMethods.Add(currentLoc, [])
+    let buildReachabilityInfo (currentMethod : MethodBase) : MethodBase list =
         let cfg = CFG.build currentMethod
 
-        let appendComponent acc newOffset =
-            cfg.sccOut.[newOffset] :: acc
-
-        let addReachabilityInfo s t =
-            if intraReachability.ContainsKey s |> not then intraReachability.Add(s, [t])
-            else
-                let old = intraReachability.[s]
-                intraReachability.[s] <- t :: old
-
-        let rec dfsSCC (cfg : cfg) (usedSCC : int list) (v : offset) : int list =
+        let rec dfsSCC (usedSCC : int list) (v : offset) : int list =
             let currentSCC = cfg.sccOut.[v]
             if List.contains currentSCC usedSCC then usedSCC
             else
                 let usedSCC = currentSCC :: usedSCC
                 let currentSCCOffsets = Seq.filter (fun offset -> currentSCC = cfg.sccOut.[offset]) cfg.sortedOffsets
-                let newUsed = Seq.fold (fun acc u1 -> Seq.fold (fun acc u2 -> dfsSCC cfg acc u2) acc cfg.graph.[u1]) usedSCC currentSCCOffsets
-                let reachableOffsets = HashSet<codeLocation>()
-                Seq.iter (fun u -> reachableOffsets.Add({offset = u; method = currentMethod}) |> ignore) currentSCCOffsets
-                let appendRest u1 =
-                    Seq.iter (fun u2 -> List.iter (fun loc -> reachableOffsets.Add(loc) |> ignore) intraReachability.[{offset = u2; method = currentMethod}]) cfg.graph.[u1]
-                Seq.iter appendRest currentSCCOffsets
-                Seq.iter (fun u -> intraReachability.[{offset = u; method = currentMethod}] <- List.ofSeq reachableOffsets) currentSCCOffsets
+                let newUsed = Seq.fold (fun acc u1 -> Seq.fold (fun acc u2 -> dfsSCC acc u2) acc cfg.graph.[u1]) usedSCC currentSCCOffsets
+                let reachableLocsForSCC = HashSet<codeLocation>()
+                let reachableMethodsForSCC = HashSet<MethodBase>()
+                Seq.iter (initReachableInfo cfg) currentSCCOffsets
+                Seq.iter (appendReachableInfo cfg reachableLocsForSCC reachableMethodsForSCC) currentSCCOffsets
+                Seq.iter (commitReachableInfo cfg reachableLocsForSCC reachableMethodsForSCC) currentSCCOffsets
                 newUsed
-//                List.iter (fun offset -> List.iter addReachabilityInfo )
+        let _ = dfsSCC [] 0 //TODO: what about EHC?
+        reachableMethods.[{offset = 0; method = currentMethod}]
 
-        __notImplemented__()
+    let addCall (current : MethodBase) (calledMethods : MethodBase list) =
+        let add m (ms : MethodBase list) (d : Dictionary<_, MethodBase list >) =
+            if d.ContainsKey m then d.[m] <- ms @ d.[m]
+            else d.Add(m, ms)
 
-    override x.PickNext fq =
-        let canBePropagated (s : cilState) =
-            not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
-        let states = fq |> List.filter canBePropagated
-        match states with
-        | _ :: _ -> List.last states |> Some
-        | [] -> None
+        add current calledMethods methodsReachability
 
+    let buildReachability () =
+        let rec exit processedMethods = function
+                | [] -> ()
+                | m :: q' -> findFixPoint (processedMethods, q') m
+        and findFixPoint (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
+            if List.contains current processedMethods then exit processedMethods methodsQueue
+            else
+                let processedMethods = current :: processedMethods
+                let calledMethods = buildReachabilityInfo current
+                addCall current calledMethods
+
+                exit processedMethods (methodsQueue @ calledMethods)
+        findFixPoint ([],[]) entryMethod
+
+    let makeTransitiveClosure () =
+        let findReachableMethodsForMethod (current : MethodBase) =
+            Logger.info "Iterating for %O" current
+            methodsReachabilityTransitiveClosure.Add(current, [])
+            let used = HashSet<MethodBase>()
+            let rec dfs (v : MethodBase) =
+                if used.Contains v then ()
+                else
+                    used.Add(v) |> ignore
+                    methodsReachabilityTransitiveClosure.[current] <- v :: methodsReachability.[current]
+                    List.iter dfs (methodsReachability.[v])
+            List.iter dfs methodsReachability.[current]
+        Seq.iter findReachableMethodsForMethod (methodsReachability.Keys)
+    let print () =
+        Logger.info "Calculated CFG Reachability\n"
+        methodsReachabilityTransitiveClosure |> Seq.iter (fun kvp ->
+            let value = List.fold (fun (sb : StringBuilder) m -> sb.AppendFormat("{0}; ", m.ToString())) (StringBuilder()) kvp.Value
+            Logger.info "key = %O; Value = %s" kvp.Key (value.ToString()))
+
+    let init main =
+        entryMethod <- main
+        buildReachability ()
+        makeTransitiveClosure ()
+        print ()
+
+    let ip2codeLocation (ip : ip) =
+        match offsetOf ip, methodOf ip with
+        | None, _ -> None
+        | Some offset, m ->
+            let loc = {offset = offset; method = m}
+            Some loc
+
+
+    let min(x, y) = if x < y then x else y
+
+    let loc2Locs (loc : codeLocation) =
+        match reachableLocations.ContainsKey loc with
+        | true -> reachableLocations.[loc]
+        | _ -> []
+
+    let loc2Methods (loc : codeLocation) =
+        match reachableMethods.ContainsKey loc with
+        | true -> reachableMethods.[loc]
+        | _ -> []
+
+    let method2Methods (m : MethodBase) =
+        match methodsReachabilityTransitiveClosure.ContainsKey m with
+        | true -> methodsReachabilityTransitiveClosure.[m]
+        | _ -> []
+
+    let canReachMetrics(ipStack : ip list, target : ip, _ : ip list) : reachabilityEvaluation =
+        let helper target acc ip =
+            let currentReachableCost, currentCostToExit =
+                match acc with
+                | Reachable(x, y) -> x, y
+                | Unknown -> UNKNOWN_CONSTANT, 0
+            let findNewCost price =
+                Reachable(min(currentReachableCost, currentCostToExit + price), currentCostToExit + COST_OF_EXIT)
+            match ip2codeLocation ip with
+            | Some loc when List.contains target (loc2Locs loc) -> findNewCost REGULAR_COST
+            | Some loc when List.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
+            | Some loc when Seq.exists (fun m -> List.contains target.method (method2Methods m)) (loc2Methods loc) ->
+                findNewCost COST_OF_MANY_CALLS
+            | _  -> Reachable(currentReachableCost, currentCostToExit + COST_OF_EXIT)
+        match ip2codeLocation target with
+        | None -> Unknown
+        | Some target -> List.fold (helper target) Unknown ipStack
+
+    let canReach(ipStack, target, blocked) =
+        match canReachMetrics(ipStack, target, blocked) with
+            | Unknown -> __unreachable__()
+            | Reachable(x, _) -> x <> UNKNOWN_CONSTANT
+
+
+    interface INewSearcher with
+        override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = canReach(ipStack, target, blocked)
+        override x.MaxBound = maxBound
+
+
+        override x.ChooseAction(qf,qb,pobs,main) =
+            if entryMethod = null then
+                init main
+            let tryFindState acc (p : pob) =
+                match acc with
+                | Some _ -> acc
+                | _ ->
+                    let sorted =
+                        qf |> List.filter (fun s -> levelToInt s.level <= maxBound)
+                        |> List.sortBy (fun (s : cilState) -> canReachMetrics(s.ipStack, p.loc, []))
+                    match sorted with
+                    | s :: _ when canReach(s.ipStack, p.loc, []) -> Some s
+                    | _ -> None
+
+            match qf, qb, pobs with
+            | [], _, _ -> Start(Instruction(0, main))
+            | _, b ::_, _ -> GoBackward(b)
+            | _, _, [] -> Stop
+            | _, _, pobs ->
+                let s = List.fold tryFindState None pobs
+                match s with
+                | None -> Stop
+                | Some s -> GoForward s

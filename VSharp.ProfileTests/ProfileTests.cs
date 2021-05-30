@@ -7,7 +7,7 @@ namespace VSharp.ProfileTests
     {
         static void Main(string[] args)
         {
-            var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher()));
+            var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher(10)));
             svm.ConfigureSolver();
             var testingMethodType = typeof(Test.Tests.PDR);
             var testingMethod = testingMethodType.GetMethod("BreakCallSitesCompositionRecursion");

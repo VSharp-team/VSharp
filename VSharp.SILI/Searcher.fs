@@ -36,13 +36,17 @@ type SearchDirection =
     | GoBackward of pob * cilState
 
 type INewSearcher =
-    abstract member ChooseAction : list<cilState> * list<pob * cilState> * MethodBase -> SearchDirection
+    abstract member ChooseAction : list<cilState> * list<pob * cilState> * pob list * MethodBase -> SearchDirection
+    abstract member CanReach : ip stack * ip * ip list -> bool
+    abstract member MaxBound : int
 
 [<AbstractClass>]
-type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
-    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
+//    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     interface INewSearcher with
-        override x.ChooseAction(fq, bq, main) =
+        override x.CanReach(_,_,_) = true
+        override x.MaxBound = maxBound
+        override x.ChooseAction(fq, bq, pobs, main) =
             match fq, bq with
             | _, ps :: _ -> GoBackward ps
             | [], [] -> Start <| Instruction(0, main)
@@ -54,11 +58,12 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
     abstract member PickNext : cilState list -> cilState option
     default x.PickNext (_ : cilState list) = None
     member x.Used (cilState : cilState) =
+        let maxBound : int = (x :> INewSearcher).MaxBound
         match currentIp cilState with
         | Instruction(offset, m) ->
             let codeLocation = {offset = offset; method = m}
             match PersistentDict.tryFind cilState.level codeLocation with
-            | Some current -> current >= maxBound
+            | Some current -> current >= uint maxBound
             | None -> false
         | _ -> false
 
@@ -66,8 +71,8 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
     member x.CanBePropagated (s : cilState) =
         not (isIIEState s || isUnhandledError s || x.Used s) && isExecutable s
 
-type DFSSearcher() =
-    inherit ForwardSearcher() with
+type BFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound) with
         override x.PickNext fq =
             let canBePropagated (s : cilState) =
                 not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
@@ -76,8 +81,8 @@ type DFSSearcher() =
             | x :: _ -> Some x
             | [] -> None
 
-type BFSSearcher() =
-    inherit ForwardSearcher() with
+type DFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound) with
         override x.PickNext fq =
             let canBePropagated (s : cilState) =
                 not (isIIEState s || isUnhandledError s) && isExecutable s && not (x.Used s)
@@ -87,8 +92,8 @@ type BFSSearcher() =
             | [] -> None
 
 
-type EffectsFirstSearcher() =
-    inherit ForwardSearcher()
+type EffectsFirstSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound)
     override x.PickNext q =
         let canBePropagated (s : cilState) =
             let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
@@ -109,22 +114,22 @@ type EffectsFirstSearcher() =
     abstract member ShouldStartExploringInIsolation: cilState list * cilState -> bool
     default x.ShouldStartExploringInIsolation (_,_) = false
 
-type AllMethodsExplorationSearcher() =
-    inherit EffectsFirstSearcher()
+type AllMethodsExplorationSearcher(maxBound) =
+    inherit EffectsFirstSearcher(maxBound)
     override x.ShouldStartExploringInIsolation(states, s) =
         match currentIp s with
         | Instruction(0, _) as ip when states |> Seq.filter (startingIpOf >> (=) ip) |> Seq.length = 0 -> true
         | _ -> false
 
-type ParameterlessMethodsExplorationSearcher() =
-    inherit AllMethodsExplorationSearcher()
+type ParameterlessMethodsExplorationSearcher(maxBound) =
+    inherit AllMethodsExplorationSearcher(maxBound)
     override x.ShouldStartExploringInIsolation(states, s) =
         base.ShouldStartExploringInIsolation(states, s) &&
             let m = Memory.GetCurrentExploringFunction s.state
             (m.IsConstructor || m.IsStatic) && m.GetParameters().Length = 0
 
-type ExceptionsExplorationSearcher() =
-    inherit ParameterlessMethodsExplorationSearcher()
+type ExceptionsExplorationSearcher(maxBound) =
+    inherit ParameterlessMethodsExplorationSearcher(maxBound)
     override x.ShouldStartExploringInIsolation(states, s) =
         base.ShouldStartExploringInIsolation(states, s) &&
             let m = Memory.GetCurrentExploringFunction s.state

@@ -126,7 +126,7 @@ namespace VSharp.Test
         {
             public TestSvmCommand(TestCommand innerCommand) : base(innerCommand) {}
 
-            public override TestResult Execute(TestExecutionContext context)
+            private TestResult Explore(TestExecutionContext context)
             {
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var idealValue = new IdealValuesHandler(methodInfo);
@@ -142,6 +142,56 @@ namespace VSharp.Test
                     var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
                     context.CurrentResult.SetResult(ResultState.Failure, diff);
                 }
+
+                return context.CurrentResult;
+            }
+
+            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher)
+            {
+
+                var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
+                var loc = new Core.codeLocation(exitOffset, entryMethod);
+
+                Core.codeLocation[] codeLocations = {loc};
+
+                var stopWatch = new Stopwatch();
+                stopWatch.Start();
+                var svm = new SVM(new PobsInterpreter(searcher));
+                var dict = svm.AnswerPobs(entryMethod, codeLocations);
+                stopWatch.Stop();
+
+                Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+
+                bool res = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
+                if (!res)
+                {
+
+                    // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
+                    var exit = exitOffset.ToString("X4");
+                    Console.WriteLine($"searvher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
+                    // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                }
+
+                return res;
+                // return context.CurrentResult;
+            }
+
+            public override TestResult Execute(TestExecutionContext context)
+            {
+                var entryMethod = innerCommand.Test.Method.MethodInfo;
+                var maxBound = 20;
+                // return Explore(context);
+                var searchers = new INewSearcher[]
+                {
+                    new DFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound)
+                };
+
+                bool res = true;
+                foreach (var s in searchers)
+                {
+                    res &= AnswerPobs(entryMethod, s);
+                }
+                context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
                 return context.CurrentResult;
             }
         }

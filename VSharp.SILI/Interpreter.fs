@@ -55,14 +55,15 @@ type public MethodInterpreter(searcher : ForwardSearcher (*ilInterpreter : ILInt
                 goodStates @ incompleteStates @ errors
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
-        let mutable s = searcher.PickNext (q.GetStates())
-        while Option.isSome s do
-            match s with
-            | Some state ->
-                q.Remove state
-                step state
-                s <- searcher.PickNext (q.GetStates())
-            | None -> ()
+
+        let mutable action = (searcher :> INewSearcher).ChooseAction (q.GetStates(), [], [], mainId)
+        while action <> Stop do
+            match action with
+            | GoForward s ->
+                q.Remove s
+                step s
+            | _ -> __unreachable__()
+            action <- (searcher :> INewSearcher).ChooseAction (q.GetStates(), [], [], mainId)
         x.GetResults initialState q
 
     override x.Invoke method initialState k =
@@ -70,11 +71,6 @@ type public MethodInterpreter(searcher : ForwardSearcher (*ilInterpreter : ILInt
         assert(List.length cilStates = 1)
         let cilState = List.head cilStates
         let results = x.Interpret method cilState
-        let printResults (cilStates : cilState list) =
-            let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
-            let fullMethodName = Reflection.getFullMethodName method
-            Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
-//        printResults results
         k results
 
 and public ILInterpreter(methodInterpreter : ExplorerBase) as this =

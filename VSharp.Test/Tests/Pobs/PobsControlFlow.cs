@@ -33,6 +33,17 @@ namespace VSharp.Test.Tests.Pobs
     public class SwitchWithSequentialCases1
     {
         // [TestPobs]
+        public static int ExpensiveCalculation(int n)
+        {
+            int sum = 0;
+            for (int i = 0; i < n; i++)
+            {
+                sum++;
+            }
+
+            return sum;
+        }
+
         public static int EntryMethod(int x)
         {
             switch (x)
@@ -51,6 +62,103 @@ namespace VSharp.Test.Tests.Pobs
                     return -1;
             }
         }
+
+        public static int TestForDFS(int parameter)
+        {
+            int sum = 0;
+            for (int i = 0; i < 7; i++)
+            {
+                switch (parameter)
+                {
+                    case 1:
+                        sum += 100;
+                        break;
+                    case 2:
+                        sum *= 2;
+                        break;
+                    case 3:
+                        sum *= 3;
+                        break;
+                    default:
+                        sum++;
+                        break;
+                }
+            }
+
+            if (sum == 7)
+            {
+                throw null;
+            }
+
+            return 0;
+        }
+
+        public static int SwitchWithExpensiveCalculations(int x)
+        {
+            switch (x)
+            {
+                case 0:
+                    return ExpensiveCalculation(10);
+                case 1:
+                    return ExpensiveCalculation(20);
+                case 2:
+                    return ExpensiveCalculation(30);
+
+                case 3:
+                    return ExpensiveCalculation(40);
+                case 4:
+                    throw null; // go here
+                default:
+                    return ExpensiveCalculation(500);
+                    return -1;
+            }
+        }
+
+        public static int BoundTest(int x)
+        {
+            int sum = 0;
+            for (int i = 0; i < 150; i++)
+            {
+                sum += x;
+            }
+
+            throw null;
+            // return sum;
+        }
+
+
+        public static int LittleExpensiveCalculations(int x)
+        {
+            int sum = 0;
+            for (int i = 0; i < x; i++)
+            {
+                sum++;
+            }
+
+            throw null;
+        }
+
+        public static int TrickyTestForTargetedSearcher(int x)
+        {
+            switch (x)
+            {
+                case 0:
+                    return ExpensiveCalculation(10);
+                case 1:
+                    return ExpensiveCalculation(20);
+                case 2:
+                    return ExpensiveCalculation(30);
+
+                case 3:
+                    return ExpensiveCalculation(40);
+                case 4:
+                    return LittleExpensiveCalculations(50);
+                default:
+                    return ExpensiveCalculation(500);
+            }
+        }
+
+
     }
 
     // [TestPobsFixture]

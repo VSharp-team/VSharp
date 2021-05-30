@@ -129,6 +129,11 @@ module ipOperations =
             | _ -> __unreachable__()
         helper newOffset ip id
 
+    let rec offsetOf = function
+        | Exit _ -> None
+        | Instruction(offset, _) -> Some offset
+        | Leave(ip, _, _, _) -> offsetOf ip
+        | _ -> None
     let methodOf = function
         | Exit m
         | Instruction(_, m)
