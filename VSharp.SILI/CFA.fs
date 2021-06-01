@@ -735,7 +735,7 @@ type EffectsFirstSearcher() =
             let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
             conditions |> List.fold (fun acc f -> acc || f s) false |> not
 
-        let states = q.GetStates() |> List.filter canBePropagated |> List.sortWith effectsFirst
+        let states = q.GetStates() |> List.filter canBePropagated
         match states with
         | [] -> None
         | s :: _ when x.ShouldStartExploringInIsolation(q, s) ->
@@ -772,4 +772,3 @@ type ExceptionsExplorationSearcher() =
         base.ShouldStartExploringInIsolation(q, s) &&
             let m = let func = Memory.GetCurrentExploringFunction s.state in func.Method
             m.DeclaringType.IsSubclassOf(typeof<Exception>)
-
