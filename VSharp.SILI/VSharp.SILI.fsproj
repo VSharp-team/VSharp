@@ -35,4 +35,8 @@
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="C5" Version="2.5.3" />
+    </ItemGroup>
+
 </Project>
