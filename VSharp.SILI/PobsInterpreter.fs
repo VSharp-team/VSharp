@@ -410,7 +410,7 @@ type TargetedSearcher(maxBound) =
         makeTransitiveClosure ()
         comparer <- cilstatesComparer(target, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
         priorityQueue <- C5.IntervalHeap<cilState>(comparer)
-        print ()
+//        print ()
 
     interface INewSearcher with
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = comparer.CanReach(ipStack, blocked)

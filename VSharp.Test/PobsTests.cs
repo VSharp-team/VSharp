@@ -41,7 +41,7 @@ namespace VSharp.Test
 
 
 
-        private static void AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher)
+        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher)
         {
             Core.codeLocation[] codeLocations = proxies.Select(p => new Core.codeLocation(p.Offset, p.Method)).ToArray();
             var svm = new SVM(new PobsInterpreter(searcher));
@@ -55,17 +55,25 @@ namespace VSharp.Test
 
             Console.WriteLine($"Searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
 
+            bool allWitnessed = true;
             foreach (var p in proxies)
             {
                 var loc = new Core.codeLocation(p.Offset, p.Method);
-                Assert.AreEqual(p.DesiredStatus, dict[loc], $"Checking location, offset = {loc.offset.ToString("X4")}, method = {loc.method}");
+
+                if (p.DesiredStatus != dict[loc])
+                {
+                    allWitnessed = false;
+                    Console.WriteLine($"Searcher {searcher.GetType()} could not witness loc = {loc}");
+                }
+                // Assert.AreEqual(p.DesiredStatus, dict[loc], $"Checking location {loc}");
             }
+            return allWitnessed;
         }
 
         [TestCaseSource(nameof(PobsCases))]
         public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
         {
-            int maxBound = 20;
+            int maxBound = 200;
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
@@ -73,10 +81,14 @@ namespace VSharp.Test
                 , new BFSSearcher(maxBound)
                 , new DFSSearcher(maxBound)
             };
+
+            bool allWitnessed = true;
             foreach (var s in searchers)
             {
-                AnswerPobsForSearcher(entryMethod, proxies, s);
+                allWitnessed &= AnswerPobsForSearcher(entryMethod, proxies, s);
             }
+
+            Assert.True(allWitnessed);
         }
 
         public static object[] PobsCases =
