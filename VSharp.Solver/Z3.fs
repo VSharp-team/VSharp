@@ -54,12 +54,22 @@ module internal Z3 =
                 x.t2e.[term] <- result
                 result)
 
-
     let private freshCache () = {
         sorts = Dictionary<symbolicType, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
     }
+
+    let private solverResultCache = Dictionary<query, smtResult>()
+
+    let private getSolverResult mkResult (q : query) =
+        let result : smtResult ref = ref (SmtUnknown "not ready")
+        if solverResultCache.TryGetValue(q, result) then !result
+        else
+            let result = mkResult()
+            solverResultCache.Add(q, result)
+            result
+
 
     let private regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
 
@@ -74,7 +84,7 @@ module internal Z3 =
 // ------------------------------- Encoding: primitives -------------------------------
 
     type private Z3Builder(ctx : Context) =
-        let cache = freshCache()
+        let encodingCache = freshCache()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -83,7 +93,7 @@ module internal Z3 =
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
 
         member private x.Type2Sort typ =
-            Dict.getValueOrUpdate cache.sorts typ (fun () ->
+            Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
                 | Numeric(Id typ) when typ.IsEnum -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
@@ -137,8 +147,9 @@ module internal Z3 =
                 | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ
                 | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
                 | Expression(op, args, typ) -> x.EncodeExpression stopper encCtx t op args typ
+                | HeapRef(address, _) -> x.EncodeTerm encCtx address
                 | _ -> __notImplemented__()
-            cache.Get(t, getResult)
+            encodingCache.Get(t, getResult)
 
         member private x.EncodeConcrete encCtx (obj : obj) typ : encodingResult =
             let expr =
@@ -172,7 +183,7 @@ module internal Z3 =
                 ctx.MkSignExt(uint32 -difference, x), y
 
         member private x.EncodeExpression stopper encCtx term op args typ = // TODO: need stopper? delete? #do
-            cache.Get(term, fun () ->
+            encodingCache.Get(term, fun () ->
                 match op with
                 | Operator operator ->
                     if stopper operator args then
@@ -334,19 +345,17 @@ module internal Z3 =
         member private x.GetRegionConstant hasDefaultValue (name : string) makeSort (structFields : fieldId list) typ (regSort : regionSort) =
             let valueSort = x.Type2Sort typ
             let sort = makeSort valueSort
-            let mkConst () =
-                if hasDefaultValue then ctx.MkConstArray(sort, x.DefaultValue valueSort)
-                else ctx.MkConst(name, sort) :?> ArrayExpr
+            let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regSort, structFields)
 
         // TODO: delete some arguments #do
-        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort select left mo source structFields name typ =
+        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort inst left mo source structFields name typ =
             let updates = MemoryRegion.flatten mo
             let memoryRegionConst = GetHeapReadingRegionSort source |> x.GetRegionConstant hasDefaultValue name makeSort structFields typ
             let assumptions, leftExpr = encodeKey left
             let leftInRegion = keyInRegion x.True left leftExpr
             let assumptions = leftInRegion :: assumptions
-            let inst = select memoryRegionConst leftExpr
+            let inst = inst memoryRegionConst leftExpr
             let checkOneKey (acc, assumptions) (right, value) =
                 let rightAssumptions, rightExpr = encodeKey right
                 let assumptions = List.append assumptions rightAssumptions // TODO: make better (mb monad) #do
@@ -362,22 +371,23 @@ module internal Z3 =
         member private x.HeapReading encCtx key mo typ source structFields name =
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
             let makeSort valueSort = ctx.MkArraySort(x.Type2Sort AddressType, valueSort)
-            let select array (k : Expr) = ctx.MkSelect(array, k)
+            let inst array (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false makeSort select key mo source structFields name typ
+            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey false makeSort inst key mo source structFields name typ
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
-            let makeSort valueSort =
-                ctx.MkArraySort(domainSort, valueSort)
-            let select array (k : Expr[]) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort select key mo source structFields name typ
+            let makeSort valueSort = ctx.MkArraySort(domainSort, valueSort)
+            let inst array (k : Expr[]) =
+                if hasDefaultValue then x.DefaultValue (x.Type2Sort typ)
+                else ctx.MkSelect(array, k)
+            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue makeSort inst key mo source structFields name typ
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
             let makeSort valueType = ctx.MkArraySort(x.Type2Sort AddressType, valueType)
-            let select array (k : Expr) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey false makeSort select key mo source structFields name typ
+            let inst array (k : Expr) = ctx.MkSelect(array, k)
+            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey false makeSort inst key mo source structFields name typ
 
         member private x.StaticsReading encCtx key mo typ source structFields (name : string) = // TODO: redo #do
             let keyType = x.Type2Sort Types.IndexType
@@ -425,7 +435,7 @@ module internal Z3 =
             x.DecodeExpr op Bool expr
 
         member public x.Decode (expr : Expr) =
-            if cache.e2t.ContainsKey(expr) then cache.e2t.[expr]
+            if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
             else
                 match expr with
                 | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
@@ -498,42 +508,44 @@ module internal Z3 =
                 printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
                 printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
                 try
-                    try
-                        let query = builder.EncodeTerm encCtx q.queryFml
-                        let assumptions = query.assumptions
-                        let assumptions =
-                            seq {
-                                for i in 0 .. levelAtoms.Count - 1 do
-                                    let atom = levelAtoms.[i]
-                                    if atom <> null then
-                                        let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
-                                        yield lit :> Expr
-                                for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
-                                    yield assumptions.[i] :> Expr
-                                yield query.expr
-                            } |> Array.ofSeq
-                        let pathAtoms = addSoftConstraints q.lvl
-                        let result = optCtx.Check assumptions
-                        printLog Info "SOLVER: got %O" result
-                        match result with
-                        | Status.SATISFIABLE ->
-                            let z3Model = optCtx.Model
-                            let model = convertZ3Model z3Model
-                            let usedPaths =
-                                pathAtoms
-                                |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
-                                |> Seq.map (fun atom -> paths.[atom])
-                            SmtSat { mdl = model; usedPaths = usedPaths }
-                        | Status.UNSATISFIABLE -> SmtUnsat { core = unsatCore() }
-                        | Status.UNKNOWN ->
-                            printLog Trace "SOLVER: reason: %O" <| optCtx.ReasonUnknown
-                            SmtUnknown optCtx.ReasonUnknown
-                        | _ -> __unreachable__()
-                    with
-                    | :? Z3Exception
-                    | :? EncodingException as e ->
-                        printLog Info "SOLVER: exception was thrown: %s" e.Message
-                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    let mkResult () =
+                        try
+                            let query = builder.EncodeTerm encCtx q.queryFml
+                            let assumptions = query.assumptions
+                            let assumptions =
+                                seq {
+                                    for i in 0 .. levelAtoms.Count - 1 do
+                                        let atom = levelAtoms.[i]
+                                        if atom <> null then
+                                            let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
+                                            yield lit :> Expr
+                                    for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
+                                        yield assumptions.[i] :> Expr
+                                    yield query.expr
+                                } |> Array.ofSeq
+                            let pathAtoms = addSoftConstraints q.lvl
+                            let result = optCtx.Check assumptions
+                            printLog Info "SOLVER: got %O" result
+                            match result with
+                            | Status.SATISFIABLE ->
+                                let z3Model = optCtx.Model
+                                let model = convertZ3Model z3Model
+                                let usedPaths =
+                                    pathAtoms
+                                    |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
+                                    |> Seq.map (fun atom -> paths.[atom])
+                                SmtSat { mdl = model; usedPaths = usedPaths }
+                            | Status.UNSATISFIABLE -> SmtUnsat { core = unsatCore() }
+                            | Status.UNKNOWN ->
+                                printLog Trace "SOLVER: reason: %O" <| optCtx.ReasonUnknown
+                                SmtUnknown optCtx.ReasonUnknown
+                            | _ -> __unreachable__()
+                        with
+                        | :? Z3Exception
+                        | :? EncodingException as e ->
+                            printLog Info "SOLVER: exception was thrown: %s" e.Message
+                            SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    getSolverResult mkResult q
                 finally
 //                    optCtx.Pop() // TODO: need this? #do
                     ()
