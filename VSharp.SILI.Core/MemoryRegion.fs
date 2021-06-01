@@ -200,9 +200,6 @@ module private UpdateTree =
 
     let deterministicCompose earlier later = RegionTree.append earlier later
 
-    let maxTime (tree : updateTree<'a, heapAddress, 'b>) =
-        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
-
     let print indent valuePrint tree =
         let window = 50
         let incIndent = indent + "    "
@@ -223,6 +220,9 @@ module MemoryRegion =
 
     let empty typ =
         {typ = typ; updates = UpdateTree.empty}
+
+    let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
+        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
 
     let read mr key isDefault instantiate =
         let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}

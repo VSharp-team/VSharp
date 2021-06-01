@@ -347,7 +347,10 @@ module internal Memory =
         let instantiate typ memory =
             let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
             let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault}
-            makeSymbolicHeapRead picker key state.startingTime typ memory
+            let time =
+                if isValueType typ then state.startingTime
+                else MemoryRegion.maxTime region.updates state.startingTime
+            makeSymbolicHeapRead picker key time (*state.startingTime*) typ memory
         MemoryRegion.read region key (isDefault state) instantiate
 
     let readArrayIndex state addr indices arrayType =

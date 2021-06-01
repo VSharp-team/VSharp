@@ -527,6 +527,7 @@ module internal InstructionsSet =
         | _ -> __unreachable__()
     let localloc _ _ (cilState : cilState) =
         // TODO: pushing nullptr #hack
+        let _, cilState = pop cilState
         push (Ptr None Void None) cilState |> List.singleton
     let zipWithOneOffset op (cfgData : cfgData) offset cilState =
         assert(not <| isError cilState)

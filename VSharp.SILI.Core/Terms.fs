@@ -588,6 +588,7 @@ module internal Terms =
         match address.term with
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
+        | HeapRef(address, _) -> timeOf address
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
         | _ -> internalfailf "timeOf : expected heap address, but got %O" address
 
