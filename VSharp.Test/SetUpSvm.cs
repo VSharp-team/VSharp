@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
@@ -32,7 +33,19 @@ namespace VSharp.Test
             // var svm = new SVM(new MethodInterpreter(new BFSSearcher(bound)));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
-            TestSvmAttribute.SetUpSVM(svm);
+            var maxBound = 20;
+            var searchers = new INewSearcher[] {
+                new DFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound)
+            };
+            var pobsStatistics = new PobsStatistics(searchers);
+            TestSvmAttribute.SetUpSVM(svm, maxBound, searchers, pobsStatistics);
         }
+
+        [OneTimeTearDown]
+        public void PrintStats()
+        {
+            TestSvmAttribute.PrintStats();
+        }
+
     }
 }

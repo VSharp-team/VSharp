@@ -13,6 +13,7 @@ type public codeLocation = {offset : offset; method : MethodBase}
         | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
         | _ -> false
     override x.GetHashCode() = (x.offset, x.method).GetHashCode()
+    override x.ToString() = sprintf "offset = %s, method = %s" (x.offset.ToString("X4")) (Reflection.getFullMethodName x.method)
     interface System.IComparable with
         override x.CompareTo y =
             match y with

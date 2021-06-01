@@ -163,6 +163,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
         currentPobs.Clear()
         answeredPobs.Clear()
         parents.Clear()
+        searcher.Reset()
     override x.Invoke _ _ _ = __notImplemented__()
     override x.AnswerPobs entryMethod codeLocations k =
         let printLocInfo (loc : codeLocation) =
@@ -222,10 +223,11 @@ type public PobsInterpreter(searcher : INewSearcher) =
             | _ -> -1
 
 type TargetedSearcher(maxBound) =
-    let COST_OF_MANY_CALLS = 300
-    let COST_OF_CALL = 100
-    let COST_OF_EXIT = 50
+    let COST_OF_MANY_CALLS = 3000
+    let COST_OF_CALL = 500
+    let COST_OF_EXIT = 100
     let REGULAR_COST = 20
+    let COST_TO_GO_TO_ENDFINALLY = 50
     let UNKNOWN_CONSTANT = Int32.MaxValue
 
     let reachableLocations = Dictionary<codeLocation, codeLocation list>()
@@ -358,6 +360,7 @@ type TargetedSearcher(maxBound) =
             let findNewCost price =
                 Reachable(min(currentReachableCost, currentCostToExit + price), currentCostToExit + COST_OF_EXIT)
             match ip2codeLocation ip with
+            | Some loc when not <| reachableLocations.ContainsKey(loc) -> findNewCost COST_TO_GO_TO_ENDFINALLY
             | Some loc when List.contains target (loc2Locs loc) -> findNewCost REGULAR_COST
             | Some loc when List.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
             | Some loc when Seq.exists (fun m -> List.contains target.method (method2Methods m)) (loc2Methods loc) ->
@@ -372,11 +375,16 @@ type TargetedSearcher(maxBound) =
             | Unknown -> __unreachable__()
             | Reachable(x, _) -> x <> UNKNOWN_CONSTANT
 
-
     interface INewSearcher with
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = canReach(ipStack, target, blocked)
         override x.MaxBound = maxBound
 
+        override x.Reset() =
+            reachableLocations.Clear()
+            reachableMethods.Clear()
+            methodsReachability.Clear()
+            methodsReachabilityTransitiveClosure.Clear()
+            entryMethod <- null
 
         override x.ChooseAction(qf,qb,pobs,main) =
             if entryMethod = null then

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using VSharp.Core;
+using VSharp.Interpreter.IL;
 
 namespace VSharp.Test
 {
@@ -133,6 +135,57 @@ namespace VSharp.Test
 
     public class PobsStatistics
     {
+        // private static TimeSpan diff = new TimeSpan(milliseconds:500);
+        private INewSearcher[] _searchers;
+        private Dictionary<INewSearcher, List<Tuple<codeLocation, TimeSpan>>> _correct;
+        private Dictionary<INewSearcher, List<codeLocation>> _wrong;
+        private HashSet<codeLocation> _allLocs = new HashSet<codeLocation>();
+
+
+        public PobsStatistics(INewSearcher[] searchers)
+        {
+            _searchers = searchers;
+            _correct = new Dictionary<INewSearcher, List<Tuple<codeLocation, TimeSpan>>>();
+            _wrong = new Dictionary<INewSearcher, List<codeLocation>>();
+            foreach (var s in searchers)
+            {
+                _correct.Add(s, new List<Tuple<codeLocation, TimeSpan>>());
+                _wrong.Add(s, new List<codeLocation>());
+            }
+        }
+
+        public void AddCorrectAnswer(INewSearcher s, codeLocation loc, TimeSpan t)
+        {
+            _allLocs.Add(loc);
+            if (!_searchers.Contains(s))
+            {
+                throw new Exception("WTF");
+            }
+            _correct[s].Add(new Tuple<codeLocation, TimeSpan>(loc, t));
+        }
+
+        public void AddWrongAnswer(INewSearcher s, codeLocation loc)
+        {
+            _allLocs.Add(loc);
+            _wrong[s].Add(loc);
+        }
+
+
+        public void PrintStats(INewSearcher s)
+        {
+            foreach (var pair in _correct[s])
+            {
+                var loc = pair.Item1;
+                var timeSpan = pair.Item2;
+                Console.WriteLine($"{s.GetType()} answered right to {loc}, time = {timeSpan}");
+            }
+
+            foreach (var loc in _wrong[s])
+            {
+                Console.WriteLine($"{s.GetType()} NO loc =[{loc}]");
+            }
+        }
+
         public int CilStatesGenerated { get; set; }
         public int InstructionsExecuted { get; set; }
     }

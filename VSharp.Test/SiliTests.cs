@@ -111,10 +111,24 @@ namespace VSharp.Test
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
         protected static SVM _svm;
+        private static int _maxBound;
+        private static INewSearcher[] _searchers;//= new INewSearcher[]
+        private static PobsStatistics _pobsStatistics;
 
-        public static void SetUpSVM(SVM svm)
+        public static void SetUpSVM(SVM svm, int maxBound, INewSearcher[] searchers, PobsStatistics pobsStatistics)
         {
             _svm = svm;
+            _maxBound = maxBound;
+            _searchers = searchers;
+            _pobsStatistics = pobsStatistics;
+        }
+
+        public static void PrintStats()
+        {
+            foreach (var s in _searchers)
+            {
+                _pobsStatistics.PrintStats(s);
+            }
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -148,11 +162,10 @@ namespace VSharp.Test
 
             private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher)
             {
-
                 var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
                 var loc = new Core.codeLocation(exitOffset, entryMethod);
 
-                Core.codeLocation[] codeLocations = {loc};
+                Core.codeLocation[] codeLocations = { loc };
 
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
@@ -160,16 +173,20 @@ namespace VSharp.Test
                 var dict = svm.AnswerPobs(entryMethod, codeLocations);
                 stopWatch.Stop();
 
-                Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
 
                 bool res = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
                 if (!res)
                 {
-
+                    _pobsStatistics.AddWrongAnswer(searcher, loc);
                     // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
                     var exit = exitOffset.ToString("X4");
-                    Console.WriteLine($"searvher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
+                    Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
                     // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                }
+                else
+                {
+                    _pobsStatistics.AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
                 }
 
                 return res;
@@ -178,16 +195,11 @@ namespace VSharp.Test
 
             public override TestResult Execute(TestExecutionContext context)
             {
-                var entryMethod = innerCommand.Test.Method.MethodInfo;
-                var maxBound = 20;
                 // return Explore(context);
-                var searchers = new INewSearcher[]
-                {
-                    new DFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound)
-                };
-
+                var entryMethod = innerCommand.Test.Method.MethodInfo;
                 bool res = true;
-                foreach (var s in searchers)
+
+                foreach (var s in _searchers)
                 {
                     res &= AnswerPobs(entryMethod, s);
                 }

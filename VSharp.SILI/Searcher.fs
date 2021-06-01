@@ -38,6 +38,7 @@ type SearchDirection =
 type INewSearcher =
     abstract member ChooseAction : list<cilState> * list<pob * cilState> * pob list * MethodBase -> SearchDirection
     abstract member CanReach : ip stack * ip * ip list -> bool
+    abstract member Reset : unit -> unit
     abstract member MaxBound : int
 
 [<AbstractClass>]
@@ -46,6 +47,7 @@ type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in re
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
         override x.MaxBound = maxBound
+        override x.Reset () = ()
         override x.ChooseAction(fq, bq, pobs, main) =
             match fq, bq with
             | _, ps :: _ -> GoBackward ps

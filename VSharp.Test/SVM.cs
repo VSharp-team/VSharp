@@ -47,7 +47,7 @@ namespace VSharp.Test
     {
         private readonly ExplorerBase _explorer;
         private readonly Statistics _statistics = new Statistics();
-        private PobsStatistics _pobsStatistics = new PobsStatistics();
+        // private PobsStatistics _pobsStatistics = new PobsStatistics();
 
         public SVM(ExplorerBase explorer)
         {

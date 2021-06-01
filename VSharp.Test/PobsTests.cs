@@ -65,7 +65,7 @@ namespace VSharp.Test
         [TestCaseSource(nameof(PobsCases))]
         public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
         {
-            int maxBound = 200;
+            int maxBound = 20;
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
