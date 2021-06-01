@@ -34,7 +34,8 @@ namespace VSharp.Test
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             var searchers = new INewSearcher[] {
-                new DFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound)
+                new DFSSearcher(maxBound), new DFSSearcher(maxBound), new TargetedSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound), new BFSSearcher(maxBound)
+                // new TargetedSearcher(maxBound)
             };
             var pobsStatistics = new PobsStatistics(searchers);
             TestSvmAttribute.SetUpSVM(svm, maxBound, searchers, pobsStatistics);

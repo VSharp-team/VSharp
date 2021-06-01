@@ -157,6 +157,14 @@ namespace VSharp.Test.Tests
             yield return "ace";
         }
 
+        [TestSvm]
+        public static IEnumerable<int> SelectTest(string x)
+        {
+            var newList = Suits().Select(id => id);
+            newList.Append(x);
+            return newList.Select(i => i.Length);
+        }
+
         [Ignore("takes too much time")]
         public static int SequenceLinqTest()
         {
