@@ -56,6 +56,21 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static MatchCollection SmallGetMatches()
+        {
+            // Define a regular expression for repeated words.
+            Regex rx = new Regex(@"\b",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+            // Define a test string.
+            string text = "fox  ";
+
+            // Find matches.
+            MatchCollection matches = rx.Matches(text);
+            return matches;
+        }
+
+        [TestSvm]
         public static int LinqTest()
         {
             // TODO: use group by and so on #do
@@ -78,42 +93,65 @@ namespace VSharp.Test.Tests
             return result;
         }
 
+        [TestSvm]
+        public static int SymbolicLinqTest(int x, int y, int z)
+        {
+            // TODO: use group by and so on #do
+            int[] scores = { x, y, z, 60 };
+
+            IEnumerable<int> scoreQuery =
+                from score in scores
+                where score > 80 && score % 2 == 0
+                select score;
+
+            int result = 0;
+            foreach (int i in scoreQuery)
+            {
+                if (i > 80)
+                {
+                    result += i;
+                }
+            }
+
+            return result;
+        }
+
         class Customer
         {
+            public int ID { get; set; }
             public string Name { get; set; }
             public string City { get; set; }
         }
 
         class Distributor
         {
+            public int ID { get; set; }
             public string Name { get; set; }
             public string City { get; set; }
         }
 
-        static IEnumerable<Customer> customers()
-        {
-            yield return new Customer {Name = "Jack", City = "Rybinsk"};
-            yield return new Customer {Name = "John", City = "Moscow"};
-            yield return new Customer {Name = "Dima", City = "SPB"};
-            yield return new Customer {Name = "Yuri", City = "Novosibirsk"};
-        }
-
-        static IEnumerable<Distributor> distributors()
-        {
-            yield return new Distributor {Name = "Ivan", City = "Rybinsk"};
-            yield return new Distributor {Name = "Polina", City = "Moscow"};
-            yield return new Distributor {Name = "Olga", City = "SPB"};
-            yield return new Distributor {Name = "Lena", City = "Novosibirsk"};
-        }
-
         [TestSvm]
-        public static string LinqTest2()
+        public static string LinqTest2(int x, int y, int z, int f, int g)
         {
+            var customers = new List<Customer>
+            {
+                new Customer {ID = x, Name = "Jack", City = "Rybinsk"},
+                new Customer {ID = y, Name = "John", City = "Moscow"},
+                // new Customer {ID = z, Name = "Dima", City = "SPB"},
+                // new Customer {ID = f, Name = "Yuri", City = "Novosibirsk"}
+            };
+            var distributors = new List<Distributor>
+            {
+                new Distributor {ID = x, Name = "Ivan", City = "Rybinsk"},
+                new Distributor {ID = y, Name = "Polina", City = "Moscow"},
+                // new Distributor {ID = z, Name = "Olga", City = "SPB"},
+                // new Distributor {ID = f, Name = "Lena", City = "Novosibirsk"},
+            };
             var innerJoinQuery =
-                from cust in customers()
+                from cust in customers
                 group cust by cust.City into custGroup
-                join dist in distributors() on custGroup.FirstOrDefault().City equals dist.City
-                where custGroup.Count() > 0 && (dist.Name == "Ivan" || dist.Name == "Lena")
+                join dist in distributors on custGroup.FirstOrDefault().ID equals dist.ID
+                where custGroup.FirstOrDefault().ID > 0 && (dist.Name == "Ivan" || dist.Name == "Lena")
                 // orderby custGroup.Key
                 select dist;
             var result = "";
