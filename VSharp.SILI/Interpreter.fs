@@ -666,33 +666,33 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkIndex id
-    member private x.StElemWithCast cast (cilState : cilState) =
+    member private x.StElemWithCast (cilState : cilState) =
         let value, index, arrayRef, cilState = pop3 cilState
+        let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =
-                let typedValue = cast value cilState.state
-                Memory.WriteArrayIndex cilState.state arrayRef [index] typedValue |> List.map (changeState cilState) |> k
+                let casted = castUnchecked baseType value cilState.state
+                Memory.WriteArrayIndex cilState.state arrayRef [index] casted |> List.map (changeState cilState) |> k
             let checkTypeMismatchBasedOnTypeOfValue cond (cilState : cilState) =
                 StatedConditionalExecutionAppendResultsCIL cilState
                     (fun state k -> k (cond, state))
                     uncheckedStElem
                     (x.Raise x.ArrayTypeMismatchException)
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
-                let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
                 if Types.IsValueType typeOfValue then
-                    checkTypeMismatchBasedOnTypeOfValue (Types.TypeIsType typeOfValue baseType) cilState k
+                    checkTypeMismatchBasedOnTypeOfValue True cilState k
                 else
                     checkTypeMismatchBasedOnTypeOfValue (Types.RefIsAssignableToType cilState.state value baseType) cilState k
             let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkedStElem id
-    member private x.StElemTyp typ (cilState : cilState) =
-        x.StElemWithCast (castUnchecked typ) cilState
+    member private x.StElemTyp _ (cilState : cilState) =
+        x.StElemWithCast cilState
     member private x.StElem (cfg : cfg) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stelem.Size)
         x.StElemTyp typ cilState
-    member private x.StElemRef = x.StElemWithCast always
+    member private x.StElemRef = x.StElemWithCast
     member private x.LdLen (cilState : cilState) =
         let arrayRef, cilState = pop cilState
         let ldlen (cilState : cilState) k =
