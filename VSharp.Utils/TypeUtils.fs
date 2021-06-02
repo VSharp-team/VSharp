@@ -57,7 +57,7 @@ module TypeUtils =
     let private isULong = (=) typeof<uint64>
 
     let private isWiderForNumericTypesMap =
-        let widerThan8  = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>; typeof<int16>; typeof<uint16>; typeof<float32>; typeof<float>|]
+        let widerThan8  = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>; typeof<int16>; typeof<uint16>; typeof<char>; typeof<float32>; typeof<float>|]
         let widerThan16 = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<float32>; typeof<uint64>; typeof<float>|]
         let widerThan32 = [|typeof<int64>; typeof<uint64>; typeof<float>|]
         let widerThan64 = [||]
@@ -66,6 +66,7 @@ module TypeUtils =
             (typeof<uint8>,   widerThan8)
             (typeof<int16>,   widerThan16)
             (typeof<uint16>,  widerThan16)
+            (typeof<char>,    widerThan16)
             (typeof<int32>,   widerThan32)
             (typeof<uint32>,  widerThan32)
             (typeof<float32>, widerThan32)
@@ -105,6 +106,7 @@ module TypeUtils =
         | _ when typ = typeof<uint8> -> 8u
         | _ when typ = typeof<int16> -> 16u
         | _ when typ = typeof<uint16> -> 16u
+        | _ when typ = typeof<char> -> 16u
         | _ when typ = typeof<int32> -> 32u
         | _ when typ = typeof<uint32> -> 32u
         | _ when typ = typeof<float32> -> 32u
