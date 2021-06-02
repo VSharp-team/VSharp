@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace VSharp.Test.Tests
 {
@@ -38,40 +36,10 @@ namespace VSharp.Test.Tests
         }
     }
     [TestSvmFixture]
-    public class ForKostya
+    public class LinqTest
     {
         [TestSvm]
-        public static MatchCollection GetMatches()
-        {
-            // Define a regular expression for repeated words.
-            Regex rx = new Regex(@"\b(?<word>\w+)\s+(\k<word>)\b",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-            // Define a test string.
-            string text = "The the quick brown fox  fox jumps over the lazy dog dog.";
-
-            // Find matches.
-            MatchCollection matches = rx.Matches(text);
-            return matches;
-        }
-
-        [TestSvm]
-        public static MatchCollection SmallGetMatches()
-        {
-            // Define a regular expression for repeated words.
-            Regex rx = new Regex(@"\b",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-            // Define a test string.
-            string text = "fox  ";
-
-            // Find matches.
-            MatchCollection matches = rx.Matches(text);
-            return matches;
-        }
-
-        [TestSvm]
-        public static int LinqTest()
+        public static int ConcreteLinqTest()
         {
             // TODO: use group by and so on #do
             int[] scores = { 97, 92, 81, 60 };
@@ -94,7 +62,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static int SymbolicLinqTest(int x, int y, int z)
+        public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             // TODO: use group by and so on #do
             int[] scores = { x, y, z, 60 };
@@ -131,7 +99,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static string LinqTest2(int x, int y, int z, int f, int g)
+        public static string HardSymbolicLinqTest(int x, int y, int z, int f, int g)
         {
             var customers = new List<Customer>
             {
