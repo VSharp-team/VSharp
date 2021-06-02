@@ -125,7 +125,7 @@ module public CFG =
             else
                 //TODO: remove next line of code when generic pobs-generating mechanism is coded: for now ``markVertex''
                 //TODO: is done intentionally to bypass all opcodes and find ``hard-coded Throw'' that would be pobs
-                markVertex data.verticesOffsets v
+//                markVertex data.verticesOffsets v
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
                 let opCode = Instruction.parseInstruction methodBase v
@@ -189,6 +189,7 @@ module public CFG =
                 dist.Add((i, j), infty)
 
         for i in offsets do
+            dist.[(i, i)] <- 0
             for j in cfg.graph.[i] do
                 dist.[(i, j)] <- 1
 
@@ -214,5 +215,5 @@ module public CFG =
     let floyds = Dictionary<cfgData, Dictionary<offset * offset, int>>()
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
 
-    let findDistance infty cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg infty)
+    let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
 

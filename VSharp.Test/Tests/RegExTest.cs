@@ -50,10 +50,27 @@ namespace VSharp.Test.Tests
     public class RegExTest
     {
         [TestSvm]
-        public static bool OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
+        public static string OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
         {
             string pattern = new string(new char[] {c1, c2, c3});
-            return RegExImplementation.Match(pattern, "hello");
+            string result = "";
+            if (RegExImplementation.Match(pattern, "hello"))
+            {
+                result += "hello";
+                if (RegExImplementation.Match(pattern, "world"))
+                {
+                    result += " world";
+                }
+            }
+            else
+            {
+                if (RegExImplementation.Match(pattern, "nothing"))
+                {
+                    result += " nothing";
+                }
+            }
+
+            return result;
         }
 
         [Ignore("need more external method implementations")]

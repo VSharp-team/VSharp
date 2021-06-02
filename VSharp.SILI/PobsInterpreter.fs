@@ -112,12 +112,17 @@ type public PobsInterpreter(searcher : INewSearcher) =
         Seq.iter (fun p -> addWitness(start, p)) currentPobs
 
     member x.Forward (s : cilState) =
+//        if before > (levelToInt s.level) then ()
+//        else before <- (levelToInt s.level)
+//        Logger.warning "s.lvl = %d" (levelToInt s.level)
         assert(sPobs.ContainsKey s)
         match sPobs.[s] with
         | [] -> ()
         | _ -> ()
+//        if qFront.Count <> 1 then internalfailf "kek"
         let removed = qFront.Remove(s) in assert(removed)
         let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
+        let goodStates = goodStates |> List.filter (fun s -> levelToInt s.level <= curLvl)
         qFront.AddRange (goodStates @ incompleteStates @ errors)
         searcher.AppendNewStates(goodStates)
         goodStates |> List.iter (fun (s' : cilState) ->
@@ -144,7 +149,6 @@ type public PobsInterpreter(searcher : INewSearcher) =
         let fml = Memory.WLP s'.state p'.fml
         match Memory.IsSAT fml with
         | true when s'.startingIP = EP ->
-
             answerYes(s', p')
         | true ->
             let p = {loc = s'.startingIP; lvl = lvl; fml = fml}

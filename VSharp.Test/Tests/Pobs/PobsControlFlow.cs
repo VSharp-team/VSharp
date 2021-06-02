@@ -11,9 +11,6 @@ namespace VSharp.Test.Tests.Pobs
         }
     }
 
-
-
-
     public class UnsatCases
     {
         public static void EntryMethod(int x)
@@ -177,7 +174,30 @@ namespace VSharp.Test.Tests.Pobs
 
         public static int G(int v)
         {
+            G2();
             throw null;
+        }
+
+        public static int G2()
+        {
+            G3();
+            return 42;
+        }
+
+        public static void G3()
+        {
+            new object();
+        }
+
+
+        public static int SomeCallChain(int x)
+        {
+            if (x > 5)
+            {
+                return F();
+            }
+
+            return G(x);
         }
 
 

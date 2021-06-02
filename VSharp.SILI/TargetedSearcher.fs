@@ -93,10 +93,14 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
             | Some loc when Seq.contains target (loc2Locs loc) ->
                 let u = loc.offset
                 let v = target.offset
-                let infty = 10000
-                let dist = CFG.findDistance infty cfg
+                let dist = CFG.findDistance cfg
+                if dist.ContainsKey (u,v) |> not then
+                    Logger.warning "FLOYDs DISTANCE is wrong!"
+                    Seq.iter (Logger.warning "%d -> %d" u) cfg.graph.[u]
+                    ()
+
                 let price = dist.[u,v]
-                Logger.warning "FLOYDs DISTANCE from (%s, %s) = %d" (u.ToString("X4")) (v.ToString("X4")) price
+//                Logger.warning "FLOYDs DISTANCE from (%s, %s) = %d" (u.ToString("X4")) (v.ToString("X4")) price
                 findNewCost price
             | Some loc when Seq.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
             | Some loc when Seq.exists (fun m -> Seq.contains target.method (method2Methods m)) (loc2Methods loc) ->
@@ -156,10 +160,13 @@ type TargetedSearcher(maxBound) =
     let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
     let methodsReachabilityTransitiveClosure = Dictionary<MethodBase, HashSet<MethodBase>>()
 
+    let noLoc = {offset = 0; method = null}
     let mutable entryMethod : MethodBase = null
     let mutable stepsNumber = 0u
-    let searchers = List<OneTargetedSearcher>()
-    let loc2Searcher = Dictionary<codeLocation, OneTargetedSearcher>()
+    let mutable currentLoc = noLoc
+    let mutable currentSearcher : OneTargetedSearcher option = None
+//    let searchers = List<OneTargetedSearcher>()
+//    let loc2Searcher = Dictionary<codeLocation, OneTargetedSearcher>()
     let appendReachableInfo (cfg : cfg) (reachableLocsForSCC : HashSet<codeLocation>) (reachableMethodsForSCC : HashSet<MethodBase>) (current : offset) =
         let currentLoc = {offset = current; method = cfg.methodBase}
         reachableLocsForSCC.Add(currentLoc) |> ignore
@@ -245,22 +252,21 @@ type TargetedSearcher(maxBound) =
             Logger.warning "key = %O; Value = %s" kvp.Key (value.ToString()))
 
     interface INewSearcher with
-        override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) =
-            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
+        override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = true
+//            (currentSearcher :> INewSearcher).CanReach()
+//            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
         override x.MaxBound = maxBound
         override x.AppendNewStates states =
             let appendStateToSearcher (s : OneTargetedSearcher) =
                 let s = s :> INewSearcher
                 s.AppendNewStates states
-            Seq.iter appendStateToSearcher searchers
-
+            Option.map appendStateToSearcher currentSearcher |> ignore
         override x.Init(mainM, locs) =
-            let createSearcher loc =
-                let cfg = CFG.build mainM
+            let createSearcher l =
+                let cfg = CFG.findCfg l.method
+                let s = OneTargetedSearcher(maxBound, l, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
+                currentSearcher <- Some s
 
-                let s = OneTargetedSearcher(maxBound, loc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
-                searchers.Add(s)
-                loc2Searcher.Add(loc, s)
             (x :> INewSearcher).Reset()
             entryMethod <- mainM
             buildReachability ()
@@ -271,18 +277,27 @@ type TargetedSearcher(maxBound) =
 //            stepsNumber <- 0u
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
-            searchers.Clear()
+            currentSearcher <- None
+            currentLoc <- noLoc
+//            searchers.Clear()
             reachableLocations.Clear()
             reachableMethods.Clear()
             methodsReachability.Clear()
             methodsReachabilityTransitiveClosure.Clear()
-            loc2Searcher.Clear()
+//            loc2Searcher.Clear()
             entryMethod <- null
         override x.ChooseAction(qf,qb,pobs,main) =
-            let tryFindAction acc (searcher : OneTargetedSearcher) =
-                match acc with
-                | Some _ -> acc
-                | _ -> searcher.GetNext()
+            let tryFindState () =
+                match currentSearcher with
+                | None -> Stop
+                | Some s ->
+                    match s.GetNext() with
+                    | None -> Stop
+                    | Some s ->
+                        stepsNumber <- stepsNumber + 1u
+                        GoForward s
+
+
 //            let tryFindState () =
 //                    match priorityQueue.IsEmpty with
 //                    | true -> None
@@ -293,25 +308,28 @@ type TargetedSearcher(maxBound) =
 //                        Some s
 
             match qf, qb, pobs with
-            | [], _, _ -> Start(Instruction(0, main))
+            | [], _, _ when stepsNumber = 0u -> Start(Instruction(0, main))
             | _, ((p, s) as b) ::_, _ ->
-                // if s.startingIP =
-                let loc = MyUtils.ip2codeLocation p.loc
-                match loc with
-                | None -> ()
-                | Some loc ->
-                    let s = loc2Searcher.[loc]
-                    searchers.Remove(s) |> ignore
-                    loc2Searcher.Remove(loc) |> ignore
                 GoBackward(b)
             | _, _, [] -> Stop
-            | _, _, _ :: _ ->
-                let s = Seq.fold tryFindAction None searchers
-                match s with
-                | None -> Stop
-                | Some s ->
-                    stepsNumber <- stepsNumber + 1u
-                    GoForward s
+            | _, [], p :: _ ->
+                let ploc = MyUtils.ip2codeLocation p.loc |> Option.get
+                if  ploc = currentLoc then
+                    tryFindState()
+//                    let s = Seq.fold tryFindAction None searchers
+//                    match s with
+//                    | None -> Stop
+//                    | Some s ->
+//                        stepsNumber <- stepsNumber + 1u
+//                        GoForward s
+                else
+                    currentLoc <- ploc
+                    let cfg = CFG.findCfg ploc.method
+                    let newSearcher = OneTargetedSearcher(maxBound, ploc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
+                    (newSearcher :> INewSearcher).AppendNewStates qf
+                    currentSearcher <- Some <| newSearcher
+                    tryFindState()
+
 //                let s = tryFindState ()
 //                match s with
 //                | None -> Stop

@@ -39,6 +39,7 @@ type INewSearcher =
     abstract member ChooseAction : list<cilState> * list<pob * cilState> * pob list * MethodBase -> SearchDirection
     abstract member CanReach : ip stack * ip * ip list -> bool
     abstract member Reset : unit -> unit
+//    abstract member ClosePob : pob -> unit
     abstract member Init : MethodBase * codeLocation seq -> unit
     abstract member AppendNewStates : list<cilState> -> unit
     abstract member MaxBound : int
@@ -51,6 +52,7 @@ type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in re
         override x.CanReach(_,_,_) = true
         override x.MaxBound = maxBound
         override x.Init (_,_) = ()
+//        override x.ClosePob (_) = ()
         override x.Reset () =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
@@ -58,7 +60,7 @@ type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in re
         override x.ChooseAction(fq, bq, pobs, main) =
             match fq, bq with
             | _, ps :: _ -> GoBackward ps
-            | [], [] -> Start <| Instruction(0, main)
+            | [], [] when stepsNumber = 0u -> Start <| Instruction(0, main)
             | _, [] ->
                 match x.PickNext fq with
                 | None -> Stop
