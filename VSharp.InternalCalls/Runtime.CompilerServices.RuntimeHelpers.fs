@@ -1,5 +1,6 @@
 namespace VSharp.System
 
+open System.Runtime.CompilerServices
 open global.System
 open VSharp
 open VSharp.Core
@@ -140,4 +141,11 @@ module Runtime_CompilerServices_RuntimeHelpers =
         let typ = List.head args
         match typ with
         | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType, state
+        | _ -> __unreachable__()
+
+    let IsReferenceOrContainsReferences (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let typ = List.head args
+        match typ with
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ), state
         | _ -> __unreachable__()

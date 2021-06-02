@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System
+open System.Collections.Generic
 open System.Reflection
 
 module public Reflection =
@@ -206,3 +207,19 @@ module public Reflection =
         match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let private cachedTypes = Dictionary<Type, bool>()
+
+    let rec private isReferenceOrContainsReferencesHelper (t : Type) =
+        if t.IsValueType |> not then true
+        else
+            t.GetFields(allBindingFlags)
+            |> Array.exists (fun field -> isReferenceOrContainsReferencesHelper field.FieldType)
+
+    let isReferenceOrContainsReferences (t : Type) =
+        let result = ref false
+        if cachedTypes.TryGetValue(t, result) then !result
+        else
+            let result = isReferenceOrContainsReferencesHelper t
+            cachedTypes.Add(t, result)
+            result
