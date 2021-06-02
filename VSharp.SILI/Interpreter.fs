@@ -1261,6 +1261,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         decrementLevel cilState key
 
     member x.MakeStep (cilState : cilState) =
+        let cilState = {cilState with stepsNumber = cilState.stepsNumber + 1u}
         let exit m : cilState =
             let cilState = x.DecrementMethodLevel cilState m
             Logger.printLogLazy Logger.Info "Done with method %s" (lazy Reflection.getFullMethodName m)

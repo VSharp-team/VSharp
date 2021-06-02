@@ -15,6 +15,7 @@ type cilState =
       level : level
       startingIP : ip
       initialEvaluationStackSize : uint32
+      stepsNumber : uint
     }
 
 module internal CilStateOperations =
@@ -27,6 +28,7 @@ module internal CilStateOperations =
           level = PersistentDict.empty
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
+          stepsNumber = 0u
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state

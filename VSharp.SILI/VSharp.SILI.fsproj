@@ -27,6 +27,7 @@
         <Compile Include="Interpreter.fs" />
         <Compile Include="PobsInterpreter.fs" />
         <Compile Include="Variables.fs" />
+        <Compile Include="TargetedSearcher.fs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -39,16 +39,21 @@ type INewSearcher =
     abstract member ChooseAction : list<cilState> * list<pob * cilState> * pob list * MethodBase -> SearchDirection
     abstract member CanReach : ip stack * ip * ip list -> bool
     abstract member Reset : unit -> unit
+    abstract member Init : MethodBase * codeLocation seq -> unit
     abstract member AppendNewStates : list<cilState> -> unit
     abstract member MaxBound : int
 
 [<AbstractClass>]
 type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    let mutable stepsNumber = 0u
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
         override x.MaxBound = maxBound
-        override x.Reset () = ()
+        override x.Init (_,_) = ()
+        override x.Reset () =
+            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
+            stepsNumber <- 0u
         override x.AppendNewStates _ = ()
         override x.ChooseAction(fq, bq, pobs, main) =
             match fq, bq with
@@ -57,7 +62,9 @@ type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in re
             | _, [] ->
                 match x.PickNext fq with
                 | None -> Stop
-                | Some s -> GoForward s
+                | Some s ->
+                    stepsNumber <- stepsNumber + 1u
+                    GoForward s
 
     abstract member PickNext : cilState list -> cilState option
     default x.PickNext (_ : cilState list) = None
