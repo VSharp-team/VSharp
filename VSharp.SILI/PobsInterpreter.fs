@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
 open System.Text
+open C5
 open FSharpx.Collections
 open System.Reflection
 
@@ -80,15 +81,20 @@ type public PobsInterpreter(searcher : INewSearcher) =
 
     let rec answerYes (s' : cilState, p' : pob) =
         ignoredPobs.Add(p') |> ignore
-        let removed = currentPobs.Remove(p') in assert(removed)
-        let removed = witnesses.Remove(p') in assert(removed)
-        let removed = blockedLocs.Remove(p') in assert(removed)
+//        let removed = currentPobs.Remove(p') in assert(removed)
+//        let removed = witnesses.Remove(p') in Logger.warning "Removing from witnesses %O" p' ; assert(removed)
+//        let removed = blockedLocs.Remove(p') in assert(removed)
+        currentPobs.Remove(p')  |> ignore
+        witnesses.Remove(p')  |> ignore
+        blockedLocs.Remove(p') |> ignore
         qBack.RemoveAll(fun (p, _) -> p = p') |> ignore
         if Seq.contains p' mainPobs then mainPobs.Remove(p') |> ignore
         if answeredPobs.ContainsKey p' |> not then answeredPobs.Add(p', Witnessed s')
         else answeredPobs.[p'] <- Witnessed s'
         removeFromGlobalVars(s', p')
-        if parents.ContainsKey p' then answerYes(s', parents.[p'])
+        if parents.ContainsKey p' then
+            if p' = parents.[p'] then internalfailf "kek"
+            answerYes(s', parents.[p'])
 
     member x.MakeCilStateForIp (ip : ip) =
         let m = methodOf ip
@@ -146,10 +152,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
         | false ->
             Logger.info "UNSAT for pob = %O and s' = %O" p' s'
     member x.PropDirSymExec (main : MethodBase) (EP : ip) mainPobsList =
-        Seq.iter (fun p -> mainPobs.Add p) mainPobsList
-//        let clearStructures () =
-//            currentPobs.Clear()
-//            witnesses.Clear()
+        Seq.iter (fun p -> mainPobs.Add p; witnesses.Add(p, []); blockedLocs.Add(p, [])) mainPobsList
         let createPobs () =
             mainPobs |> Seq.iter (fun (mp : pob) ->
                 let p = {mp with lvl = curLvl}

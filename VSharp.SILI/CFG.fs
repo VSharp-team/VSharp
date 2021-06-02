@@ -6,6 +6,7 @@ open System.Collections.Generic
 
 open System.Reflection.Emit
 open FSharpx.Collections
+open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
@@ -179,6 +180,25 @@ module public CFG =
         let usedForSCC = HashSet<offset>()
         vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
 
+    let floydAlgo (cfg : cfgData) infty =
+//        let infty = 10000
+        let dist = Dictionary<offset * offset, int>()
+        let offsets = cfg.sortedOffsets
+        for i in offsets do
+            for j in offsets do
+                dist.Add((i, j), infty)
+
+        for i in offsets do
+            for j in cfg.graph.[i] do
+                dist.[(i, j)] <- 1
+
+        for k in offsets do
+            for i in offsets do
+                for j in offsets do
+                    if dist.[i, j] > dist.[i, k] + dist.[k, j] then
+                        dist.[(i,j)] <- dist.[i, k] + dist.[k, j]
+        dist
+
     let build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
@@ -191,5 +211,8 @@ module public CFG =
         cfg
 
     let cfgs = Dictionary<MethodBase, cfgData>()
+    let floyds = Dictionary<cfgData, Dictionary<offset * offset, int>>()
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
+
+    let findDistance infty cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg infty)
 

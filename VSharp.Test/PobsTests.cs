@@ -18,12 +18,14 @@ namespace VSharp.Test
         static BindingFlags All =
             BindingFlags.IgnoreCase | BindingFlags.DeclaredOnly | BindingFlags.Instance |
             BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public;
+
         public enum DesiredStatus
         {
-            Witnessed
-            , Unreachable
-            , Unknown
+            Witnessed,
+            Unreachable,
+            Unknown
         }
+
         public class CodeLocationProxy
         {
             public CodeLocationProxy(int offset, Type t, string methodName, DesiredStatus desiredStatus)
@@ -44,7 +46,8 @@ namespace VSharp.Test
 
         private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher)
         {
-            Core.codeLocation[] codeLocations = proxies.Select(p => new Core.codeLocation(p.Offset, p.Method)).ToArray();
+            Core.codeLocation[] codeLocations =
+                proxies.Select(p => new Core.codeLocation(p.Offset, p.Method)).ToArray();
             var svm = new SVM(new PobsInterpreter(searcher));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
@@ -68,6 +71,7 @@ namespace VSharp.Test
                 }
                 // Assert.AreEqual(p.DesiredStatus, dict[loc], $"Checking location {loc}");
             }
+
             return allWitnessed;
         }
 
@@ -78,9 +82,8 @@ namespace VSharp.Test
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
-                new TargetedSearcher(maxBound)
-                , new BFSSearcher(maxBound)
-                , new DFSSearcher(maxBound)
+                new BFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound),
+                new DFSSearcher(maxBound)
             };
 
             bool allWitnessed = true;
@@ -98,91 +101,142 @@ namespace VSharp.Test
             new object[]
             {
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.EntryMethod),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(56, typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.EntryMethod), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(56, typeof(SwitchWithSequentialCases1),
+                        nameof(SwitchWithSequentialCases1.EntryMethod), DesiredStatus.Witnessed),
                 }
             }
             // second testCase
-            , new object[]
+            ,
+            new object[]
             {
                 typeof(CallsTest), nameof(CallsTest.EntryMethod2),
-                new []
+                new[]
                 {
                     new CodeLocationProxy(2, typeof(CallsTest), nameof(CallsTest.G), DesiredStatus.Witnessed)
                 }
-            }
-            , new object[]
+            },
+            new object[]
             {
                 typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(210, typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(210, typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod),
+                        DesiredStatus.Witnessed),
                 }
-            }
-            , new object[]
+            },
+            new object[]
             {
                 typeof(UnsatCases), nameof(UnsatCases.EntryMethod),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(23, typeof(UnsatCases), nameof(UnsatCases.EntryMethod), DesiredStatus.Unknown),
+                    new CodeLocationProxy(23, typeof(UnsatCases), nameof(UnsatCases.EntryMethod),
+                        DesiredStatus.Unknown),
                 }
-            }
-            , new object[]
+            },
+            new object[]
             {
                 typeof(Calls.Recursion), nameof(Calls.Recursion.F),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
+                        DesiredStatus.Witnessed),
                 }
-            }
-            , new object[]
+            },
+            new object[]
             {
                 typeof(Calls.Recursion), nameof(Calls.Recursion.TrickyCycle),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
+                        DesiredStatus.Witnessed),
                 }
-            }
-            , new object[]
+            },
+            new object[]
             {
-                typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations),
-                new []
+                typeof(SwitchWithSequentialCases1),
+                nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations),
+                new[]
                 {
-                    new CodeLocationProxy(0x4a, typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x4a, typeof(SwitchWithSequentialCases1),
+                        nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations),
+                        DesiredStatus.Witnessed),
                 }
-            }
-
-            , new object[]
+            },
+            new object[]
             {
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.TestForDFS),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(0x56, typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.TestForDFS), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x56, typeof(SwitchWithSequentialCases1),
+                        nameof(SwitchWithSequentialCases1.TestForDFS), DesiredStatus.Witnessed),
                 }
-            }
-
-            , new object[]
+            },
+            new object[]
             {
-                typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.TrickyTestForTargetedSearcher),
-                new []
+                typeof(SwitchWithSequentialCases1),
+                nameof(SwitchWithSequentialCases1.TrickyTestForTargetedSearcher),
+                new[]
                 {
-                    new CodeLocationProxy(0x1a, typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.LittleExpensiveCalculations), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x1a, typeof(SwitchWithSequentialCases1),
+                        nameof(SwitchWithSequentialCases1.LittleExpensiveCalculations), DesiredStatus.Witnessed),
                 }
-            }
-
-            , new object[]
+            },
+            new object[]
             {
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.BoundTest),
-                new []
+                new[]
                 {
-                    new CodeLocationProxy(0x1e, typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.BoundTest), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x1e, typeof(SwitchWithSequentialCases1),
+                        nameof(SwitchWithSequentialCases1.BoundTest), DesiredStatus.Witnessed),
+                }
+            },
+            new object[]
+            {
+                typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest),
+                new[]
+                {
+                    // new CodeLocationProxy(0x009d, typeof(ForKostya), nameof(ForKostya.SymbolicLinqTest2), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x007b, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest),
+                        DesiredStatus.Witnessed),
+                }
+            },
+            new object[]
+            {
+                typeof(RegExTest), nameof(RegExTest.OwnImplementationTest),
+                new[]
+                {
+                    // new CodeLocationProxy(0x009d, typeof(ForKostya), nameof(ForKostya.SymbolicLinqTest2), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0040, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x002e, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0095, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0063, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    // new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest), DesiredStatus.Witnessed),
+                }
+            },
+            new object[]
+            {
+                typeof(RegExTest), nameof(RegExTest.OwnImplementationTest2),
+                new[]
+                {
+                    new CodeLocationProxy(0x0040, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x002e, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0095, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x0063, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                        DesiredStatus.Witnessed),
+                    // new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest), DesiredStatus.Witnessed),
                 }
             }
         };
-
     }
-
-
-
 }
