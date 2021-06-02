@@ -82,10 +82,10 @@ namespace VSharp.Test.Tests
                 {
                     result += 5;
                 }
-                else
-                {
-                    result++;
-                }
+                // else
+                // {
+                //     result++;
+                // }
             }
 
             if (result != 8)
