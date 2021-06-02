@@ -28,6 +28,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()
     let answeredPobs = Dictionary<pob, pobStatus>()
+    let ignoredPobs = HashSet<pob>()
     let parents = Dictionary<pob, pob>()
     let canReach state (loc : ip) (blockedLocs : ip list) =
         //TODO: use CFG-reachability analysis
@@ -46,6 +47,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
         removeFromDictionaryWithListValue witnesses p s
 
     let addWitness(s : cilState, p : pob) =
+        if ignoredPobs.Contains p then () else
         let sLvl = levelToInt s.level
         try
             if sLvl <= p.lvl && canReach s.ipStack p.loc blockedLocs.[p] then
@@ -77,6 +79,11 @@ type public PobsInterpreter(searcher : INewSearcher) =
         Seq.iter (fun s -> qBack.Add(child, s)) transition.[child.loc]
 
     let rec answerYes (s' : cilState, p' : pob) =
+        ignoredPobs.Add(p') |> ignore
+        let removed = currentPobs.Remove(p') in assert(removed)
+        let removed = witnesses.Remove(p') in assert(removed)
+        let removed = blockedLocs.Remove(p') in assert(removed)
+        qBack.RemoveAll(fun (p, _) -> p = p') |> ignore
         if Seq.contains p' mainPobs then mainPobs.Remove(p') |> ignore
         if answeredPobs.ContainsKey p' |> not then answeredPobs.Add(p', Witnessed s')
         else answeredPobs.[p'] <- Witnessed s'
@@ -131,10 +138,7 @@ type public PobsInterpreter(searcher : INewSearcher) =
         let fml = Memory.WLP s'.state p'.fml
         match Memory.IsSAT fml with
         | true when s'.startingIP = EP ->
-            let removed = currentPobs.Remove(p') in assert(removed)
-            let removed = witnesses.Remove(p') in assert(removed)
-            let removed = blockedLocs.Remove(p') in assert(removed)
-            qBack.RemoveAll(fun (p, _) -> p = p') |> ignore
+
             answerYes(s', p')
         | true ->
             let p = {loc = s'.startingIP; lvl = lvl; fml = fml}

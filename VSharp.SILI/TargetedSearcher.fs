@@ -42,6 +42,14 @@ open Instruction
                 | _ -> 1
             | _ -> -1
 
+module MyUtils =
+    let ip2codeLocation (ip : ip) =
+        match offsetOf ip, methodOf ip with
+        | None, _ -> None
+        | Some offset, m ->
+            let loc = {offset = offset; method = m}
+            Some loc
+
 type cilstatesComparer(target : codeLocation, reachableLocations : Dictionary<codeLocation, codeLocation list>, reachableMethods : Dictionary<codeLocation, MethodBase list>,
                        methodsReachabilityTransitiveClosure : Dictionary<MethodBase, MethodBase list>) =
     let COST_OF_MANY_CALLS = 3000
@@ -52,12 +60,7 @@ type cilstatesComparer(target : codeLocation, reachableLocations : Dictionary<co
     let UNKNOWN_CONSTANT = Int32.MaxValue
 //    let
 
-    let ip2codeLocation (ip : ip) =
-        match offsetOf ip, methodOf ip with
-        | None, _ -> None
-        | Some offset, m ->
-            let loc = {offset = offset; method = m}
-            Some loc
+
     let min(x, y) = if x < y then x else y
 
     let loc2Locs (loc : codeLocation) =
@@ -83,7 +86,7 @@ type cilstatesComparer(target : codeLocation, reachableLocations : Dictionary<co
                 | Unknown -> UNKNOWN_CONSTANT, 0
             let findNewCost price =
                 Reachable(min(currentReachableCost, currentCostToExit + price), currentCostToExit + COST_OF_EXIT)
-            match ip2codeLocation ip with
+            match MyUtils.ip2codeLocation ip with
             | Some loc when not <| reachableLocations.ContainsKey(loc) -> findNewCost COST_TO_GO_TO_ENDFINALLY
             | Some loc when List.contains target (loc2Locs loc) -> findNewCost REGULAR_COST
             | Some loc when List.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
@@ -279,9 +282,18 @@ type TargetedSearcher(maxBound) =
 
             match qf, qb, pobs with
             | [], _, _ -> Start(Instruction(0, main))
-            | _, b ::_, _ -> GoBackward(b)
+            | _, ((p, s) as b) ::_, _ ->
+                // if s.startingIP =
+                let loc = MyUtils.ip2codeLocation p.loc
+                match loc with
+                | None -> ()
+                | Some loc ->
+                    let s = loc2Searcher.[loc]
+                    searchers.Remove(s) |> ignore
+                    loc2Searcher.Remove(loc) |> ignore
+                GoBackward(b)
             | _, _, [] -> Stop
-            | _, _, p :: _ ->
+            | _, _, _ :: _ ->
                 let s = Seq.fold tryFindAction None searchers
                 match s with
                 | None -> Stop
