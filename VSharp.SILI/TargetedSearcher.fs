@@ -162,6 +162,7 @@ type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocation
     interface INewSearcher with
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = comparer.CanReach(ipStack, blocked)
         override x.MaxBound = maxBound
+        override x.TotalNumber = 0u
         override x.AppendNewStates states =
 //            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
             List.iter (fun s -> priorityQueue.Add s |> ignore) states
@@ -173,6 +174,7 @@ type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocation
             __notImplemented__()
 
 type TargetedSearcher(maxBound) =
+    static let mutable totalNumber = 0u
     let reachableLocations = Dictionary<codeLocation, HashSet<codeLocation>>()
     let reachableMethods = Dictionary<codeLocation, HashSet<MethodBase>>()
     let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
@@ -270,6 +272,7 @@ type TargetedSearcher(maxBound) =
             Logger.warning "key = %O; Value = %s" kvp.Key (value.ToString()))
 
     interface INewSearcher with
+        override x.TotalNumber = totalNumber
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = true
 //            (currentSearcher :> INewSearcher).CanReach()
 //            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
@@ -297,6 +300,7 @@ type TargetedSearcher(maxBound) =
         override x.Reset() =
 //            Logger.warning "steps number done by TS = %d" stepsNumber
 //            stepsNumber <- 0u
+            totalNumber <- totalNumber + stepsNumber
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
             currentSearcher <- None

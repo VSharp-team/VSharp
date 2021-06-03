@@ -43,18 +43,22 @@ type INewSearcher =
     abstract member Init : MethodBase * codeLocation seq -> unit
     abstract member AppendNewStates : list<cilState> -> unit
     abstract member MaxBound : int
+    abstract member TotalNumber : uint
 
 [<AbstractClass>]
 type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    static let mutable totalNumber = 0u
     let mutable stepsNumber = 0u
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
         override x.MaxBound = maxBound
+        override x.TotalNumber = totalNumber
         override x.Init (_,_) = ()
 //        override x.ClosePob (_) = ()
         override x.Reset () =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
+            totalNumber <- totalNumber + stepsNumber
             stepsNumber <- 0u
         override x.AppendNewStates _ = ()
         override x.ChooseAction(fq, bq, pobs, main) =

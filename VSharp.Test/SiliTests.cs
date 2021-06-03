@@ -114,6 +114,7 @@ namespace VSharp.Test
         protected static SVM _svm;
         private static int _maxBound;
         private static INewSearcher[] _searchers;//= new INewSearcher[]
+        private static Dictionary<INewSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
         private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
 
         public static void SetUpSVM(SVM svm, int maxBound, INewSearcher[] searchers)
@@ -122,6 +123,11 @@ namespace VSharp.Test
             _maxBound = maxBound;
             _searchers = searchers;
             _pobsStatistics = new Dictionary<MethodBase, PobsStatistics>();
+            _globalTime = new Dictionary<INewSearcher, TimeSpan>();
+            foreach (var s in _searchers)
+            {
+                _globalTime.Add(s, TimeSpan.Zero);
+            }
         }
 
         public static void PrintStats()
@@ -134,6 +140,16 @@ namespace VSharp.Test
                     _pobsStatistics[m].PrintStats(s);
                 }
                 Console.WriteLine();
+
+                foreach (var s in _searchers)
+                {
+                    Console.WriteLine($"{s.GetType()} executed {_globalTime[s]}");
+                }
+
+                foreach (var s in _searchers)
+                {
+                    Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
+                }
             }
         }
 
@@ -194,6 +210,7 @@ namespace VSharp.Test
                         _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
                     }
                     _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
+                    _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
 
                     res &= res1;
                 }
@@ -225,6 +242,8 @@ namespace VSharp.Test
                 {
                     res &= AnswerPobs(entryMethod, s, codeLocations);
                 }
+                // PrintStats();
+
                 context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
                 return context.CurrentResult;
             }
