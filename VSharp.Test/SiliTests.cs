@@ -13,6 +13,7 @@ using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter.IL;
+using VSharp.Core;
 
 namespace VSharp.Test
 {
@@ -165,13 +166,8 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher)
+            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations)
             {
-                var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
-                var loc = new Core.codeLocation(exitOffset, entryMethod);
-
-                Core.codeLocation[] codeLocations = { loc };
-
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
                 var svm = new SVM(new PobsInterpreter(searcher));
@@ -180,20 +176,27 @@ namespace VSharp.Test
 
                 Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
 
-                bool res = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
-                if (!res)
+
+                bool res = true;
+                foreach (var loc in codeLocations)
                 {
-                    _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
-                    // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
-                    var exit = exitOffset.ToString("X4");
-                    Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
-                    // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                    bool res1 = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
+                    if (!res1)
+                    {
+                        _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
+                        // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
+                        // var exit = exitOffset.ToString("X4");
+                        // Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
+                        // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                    }
+                    else
+                    {
+                        _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
+                    }
+                    _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
+
+                    res &= res1;
                 }
-                else
-                {
-                    _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
-                }
-                _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
 
                 return res;
                 // return context.CurrentResult;
@@ -203,12 +206,24 @@ namespace VSharp.Test
             {
                 // return Explore(context);
                 var entryMethod = innerCommand.Test.Method.MethodInfo;
+                var cfg = CFG.findCfg(entryMethod);
+                var codeLocations = new List<codeLocation>();
+                foreach (var offset in cfg.sortedOffsets)
+                {
+                    if (offset != 0)
+                    {
+                        var loc = new Core.codeLocation(offset, entryMethod);
+                        codeLocations.Add(loc);
+                    }
+                }
+
+                // var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
                 _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
                 bool res = true;
 
                 foreach (var s in _searchers)
                 {
-                    res &= AnswerPobs(entryMethod, s);
+                    res &= AnswerPobs(entryMethod, s, codeLocations);
                 }
                 context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
                 return context.CurrentResult;

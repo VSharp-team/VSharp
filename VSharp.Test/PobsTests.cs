@@ -1,10 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Diagnostics;
 using System.Linq;
 
 using NUnit.Framework;
-
+using VSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Test.Tests;
 using VSharp.Test.Tests.Pobs;
@@ -46,8 +47,12 @@ namespace VSharp.Test
 
         private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher)
         {
-            Core.codeLocation[] codeLocations =
-                proxies.Select(p => new Core.codeLocation(p.Offset, p.Method)).ToArray();
+            List<codeLocation> codeLocations = new List<codeLocation>();
+            foreach (var p in proxies)
+            {
+                codeLocations.Add(new codeLocation(p.Offset, p.Method));
+            }
+
             var svm = new SVM(new PobsInterpreter(searcher));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
