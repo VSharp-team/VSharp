@@ -21,7 +21,7 @@ namespace VSharp.Test.Tests
         {
             if (repos >= re.Length)
                 return textpos >= text.Length;
-            if (repos + 1 < re.Length &&  re[repos + 1] == '*')
+            if (repos + 1 < re.Length && re[repos + 1] == '*')
                 return MatchStar(re[repos], re, repos + 2, text, textpos);
             if (re[repos] == '$' && repos + 1 >= re.Length)
                 return textpos >= text.Length;
