@@ -97,7 +97,7 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
             let dist = CFG.findDistance cfg
             Reachable(dist.[u,v], 0)
        | _ -> Reachable(UNKNOWN_CONSTANT, 0)
-    let canReachMetrics(ipStack : ip list, _ : ip list) : reachabilityEvaluation =
+    let canReachMetrics(ipStack : ip list) : reachabilityEvaluation =
         let helper target acc ip =
             let currentReachableCost, currentCostToExit =
                 match acc with
@@ -119,9 +119,9 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
                 let price = dist.[u,v]
 //                Logger.warning "FLOYDs DISTANCE from (%s, %s) = %d" (u.ToString("X4")) (v.ToString("X4")) price
                 findNewCost price
-            | Some loc when Seq.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
-            | Some loc when Seq.exists (fun m -> Seq.contains target.method (method2Methods m)) (loc2Methods loc) ->
-                findNewCost COST_OF_MANY_CALLS
+//            | Some loc when Seq.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
+//            | Some loc when Seq.exists (fun m -> Seq.contains target.method (method2Methods m)) (loc2Methods loc) ->
+//                findNewCost COST_OF_MANY_CALLS
             | _  -> Reachable(currentReachableCost, currentCostToExit + COST_OF_EXIT)
         List.fold (helper target) Unknown ipStack
 
@@ -135,8 +135,8 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
     interface IComparer<cilState> with
         override x.Compare (a : cilState, b : cilState) =
 //            if a.stepsNumber > 1000u then 1 else
-            let aCanReach = canReachMetrics2(List.head a.ipStack)
-            let bCanReach = canReachMetrics2(List.head b.ipStack)
+            let aCanReach = canReachMetrics(a.ipStack)
+            let bCanReach = canReachMetrics(b.ipStack)
             match aCanReach, bCanReach with
             | Reachable(x, _), Reachable(y, _) when x < y -> -1
             | Reachable(x, _), Reachable(y, _) when x = y -> 0
