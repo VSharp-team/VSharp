@@ -113,21 +113,26 @@ namespace VSharp.Test
         protected static SVM _svm;
         private static int _maxBound;
         private static INewSearcher[] _searchers;//= new INewSearcher[]
-        private static PobsStatistics _pobsStatistics;
+        private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
 
-        public static void SetUpSVM(SVM svm, int maxBound, INewSearcher[] searchers, PobsStatistics pobsStatistics)
+        public static void SetUpSVM(SVM svm, int maxBound, INewSearcher[] searchers)
         {
             _svm = svm;
             _maxBound = maxBound;
             _searchers = searchers;
-            _pobsStatistics = pobsStatistics;
+            _pobsStatistics = new Dictionary<MethodBase, PobsStatistics>();
         }
 
         public static void PrintStats()
         {
-            foreach (var s in _searchers)
+            var searchers = new INewSearcher[] {_searchers[1], _searchers[2], _searchers[3]};
+            foreach (var m in _pobsStatistics.Keys)
             {
-                _pobsStatistics.PrintStats(s);
+                foreach (var s in searchers)
+                {
+                    _pobsStatistics[m].PrintStats(s);
+                }
+                Console.WriteLine();
             }
         }
 
@@ -178,7 +183,7 @@ namespace VSharp.Test
                 bool res = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
                 if (!res)
                 {
-                    _pobsStatistics.AddWrongAnswer(searcher, loc);
+                    _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
                     // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
                     var exit = exitOffset.ToString("X4");
                     Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
@@ -186,8 +191,9 @@ namespace VSharp.Test
                 }
                 else
                 {
-                    _pobsStatistics.AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
+                    _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
                 }
+                _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
 
                 return res;
                 // return context.CurrentResult;
@@ -197,6 +203,7 @@ namespace VSharp.Test
             {
                 // return Explore(context);
                 var entryMethod = innerCommand.Test.Method.MethodInfo;
+                _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
                 bool res = true;
 
                 foreach (var s in _searchers)

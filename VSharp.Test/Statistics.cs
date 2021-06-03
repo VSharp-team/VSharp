@@ -137,21 +137,31 @@ namespace VSharp.Test
     {
         // private static TimeSpan diff = new TimeSpan(milliseconds:500);
         private INewSearcher[] _searchers;
-        private Dictionary<INewSearcher, List<Tuple<codeLocation, TimeSpan>>> _correct;
+        private Dictionary<INewSearcher, List<codeLocation>> _correct;
+        private Dictionary<INewSearcher, TimeSpan> _time;
         private Dictionary<INewSearcher, List<codeLocation>> _wrong;
+        // private Dictionary<INewSearcher, Tuple<Me, TimeSpan>>> _wrong;
         private HashSet<codeLocation> _allLocs = new HashSet<codeLocation>();
 
 
         public PobsStatistics(INewSearcher[] searchers)
         {
             _searchers = searchers;
-            _correct = new Dictionary<INewSearcher, List<Tuple<codeLocation, TimeSpan>>>();
+            _correct = new Dictionary<INewSearcher, List<codeLocation>>();
             _wrong = new Dictionary<INewSearcher, List<codeLocation>>();
+            _time = new Dictionary<INewSearcher, TimeSpan>();
+
             foreach (var s in searchers)
             {
-                _correct.Add(s, new List<Tuple<codeLocation, TimeSpan>>());
+                _correct.Add(s, new List<codeLocation>());
                 _wrong.Add(s, new List<codeLocation>());
+                _time.Add(s, new TimeSpan());
             }
+        }
+
+        public void AddTime(INewSearcher s, MethodBase m, TimeSpan t)
+        {
+            _time[s] = t;
         }
 
         public void AddCorrectAnswer(INewSearcher s, codeLocation loc, TimeSpan t)
@@ -161,10 +171,10 @@ namespace VSharp.Test
             {
                 throw new Exception("WTF");
             }
-            _correct[s].Add(new Tuple<codeLocation, TimeSpan>(loc, t));
+            _correct[s].Add(loc);
         }
 
-        public void AddWrongAnswer(INewSearcher s, codeLocation loc)
+        public void AddWrongAnswer(INewSearcher s, codeLocation loc, TimeSpan t)
         {
             _allLocs.Add(loc);
             _wrong[s].Add(loc);
@@ -173,17 +183,24 @@ namespace VSharp.Test
 
         public void PrintStats(INewSearcher s)
         {
-            foreach (var pair in _correct[s])
-            {
-                var loc = pair.Item1;
-                var timeSpan = pair.Item2;
-                Console.WriteLine($"{s.GetType()} answered right to {loc}, time = {timeSpan}");
-            }
+            double numberRight = _correct[s].Count;
+            double numberWrong = _wrong[s].Count;
+            double accuracy = numberRight / (numberRight + numberWrong);
+            TimeSpan timeSpan = _time[s];
 
-            foreach (var loc in _wrong[s])
-            {
-                Console.WriteLine($"{s.GetType()} NO loc =[{loc}]");
-            }
+            // foreach (var pair in _correct[s])
+            // {
+            //     var loc = pair.Item1;
+            //     var timeSpan = pair.Item2;
+            //     Console.WriteLine($"{s.GetType()} answered right to {loc}, time = {timeSpan}");
+            // }
+
+            Console.Write($"{timeSpan.TotalSeconds} {accuracy} ");
+
+            // foreach (var loc in _wrong[s])
+            // {
+            //     Console.WriteLine($"{s.GetType()} NO loc =[{loc}]");
+            // }
         }
 
         public int CilStatesGenerated { get; set; }
