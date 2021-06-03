@@ -24,7 +24,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            var maxBound = 10;
+            var maxBound = 250;
             // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
             Logger.ConfigureWriter(TestContext.Progress);
             // var svm = new SVM(new PobsInterpreter(new BFSSearcher(bound)));
@@ -35,11 +35,11 @@ namespace VSharp.Test
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             var searchers = new INewSearcher[] {
                 new DFSSearcher(maxBound)
-                , new DFSSearcher(maxBound)
+                // , new DFSSearcher(maxBound)
                 , new TargetedSearcher(maxBound)
                 // new TargetedSearcher(maxBound)
-                // , new BFSSearcher(maxBound)
                 , new BFSSearcher(maxBound)
+                // , new BFSSearcher(maxBound)
                 // new TargetedSearcher(maxBound)
             };
             //var pobsStatistics = new PobsStatistics(searchers);

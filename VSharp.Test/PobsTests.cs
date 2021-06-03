@@ -87,8 +87,10 @@ namespace VSharp.Test
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
-                new BFSSearcher(maxBound), new TargetedSearcher(maxBound), new BFSSearcher(maxBound),
-                new DFSSearcher(maxBound)
+                new BFSSearcher(maxBound)
+                , new TargetedSearcher(maxBound)
+                , new DFSSearcher(maxBound)
+                // , new BFSSearcher(maxBound)
             };
 
             bool allWitnessed = true;

@@ -14,6 +14,7 @@ using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter.IL;
 using VSharp.Core;
+using VSharp.Test.Tests;
 
 namespace VSharp.Test
 {
@@ -132,7 +133,7 @@ namespace VSharp.Test
 
         public static void PrintStats()
         {
-            var searchers = new INewSearcher[] {_searchers[1], _searchers[2], _searchers[3]};
+            var searchers = _searchers; //new INewSearcher[] {_searchers[1], _searchers[2], _searchers[3]};
             foreach (var m in _pobsStatistics.Keys)
             {
                 foreach (var s in searchers)
@@ -140,17 +141,19 @@ namespace VSharp.Test
                     _pobsStatistics[m].PrintStats(s);
                 }
                 Console.WriteLine();
-
-                foreach (var s in _searchers)
-                {
-                    Console.WriteLine($"{s.GetType()} executed {_globalTime[s]}");
-                }
-
-                foreach (var s in _searchers)
-                {
-                    Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
-                }
             }
+
+            foreach (var s in searchers)
+            {
+                Console.WriteLine($"{s.GetType()} executed {_globalTime[s]}");
+            }
+
+            foreach (var s in searchers)
+            {
+                Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
+            }
+
+            PobsStatistics.PrintAccuracy();
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -192,6 +195,8 @@ namespace VSharp.Test
 
                 Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
 
+                _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
+                _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
 
                 bool res = true;
                 foreach (var loc in codeLocations)
@@ -209,8 +214,6 @@ namespace VSharp.Test
                     {
                         _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
                     }
-                    _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
-                    _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
 
                     res &= res1;
                 }
@@ -225,6 +228,7 @@ namespace VSharp.Test
                 var entryMethod = innerCommand.Test.Method.MethodInfo;
                 var cfg = CFG.findCfg(entryMethod);
                 var codeLocations = new List<codeLocation>();
+                PobsStatistics.IncrementTestsNumber();
                 foreach (var offset in cfg.sortedOffsets)
                 {
                     if (offset != 0)

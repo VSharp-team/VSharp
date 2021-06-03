@@ -142,6 +142,8 @@ namespace VSharp.Test
         private Dictionary<INewSearcher, List<codeLocation>> _wrong;
         // private Dictionary<INewSearcher, Tuple<Me, TimeSpan>>> _wrong;
         private HashSet<codeLocation> _allLocs = new HashSet<codeLocation>();
+        private static Dictionary<INewSearcher, double> _allAccuracy = new Dictionary<INewSearcher, double>();
+        private static int testsNumber = 0;
 
 
 
@@ -158,6 +160,11 @@ namespace VSharp.Test
                 _wrong.Add(s, new List<codeLocation>());
                 _time.Add(s, new TimeSpan());
             }
+        }
+
+        public static void IncrementTestsNumber()
+        {
+            testsNumber++;
         }
 
         public void AddTime(INewSearcher s, MethodBase m, TimeSpan t)
@@ -181,12 +188,34 @@ namespace VSharp.Test
             _wrong[s].Add(loc);
         }
 
+        public static void PrintAccuracy()
+        {
+            foreach (var kvp in _allAccuracy)
+            {
+                double res = kvp.Value / (double) testsNumber;
+                Console.WriteLine($"Accuracy of {kvp.Key.GetType()} = {res}");
+            }
+        }
 
         public void PrintStats(INewSearcher s)
         {
             double numberRight = _correct[s].Count;
             double numberWrong = _wrong[s].Count;
             double accuracy = numberRight / (numberRight + numberWrong);
+            if (!_allAccuracy.ContainsKey(s))
+            {
+                _allAccuracy.Add(s, 0);
+            }
+
+            if (Double.IsNaN(accuracy))
+            {
+                //testsNumber--;
+            }
+            else
+            {
+                _allAccuracy[s] += accuracy;
+            }
+
             TimeSpan timeSpan = _time[s];
 
             // foreach (var pair in _correct[s])

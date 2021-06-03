@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -86,6 +87,61 @@ namespace VSharp.Test.Tests
             var miner = new BlockMiner();
             miner.Mine(time, 1);
             return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
+        }
+
+
+        [TestSvm]
+        public static int test2(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time);
+            // a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static int test6(long time, bool f)
+        {
+            var a = new BlockMiner();
+            if (f)
+                a.Mine(time);
+            else
+            {
+                a.Mine(time * 5);
+            }
+            // a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static int test3(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time);
+            a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static long test4(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time);
+            return a.Blockchain.First().Hash;
+        }
+
+        [TestSvm]
+        public static long test5(long time)
+        {
+            long mininum = Int64.MaxValue;
+            for (int i = 0; i < 5; i++)
+            {
+                var a = new BlockMiner();
+                a.Mine(time);
+                mininum = Math.Min(mininum, a.Blockchain.First().Hash);
+            }
+
+            return mininum;
         }
     }
 }
