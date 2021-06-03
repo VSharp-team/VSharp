@@ -57,14 +57,14 @@ namespace VSharp.Test.Tests
             if (RegExImplementation.Match(pattern, "hello"))
             {
                 result += "hello";
-                if (RegExImplementation.Match(pattern, "world"))
+                if (!RegExImplementation.Match(pattern, "world"))
                 {
                     result += " world";
                 }
             }
             else
             {
-                if (RegExImplementation.Match(pattern, "nothing"))
+                if (!RegExImplementation.Match(pattern, "nothing"))
                 {
                     result += " nothing";
                 }
@@ -79,6 +79,25 @@ namespace VSharp.Test.Tests
         {
             string text = new string(new char[] {c1, c2, c3});
             return RegExImplementation.Match("kek", text);
+        }
+
+        public static int OwnImplementationTest3(char c1, char c2, char c3, char c4, char c5, char c6)
+        {
+            string text = new string(new char[] {c1, c2, c3});
+            string text2 = new string(new char[] {c4, c5, c6});
+            if (RegExImplementation.Match("yes", text))
+            {
+                if (RegExImplementation.Match (text2, text))
+                {
+                    return 42;
+                }
+                else
+                {
+                    return 100;
+                }
+            }
+
+            return 0;
         }
 
         [TestSvm]

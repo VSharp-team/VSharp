@@ -80,6 +80,23 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
         | true -> methodsReachabilityTransitiveClosure.[m]
         | _ -> HashSet()
 
+    let canReachMetrics3 (ip : ip) : reachabilityEvaluation =
+       match MyUtils.ip2codeLocation ip with
+       | Some l when Seq.contains target (loc2Locs l) -> Reachable(20, 0)
+//            let u = l.offset
+//            let v = target.offset
+//            let dist = CFG.findDistance cfg
+
+       | _ -> Reachable(UNKNOWN_CONSTANT, 0)
+
+    let canReachMetrics2 (ip : ip) : reachabilityEvaluation =
+       match MyUtils.ip2codeLocation ip with
+       | Some l when Seq.contains target (loc2Locs l) ->
+            let u = l.offset
+            let v = target.offset
+            let dist = CFG.findDistance cfg
+            Reachable(dist.[u,v], 0)
+       | _ -> Reachable(UNKNOWN_CONSTANT, 0)
     let canReachMetrics(ipStack : ip list, _ : ip list) : reachabilityEvaluation =
         let helper target acc ip =
             let currentReachableCost, currentCostToExit =
@@ -110,16 +127,16 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
 
 //    member x.Append (s : cilState) =
 //        if x.CanReach (s.ipStack, []) then
-    member x.CanReach(ipStack, blocked) =
-        match canReachMetrics(ipStack, blocked) with
-        | Unknown -> __unreachable__()
-        | Reachable(x, _) -> x <> UNKNOWN_CONSTANT
+    member x.CanReach(ipStack, blocked) = true
+//        match canReachMetrics(ipStack, blocked) with
+//        | Unknown -> __unreachable__()
+//        | Reachable(x, _) -> x <> UNKNOWN_CONSTANT
 
     interface IComparer<cilState> with
         override x.Compare (a : cilState, b : cilState) =
 //            if a.stepsNumber > 1000u then 1 else
-            let aCanReach = canReachMetrics(a.ipStack, [])
-            let bCanReach = canReachMetrics(b.ipStack, [])
+            let aCanReach = canReachMetrics2(List.head a.ipStack)
+            let bCanReach = canReachMetrics2(List.head b.ipStack)
             match aCanReach, bCanReach with
             | Reachable(x, _), Reachable(y, _) when x < y -> -1
             | Reachable(x, _), Reachable(y, _) when x = y -> 0
@@ -146,7 +163,8 @@ type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocation
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = comparer.CanReach(ipStack, blocked)
         override x.MaxBound = maxBound
         override x.AppendNewStates states =
-            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
+//            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
+            List.iter (fun s -> priorityQueue.Add s |> ignore) states
         override x.Reset() =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
@@ -257,10 +275,14 @@ type TargetedSearcher(maxBound) =
 //            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
         override x.MaxBound = maxBound
         override x.AppendNewStates states =
-            let appendStateToSearcher (s : OneTargetedSearcher) =
+            let appendStateToSearcher states (s : OneTargetedSearcher) =
                 let s = s :> INewSearcher
                 s.AppendNewStates states
-            Option.map appendStateToSearcher currentSearcher |> ignore
+
+            let canBePropagated (s : cilState) =
+                not (isIIEState s || isUnhandledError s) && isExecutable s
+            let states = states |> List.filter canBePropagated
+            Option.map (appendStateToSearcher states) currentSearcher |> ignore
         override x.Init(mainM, locs) =
             let createSearcher l =
                 let cfg = CFG.findCfg l.method

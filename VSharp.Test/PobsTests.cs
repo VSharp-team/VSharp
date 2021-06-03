@@ -78,7 +78,7 @@ namespace VSharp.Test
         [TestCaseSource(nameof(PobsCases))]
         public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
         {
-            int maxBound = 1000;
+            int maxBound = 100;
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
@@ -264,6 +264,17 @@ namespace VSharp.Test
                     // new CodeLocationProxy(0x0095, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere), DesiredStatus.Witnessed),
                     // new CodeLocationProxy(0x0063, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere), DesiredStatus.Witnessed),
                     // new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest), DesiredStatus.Witnessed),
+                }
+            }
+
+            , new object[]
+            {
+                typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3),
+                new []
+                {
+                    new CodeLocationProxy(0x004a, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x004d, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x004f, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
                 }
             }
 
