@@ -290,7 +290,7 @@ module internal InstructionsSet =
             if TypeUtils.isBool x || TypeUtils.isBool y // TODO: why to Bool? #do
             then fun t k -> k (transform2BooleanTerm cilState.state.pc t)
             else idTransformation
-        binaryOperationWithBoolResult Equal transform transform cilState
+        binaryOperationWithBoolResult OperationType.Equal transform transform cilState
     let starg numCreator (cfg : cfgData) offset (cilState : cilState) =
         let argumentIndex = numCreator cfg.ilBytes offset
         let argTerm =
@@ -341,8 +341,8 @@ module internal InstructionsSet =
         let arg, _ = pop cilState
         let op =
             match TypeOf arg with
-            | Bool -> LogicalNot
-            | _ -> BitwiseNot
+            | Bool -> OperationType.LogicalNot
+            | _ -> OperationType.BitwiseNot
         performCILUnaryOperation op cilState
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
@@ -428,7 +428,7 @@ module internal InstructionsSet =
         cilState |> push value |> List.singleton
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
     let cgt = binaryOperationWithBoolResult OperationType.Greater idTransformation idTransformation
-    let cltun = binaryOperationWithBoolResult OperationType.Less makeUnsignedInteger makeUnsignedInteger
+    let cltun = binaryOperationWithBoolResult OperationType.Less_Un makeUnsignedInteger makeUnsignedInteger
     let bgeHelper (cilState : cilState) =
         let arg1, arg2, _ = pop2 cilState
         let typ1, typ2 = Terms.TypeOf arg1, Terms.TypeOf arg2
@@ -452,7 +452,7 @@ module internal InstructionsSet =
         let arg2, arg1, _ = pop2 cilState
         if IsReference arg2 && IsReference arg1 then
             binaryOperationWithBoolResult OperationType.NotEqual idTransformation idTransformation cilState
-        else binaryOperationWithBoolResult OperationType.Greater makeUnsignedInteger makeUnsignedInteger cilState
+        else binaryOperationWithBoolResult OperationType.Greater_Un makeUnsignedInteger makeUnsignedInteger cilState
     let ldobj (cfg : cfgData) offset (cilState : cilState) =
         let address, cilState = pop cilState
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldobj.Size)
@@ -539,21 +539,21 @@ module internal InstructionsSet =
     let opcode2Function : (cfgData -> offset -> cilState -> cilState list) [] = Array.create 300 (fun _ _ _ -> internalfail "Interpreter is not ready")
     opcode2Function.[hashFunction OpCodes.Br]                 <- br
     opcode2Function.[hashFunction OpCodes.Br_S]               <- br
-    opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Add // TODO: check float overflow [spec]
-    opcode2Function.[hashFunction OpCodes.Mul]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Multiply
-    opcode2Function.[hashFunction OpCodes.Sub]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation Subtract
-    opcode2Function.[hashFunction OpCodes.Shl]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftLeft
-    opcode2Function.[hashFunction OpCodes.Shr]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftRight
-    opcode2Function.[hashFunction OpCodes.Shr_Un]             <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation ShiftRight // TODO: implement using specification
+    opcode2Function.[hashFunction OpCodes.Add]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Add // TODO: check float overflow [spec]
+    opcode2Function.[hashFunction OpCodes.Mul]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Multiply
+    opcode2Function.[hashFunction OpCodes.Sub]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.Subtract
+    opcode2Function.[hashFunction OpCodes.Shl]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftLeft
+    opcode2Function.[hashFunction OpCodes.Shr]                <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftRight
+    opcode2Function.[hashFunction OpCodes.Shr_Un]             <- zipWithOneOffset <| fun _ _ -> standardPerformBinaryOperation OperationType.ShiftRight_Un
     opcode2Function.[hashFunction OpCodes.Ceq]                <- zipWithOneOffset <| fun _ _ -> ceq
-    opcode2Function.[hashFunction OpCodes.Cgt]                <- zipWithOneOffset <| fun _ _ -> binaryOperationWithBoolResult Greater idTransformation idTransformation
+    opcode2Function.[hashFunction OpCodes.Cgt]                <- zipWithOneOffset <| fun _ _ -> cgt
     opcode2Function.[hashFunction OpCodes.Cgt_Un]             <- zipWithOneOffset <| fun _ _ -> cgtun
     opcode2Function.[hashFunction OpCodes.Clt]                <- zipWithOneOffset <| fun _ _ -> clt
     opcode2Function.[hashFunction OpCodes.Clt_Un]             <- zipWithOneOffset <| fun _ _ -> cltun
-    opcode2Function.[hashFunction OpCodes.And]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseAnd LogicalAnd
-    opcode2Function.[hashFunction OpCodes.Or]                 <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseOr LogicalOr
-    opcode2Function.[hashFunction OpCodes.Xor]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation BitwiseXor LogicalXor
-    opcode2Function.[hashFunction OpCodes.Neg]                <- zipWithOneOffset <| fun _ _ -> performCILUnaryOperation UnaryMinus
+    opcode2Function.[hashFunction OpCodes.And]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.BitwiseAnd OperationType.LogicalAnd
+    opcode2Function.[hashFunction OpCodes.Or]                 <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.BitwiseOr OperationType.LogicalOr
+    opcode2Function.[hashFunction OpCodes.Xor]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolOperation OperationType.BitwiseXor OperationType.LogicalXor
+    opcode2Function.[hashFunction OpCodes.Neg]                <- zipWithOneOffset <| fun _ _ -> performCILUnaryOperation OperationType.UnaryMinus
     opcode2Function.[hashFunction OpCodes.Not]                <- zipWithOneOffset <| fun _ _ -> bitwiseOrBoolNot
     opcode2Function.[hashFunction OpCodes.Stloc]              <- zipWithOneOffset <| stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Stloc.Size) |> int)
     opcode2Function.[hashFunction OpCodes.Stloc_0]            <- zipWithOneOffset <| stloc (fun _ _ -> 0)

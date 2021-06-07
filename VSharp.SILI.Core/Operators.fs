@@ -28,8 +28,8 @@ module internal Operators =
 
     let simplifyUnaryOperation op arg k =
         match typeOf arg with
-        | Bool -> Propositional.simplifyUnaryConnective op arg k
-        | Numeric(Id t) -> Arithmetics.simplifyUnaryOperation op arg t k
+        | Bool -> simplifyUnaryConnective op arg k
+        | Numeric(Id t) -> simplifyUnaryOperation op arg t k
         | Types.StringType -> __notImplemented__()
         | _ -> __notImplemented__()
 

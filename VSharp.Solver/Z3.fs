@@ -1,7 +1,6 @@
 namespace VSharp.Solver
 
 open System
-open System.Runtime.InteropServices
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp
@@ -83,7 +82,7 @@ module internal Z3 =
 
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
 
-        member private x.Type2Sort typ = // TODO: unsigned encoded to signed, so need to use bitvecsize + 1? #do
+        member private x.Type2Sort typ =
             Dict.getValueOrUpdate cache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
@@ -173,28 +172,36 @@ module internal Z3 =
                         x.CreateConstant name typ
                     else
                         match operator with
-                        | BitwiseNot -> x.MakeUnary stopper encCtx ctx.MkBVNot args
-                        | BitwiseAnd -> x.MakeBinary stopper encCtx ctx.MkBVAND args
-                        | BitwiseOr -> x.MakeBinary stopper encCtx ctx.MkBVOR args
-                        | BitwiseXor -> x.MakeBinary stopper encCtx ctx.MkBVXOR args
-                        | ShiftLeft -> x.MakeBinary stopper encCtx ctx.MkBVSHL args
-                        | ShiftRight -> x.MakeBinary stopper encCtx ctx.MkBVLSHR args
-                        | LogicalNot -> x.MakeUnary stopper encCtx ctx.MkNot args
-                        | LogicalAnd -> x.MakeOperation stopper encCtx x.MkAnd args
-                        | LogicalOr -> x.MakeOperation stopper encCtx ctx.MkOr args
-                        | LogicalXor -> x.MakeOperation stopper encCtx ctx.MkXor args
-                        | Equal -> x.MakeBinary stopper encCtx x.MkEq args
-                        | NotEqual -> x.MakeBinary stopper encCtx (ctx.MkNot << x.MkEq) args
-                        | Greater -> x.MakeBinary stopper encCtx ctx.MkBVSGT args
-                        | GreaterOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSGE args
-                        | Less -> x.MakeBinary stopper encCtx ctx.MkBVSLT args
-                        | LessOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSLE args
-                        | Add -> x.MakeBinary stopper encCtx ctx.MkBVAdd args
-                        | Multiply -> x.MakeBinary stopper encCtx ctx.MkBVMul args
-                        | Subtract -> x.MakeBinary stopper encCtx ctx.MkBVSub args
-                        | Divide -> x.MakeBinary stopper encCtx ctx.MkBVSDiv args
-                        | Remainder -> x.MakeBinary stopper encCtx ctx.MkBVSRem args
-                        | UnaryMinus -> x.MakeUnary stopper encCtx ctx.MkBVNeg args
+                        | OperationType.BitwiseNot -> x.MakeUnary stopper encCtx ctx.MkBVNot args
+                        | OperationType.BitwiseAnd -> x.MakeBinary stopper encCtx ctx.MkBVAND args
+                        | OperationType.BitwiseOr -> x.MakeBinary stopper encCtx ctx.MkBVOR args
+                        | OperationType.BitwiseXor -> x.MakeBinary stopper encCtx ctx.MkBVXOR args
+                        | OperationType.ShiftLeft -> x.MakeBinary stopper encCtx ctx.MkBVSHL args
+                        | OperationType.ShiftRight -> x.MakeBinary stopper encCtx ctx.MkBVASHR args
+                        | OperationType.ShiftRight_Un -> x.MakeBinary stopper encCtx ctx.MkBVLSHR args
+                        | OperationType.LogicalNot -> x.MakeUnary stopper encCtx ctx.MkNot args
+                        | OperationType.LogicalAnd -> x.MakeOperation stopper encCtx x.MkAnd args
+                        | OperationType.LogicalOr -> x.MakeOperation stopper encCtx ctx.MkOr args
+                        | OperationType.LogicalXor -> x.MakeOperation stopper encCtx ctx.MkXor args
+                        | OperationType.Equal -> x.MakeBinary stopper encCtx x.MkEq args
+                        | OperationType.NotEqual -> x.MakeBinary stopper encCtx (ctx.MkNot << x.MkEq) args
+                        | OperationType.Greater -> x.MakeBinary stopper encCtx ctx.MkBVSGT args
+                        | OperationType.Greater_Un -> x.MakeBinary stopper encCtx ctx.MkBVUGT args
+                        | OperationType.GreaterOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSGE args
+                        | OperationType.GreaterOrEqual_Un -> x.MakeBinary stopper encCtx ctx.MkBVUGE args
+                        | OperationType.Less -> x.MakeBinary stopper encCtx ctx.MkBVSLT args
+                        | OperationType.Less_Un -> x.MakeBinary stopper encCtx ctx.MkBVULT args
+                        | OperationType.LessOrEqual -> x.MakeBinary stopper encCtx ctx.MkBVSLE args
+                        | OperationType.LessOrEqual_Un -> x.MakeBinary stopper encCtx ctx.MkBVULE args
+                        | OperationType.Add -> x.MakeBinary stopper encCtx ctx.MkBVAdd args
+                        | OperationType.Multiply -> x.MakeBinary stopper encCtx ctx.MkBVMul args
+                        | OperationType.Subtract -> x.MakeBinary stopper encCtx ctx.MkBVSub args
+                        | OperationType.Divide -> x.MakeBinary stopper encCtx ctx.MkBVSDiv args
+                        | OperationType.Divide_Un -> x.MakeBinary stopper encCtx ctx.MkBVUDiv args
+                        | OperationType.Remainder -> x.MakeBinary stopper encCtx ctx.MkBVSRem args
+                        | OperationType.Remainder_Un -> x.MakeBinary stopper encCtx ctx.MkBVURem args
+                        | OperationType.UnaryMinus -> x.MakeUnary stopper encCtx ctx.MkBVNeg args
+                        | _ -> __unreachable__()
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation stopper encCtx (fun x -> ctx.MkApp(decl, x)) args
@@ -420,10 +427,14 @@ module internal Z3 =
                     elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
                     elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
                     elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
-                    elif expr.IsGT then x.DecodeBoolExpr OperationType.Greater expr
-                    elif expr.IsGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
-                    elif expr.IsLT then x.DecodeBoolExpr OperationType.Less expr
-                    elif expr.IsLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
+                    elif expr.IsBVSGT then x.DecodeBoolExpr OperationType.Greater expr
+                    elif expr.IsBVUGT then x.DecodeBoolExpr OperationType.Greater_Un expr
+                    elif expr.IsBVSGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
+                    elif expr.IsBVUGE then x.DecodeBoolExpr OperationType.GreaterOrEqual_Un expr
+                    elif expr.IsBVSLT then x.DecodeBoolExpr OperationType.Less expr
+                    elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
+                    elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
+                    elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
                     else __notImplemented__()
 
     let private ctx = new Context()

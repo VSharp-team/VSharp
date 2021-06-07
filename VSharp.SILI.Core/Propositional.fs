@@ -260,27 +260,27 @@ module internal Propositional =
 
     let simplifyBinaryConnective op x y k =
         match op with
-        | LogicalAnd -> simplifyAnd x y k
-        | LogicalOr -> simplifyOr x y k
-        | LogicalXor ->
+        | OperationType.LogicalAnd -> simplifyAnd x y k
+        | OperationType.LogicalOr -> simplifyOr x y k
+        | OperationType.LogicalXor ->
             simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
             simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
-        | Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
-        | NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
+        | OperationType.Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
+        | OperationType.NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
         | _ -> internalfailf "%O is not a binary logical operator" op
 
     let simplifyUnaryConnective op x k =
         match op with
-        | LogicalNot -> simplifyNegation x k
+        | OperationType.LogicalNot -> simplifyNegation x k
         | _ -> internalfailf "%O is not an unary logical operator" op
 
     let isLogicalOperation op t1 t2 =
         Types.isBool t1 && Types.isBool t2 &&
         match op with
-        | LogicalAnd
-        | LogicalOr
-        | LogicalXor
-        | LogicalNot
-        | Equal
-        | NotEqual -> true
+        | OperationType.LogicalAnd
+        | OperationType.LogicalOr
+        | OperationType.LogicalXor
+        | OperationType.LogicalNot
+        | OperationType.Equal
+        | OperationType.NotEqual -> true
         | _ -> false

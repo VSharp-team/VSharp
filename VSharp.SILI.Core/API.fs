@@ -164,7 +164,7 @@ module API =
         let (<<=) x y = simplifyLessOrEqual x y id
         let (>>) x y = simplifyGreater x y id
         let (>>=) x y = simplifyGreaterOrEqual x y id
-        let (%%%) x y = simplifyRemainder (x |> TypeOf |> Types.ToDotNetType) x y id
+        let (%%%) x y = simplifyRemainder true (x |> TypeOf |> Types.ToDotNetType) x y id
 
         let Mul x y = mul x y
         let IsZero term = checkEqualZero term id

@@ -345,16 +345,16 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let isSubset leftTyp rightTyp = Array.contains rightTyp supersetsOf.[leftTyp]
         let minMaxOf = // TODO: implement big numbers, instead of double #hack
             PersistentDict.ofSeq [
-                TypeUtils.int8Type,    (System.SByte.MinValue  |> double, System.SByte.MaxValue  |> double)
-                TypeUtils.int16Type,   (System.Int16.MinValue  |> double, System.Int16.MaxValue  |> double)
-                TypeUtils.int32Type,   (System.Int32.MinValue  |> double, System.Int32.MaxValue  |> double)
-                TypeUtils.int64Type,   (System.Int64.MinValue  |> double, System.Int64.MaxValue  |> double)
-                TypeUtils.uint8Type,   (System.Byte.MinValue   |> double, System.Byte.MaxValue   |> double)
-                TypeUtils.uint16Type,  (System.UInt16.MinValue |> double, System.UInt16.MaxValue |> double)
-                TypeUtils.uint32Type,  (System.UInt32.MinValue |> double, System.UInt32.MaxValue |> double)
-                TypeUtils.uint64Type,  (System.UInt64.MinValue |> double, System.UInt64.MaxValue |> double)
-                TypeUtils.float32Type, (System.Single.MinValue |> double, System.Single.MaxValue |> double)
-                TypeUtils.float64Type, (System.Double.MinValue |> double, System.Double.MaxValue |> double) ]
+                TypeUtils.int8Type,    (SByte.MinValue  |> double, SByte.MaxValue  |> double)
+                TypeUtils.int16Type,   (Int16.MinValue  |> double, Int16.MaxValue  |> double)
+                TypeUtils.int32Type,   (Int32.MinValue  |> double, Int32.MaxValue  |> double)
+                TypeUtils.int64Type,   (Int64.MinValue  |> double, Int64.MaxValue  |> double)
+                TypeUtils.uint8Type,   (Byte.MinValue   |> double, Byte.MaxValue   |> double)
+                TypeUtils.uint16Type,  (UInt16.MinValue |> double, UInt16.MaxValue |> double)
+                TypeUtils.uint32Type,  (UInt32.MinValue |> double, UInt32.MaxValue |> double)
+                TypeUtils.uint64Type,  (UInt64.MinValue |> double, UInt64.MaxValue |> double)
+                TypeUtils.float32Type, (Single.MinValue |> double, Single.MaxValue |> double)
+                TypeUtils.float64Type, (Double.MinValue |> double, Double.MaxValue |> double) ]
         let getSegment leftTyp rightTyp =
             let min1, max1 = minMaxOf.[leftTyp]
             let min2, max2 = minMaxOf.[rightTyp]
@@ -470,13 +470,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             match methodPtr.term with
             | Concrete(:? MethodInfo as mi, _) -> mi
             | _ -> __unreachable__()
-        let invoke cilState =
-            GuardedApplyCIL cilState methodPtr
-                (fun cilState methodPtr k ->
-                    BranchOnNullCIL cilState target // TODO: can target be null? #do
-                        (x.Raise x.NullReferenceException)
-                        (x.InlineMethodBaseCallIfNeeded (retrieveMethodInfo methodPtr))
-                        k)
         let typ = Types.FromDotNetType ctor.DeclaringType
         let lambda = Lambdas.make (retrieveMethodInfo methodPtr, target) typ
         Memory.AllocateDelegate cilState.state lambda |> k
@@ -580,7 +573,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let loadWhenTargetIsNotNull (cilState : cilState) k =
             let createCilState value = push value cilState |> List.singleton |> k
             let fieldId = Reflection.wrapField fieldInfo
-            if fieldInfo.DeclaringType = typeof<System.IntPtr> then // TODO: make better #do
+            if fieldInfo.DeclaringType = typeof<IntPtr> then // TODO: make better #do
                 if addressNeeded then createCilState target
                 else Memory.ReadSafe cilState.state target |> createCilState
             else
@@ -824,12 +817,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         | TypeUtils.Float, _
         | _, TypeUtils.Float when isRem -> internalfailf "Rem.Un is unspecified for Floats"
         | _ -> internalfailf "incompatible operands for %s" (if isRem then "Rem.Un" else "Div.Un")
+
     member private this.DivUn (cilState : cilState) =
-        let div x y = API.PerformBinaryOperation OperationType.Divide x y id
+        let div x y = API.PerformBinaryOperation OperationType.Divide_Un x y id
         this.CommonUnsignedDivRem false div cilState
 
     member private this.RemUn cilState =
-        let rem x y = API.PerformBinaryOperation OperationType.Remainder x y id
+        let rem x y = API.PerformBinaryOperation OperationType.Remainder_Un x y id
         this.CommonUnsignedDivRem true rem cilState
 
     member private this.UnsignedCheckOverflow checkOverflowForUnsigned (cilState : cilState) =

@@ -170,13 +170,13 @@ module internal Arithmetics =
             let x = simplifyConcreteMultiplication t aval yval
             simplifyMultiplication t x b matched
         // ((a / y) * b) * y = a * b if unchecked
-        | Div(a, c, _), b, _ when c = y -> simplifyMultiplication t a b matched
+        | Div(a, c, _, _), b, _ when c = y -> simplifyMultiplication t a b matched
         // (a * (b / y)) * y = a * b if unchecked
-        | a, Div(b, c, _), _ when c = y -> simplifyMultiplication t a b matched
+        | a, Div(b, c, _, _), _ when c = y -> simplifyMultiplication t a b matched
         // (a * b) * (c / a) = b * c if unchecked
-        | _, _, Div(c, d, _) when d = a -> simplifyMultiplication t b c matched
+        | _, _, Div(c, d, _, _) when d = a -> simplifyMultiplication t b c matched
         // (a * b) * (c / b) = a * c if unchecked
-        | _, _, Div(c, d, _) when d = b -> simplifyMultiplication t a c matched
+        | _, _, Div(c, d, _, _) when d = b -> simplifyMultiplication t a c matched
         | _ -> unmatched ()
             // Trying to simplify pairwise combinations of x- and y-factors
 //            let factorsOfY =
@@ -193,17 +193,17 @@ module internal Arithmetics =
 //                matched
 //                unmatched
 
-    and private simplifyMultiplicationOfDivision t a b y matched unmatched =
+    and private simplifyMultiplicationOfDivision op t a b y matched unmatched =
         // Simplifying (a / b) * y at this step
         match a, b, y with
         // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
             let aMulY = simplifyConcreteMultiplication t aval yval
-            simplifyDivision t aMulY b matched
+            simplifyDivision op t aMulY b matched
         // (a / (y * d)) * y = a/d if unchecked
-        | _, Mul(c, d, _), _ when c = y -> simplifyDivision t a d matched
+        | _, Mul(c, d, _), _ when c = y -> simplifyDivision op t a d matched
         // (a / (c * y)) * y = a/c if unchecked
-        | _, Mul(c, d, _), _ when d = y -> simplifyDivision t a c matched
+        | _, Mul(c, d, _), _ when d = y -> simplifyDivision op t a c matched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationOfShifts (t : System.Type) a b y matched unmatched =
@@ -234,7 +234,7 @@ module internal Arithmetics =
     and private simplifyMultiplicationOfExpression t x y matched unmatched =
         match x with
         | Mul(a, b, _) -> simplifyMultiplicationOfProduct t a b y matched unmatched
-        | Div(a, b, _) -> simplifyMultiplicationOfDivision t a b y matched unmatched
+        | Div(a, b, _, isSigned) -> simplifyMultiplicationOfDivision isSigned t a b y matched unmatched
         | ShiftLeft(a, b, _) -> simplifyMultiplicationOfShifts t a b y matched unmatched
         | _ -> unmatched ()
 
@@ -271,8 +271,7 @@ module internal Arithmetics =
         let result = Calculator.Div(x, y, t, success)
         castConcrete result t
 
-
-    and private simplifyDivision t x y k =
+    and private simplifyDivision isSigned t x y k =
         simplifyGenericBinary "division" x y k
             (simplifyConcreteBinary simplifyConcreteDivision t)
             (fun x y k ->
@@ -292,21 +291,24 @@ module internal Arithmetics =
                 // (a >> b) / 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
 //                | CastExpr(ShiftRight(a, b, Numeric(Id t2)), (Numeric(Id t1) as t)) when not <| typeIsLessType t1 t2 -> Some(ShiftRight(primitiveCast x t, y, t)) ->
                 | ShiftRightThroughCast(a, ConcreteT(b, bt), _), ConcreteT(powOf2, _)
-                | ShiftRight(a, ConcreteT(b, bt), _), ConcreteT(powOf2, _)
+                | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
                     when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                         let n = Calculator.WhatPowerOf2(powOf2)
                         let tooBigShift = Calculator.Compare(Calculator.Add(b, n, t), bitSizeOf a t) >= 0
                         if tooBigShift then castConcrete 0 t |> k
                         else
                             let bt' = toDotNetType bt
-                            simplifyShift OperationType.ShiftRight t a (castConcrete (Calculator.Add(b, n, bt')) bt') k
+                            let op = if isSigned then OperationType.ShiftRight else OperationType.ShiftRight_Un
+                            simplifyShift op t a (castConcrete (Calculator.Add(b, n, bt')) bt') k
                 // (a / b) / y = a / (b * y) if unchecked and b and y concrete
-                | Div(a, (ConcreteT(bval, _)), _), ConcreteT(yval, _) ->
+                | Div(a, (ConcreteT(bval, _)), _, isSigned'), ConcreteT(yval, _) ->
+                    assert(isSigned = isSigned')
                     let bMulY = simplifyConcreteMultiplication t bval yval
-                    simplifyDivision t a bMulY k
-                | _ -> (makeBinary OperationType.Divide x y (fromDotNetType t)) |> k)
-            (fun x y k -> simplifyDivision t x y k)
-
+                    simplifyDivision isSigned t a bMulY k
+                | _ ->
+                    let op = if isSigned then OperationType.Divide else OperationType.Divide_Un
+                    (makeBinary op x y (fromDotNetType t)) |> k)
+            (fun x y k -> simplifyDivision isSigned t x y k)
 
 // ------------------------------- Simplification of "%" -------------------------------
 
@@ -320,7 +322,7 @@ module internal Arithmetics =
         let success = ref true
         Calculator.IsZero(Calculator.Rem(x, y, t, success)) && !success
 
-    and simplifyRemainder t x y k =
+    and simplifyRemainder isSigned t x y k =
         simplifyGenericBinary "remainder" x y k
             (simplifyConcreteBinary simplifyConcreteRemainder t)
             (fun x y k ->
@@ -339,15 +341,18 @@ module internal Arithmetics =
                 // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
                 | Mul(ConcreteT(a, _), _, _), ConcreteT(y, _) when divides t a y ->
                      castConcrete 0 t |> k
-                | _ -> makeBinary OperationType.Remainder x y (fromDotNetType t) |> k)
-            (fun x y k -> simplifyRemainder t x y k)
+                | _ ->
+                    let op = if isSigned then OperationType.Remainder else OperationType.Remainder_Un
+                    makeBinary op x y (fromDotNetType t) |> k)
+            (fun x y k -> simplifyRemainder isSigned t x y k)
 
 // ---------------------------------------- Simplification of "<<", ">>" ----------------------------------------
 
     and private simplifyConcreteShift operation t x y =
         match operation with
         | OperationType.ShiftLeft -> castConcrete (Calculator.ShiftLeft(x, y, t)) t
-        | OperationType.ShiftRight -> castConcrete (Calculator.ShiftRight(x, y, t)) t
+        | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un -> castConcrete (Calculator.ShiftRight(x, y, t)) t
         | _ -> __unreachable__()
 
     and private simplifyShiftLeftMul t a b y matched unmatched =
@@ -355,7 +360,7 @@ module internal Arithmetics =
         match a.term, b.term, y.term with
         // (2^n * b) << y = b << (y + n) if unchecked, y is concrete, y + n < bitSize of a
         // (2^n * b) << y = 0 if unchecked, y is concrete, y + n >= bitSize of a
-        |  Concrete(powOf2, _), _, Concrete(yval, yt)
+        | Concrete(powOf2, _), _, Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) ->
                 let n = Calculator.WhatPowerOf2(powOf2)
                 let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
@@ -365,19 +370,19 @@ module internal Arithmetics =
                     simplifyShift OperationType.ShiftLeft t b (castConcrete (Calculator.Add(yval, n, yt')) yt') matched
         | _ -> unmatched ()
 
-    and private simplifyShiftRightDiv t a b y matched unmatched =
+    and private simplifyShiftRightDiv op t a b y matched unmatched =
         // Simplifying (a / b) >> y at this step
         match b.term, y.term with
         // (a / 2^n) >> y = a >> (y + n) if y is concrete, a is unsigned, y + n < bitSize of a
         // (a / 2^n) >> y = 0 if y is concrete, a is unsigned, y + n >= bitSize of a
-        |   Concrete(powOf2, _), Concrete(yval, yt)
+        | Concrete(powOf2, _), Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                 let n = Calculator.WhatPowerOf2(powOf2)
                 let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
                     let yt' = toDotNetType yt
-                    simplifyShift OperationType.ShiftRight t a (castConcrete (Calculator.Add(yval, n, yt')) yt') matched
+                    simplifyShift op t a (castConcrete (Calculator.Add(yval, n, yt')) yt') matched
         | _ -> unmatched ()
 
     and private simplifyShiftLeftOfAddition t a y (matched : term -> 'a) unmatched =
@@ -403,17 +408,22 @@ module internal Arithmetics =
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
         | Concrete _, Concrete _, OperationType.ShiftLeft ->
             castConcrete 0 t |> matched
-        | Concrete _, Concrete _, OperationType.ShiftRight when a |> typeOf |> toDotNetType |> isUnsigned ->
+        | Concrete _, Concrete _, OperationType.ShiftRight
+        | Concrete _, Concrete _, OperationType.ShiftRight_Un when a |> typeOf |> toDotNetType |> isUnsigned ->
             castConcrete 0 t |> matched
         | _ -> unmatched ()
 
     and private simplifyShiftOfExpression op t x y matched unmatched =
         match x, op with
         | Mul(a, b, _), OperationType.ShiftLeft -> simplifyShiftLeftMul t a b y matched unmatched
-        | Div(a, b, _), OperationType.ShiftRight -> simplifyShiftRightDiv t a b y matched unmatched
+        | Div(a, b, _, true), OperationType.ShiftRight
+        | Div(a, b, _, false), OperationType.ShiftRight_Un ->
+            simplifyShiftRightDiv op t a b y matched unmatched
         | Add(a, b, _), OperationType.ShiftLeft when a = b -> simplifyShiftLeftOfAddition t a y matched unmatched
         | ShiftLeft(a, b, _), OperationType.ShiftLeft -> simplifyShiftOfShifted op t a b y matched unmatched
-        | ShiftRight(a, b, _), OperationType.ShiftRight -> simplifyShiftOfShifted op t a b y matched unmatched
+        | ShiftRight(a, b, _, true), OperationType.ShiftRight
+        | ShiftRight(a, b, _, false), OperationType.ShiftRight_Un ->
+            simplifyShiftOfShifted op t a b y matched unmatched
         | _ -> unmatched ()
 
     and private simplifyShiftExt op t x y matched unmatched =
@@ -437,9 +447,9 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, _), Concrete(y, _) ->
             match op with
-            | BitwiseAnd -> k <| Concrete (Calculator.BitwiseAnd(x, y, t)) resType
-            | BitwiseOr -> k <| Concrete (Calculator.BitwiseOr(x, y, t)) resType
-            | BitwiseXor -> k <| Concrete (Calculator.BitwiseXor(x, y, t)) resType
+            | OperationType.BitwiseAnd -> k <| Concrete (Calculator.BitwiseAnd(x, y, t)) resType
+            | OperationType.BitwiseOr -> k <| Concrete (Calculator.BitwiseOr(x, y, t)) resType
+            | OperationType.BitwiseXor -> k <| Concrete (Calculator.BitwiseXor(x, y, t)) resType
             | _ -> __notImplemented__()
         | _ -> k (Expression (Operator op) [x; y] resType)
 
@@ -472,11 +482,15 @@ module internal Arithmetics =
             (fun x y k -> simplifyComparison op x y comparator sameIsTrue k)
 
     and simplifyEqual x y k = simplifyComparison OperationType.Equal x y ((=) 0) true k
-    and simplifyNotEqual x y k = simplifyComparison OperationType.Equal x y ((=) 0) true ((!!) >> k)
+    and simplifyNotEqual x y k = simplifyEqual x y ((!!) >> k)
     and simplifyLess x y k = simplifyComparison OperationType.Less x y ((>) 0) false k
+    and simplifyLessUn x y k = simplifyComparison OperationType.Less_Un x y ((>) 0) false k
     and simplifyLessOrEqual x y k = simplifyComparison OperationType.LessOrEqual x y ((>=) 0) true k
-    and simplifyGreater x y k = simplifyComparison OperationType.LessOrEqual x y ((>=) 0) true ((!!) >> k)
-    and simplifyGreaterOrEqual x y k = simplifyComparison OperationType.Less x y ((>) 0) false ((!!) >> k)
+    and simplifyLessOrEqualUn x y k = simplifyComparison OperationType.LessOrEqual_Un x y ((>=) 0) true k
+    and simplifyGreater x y k = simplifyLessOrEqual x y ((!!) >> k)
+    and simplifyGreaterUn x y k = simplifyLessOrEqualUn x y ((!!) >> k)
+    and simplifyGreaterOrEqual x y k = simplifyLess x y ((!!) >> k)
+    and simplifyGreaterOrEqualUn x y k = simplifyLessUn x y ((!!) >> k)
 
 // ------------------------------- General functions -------------------------------
 
@@ -497,10 +511,10 @@ module internal Arithmetics =
         simplifyMultiplication (deduceArithmeticTargetType x y) x y id
 
     let div x y =
-        simplifyDivision (deduceArithmeticTargetType x y) x y id
+        simplifyDivision true (deduceArithmeticTargetType x y) x y id
 
     let rem x y =
-        simplifyRemainder (deduceArithmeticTargetType x y) x y id
+        simplifyRemainder true (deduceArithmeticTargetType x y) x y id
 
     let eq x y =
         simplifyEqual x y id
@@ -512,16 +526,23 @@ module internal Arithmetics =
         | OperationType.Add -> simplifyAddition t x y k
         | OperationType.Subtract -> simplifySubtraction t x y k
         | OperationType.Multiply -> simplifyMultiplication t x y k
-        | OperationType.Divide -> simplifyDivision t x y k
-        | OperationType.Remainder -> simplifyRemainder t x y k
-        | OperationType.ShiftLeft-> simplifyShift op t x y k
-        | OperationType.ShiftRight -> simplifyShift op t x y k
+        | OperationType.Divide -> simplifyDivision true t x y k
+        | OperationType.Divide_Un -> simplifyDivision false t x y k
+        | OperationType.Remainder -> simplifyRemainder true t x y k
+        | OperationType.Remainder_Un -> simplifyRemainder false t x y k
+        | OperationType.ShiftLeft -> simplifyShift op t x y k
+        | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un -> simplifyShift op t x y k
         | OperationType.Equal -> simplifyEqual x y k
         | OperationType.NotEqual -> simplifyNotEqual x y k
         | OperationType.Greater -> simplifyGreater x y k
+        | OperationType.Greater_Un -> simplifyGreaterUn x y k
         | OperationType.GreaterOrEqual -> simplifyGreaterOrEqual x y k
+        | OperationType.GreaterOrEqual_Un -> simplifyGreaterOrEqualUn x y k
         | OperationType.Less -> simplifyLess x y k
+        | OperationType.Less_Un -> simplifyLessUn x y k
         | OperationType.LessOrEqual -> simplifyLessOrEqual x y k
+        | OperationType.LessOrEqual_Un -> simplifyLessOrEqualUn x y k
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
         | OperationType.BitwiseXor -> simplifyBitwise op x y t (typeOf x) k
@@ -540,15 +561,22 @@ module internal Arithmetics =
         | OperationType.Subtract
         | OperationType.Multiply
         | OperationType.Divide
+        | OperationType.Divide_Un
         | OperationType.Remainder
+        | OperationType.Remainder_Un
         | OperationType.ShiftLeft
         | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Greater
+        | OperationType.Greater_Un
         | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un
         | OperationType.Less
+        | OperationType.Less_Un
         | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
         | OperationType.BitwiseXor

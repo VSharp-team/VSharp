@@ -218,7 +218,7 @@ module internal Pointers =
             else
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp
-        let divideBySizeof diff = Arithmetics.div diff <| underlyingPointerTypeSizeof x
+        let divideBySizeof diff = div diff <| underlyingPointerTypeSizeof x
         let simplifyPointerDiffWithOffset p q offset =
             simplifySPDExpression (Arithmetics.add (makeDiff p q) offset) k (fun diff k -> k (divideBySizeof diff))
         let simplifyIndentedPointerSubtraction x y k =

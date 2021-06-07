@@ -529,11 +529,13 @@ module internal Terms =
         | _ -> None
 
     let (|Div|_|) = term >> function
-        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t))
+        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t, true))
+        | Expression(Operator OperationType.Divide_Un, [x;y], t) -> Some(Div(x, y, t, false))
         | _ -> None
 
     let (|Rem|_|) = term >> function
-        | Expression(Operator OperationType.Remainder, [x;y], t) -> Some(Rem(x, y, t))
+        | Expression(Operator OperationType.Remainder, [x;y], t)
+        | Expression(Operator OperationType.Remainder_Un, [x;y], t) -> Some(Rem(x, y, t))
         | _ -> None
 
     let (|Negation|_|) = function
@@ -559,11 +561,12 @@ module internal Terms =
         | _ -> None
 
     let (|ShiftRight|_|) = term >> function
-        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t))
+        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t, true))
+        | Expression(Operator OperationType.ShiftRight_Un, [x;y], t) -> Some(ShiftRight(x, y, t, false))
         | _ -> None
 
     let (|ShiftRightThroughCast|_|) = function
-        | CastExpr(ShiftRight(a, b, Numeric(Id t)), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
+        | CastExpr(ShiftRight(a, b, Numeric(Id t), _), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
             Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
