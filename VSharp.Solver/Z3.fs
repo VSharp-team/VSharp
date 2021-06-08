@@ -163,6 +163,14 @@ module internal Z3 =
 
 // ------------------------------- Encoding: expression -------------------------------
 
+        member private x.ExtendIfNeed (x : BitVecExpr, y : BitVecExpr as args) =
+            let difference = int x.SortSize - int y.SortSize
+            if difference = 0 then args
+            elif difference > 0 then
+                x, ctx.MkSignExt(uint32 difference, y)
+            else
+                ctx.MkSignExt(uint32 -difference, x), y
+
         member private x.EncodeExpression stopper encCtx term op args typ = // TODO: need stopper? delete? #do
             cache.Get(term, fun () ->
                 match op with
@@ -176,9 +184,11 @@ module internal Z3 =
                         | OperationType.BitwiseAnd -> x.MakeBinary stopper encCtx ctx.MkBVAND args
                         | OperationType.BitwiseOr -> x.MakeBinary stopper encCtx ctx.MkBVOR args
                         | OperationType.BitwiseXor -> x.MakeBinary stopper encCtx ctx.MkBVXOR args
-                        | OperationType.ShiftLeft -> x.MakeBinary stopper encCtx ctx.MkBVSHL args
-                        | OperationType.ShiftRight -> x.MakeBinary stopper encCtx ctx.MkBVASHR args
-                        | OperationType.ShiftRight_Un -> x.MakeBinary stopper encCtx ctx.MkBVLSHR args
+                        // [NOTE] IL specifies: arguments of SHL, SHR, SHR.UN are (in32 and int32), (int64 and int32)
+                        // So it's needed to extend one of them for Z3
+                        | OperationType.ShiftLeft -> x.MakeBinary stopper encCtx (x.ExtendIfNeed >> ctx.MkBVSHL) args
+                        | OperationType.ShiftRight -> x.MakeBinary stopper encCtx (x.ExtendIfNeed >> ctx.MkBVASHR) args
+                        | OperationType.ShiftRight_Un -> x.MakeBinary stopper encCtx (x.ExtendIfNeed >> ctx.MkBVLSHR) args
                         | OperationType.LogicalNot -> x.MakeUnary stopper encCtx ctx.MkNot args
                         | OperationType.LogicalAnd -> x.MakeOperation stopper encCtx x.MkAnd args
                         | OperationType.LogicalOr -> x.MakeOperation stopper encCtx ctx.MkOr args
