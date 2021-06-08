@@ -1184,7 +1184,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         makeStep' (currentIp cilState) id
 
     member private x.ExecuteInstruction m offset (cilState : cilState) =
-        Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
+//        Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
         let cfg = CFG.findCfg m
         let opCode = parseInstruction m offset
 //        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)

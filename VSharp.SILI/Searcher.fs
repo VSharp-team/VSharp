@@ -52,17 +52,17 @@ type ISearcher() = // TODO: max bound is needed, when we are in recursion, but w
            | SolverInteraction.SmtUnsat _ -> false
            | _ -> true
         let validStates = List.filter isValid finishedStates
-        let printInfoForDebug () =
-            let allStatesInQueue = q.GetStates()
-            Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
-            Logger.info "Indexed queue size = %d\n" (List.length allStatesInQueue)
-            List.iteri (fun i -> dump >> Logger.info "Queue.[%d]:\n%s\n" i) allStatesInQueue
-            true
+//        let printInfoForDebug () =
+//            let allStatesInQueue = q.GetStates()
+//            Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
+//            Logger.info "Indexed queue size = %d\n" (List.length allStatesInQueue)
+//            List.iteri (fun i -> dump >> Logger.info "Queue.[%d]:\n%s\n" i) allStatesInQueue
+//            true
         match iieStates with // TODO: write error states? #do
         | CilStateWithIIE iie :: _ -> raise iie
         | _ :: _ -> __unreachable__()
         | _ when validStates = [] ->
-            assert(printInfoForDebug())
+//            assert(printInfoForDebug())
             internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
         | _ -> validStates
 
@@ -71,8 +71,8 @@ type DummySearcher() =
         override x.PickNext q =
             let canBePropagated (s : cilState) =
                 not (isIIEState s || isUnhandledError s) && isExecutable s && not <| x.Used s
-            let states = (q.GetStates()) |> List.filter canBePropagated
+            let states = q.GetStates() |> Seq.filter canBePropagated
             match states with
-            | x :: _ -> Some x
-            | [] -> None
+            | Seq.Cons(x, _) -> Some x
+            | Seq.Empty -> None
 
