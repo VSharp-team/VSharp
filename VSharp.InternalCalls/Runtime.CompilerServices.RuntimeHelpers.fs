@@ -54,7 +54,8 @@ module Runtime_CompilerServices_RuntimeHelpers =
     let doubleTermCreator (rawData : byte []) index =
         BitConverter.ToDouble(rawData, index) |> MakeNumber
 
-    let private fillInArray termCreator (state : state) arrayRef (size : int) (rawData : byte[]) = // TODO: move this code to Core
+    // TODO: move this code to Core
+    let private fillInArray termCreator (state : state) arrayRef (size : int) (rawData : byte[]) =
         let extractIntFromTerm (term : term) =
             match term.term with
             | Concrete (:? int as v, _) -> v
@@ -67,13 +68,11 @@ module Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-//        let array = Memory.ReadSafe state arrayRef
         let dimensionsNumberTerm = Memory.ArrayRank state arrayRef
         let dimensionsNumber = extractIntFromTerm dimensionsNumberTerm
         let rec helper currentDimension (multiIndex : term list) (state, j) =
             if currentDimension = dimensionsNumber then
                 let valueTerm = termCreator rawData (j * size)
-//                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
                 let states = Memory.WriteArrayIndex state arrayRef multiIndex valueTerm
                 match states with
                 | [state] -> (state, j + 1)

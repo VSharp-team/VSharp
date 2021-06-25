@@ -168,8 +168,8 @@ module TypeUtils =
 
     let convert (value : obj) t =
         match t with
-        | _ when t = typeof<Boolean> -> Convert.ToBoolean(value) :> obj // TODO: throws an exception on char, implement using Emit
-        | _ when value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t) // TODO: hack #do
+        // TODO: throws an exception when value = char, implement using Emit
+        | _ when t = typeof<Boolean> || value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t)
         | _ -> convNumeric value t
 
     // --------------------------------------- Operation target type ---------------------------------------

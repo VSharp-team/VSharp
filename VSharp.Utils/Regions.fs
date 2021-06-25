@@ -14,11 +14,11 @@ type IRegion<'a> =
 // -------------------- Intervals region: the union of open and closed intervals  --------------------
 // -------------------------------- Example: [1, 2) U [3,3] U [9, 10] --------------------------------
 
-type endpointSort = // TODO: need eneum? #do
-    | OpenRight
-    | ClosedLeft
-    | ClosedRight
-    | OpenLeft
+type endpointSort =
+    | OpenRight = 1
+    | ClosedLeft = 2
+    | ClosedRight = 3
+    | OpenLeft = 4
 
 [<StructuralEquality;StructuralComparison>]
 type endpoint<'a when 'a : comparison> = // TODO: make ADT #do
@@ -28,15 +28,16 @@ module private Intervals =
     let private flip x =
         let sort =
             match x.sort with
-                | ClosedLeft -> OpenRight
-                | ClosedRight -> OpenLeft
-                | OpenLeft -> ClosedRight
-                | OpenRight -> ClosedLeft
+            | endpointSort.ClosedLeft -> endpointSort.OpenRight
+            | endpointSort.ClosedRight -> endpointSort.OpenLeft
+            | endpointSort.OpenLeft -> endpointSort.ClosedRight
+            | endpointSort.OpenRight -> endpointSort.ClosedLeft
+            | _ -> __unreachable__()
         {x with sort = sort}
 
     let private isLeft = function
-        | ClosedLeft
-        | OpenLeft -> true
+        | endpointSort.ClosedLeft
+        | endpointSort.OpenLeft -> true
         | _ -> false
 
     let combine (p1 : 'a endpoint seq) (p2 : 'a endpoint seq) left1 right1 left2 right2 leftBoth rightBoth =
@@ -101,7 +102,7 @@ module private Intervals =
 [<StructuralEquality;NoComparison>]
 type intervals<'a when 'a : comparison> =
     {points : 'a endpoint list}
-    static member Closed x y = {points = [{elem = x; sort = ClosedLeft}; {elem = y; sort = ClosedRight}]}
+    static member Closed x y = {points = [{elem = x; sort = endpointSort.ClosedLeft}; {elem = y; sort = endpointSort.ClosedRight}]}
     static member Singleton x = intervals<'a>.Closed x x
     member this.Map (mapper : 'a -> 'a) = {points = this.points |> List.map (fun e -> {e with elem = mapper e.elem}) }
     member this.Union other = { points = Intervals.union this.points other.points }

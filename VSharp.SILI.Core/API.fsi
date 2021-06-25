@@ -109,6 +109,7 @@ module API =
         val TypeIsRef :  state -> symbolicType -> term -> term
         val RefIsType : state -> term -> symbolicType -> term
         val RefIsAssignableToType : state -> term -> symbolicType -> term
+        val RefIsRef : state -> term -> term -> term
         val IsCast : state -> term -> symbolicType -> term
         val CanCastImplicitly : term -> symbolicType -> bool
         val Cast : term -> symbolicType -> term

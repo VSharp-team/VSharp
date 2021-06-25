@@ -13,7 +13,6 @@ using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter.IL;
-using VSharp.Analyzer;
 
 namespace VSharp.Test
 {

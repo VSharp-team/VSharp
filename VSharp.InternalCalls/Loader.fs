@@ -15,7 +15,7 @@ module Loader =
                 | _ -> None))
         |> Map.ofSeq
 
-    let public concreteExternalImplementations =
+    let public CSharpImplementations =
         seq [
             Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
             Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Monitor")
@@ -28,7 +28,7 @@ module Loader =
         ]
         |> collectImplementations
 
-    let public internalImplementations =
+    let public FSharpImplementations =
         Assembly.GetExecutingAssembly().GetTypes()
         |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
         |> collectImplementations

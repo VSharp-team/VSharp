@@ -55,7 +55,7 @@ module RegionTree =
                     match filterRec reg predicate t with
                     | true, t' ->
                         modified <- true
-                        result <- result |> PersistentDict.remove reg' |> PersistentDict.add reg' (k, t')
+                        result <- PersistentDict.add reg' (k, t') result
                     | _ -> ()
                 else result <- PersistentDict.remove reg' result
         modified, (if modified then Node result else tree)

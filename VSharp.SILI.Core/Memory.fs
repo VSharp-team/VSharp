@@ -429,7 +429,6 @@ module internal Memory =
             let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
             Constant name source Bool
 
-
 // ------------------------------- Merging -------------------------------
 
     let rec findCommonSuffix common pc1 pc2 =

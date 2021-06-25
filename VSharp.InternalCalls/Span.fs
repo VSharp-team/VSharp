@@ -37,38 +37,7 @@ module ReadOnlySpan =
     let internal GetItemFromSpan (state : state) (args : term list) : term * state =
         GetItemFromReadOnlySpan state args
 
-    let internal CtorFromPtrForSpan (state : state) (args : term list) : (term * state) list =
-        assert(List.length args = 4)
-        let this, wrappedType, ptr, size = args.[0], args.[1], args.[2], args.[3]
-        // Check, that this ptr came from localloc instruction
-        assert(ptr = Ptr None Void None)
-        let elementType =
-            match wrappedType.term with
-            | Concrete(:? Type as t, _) -> t
-            | _ -> __unreachable__()
-        let span = Memory.ReadSafe state this
-        let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
-        assert(Array.length spanFields = 2)
-        let ptrField, ptrFieldType = spanFields.[0]
-        let byRefType = Types.FromDotNetType ptrFieldType
-        let arrayRef, state = Memory.AllocateVectorArray state size (Types.FromDotNetType elementType)
-        let refToFirstElement = Memory.ReferenceArrayIndex arrayRef [MakeNumber 0]
-        let ptrToFirstElement = Types.CastReferenceToPointer state refToFirstElement
-        let byRef = Memory.DefaultOf byRefType
-        let byRefFields = Reflection.fieldsOf false ptrFieldType
-        assert(Array.length byRefFields = 1)
-        let initializedByRef = Memory.WriteStructField byRef (fst byRefFields.[0]) ptrToFirstElement
-        let spanWithPtrField = Memory.WriteStructField span ptrField initializedByRef
-        let initializedSpan = Memory.WriteStructField spanWithPtrField (fst spanFields.[1]) size
-        Memory.WriteSafe state this initializedSpan |> List.map (withFst Nop)
-
-    let internal CtorFromPtrForReadOnlySpan (state : state) (args : term list) : (term * state) list =
-        CtorFromPtrForSpan state args
-
-    let internal CtorFromArrayForReadOnlySpan (state : state) (args : term list) : (term * state) list = // TODO: unify #do
-        assert(List.length args = 3)
-        let this, arrayRef = args.[0], args.[2]
-        // Check, that this ptr came from localloc instruction
+    let internal CtorFromFromArray (state : state) this arrayRef =
         let span = Memory.ReadSafe state this
         let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
@@ -84,3 +53,23 @@ module ReadOnlySpan =
         let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
         let initializedSpan = Memory.WriteStructField spanWithPtrField (fst spanFields.[1]) lengthOfArray
         Memory.WriteSafe state this initializedSpan |> List.map (withFst Nop)
+
+    let internal CtorFromPtrForSpan (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 4)
+        let this, wrappedType, ptr, size = args.[0], args.[1], args.[2], args.[3]
+        // [NOTE] Checking, that this ptr came from localloc instruction
+        assert(ptr = Ptr None Void None)
+        let elementType =
+            match wrappedType.term with
+            | Concrete(:? Type as t, _) -> t
+            | _ -> __unreachable__()
+        let arrayRef, state = Memory.AllocateVectorArray state size (Types.FromDotNetType elementType)
+        CtorFromFromArray state this arrayRef
+
+    let internal CtorFromPtrForReadOnlySpan (state : state) (args : term list) : (term * state) list =
+        CtorFromPtrForSpan state args
+
+    let internal CtorFromArrayForReadOnlySpan (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 3)
+        let this, arrayRef = args.[0], args.[2]
+        CtorFromFromArray state this arrayRef

@@ -77,11 +77,16 @@ module public Reflection =
     let isDelegateConstructor (methodBase : MethodBase) =
         methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<Delegate>
 
+    let isDelegate (methodBase : MethodBase) =
+        methodBase.DeclaringType.IsSubclassOf typedefof<Delegate> && methodBase.Name = "Invoke"
+
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
 
     let isStaticConstructor (m : MethodBase) =
         m.IsStatic && m.Name = ".cctor"
+
+    let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
     // --------------------------------- Substitute generics ---------------------------------
 
@@ -92,7 +97,7 @@ module public Reflection =
         | None -> internalfailf "unable to find method %s token" m.Name
 
     let private substituteMethodInfo methodType (mi : MethodInfo) groundK genericK =
-        let getMethods (t : Type) = t.GetMethods(allBindingFlags)
+        let getMethods (t : Type) = getAllMethods t
         let substituteGeneric (mi : MethodInfo) =
             let args = mi.GetGenericArguments()
             let genericMethod = mi.GetGenericMethodDefinition()

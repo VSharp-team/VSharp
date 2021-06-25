@@ -22,7 +22,7 @@ module internal Type =
     let private allocateType state (typeToAllocate : Type) =
         // NOTE: allocating empty RuntimeType
         let symbolicRuntimeType = Types.FromDotNetType systemRuntimeType
-        let ref, state = Memory.AllocateDefaultClass state symbolicRuntimeType // TODO: marshalling #hack
+        let ref, state = Memory.AllocateDefaultClass state symbolicRuntimeType
         let value = Concrete typeToAllocate symbolicRuntimeType
         // NOTE: add field with information about actual type
         let states = Memory.WriteClassField state ref fieldWithTypeInfo value
@@ -50,9 +50,6 @@ module internal Type =
         assert (List.length args = 1)
         let runtimeType = typeof<Object>.Assembly.GetType()
         allocateType state runtimeType
-//        TypeOfMethod state (Types.FromDotNetType state t)
-        // TODO: restore it after rewriting marshaling/unmarshaling
-//        __notImplemented__()
 
     let GetType (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)
@@ -93,5 +90,8 @@ module internal Type =
         let actualType = getActualType state runtimeType
         MakeBool actualType.IsGenericParameter, state
 
-    let get_Name (state : state) (_ : term list) =
-        Memory.AllocateString "RuntimeType" state
+    let get_Name (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let runtimeType = List.head args
+        let actualType = getActualType state runtimeType
+        Memory.AllocateString actualType.Name state

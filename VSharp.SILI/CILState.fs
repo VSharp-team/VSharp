@@ -50,12 +50,23 @@ module internal CilStateOperations =
 
     let currentIp (s : cilState) = List.head s.ipStack
 
-    // obtaining Method where Execution occurs
-    let currentMethod = function
+    let methodOf = function
         | Exit m
         | Instruction(_, m)
         | Leave(_, _, _, m) -> m
         | _ -> __notImplemented__()
+
+    let offsetOf = function
+        | Instruction(offset, _) -> Some offset
+        | Exit _
+        | Leave _ -> None
+        | _ -> __notImplemented__()
+
+    // [NOTE] Obtaining exploring method
+    let currentMethod = currentIp >> methodOf
+
+    let currentOffset = currentIp >> offsetOf
+
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
         | Instruction (0, _) -> true
@@ -170,7 +181,7 @@ module internal CilStateOperations =
             (fun state term k -> f {cilState with state = state} term k)
             cilState.state term id (List.concat >> k)
 
-    let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation (thenBranch : (cilState -> (cilState list -> 'a) -> 'a)) elseBranch k =
+    let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
         StatedConditionalExecution cilState.state conditionInvocation
             (fun state k -> thenBranch {cilState with state = state} k)
             (fun state k -> elseBranch {cilState with state = state} k)

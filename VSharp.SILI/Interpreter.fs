@@ -13,7 +13,7 @@ open Instruction
 
 type cfg = CFG.cfgData
 
-type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg*)) =
+type public MethodInterpreter(searcher : ISearcher) =
     inherit ExplorerBase()
     member x.Interpret (_ : MethodBase) (initialState : cilState) =
         let q = IndexedQueue()
@@ -22,26 +22,21 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
         let hasAnyProgress (s : cilState) = [s.startingIP] <> s.ipStack
         let isEffectFor currentIp (s : cilState) = hasAnyProgress s && startingIpOf s = currentIp
         let step s =
-            let states = List.filter (isEffectFor (currentIp s)) (q.GetStates() @ [s]) // TODO: need to add to tail? #do
+            let states = List.filter (isEffectFor (currentIp s)) (s :: q.GetStates())
             match states with
             | [] ->
                 let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
                 goodStates @ incompleteStates @ errors
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
-
-        let iter s = // TODO: recursion! #do
-            let mutable b = true
-            let mutable s = s
-            while b do
-                q.Remove s
-                step s
-                let x = searcher.PickNext q
-                match x with
-                | Some x -> s <- x
-                | None -> b <- false
-
-        Option.iter iter (searcher.PickNext q)
+        let mutable s = searcher.PickNext q
+        while Option.isSome s do
+            match s with
+            | Some state ->
+                q.Remove state
+                step state
+                s <- searcher.PickNext q
+            | None -> ()
         searcher.GetResults initialState q
 
     override x.Invoke method initialState k =
@@ -53,7 +48,7 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
             let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
             let fullMethodName = Reflection.getFullMethodName method
             Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
-        printResults results
+//        printResults results
         k results
 
 and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
@@ -126,7 +121,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Newarr]         <- zipWithOneOffset <| this.Newarr
         opcode2Function.[hashFunction OpCodes.Throw]          <- this.Throw
 
-    let internalCILImplementations : Map<string, (cilState -> term option -> term list -> cilState list)> =
+    let cilStateImplementations : Map<string, (cilState -> term option -> term list -> cilState list)> =
         Map.ofList [
             "System.Int32 System.Array.GetLength(this, System.Int32)", this.CommonGetArrayLength
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
@@ -239,123 +234,146 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
 
     member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) =
         let implementedIntrinsics =
-            typeof<IntPtr>.GetMethods(Reflection.allBindingFlags)
-            |> Array.map (fun mi -> mi :> MethodBase)
+            Reflection.getAllMethods typeof<IntPtr> |> Array.map (fun mi -> mi :> MethodBase)
         let isIntrinsic =
             let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
             methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains methodBase implementedIntrinsics |> not)
 
-    member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
-        let canInline =
-            match currentIp cilState with
-            | Instruction(0, m) -> m = methodBase
-            | _ -> false
-        // because we have correspondence between ips and frames
-        assert(canInline)
-        let state = cilState.state
-        let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
-        let state =
-            match thisOption with
-            | Some this ->
-                let thisType = TypeOf this
-                if Types.IsValueType thisType && methodBase.IsConstructor then
-                    let newThis = Memory.DefaultOf thisType
-                    let states = Memory.WriteSafe state this newThis
-                    assert(List.length states = 1)
-                    List.head states
-                else state
-            | None -> state
-        let cilState = withState state cilState
+    member private x.IsExternalMethod (methodBase : MethodBase) =
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
+        let isInternalCall = methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall
+        let isPInvokeImpl = methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
+        int isInternalCall <> 0 || isPInvokeImpl
+
+    member private x.InstantiateThisIfNeed state thisOption (methodBase : MethodBase) =
+        match thisOption with
+        | Some this ->
+            let thisType = TypeOf this
+            if Types.IsValueType thisType && methodBase.IsConstructor then
+                let newThis = Memory.DefaultOf thisType
+                let states = Memory.WriteSafe state this newThis
+                assert(List.length states = 1)
+                List.head states
+            else state
+        | None -> state
+
+    member private x.GetFullMethodNameArgsAndThis state (methodBase : MethodBase) =
         let fullyGenericMethod, genericArgs, _ = Reflection.generalizeMethodBase methodBase
+        let fullGenericMethodName = Reflection.getFullMethodName fullyGenericMethod
         let wrapType arg = Concrete arg (Types.FromDotNetType typeof<Type>)
         let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
         let termArgs = methodBase.GetParameters() |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
         let args = typeArgs @ termArgs
-//        let fullGenericMethodName = Reflection.getFullMethodName methodBase
-        let fullGenericMethodName = Reflection.getFullMethodName fullyGenericMethod
-        if methodBase.Name = "get_CategoryLevel1Index" then ()
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let moveIpToExit (cilState : cilState) = cilState |> setCurrentIp (Exit methodBase)
-        if Map.containsKey fullGenericMethodName internalCILImplementations then
-            // TODO: generalize method for internal call
-            // TODO: we may generalize only name! Can we generalize arguments? #do
-            (internalCILImplementations.[fullGenericMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
-        elif Map.containsKey fullGenericMethodName Loader.internalImplementations then
-            let thisAndArguments = optCons args thisOption
-            internalCall Loader.internalImplementations.[fullGenericMethodName] thisAndArguments state (List.map (changeState cilState >> moveIpToExit) >> k)
-        elif Map.containsKey fullGenericMethodName Loader.concreteExternalImplementations then
-            // TODO: check that all parameters were specified
-            let methodInfo = Loader.concreteExternalImplementations.[fullGenericMethodName]
-            let thisOption, args =
-                match thisOption, methodInfo.IsStatic with
-                | Some this, true -> None, this :: args
-                | None, false -> internalfail "Calling non-static concrete implementation for static method"
-                | _ -> thisOption, args
-            let state = Memory.PopFrame state
-            let methodId = methodInterpreter.MakeMethodIdentifier methodInfo
-            let cilState = ExplorerBase.ReduceFunctionSignature state methodId thisOption (Some args) id |> changeState cilState
-            let cilStates = methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (setCurrentIp (instruction methodInfo 0) >> List.singleton)
-            // NOTE: callsite of cilState is explicitly untouched
-            k cilStates
-        elif fullGenericMethodName.Contains "System.Array.Set(" then // TODO: do better #do
-            (internalCILImplementations.[fullGenericMethodName] cilState thisOption args) |> (List.map moveIpToExit >> k)
-        elif int (methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0 || (methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)) then
-            internalfailf "new extern method: %s" fullGenericMethodName
-        elif x.IsNotImplementedIntrinsic methodBase then
-            internalfailf "new intrinsic method: %s" fullGenericMethodName
-        elif methodBase.GetMethodBody() <> null then
-            cilState |> List.singleton |> k
-        else
-            __insufficientInformation__ "non-extern method %s without body!" (Reflection.getFullMethodName methodBase) // TODO: hack #do
+        let thisOption = if methodBase.IsStatic then None else Some <| Memory.ReadThis state methodBase
+        let state = x.InstantiateThisIfNeed state thisOption methodBase
+        fullGenericMethodName, args, thisOption, state
 
-     // TODO: think about generalization #do
-    member x.CallMethodFromTermType (cilState : cilState) (*this parameters *) termType (calledMethod : MethodInfo) (k : cilState list -> 'a) =
-        let t = termType |> Types.ToDotNetType
+    member private x.InvokeCSharpImplementation (cilState : cilState) fullMethodName thisOption args =
+        // TODO: check that all parameters were specified
+        let methodInfo = Loader.CSharpImplementations.[fullMethodName]
+        let thisOption, args =
+            match thisOption, methodInfo.IsStatic with
+            | Some this, true -> None, this :: args
+            | None, false -> internalfail "Calling non-static concrete implementation for static method"
+            | _ -> thisOption, args
+        let state = Memory.PopFrame cilState.state
+        let cilState = ExplorerBase.ReduceFunctionSignature state methodInfo thisOption (Some args) id |> changeState cilState
+        methodInterpreter.InitializeStatics cilState methodInfo.DeclaringType (setCurrentIp (instruction methodInfo 0) >> List.singleton)
+
+    member private x.IsArrayGetOrSet (methodBase : MethodBase) =
+        let name = methodBase.Name
+        (name = "Set" || name = "Get") && typeof<Array>.IsAssignableFrom(methodBase.DeclaringType)
+
+    member private x.InvokeArrayGetOrSet (cilState : cilState) (methodBase : MethodBase) thisOption args =
+        let name = methodBase.Name
+        match thisOption with
+        | Some arrayRef when name = "Get" ->
+            let cast value state =
+                let typ = Reflection.getMethodReturnType methodBase |> Types.FromDotNetType
+                castUnchecked typ value state
+            x.LdElemCommon cast cilState arrayRef args
+        | Some arrayRef when name = "Set" ->
+            let value, indices = List.lastAndRest args
+            x.StElemCommon cilState arrayRef indices value
+        | _ -> __unreachable__()
+
+    member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) k =
+        // [NOTE] Asserting correspondence between ips and frames
+        assert(currentMethod cilState = methodBase && currentOffset cilState = Some 0)
+        let fullMethodName, args, thisOption, state = x.GetFullMethodNameArgsAndThis cilState.state methodBase
+        let cilState = withState state cilState
+        let moveIpToExit (cilState : cilState) =
+            // [NOTE] if current method non method
+            if currentMethod cilState <> methodBase then cilState
+            else cilState |> setCurrentIp (Exit methodBase)
+        if Map.containsKey fullMethodName cilStateImplementations then
+            cilStateImplementations.[fullMethodName] cilState thisOption args |> (List.map moveIpToExit >> k)
+        elif Map.containsKey fullMethodName Loader.FSharpImplementations then
+            let thisAndArguments = optCons args thisOption
+            let moveIp = List.map (changeState cilState >> moveIpToExit) >> k
+            internalCall Loader.FSharpImplementations.[fullMethodName] thisAndArguments state moveIp
+        elif Map.containsKey fullMethodName Loader.CSharpImplementations then
+            x.InvokeCSharpImplementation cilState fullMethodName thisOption args |> k
+        elif x.IsArrayGetOrSet methodBase then
+            x.InvokeArrayGetOrSet cilState methodBase thisOption args |> (List.map moveIpToExit >> k)
+        elif x.IsExternalMethod methodBase then internalfailf "new extern method: %s" fullMethodName
+        elif x.IsNotImplementedIntrinsic methodBase then internalfailf "new intrinsic method: %s" fullMethodName
+        elif methodBase.GetMethodBody() <> null then cilState |> List.singleton |> k
+        else internalfailf "non-extern method %s without body!" (Reflection.getFullMethodName methodBase)
+
+    member private x.ArrayMethods (arrayType : Type) =
+        let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> Reflection.getAllMethods
+        let makeSuitable (m : MethodInfo) =
+            if m.IsGenericMethod then m.MakeGenericMethod(arrayType.GetElementType()) else m
+        let concreteMethods = Array.map makeSuitable methodsFromHelper
+        Array.concat [concreteMethods; Reflection.getAllMethods typeof<Array>; Reflection.getAllMethods arrayType]
+
+    member private x.FindSuitableForInterfaceMethod (targetType : Type) (method : MethodInfo) =
+        let interfaceType = method.DeclaringType
+        assert(interfaceType.IsInterface)
+        let createSignature (m : MethodInfo) =
+            m.GetParameters()
+            |> Seq.map (fun p -> p.ParameterType |> Reflection.getFullTypeName)
+            |> join ","
+        let onlyLastName (m : MethodInfo) =
+            match m.Name.LastIndexOf('.') with
+            | i when i < 0 -> m.Name
+            | i -> m.Name.Substring(i + 1)
+        let sign = createSignature method
+        let lastName = onlyLastName method
+        let methods =
+            match targetType with
+            | _ when targetType.IsArray -> x.ArrayMethods targetType
+            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
+        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
+
+    member private x.InvokeVirtualMethod (cilState : cilState) calledMethod targetMethod k =
+        // Getting this and arguments values by old keys
+        let this = Memory.ReadThis cilState.state calledMethod
+        let args = calledMethod.GetParameters() |> Seq.map (Memory.ReadArgument cilState.state) |> List.ofSeq
+        // Popping frame created for ancestor calledMethod
+        let cilState = popFrameOf cilState
+        // Creating valid frame with stackKeys corresponding to actual targetMethod
+        methodInterpreter.ReduceFunctionSignatureCIL cilState targetMethod (Some this) (Some args) (fun cilState ->
+        x.InlineMethodBaseCallIfNeeded targetMethod cilState k)
+
+    member x.CallVirtualMethodFromTermType (cilState : cilState) termType (calledMethod : MethodInfo) k =
+        let targetType = termType |> Types.ToDotNetType
         let genericCalledMethod = if calledMethod.IsGenericMethod then calledMethod.GetGenericMethodDefinition() else calledMethod
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
-            | t1 when t1.IsInterface ->
-                let createSignature (m : MethodInfo) =
-                    m.GetParameters()
-                    |> Seq.map (fun p -> p.ParameterType |> safeGenericTypeDefinition |> Reflection.getFullTypeName)
-                    |> join ","
-                let onlyLastName (m : MethodInfo) =
-                    match m.Name.LastIndexOf('.') with
-                    | i when i < 0 -> m.Name
-                    | i -> m.Name.Substring(i + 1)
-                let sign = createSignature genericCalledMethod
-                let lastName = onlyLastName genericCalledMethod
-                let methods =
-                    match t with
-                    | _ when t.IsArray ->
-                        let methodsFromSystemArray =
-                            Array.append
-                                (System.Type.GetType("System.SZArrayHelper").GetMethods(Reflection.allBindingFlags))
-                                (typeof<System.Array>.GetMethods(Reflection.allBindingFlags))
-                        let f (m : MethodInfo) = // TODO: hack #do
-                            if m.IsGenericMethod && Array.length (m.GetGenericArguments()) = 1 then m.MakeGenericMethod(t.GetElementType()) else m
-                        let concreteMethodsFromSystemArray = Array.map f methodsFromSystemArray
-//                            methodsFromSystemArray |> Array.map (fun m -> Reflection.concretizeMethodBase m f :?> MethodInfo)
-                        Array.append (t.GetMethods(Reflection.allBindingFlags)) concreteMethodsFromSystemArray
-                    | _ -> t.GetInterfaceMap(t1).TargetMethods
-                methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
+            | i when i.IsInterface -> x.FindSuitableForInterfaceMethod targetType genericCalledMethod
             | _ ->
-                let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-                let allMethods = t.GetMethods(BindingFlags.Instance ||| BindingFlags.Public ||| BindingFlags.NonPublic)
-                Seq.find (fun (mi : MethodInfo) -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition()) allMethods
-        let targetMethod = if genericMethodInfo.IsGenericMethodDefinition then genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments()) else genericMethodInfo
+                let allMethods = Reflection.getAllMethods targetType
+                allMethods |> Seq.find (fun mi -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition())
+        let targetMethod =
+            if genericMethodInfo.IsGenericMethodDefinition then
+                genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments())
+            else genericMethodInfo
         if targetMethod.IsAbstract
-            then x.CallAbstract (methodInterpreter.MakeMethodIdentifier targetMethod) cilState k
-            else
-                // Getting this and arguments values by old keys
-                let this = Memory.ReadThis cilState.state calledMethod
-                let args = calledMethod.GetParameters() |> Seq.map (Memory.ReadArgument cilState.state) |> List.ofSeq
-                // Popping frame created for ancestor calledMethod
-                let cilState = popFrameOf cilState
-                // Creating valid frame with stackKeys corresponding to actual targetMethod
-                methodInterpreter.ReduceFunctionSignatureCIL cilState targetMethod (Some this) (Some args) (fun cilState ->
-                x.InlineMethodBaseCallIfNeeded targetMethod cilState k)
+            then x.CallAbstract targetMethod cilState k
+            else x.InvokeVirtualMethod cilState calledMethod targetMethod k
 
     member x.CallVirtualMethod (ancestorMethod : MethodInfo) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
@@ -498,7 +516,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let thisOption, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod initialCilState
         let this, methodToCall =
             match thisOption with
-            | Some this when ancestorMethod.DeclaringType.IsSubclassOf typedefof<Delegate> && ancestorMethod.Name = "Invoke" && this <> NullRef ->
+            | Some this when Reflection.isDelegate ancestorMethod && this <> NullRef ->
                 let deleg = Memory.ReadDelegate cilState.state this
                 let target, mi = retrieveMethodInfo deleg
                 // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
@@ -647,7 +665,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let fieldType = Types.FromDotNetType fieldInfo.FieldType
             let value = castUnchecked fieldType value cilState.state
             let reference =
-                if fieldInfo.DeclaringType = typeof<System.IntPtr> then targetRef
+                if fieldInfo.DeclaringType = typeof<IntPtr> then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
             Memory.WriteSafe cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
@@ -714,9 +732,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         x.StElemCommon cilState arrayRef [index] value
     member private x.StElemTyp _ (cilState : cilState) =
         x.StElemWithCast cilState
-    member private x.StElem (cfg : cfg) offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stelem.Size)
-        x.StElemTyp typ cilState
+    member private x.StElem _ _ (cilState : cilState) =
+//        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stelem.Size)
+        x.StElemWithCast cilState
     member private x.StElemRef = x.StElemWithCast
     member private x.LdLen (cilState : cilState) =
         let arrayRef, cilState = pop cilState
@@ -765,7 +783,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             if Types.TypeIsNullable termType then x.BoxNullable t v cilState
             else allocateValueTypeInHeap v cilState
         else initialCilState |> List.singleton
-    member private x.UnboxCommon (cilState : cilState) (obj : term) (t : System.Type) (handleRestResults : term * state -> term * state) (k : cilState list -> 'a) =
+    member private x.UnboxCommon cilState obj t handleRestResults k =
         let nonExceptionCont (cilState : cilState) res state k =
             cilState |> withState state |> push res |> List.singleton |> k
         let termType = Types.FromDotNetType t
@@ -1136,7 +1154,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         x.ExecuteAllInstructionsWhile (always false) cilState
 
     // returns finishedStates, incompleteStates, erroredStates
-    member x.ExecuteAllInstructionsWhile (condition : ip -> bool) (cilState : cilState) : (cilState list * cilState list * cilState list) =
+    member x.ExecuteAllInstructionsWhile (condition : ip -> bool) (cilState : cilState) =
         let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState k =
             let ip = currentIp cilState
             try
@@ -1153,7 +1171,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 (finishedStates, iieCilState :: incompleteStates, errors) |> k
         executeAllInstructions ([],[],[]) cilState id
 
-    member x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) : cilState =
+    member private x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) =
         let isRecursiveVertex offset =
             if cfg.dfsOut.ContainsKey offset then
                 let t1 = cfg.dfsOut.[offset]
@@ -1168,18 +1186,16 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         decrementLevel cilState key
 
     member x.MakeStep (cilState : cilState) =
-        let exit () : cilState =
+        let exit m : cilState =
+            let cilState = x.DecrementMethodLevel cilState m
+            Logger.printLogLazy Logger.Info "Done with method %s" (lazy Reflection.getFullMethodName m)
             match cilState.ipStack with
-            | Exit _ :: [] when startsFromMethodBeginning cilState ->
-                // the whole method is executed
-                withCurrentTime [] cilState |> popFrameOf // TODO: #ask Misha about current time
-            | Exit _ :: [] ->
-                popFrameOf cilState // some part of method is executed
-            | Exit m :: ips' when Reflection.isStaticConstructor m ->
-                Logger.info "Done with static cctor %s" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
-                cilState |> popFrameOf |> withIpStack ips'
-            | Exit callee :: (InstructionEndingIp(offset, caller) as ip) :: _ ->
-                Logger.info "Done with method %s" (Reflection.getFullMethodName callee) // TODO: delete (for info) #do
+            // the whole method is executed
+            | [ Exit _ ] when startsFromMethodBeginning cilState -> withCurrentTime [] cilState |> popFrameOf
+            // some part of method is executed
+            | [ Exit _ ] -> cilState
+            | Exit m :: ips' when Reflection.isStaticConstructor m -> cilState |> popFrameOf |> withIpStack ips'
+            | Exit _ :: (InstructionEndingIp(offset, caller) as ip) :: _ ->
                 // TODO: assert(isCallIp ip)
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
                 let cilState = cilState |> popFrameOf |> setCurrentIp newIp
@@ -1192,9 +1208,9 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let rec makeStep' ip k =
             match ip with
             | Instruction(offset, m) ->
-                if offset = 0 then Logger.info "Starting to explore method %O" (Reflection.getFullMethodName m) // TODO: delete (for info) #do
+                if offset = 0 then Logger.printLogLazy Logger.Info "Starting to explore method %O" (lazy Reflection.getFullMethodName m)
                 x.ExecuteInstruction m offset cilState |> k
-            | Exit _ -> exit () |> List.singleton |> k
+            | Exit m -> exit m |> List.singleton |> k
             | Leave(EndFinally, [],  dst, m) ->
                 setCurrentIp (instruction m dst) cilState |> clearEvaluationStackLastFrame |> List.singleton |> k
             | Leave(EndFinally, ehc :: ehcs,  dst, m) ->

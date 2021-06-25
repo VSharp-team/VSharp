@@ -26,25 +26,14 @@ module internal TypeUtils =
 
     let isEnum typ = typ |> ToDotNetType |> (fun t -> t.IsEnum)
 
-    let signed2unsignedOrId = function
-        | Bool -> uint32Type
+    // [NOTE] there is no enums, because pushing to evaluation stack causes cast
+    let rec signed2unsignedOrId = function
         | Numeric (Id typ) when typ = typedefof<int32> || typ = typedefof<uint32> -> uint32Type
         | Numeric (Id typ) when typ = typedefof<int8>  || typ = typedefof<uint8>  -> uint8Type
         | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
         | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
-        | Numeric (Id typ) when typ = typedefof<double> -> float64Type
-        | typ when isEnum typ -> typ // TODO: this is right? #do
         | _ -> __unreachable__()
-    let unsigned2signedOrId = function
-        | Bool -> int32Type
-        | Numeric (Id typ) when typ = typedefof<int32> || typ = typedefof<uint32> -> int32Type
-        | Numeric (Id typ) when typ = typedefof<int8>  || typ = typedefof<uint8> -> int8Type
-        | Numeric (Id typ) when typ = typedefof<int16> || typ = typedefof<uint16> -> int16Type
-        | Numeric (Id typ) when typ = typedefof<int64> || typ = typedefof<uint64> -> int64Type
-        | Numeric (Id typ) when typ = typedefof<double> -> float64Type
-        | Pointer _ as t -> t
-        | t when isEnum t -> t
-        | _ -> __unreachable__()
+
     let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
 
     let isIntegerTermType typ = integers |> List.contains typ || isEnum typ
@@ -261,7 +250,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
             | Numeric(Id t) when t.IsEnum ->
-                term !== MakeNumber 0 // TODO: need to cast term to int? #do
+                term !== MakeNumber (Activator.CreateInstance t)
             | _ when IsReference term -> !!(IsNullReference term)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
@@ -341,11 +330,11 @@ module internal InstructionsSet =
         parameters, withEvaluationStack evaluationStack cilState
 
     let makeUnsignedInteger term k =
-        let typ = Terms.TypeOf term
-        let unsignedTyp = TypeUtils.signed2unsignedOrId typ
-        if TypeUtils.isIntegerTermType typ && typ <> unsignedTyp then
-            k <| Types.Cast term unsignedTyp // no specs found about overflows
-        else k term
+        match TypeOf term with
+        | Bool -> k <| Types.Cast term TypeUtils.uint32Type
+        | Numeric (Id t) when t = typeof<double> || t = typeof<float> -> k term
+        | Numeric _ as t -> k <| Types.Cast term (TypeUtils.signed2unsignedOrId t) // no specs found about overflows
+        | _ -> k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
         let arg2, arg1, _ = pop2 cilState
         if TypeUtils.isInteger arg1 && TypeUtils.isInteger arg2 then
@@ -489,7 +478,10 @@ module internal InstructionsSet =
         let newIp = instruction m (Instruction.unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState |> List.singleton
 
-    let constrained cfg offset (initialCilState : cilState) = // TODO: implement fully #do
+    // TODO: implement fully (using information about calling method):
+    // TODO: - if thisType is a value type and thisType implements method then ptr is passed unmodified
+    // TODO: - if thisType is a value type and thisType does not implement method then ptr is dereferenced and boxed
+    let constrained cfg offset (initialCilState : cilState) =
         match Instruction.findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
@@ -511,7 +503,8 @@ module internal InstructionsSet =
             | _ -> __unreachable__()
         | _ -> __unreachable__()
     let localloc _ _ (cilState : cilState) =
-        // TODO: pushing nullptr #hack
+        // [NOTE] locallloc usually is used for Span
+        // So, pushing nullptr, because array will be allocated in Span constructor
         let _, cilState = pop cilState
         push (Ptr None Void None) cilState |> List.singleton
     let zipWithOneOffset op (cfgData : cfgData) offset cilState =
@@ -644,7 +637,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Ldind_R4]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.float32Type)
     opcode2Function.[hashFunction OpCodes.Ldind_R8]           <- zipWithOneOffset <| fun _ _ -> ldind (castUnchecked TypeUtils.float64Type)
     opcode2Function.[hashFunction OpCodes.Ldind_Ref]          <- zipWithOneOffset <| fun _ _ -> ldind always
-    opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind always // TODO: unify with stind (use handle native int?) #do
+    opcode2Function.[hashFunction OpCodes.Ldind_I]            <- zipWithOneOffset <| fun _ _ -> ldind MakeIntPtr
     opcode2Function.[hashFunction OpCodes.Isinst]             <- zipWithOneOffset isinst
     opcode2Function.[hashFunction OpCodes.Stobj]              <- zipWithOneOffset <| stobj
     opcode2Function.[hashFunction OpCodes.Ldobj]              <- zipWithOneOffset <| ldobj
