@@ -331,6 +331,15 @@ module API =
                 Copying.copyArray state srcAddress srcIndex stringArrayType dstAddress dstIndex stringArrayType length
             | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
+        let ClearArray state array index length =
+            match array.term with
+            | HeapRef(address, sightType) ->
+                let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
+                let elemType = fst3 arrayType
+                let value = if Types.IsValueType elemType then makeNumber 0 else NullRef
+                Copying.fillArray state address arrayType index length value
+            | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
+
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
 
@@ -349,6 +358,15 @@ module API =
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLowerBoundByDimension state v index)) |> Merging.merge
             | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
+
+        let rec CountOfArrayElements state arrayRef =
+            match arrayRef.term with
+            | HeapRef(address, typ) ->
+                let _, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
+                let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
+                List.fold mul (makeNumber 1) lens
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, CountOfArrayElements state v)) |> Merging.merge
+            | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
         let StringCtorOfCharArray state arrayRef dstRef =

@@ -134,6 +134,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
             "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
+            "System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)", this.ClearArray
         ]
 
     member private x.Raise createException (cilState : cilState) k =
@@ -225,7 +226,31 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             (x.Raise x.IndexOutOfRangeException)
             id
 
-    member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) = // TODO: do better #do
+    member private x.ClearArray (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 3)
+        let array, index, length = args.[0], args.[1], args.[2]
+        let (>>) = API.Arithmetics.(>>)
+        let (<<) = API.Arithmetics.(<<)
+        let clearCase (cilState : cilState) k =
+            let state' = Memory.ClearArray cilState.state array index length
+            withState state' cilState |> List.singleton |> k
+        let nonNullCase (cilState : cilState) k =
+            let zero = MakeNumber 0
+            let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
+            let numOfAllElements = Memory.CountOfArrayElements cilState.state array
+            let check = index << lb ||| length >> numOfAllElements ||| length << zero
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (check, state))
+                (x.Raise x.IndexOutOfRangeException)
+                clearCase
+                k
+        StatedConditionalExecutionAppendResultsCIL cilState
+            (fun state k -> k (IsNullReference array, state))
+            (x.Raise x.ArgumentNullException)
+            nonNullCase
+            id
+
+    member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) =
         let implementedIntrinsics =
             typeof<IntPtr>.GetMethods(Reflection.allBindingFlags)
             |> Array.map (fun mi -> mi :> MethodBase)

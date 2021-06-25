@@ -201,12 +201,16 @@ module API =
         val CopyArray : state -> term -> term -> term -> term -> term -> state
         val CopyStringArray : state -> term -> term -> term -> term -> term -> state
 
+        val ClearArray : state -> term -> term -> term -> state
+
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term
         val ArrayLowerBoundByDimension : state -> term -> term -> term
+
+        val CountOfArrayElements : state -> term -> term
 
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list

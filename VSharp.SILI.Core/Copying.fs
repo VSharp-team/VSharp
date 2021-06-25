@@ -84,3 +84,26 @@ module internal Copying =
         let state = writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Types.Char)
         let state = writeClassField state dstAddress Reflection.stringLengthField length
         state
+
+    let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =
+        let offsets = List.init length id
+        let copyOneElem state offset =
+            let linearIndex = add startIndex (makeNumber offset)
+            let indices = delinearizeArrayIndex linearIndex lens lbs
+            writeArrayIndex state arrayAddress indices arrayType castedValue
+        List.fold copyOneElem state offsets
+
+    let private fillArraySymbolic state arrayAddress arrayType startIndex length lbs lens castedValue =
+        let constant, stateWithPC = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
+        let indices = delinearizeArrayIndex (add startIndex constant) lens lbs
+        writeArrayIndex stateWithPC arrayAddress indices arrayType castedValue
+
+    let fillArray state arrayAddress (elemType, dim, _ as arrayType) index length value =
+        let lbs = List.init dim (fun dim -> readLowerBound state arrayAddress (makeNumber dim) arrayType)
+        let lens = List.init dim (fun dim -> readLength state arrayAddress (makeNumber dim) arrayType)
+        let castedValue = TypeCasting.cast value elemType
+        match length.term with
+        | Concrete(length, _) ->
+            let length = length :?> int
+            fillArrayConcrete state arrayAddress arrayType index length lbs lens castedValue
+        | _ -> fillArraySymbolic state arrayAddress arrayType index length lbs lens castedValue
