@@ -141,29 +141,24 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let statesWithCreatedExceptions = createException cilState
         k statesWithCreatedExceptions
 
-    member private x.MultiDimensionalAccessArray accessor (cilState : cilState) upperBound (index : term list) k = __notImplemented__()
-//        let checkArrayBounds upperBound x =
-//            let lowerBound = Concrete 0 Types.TLength
-//            let notTooSmall = Arithmetics.(>>=) x lowerBound
-//            let notTooLarge = Arithmetics.(<<) x upperBound
-//            notTooSmall &&& notTooLarge
-//        StatedConditionalExecutionAppendResultsCIL cilState
-//            (fun state k -> k (checkArrayBounds upperBound index, state))
-//            accessor
-//            (x.Raise x.IndexOutOfRangeException)
-//            k
-
-    member private x.AccessArray accessor (cilState : cilState) upperBound index k =
-        let checkArrayBounds upperBound x =
-            let lowerBound = Concrete 0 Types.TLength
-            let notTooSmall = Arithmetics.(>>=) x lowerBound
-            let notTooLarge = Arithmetics.(<<) x upperBound
-            notTooSmall &&& notTooLarge
+    member private x.AccessMultidimensionalArray accessor (cilState : cilState) upperBounds indices (k : cilState list -> 'a) =
+        let checkArrayBounds upperBounds indices =
+            let checkOneBound acc (upperBound, index) =
+                let lowerBound = Concrete 0 Types.TLength
+                let notTooSmall = Arithmetics.(>>=) index lowerBound
+                let notTooLarge = Arithmetics.(<<) index upperBound
+                acc &&& notTooSmall &&& notTooLarge
+            assert(List.length upperBounds = List.length indices)
+            let upperBoundsAndIndices = List.zip upperBounds indices
+            List.fold checkOneBound True upperBoundsAndIndices
         StatedConditionalExecutionAppendResultsCIL cilState
-            (fun state k -> k (checkArrayBounds upperBound index, state))
+            (fun state k -> k (checkArrayBounds upperBounds indices, state))
             accessor
             (x.Raise x.IndexOutOfRangeException)
             k
+
+    member private x.AccessArray accessor (cilState : cilState) upperBound index k =
+        x.AccessMultidimensionalArray accessor cilState [upperBound] [index] k
 
     member private x.AccessArrayDimension accessor (cilState : cilState) (this : term) (dimension : term) =
         let upperBound = Memory.ArrayRank cilState.state this
@@ -184,12 +179,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 cilState |> push (Memory.ArrayLowerBoundByDimension cilState.state arrayRef index) |> List.singleton |> k
             x.AccessArrayDimension arrayLowerBoundByDimension cilState (Option.get this) dimension
         | _ -> internalfail "unexpected number of arguments"
-
-//    member private x.SetArrayElement (cilState : cilState) (this : term option) args =
-//        match this with
-//        | Some arrayRef ->
-//            let setElement
-//        | None -> __unreachable__()
 
     member private x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
          StatedConditionalExecutionCIL cilState
@@ -664,16 +653,20 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
             Memory.WriteSafe cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
-    member private x.LdElemWithCast cast (cilState : cilState) : cilState list =
-        let index, arrayRef, cilState = pop2 cilState
+    member private x.LdElemCommon cast (cilState : cilState) arrayRef indices =
+        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
         let uncheckedLdElem (cilState : cilState) k =
-            let value = Memory.ReadArrayIndex cilState.state arrayRef [index]
+            let value = Memory.ReadArrayIndex cilState.state arrayRef indices
             let castedValue = cast value cilState.state
             push castedValue cilState |> List.singleton |> k
         let checkedLdElem (cilState : cilState) k =
-            let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
-            x.AccessArray uncheckedLdElem cilState length index k
+            let dims = List.init (Types.RankOf arrayType) MakeNumber
+            let lengths = List.map (Memory.ArrayLengthByDimension cilState.state arrayRef) dims
+            x.AccessMultidimensionalArray uncheckedLdElem cilState lengths indices k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkedLdElem id
+    member private x.LdElemWithCast cast (cilState : cilState) : cilState list =
+        let index, arrayRef, cilState = pop2 cilState
+        x.LdElemCommon cast cilState arrayRef [index]
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (castUnchecked typ) cilState
     member private x.LdElem (cfg : cfg) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelem.Size)
@@ -697,27 +690,30 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkIndex id
-    member private x.StElemWithCast (cilState : cilState) =
-        let value, index, arrayRef, cilState = pop3 cilState
-        let baseType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
+    member private x.StElemCommon (cilState : cilState) arrayRef indices value =
+        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let baseType = Types.ElementType arrayType
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =
                 let casted = castUnchecked baseType value cilState.state
-                Memory.WriteArrayIndex cilState.state arrayRef [index] casted |> List.map (changeState cilState) |> k
-            let checkTypeMismatchBasedOnTypeOfValue cond (cilState : cilState) =
+                Memory.WriteArrayIndex cilState.state arrayRef indices casted |> List.map (changeState cilState) |> k
+            let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
+                let condition =
+                    if Types.IsValueType typeOfValue then True
+                    else Types.RefIsAssignableToType cilState.state value baseType
                 StatedConditionalExecutionAppendResultsCIL cilState
-                    (fun state k -> k (cond, state))
+                    (fun state k -> k (condition, state))
                     uncheckedStElem
                     (x.Raise x.ArrayTypeMismatchException)
-            let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
-                if Types.IsValueType typeOfValue then
-                    checkTypeMismatchBasedOnTypeOfValue True cilState k
-                else
-                    checkTypeMismatchBasedOnTypeOfValue (Types.RefIsAssignableToType cilState.state value baseType) cilState k
-            let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
-            x.AccessArray checkTypeMismatch cilState length index k
+                    k
+            let dims = List.init (Types.RankOf arrayType) MakeNumber
+            let lengths = List.map (Memory.ArrayLengthByDimension cilState.state arrayRef) dims
+            x.AccessMultidimensionalArray checkTypeMismatch cilState lengths indices k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkedStElem id
+    member private x.StElemWithCast (cilState : cilState) =
+        let value, index, arrayRef, cilState = pop3 cilState
+        x.StElemCommon cilState arrayRef [index] value
     member private x.StElemTyp _ (cilState : cilState) =
         x.StElemWithCast cilState
     member private x.StElem (cfg : cfg) offset (cilState : cilState) =
