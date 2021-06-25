@@ -230,13 +230,13 @@ module internal InstructionsSet =
             if resultTyp = Void then cilState
             else
                 let res, cilState = pop cilState
-                let castedResult = castUnchecked resultTyp res cilState.state // TODO: need to cast to resulting type? #do
+                let castedResult = castUnchecked resultTyp res cilState.state
                 push castedResult cilState
         match cilState.ipStack with
         | _ :: ips -> {cilState with ipStack = (Exit cfg.methodBase) :: ips} |> List.singleton
         | [] -> __unreachable__()
 
-    let transform2BooleanTerm pc (term : term) = // TODO: optimize using TypeUtils.convert #do
+    let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
             | Bool -> term
@@ -261,7 +261,7 @@ module internal InstructionsSet =
     let ceq (cilState : cilState) =
         let y, x, _ = pop2 cilState
         let transform =
-            if TypeUtils.isBool x || TypeUtils.isBool y // TODO: why to Bool? #do
+            if TypeUtils.isBool x || TypeUtils.isBool y
             then fun t k -> k (transform2BooleanTerm cilState.state.pc t)
             else idTransformation
         binaryOperationWithBoolResult OperationType.Equal transform transform cilState
@@ -486,10 +486,10 @@ module internal InstructionsSet =
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
-            let args, evaluationStack = EvaluationStack.PopArguments n initialCilState.state.evaluationStack // TODO: need to pop all arguments and then this! #do
+            let args, evaluationStack = EvaluationStack.PopArguments n initialCilState.state.evaluationStack
             let cilState = withEvaluationStack evaluationStack initialCilState
             let thisForCallVirt, cilState = pop cilState
-            match thisForCallVirt.term with // TODO do better! #do
+            match thisForCallVirt.term with
             | HeapRef _ -> List.singleton initialCilState
             | Ref _ when TypeOf thisForCallVirt |> Types.IsValueType ->
                 let thisStruct = Memory.ReadSafe cilState.state thisForCallVirt
@@ -664,7 +664,7 @@ module internal InstructionsSet =
     opcode2Function.[hashFunction OpCodes.Break]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Calli]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Ckfinite]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
-    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| constrained // TODO: implement this someday! #do
+    opcode2Function.[hashFunction OpCodes.Constrained]        <- zipWithOneOffset <| constrained
     opcode2Function.[hashFunction OpCodes.Cpblk]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Cpobj]              <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())
     opcode2Function.[hashFunction OpCodes.Mkrefany]           <- zipWithOneOffset <| (fun _ _ _ -> Prelude.__notImplemented__())

@@ -66,7 +66,7 @@ module public Reflection =
             |> Seq.map (fun param -> getFullTypeName param.ParameterType)
             |> if methodBase.IsStatic then id else Seq.cons "this"
             |> join ", "
-//        let typeParams = // TODO: use this or not? #do
+//        let typeParams =
 //            if not methodBase.IsGenericMethod then ""
 //            else methodBase.GetGenericArguments() |> Seq.map getFullTypeName |> join ", " |> sprintf "[%s]"
         sprintf "%s %s.%s(%s)" returnType declaringType methodBase.Name parameters

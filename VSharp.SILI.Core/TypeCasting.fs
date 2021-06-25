@@ -78,7 +78,7 @@ module internal TypeCasting =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, typeIsRef state typ v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
-    let rec commonRefIsType nullCase state ref typ = // TODO: make isAssignable #do (handle null case)
+    let rec commonRefIsType nullCase state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
@@ -121,7 +121,7 @@ module internal TypeCasting =
         match termType with
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
         | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
-        | Null -> false // TODO: was __unreachable__() #do
+        | Null -> false
         | _ -> System.Nullable.GetUnderlyingType(toDotNetType termType) <> null
 
     let private doCast term targetType =
@@ -194,7 +194,6 @@ module internal TypeCasting =
 
     let castToEvaluationStackType x =
         match typeOf x with
-        // TODO: do we need & type? #do
         // This case is needed for references to primitive types
         | _ when isReference x -> x
         // TODO: need to add conversion from bool to int?

@@ -279,7 +279,7 @@ module internal Types =
         | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> true
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
         | TypeVariable _ as t -> __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | Null -> false // TODO: __unreachable__() #do
+        | Null -> false
         | t -> (toDotNetType t).IsValueType
 
     // [NOTE] All heuristics of subtyping are here

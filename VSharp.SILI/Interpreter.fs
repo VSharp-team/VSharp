@@ -86,22 +86,22 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I2]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.int64Type
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I]     <- zipWithOneOffset <| fun _ _ -> convi // TODO: overflow? #do
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I]     <- zipWithOneOffset <| fun _ _ -> convi
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U1]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U2]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8]    <- zipWithOneOffset <| fun _ _ -> this.ConvOvf TypeUtils.uint64Type
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U]     <- zipWithOneOffset <| fun _ _ -> convu // TODO: overflow? #do
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U]     <- zipWithOneOffset <| fun _ _ -> convu
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I1_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I2_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I4_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.int32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_I8_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint64Type TypeUtils.int64Type
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I_Un]  <- zipWithOneOffset <| fun _ _ -> convi // TODO: overflow? #do
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_I_Un]  <- zipWithOneOffset <| fun _ _ -> convi
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U1_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint8Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U2_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint16Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U4_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint32Type TypeUtils.uint32Type
         opcode2Function.[hashFunction OpCodes.Conv_Ovf_U8_Un] <- zipWithOneOffset <| fun _ _ -> this.ConvOvfUn TypeUtils.uint64Type TypeUtils.uint64Type
-        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U_Un]  <- zipWithOneOffset <| fun _ _ -> convu // TODO: overflow? #do
+        opcode2Function.[hashFunction OpCodes.Conv_Ovf_U_Un]  <- zipWithOneOffset <| fun _ _ -> convu
         opcode2Function.[hashFunction OpCodes.Castclass]      <- zipWithOneOffset <| this.CastClass
         opcode2Function.[hashFunction OpCodes.Ldlen]          <- zipWithOneOffset <| fun _ _ -> this.LdLen
         opcode2Function.[hashFunction OpCodes.Ldvirtftn]      <- zipWithOneOffset <| this.LdVirtFtn
@@ -379,8 +379,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
-            let callForConcreteType typ state k = // TODO: initialize statics? #do
-                x.CallMethodFromTermType state typ ancestorMethod k
+            let callForConcreteType typ state k =
+                x.CallVirtualMethodFromTermType state typ ancestorMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionAppendResultsCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state)) // TODO: may this be Ref to ValueType? #do
@@ -647,7 +647,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let loadWhenTargetIsNotNull (cilState : cilState) k =
             let createCilState value = push value cilState |> List.singleton |> k
             let fieldId = Reflection.wrapField fieldInfo
-            if fieldInfo.DeclaringType = typeof<IntPtr> then // TODO: make better #do
+            if fieldInfo.DeclaringType = typeof<IntPtr> then
                 if addressNeeded then createCilState target
                 else Memory.ReadSafe cilState.state target |> createCilState
             else
@@ -697,7 +697,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
             let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionAppendResultsCIL cilState
-                // TODO: types must be equal or we need to cast? #do
                 (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
                 referenceLocation
                 (x.Raise x.ArrayTypeMismatchException)
@@ -789,8 +788,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let termType = Types.FromDotNetType t
         assert(IsReference obj)
         assert(Types.IsValueType termType)
-        let nullCase (cilState : cilState) (k : cilState list -> 'a) : 'a = // TODO: mb too complex #do
-            if Types.TypeIsNullable termType then // TODO: here can be type Null #do
+        let nullCase (cilState : cilState) k =
+            if Types.TypeIsNullable termType then
                 let nullableTerm = Memory.DefaultOf termType
                 let address, state = Memory.BoxValueType cilState.state nullableTerm
                 let res, state = handleRestResults (HeapReferenceToBoxReference address, state)
@@ -1108,7 +1107,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let elemType = resolveTermTypeFromMetadata cfg (offset + OpCodes.Newarr.Size)
         let numElements, cilState = pop cilState
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state)) // TODO: exception #do
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
             (fun cilState k ->
                 let ref, state = Memory.AllocateVectorArray cilState.state numElements elemType
                 cilState |> withState state |> push ref |> List.singleton |> k)

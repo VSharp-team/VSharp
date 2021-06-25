@@ -470,7 +470,7 @@ module internal Terms =
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
-        match term.term, targetType with // TODO: make better #do
+        match term.term, targetType with
         | _ when typeOf term = targetType -> term
         | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr None typ (Some term)
         | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)

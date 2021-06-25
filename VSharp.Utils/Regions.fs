@@ -21,7 +21,7 @@ type endpointSort =
     | OpenLeft = 4
 
 [<StructuralEquality;StructuralComparison>]
-type endpoint<'a when 'a : comparison> = // TODO: make ADT #do
+type endpoint<'a when 'a : comparison> =
     { elem : 'a; sort : endpointSort }
 
 module private Intervals =

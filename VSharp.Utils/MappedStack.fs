@@ -16,7 +16,7 @@ module public MappedStack =
 
     let empty = (Map.empty, Map.empty)
 
-    let addWithIdxPlus key value (contents, peaks) idx = // TODO: check #do
+    let addWithIdxPlus key value (contents, peaks) idx =
         let idx = peakIdx peaks key + idx
         let peaks' = Map.add key idx peaks
         let key' = makeExtendedKey key idx
