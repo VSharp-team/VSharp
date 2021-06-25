@@ -685,26 +685,7 @@ module internal Memory =
             else List.take (List.length ys - List.length acc) ys
         Cps.List.foldrk skipIfNeed [] ys (always [])
 
-    // compose currentTime:
-    // time = 2.1; state.currentTime = 2; result = 2.1 #mbwrong mbresult = 2.2.1
-
-    // addr = 2 => time = 2
-    // currentTime = 2; result = 2.2
-    let private composeTime state time =
-//        let prefix = skipSuffixWhile (fun currentTimeSuffix -> VectorTime.less currentTimeSuffix time) state.currentTime
-//        prefix @ time
-        state.currentTime @ time
-
-    let private composeConcreteHeapAddress (state : state) addr =
-        match state.returnRegister with
-        // this is needed only for heapAddressKey.Map when composing
-        | _ when VectorTime.isEmpty addr -> state.currentTime
-        // address from other block
-        | Some(ConcreteT(:? (vectorTime * vectorTime) as interval, _)) when VectorTime.lessOrEqual addr (fst interval) -> addr
-        // address of called function
-        | Some(ConcreteT(:? (vectorTime * vectorTime) as interval, _)) when VectorTime.isEmpty (snd interval) -> state.currentTime @ addr
-        // default case
-        | _ -> composeTime state addr
+    let private composeTime state time = state.currentTime @ time
 
     let rec private fillHole state term =
         match term.term with
@@ -716,7 +697,7 @@ module internal Memory =
         | _ -> term
 
     and fillHoles state term =
-        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeConcreteHeapAddress state) term
+        Substitution.substitute (fillHole state) (substituteTypeVariables state) (composeTime state) term
 
     type heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
         interface IMemoryAccessConstantSource with
@@ -724,7 +705,7 @@ module internal Memory =
                 // TODO: do nothing if state is empty!
                 let substTerm = fillHoles state
                 let substType = substituteTypeVariables state
-                let substTime = composeConcreteHeapAddress state
+                let substTime = composeTime state
                 let key = x.key.Map substTerm substType substTime x.key.Region |> snd
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
@@ -770,14 +751,14 @@ module internal Memory =
     let private fillHolesInMemoryRegion state mr =
         let substTerm = fillHoles state
         let substType = substituteTypeVariables state
-        let substTime = composeConcreteHeapAddress state
+        let substTime = composeTime state
         MemoryRegion.map substTerm substType substTime mr
 
     let private composeMemoryRegions state dict dict' =
         // TODO: somehow get rid of this copy-paste?
         let substTerm = fillHoles state
         let substType = substituteTypeVariables state
-        let substTime = composeConcreteHeapAddress state
+        let substTime = composeTime state
         let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
             list {
                 let! (g, dict) = dicts
@@ -794,7 +775,7 @@ module internal Memory =
             |> PersistentDict.fold composeOneRegion [(True, dict)]
 
     let private composeBoxedLocations state state' =
-        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeConcreteHeapAddress state k) (fillHoles state v) acc) state.boxedLocations
+        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime state k) (fillHoles state v) acc) state.boxedLocations
 
     let private composeTypeVariablesOf state state' =
         let (ms, s) = state.typeVariables
@@ -808,12 +789,13 @@ module internal Memory =
 
     let private composeConcreteDictionaries state dict dict' mapValue =
         let fillAndMutate acc k v =
-            let k = composeConcreteHeapAddress state k
-            if (PersistentDict.contains k acc) then
-                if (PersistentDict.find acc k = mapValue v) |> not then __unreachable__()
-                assert (PersistentDict.find acc k = mapValue v)
+            let k = composeTime state k
+            let v' = mapValue v
+            match PersistentDict.tryFind acc k with
+            | Some v ->
+                assert(v = v')
                 acc
-            else PersistentDict.add k (mapValue v) acc
+            | None -> PersistentDict.add k v' acc
         PersistentDict.fold fillAndMutate dict dict'
 
     let private composeArrayCopyInfo state (addr, reg) =
@@ -856,13 +838,7 @@ module internal Memory =
             let allocatedTypes = composeConcreteDictionaries state state.allocatedTypes state'.allocatedTypes (substituteTypeVariables state)
             let typeVariables = composeTypeVariablesOf state state'
             let delegates = composeConcreteDictionaries state state.delegates state'.delegates id
-            let currentTime = composeTime state state'.currentTime // TODO: hack #do
-//                let computeMax (acc, max) y = // TODO: hack? #do
-//                    let acc' = acc @ [y]
-//                    let kek = composeTime state acc'
-//                    if VectorTime.less max kek then (acc', kek)
-//                    else (acc', max)
-//                List.fold computeMax ([], []) state'.currentTime |> snd
+            let currentTime = composeTime state state'.currentTime
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
