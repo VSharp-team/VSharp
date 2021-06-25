@@ -126,7 +126,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 | _ when t = typedefof<char> ->
                     fillInArray charTermCreator state arrayRef sizeof<char> rawData
                 | _ -> __notImplemented__()
-            Nop, {state with returnRegister = None}
+            Nop, state
         | _ -> __notImplemented__(), state
 
     let InitializeArray (state : state) arrayRef handleTerm : state list =

@@ -121,7 +121,6 @@ module internal CilStateOperations =
     let withState state (cilState : cilState) = {cilState with state = state}
     let changeState (cilState : cilState) state = {cilState with state = state}
 
-    let withNoResult (cilState : cilState) = {cilState with state = {cilState.state with returnRegister = None}}
     let withException exc (cilState : cilState) = {cilState with state = {cilState.state with exceptionsRegister = exc}}
 
     let push v (cilState : cilState) = {cilState with state = {cilState.state with evaluationStack = EvaluationStack.Push v cilState.state.evaluationStack}}
@@ -142,18 +141,6 @@ module internal CilStateOperations =
         let ref, cilState = pop afterCall
         let value = Memory.ReadSafe cilState.state ref
         push value cilState
-
-    let pushResultToEvaluationStack (cilStates : cilState list) =
-        cilStates |> List.map (fun (cilState : cilState) ->
-            let state = cilState.state
-            if state.exceptionsRegister.UnhandledError then cilState // TODO: check whether evaluationStack := [] is needed
-            else
-                let evaluationStack =
-                    match state.returnRegister with
-                    | None -> state.evaluationStack
-                    | Some r -> EvaluationStack.Push r state.evaluationStack
-                let state = {state with returnRegister = None; evaluationStack = evaluationStack}
-                {cilState with state = state})
 
     // ------------------------------- Helper functions for cilState -------------------------------
 

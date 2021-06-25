@@ -12,7 +12,7 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
-type codeLocationSummary = { cilState : cilState } // state.returnRegister is used as result
+type codeLocationSummary = { cilState : cilState }
     with
     member x.State = withEvaluationStack emptyEvaluationStack x.cilState |> stateOf
     member x.Result =

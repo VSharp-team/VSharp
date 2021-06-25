@@ -238,7 +238,7 @@ module internal InstructionsSet =
     let ret (cfg : cfgData) _ (cilState : cilState) : cilState list =
         let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
         let cilState =
-            if resultTyp = Void then withNoResult cilState
+            if resultTyp = Void then cilState
             else
                 let res, cilState = pop cilState
                 let castedResult = castUnchecked resultTyp res cilState.state // TODO: need to cast to resulting type? #do

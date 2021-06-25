@@ -32,7 +32,6 @@ module internal EvaluationStack =
         | _ -> __corruptedStack__()
     let newStackFrame evaluationStack = {contents = [] :: evaluationStack.contents}
     let popStackFrame evaluationStack =
-        // TODO: #mb use returnRegister
         match evaluationStack.contents with
         | [] :: ls -> {contents = ls}
         | [_] :: [] -> evaluationStack // res case

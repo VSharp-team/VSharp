@@ -25,7 +25,6 @@ module internal Memory =
     let empty = {
         pc = PC.empty
         evaluationStack = EvaluationStack.empty
-        returnRegister = None
         exceptionsRegister = NoException
         stack = CallStack.empty
         stackBuffers = PersistentDict.empty
@@ -841,12 +840,9 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            // Hacking return register to propagate starting and current time of state' into composeTime
-            let state = {state with returnRegister = Some(Concrete (state'.startingTime, state'.currentTime) (fromDotNetType typeof<vectorTime * vectorTime>))}
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
             // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
-            let returnRegister = Option.map (fillHoles state) state'.returnRegister
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
             let stack = composeStacksOf state state'
             let! g1, stackBuffers = composeMemoryRegions state state.stackBuffers state'.stackBuffers
@@ -872,7 +868,6 @@ module internal Memory =
                 return {
                     pc = if isTrue g then pc else PC.add pc g
                     evaluationStack = evaluationStack
-                    returnRegister = returnRegister
                     exceptionsRegister = exceptionRegister
                     stack = stack
                     stackBuffers = stackBuffers

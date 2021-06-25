@@ -91,6 +91,5 @@ and state = {
     delegates : pdict<concreteHeapAddress, term>              // Subtypes of System.Delegate allocated in heap
     currentTime : vectorTime                                  // Current timestamp (and next allocated address as well) in this state
     startingTime : vectorTime                                 // Timestamp before which all allocated addresses will be considered symbolic
-    returnRegister : term option // TODO: still need this? - Only for timestamp hack #do delete!
     exceptionsRegister : exceptionRegister                    // Heap-address of exception object
 }
