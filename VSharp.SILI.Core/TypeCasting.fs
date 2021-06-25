@@ -32,28 +32,10 @@ module internal TypeCasting =
 
     let rec commonTypeIsType nullCase leftType rightType =
         let boolConst left right = makeSubtypeBoolConst (ConcreteType left) (ConcreteType right)
-        match leftType, rightType with
-        | _ when leftType = rightType -> True
-        | Null, _ -> nullCase rightType
-        | Void, _ | _, Void -> False
-        | ArrayType _, ClassType(Id obj, _) when obj <> typedefof<obj> -> False // TODO: use more common heuristics
-        | Numeric _, Numeric _ when isConcreteSubtype leftType rightType -> True
-        | Numeric _, Numeric (Id typ) when typ.IsEnum -> True // TODO: it's hack #do
-        | Numeric (Id typ), Numeric _ when typ.IsEnum -> True // TODO: it's hack #do
-        | Pointer _, Pointer _ -> True
-        | ArrayType _, ArrayType(_, SymbolicDimension) -> True
-        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
-            if d1 = d2 then commonTypeIsType nullCase t1 t2 else False
-        | ComplexType, ComplexType ->
-            let lt = toDotNetType leftType
-            let rt = toDotNetType rightType
-            if rt.IsAssignableFrom lt then True
-            elif TypeUtils.isGround lt && TypeUtils.isGround rt then False
-            else boolConst leftType rightType
-        | _ -> False
+        isConcreteSubtype nullCase leftType rightType makeBool boolConst
 
     // left is subtype of right
-    let typeIsType = commonTypeIsType (always False)
+    let typeIsType = commonTypeIsType (always false)
 
     let commonAddressIsType nullCase leftAddress leftType targetTyp =
         let typeCheck address =
@@ -64,7 +46,7 @@ module internal TypeCasting =
             commonTypeIsType nullCase leftType targetTyp ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
 
-    let addressIsType = commonAddressIsType (always False)
+    let addressIsType = commonAddressIsType (always false)
 
     let typeIsAddress leftType rightAddress rightType =
         let typeCheck rightAddress =
@@ -104,8 +86,8 @@ module internal TypeCasting =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType nullCase state v typ)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
-    let refIsType = commonRefIsType (always False)
-    let refIsAssignableToType = commonRefIsType (fun x -> if isValueType x then False else True) // TODO: make code better #do
+    let refIsType = commonRefIsType (always false)
+    let refIsAssignableToType = commonRefIsType (not << isValueType)
 
     let rec refIsRef state leftRef rightRef =
         match leftRef.term, rightRef.term with

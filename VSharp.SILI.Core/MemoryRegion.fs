@@ -231,7 +231,7 @@ module MemoryRegion =
 
     let validateWrite value cellType =
         let typ = typeOf value
-        Types.isConcreteSubtype typ cellType
+        Types.isAssignable typ cellType
 
     let write mr key value =
         assert(validateWrite value mr.typ)

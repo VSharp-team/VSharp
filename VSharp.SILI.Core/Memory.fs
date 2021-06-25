@@ -121,9 +121,9 @@ module internal Memory =
 
     let mostConcreteTypeOfHeapRef state address sightType =
         let locationType = typeOfHeapLocation state address
-        if isConcreteSubtype locationType sightType then locationType
+        if isAssignable locationType sightType then locationType
         else
-            assert(isConcreteSubtype sightType locationType)
+            assert(isAssignable sightType locationType)
             sightType
 
     let baseTypeOfAddress state address =

@@ -282,23 +282,39 @@ module internal Types =
         | Null -> false // TODO: __unreachable__() #do
         | t -> (toDotNetType t).IsValueType
 
-    let private commonCanCast canCast leftType rightType = // TODO: unify with Types
+    // [NOTE] All heuristics of subtyping are here
+    let rec private commonConcreteCanCast canCast nullCase leftType rightType certainK uncertainK =
         match leftType, rightType with
-        | _ when leftType = rightType -> true
-        | Null, _ -> not <| isValueType rightType
-        | _, Null -> false
-        | Numeric _, Numeric (Id typ) when typ.IsEnum -> true // TODO: it's hack #do
-        | Numeric (Id typ), Numeric _ when typ.IsEnum -> true // TODO: it's hack #do
-        | _ -> canCast (toDotNetType leftType) (toDotNetType rightType)
+        | _ when leftType = rightType -> certainK true
+        | Null, _ -> nullCase rightType |> certainK
+        | _, Null -> certainK false
+        | Void, _ | _, Void -> certainK false
+        | ArrayType _, ClassType(Id obj, _) -> obj = typedefof<obj> |> certainK
+        | Numeric (Id t), Numeric (Id enum)
+        | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && enum.GetEnumUnderlyingType() = t -> certainK true
+        | Pointer _, Pointer _ -> certainK true
+        | ArrayType _, ArrayType(_, SymbolicDimension) -> certainK true
+        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            if d1 = d2 then commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK else certainK false
+        | ComplexType, ComplexType ->
+            let lType = toDotNetType leftType
+            let rType = toDotNetType rightType
+            if canCast lType rType then certainK true
+            elif TypeUtils.isGround lType && TypeUtils.isGround rType then certainK false
+            else uncertainK leftType rightType
+        | _ -> certainK false
+
+    let isConcreteSubtype nullCase leftType rightType =
+        let canCast lType (rType : Type) = rType.IsAssignableFrom(lType)
+        commonConcreteCanCast canCast nullCase leftType rightType
 
     // Works like isVerifierAssignable in .NET specification
-    let isConcreteSubtype leftType rightType =
-        commonCanCast (fun leftType rightType -> rightType.IsAssignableFrom(leftType)) leftType rightType
+    let isAssignable leftType rightType =
+        isConcreteSubtype (not << isValueType) leftType rightType id (fun _ _ -> false)
 
     let canCastImplicitly leftType rightType =
-        let canCast leftType (rightType : Type) =
-            rightType.IsAssignableFrom(leftType) || TypeUtils.canConvert leftType rightType
-        commonCanCast canCast leftType rightType
+        let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || TypeUtils.canConvert lType rType
+        commonConcreteCanCast canCast (not << isValueType) leftType rightType id (fun _ _ -> false)
 
 type symbolicType with
     interface IAtomicRegion<symbolicType> with
