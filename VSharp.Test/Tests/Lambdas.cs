@@ -90,7 +90,7 @@ namespace VSharp.Test.Tests
             return func.Invoke(x);
         }
 
-        [TestSvm]
+        [Ignore("exception handling")]
         public static Action<int> NullLambdaInvoke()
         {
             Action<int> nullAction = null;
@@ -111,7 +111,7 @@ namespace VSharp.Test.Tests
             return SymbolicLambdaInvoke(f);
         }
 
-        [TestSvm]
+        [Ignore("exception handling")]
         public static bool NullLambdaInvokeSymbolic()
         {
             Func<int, bool> f = null;

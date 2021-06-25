@@ -376,7 +376,7 @@ namespace VSharp.Test.Tests
         public static int BigSumCycle(int x)
         {
             int res = 0;
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 9; i++)
             {
                 res += x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
             }

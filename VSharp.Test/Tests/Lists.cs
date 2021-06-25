@@ -119,19 +119,6 @@ namespace VSharp.Test.Tests
             return tmp.Length;
         }
 
-//        public void ClearTest()
-//        {
-//            var a = new int[4] { 5, 6, 7, 8 };
-//            SystemArray.Clear(a, 1, 2);
-//        }
-//
-//        public void Copy()
-//        {
-//            var a = new int[4] { 5, 6, 7, 8 };
-//            var b = new int[3];
-//            a.CopyTo(b, 1);
-//        }
-
         [TestSvm]
         public int RankTest()
         {
@@ -153,6 +140,21 @@ namespace VSharp.Test.Tests
             }
 
             return arr;
+        }
+
+        [TestSvm]
+        public void ConcreteClearTest()
+        {
+            var a = new int[4] { 5, 6, 7, 8 };
+            Array.Clear(a, 1, 2);
+        }
+
+        [TestSvm]
+        public void CopyToConcreteToConcreteArray()
+        {
+            var a = new int[4] { 5, 6, 7, 8 };
+            var b = new int[3];
+            a.CopyTo(b, 1);
         }
 
         [TestSvm]
@@ -302,9 +304,20 @@ namespace VSharp.Test.Tests
             return res;
         }
 
+        [TestSvm]
+        public static int TestConnectionBetweenMultiIndicesAndValues(int[,] a, int i, int j, int f, int g)
+        {
+            int x = a[i, j];
+            int y = a[f, g];
+            int res = 0;
+            if (i == f && j == g && x != y)
+                res = 1;
+            return res;
+        }
+
         public class MyClass
         {
-            private int x;
+            public int x;
         }
 
         [TestSvm]
@@ -318,7 +331,7 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        [TestSvm]
+        [Ignore("needs big bound")]
         public static int AddManyElementsToList()
         {
             List<int> l = new List<int>();

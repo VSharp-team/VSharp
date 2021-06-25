@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -41,7 +42,6 @@ namespace VSharp.Test.Tests
         [TestSvm]
         public static int ConcreteLinqTest()
         {
-            // TODO: use group by and so on #do
             int[] scores = { 97, 92, 81, 60 };
 
             IEnumerable<int> scoreQuery =
@@ -64,7 +64,6 @@ namespace VSharp.Test.Tests
         [TestSvm]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
-            // TODO: use group by and so on #do
             int[] scores = { x, y, z, 60 };
 
             IEnumerable<int> scoreQuery =
@@ -157,7 +156,7 @@ namespace VSharp.Test.Tests
             yield return "ace";
         }
 
-        [TestSvm]
+        [Ignore("takes too much time")]
         public static int SequenceLinqTest()
         {
             var startingDeck = (from s in Suits()

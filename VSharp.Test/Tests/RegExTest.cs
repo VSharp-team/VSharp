@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -51,36 +52,26 @@ namespace VSharp.Test.Tests
         [TestSvm]
         public static bool OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
         {
-            string pattern = new string(new char[] {c1, c2, c3, c4});
+            string pattern = new string(new char[] {c1, c2, c3});
             return RegExImplementation.Match(pattern, "hello");
         }
 
-        [TestSvm]
+        [Ignore("need more external method implementations")]
         public static MatchCollection SystemImplementationTest()
         {
-            // Define a regular expression for repeated words.
             Regex rx = new Regex(@"\b(?<word>\w+)\s+(\k<word>)\b",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-            // Define a test string.
             string text = "The the quick brown fox  fox jumps over the lazy dog dog.";
-
-            // Find matches.
             MatchCollection matches = rx.Matches(text);
             return matches;
         }
 
-        [TestSvm]
+        [Ignore("need more external method implementations")]
         public static MatchCollection SmallSystemImplementationTest()
         {
-            // Define a regular expression for repeated words.
             Regex rx = new Regex(@"\b",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-            // Define a test string.
             string text = "fox  ";
-
-            // Find matches.
             MatchCollection matches = rx.Matches(text);
             return matches;
         }

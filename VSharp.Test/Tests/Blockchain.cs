@@ -30,10 +30,10 @@ namespace VSharp.Test.Tests
             _transactionPool = new List<Transaction>();
         }
 
-        public void Mine(long startTime)
+        public void Mine(long startTime, uint blocksNumber)
         {
             var time = 0;
-            while (time < 2)
+            while (time < blocksNumber)
             {
                 GenerateBlock(startTime + time);
                 time++;
@@ -81,13 +81,11 @@ namespace VSharp.Test.Tests
     public class Blockchain
     {
         [TestSvm]
-        public static int test(long time)
+        public static long test(long time)
         {
-            var a = new BlockMiner();
-            a.Mine(time);
-            // a.Blockchain.First();
-            a.Blockchain.OrderBy(block => block.Hash).First();
-            return 0;
+            var miner = new BlockMiner();
+            miner.Mine(time, 1);
+            return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
         }
     }
 }

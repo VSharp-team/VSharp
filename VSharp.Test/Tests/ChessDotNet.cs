@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using ChessDotNet;
 using ChessDotNet.Pieces;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
     [TestSvmFixture]
     public class ChessDotNet
     {
-        static void CreateGame()
+        private static void Example()
         {
             var game = new ChessGame();
             Piece pieceAtA1 = game.GetPieceAt(new Position("A1")); // Or "a1", the casing doesn't matter
@@ -52,11 +53,11 @@ namespace VSharp.Test.Tests
             Console.ReadKey();
         }
 
-        // [TestSvm]
-        public static bool CreateGame2()
+        [Ignore("takes too much time")]
+        public static bool ComplexTest()
         {
             var game = new ChessGame();
-            Piece pieceAtA1 = game.GetPieceAt(new Position("A1")); // Or "a1", the casing doesn't matter
+            Piece pieceAtA1 = game.GetPieceAt(new Position("A1"));
             var e2e4 = new Move("E2", "E4", Player.White);
             bool isValid = game.IsValidMove(e2e4);
             MoveType type = game.ApplyMove(e2e4, true);
@@ -64,36 +65,34 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static ChessGame CreateGame3()
+        public static ChessGame CreateGame()
         {
-            var game = new ChessGame();
-            return game;
+            return new ChessGame();
         }
 
         [TestSvm]
-        public static Position CreateGame4()
+        public static Position CreatePosition()
         {
-            Position a1 = new Position("A1");
-            return a1;
+            return new Position("A1");
         }
 
         [TestSvm]
-        public static Piece CreateGame5()
+        public static Piece GetPiece()
         {
             var game = new ChessGame();
-            Piece pieceAtA1 = game.GetPieceAt(new Position("A1")); // Or "a1", the casing doesn't matter
+            Piece pieceAtA1 = game.GetPieceAt(new Position("A1"));
             return pieceAtA1;
         }
 
         [TestSvm]
-        public static bool CreateGame6()
+        public static bool HasAnyValidMoves()
         {
             var game = new ChessGame();
             return game.HasAnyValidMoves(Player.Black);
         }
 
-        [TestSvm]
-        public static bool CreateGame7()
+        [Ignore("needs big bound and works too long")]
+        public static bool ApplyMoveAndCheckOtherValidMoves()
         {
             var game = new ChessGame();
             var e2e4 = new Move("E2", "E4", Player.White);
@@ -110,7 +109,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public static bool CreateGame8()
+        public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();
             var e2e4 = new Move("E2", "E4", Player.White);
@@ -120,14 +119,14 @@ namespace VSharp.Test.Tests
             return isValid && type == MoveType.Invalid;
         }
 
-        [TestSvm]
-        public static bool CreateGame9()
+        [Ignore("needs big bound and works too long")]
+        public static bool CheckMoveIsValidAndApply()
         {
             var game = new ChessGame();
             var e2e4 = new Move("E2", "E4", Player.White);
             bool isValid = game.IsValidMove(e2e4);
             MoveType type = game.ApplyMove(e2e4, true);
-            return type == MoveType.Invalid || isValid;
+            return type == MoveType.Invalid && isValid;
         }
     }
 }

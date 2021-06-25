@@ -192,6 +192,35 @@ namespace VSharp.Test.Tests
             return number;
         }
 
+        [TestSvm]
+        public static int TestNarrowingConv(sbyte number)
+        {
+            int x = number;
+            x = x + 1024;
+            sbyte oldNumber = (sbyte) x;
+            var res = 0;
+            if (number == oldNumber)
+                res = 1;
+            return res;
+        }
+
+        public enum Color {
+            Red = -10
+            , Black = 45
+        };
+
+        public static bool Test(Color c) {
+            uint v = 1;
+            return v <= (uint)(c);
+        }
+
+        [TestSvm]
+        public static bool Test1() {
+            return Test(Color.Red);
+        }
+
+        // ------------------------ unbox.any instruction tests ------------------------
+
         public interface I {}
 
         public struct S : I {
@@ -209,8 +238,6 @@ namespace VSharp.Test.Tests
         public class CC : I {
             int x;
         }
-
-        // ------------------------ unbox.any instruction tests ------------------------
 
         public static U UnboxAny<T, U>(T t) {
             object o = t;
