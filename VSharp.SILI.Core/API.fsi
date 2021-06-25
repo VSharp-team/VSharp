@@ -153,7 +153,7 @@ module API =
         val EmptyState : state
         val PopFrame : state -> state
         val PopTypeVariables : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term option * symbolicType) list -> state
+        val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
         val ReferenceField : state -> term -> fieldId -> term
@@ -182,9 +182,9 @@ module API =
         val MakeSymbolicThis : MethodBase -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
 
-        val CallStackContainsFunction : state -> IFunctionIdentifier -> bool
+        val CallStackContainsFunction : state -> MethodBase -> bool
         val CallStackSize : state -> int
-        val GetCurrentExploringFunction : state -> IFunctionIdentifier
+        val GetCurrentExploringFunction : state -> MethodBase
 
         val BoxValueType : state -> term -> term * state
 

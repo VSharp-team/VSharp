@@ -188,7 +188,7 @@ module API =
         let EmptyState = Memory.empty
         let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
-        let NewStackFrame state funcId parametersAndThis = Memory.newStackFrame state funcId parametersAndThis
+        let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
         let rec ReferenceArrayIndex arrayRef indices =
@@ -281,7 +281,7 @@ module API =
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
 
-        let CallStackContainsFunction state funcId = CallStack.containsFunc state.stack funcId
+        let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 

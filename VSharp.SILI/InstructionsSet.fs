@@ -8,21 +8,6 @@ open VSharp
 open VSharp.Core
 open CFG
 
-type public ILMethodMetadata =
-    { methodBase : MethodBase }
-    override x.ToString () = x.methodBase.Name
-    interface IMethodIdentifier with
-        member x.IsStatic = x.methodBase.IsStatic
-        member x.IsConstructor = x.methodBase.IsConstructor
-        member x.Method = x.methodBase
-        member x.DeclaringType = x.methodBase.DeclaringType
-        member x.DeclaringAssembly = x.methodBase.DeclaringType.Assembly
-        member x.ReturnType =
-            match x.methodBase with
-            | :? MethodInfo as mi -> mi.ReturnType
-            | :? ConstructorInfo -> typeof<Void>
-            | _ -> __notImplemented__()
-
 module internal TypeUtils =
     open Types
 

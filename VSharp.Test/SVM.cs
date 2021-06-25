@@ -55,11 +55,10 @@ namespace VSharp.Test
 
         private TestCodeLocationSummaries PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, TestCodeLocationSummaries> dict,
             MethodInfo m,
-            Func<IMethodIdentifier, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
+            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
             _statistics.SetupBeforeMethod(m);
-            IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
-            if (methodIdentifier == null)
+            if (m == null)
             {
                 var format =
                     new PrintfFormat<string, Unit, string, Unit>(
@@ -74,7 +73,7 @@ namespace VSharp.Test
 
             try
             {
-                summary = TestCodeLocationSummaries.WithSummaries(invoke(methodIdentifier, id));
+                summary = TestCodeLocationSummaries.WithSummaries(invoke(m, id));
             }
             catch (InsufficientInformationException e)
             {
@@ -91,7 +90,7 @@ namespace VSharp.Test
         }
 
         private TestCodeLocationSummaries PrepareAndInvoke(IDictionary<MethodInfo, TestCodeLocationSummaries> dict, MethodInfo m,
-            Func<IMethodIdentifier, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
+            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
             // try
             // {

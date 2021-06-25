@@ -39,9 +39,9 @@ module internal Encode =
 
         let clear () = keys.Clear()
 
-        let private toKey funcId = function
-            | None -> sprintf "%O#res" funcId
-            | Some _ -> IdGenerator.startingWith (toString funcId)
+        let private toKey method = function
+            | None -> sprintf "%O#res" method
+            | Some _ -> IdGenerator.startingWith (toString method)
 
         let private encodeBody codeLoc loc =
             let pair = (codeLoc, loc)

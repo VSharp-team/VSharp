@@ -15,7 +15,7 @@ type cfg = CFG.cfgData
 
 type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg*)) =
     inherit ExplorerBase()
-    member x.Interpret (_ : IFunctionIdentifier) (initialState : cilState) =
+    member x.Interpret (_ : MethodBase) (initialState : cilState) =
         let q = IndexedQueue()
         q.Add initialState
 
@@ -44,19 +44,17 @@ type public MethodInterpreter(searcher : ISearcher (*ilInterpreter : ILInterpret
         Option.iter iter (searcher.PickNext q)
         searcher.GetResults initialState q
 
-    override x.Invoke funcId initialState k =
-        let cilStates = x.InitializeStatics initialState funcId.Method.DeclaringType List.singleton
+    override x.Invoke method initialState k =
+        let cilStates = x.InitializeStatics initialState method.DeclaringType List.singleton
         assert(List.length cilStates = 1)
         let cilState = List.head cilStates
-        let results = x.Interpret funcId cilState
+        let results = x.Interpret method cilState
         let printResults (cilStates : cilState list) =
             let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
-            let fullMethodName = Reflection.getFullMethodName funcId.Method
+            let fullMethodName = Reflection.getFullMethodName method
             Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
         printResults results
         k results
-
-    override x.MakeMethodIdentifier m = { methodBase = m } :> IMethodIdentifier
 
 and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     do
@@ -360,7 +358,6 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 x.InlineMethodBaseCallIfNeeded targetMethod cilState k)
 
     member x.CallVirtualMethod (ancestorMethod : MethodInfo) (cilState : cilState) (k : cilState list -> 'a) =
-        let methodId = methodInterpreter.MakeMethodIdentifier ancestorMethod
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
@@ -370,16 +367,16 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 StatedConditionalExecutionAppendResultsCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state)) // TODO: may this be Ref to ValueType? #do
                     (callForConcreteType baseType)
-                    (x.CallAbstract methodId)
+                    (x.CallAbstract ancestorMethod)
                     k
             let baseDotNetType = Types.ToDotNetType baseType
             if baseDotNetType.IsInterface
-                then x.CallAbstract methodId cilState k
+                then x.CallAbstract ancestorMethod cilState k
                 else tryToCallForBaseType cilState k
         GuardedApplyCIL cilState this callVirtual k
 
-    member x.CallAbstract funcId cilState k =
-        methodInterpreter.CallAbstractMethod funcId cilState k
+    member x.CallAbstract method cilState k =
+        methodInterpreter.CallAbstractMethod method cilState k
 
     member private x.ConvOvf targetType (cilState : cilState) =
         let supersetsOf =

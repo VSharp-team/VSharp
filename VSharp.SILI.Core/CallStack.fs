@@ -1,11 +1,12 @@
 namespace VSharp.Core
 
+open System.Reflection
 open VSharp
 open VSharp.Core
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : symbolicType }
-type private frame = internal { func : IFunctionIdentifier; entries : pdict<stackKey, entry> }
+type private frame = internal { func : MethodBase; entries : pdict<stackKey, entry> }
 type callStack = private { frames : frame stack }
 
 // TODO: rename and style #do

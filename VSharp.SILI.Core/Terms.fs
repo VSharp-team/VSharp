@@ -60,17 +60,6 @@ type stackKey =
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector
 
-type IFunctionIdentifier =
-    abstract ReturnType : Type
-    abstract IsConstructor : bool
-    abstract Method : System.Reflection.MethodBase
-
-type EmptyIdentifier() =
-    interface IFunctionIdentifier with
-        override x.ReturnType = typeof<Void>
-        override x.IsConstructor = false
-        override x.Method = null
-
 [<StructuralEquality;NoComparison>]
 type operation =
     | Operator of OperationType
