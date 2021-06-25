@@ -8,14 +8,20 @@ module internal Copying =
 // ------------------------------ Primitives -----------------------------
 
     [<NoEquality;NoComparison>]
-    type private symbolicArrayIndexSource () = // TODO: how to compare constants? need more info here? #do
+    type private symbolicArrayIndexSource =
+        { lowerBound : term; upperBound : term }
         interface INonComposableSymbolicConstantSource with
             override x.SubTerms = seq[] :> term seq
             override x.Time = VectorTime.zero
 
-    let makeArrayIndexConstant () =
-        let source = symbolicArrayIndexSource() :> ISymbolicConstantSource
-        Constant "i" source Types.Int32 // TODO: make better name of constant #do
+    let private makeArrayIndexConstant state lowerBound upperBound =
+        let source = {lowerBound = lowerBound; upperBound = upperBound}
+        let constant = Constant "i" source Types.Int32
+        let leftBound = simplifyLessOrEqual lowerBound constant id
+        let rightBound = simplifyLessOrEqual constant upperBound id
+        let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
+        let stateWithPC = { state with pc = pcWithBounds }
+        constant, stateWithPC
 
 // ------------------------------- Copying -------------------------------
 
@@ -38,7 +44,8 @@ module internal Copying =
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length - 1]
 
-    let copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstElemType dstLens dstLBs length =
+    let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
+        let dstElemType = fst3 dstType
         let offsets = List.init length id
         let copyOneElem state offset =
             let srcIndex = add srcIndex (makeNumber offset)
@@ -47,23 +54,21 @@ module internal Copying =
             let casted = TypeCasting.cast srcElem dstElemType
             let dstIndex = add dstIndex (makeNumber offset)
             let dstIndices = delinearizeArrayIndex dstIndex dstLens dstLBs
-            writeArrayIndex state dstAddress dstIndices srcType casted
+            writeArrayIndex state dstAddress dstIndices dstType casted
         List.fold copyOneElem state offsets
 
-    let copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstElemType dstLens dstLBs length =
-        let constant = makeArrayIndexConstant ()
-        let leftBound = simplifyLessOrEqual (makeNumber 0) constant id
-        let rightBound = simplifyLessOrEqual constant (sub length (makeNumber 1)) id
-        let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
-        let stateWithPC = { state with pc = pcWithBounds }
+    let private copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
+        let dstElemType = fst3 dstType
+        let constant, stateWithPC = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
         let srcIndices = delinearizeArrayIndex (add srcIndex constant) srcLens srcLBs
         let srcElem = readArrayIndex stateWithPC srcAddress srcIndices srcType
         let casted = TypeCasting.cast srcElem dstElemType
         let dstIndices = delinearizeArrayIndex (add dstIndex constant) dstLens dstLBs
-        writeArrayIndex stateWithPC dstAddress dstIndices srcType casted
+        writeArrayIndex stateWithPC dstAddress dstIndices dstType casted
 
-    let copyArray state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex (dstElemType, dstDim, _ as dstType) length =
-        // TODO: consider the case of overlapping src and dest arrays. Done? #do
+    // TODO: consider the case of overlapping src and dest arrays
+    let copyArray state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex dstType length =
+        let dstDim = snd3 dstType
         let srcLBs = List.init srcDim (fun dim -> readLowerBound state srcAddress (makeNumber dim) srcType)
         let srcLens = List.init srcDim (fun dim -> readLength state srcAddress (makeNumber dim) srcType)
         let dstLBs = List.init dstDim (fun dim -> readLowerBound state dstAddress (makeNumber dim) dstType)
@@ -71,8 +76,8 @@ module internal Copying =
         match length.term with
         | Concrete(length, _) ->
             let length = length :?> int
-            copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstElemType dstLens dstLBs length
-        | _ -> copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstElemType dstLens dstLBs length
+            copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
+        | _ -> copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
 
     let copyCharArrayToString state arrayAddress dstAddress =
         let arrayType = (Types.Char, 1, true)

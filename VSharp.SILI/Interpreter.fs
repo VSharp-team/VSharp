@@ -503,14 +503,14 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             else
                 x.InlineMethodBaseCallIfNeeded ancestorMethodBase cilState k
         x.NpeOrInvokeStatementCIL cilState this call k
-    member x.CallVirt (cfg : cfg) offset (cilState : cilState) =
+    member x.CallVirt (cfg : cfg) offset (initialCilState : cilState) =
         let retrieveMethodInfo methodPtr =
             match methodPtr.term with
             | Concrete(:? Tuple<MethodInfo, term> as tuple, _) -> snd tuple, (fst tuple :> MethodBase)
             | _ -> __unreachable__()
         let ancestorMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
-        let thisOption, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
-        let this, methodToCall = // TODO: do better #do
+        let thisOption, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod initialCilState
+        let this, methodToCall =
             match thisOption with
             | Some this when ancestorMethod.DeclaringType.IsSubclassOf typedefof<Delegate> && ancestorMethod.Name = "Invoke" && this <> NullRef ->
                 let deleg = Memory.ReadDelegate cilState.state this
@@ -519,7 +519,13 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         // NOTE: It is not quite strict to ReduceFunctionSignature here because, but it does not matter because signatures of virtual methods are the same
-        methodInterpreter.InitializeStatics cilState methodToCall.DeclaringType (fun cilState ->
+        methodInterpreter.InitializeStatics initialCilState methodToCall.DeclaringType (fun cilState ->
+        // [NOTE] If DeclaringType has static constructor, InitializeStatics will add new state to queue.
+        //        But arguments and this was already popped, so when execution will return to callvirt,
+        //        evaluation stack won't contain arguments and this.
+        //        For this purpose initializing statics on cilState with this and arguments,
+        //        after that popping them again.
+        let _, _, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         methodInterpreter.ReduceFunctionSignatureCIL cilState methodToCall this (Some args) (fun cilState ->
         x.CommonCallVirt methodToCall cilState id))
     member x.ReduceArrayCreation (arrayType : System.Type) (cilState : cilState) (parameters : term list) k =

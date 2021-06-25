@@ -65,7 +65,7 @@ module API =
 //                assert(v :?> int = 0) // localloc takes size in native int
                 Ptr None Void (Some value)
             // Case for native int
-            | Ptr(_, Void, _) -> value
+            | Ptr _ -> value
             | _ -> __unreachable__()
 
         let TypeOf term = typeOf term
