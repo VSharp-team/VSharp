@@ -59,9 +59,12 @@ module internal Type =
         let ref = List.head args
         let typ = MostConcreteTypeOfHeapRef state ref
         allocateType state (Types.ToDotNetType typ)
-//        GetTypeMethod state ref
-        // TODO: restore it after rewriting marshaling/unmarshaling
-//        __notImplemented__()
+
+    let GetElementType (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 1)
+        let runtimeType = List.head args
+        let actualType = getActualType state runtimeType
+        allocateType state (actualType.GetElementType())
 
     let private equality transform (state : state) (args : term list) =
         assert(List.length args = 2)

@@ -19,6 +19,9 @@ module internal Type =
     [<Implements("System.Type System.Object.GetType(this)")>]
     val GetType : state -> term list -> (term * state) list
 
+    [<Implements("System.Type System.RuntimeType.GetElementType(this)")>]
+    val GetElementType : state -> term list -> (term * state) list
+
     [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
     val opInequality : state -> term list -> term * state
 
