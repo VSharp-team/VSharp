@@ -12,7 +12,7 @@ module public SolverInteraction =
         { addressOrder : Map<concreteHeapAddress, int>}
 
     type satInfo = { mdl : model; usedPaths : path seq }
-    type unsatInfo = { core : unsatCore }
+    type unsatInfo = { core : term[] }
 
     type smtResult =
         | SmtSat of satInfo
