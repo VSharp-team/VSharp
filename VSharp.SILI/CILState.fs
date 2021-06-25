@@ -68,9 +68,11 @@ module internal CilStateOperations =
 
     let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
 
-    let composePopsCount (min1, cnt1) (_, cnt2) =
-        let cnt = cnt1 + cnt2
-        min min1 cnt, cnt
+    let composeLevel (lvl1 : level) (lvl2 : level) =
+        let composeOne (lvl : level) k v =
+            let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
+            PersistentDict.add k (v + oldValue) lvl
+        PersistentDict.fold composeOne lvl1 lvl2
 
     let compose (cilState1 : cilState) (cilState2 : cilState) =
         assert(currentIp cilState1 = cilState2.startingIP)
@@ -91,8 +93,15 @@ module internal CilStateOperations =
 
     let incrementLevel (cilState : cilState) k =
         let lvl = cilState.level
-        let newValue = if PersistentDict.contains k lvl then PersistentDict.find lvl k + 1u else 1u
-        {cilState with level = PersistentDict.add k newValue lvl}
+        let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
+        {cilState with level = PersistentDict.add k (oldValue + 1u) lvl}
+
+    let decrementLevel (cilState : cilState) k =
+        let lvl = cilState.level
+        let oldValue = PersistentDict.tryFind lvl k
+        match oldValue with
+        | Some value when value > 0u -> {cilState with level = PersistentDict.add k (value - 1u) lvl}
+        | _ -> cilState
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 

@@ -1169,6 +1169,10 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             incrementLevel cilState {offset = offset; method = cfg.methodBase}
         else cilState
 
+    member private x.DecrementMethodLevel (cilState : cilState) method =
+        let key = {offset = 0; method = method}
+        decrementLevel cilState key
+
     member x.MakeStep (cilState : cilState) =
         let exit () : cilState =
             match cilState.ipStack with
