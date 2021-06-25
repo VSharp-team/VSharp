@@ -504,6 +504,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             | Some this when ancestorMethod.DeclaringType.IsSubclassOf typedefof<Delegate> && ancestorMethod.Name = "Invoke" && this <> NullRef ->
                 let deleg = Memory.ReadDelegate cilState.state this
                 let target, mi = retrieveMethodInfo deleg
+                // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
                 if target = NullRef then thisOption, mi else Some target, mi
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution

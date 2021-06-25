@@ -29,6 +29,8 @@ module public PersistentDict =
 
     let public contains (key : 'a) (d : pdict<'a, 'b>) = d.impl.ContainsKey key
     let public find (d : pdict<'a, 'b>) (key : 'a) = d.impl.[key]
+
+    // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
     let public add (key : 'a) (value : 'b) (d : pdict<'a, 'b>) = {impl = d.impl.Add(key, value)}
     let public remove key (d : pdict<'a, 'b>) = {impl = d.impl.Remove key}
     let public tryFind (d : pdict<'a, 'b>) key =
@@ -106,6 +108,8 @@ module PersistentSet =
     let public toSeq (d : pset<'a>) = PersistentDict.keys d
 
     let public contains (key : 'a) (d : pset<'a>) = PersistentDict.contains key d
+
+    // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
     let public add (d : pset<'a>) (key : 'a) : pset<'a> = PersistentDict.add key 0 d
     let public remove (d : pset<'a>) (key : 'a) : pset<'a> = PersistentDict.remove key d
 
