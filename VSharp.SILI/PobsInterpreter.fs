@@ -13,7 +13,7 @@ open CilStateOperations
 type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     inherit ExplorerBase()
     let mutable curLvl = maxBound
-    let infty = System.Int32.MaxValue
+    let infty = System.UInt32.MaxValue
     let qFront = FrontQueue(maxBound)
     let qBack = List<pob * cilState>()
     let mainPobs = List<pob>()
@@ -59,8 +59,11 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
 
     //NOTE: Must be called for ip with empty evaluation stack!
     member x.Start (ip : ip) =
-        let starts = x.MakeCilStateForIp ip
-        qFront.AddGoodStates(starts)
+        try
+            let starts = x.MakeCilStateForIp ip
+            qFront.AddGoodStates(starts)
+        with
+        | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
     member x.Forward (s : cilState) =
         let removed = qFront.RemoveAll(fun s' -> LanguagePrimitives.PhysicalEquality s s')
         in
@@ -82,15 +85,17 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     member x.Backward (p' : pob, s' : cilState, EP : ip) =
         let removed = qBack.Remove(p',s') in assert(removed)
         assert(currentIp s' = p'.loc)
-        let lvl = p'.lvl - int(levelToInt s'.level)
-        let fml = Memory.WLP s'.state p'.fml
-        match Memory.IsSAT fml with
-        | true when s'.startingIP = EP -> answerYes(s', p')
-        | true ->
-            let p = {loc = s'.startingIP; lvl = lvl; fml = fml}
-            addPob(p', p)
-        | false ->
-            Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
+        let sLvl = levelToUnsignedInt s'.level
+        if p'.lvl >= sLvl then
+            let lvl = p'.lvl - sLvl
+            let fml = Memory.WLP s'.state p'.fml
+            match Memory.IsSAT fml with
+            | true when s'.startingIP = EP -> answerYes(s', p')
+            | true ->
+                let p = {loc = s'.startingIP; lvl = lvl; fml = fml}
+                addPob(p', p)
+            | false ->
+                Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
     member x.BidirectionalSymbolicExecution (main : MethodBase) (EP : ip) mainPobsList =
         Seq.iter mainPobs.Add mainPobsList
         let createPobs () = mainPobs |> Seq.iter (fun (mp : pob) ->
@@ -107,7 +112,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                     Logger.info "GoForward: ip = %O" (currentIp s)
                     x.Forward(s)
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
-            curLvl <- curLvl + 1
+            curLvl <- curLvl + 1u
     member x.ClearStructures () =
         curLvl <- maxBound
         mainPobs.Clear()

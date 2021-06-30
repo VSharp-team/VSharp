@@ -12,7 +12,7 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
-type pob = {loc : ip; lvl : int; fml : term}
+type pob = {loc : ip; lvl : uint; fml : term}
 type pobStatus =
     | Unknown
     | Witnessed of cilState

@@ -45,7 +45,7 @@ namespace VSharp.Test
 
 
 
-        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher, int maxBound)
+        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher, uint maxBound)
         {
             List<codeLocation> codeLocations = new List<codeLocation>();
             foreach (var p in proxies)
@@ -83,7 +83,7 @@ namespace VSharp.Test
         [TestCaseSource(nameof(PobsCases))]
         public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
         {
-            int maxBound = 20;
+            uint maxBound = 20u;
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {

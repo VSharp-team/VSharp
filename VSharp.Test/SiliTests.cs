@@ -113,12 +113,12 @@ namespace VSharp.Test
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
         protected static SVM _svm;
-        private static int _maxBound;
+        private static uint _maxBound;
         private static INewSearcher[] _searchers;//= new INewSearcher[]
         private static Dictionary<INewSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
         private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
 
-        public static void SetUpSVM(SVM svm, int maxBound, INewSearcher[] searchers)
+        public static void SetUpSVM(SVM svm, uint maxBound, INewSearcher[] searchers)
         {
             _svm = svm;
             _maxBound = maxBound;
@@ -185,7 +185,7 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations, int maxBound)
+            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations, uint maxBound)
             {
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();

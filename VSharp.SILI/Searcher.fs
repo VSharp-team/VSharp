@@ -20,13 +20,14 @@ type FrontQueue(maxBound) =
     let nonExecutableStates = List<cilState>()
 
     let doesViolateMaxBound (s : cilState) =
-        match currentIp s with
-        | Instruction(offset, m) ->
-            let codeLocation = {offset = offset; method = m}
-            match PersistentDict.tryFind s.level codeLocation with
-            | Some current -> current >= uint32 maxBound
-            | None -> false
-        | _ -> false
+        levelToUnsignedInt s.level > maxBound
+//        match currentIp s with
+//        | Instruction(offset, m) ->
+//            let codeLocation = {offset = offset; method = m}
+//            match PersistentDict.tryFind s.level codeLocation with
+//            | Some current -> current >= uint32 maxBound
+//            | None -> false
+//        | _ -> false
     let addGoodState (s : cilState) =
         if doesViolateMaxBound s then maxBoundViolatingStates.Add(s)
         elif not (isExecutable s) then nonExecutableStates.Add(s)
@@ -35,7 +36,7 @@ type FrontQueue(maxBound) =
     member x.Add(s : cilState) =
         assert(List.length s.ipStack = Memory.CallStackSize s.state)
         if isIIEState s then iieStates.Add(s)
-        elif isError s then erroredStates.Add(s) // TODO: check it. Maybe ''isUnhandledError'' should be here
+        elif isUnhandledError s then erroredStates.Add(s) // TODO: check it. Maybe ''isUnhandledError'' should be here
         else addGoodState s
 //    member x.AddAll(newStates : cilState seq) = Seq.iter x.Add newStates
     member x.AddGoodStates(newStates : cilState seq) = Seq.iter addGoodState newStates
