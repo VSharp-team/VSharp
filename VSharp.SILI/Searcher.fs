@@ -1,5 +1,6 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Collections.Generic
 open System.Reflection
 open VSharp
@@ -9,7 +10,10 @@ open VSharp.Core
 type FrontQueue(maxBound) =
     let goodStates = List<cilState>()
     // NOTE: ``justAddedGoodStates'' should be used by TargetedSearcher to update its priorityQueue
-    let justAddedGoodStates = List<cilState>()
+    let justAddedGoodStates =
+        let emptyState = makeInitialState null Memory.EmptyState
+        Array.init 10 (fun _ -> emptyState)
+    let mutable justAddedSize = 0
     let iieStates = List<cilState>()
     let erroredStates = List<cilState>()
     let maxBoundViolatingStates = List<cilState>()
@@ -26,7 +30,8 @@ type FrontQueue(maxBound) =
     let addGoodState (s : cilState) =
         if doesViolateMaxBound s then maxBoundViolatingStates.Add(s)
         elif not (isExecutable s) then nonExecutableStates.Add(s)
-        else justAddedGoodStates.Add(s)
+        else justAddedGoodStates.[justAddedSize] <- s
+             justAddedSize <- justAddedSize + 1
     member x.Add(s : cilState) =
         assert(List.length s.ipStack = Memory.CallStackSize s.state)
         if isIIEState s then iieStates.Add(s)
@@ -43,8 +48,9 @@ type FrontQueue(maxBound) =
 
     member x.StatesForPropagation() : cilState seq =
         // TODO: profile it, because clearing might give overhead
-        goodStates.AddRange(justAddedGoodStates)
-        justAddedGoodStates.Clear()
+        for i = 0 to justAddedSize - 1 do
+            goodStates.Add(justAddedGoodStates.[i])
+        justAddedSize <- 0
         seq goodStates
 
     // TODO: Is this method really needed?
