@@ -212,7 +212,7 @@ type TargetedSearcher() =
         reachableLocations.Add(currentLoc, HashSet())
         reachableMethods.Add(currentLoc, HashSet())
     let buildReachabilityInfo (currentMethod : MethodBase) : HashSet<MethodBase> =
-        let cfg = CFG.build currentMethod
+        let cfg = CFG.findCfg currentMethod
         let rec dfsSCC (usedSCC : int list) (v : offset) : int list =
             let currentSCC = cfg.sccOut.[v]
             if List.contains currentSCC usedSCC then usedSCC

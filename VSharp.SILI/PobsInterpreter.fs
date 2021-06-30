@@ -3,9 +3,6 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Collections.Generic
 open System.Reflection
-open System.Reflection.Emit
-open System.Text
-open C5
 open FSharpx.Collections
 open System.Reflection
 

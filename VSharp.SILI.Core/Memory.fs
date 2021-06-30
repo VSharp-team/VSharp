@@ -49,8 +49,8 @@ module internal Memory =
 
 // ------------------------------- Stack -------------------------------
 
-    let newStackFrame (s : state) funcId frame : state =
-        let stack = CallStack.newStackFrame s.stack funcId frame
+    let newStackFrame (s : state) m frame : state =
+        let stack = CallStack.newStackFrame s.stack m frame
         let evaluationStack = EvaluationStack.newStackFrame s.evaluationStack
         { s with stack = stack; evaluationStack = evaluationStack }
 

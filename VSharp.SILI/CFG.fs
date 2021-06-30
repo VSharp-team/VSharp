@@ -52,8 +52,10 @@ module public CFG =
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
     let private createData (methodBase : MethodBase) =
+        assert(methodBase <> null)
         let mb = methodBase.GetMethodBody()
         if mb = null then ()
+        assert(mb <> null)
         let array = mb.GetILAsByteArray()
         let size = array.Length
         let interim = {
@@ -200,7 +202,7 @@ module public CFG =
                         dist.[(i,j)] <- dist.[i, k] + dist.[k, j]
         dist
 
-    let build (methodBase : MethodBase) =
+    let private build (methodBase : MethodBase) =
         let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()
