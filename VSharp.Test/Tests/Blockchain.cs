@@ -94,7 +94,7 @@ namespace VSharp.Test.Tests
         public static int test2(long time)
         {
             var a = new BlockMiner();
-            a.Mine(time);
+            a.Mine(time, 1);
             // a.Blockchain.First();
             return 0;
         }
@@ -104,10 +104,10 @@ namespace VSharp.Test.Tests
         {
             var a = new BlockMiner();
             if (f)
-                a.Mine(time);
+                a.Mine(time, 1);
             else
             {
-                a.Mine(time * 5);
+                a.Mine(time * 5, 1);
             }
             // a.Blockchain.First();
             return 0;
@@ -117,7 +117,7 @@ namespace VSharp.Test.Tests
         public static int test3(long time)
         {
             var a = new BlockMiner();
-            a.Mine(time);
+            a.Mine(time, 1);
             a.Blockchain.First();
             return 0;
         }
@@ -126,7 +126,7 @@ namespace VSharp.Test.Tests
         public static long test4(long time)
         {
             var a = new BlockMiner();
-            a.Mine(time);
+            a.Mine(time, 1);
             return a.Blockchain.First().Hash;
         }
 
@@ -137,7 +137,7 @@ namespace VSharp.Test.Tests
             for (int i = 0; i < 5; i++)
             {
                 var a = new BlockMiner();
-                a.Mine(time);
+                a.Mine(time, 2);
                 mininum = Math.Min(mininum, a.Blockchain.First().Hash);
             }
 

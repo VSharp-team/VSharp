@@ -28,6 +28,7 @@
         <Compile Include="PobsInterpreter.fs" />
         <Compile Include="Variables.fs" />
         <Compile Include="TargetedSearcher.fs" />
+        <Compile Include="BidirectionalSearcherForMethods.fs" />
     </ItemGroup>
 
     <ItemGroup>

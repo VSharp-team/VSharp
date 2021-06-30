@@ -52,7 +52,7 @@ module internal CilStateOperations =
         | _ -> false
 
 
-    let levelToInt (lvl : level) = PersistentDict.fold (fun acc _ v -> acc + (int) v) 0 lvl //TODO: remove it when ``level'' subtraction would be generalized
+    let levelToInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
     let currentIp (s : cilState) = List.head s.ipStack
 
     let methodOf = function

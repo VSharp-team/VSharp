@@ -185,11 +185,11 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations)
+            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations, int maxBound)
             {
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
-                var svm = new SVM(new PobsInterpreter(searcher));
+                var svm = new SVM(new PobsInterpreter(maxBound, searcher));
                 var dict = svm.AnswerPobs(entryMethod, codeLocations);
                 stopWatch.Stop();
 
@@ -244,7 +244,7 @@ namespace VSharp.Test
 
                 foreach (var s in _searchers)
                 {
-                    res &= AnswerPobs(entryMethod, s, codeLocations);
+                    res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
                 }
                 // PrintStats();
 

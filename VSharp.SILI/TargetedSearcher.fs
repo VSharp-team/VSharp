@@ -146,7 +146,7 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
             | Reachable(x, _), Reachable(y, _)  -> 1
             | _ -> __unreachable__()
 
-type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure ) =
+type OneTargetedSearcher(target : codeLocation, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure ) =
     let comparer = cilstatesComparer(target, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
     let priorityQueue  = C5.IntervalHeap<cilState>(comparer)
     let mutable stepsNumber = 0u
@@ -161,11 +161,10 @@ type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocation
 
     interface INewSearcher with
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = comparer.CanReach(ipStack, blocked)
-        override x.MaxBound = maxBound
         override x.TotalNumber = 0u
-        override x.AppendNewStates states =
-//            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
-            List.iter (fun s -> priorityQueue.Add s |> ignore) states
+//        override x.AppendNewStates states =
+////            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
+//            Seq.iter (fun s -> priorityQueue.Add s |> ignore) states
         override x.Reset() =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
@@ -173,7 +172,7 @@ type OneTargetedSearcher(maxBound, target : codeLocation, cfg, reachableLocation
         override x.ChooseAction(_,_,_,_) =
             __notImplemented__()
 
-type TargetedSearcher(maxBound) =
+type TargetedSearcher() =
     static let mutable totalNumber = 0u
     let reachableLocations = Dictionary<codeLocation, HashSet<codeLocation>>()
     let reachableMethods = Dictionary<codeLocation, HashSet<MethodBase>>()
@@ -276,20 +275,19 @@ type TargetedSearcher(maxBound) =
         override x.CanReach(ipStack : ip list, target : ip, blocked : ip list) = true
 //            (currentSearcher :> INewSearcher).CanReach()
 //            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
-        override x.MaxBound = maxBound
-        override x.AppendNewStates states =
-            let appendStateToSearcher states (s : OneTargetedSearcher) =
-                let s = s :> INewSearcher
-                s.AppendNewStates states
-
-            let canBePropagated (s : cilState) =
-                not (isIIEState s || isUnhandledError s) && isExecutable s
-            let states = states |> List.filter canBePropagated
-            Option.map (appendStateToSearcher states) currentSearcher |> ignore
+//        override x.AppendNewStates states =
+//            let appendStateToSearcher states (s : OneTargetedSearcher) =
+//                let s = s :> INewSearcher
+//                s.AppendNewStates states
+//
+//            let canBePropagated (s : cilState) =
+//                not (isIIEState s || isUnhandledError s) && isExecutable s
+//            let states = states |> Seq.filter canBePropagated
+//            Option.map (appendStateToSearcher states) currentSearcher |> ignore
         override x.Init(mainM, locs) =
             let createSearcher l =
                 let cfg = CFG.findCfg l.method
-                let s = OneTargetedSearcher(maxBound, l, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
+                let s = OneTargetedSearcher(l, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
                 currentSearcher <- Some s
 
             (x :> INewSearcher).Reset()
@@ -333,12 +331,12 @@ type TargetedSearcher(maxBound) =
 //                        priorityQueue.DeleteMin() |> ignore
 //                        Some s
 
-            match qf, qb, pobs with
-            | [], _, _ when stepsNumber = 0u -> Start(Instruction(0, main))
-            | _, ((p, s) as b) ::_, _ ->
+            match qf.StatesForPropagation(), qb, pobs with
+            | Seq.Empty, _, _ when stepsNumber = 0u -> Start(Instruction(0, main))
+            | _, Seq.Cons(b, _), _ ->
                 GoBackward(b)
-            | _, _, [] -> Stop
-            | _, [], p :: _ ->
+            | _, _, Seq.Empty -> Stop
+            | _, Seq.Empty, Seq.Cons(p,_) ->
                 let ploc = MyUtils.ip2codeLocation p.loc |> Option.get
                 if  ploc = currentLoc then
                     tryFindState()
@@ -351,8 +349,8 @@ type TargetedSearcher(maxBound) =
                 else
                     currentLoc <- ploc
                     let cfg = CFG.findCfg ploc.method
-                    let newSearcher = OneTargetedSearcher(maxBound, ploc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
-                    (newSearcher :> INewSearcher).AppendNewStates qf
+                    let newSearcher = OneTargetedSearcher(ploc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
+//                    (newSearcher :> INewSearcher).AppendNewStates (qf.StatesForPropagation())
                     currentSearcher <- Some <| newSearcher
                     tryFindState()
 

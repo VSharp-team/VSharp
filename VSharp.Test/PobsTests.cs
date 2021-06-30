@@ -45,7 +45,7 @@ namespace VSharp.Test
 
 
 
-        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher)
+        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher, int maxBound)
         {
             List<codeLocation> codeLocations = new List<codeLocation>();
             foreach (var p in proxies)
@@ -53,7 +53,7 @@ namespace VSharp.Test
                 codeLocations.Add(new codeLocation(p.Offset, p.Method));
             }
 
-            var svm = new SVM(new PobsInterpreter(searcher));
+            var svm = new SVM(new PobsInterpreter(maxBound, searcher));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
 
@@ -83,20 +83,21 @@ namespace VSharp.Test
         [TestCaseSource(nameof(PobsCases))]
         public static void AnswerPobs(Type t, string mainName, CodeLocationProxy[] proxies)
         {
-            int maxBound = 100;
+            int maxBound = 20;
             var entryMethod = t.GetMethod(mainName, All);
             var searchers = new INewSearcher[]
             {
-                new BFSSearcher(maxBound)
-                , new TargetedSearcher(maxBound)
-                , new DFSSearcher(maxBound)
+                // new TargetedSearcher()
+                new BFSSearcher()
+                // , new TargetedSearcher()
+                // , new DFSSearcher()
                 // , new BFSSearcher(maxBound)
             };
 
             bool allWitnessed = true;
             foreach (var s in searchers)
             {
-                allWitnessed &= AnswerPobsForSearcher(entryMethod, proxies, s);
+                allWitnessed &= AnswerPobsForSearcher(entryMethod, proxies, s, maxBound);
             }
 
             Assert.True(allWitnessed);
@@ -121,7 +122,7 @@ namespace VSharp.Test
                 typeof(CallsTest), nameof(CallsTest.EntryMethod2),
                 new[]
                 {
-                    new CodeLocationProxy(2, typeof(CallsTest), nameof(CallsTest.G), DesiredStatus.Witnessed)
+                    new CodeLocationProxy(0x07, typeof(CallsTest), nameof(CallsTest.G), DesiredStatus.Witnessed)
                 }
             },
             new object[]
