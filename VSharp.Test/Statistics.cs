@@ -197,11 +197,16 @@ namespace VSharp.Test
             }
         }
 
-        public void PrintStats(INewSearcher s)
+        public void PrintStats(MethodBase m, INewSearcher s)
         {
             double numberRight = _correct[s].Count;
             double numberWrong = _wrong[s].Count;
             double accuracy = numberRight / (numberRight + numberWrong);
+            if (numberRight + numberWrong == 0)
+            {
+                throw new Exception($"There was not pobs for method {m}");
+            }
+
             if (!_allAccuracy.ContainsKey(s))
             {
                 _allAccuracy.Add(s, 0);

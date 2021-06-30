@@ -138,7 +138,7 @@ namespace VSharp.Test
             {
                 foreach (var s in searchers)
                 {
-                    _pobsStatistics[m].PrintStats(s);
+                    _pobsStatistics[m].PrintStats(m, s);
                 }
                 Console.WriteLine();
             }

@@ -24,7 +24,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            var maxBound = 250;
+            var maxBound = 100;
             // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
             Logger.ConfigureWriter(TestContext.Progress);
             // var svm = new SVM(new PobsInterpreter(new BFSSearcher(bound)));
