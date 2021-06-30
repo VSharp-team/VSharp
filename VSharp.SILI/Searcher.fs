@@ -93,7 +93,7 @@ type SearchDirection =
     | GoBackward of pob * cilState
 
 type INewSearcher =
-    abstract member ChooseAction : FrontQueue * (pob * cilState) seq * pob seq * MethodBase -> SearchDirection
+    abstract member ChooseAction : FrontQueue * (pob * cilState) seq * pob seq -> SearchDirection
     abstract member CanReach : ip stack * ip * ip list -> bool
     abstract member Reset : unit -> unit
 //    abstract member ClosePob : pob -> unit
@@ -105,19 +105,22 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     static let mutable totalNumber = 0u
     let mutable stepsNumber = 0u
+    let mutable mainMethod = null
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
         override x.TotalNumber = totalNumber
-        override x.Init (_,_) = ()
+        override x.Init (m,_) =
+            mainMethod <- m
 //        override x.ClosePob (_) = ()
         override x.Reset () =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             totalNumber <- totalNumber + stepsNumber
             stepsNumber <- 0u
-        override x.ChooseAction(fq, bq, _, main) =
+            mainMethod <- null
+        override x.ChooseAction(fq, bq, _) =
             match fq.StatesForPropagation(), bq with
             | _, Seq.Cons(ps, _) -> GoBackward ps
-            | Seq.Empty, Seq.Empty when stepsNumber = 0u -> Start <| Instruction(0, main)
+            | Seq.Empty, Seq.Empty when stepsNumber = 0u -> Start <| Instruction(0, mainMethod)
             | states, Seq.Empty ->
                 match x.PickNext states with
                 | None -> Stop

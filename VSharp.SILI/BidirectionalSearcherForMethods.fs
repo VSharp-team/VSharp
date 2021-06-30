@@ -7,16 +7,18 @@ open VSharp.Core
 
 type BidirectionalSearcherForMethods() =
     let starts = HashSet<MethodBase>()
+    let mutable mainMethod = null
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
         override x.TotalNumber = 0u
-        override x.Init (_,_) = ()
-        override x.Reset () = ()
-        override x.ChooseAction (qFront, qBack, _, main) =
+        override x.Init (m,_) =
+            mainMethod <- m
+        override x.Reset () = mainMethod <- null
+        override x.ChooseAction (qFront, qBack, _) =
             match qBack, qFront.StatesForPropagation() with
             | Seq.Cons(ps, _), _ -> GoBackward ps
-            | _, Seq.Empty when starts.Contains(main) -> Stop
-            | _, Seq.Empty -> Start(Instruction(0, main))
+            | _, Seq.Empty when starts.Contains(mainMethod) -> Stop
+            | _, Seq.Empty -> Start(Instruction(0, mainMethod))
             | _, Seq.Cons(s, _) ->
                 let method = ipOperations.methodOf (CilStateOperations.currentIp s)
                 if starts.Contains(method) then GoForward s

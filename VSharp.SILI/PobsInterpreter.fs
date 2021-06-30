@@ -103,7 +103,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         while mainPobs.Count > 0 && curLvl <= maxBound do
             createPobs()
             while currentPobs.Count > 0 do
-                match searcher.ChooseAction(qFront, List.ofSeq qBack, List.ofSeq currentPobs, main) with
+                match searcher.ChooseAction(qFront, qBack, currentPobs) with
                 | Stop -> currentPobs.Clear()
                 | Start loc -> x.Start(loc)
                 | GoForward s ->

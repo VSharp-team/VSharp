@@ -58,14 +58,14 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
                 q.AddErroredStates(errors)
             | _ -> List.map (compose s) states |> List.concat |> List.iter q.Add
 
-        let mutable action = (searcher :> INewSearcher).ChooseAction (q, [], [], main)
+        let mutable action = (searcher :> INewSearcher).ChooseAction (q, [], [])
         while action <> Stop do
             match action with
             | GoForward s ->
                 let removed = q.Remove s in assert(removed)
                 step s
             | _ -> __unreachable__()
-            action <- (searcher :> INewSearcher).ChooseAction (q, [], [], main)
+            action <- (searcher :> INewSearcher).ChooseAction (q, [], [])
         x.GetResults initialState q
 
     override x.Invoke method initialState k =

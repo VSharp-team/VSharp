@@ -169,7 +169,7 @@ type OneTargetedSearcher(target : codeLocation, cfg, reachableLocations, reachab
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             stepsNumber <- 0u
         override x.Init(_,_) = ()
-        override x.ChooseAction(_,_,_,_) =
+        override x.ChooseAction(_,_,_) =
             __notImplemented__()
 
 type TargetedSearcher() =
@@ -310,7 +310,7 @@ type TargetedSearcher() =
             methodsReachabilityTransitiveClosure.Clear()
 //            loc2Searcher.Clear()
             entryMethod <- null
-        override x.ChooseAction(qf,qb,pobs,main) =
+        override x.ChooseAction(qf,qb,pobs) =
             let tryFindState () =
                 match currentSearcher with
                 | None -> Stop
@@ -332,7 +332,7 @@ type TargetedSearcher() =
 //                        Some s
 
             match qf.StatesForPropagation(), qb, pobs with
-            | Seq.Empty, _, _ when stepsNumber = 0u -> Start(Instruction(0, main))
+            | Seq.Empty, _, _ when stepsNumber = 0u -> Start(Instruction(0, entryMethod))
             | _, Seq.Cons(b, _), _ ->
                 GoBackward(b)
             | _, _, Seq.Empty -> Stop
