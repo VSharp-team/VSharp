@@ -340,7 +340,6 @@ module API =
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
-        let Dump state = Memory.dump state
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
@@ -384,12 +383,13 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
         let ComposeStates state state' = Memory.composeStates state state'
-        let WLP state fml = Memory.fillHoles state fml
-        let IsSAT fml =
-            let pc = PC.add PC.empty fml
-            match SolverInteraction.isValid {Memory.empty with pc = pc} with
-            | SolverInteraction.SmtSat _ -> true
-            | _ -> false
+        let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
+        let IsSAT pc =
+            if PC.isFalse pc then false
+            else
+                match SolverInteraction.isValid {Memory.empty with pc = pc} with
+                | SolverInteraction.SmtSat _ -> true
+                | _ -> false
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
@@ -398,4 +398,8 @@ module API =
 //            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
 //            __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
+
+    module Print =
+        let Dump state = Memory.dump state
+        let PrintPC pc = PC.toString pc
 

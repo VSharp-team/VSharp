@@ -8,6 +8,8 @@ open System.Reflection
 
 open VSharp
 open VSharp.Core
+open VSharp.Utils
+open ipOperations
 open CilStateOperations
 
 type public PobsInterpreter(maxBound, searcher : INewSearcher) =
@@ -20,7 +22,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     let currentPobs = List<pob>()
     let loc2pob = Dictionary<ip, List<pob>>()
     let answeredPobs = Dictionary<pob, pobStatus>()
-    let childOf = Dictionary<pob, pob>()
+    let ancestorOf = Dictionary<pob, pob>()
 
     let doAddPob (pob : pob) =
         currentPobs.Add(pob)
@@ -30,10 +32,21 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
             loc2pob.Add(pob.loc, !pobsRef)
         (!pobsRef).Add pob
 
-    let addPob(oldPob : pob, newPob : pob) =
-        assert(childOf.ContainsKey(newPob) |> not)
-        childOf.Add(newPob, oldPob)
-        doAddPob newPob
+    let addPob(ancestor : pob, child : pob) =
+        assert(ancestorOf.ContainsKey(child) |> not)
+        ancestorOf.Add(child, ancestor)
+        doAddPob child
+    let existAnyMainPob() = mainPobs.Count > 0
+
+    let createPobs () =
+        Seq.iter (fun (mp : pob) ->
+            let p = {mp with lvl = curLvl}
+            ancestorOf.Add(p, mp)
+            doAddPob p) mainPobs
+
+    let updateQBack ip p =
+        // TODO: choose cilState for GoForward and update qBack for this cilState #md do
+        qFront.StatesForPropagation() |> Seq.iter (fun s -> if currentIp s = ip then qBack.Add(p, s))
 
     let rec answerYes (s' : cilState, p' : pob) =
         if (not <| loc2pob.ContainsKey(p'.loc)) then
@@ -48,9 +61,12 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
             mainPobs.Remove(p') |> ignore
         if not(answeredPobs.ContainsKey p') then answeredPobs.Add(p', Witnessed s')
         else answeredPobs.[p'] <- Witnessed s'
-        if childOf.ContainsKey p' then
-            if p' = childOf.[p'] then internalfailf "Pob has itself as parent"
-            answerYes(s', childOf.[p'])
+        if ancestorOf.ContainsKey p' then
+//            assert(ancestorOf.[p'] <> null)
+            let ancestor = ancestorOf.[p']
+            if p' = ancestor then internalfailf "Pob has itself as parent"
+            if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
+                answerYes(s', ancestorOf.[p'])
 
     member x.MakeCilStateForIp (ip : ip) =
         let m = methodOf ip
@@ -79,32 +95,31 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
             if loc2pob.TryGetValue(currentIp s', pobsList) then
                 !pobsList |> Seq.iter (fun p -> qBack.Add(p, s'))
         )
-
-    member x.OverApproximate(_ : ip, _ : int) : term = Terms.True
-
     member x.Backward (p' : pob, s' : cilState, EP : ip) =
         let removed = qBack.Remove(p',s') in assert(removed)
         assert(currentIp s' = p'.loc)
         let sLvl = levelToUnsignedInt s'.level
         if p'.lvl >= sLvl then
             let lvl = p'.lvl - sLvl
-            let fml = Memory.WLP s'.state p'.fml
-            match Memory.IsSAT fml with
+            let pc = Memory.WLP s'.state p'.pc
+            match Memory.IsSAT pc with
             | true when s'.startingIP = EP -> answerYes(s', p')
             | true ->
-                let p = {loc = s'.startingIP; lvl = lvl; fml = fml}
+                let p = {loc = s'.startingIP; lvl = lvl; pc = pc}
+                Logger.warning "Backward:\nWas: %O\nNow: %O\n\n" p' p
                 addPob(p', p)
+                updateQBack s'.startingIP p
             | false ->
                 Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
     member x.BidirectionalSymbolicExecution (main : MethodBase) (EP : ip) mainPobsList =
         Seq.iter mainPobs.Add mainPobsList
         let createPobs () = mainPobs |> Seq.iter (fun (mp : pob) ->
                 let p = {mp with lvl = curLvl}
-                childOf.Add(p, mp)
+                ancestorOf.Add(p, mp)
                 doAddPob p)
-        while mainPobs.Count > 0 && curLvl <= maxBound do
+        while existAnyMainPob() && curLvl <= maxBound do
             createPobs()
-            while currentPobs.Count > 0 do
+            while currentPobs.Count > 0 && existAnyMainPob() do
                 match searcher.ChooseAction(qFront, qBack, currentPobs) with
                 | Stop -> currentPobs.Clear()
                 | Start loc -> x.Start(loc)
@@ -120,7 +135,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         qBack.Clear()
         currentPobs.Clear()
         answeredPobs.Clear()
-        childOf.Clear()
+        ancestorOf.Clear()
 //        searcher.Reset()
     override x.Invoke _ _ _ = __notImplemented__()
     override x.AnswerPobs entryMethod codeLocations k =
@@ -132,7 +147,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         let mainPobs =
             codeLocations
             |> Seq.filter (fun loc -> loc.method.GetMethodBody().GetILAsByteArray().Length > loc.offset)
-            |> Seq.map (fun (loc : codeLocation) -> {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True})
+            |> Seq.map (fun (loc : codeLocation) -> {loc = Instruction(loc.offset, loc.method); lvl = infty; pc = Memory.EmptyState.pc})
         Seq.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
         let EP = Instruction(0, entryMethod)
         searcher.Init(entryMethod, codeLocations)
@@ -145,7 +160,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
 //            | Unknown -> Logger.info "Unknown: MainPob = %O" mp
 //        List.iter showResultFor mainPobs
         let addLocationStatus (acc : Dictionary<codeLocation, string>) (loc : codeLocation) =
-            let pob = {loc = Instruction(loc.offset, loc.method); lvl = infty; fml = Terms.True}
+            let pob = {loc = Instruction(loc.offset, loc.method); lvl = infty; pc = Memory.EmptyState.pc}
             let result =
                 match answeredPobs.[pob] with
                 | Witnessed _ -> "Witnessed"

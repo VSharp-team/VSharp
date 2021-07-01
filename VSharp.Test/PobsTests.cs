@@ -88,9 +88,11 @@ namespace VSharp.Test
             var searchers = new INewSearcher[]
             {
                 // new TargetedSearcher()
-                new BFSSearcher()
+                // new BFSSearcher()
+
                 // , new TargetedSearcher()
                 // , new DFSSearcher()
+                new BidirectionalSearcherForMethods()
                 // , new BFSSearcher(maxBound)
             };
 
@@ -283,6 +285,15 @@ namespace VSharp.Test
                     new CodeLocationProxy(0x004a, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x004d, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x004f, typeof(RegExTest), nameof(RegExTest.OwnImplementationTest3), DesiredStatus.Witnessed),
+                }
+            }
+
+            , new object[]
+            {
+                typeof(Calls.NestedCalls), nameof(Calls.NestedCalls.F1),
+                new []
+                {
+                    new CodeLocationProxy(0x000f, typeof(Calls.NestedCalls), nameof(Calls.NestedCalls.F4), DesiredStatus.Witnessed),
                 }
             }
 

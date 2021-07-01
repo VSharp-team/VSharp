@@ -220,6 +220,6 @@ module internal CilStateOperations =
         let sb = dumpSectionValue "IIE" (sprintf "%O" cilState.iie) sb
         let sb = dumpSectionValue "Initial EvaluationStack Size" (sprintf "%O" cilState.initialEvaluationStackSize) sb
         let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
-        let stateDump = Memory.Dump cilState.state
+        let stateDump = Print.Dump cilState.state
         let sb = dumpSectionValue "State" stateDump sb
         if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()

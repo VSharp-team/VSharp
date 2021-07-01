@@ -1,14 +1,22 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Collections
 open System.Collections.Generic
 open System.Reflection
 open VSharp
 open CilStateOperations
 open VSharp.Core
+open VSharp.Utils
+
+type IpStackComparer() =
+    interface IComparer<cilState> with
+        override _.Compare(x : cilState, y : cilState) =
+            let res = (List.length x.ipStack).CompareTo(List.length y.ipStack)
+            res
 
 type FrontQueue(maxBound) =
-    let goodStates = List<cilState>()
+    let goodStates : IFrontQueue<cilState> = ListFrontQueue<cilState>(IpStackComparer()) :> IFrontQueue<_>
     // NOTE: ``justAddedGoodStates'' should be used by TargetedSearcher to update its priorityQueue
     let justAddedGoodStates =
         let emptyState = makeInitialState null Memory.EmptyState
@@ -33,6 +41,12 @@ type FrontQueue(maxBound) =
         elif not (isExecutable s) then nonExecutableStates.Add(s)
         else justAddedGoodStates.[justAddedSize] <- s
              justAddedSize <- justAddedSize + 1
+
+    let transformJustAdded2GoodStates() =
+        // TODO: profile it, because clearing might give overhead
+        for i = 0 to justAddedSize - 1 do
+            goodStates.Add(justAddedGoodStates.[i])
+        justAddedSize <- 0
     member x.Add(s : cilState) =
         assert(List.length s.ipStack = Memory.CallStackSize s.state)
         if isIIEState s then iieStates.Add(s)
@@ -43,20 +57,21 @@ type FrontQueue(maxBound) =
     member x.AddIIEStates(newStates : cilState seq) = Seq.iter iieStates.Add newStates
     member x.AddErroredStates(newStates : cilState seq) = Seq.iter erroredStates.Add newStates
 
-    member x.Remove(s : cilState) = goodStates.Remove(s)
+    member x.Remove(s : cilState) : bool = goodStates.Remove(s)
 
     member x.RemoveAll(pred) : int = goodStates.RemoveAll(pred)
 
+    member x.ExtractMin() : cilState option =
+        transformJustAdded2GoodStates()
+        goodStates.GetElement()
+
     member x.StatesForPropagation() : cilState seq =
-        // TODO: profile it, because clearing might give overhead
-        for i = 0 to justAddedSize - 1 do
-            goodStates.Add(justAddedGoodStates.[i])
-        justAddedSize <- 0
-        seq goodStates
+        transformJustAdded2GoodStates()
+        goodStates.ToSeq()
 
     // TODO: Is this method really needed?
     member x.GetAllStates() =
-        goodStates |> Seq.append iieStates |> Seq.append erroredStates
+        goodStates.ToSeq() |> Seq.append iieStates |> Seq.append erroredStates
         |> Seq.append maxBoundViolatingStates |> Seq.append nonExecutableStates
 
     member x.Clear() =

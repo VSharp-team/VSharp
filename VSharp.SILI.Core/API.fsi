@@ -205,7 +205,6 @@ module API =
         val ClearArray : state -> term -> term -> term -> state
 
         val IsTypeInitialized : state -> symbolicType -> term
-        val Dump : state -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term
@@ -218,12 +217,15 @@ module API =
 
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list
-        val WLP : state -> term -> term
-        val IsSAT : term -> bool
+        val WLP : state -> pathCondition -> pathCondition
+        val IsSAT : pathCondition -> bool
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
+    module Print =
+        val Dump : state -> string
+        val PrintPC : pathCondition -> string
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state

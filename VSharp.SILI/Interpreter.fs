@@ -73,6 +73,11 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
         assert(List.length cilStates = 1)
         let cilState = List.head cilStates
         let results = x.Interpret method cilState
+        let printResults (cilStates : cilState list) =
+            let states = List.fold (fun acc (cilState : cilState) -> acc + Print.Dump cilState.state + "\n") "" cilStates
+            let fullMethodName = Reflection.getFullMethodName method
+            Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
+        printResults results
         k results
 
 and public ILInterpreter(methodInterpreter : ExplorerBase) as this =

@@ -12,7 +12,10 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
-type pob = {loc : ip; lvl : uint; fml : term}
+type pob = {loc : ip; lvl : uint; pc : pathCondition}
+    with
+    override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
+
 type pobStatus =
     | Unknown
     | Witnessed of cilState

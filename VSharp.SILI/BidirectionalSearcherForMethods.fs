@@ -15,7 +15,7 @@ type BidirectionalSearcherForMethods() =
         (not (starts.Contains(m))) && m.GetMethodBody() <> null && starts.Count < 4
     let startFrom (m : MethodBase) =
         let added = starts.Add(m) in assert(added)
-        Logger.warning "Starting for method = %s" (Reflection.getFullMethodName m)
+//        Logger.warning "Starting for method = %s" (Reflection.getFullMethodName m)
         Start(Instruction(0x00, m))
     interface INewSearcher with
         override x.CanReach(_,_,_) = true
@@ -29,15 +29,15 @@ type BidirectionalSearcherForMethods() =
             mainMethod <- null
             starts.Clear()
         override x.ChooseAction (qFront, qBack, _) =
-            match qBack, qFront.StatesForPropagation() with
+            match qBack, qFront.ExtractMin() with
             | Seq.Cons(ps, _), _ -> GoBackward ps
-            | _, Seq.Empty when not <| canStartFrom(mainMethod) -> Stop
-            | _, Seq.Empty -> startFrom mainMethod
-            | _, Seq.Cons(s, _) ->
+            | _, None when not <| canStartFrom(mainMethod) -> Stop
+            | _, None -> startFrom mainMethod
+            | _, Some s ->
                 let method = ipOperations.methodOf (CilStateOperations.currentIp s)
                 if canStartFrom method then startFrom method
                 else
                     stepsNumber <- stepsNumber + 1u
-                    Logger.warning "GoForward for method = %s" (Reflection.getFullMethodName method)
+//                    Logger.warning "GoForward for method = %s" (Reflection.getFullMethodName method)
                     GoForward s
 

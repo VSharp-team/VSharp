@@ -31,6 +31,8 @@
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />
         <Compile Include="PrettyPrinting.fs" />
+        <Compile Include="PriorityQueue.fs" />
+        <Compile Include="FrontQueue.fs" />
     </ItemGroup>
 
     <ItemGroup>
