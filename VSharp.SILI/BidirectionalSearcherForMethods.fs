@@ -4,6 +4,7 @@ open System.Reflection
 open System.Collections.Generic
 open VSharp
 open VSharp.Core
+open VSharp.Utils
 
 type BidirectionalSearcherForMethods() =
     let starts = HashSet<MethodBase>()

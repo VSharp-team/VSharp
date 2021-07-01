@@ -134,15 +134,14 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
             stepsNumber <- 0u
             mainMethod <- null
         override x.ChooseAction(fq, bq, _) =
+            stepsNumber <- stepsNumber + 1u
             match fq.StatesForPropagation(), bq with
             | _, Seq.Cons(ps, _) -> GoBackward ps
-            | Seq.Empty, Seq.Empty when stepsNumber = 0u -> Start <| Instruction(0, mainMethod)
+            | Seq.Empty, Seq.Empty when stepsNumber = 1u -> Start <| Instruction(0, mainMethod)
             | states, Seq.Empty ->
                 match x.PickNext states with
                 | None -> Stop
-                | Some s ->
-                    stepsNumber <- stepsNumber + 1u
-                    GoForward s
+                | Some s -> GoForward s
 
     abstract member PickNext : cilState seq -> cilState option
     default x.PickNext (_ : cilState seq) = None
