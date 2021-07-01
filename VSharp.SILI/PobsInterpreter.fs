@@ -81,10 +81,8 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         with
         | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
     member x.Forward (s : cilState) =
-        let removed = qFront.RemoveAll(fun s' -> LanguagePrimitives.PhysicalEquality s s')
-        in
-//            if removed <= 0 then ()
-            assert(removed > 0)
+        let removed = qFront.Remove(s)
+        assert(removed)
         let goodStates, iieStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
         qFront.AddGoodStates(goodStates)
         qFront.AddIIEStates(iieStates)

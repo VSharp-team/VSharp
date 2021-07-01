@@ -52,15 +52,10 @@ type FrontQueue(maxBound) =
         if isIIEState s then iieStates.Add(s)
         elif isUnhandledError s then erroredStates.Add(s) // TODO: check it. Maybe ''isUnhandledError'' should be here
         else addGoodState s
-//    member x.AddAll(newStates : cilState seq) = Seq.iter x.Add newStates
     member x.AddGoodStates(newStates : cilState seq) = Seq.iter addGoodState newStates
     member x.AddIIEStates(newStates : cilState seq) = Seq.iter iieStates.Add newStates
     member x.AddErroredStates(newStates : cilState seq) = Seq.iter erroredStates.Add newStates
-
     member x.Remove(s : cilState) : bool = goodStates.Remove(s)
-
-    member x.RemoveAll(pred) : int = goodStates.RemoveAll(pred)
-
     member x.ExtractMin() : cilState option =
         transformJustAdded2GoodStates()
         goodStates.GetElement()
