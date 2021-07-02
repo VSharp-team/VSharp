@@ -2,7 +2,7 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Collections.Generic
-open System.Reflection
+open System.Text
 open FSharpx.Collections
 open System.Reflection
 
@@ -12,8 +12,75 @@ open VSharp.Utils
 open ipOperations
 open CilStateOperations
 
+// TODO: transform to ``module'' with functions #mb do
+type public BidirectionalEngineStatistics(searcher : INewSearcher) =
+    let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
+    let totalVisited = Dictionary<codeLocation, uint>()
+    let isHeadOfBasicBlock (codeLocation : codeLocation) =
+        let cfg = CFG.findCfg codeLocation.method
+        cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+
+    let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
+        let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
+        let sb = Seq.fold (fun sb (loc : codeLocation) ->
+            PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder (loc.offset.ToString("X")) d.[loc])) sb locs
+        PrettyPrinting.appendLine sb (sprintf "%s]" placeHolder)
+
+    let printDict placeHolder sb (d : Dictionary<codeLocation, uint>) =
+        let keys = d.Keys
+        let sortedKeys = keys |> Seq.sort |> Seq.groupBy (fun location -> location.method)
+        Seq.fold (printDict' placeHolder d) sb sortedKeys
+
+    let printPart (sb : StringBuilder) i (k : KeyValuePair<codeLocation, Dictionary<codeLocation, uint>>) =
+        let sb = PrettyPrinting.appendLine sb (sprintf "Part %d; Start from %O" i k.Key)
+//        let sb = PrettyPrinting.appendLine sb
+        printDict "\t\t" sb k.Value
+    let rememberForward (start : codeLocation, current : codeLocation) =
+        if isHeadOfBasicBlock current then
+            let mutable totalRef = ref 0u
+            if not <| totalVisited.TryGetValue(current, totalRef) then
+                totalRef <- ref 0u
+                totalVisited.Add(current, 0u)
+            totalVisited.[current] <- !totalRef + 1u
+
+            let mutable startRefDict = ref null
+            if not <| startIp2currentIp.TryGetValue(start, startRefDict) then
+                startRefDict <- ref (Dictionary<codeLocation, uint>())
+                startIp2currentIp.Add(start, !startRefDict)
+            let startDict = !startRefDict
+
+            let mutable currentRef = ref 0u
+            if not <| startDict.TryGetValue(current, currentRef) then
+                currentRef <- ref 0u
+                startDict.Add(current, 0u)
+            startDict.[current] <- !currentRef + 1u
+    member x.RememberSearcherAction = function
+        | Stop -> ()
+        | GoForward s ->
+            let startLoc = ip2codeLocation s.startingIP
+            let currentLoc = ip2codeLocation (currentIp s)
+            match startLoc, currentLoc with
+            | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
+            | _ -> ()
+        | _ -> ()
+    member x.Clear() =
+        startIp2currentIp.Clear()
+        totalVisited.Clear()
+    member x.PrintStatistics() =
+        let sb = StringBuilder()
+        let sb = PrettyPrinting.appendLine sb (searcher.GetType().ToString())
+        let sb =
+            if startIp2currentIp.Keys.Count > 1 then
+                let sb = PrettyPrinting.dumpSection "Total" sb
+                printDict "" sb totalVisited
+            else sb
+        let sb = PrettyPrinting.dumpSection "Parts" sb
+        let sb = Seq.foldi printPart sb startIp2currentIp
+        sb.ToString()
+
 type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     inherit ExplorerBase()
+    let bidirectionalEngineStatistics = BidirectionalEngineStatistics(searcher)
     let mutable curLvl = maxBound
     let infty = System.UInt32.MaxValue
     let qFront = FrontQueue(maxBound)
@@ -82,7 +149,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
     member x.Forward (s : cilState) =
         let removed = qFront.Remove(s)
-        assert(removed)
+        assert removed
         let goodStates, iieStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
         qFront.AddGoodStates(goodStates)
         qFront.AddIIEStates(iieStates)
@@ -94,7 +161,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 !pobsList |> Seq.iter (fun p -> qBack.Add(p, s'))
         )
     member x.Backward (p' : pob, s' : cilState, EP : ip) =
-        let removed = qBack.Remove(p',s') in assert(removed)
+        let removed = qBack.Remove(p',s') in assert removed
         assert(currentIp s' = p'.loc)
         let sLvl = levelToUnsignedInt s'.level
         if p'.lvl >= sLvl then
@@ -109,16 +176,14 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 updateQBack s'.startingIP p
             | false ->
                 Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
-    member x.BidirectionalSymbolicExecution (main : MethodBase) (EP : ip) mainPobsList =
+    member x.BidirectionalSymbolicExecution (*(mainMethod : MethodBase)*) (EP : ip) mainPobsList =
         Seq.iter mainPobs.Add mainPobsList
-        let createPobs () = mainPobs |> Seq.iter (fun (mp : pob) ->
-                let p = {mp with lvl = curLvl}
-                ancestorOf.Add(p, mp)
-                doAddPob p)
         while existAnyMainPob() && curLvl <= maxBound do
             createPobs()
             while currentPobs.Count > 0 && existAnyMainPob() do
-                match searcher.ChooseAction(qFront, qBack, currentPobs) with
+                let action = searcher.ChooseAction(qFront, qBack, currentPobs)
+                bidirectionalEngineStatistics.RememberSearcherAction action
+                match action with
                 | Stop -> currentPobs.Clear()
                 | Start loc -> x.Start(loc)
                 | GoForward s ->
@@ -126,6 +191,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                     x.Forward(s)
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
             curLvl <- curLvl + 1u
+        Logger.warning "BidirectionalSymbolicExecution Statistics:\n%s" (bidirectionalEngineStatistics.PrintStatistics())
     member x.ClearStructures () =
         curLvl <- maxBound
         mainPobs.Clear()
@@ -134,6 +200,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         currentPobs.Clear()
         answeredPobs.Clear()
         ancestorOf.Clear()
+        bidirectionalEngineStatistics.Clear()
 //        searcher.Reset()
     override x.Invoke _ _ _ = __notImplemented__()
     override x.AnswerPobs entryMethod codeLocations k =
@@ -149,7 +216,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         Seq.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
         let EP = Instruction(0, entryMethod)
         searcher.Init(entryMethod, codeLocations)
-        x.BidirectionalSymbolicExecution entryMethod EP mainPobs
+        x.BidirectionalSymbolicExecution EP mainPobs
         searcher.Reset()
 //        let showResultFor (mp : pob) =
 //            match answeredPobs.[mp] with

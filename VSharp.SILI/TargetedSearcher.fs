@@ -44,14 +44,6 @@ open Instruction
                 | _ -> 1
             | _ -> -1
 
-module MyUtils =
-    let ip2codeLocation (ip : ip) =
-        match offsetOf ip, methodOf ip with
-        | None, _ -> None
-        | Some offset, m ->
-            let loc = {offset = offset; method = m}
-            Some loc
-
 type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Dictionary<codeLocation, codeLocation HashSet>, reachableMethods : Dictionary<codeLocation, MethodBase HashSet>,
                        methodsReachabilityTransitiveClosure : Dictionary<MethodBase, MethodBase HashSet>) =
     let COST_OF_MANY_CALLS = 3000
@@ -81,7 +73,7 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
         | _ -> HashSet()
 
     let canReachMetrics3 (ip : ip) : reachabilityEvaluation =
-       match MyUtils.ip2codeLocation ip with
+       match ip2codeLocation ip with
        | Some l when Seq.contains target (loc2Locs l) -> Reachable(20, 0)
 //            let u = l.offset
 //            let v = target.offset
@@ -90,7 +82,7 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
        | _ -> Reachable(UNKNOWN_CONSTANT, 0)
 
     let canReachMetrics2 (ip : ip) : reachabilityEvaluation =
-       match MyUtils.ip2codeLocation ip with
+       match ip2codeLocation ip with
        | Some l when Seq.contains target (loc2Locs l) ->
             let u = l.offset
             let v = target.offset
@@ -105,7 +97,7 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
                 | Unknown -> UNKNOWN_CONSTANT, 0
             let findNewCost price =
                 Reachable(min(currentReachableCost, currentCostToExit + price), currentCostToExit + COST_OF_EXIT)
-            match MyUtils.ip2codeLocation ip with
+            match ip2codeLocation ip with
             | Some loc when not <| reachableLocations.ContainsKey(loc) -> findNewCost COST_TO_GO_TO_ENDFINALLY
             | Some loc when Seq.contains target (loc2Locs loc) ->
                 let u = loc.offset
@@ -336,8 +328,8 @@ type TargetedSearcher() =
             | _, Seq.Cons(b, _), _ ->
                 GoBackward(b)
             | _, _, Seq.Empty -> Stop
-            | _, Seq.Empty, Seq.Cons(p,_) ->
-                let ploc = MyUtils.ip2codeLocation p.loc |> Option.get
+            | _, Seq.Empty, Seq.Cons(p, _) ->
+                let ploc = ip2codeLocation p.loc |> Option.get
                 if  ploc = currentLoc then
                     tryFindState()
 //                    let s = Seq.fold tryFindAction None searchers

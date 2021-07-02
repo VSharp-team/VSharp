@@ -13,7 +13,7 @@ type BidirectionalSearcherForMethods() =
     let mutable stepsNumber = 0u
 
     let canStartFrom (m : MethodBase) =
-        (not (starts.Contains(m))) && m.GetMethodBody() <> null && starts.Count < 4
+        (not (starts.Contains(m))) && m.GetMethodBody() <> null && starts.Count < 3
     let startFrom (m : MethodBase) =
         let added = starts.Add(m) in assert(added)
 //        Logger.warning "Starting for method = %s" (Reflection.getFullMethodName m)

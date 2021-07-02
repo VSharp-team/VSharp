@@ -13,7 +13,7 @@ type public codeLocation = {offset : offset; method : MethodBase}
         | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
         | _ -> false
     override x.GetHashCode() = (x.offset, x.method).GetHashCode()
-    override x.ToString() = sprintf "offset = %s, method = %s" (x.offset.ToString("X4")) (Reflection.getFullMethodName x.method)
+    override x.ToString() = sprintf "[method = %s\noffset = %s]" (Reflection.getFullMethodName x.method) (x.offset.ToString("X"))
     interface System.IComparable with
         override x.CompareTo y =
             match y with
@@ -144,6 +144,13 @@ module ipOperations =
 //    let withOffset offset ip = {ip with label = Instruction offset}
 //    let labelOf (ip : ip) = ip.label
 //    let methodOf (ip : ip) = ip.method
+
+    let ip2codeLocation (ip : ip) =
+        match offsetOf ip, methodOf ip with
+        | None, _ -> None
+        | Some offset, m ->
+            let loc = {offset = offset; method = m}
+            Some loc
 
 module Level =
     // TODO: implement level

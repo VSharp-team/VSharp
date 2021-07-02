@@ -1317,8 +1317,8 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let opCode = parseInstruction m offset
 //        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)
         let newSts = opcode2Function.[hashFunction opCode] cfg offset cilState
-        let originLevel = levelToInt cilState.level
-        assert(List.forall (fun s -> levelToInt s.level = originLevel) newSts)
+        let originLevel = levelToUnsignedInt cilState.level
+        assert(List.forall (fun s -> levelToUnsignedInt s.level = originLevel) newSts)
         let renewInstructionsInfo cilState =
             if isError cilState then cilState
             else

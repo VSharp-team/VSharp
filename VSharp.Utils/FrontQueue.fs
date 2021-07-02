@@ -42,7 +42,7 @@ type ListFrontQueue<'a when 'a : equality>(comparer : IComparer<'a>) =
         override x.Push elem =
             let mutable current = list.Count
             list.Add(elem)
-            while current > 0 && comparer.Compare(elem, list.[current - 1]) = -1 do
+            while current > 0 && comparer.Compare(elem, list.[current - 1]) <> -1 do
                 let tmp = list.[current]
                 list.[current] <- list.[current - 1]
                 current <- current - 1
