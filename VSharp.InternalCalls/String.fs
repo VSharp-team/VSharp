@@ -86,7 +86,7 @@ module internal String =
                 let indices = List.init len1 id
                 List.fold checkOneChar True indices, state
             else MakeBool false, state
-        | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete length strings right now"
+        | _ -> __insufficientInformation__ "String.Equals works only for concrete length strings right now"
 
     let FastAllocateString (state : state) (args : term list) : term * state =
         assert(List.length args = 1)

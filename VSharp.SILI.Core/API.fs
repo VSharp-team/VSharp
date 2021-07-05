@@ -143,9 +143,6 @@ module API =
         let RefIsRef state ref1 ref2 = TypeCasting.refIsRef state ref1 ref2
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
-        let CanCastImplicitly term targetType =
-            let actualType = TypeOf term
-            Types.canCastImplicitly actualType targetType
         let Cast term targetType = TypeCasting.cast term targetType
         let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 

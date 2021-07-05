@@ -176,7 +176,7 @@ type public ExplorerBase() =
         let cilState = makeInitialState method state
         x.InitializeStatics cilState method.DeclaringType List.singleton
 
-    abstract CreateException : System.Type -> term list -> cilState -> cilState list
+    abstract CreateException : Type -> term list -> cilState -> cilState list
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
         let cilState = clearEvaluationStackLastFrame cilState

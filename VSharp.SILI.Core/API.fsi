@@ -111,7 +111,6 @@ module API =
         val RefIsAssignableToType : state -> term -> symbolicType -> term
         val RefIsRef : state -> term -> term -> term
         val IsCast : state -> term -> symbolicType -> term
-        val CanCastImplicitly : term -> symbolicType -> bool
         val Cast : term -> symbolicType -> term
         val CastReferenceToPointer : state -> term -> term
 
