@@ -136,6 +136,7 @@ module API =
         val (%%%) : term -> term -> term
         val Mul : term -> term -> term
         val Sub : term -> term -> term
+        val Add : term -> term -> term
         val IsZero : term -> term
 
     module public EvaluationStack =
@@ -199,7 +200,7 @@ module API =
         val AllocateEmptyString : state -> term -> term * state
         val AllocateDelegate : state -> term -> term * state
 
-        val CopyArray : state -> term -> term -> term -> term -> term -> state
+        val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> state
         val CopyStringArray : state -> term -> term -> term -> term -> term -> state
 
         val ClearArray : state -> term -> term -> term -> state

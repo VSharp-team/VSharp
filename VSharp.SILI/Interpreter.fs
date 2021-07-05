@@ -128,6 +128,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
             "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
             "System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)", this.ClearArray
+            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.Copy
         ]
 
     member private x.Raise createException (cilState : cilState) k =
@@ -230,6 +231,56 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             (fun state k -> k (IsNullReference array, state))
             (x.Raise x.ArgumentNullException)
             nonNullCase
+            id
+
+    member private x.Copy (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 6)
+        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+        let state = cilState.state
+        let srcType = MostConcreteTypeOfHeapRef state src
+        let dstType = MostConcreteTypeOfHeapRef state dst
+        let (>>) = API.Arithmetics.(>>)
+        let (<<) = API.Arithmetics.(<<)
+        let add = Arithmetics.Add
+        let zero = TypeUtils.Int32.Zero
+        let srcLB = Memory.ArrayLowerBoundByDimension state src zero
+        let dstLB = Memory.ArrayLowerBoundByDimension state dst zero
+        let srcNumOfAllElements = Memory.CountOfArrayElements state src
+        let dstNumOfAllElements = Memory.CountOfArrayElements state dst
+        let defaultCase (cilState : cilState) k =
+            let state' = Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
+            withState state' cilState |> List.singleton |> k
+        let lengthCheck (cilState : cilState) =
+            let check = ((add srcIndex length) >> srcNumOfAllElements) ||| ((add dstIndex length) >> dstNumOfAllElements)
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (check, state))
+                (x.Raise x.ArgumentException)
+                defaultCase
+        let indicesCheck (cilState : cilState) =
+            let primitiveLengthCheck = (length << zero) ||| (length >> TypeUtils.Int32.MaxValue)
+            let srcIndexCheck = (srcIndex << srcLB) ||| (srcIndex >> srcNumOfAllElements)
+            let dstIndexCheck = (dstIndex << dstLB) ||| (dstIndex >> dstNumOfAllElements)
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
+                (x.Raise x.ArgumentOutOfRangeException)
+                lengthCheck
+        let assignableCheck (cilState : cilState) =
+            let srcElemType = Types.ElementType srcType
+            let dstElemType = Types.ElementType dstType
+            let condition =
+                if Types.IsValueType srcElemType then True
+                else Types.TypeIsType srcElemType dstElemType
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (condition, state))
+                indicesCheck
+                (x.Raise x.InvalidCastException)
+        let rankCheck (cilState : cilState) =
+            if Types.RankOf srcType = Types.RankOf dstType then assignableCheck cilState
+            else x.Raise x.RankException cilState
+        StatedConditionalExecutionAppendResultsCIL cilState
+            (fun state k -> k (IsNullReference src ||| IsNullReference src, state))
+            (x.Raise x.ArgumentNullException)
+            rankCheck
             id
 
     member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) =
@@ -1116,8 +1167,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
 
     member x.InvalidProgramException cilState = methodInterpreter.InvalidProgramException cilState
     member x.NullReferenceException cilState = methodInterpreter.NullReferenceException cilState
+    member x.ArgumentException cilState = methodInterpreter.ArgumentException cilState
+    member x.ArgumentNullException cilState = methodInterpreter.ArgumentNullException cilState
+    member x.ArgumentOutOfRangeException cilState = methodInterpreter.ArgumentOutOfRangeException cilState
     member x.IndexOutOfRangeException cilState = methodInterpreter.IndexOutOfRangeException cilState
     member x.ArrayTypeMismatchException cilState = methodInterpreter.ArrayTypeMismatchException cilState
+    member x.RankException cilState = methodInterpreter.RankException cilState
     member x.DivideByZeroException cilState = methodInterpreter.DivideByZeroException cilState
     member x.OverflowException cilState = methodInterpreter.OverflowException cilState
     member x.ArithmeticException cilState = methodInterpreter.ArithmeticException cilState

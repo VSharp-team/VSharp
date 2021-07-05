@@ -202,10 +202,18 @@ type public ExplorerBase() =
         x.CreateException typeof<System.InvalidProgramException> [] cilState
     member x.NullReferenceException cilState =
         x.CreateException typeof<System.NullReferenceException> [] cilState
+    member x.ArgumentException cilState =
+        x.CreateException typeof<System.ArgumentException> [] cilState
+    member x.ArgumentNullException cilState =
+        x.CreateException typeof<System.ArgumentNullException> [] cilState
+    member x.ArgumentOutOfRangeException cilState =
+        x.CreateException typeof<System.ArgumentOutOfRangeException> [] cilState
     member x.IndexOutOfRangeException cilState =
         x.CreateException typeof<System.IndexOutOfRangeException> [] cilState
     member x.ArrayTypeMismatchException cilState =
         x.CreateException typeof<System.ArrayTypeMismatchException> [] cilState
+    member x.RankException cilState =
+        x.CreateException typeof<System.RankException> [] cilState
     member x.DivideByZeroException cilState =
         x.CreateException typeof<System.DivideByZeroException> [] cilState
     member x.OverflowException cilState =

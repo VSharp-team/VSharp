@@ -28,6 +28,18 @@ namespace VSharp.CSharpUtils
             throw new IndexOutOfRangeException();
         }
 
+        [Implements("System.Void System.ArgumentOutOfRangeException..ctor(this)")]
+        public static void ArgumentOutOfRangeException()
+        {
+            throw new ArgumentOutOfRangeException();
+        }
+
+        [Implements("System.Void System.ArgumentException..ctor(this)")]
+        public static void ArgumentException()
+        {
+            throw new ArgumentException();
+        }
+
         [Implements("System.Void System.ArrayTypeMismatchException..ctor(this)")]
         public static void CreateArrayTypeMismatchException()
         {

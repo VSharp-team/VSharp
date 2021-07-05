@@ -35,3 +35,15 @@ module SR =
     let internal get_Arg_NotGenericTypeDefinition (state : state) (args : term list) : term * state =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_NotGenericTypeDefinition" state
+
+    let internal get_Arg_ArgumentException (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_ArgumentException" state
+
+    let internal get_Arg_ArgumentOutOfRangeException (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_ArgumentOutOfRangeException" state
+
+    let internal get_Arg_ArgumentNullException (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_ArgumentNullException" state

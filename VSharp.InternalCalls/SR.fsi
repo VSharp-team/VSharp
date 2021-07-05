@@ -26,3 +26,12 @@ module internal SR =
 
     [<Implements("System.String System.SR.get_Arg_NotGenericTypeDefinition()")>]
     val internal get_Arg_NotGenericTypeDefinition : state -> term list -> term * state
+
+    [<Implements("System.String System.SR.get_Arg_ArgumentException()")>]
+    val internal get_Arg_ArgumentException : state -> term list -> term * state
+
+    [<Implements("System.String System.SR.get_Arg_ArgumentOutOfRangeException()")>]
+    val internal get_Arg_ArgumentOutOfRangeException : state -> term list -> term * state
+
+    [<Implements("System.String System.SR.get_Arg_ArgumentNullException()")>]
+    val internal get_Arg_ArgumentNullException : state -> term list -> term * state

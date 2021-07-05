@@ -169,6 +169,7 @@ module API =
 
         let Mul x y = mul x y
         let Sub x y = sub x y
+        let Add x y = add x y
         let IsZero term = checkEqualZero term id
 
     module public EvaluationStack =
@@ -315,11 +316,11 @@ module API =
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
 
-        let CopyArray state src srcIndex dst dstIndex length =
+        let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
-            | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType) ->
-                let srcType = Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType |> symbolicTypeToArrayType
-                let dstType = Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType |> symbolicTypeToArrayType
+            | HeapRef(srcAddress, _), HeapRef(dstAddress, _) ->
+                let srcType = symbolicTypeToArrayType srcType
+                let dstType = symbolicTypeToArrayType dstType
                 Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
             | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
