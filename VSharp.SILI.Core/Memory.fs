@@ -362,11 +362,17 @@ module internal Memory =
         else
             let symbolicType = fromDotNetType field.typ
             let extractor state = accessRegion state.classFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
+            let region = extractor state
             let mkname = fun (key : heapAddressKey) -> sprintf "%O.%O" key.address field
             let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
             let key = {address = addr}
-            MemoryRegion.read (extractor state) key (isDefault state)
-                (makeSymbolicHeapRead {sort = HeapFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+            let instantiate typ memory =
+                let picker = {sort = HeapFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault}
+                let time =
+                    if isValueType typ then state.startingTime
+                    else MemoryRegion.maxTime region.updates state.startingTime
+                makeSymbolicHeapRead picker key time (*state.startingTime*) typ memory
+            MemoryRegion.read region key (isDefault state) instantiate
 
     let readStaticField state typ (field : fieldId) =
         let symbolicType = fromDotNetType field.typ
