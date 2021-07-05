@@ -4,40 +4,32 @@ open System.Collections.Generic
 
 open VSharp
 
-type IFrontQueue<'a when 'a: equality> =
-    abstract Remove : 'a -> bool
-    abstract Add : 'a -> unit
-    abstract GetElement : unit -> 'a option
-    abstract ToSeq : unit -> 'a seq // TODO: get rid of it!
-    abstract Clear : unit -> unit
-
 type StackFrontQueue<'a when 'a : equality>() =
     let list = List<'a>()
     let isEmpty() = list.Count = 0
 
-    interface IFrontQueue<'a> with
-        override x.GetElement() =
-            if isEmpty() then None
-            else list.[list.Count - 1] |> Some
-        override x.Remove(elem: 'a) : bool = list.Remove(elem)
-        override x.Add elem = list.Add elem
+    interface IPriorityQueue<'a> with
+        override x.IsEmpty = isEmpty()
+        override x.ExtractMin() = if isEmpty() then None else Some list.[list.Count - 1]
+        override x.DeleteMin() : bool = list.RemoveAt(list.Count - 1); true
+        override x.Push elem = list.Add elem
         override x.ToSeq() = seq list
-
         override x.Clear() = list.Clear()
 
-type ListFrontQueue<'a when 'a : equality>(comparer : IComparer<'a>) =
+type ComparerPriorityQueue<'a when 'a : equality>(comparer : IComparer<'a>) =
     let list = List<'a>(50)
     let mutable minimumIndex = -1
     let isEmpty () = list.Count = 0
     let deleteMin () =
+        if isEmpty() then internalfailf "ExtractMin from empty ListPQ"
         list.RemoveAt(minimumIndex)
         minimumIndex <- minimumIndex - 1
         true
     interface IPriorityQueue<'a> with
         override x.IsEmpty = isEmpty()
         override x.ExtractMin() =
-            if isEmpty() then internalfailf "ExtractMin from empty ListPQ"
-            list.[minimumIndex]
+            if isEmpty() then None
+            else Some list.[minimumIndex]
         override x.DeleteMin() = deleteMin()
         override x.Push elem =
             let mutable current = list.Count
@@ -48,17 +40,7 @@ type ListFrontQueue<'a when 'a : equality>(comparer : IComparer<'a>) =
                 current <- current - 1
                 list.[current] <- tmp
             minimumIndex <- minimumIndex + 1
-
-    interface IFrontQueue<'a> with
-        override x.GetElement() =
-            if isEmpty() then None
-            else (x :> IPriorityQueue<_>).ExtractMin() |> Some
-        override x.Remove(elem: 'a) : bool =
-            assert(list.[minimumIndex] = elem)
-            deleteMin()
-        override x.Add elem = (x :> IPriorityQueue<'a>).Push(elem)
         override x.ToSeq() = seq list
-
         override x.Clear() =
             list.Clear()
             minimumIndex <- -1

@@ -91,9 +91,9 @@ namespace VSharp.Test
                 // new BFSSearcher()
 
                 // , new TargetedSearcher()
-                // , new DFSSearcher()
-                new BidirectionalSearcherForMethods()
-                // , new BFSSearcher(maxBound)
+                new DFSSearcher()
+                , new BidirectionalSearcherForMethods()
+                , new BFSSearcher()
             };
 
             bool allWitnessed = true;

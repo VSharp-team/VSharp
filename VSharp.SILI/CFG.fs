@@ -6,9 +6,7 @@ open System.Collections.Generic
 
 open System.Reflection.Emit
 open FSharpx.Collections
-open FSharpx.Collections
 open VSharp
-open VSharp.Core
 
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
@@ -219,3 +217,28 @@ module public CFG =
 
     let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
 
+    let buildReachability (entryMethod : MethodBase) =
+        let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
+        let inverseMethodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
+        let addCall (caller : MethodBase) (callee : MethodBase) =
+            if not <| methodsReachability.ContainsKey(caller) then methodsReachability.Add(caller, HashSet<_>())
+            let hs = methodsReachability.[caller]
+            hs.Add(callee) |> ignore
+            if not <| inverseMethodsReachability.ContainsKey(callee) then inverseMethodsReachability.Add(callee, HashSet<_>())
+            let hs = inverseMethodsReachability.[callee]
+            hs.Add(caller) |> ignore
+        let rec exit processedMethods = function
+            | [] -> ()
+            | m :: q' -> findFixPoint (processedMethods, q') m
+        and findFixPoint (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
+            if List.contains current processedMethods then exit processedMethods methodsQueue
+            else
+                let processedMethods = current :: processedMethods
+                let cfg = findCfg current
+                Seq.iter (fun (_, m) -> addCall current m) cfg.offsetsDemandingCall.Values
+                let newQ =
+                    if methodsReachability.ContainsKey(current) then methodsQueue @ List.ofSeq methodsReachability.[current]
+                    else methodsQueue
+                exit processedMethods newQ
+        findFixPoint ([],[]) entryMethod
+        methodsReachability, inverseMethodsReachability

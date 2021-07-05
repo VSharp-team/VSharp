@@ -81,15 +81,16 @@ type public BidirectionalEngineStatistics(searcher : INewSearcher) =
 type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     inherit ExplorerBase()
     let bidirectionalEngineStatistics = BidirectionalEngineStatistics(searcher)
-    let mutable curLvl = maxBound
-    let infty = System.UInt32.MaxValue
-    let qFront = FrontQueue(maxBound)
+    let mutable curLvl : uint = maxBound
+    let infty = UInt32.MaxValue
+    let qFront : FrontQueue = FrontQueue(maxBound, searcher)
     let qBack = List<pob * cilState>()
+    let usedQBack = HashSet<pob * cilState>()
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()
     let loc2pob = Dictionary<ip, List<pob>>()
     let answeredPobs = Dictionary<pob, pobStatus>()
-    let ancestorOf = Dictionary<pob, pob>()
+    let ancestorOf = Dictionary<pob, List<pob>>()
 
     let doAddPob (pob : pob) =
         currentPobs.Add(pob)
@@ -100,20 +101,29 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         (!pobsRef).Add pob
 
     let addPob(ancestor : pob, child : pob) =
-        assert(ancestorOf.ContainsKey(child) |> not)
-        ancestorOf.Add(child, ancestor)
+        if not <| ancestorOf.ContainsKey(child) then
+            ancestorOf.Add(child, List<_>())
+        ancestorOf.[child].Add(ancestor)
         doAddPob child
+
     let existAnyMainPob() = mainPobs.Count > 0
 
     let createPobs () =
         Seq.iter (fun (mp : pob) ->
             let p = {mp with lvl = curLvl}
-            ancestorOf.Add(p, mp)
+            let l = List<pob>()
+            l.Add(mp)
+            ancestorOf.Add(p, l)
             doAddPob p) mainPobs
 
-    let updateQBack ip p =
-        // TODO: choose cilState for GoForward and update qBack for this cilState #md do
-        qFront.StatesForPropagation() |> Seq.iter (fun s -> if currentIp s = ip then qBack.Add(p, s))
+    let updateQBack s =
+        let ip = currentIp s
+        let pobsList = ref null
+        if loc2pob.TryGetValue(ip, pobsList) then
+            !pobsList |> Seq.iter (fun p ->
+                if not <| usedQBack.Contains(p, s) then
+                    usedQBack.Add(p, s) |> ignore
+                    qBack.Add(p, s))
 
     let rec answerYes (s' : cilState, p' : pob) =
         if (not <| loc2pob.ContainsKey(p'.loc)) then
@@ -130,10 +140,10 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         else answeredPobs.[p'] <- Witnessed s'
         if ancestorOf.ContainsKey p' then
 //            assert(ancestorOf.[p'] <> null)
-            let ancestor = ancestorOf.[p']
-            if p' = ancestor then internalfailf "Pob has itself as parent"
-            if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
-                answerYes(s', ancestorOf.[p'])
+            Seq.iter (fun (ancestor : pob) ->
+                if p' = ancestor then internalfailf "Pob has itself as parent"
+                if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
+                    answerYes(s', ancestor)) ancestorOf.[p']
 
     member x.MakeCilStateForIp (ip : ip) =
         let m = methodOf ip
@@ -147,19 +157,19 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
             qFront.AddGoodStates(starts)
         with
         | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
+
     member x.Forward (s : cilState) =
         let removed = qFront.Remove(s)
         assert removed
+        updateQBack s
+//        Seq.iter (fun (p : pob) -> if p.loc = (currentIp s) then qBack.Add(p, s)) currentPobs
+//        if not removed then ()
         let goodStates, iieStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
         qFront.AddGoodStates(goodStates)
         qFront.AddIIEStates(iieStates)
         qFront.AddErroredStates(errors)
+        List.iter updateQBack goodStates
 
-        goodStates |> List.iter (fun (s' : cilState) ->
-            let pobsList = ref null
-            if loc2pob.TryGetValue(currentIp s', pobsList) then
-                !pobsList |> Seq.iter (fun p -> qBack.Add(p, s'))
-        )
     member x.Backward (p' : pob, s' : cilState, EP : ip) =
         let removed = qBack.Remove(p',s') in assert removed
         assert(currentIp s' = p'.loc)
@@ -173,15 +183,15 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 let p = {loc = s'.startingIP; lvl = lvl; pc = pc}
                 Logger.warning "Backward:\nWas: %O\nNow: %O\n\n" p' p
                 addPob(p', p)
-                updateQBack s'.startingIP p
             | false ->
                 Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
+
     member x.BidirectionalSymbolicExecution (*(mainMethod : MethodBase)*) (EP : ip) mainPobsList =
         Seq.iter mainPobs.Add mainPobsList
         while existAnyMainPob() && curLvl <= maxBound do
             createPobs()
             while currentPobs.Count > 0 && existAnyMainPob() do
-                let action = searcher.ChooseAction(qFront, qBack, currentPobs)
+                let action = searcher.ChooseAction(qFront.StatesForPropagation(), qBack, currentPobs)
                 bidirectionalEngineStatistics.RememberSearcherAction action
                 match action with
                 | Stop -> currentPobs.Clear()
@@ -192,6 +202,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
             curLvl <- curLvl + 1u
         Logger.warning "BidirectionalSymbolicExecution Statistics:\n%s" (bidirectionalEngineStatistics.PrintStatistics())
+
     member x.ClearStructures () =
         curLvl <- maxBound
         mainPobs.Clear()
@@ -202,12 +213,13 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         ancestorOf.Clear()
         bidirectionalEngineStatistics.Clear()
 //        searcher.Reset()
+
     override x.Invoke _ _ _ = __notImplemented__()
+
     override x.AnswerPobs entryMethod codeLocations k =
         let printLocInfo (loc : codeLocation) =
             Logger.info "Got loc {%O, %O}" loc.offset loc.method
         Seq.iter printLocInfo codeLocations
-
         x.ClearStructures()
         let mainPobs =
             codeLocations

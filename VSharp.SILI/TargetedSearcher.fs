@@ -164,6 +164,9 @@ type OneTargetedSearcher(target : codeLocation, cfg, reachableLocations, reachab
         override x.ChooseAction(_,_,_) =
             __notImplemented__()
 
+        override x.PriorityQueue maxBound =
+            __notImplemented__()
+
 type TargetedSearcher() =
     static let mutable totalNumber = 0u
     let reachableLocations = Dictionary<codeLocation, HashSet<codeLocation>>()
@@ -221,26 +224,9 @@ type TargetedSearcher() =
         let _ = dfsSCC [] 0 //TODO: what about EHC?
         reachableMethods.[{offset = 0; method = currentMethod}]
 
-    let addCall (current : MethodBase) (calledMethods : MethodBase HashSet) =
-        let add m (ms : MethodBase HashSet) (d : Dictionary<_, MethodBase HashSet >) =
-            if d.ContainsKey m then d.[m].AddAll(ms)
-            else d.Add(m, ms)
 
-        add current calledMethods methodsReachability
 
-    let buildReachability () =
-        let rec exit processedMethods = function
-                | [] -> ()
-                | m :: q' -> findFixPoint (processedMethods, q') m
-        and findFixPoint (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
-            if List.contains current processedMethods then exit processedMethods methodsQueue
-            else
-                let processedMethods = current :: processedMethods
-                let calledMethods = buildReachabilityInfo current
-                addCall current calledMethods
 
-                exit processedMethods (methodsQueue @ List.ofSeq calledMethods)
-        findFixPoint ([],[]) entryMethod
 
     let makeTransitiveClosure () =
         let findReachableMethodsForMethod (current : MethodBase) =
@@ -284,8 +270,9 @@ type TargetedSearcher() =
 
             (x :> INewSearcher).Reset()
             entryMethod <- mainM
-            buildReachability ()
-            makeTransitiveClosure ()
+//            buildReachability ()
+//            makeTransitiveClosure ()
+            print()
             Seq.iter createSearcher locs
         override x.Reset() =
 //            Logger.warning "steps number done by TS = %d" stepsNumber
@@ -302,6 +289,10 @@ type TargetedSearcher() =
             methodsReachabilityTransitiveClosure.Clear()
 //            loc2Searcher.Clear()
             entryMethod <- null
+
+        override x.PriorityQueue maxBound =
+            __notImplemented__()
+
         override x.ChooseAction(qf,qb,pobs) =
             let tryFindState () =
                 match currentSearcher with
@@ -323,7 +314,8 @@ type TargetedSearcher() =
 //                        priorityQueue.DeleteMin() |> ignore
 //                        Some s
 
-            match qf.StatesForPropagation(), qb, pobs with
+
+            match qf.ToSeq(), qb, pobs with
             | Seq.Empty, _, _ when stepsNumber = 0u -> Start(Instruction(0, entryMethod))
             | _, Seq.Cons(b, _), _ ->
                 GoBackward(b)

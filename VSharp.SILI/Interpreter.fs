@@ -42,13 +42,13 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
         | _ -> validStates
 
     member x.Interpret (main : MethodBase) (initialState : cilState) =
-        let q = FrontQueue(maxBound)
+        let q = FrontQueue(maxBound, searcher)
         q.Add initialState
 
         let hasAnyProgress (s : cilState) = [s.startingIP] <> s.ipStack
         let isEffectFor currentIp (s : cilState) = hasAnyProgress s && startingIpOf s = currentIp
         let step s =
-            let forPropagation = q.StatesForPropagation() |> List.ofSeq
+            let forPropagation = q.StatesForPropagation().ToSeq() |> List.ofSeq
             let states = List.filter (isEffectFor (currentIp s)) (s :: forPropagation)
             match states with
             | [] ->
@@ -58,14 +58,14 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
                 q.AddErroredStates(errors)
             | _ -> List.map (compose s) states |> List.concat |> List.iter q.Add
 
-        let mutable action = (searcher :> INewSearcher).ChooseAction (q, [], [])
+        let mutable action = (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
         while action <> Stop do
             match action with
             | GoForward s ->
                 let removed = q.Remove s in assert(removed)
                 step s
             | _ -> __unreachable__()
-            action <- (searcher :> INewSearcher).ChooseAction (q, [], [])
+            action <- (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
         x.GetResults initialState q
 
     override x.Invoke method initialState k =
