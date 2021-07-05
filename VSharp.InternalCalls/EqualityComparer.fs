@@ -26,12 +26,9 @@ module EqualityComparer =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let typ = Type.getActualType state runtimeType
-        if typ = typeof<Int64> then
-            let genericEqualityComparer = typeof<EqualityComparer<_>>.Assembly.GetType("System.Collections.Generic.ObjectComparer`1")
-            let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typ)
-            Types.FromDotNetType genericEqualityComparer |> Memory.AllocateDefaultClass state
-        else
-            __notImplemented__()
+        let genericEqualityComparer = typeof<EqualityComparer<_>>.Assembly.GetType("System.Collections.Generic.ObjectComparer`1")
+        let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typ)
+        Types.FromDotNetType genericEqualityComparer |> Memory.AllocateDefaultClass state
 
     let internal get_Default (state : state) (args : term list) : term * state =
         assert(List.length args = 1)
