@@ -793,19 +793,17 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             let length = Memory.ArrayLengthByDimension cilState.state arrayRef (MakeNumber 0)
             push length cilState |> List.singleton |> k
         x.NpeOrInvokeStatementCIL cilState arrayRef ldlen id
-    member private x.LdVirtFtn (_ : cfg) _ (_ : cilState) =
-        __notImplemented__()
-//        let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Ldvirtftn.Size)
-//        match cilState.opStack with
-//        | this :: stack ->
-//            let ldvirtftn (cilState : cilState) k =
-//                assert(isReference this)
-//                let t = this |> SightTypeOfRef |> Types.ToDotNetType
-//                let methodInfo = t.GetMethod(ancestorMethodBase.Name, allBindingFlags)
-//                let methodPtr = Terms.Concrete methodInfo (Types.FromDotNetType cilState.state (methodInfo.GetType()))
-//                k [methodPtr, cilState]
-//            x.NpeOrInvokeStatement {cilState with opStack = stack} this ldvirtftn pushFunctionResults
-//        | _ -> __corruptedStack__()
+    member private x.LdVirtFtn (cfg : cfg) offset (cilState : cilState) =
+        let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Ldvirtftn.Size)
+        let this, cilState = pop cilState
+        let ldvirtftn (cilState : cilState) k =
+            assert(IsReference this)
+            let thisType = this |> MostConcreteTypeOfHeapRef cilState.state |> Types.ToDotNetType
+            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, Reflection.allBindingFlags)
+            let methodInfoType = methodInfo.GetType() |> Types.FromDotNetType
+            let methodPtr = Terms.Concrete methodInfo methodInfoType
+            push methodPtr cilState |> List.singleton |> k
+        x.NpeOrInvokeStatementCIL cilState this ldvirtftn id
 
     member x.BoxNullable (t : System.Type) (v : term) (cilState : cilState) : cilState list =
         // TODO: move it to Reflection.fs; add more validation in case if .NET implementation does not have these fields
