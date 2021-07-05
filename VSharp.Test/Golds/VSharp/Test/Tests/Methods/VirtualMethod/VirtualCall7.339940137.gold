@@ -1,3 +1,3 @@
 METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.VirtualCall7(VSharp.Test.Tests.Methods.VirtualJ`1[System.Single], System.Int32)
 RESULT: Totally 1 state:
-Insufficient information! Can't call abstract method F, need more information about the object type
+Insufficient information! Can't call abstract method Int32 F[Single](), need more information about the object type

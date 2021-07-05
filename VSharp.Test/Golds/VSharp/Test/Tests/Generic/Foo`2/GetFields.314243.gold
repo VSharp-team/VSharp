@@ -1,3 +1,3 @@
 METHOD: T VSharp.Test.Tests.Generic.Foo`2[T,U].GetFields()
 RESULT: Totally 1 state:
-Insufficient information! Not sure which value to instantiate, because it's unknown if T is a reference or a value type
+Insufficient information! Can't determine if T is a value type or not!
