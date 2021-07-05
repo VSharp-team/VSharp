@@ -149,7 +149,7 @@ namespace VSharp.Test.Tests
             Array.Clear(a, 1, 2);
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public void CopyToConcreteToConcreteArray()
         {
             var a = new int[4] { 5, 6, 7, 8 };

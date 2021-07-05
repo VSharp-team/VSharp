@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -86,15 +87,15 @@ namespace VSharp.Test.Tests
         class Customer
         {
             public int ID { get; set; }
-            public string Name { get; set; }
-            public string City { get; set; }
+            public char Name { get; set; }
+            public char City { get; set; }
         }
 
         class Distributor
         {
             public int ID { get; set; }
-            public string Name { get; set; }
-            public string City { get; set; }
+            public char Name { get; set; }
+            public char City { get; set; }
         }
 
         [TestSvm]
@@ -102,15 +103,15 @@ namespace VSharp.Test.Tests
         {
             var customers = new List<Customer>
             {
-                new Customer {ID = x, Name = "Jack", City = "Rybinsk"},
-                new Customer {ID = y, Name = "John", City = "Moscow"},
+                new Customer {ID = x, Name = 'J', City = 'R'},
+                new Customer {ID = y, Name = 'R', City = 'M'},
                 // new Customer {ID = z, Name = "Dima", City = "SPB"},
                 // new Customer {ID = f, Name = "Yuri", City = "Novosibirsk"}
             };
             var distributors = new List<Distributor>
             {
-                new Distributor {ID = x, Name = "Ivan", City = "Rybinsk"},
-                new Distributor {ID = y, Name = "Polina", City = "Moscow"},
+                new Distributor {ID = x, Name = 'I', City = 'R'},
+                new Distributor {ID = y, Name = 'P', City = 'M'},
                 // new Distributor {ID = z, Name = "Olga", City = "SPB"},
                 // new Distributor {ID = f, Name = "Lena", City = "Novosibirsk"},
             };
@@ -118,7 +119,7 @@ namespace VSharp.Test.Tests
                 from cust in customers
                 group cust by cust.City into custGroup
                 join dist in distributors on custGroup.FirstOrDefault().ID equals dist.ID
-                where custGroup.FirstOrDefault().ID > 0 && (dist.Name == "Ivan" || dist.Name == "Lena")
+                where custGroup.FirstOrDefault().ID > 0 && (dist.Name == 'I' || dist.Name == 'L')
                 // orderby custGroup.Key
                 select dist;
             var result = "";
