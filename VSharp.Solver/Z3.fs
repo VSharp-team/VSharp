@@ -20,8 +20,8 @@ module internal Z3 =
 // ---------------------------- Encoding result -----------------------------
     [<CustomEquality;NoComparison>]
     type encodingResult =
-        // TODO: use type for assumptions -- add only if element is not True #do
-        {expr : Expr; assumptions: BoolExpr list} // TODO: mb assumptions = Expr seq? #do
+        // TODO: use new type for assumptions -- add only if element is not True
+        {expr : Expr; assumptions: BoolExpr list}
         static member Create(expr : 'a) = {expr = expr; assumptions = List.empty}
         static member Create(expr : 'a, conditions) = {expr = expr; assumptions = conditions}
 
@@ -347,8 +347,9 @@ module internal Z3 =
             let inst = inst leftExpr
             let checkOneKey (acc, assumptions) (right, value) =
                 let rightAssumptions, rightExpr = encodeKey right
-                let assumptions = List.append assumptions rightAssumptions // TODO: make better (mb monad) #do
-                // NOTE: we need constraints on right key, because value may contain it // TODO: ? #do
+                // TODO: [style] auto append assumptions
+                let assumptions = List.append assumptions rightAssumptions
+                // NOTE: we need constraints on right key, because value may contain it
                 let keysEquality = keysAreEqual(leftExpr, rightExpr)
                 let keysAreMatch = keyInRegion keysEquality right rightExpr
                 let valueExpr = x.EncodeTerm encCtx value
@@ -522,7 +523,7 @@ module internal Z3 =
                                     if atom <> null then
                                         let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
                                         yield lit :> Expr
-                                for i in 0 .. assumptions.Length - 1 do // TODO: do better #do
+                                for i in 0 .. assumptions.Length - 1 do
                                     yield assumptions.[i] :> Expr
                                 yield query.expr
                             } |> Array.ofSeq

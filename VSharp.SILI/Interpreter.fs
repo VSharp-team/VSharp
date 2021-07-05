@@ -434,7 +434,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
                 x.CallVirtualMethodFromTermType state typ ancestorMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionAppendResultsCIL cilState
-                    (fun state k -> k (API.Types.TypeIsRef state baseType this, state)) // TODO: may this be Ref to ValueType? #do
+                    (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
                     (callForConcreteType baseType)
                     (x.CallAbstract ancestorMethod)
                     k
