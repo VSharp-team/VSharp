@@ -408,7 +408,8 @@ module internal Memory =
     let rec private readAddress state = function
         | PrimitiveStackLocation key -> readStackLocation state key
         | ClassField(addr, field) -> readClassField state addr field
-        | ArrayIndex(addr, indices, typ) -> readArrayIndex state addr indices typ // TODO: what if typ if not the most concrete? #do
+        // [NOTE] ref must be the most concrete, otherwise region will be not found
+        | ArrayIndex(addr, indices, typ) -> readArrayIndex state addr indices typ
         | StaticField(typ, field) -> readStaticField state typ field
         | StructField(addr, field) ->
             let structTerm = readAddress state addr

@@ -638,10 +638,11 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let this, args, cilState = x.RetrieveCalledMethodAndArgs OpCodes.Newobj calledMethod cilState
         assert(Option.isNone this)
         let constructedTermType = Types.FromDotNetType typ
-        let wasConstructorCalled (beforeCall : cilState) (afterCall : cilState) =
-            Memory.CallStackSize afterCall.state = Memory.CallStackSize beforeCall.state // TODO: why equality?
+        let wasConstructorInlined (beforeCall : cilState) (afterCall : cilState) =
+            // [NOTE] For example, if constructor is external call, it will be inlined and executed simultaneously
+            Memory.CallStackSize afterCall.state = Memory.CallStackSize beforeCall.state
         let modifyValueResultIfConstructorWasCalled (beforeCall : cilState) (afterCall : cilState) =
-            if wasConstructorCalled beforeCall afterCall then pushNewObjForValueTypes afterCall
+            if wasConstructorInlined beforeCall afterCall then pushNewObjForValueTypes afterCall
             else afterCall
 
         let blockCase (cilState : cilState) =
