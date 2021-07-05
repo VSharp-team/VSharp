@@ -117,17 +117,24 @@ module internal Z3 =
             if left = right then x.True
             else ctx.MkEq(left, right)
 
-        member private x.MkAnd(left, right) =
+        member x.MkAnd(left, right) =
             if left = x.True then right
             elif right = x.True then left
             else ctx.MkAnd(left, right)
 
-        member x.MkAnd ([<ParamArray>] elems) = // TODO: array or seq? #do
-            let nonTrueElems = Array.filter (fun elem -> elem <> x.True) elems
+        member private x.SimplifyAndElements (nonTrueElems : BoolExpr seq) =
             match nonTrueElems with
             | Seq.Empty -> x.True
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
             | _ -> ctx.MkAnd(nonTrueElems)
+
+        member x.MkAnd ([<ParamArray>] elems) =
+            let nonTrueElems = Array.filter (fun elem -> elem <> x.True) elems
+            x.SimplifyAndElements nonTrueElems
+
+        member x.MkAnd elems =
+            let nonTrueElems = Seq.filter (fun elem -> elem <> x.True) elems
+            x.SimplifyAndElements nonTrueElems
 
         member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
