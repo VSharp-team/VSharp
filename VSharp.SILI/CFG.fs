@@ -52,7 +52,6 @@ module public CFG =
     let private createData (methodBase : MethodBase) =
         assert(methodBase <> null)
         let mb = methodBase.GetMethodBody()
-        if mb = null then ()
         assert(mb <> null)
         let array = mb.GetILAsByteArray()
         let size = array.Length
@@ -217,28 +216,35 @@ module public CFG =
 
     let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
 
-    let buildReachability (entryMethod : MethodBase) =
+    let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
+
+    let private addToDict (dict : Dictionary<'a, HashSet<'b>> ) (k : 'a ) (v : 'b) =
+        let mutable refSet = ref null
+        if not (dict.TryGetValue(k, refSet)) then
+            refSet <- ref (HashSet<_>())
+            dict.Add(k, !refSet)
+        (!refSet).Add(v) |> ignore
+
+    let private addCall methodsReachability inverseMethodsReachability caller callee =
+        addToDict methodsReachability caller callee
+        addToDict inverseMethodsReachability callee caller
+
+    let buildMethodsReachabilityForAssembly (entryMethod : MethodBase) =
+        let assembly = entryMethod.Module.Assembly
         let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
         let inverseMethodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
-        let addCall (caller : MethodBase) (callee : MethodBase) =
-            if not <| methodsReachability.ContainsKey(caller) then methodsReachability.Add(caller, HashSet<_>())
-            let hs = methodsReachability.[caller]
-            hs.Add(callee) |> ignore
-            if not <| inverseMethodsReachability.ContainsKey(callee) then inverseMethodsReachability.Add(callee, HashSet<_>())
-            let hs = inverseMethodsReachability.[callee]
-            hs.Add(caller) |> ignore
         let rec exit processedMethods = function
             | [] -> ()
-            | m :: q' -> findFixPoint (processedMethods, q') m
-        and findFixPoint (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
-            if List.contains current processedMethods then exit processedMethods methodsQueue
+            | m :: q' -> dfs (processedMethods, q') m
+        and dfs (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
+            if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
             else
                 let processedMethods = current :: processedMethods
                 let cfg = findCfg current
-                Seq.iter (fun (_, m) -> addCall current m) cfg.offsetsDemandingCall.Values
+                Seq.iter (fun (_, m) -> addCall methodsReachability inverseMethodsReachability current m) cfg.offsetsDemandingCall.Values
                 let newQ =
-                    if methodsReachability.ContainsKey(current) then methodsQueue @ List.ofSeq methodsReachability.[current]
+                    if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue
                 exit processedMethods newQ
-        findFixPoint ([],[]) entryMethod
+        dfs ([],[]) entryMethod
         methodsReachability, inverseMethodsReachability

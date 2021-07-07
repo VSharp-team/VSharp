@@ -33,7 +33,7 @@ type BidirectionalSearcherForMethods() =
         override x.TotalNumber = totalNumber
         override x.Init (m, locs) =
             mainMethod <- m
-            let _, inverseReachability' = CFG.buildReachability m
+            let _, inverseReachability' = CFG.buildMethodsReachabilityForAssembly m
             inverseReachability <- inverseReachability'
             Seq.iter (fun loc -> rememberStart loc.method) locs
         override x.PriorityQueue _ = ComparerPriorityQueue<cilState>(IpStackComparer()) :> IPriorityQueue<cilState>
