@@ -204,7 +204,7 @@ namespace VSharp.Test
             double accuracy = numberRight / (numberRight + numberWrong);
             if (numberRight + numberWrong == 0)
             {
-                Console.WriteLine($"There were no pobs for method {m}");
+                Console.WriteLine($"\nThere were no pobs for method {m}, searcher = {s.GetType()}");
             }
 
             if (!_allAccuracy.ContainsKey(s))

@@ -49,12 +49,8 @@ module public CFG =
                 x.edges.[src].Add dst
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
-    let private createData (methodBase : MethodBase) =
-        assert(methodBase <> null)
-        let mb = methodBase.GetMethodBody()
-        assert(mb <> null)
-        let array = mb.GetILAsByteArray()
-        let size = array.Length
+    let private createData (methodBase : MethodBase) (methodBody : MethodBody) (ilBytes : byte []) =
+        let size = ilBytes.Length
         let interim = {
             fallThroughOffset = Array.init size (fun _ -> None)
             verticesOffsets = HashSet<_>()
@@ -64,13 +60,13 @@ module public CFG =
         }
         let cfg = {
             methodBase = methodBase
-            ilBytes = mb.GetILAsByteArray()
+            ilBytes = ilBytes
             sortedOffsets = List<_>()
             dfsOut = Dictionary<_,_>()
             sccOut = Dictionary<_,_>()
             graph = Dictionary<_, _>()
             reverseGraph = Dictionary<_,_>()
-            clauses = List.ofSeq mb.ExceptionHandlingClauses
+            clauses = List.ofSeq methodBody.ExceptionHandlingClauses
             offsetsDemandingCall = Dictionary<_,_>()
         }
         interim, cfg
@@ -200,9 +196,11 @@ module public CFG =
         dist
 
     let private build (methodBase : MethodBase) =
-        let interimData, cfgData = createData methodBase
         let methodBody = methodBase.GetMethodBody()
+        assert (methodBody <> null)
         let ilBytes = methodBody.GetILAsByteArray()
+        assert (ilBytes <> null)
+        let interimData, cfgData = createData methodBase methodBody ilBytes
         let used = HashSet<offset>()
         dfsComponent methodBase interimData used ilBytes 0
         Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
@@ -240,8 +238,9 @@ module public CFG =
             if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
             else
                 let processedMethods = current :: processedMethods
-                let cfg = findCfg current
-                Seq.iter (fun (_, m) -> addCall methodsReachability inverseMethodsReachability current m) cfg.offsetsDemandingCall.Values
+                if current.GetMethodBody() <> null then
+                    let cfg = findCfg current
+                    Seq.iter (fun (_, m) -> addCall methodsReachability inverseMethodsReachability current m) cfg.offsetsDemandingCall.Values
                 let newQ =
                     if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue

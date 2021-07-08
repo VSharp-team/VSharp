@@ -16,6 +16,7 @@ open CilStateOperations
 type public BidirectionalEngineStatistics(searcher : INewSearcher) =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
+    let unansweredPobs = List<pob>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let cfg = CFG.findCfg codeLocation.method
         cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
@@ -63,12 +64,19 @@ type public BidirectionalEngineStatistics(searcher : INewSearcher) =
             | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
             | _ -> ()
         | _ -> ()
+    member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
     member x.Clear() =
         startIp2currentIp.Clear()
         totalVisited.Clear()
+        unansweredPobs.Clear()
     member x.PrintStatistics() =
         let sb = StringBuilder()
         let sb = PrettyPrinting.appendLine sb (searcher.GetType().ToString())
+        let sb =
+            if unansweredPobs.Count = 0 then sb
+            else
+                let sb = PrettyPrinting.dumpSection "Unanswered Pobs" sb
+                Seq.fold (fun sb p -> PrettyPrinting.appendLine sb (p.ToString())) sb unansweredPobs
         let sb =
             if startIp2currentIp.Keys.Count > 1 then
                 let sb = PrettyPrinting.dumpSection "Total" sb
@@ -184,7 +192,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 Logger.warning "Backward:\nWas: %O\nNow: %O\n\n" p' p
                 addPob(p', p)
             | false ->
-                Logger.info "UNSAT for pob = %O and s'.PC = %O" p' s'.state.pc
+                Logger.warning "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
 
     member x.BidirectionalSymbolicExecution (*(mainMethod : MethodBase)*) (EP : ip) mainPobsList =
         Seq.iter mainPobs.Add mainPobsList
@@ -201,6 +209,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                     x.Forward(s)
                 | GoBackward(p', s') -> x.Backward(p',s', EP)
             curLvl <- curLvl + 1u
+        Seq.iter bidirectionalEngineStatistics.AddUnansweredPob mainPobs
         Logger.warning "BidirectionalSymbolicExecution Statistics:\n%s" (bidirectionalEngineStatistics.PrintStatistics())
 
     member x.ClearStructures () =
