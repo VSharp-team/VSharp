@@ -1023,7 +1023,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [TestSvm]
+        [TestSvm(new []{0xA, 0xF, 0x14, 0x17, 0x1B, 0x20, 0x21})]
         public static int ImpossibleBug(int n) {
             try {
                 if (n <= 0 && checked(-n) < 0) {

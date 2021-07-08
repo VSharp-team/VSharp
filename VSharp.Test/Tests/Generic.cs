@@ -54,7 +54,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [TestSvm]
+        [TestSvm(0x1)]
         public static T RetT(T t)
         {
             return t;
@@ -70,19 +70,19 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        [TestSvm]
+        [TestSvm(0x1)]
         public static T RetT(T t)
         {
             return t;
         }
 
-        [TestSvm]
+        [TestSvm(0x1)]
         public static U RetU(U u)
         {
             return u;
         }
 
-        [TestSvm]
+        [TestSvm(0x1)]
         public static P RetP(P p)
         {
             return p;
@@ -94,7 +94,7 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        [TestSvm]
+        [TestSvm(0x1)]
         public static N RetN(N n)
         {
             return n;
@@ -123,7 +123,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(0x1)]
         public static V RetV(V v)
         {
             return v;
@@ -271,13 +271,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        [TestSvm]
+        [TestSvm(0x6)]
         public T GetFields()
         {
             return _field;
         }
 
-        [TestSvm]
+        [TestSvm(0x7)]
         public void SetField(T f)
         {
             _field = f;

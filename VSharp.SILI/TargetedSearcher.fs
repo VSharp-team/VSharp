@@ -321,8 +321,7 @@ type TargetedSearcher() =
                 GoBackward(b)
             | _, _, Seq.Empty -> Stop
             | _, Seq.Empty, Seq.Cons(p, _) ->
-                let ploc = ip2codeLocation p.loc |> Option.get
-                if  ploc = currentLoc then
+                if  p.loc = currentLoc then
                     tryFindState()
 //                    let s = Seq.fold tryFindAction None searchers
 //                    match s with
@@ -331,9 +330,9 @@ type TargetedSearcher() =
 //                        stepsNumber <- stepsNumber + 1u
 //                        GoForward s
                 else
-                    currentLoc <- ploc
-                    let cfg = CFG.findCfg ploc.method
-                    let newSearcher = OneTargetedSearcher(ploc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
+                    currentLoc <- p.loc
+                    let cfg = CFG.findCfg p.loc.method
+                    let newSearcher = OneTargetedSearcher(p.loc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
 //                    (newSearcher :> INewSearcher).AppendNewStates (qf.StatesForPropagation())
                     currentSearcher <- Some <| newSearcher
                     tryFindState()

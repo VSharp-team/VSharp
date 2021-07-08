@@ -218,7 +218,6 @@ module API =
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list
         val WLP : state -> pathCondition -> pathCondition
-        val IsSAT : pathCondition -> bool
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list

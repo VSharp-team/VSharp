@@ -143,7 +143,7 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
             stepsNumber <- stepsNumber + 1u
             match bq with
             | Seq.Cons(ps, _) -> GoBackward ps
-            | Seq.Empty when stepsNumber = 1u -> Start <| Instruction(0, mainMethod)
+            | Seq.Empty when stepsNumber = 1u && fq.IsEmpty -> Start <| Instruction(0, mainMethod)
             | Seq.Empty ->
                 match fq.ExtractMin() with
                 | None -> Stop

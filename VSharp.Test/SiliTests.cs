@@ -117,6 +117,7 @@ namespace VSharp.Test
         private static INewSearcher[] _searchers;//= new INewSearcher[]
         private static Dictionary<INewSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
         private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
+        private List<int> _unreachableLocations = new List<int>();
 
         public static void SetUpSVM(SVM svm, uint maxBound, INewSearcher[] searchers)
         {
@@ -129,6 +130,25 @@ namespace VSharp.Test
             {
                 _globalTime.Add(s, TimeSpan.Zero);
             }
+        }
+
+        public TestSvmAttribute() { }
+
+        public TestSvmAttribute(int excludedLoc)
+        {
+            _unreachableLocations.Add(excludedLoc);
+        }
+
+        public TestSvmAttribute(int excludedLoc1, int excludedLoc2)
+        {
+            _unreachableLocations.Add(excludedLoc1);
+            _unreachableLocations.Add(excludedLoc2);
+        }
+
+        public TestSvmAttribute(int[] excludedLocations)
+        {
+            for (int i = 0; i < excludedLocations.Length; ++i)
+                _unreachableLocations.Add(excludedLocations[i]);
         }
 
         public static void PrintStats()
@@ -158,12 +178,16 @@ namespace VSharp.Test
 
         public virtual TestCommand Wrap(TestCommand command)
         {
-            return new TestSvmCommand(command);
+            return new TestSvmCommand(command, _unreachableLocations);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
-            public TestSvmCommand(TestCommand innerCommand) : base(innerCommand) {}
+            private List<int> _unreachableLocations;
+            public TestSvmCommand(TestCommand innerCommand, List<int> unreachableLocations) : base(innerCommand)
+            {
+                _unreachableLocations = unreachableLocations;
+            }
 
             private TestResult Explore(TestExecutionContext context)
             {
@@ -185,12 +209,14 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher, List<codeLocation> codeLocations, uint maxBound)
+            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher
+                , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
             {
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
                 var svm = new SVM(new PobsInterpreter(maxBound, searcher));
-                var dict = svm.AnswerPobs(entryMethod, codeLocations);
+                var list = expectedResults.Keys.ToList();
+                var dict = svm.AnswerPobs(entryMethod, list);
                 stopWatch.Stop();
 
                 Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
@@ -199,9 +225,9 @@ namespace VSharp.Test
                 _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
 
                 bool res = true;
-                foreach (var loc in codeLocations)
+                foreach (var loc in list)
                 {
-                    bool res1 = PobsSetup.DesiredStatus.Witnessed.ToString() == dict[loc];
+                    bool res1 = expectedResults[loc].ToString() == dict[loc];
                     if (!res1)
                     {
                         _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
@@ -227,14 +253,22 @@ namespace VSharp.Test
                 // return Explore(context);
                 var entryMethod = innerCommand.Test.Method.MethodInfo;
                 var cfg = CFG.findCfg(entryMethod);
-                var codeLocations = new List<codeLocation>();
+                var codeLocations = new Dictionary<codeLocation, PobsSetup.DesiredStatus>();
                 PobsStatistics.IncrementTestsNumber();
                 foreach (var offset in cfg.sortedOffsets)
                 {
                     if (offset != 0)
                     {
-                        var loc = new Core.codeLocation(offset, entryMethod);
-                        codeLocations.Add(loc);
+                        var loc = new codeLocation(offset, entryMethod);
+                        if (_unreachableLocations.Contains(offset))
+                        {
+                            // we can not establish ``unreachable'' yet
+                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Unknown);
+                        }
+                        else
+                        {
+                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Witnessed);
+                        }
                     }
                 }
 

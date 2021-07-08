@@ -198,10 +198,12 @@ module API =
         let rec ReferenceField state reference fieldId =
             match reference.term with
             | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+//                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
                 ReferenceField state (HeapReferenceToBoxReference reference) fieldId
             | HeapRef(address, typ) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+                //assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
                 ClassField(address, fieldId) |> Ref
             | Ref address ->
                 assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
@@ -384,12 +386,6 @@ module API =
 
         let ComposeStates state state' = Memory.composeStates state state'
         let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
-        let IsSAT pc =
-            if PC.isFalse pc then false
-            else
-                match SolverInteraction.isValid {Memory.empty with pc = pc} with
-                | SolverInteraction.SmtSat _ -> true
-                | _ -> false
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)

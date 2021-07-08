@@ -62,7 +62,7 @@ namespace VSharp.Test.Tests
             return result;
         }
 
-        [TestSvm]
+        [TestSvm(new []{0x57, 0x59, 0x5B})]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             int[] scores = { x, y, z, 60 };

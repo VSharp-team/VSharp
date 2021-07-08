@@ -273,7 +273,7 @@ namespace VSharp.Test.Tests
         public static int Y;
         public static int Z;
 
-        [TestSvm]
+        [TestSvm(0x6)]
         public void Set(int x)
         {
             X = x;

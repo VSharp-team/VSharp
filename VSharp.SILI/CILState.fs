@@ -55,6 +55,8 @@ module internal CilStateOperations =
     let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
     let currentIp (s : cilState) = List.head s.ipStack
 
+    let currentLoc = currentIp >> ip2codeLocation >> Option.get
+    let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get
     let methodOf = function
         | Exit m
         | Instruction(_, m)

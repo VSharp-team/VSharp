@@ -96,7 +96,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     let usedQBack = HashSet<pob * cilState>()
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()
-    let loc2pob = Dictionary<ip, List<pob>>()
+    let loc2pob = Dictionary<codeLocation, List<pob>>()
     let answeredPobs = Dictionary<pob, pobStatus>()
     let ancestorOf = Dictionary<pob, List<pob>>()
 
@@ -125,13 +125,15 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
             doAddPob p) mainPobs
 
     let updateQBack s =
-        let ip = currentIp s
-        let pobsList = ref null
-        if loc2pob.TryGetValue(ip, pobsList) then
-            !pobsList |> Seq.iter (fun p ->
-                if not <| usedQBack.Contains(p, s) then
-                    usedQBack.Add(p, s) |> ignore
-                    qBack.Add(p, s))
+        match ip2codeLocation (currentIp s) with
+        | None -> ()
+        | Some loc ->
+            let pobsList = ref null
+            if loc2pob.TryGetValue(loc, pobsList) then
+                !pobsList |> Seq.iter (fun p ->
+                    if not <| usedQBack.Contains(p, s) then
+                        usedQBack.Add(p, s) |> ignore
+                        qBack.Add(p, s))
 
     let rec answerYes (s' : cilState, p' : pob) =
         if (not <| loc2pob.ContainsKey(p'.loc)) then
@@ -152,6 +154,12 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
                 if p' = ancestor then internalfailf "Pob has itself as parent"
                 if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
                     answerYes(s', ancestor)) ancestorOf.[p']
+
+    let isSat pc =
+        match SolverInteraction.isValid {Memory.EmptyState with pc = pc} with
+        | SolverInteraction.SmtSat _
+        | SolverInteraction.SmtUnknown _ -> true
+        | _ -> false
 
     member x.MakeCilStateForIp (ip : ip) =
         let m = methodOf ip
@@ -180,15 +188,15 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
 
     member x.Backward (p' : pob, s' : cilState, EP : ip) =
         let removed = qBack.Remove(p',s') in assert removed
-        assert(currentIp s' = p'.loc)
+        assert(currentLoc s' = p'.loc)
         let sLvl = levelToUnsignedInt s'.level
         if p'.lvl >= sLvl then
             let lvl = p'.lvl - sLvl
             let pc = Memory.WLP s'.state p'.pc
-            match Memory.IsSAT pc with
+            match isSat pc with
             | true when s'.startingIP = EP -> answerYes(s', p')
             | true ->
-                let p = {loc = s'.startingIP; lvl = lvl; pc = pc}
+                let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.warning "Backward:\nWas: %O\nNow: %O\n\n" p' p
                 addPob(p', p)
             | false ->
@@ -226,14 +234,11 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
     override x.Invoke _ _ _ = __notImplemented__()
 
     override x.AnswerPobs entryMethod codeLocations k =
-        let printLocInfo (loc : codeLocation) =
-            Logger.info "Got loc {%O, %O}" loc.offset loc.method
-        Seq.iter printLocInfo codeLocations
         x.ClearStructures()
         let mainPobs =
             codeLocations
             |> Seq.filter (fun loc -> loc.method.GetMethodBody().GetILAsByteArray().Length > loc.offset)
-            |> Seq.map (fun (loc : codeLocation) -> {loc = Instruction(loc.offset, loc.method); lvl = infty; pc = Memory.EmptyState.pc})
+            |> Seq.map (fun (loc : codeLocation) -> {loc = loc; lvl = infty; pc = Memory.EmptyState.pc})
         Seq.iter (fun p -> answeredPobs.Add(p, Unknown)) mainPobs
         let EP = Instruction(0, entryMethod)
         searcher.Init(entryMethod, codeLocations)
@@ -246,7 +251,7 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
 //            | Unknown -> Logger.info "Unknown: MainPob = %O" mp
 //        List.iter showResultFor mainPobs
         let addLocationStatus (acc : Dictionary<codeLocation, string>) (loc : codeLocation) =
-            let pob = {loc = Instruction(loc.offset, loc.method); lvl = infty; pc = Memory.EmptyState.pc}
+            let pob = {loc = loc; lvl = infty; pc = Memory.EmptyState.pc}
             let result =
                 match answeredPobs.[pob] with
                 | Witnessed _ -> "Witnessed"

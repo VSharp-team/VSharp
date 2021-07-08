@@ -12,7 +12,7 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
-type pob = {loc : ip; lvl : uint; pc : pathCondition}
+type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
     with
     override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
 

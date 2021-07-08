@@ -30,7 +30,7 @@ namespace VSharp.Test
             // var svm = new SVM(new PobsInterpreter(new BFSSearcher(bound)));
             var svm = new SVM(new PobsInterpreter(maxBound, new DFSSearcher()));
             // var svm = new SVM(new PobsInterpreter(new TargetedSearcher(bound)));
-            // var svm = new SVM(new MethodInterpreter(maxBound, new ExceptionsExplorationSearcher()));
+            // var svm = new SVM(new MethodInterpreter(maxBound, new DFSSearcher()));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             var searchers = new INewSearcher[] {

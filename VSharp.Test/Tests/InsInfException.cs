@@ -268,7 +268,7 @@ namespace VSharp.Test.Tests
 
 
         // expecting IIE
-        [TestSvm]
+        [TestSvm(0xC)]
         public static int ArrayRank_IIE_1(Array array)
         {
             if (array == null) return 42;

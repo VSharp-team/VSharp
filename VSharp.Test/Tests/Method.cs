@@ -132,7 +132,7 @@ namespace VSharp.Test.Tests.Methods
             return p;
         }
 
-        [TestSvm]
+        [TestSvm(new []{0xC})]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
@@ -152,7 +152,7 @@ namespace VSharp.Test.Tests.Methods
             return p.MakeMove(c);
         }
 
-        [TestSvm]
+        [TestSvm(new []{0x1F})]
         public static int VirtualCall(IVirtual a)
         {
             if (a == null) return 0;
