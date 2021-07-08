@@ -19,6 +19,7 @@ module public Prelude =
     let inline public __notImplemented__() = raise (System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
+    let public createInsufficientInformation format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason)) format
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 

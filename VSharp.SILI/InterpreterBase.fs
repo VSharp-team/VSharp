@@ -172,8 +172,10 @@ type public ExplorerBase() =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
-    member x.CallAbstractMethod (method : MethodBase) state k =
-        __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" method
+    member x.CallAbstractMethod (method : MethodBase) cilState k =
+        let iie = createInsufficientInformation "Can't call abstract method %O, need more information about the object type" method
+        let cilState = {cilState with iie = Some iie}
+        k (List.singleton cilState)
 
     static member FormInitialStateWithoutStatics (method : MethodBase) =
         let this, state(*, isMethodOfStruct*) =

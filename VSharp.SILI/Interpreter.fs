@@ -916,22 +916,28 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox.Size)
         let obj, cilState = pop cilState
         // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
-        if t.IsGenericParameter then __insufficientInformation__ "Unboxing generic parameter"
-        x.UnboxCommon cilState obj t id id
+        if t.IsGenericParameter then
+            let iie = createInsufficientInformation "Unboxing generic parameter"
+            {cilState with iie = Some iie} |> List.singleton
+        else
+            x.UnboxCommon cilState obj t id id
     member private x.UnboxAny (cfg : cfg) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox_Any.Size)
         let termType = Types.FromDotNetType t
         let valueType = Types.FromDotNetType typeof<System.ValueType>
         let obj, cilState = pop cilState
         // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
-        if t.IsGenericParameter then __insufficientInformation__ "Can't introduce generic type X for equation: T = Nullable<X>"
-        StatedConditionalExecutionAppendResultsCIL cilState
-            (fun state k -> k (Types.TypeIsType termType valueType, state))
-            (fun cilState k ->
-                let handleRestResults (address, state : state) = Memory.ReadSafe state address, state
-                x.UnboxCommon cilState obj t handleRestResults k)
-            (fun state k -> x.CommonCastClass state obj termType k)
-            id
+        if t.IsGenericParameter then
+            let iie = createInsufficientInformation "Can't introduce generic type X for equation: T = Nullable<X>"
+            {cilState with iie = Some iie} |> List.singleton
+        else
+            StatedConditionalExecutionAppendResultsCIL cilState
+                (fun state k -> k (Types.TypeIsType termType valueType, state))
+                (fun cilState k ->
+                    let handleRestResults (address, state : state) = Memory.ReadSafe state address, state
+                    x.UnboxCommon cilState obj t handleRestResults k)
+                (fun state k -> x.CommonCastClass state obj termType k)
+                id
 
     member private this.CommonDivRem performAction (cilState : cilState) =
         let integerCase (cilState : cilState) x y minusOne minValue =
@@ -1241,8 +1247,10 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             let ip = currentIp cilState
             try
                 let allStates = x.MakeStep {cilState with iie = None}
-                let newErrors, goodStates = List.partition isError allStates
+                let newErrors, restStates = List.partition isError allStates
                 let errors = errors @ newErrors // TODO: check it
+                let newIieStates, goodStates = List.partition isIIEState restStates
+                let incompleteStates = newIieStates @ incompleteStates
                 match goodStates with
                 | _ when List.forall (currentIp >> condition) goodStates ->
                     Cps.List.foldlk executeAllInstructions (finishedStates, incompleteStates, errors) goodStates k
