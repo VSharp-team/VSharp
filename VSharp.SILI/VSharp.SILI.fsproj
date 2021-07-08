@@ -2,19 +2,36 @@
 
     <PropertyGroup>
         <TargetFramework>netcoreapp3.0</TargetFramework>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <Tailcalls>false</Tailcalls>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+      <Tailcalls>true</Tailcalls>
+      <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
 
     <ItemGroup>
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
+        <Compile Include="CILState.fs" />
+        <Compile Include="Options.fs" />
+        <Compile Include="InterpreterBase.fs" />
         <Compile Include="InstructionsSet.fs" />
         <Compile Include="Lambdas.fs" />
+        <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="Variables.fs" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+      <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
 </Project>

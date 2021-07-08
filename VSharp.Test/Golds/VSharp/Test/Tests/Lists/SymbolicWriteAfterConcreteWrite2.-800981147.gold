@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.SymbolicWriteAfterConcreteWrite2(System.Int32[], System.Int32)
+RESULT: Totally 1 state:
+a[2]
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(k < 0) & k < Length(a, 0) /\ 2 < Length(a, 0)
+--------------- Array contents: ---------------
+System.Int32[] ==> {a[2] <- 42; a[k] <- 12}
+Initialized types = { VSharp.Test.Tests.Lists }

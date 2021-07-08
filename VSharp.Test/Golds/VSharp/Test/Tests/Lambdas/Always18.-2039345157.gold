@@ -1,15 +1,16 @@
 METHOD: System.Int32 VSharp.Test.Tests.Lambdas.Always18()
-RESULT: 18
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> VSharp.Test.Tests.Lambdas+<>c__DisplayClass0_0 CLASS [
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass0_0::loop ~> (HeapRef 2)
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass0_0::n ~> 9
-	| VSharp::Test::Tests::Lambdas::<>c__DisplayClass0_0::result ~> 18]
-2 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
----------- s1 = ----------
-System.Func`2[System.Int32,System.Int32] ==> CLASS []
-System.Object ==> CLASS []
-VSharp.Test.Tests.Lambdas ==> CLASS []
-VSharp.Test.Tests.Lambdas+<>c__DisplayClass0_0 ==> CLASS []
+RESULT: Totally 1 state:
+18
+MEMORY DUMP:
+--------------- Fields: ---------------
+loop ==> {
+        2 <- (HeapRef 3 to System.Func`2[System.Int32,System.Int32])
+    }
+n ==> {2 <- 9}
+result ==> {2 <- 18}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Lambdas+<>c__DisplayClass0_0
+3 ==> System.Func`2[System.Int32,System.Int32]
+--------------- Delegates: ---------------
+3 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+Initialized types = { System.Func`2[System.Int32,System.Int32], System.Object, VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c__DisplayClass0_0 }

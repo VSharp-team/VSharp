@@ -1,45 +1,28 @@
 namespace VSharp.Interpreter.IL
 
+open System
+
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
+open VSharp.Core
 
 exception IncorrectCIL of string
 
+type offset = int
 type term = VSharp.Core.term
 type state = VSharp.Core.state
 
-type operationalStack = term list
+type ip = VSharp.Core.ip
+type level = VSharp.Core.level
 
-type destination =
+type ipTransition =
+    | FallThrough of offset
     | Return
-    | Intermediate of int
-    member x.Vertex () =
-        match x with
-        | Intermediate i -> i
-        | _              -> internalfail "Could not get vertex from destination"
-    member x.HasVertex () =
-        match x with
-        | Intermediate _ -> true
-        | _              -> false
-type cilState =
-    { currentVertex : destination
-      targetVertex : destination
-      recursiveVertices : int list
-      opStack : operationalStack
-      functionResult : term option
-      exceptionFlag : term option
-      state : state
-      this : term option
-    }
-    interface VSharp.Core.IInterpreterState<cilState> with
-        member x.InternalState = x.state
-        member x.SetState st = {x with state = st}
-        member x.SetResultTerm resTerm = {x with functionResult = resTerm}
-        member x.ResultTerm = x.functionResult
-    member x.CanBeExpanded () = x.currentVertex.HasVertex()
-    member x.IsFinished = x.currentVertex = x.targetVertex
-    member x.HasException = Option.isSome x.exceptionFlag
+    | UnconditionalBranch of offset
+    | ConditionalBranch of offset * offset list
+    | ExceptionMechanism
+
 
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
@@ -59,76 +42,149 @@ module internal NumberCreator =
     let public extractFloat32 (ilBytes : byte []) pos =
         System.BitConverter.ToSingle(ilBytes, pos)
 
+module internal TokenResolver =
+    let private extractToken = NumberCreator.extractInt32
+
+    let resolveFieldFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveField methodBase
+    let resolveTypeFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveType methodBase
+    let resolveMethodFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveMethod methodBase
+    let resolveTokenFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveToken methodBase
+
 module internal Instruction =
+    let private isSingleByteOpCodeValue = (<) 0
+    let private isSingleByteOpCode = (<>) 0xFEuy
 
-   let private isSingleByteOpcodeValue = (<) 0
-   let private isSingleByteOpcode = (<>) 0xFEuy
+    let private equalSizeOpCodesCount = 0x100
+    let private singleByteOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
+    let private twoBytesOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
 
-   let private equalSizeOpcodesCount = 0x100
-   let private singleByteOpcodes = Array.create equalSizeOpcodesCount OpCodes.Nop;
-   let private twoBytesOpcodes = Array.create equalSizeOpcodesCount OpCodes.Nop;
-
-   let private fillOpcodes =
-       let resolve (field : FieldInfo) =
+    let private fillOpCodes =
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
+        let resolve (field : FieldInfo) =
             match field.GetValue() with
-            | :? OpCode as opcode -> let value = int opcode.Value
-                                     if isSingleByteOpcodeValue value then singleByteOpcodes.[value] <- opcode
-                                     else twoBytesOpcodes.[value &&& 0xFF] <- opcode
+            | :? OpCode as opCode -> let value = int opCode.Value
+                                     if isSingleByteOpCodeValue value then singleByteOpCodes.[value] <- opCode
+                                     else twoBytesOpCodes.[value &&& 0xFF] <- opCode
             | _ -> ()
 
-       typeof<OpCodes>.GetRuntimeFields() |> Seq.iter resolve
+        typeof<OpCodes>.GetRuntimeFields() |> Seq.iter resolve
 
-   let private operandType2operandSize = [| 4; 4; 4; 8; 4; 0; -1; 8; 4; 4; 4; 4; 4; 4; 2; 1; 1; 4; 1|]
+    let private operandType2operandSize = [| 4; 4; 4; 8; 4; 0; -1; 8; 4; 4; 4; 4; 4; 4; 2; 1; 1; 4; 1|]
 
-   let private jumpTargetsForNext (opcode : OpCode) _ pos =
-       let nextInstruction = pos + opcode.Size + operandType2operandSize.[int opcode.OperandType]
-       Choice1Of2 nextInstruction
+    let private jumpTargetsForNext (opCode : OpCode) _ pos =
+        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        FallThrough nextInstruction
 
-   let private jumpTargetsForBranch (opcode : OpCode) ilBytes pos =
-       let offset =
-           match opcode.OperandType with
-           | OperandType.InlineBrTarget -> NumberCreator.extractInt32 ilBytes (pos + opcode.Size)
-           | _ -> NumberCreator.extractInt8 ilBytes (pos + opcode.Size)
+    let private jumpTargetsForBranch (opCode : OpCode) ilBytes pos =
+        let offset =
+            match opCode.OperandType with
+            | OperandType.InlineBrTarget -> NumberCreator.extractInt32 ilBytes (pos + opCode.Size)
+            | _ -> NumberCreator.extractInt8 ilBytes (pos + opCode.Size)
 
-       let nextInstruction = pos + opcode.Size + operandType2operandSize.[int opcode.OperandType]
-       if offset = 0 && opcode <> OpCodes.Leave && opcode <> OpCodes.Leave_S
-       then Choice1Of2 nextInstruction
-       else Choice2Of2 [offset + nextInstruction]
+        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        if offset = 0 && opCode <> OpCodes.Leave && opCode <> OpCodes.Leave_S
+        then UnconditionalBranch nextInstruction
+        else UnconditionalBranch <| offset + nextInstruction
 
-   let private inlineBrTarget extract (opcode : OpCode) ilBytes pos =
-       let offset = extract ilBytes (pos + opcode.Size)
-       let nextInstruction = pos + opcode.Size + operandType2operandSize.[int opcode.OperandType]
-       Choice2Of2 [nextInstruction; nextInstruction + offset]
+    let private inlineBrTarget extract (opCode : OpCode) ilBytes pos =
+        let offset = extract ilBytes (pos + opCode.Size)
+        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        ConditionalBranch(nextInstruction, [nextInstruction + offset])
 
-   let private inlineSwitch (opcode : OpCode) ilBytes pos =
-       let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opcode.Size) |> int
-       let nextInstruction = pos + opcode.Size + 4 * n + 4
-       let nextOffsets =
-           List.init n (fun x -> nextInstruction + NumberCreator.extractInt32 ilBytes (pos + opcode.Size + 4 * (x + 1)))
-       Choice2Of2 <| nextInstruction :: nextOffsets
+    let private inlineSwitch (opCode : OpCode) ilBytes pos =
+        let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opCode.Size) |> int
+        let nextInstruction = pos + opCode.Size + 4 * n + 4
+        let nextOffsets =
+            List.init n (fun x -> nextInstruction + NumberCreator.extractInt32 ilBytes (pos + opCode.Size + 4 * (x + 1)))
+        ConditionalBranch(nextInstruction, nextOffsets)
 
-   let private jumpTargetsForReturn _ _ _ = Choice2Of2 []
+    let private jumpTargetsForReturn _ _ _ = Return
+    let private jumpTargetsForThrow _ _ _ = ExceptionMechanism
 
-   let findNextInstructionOffsetAndEdges (opcode : OpCode) =
-       match opcode.FlowControl with
-       | FlowControl.Next
-       | FlowControl.Call
-       | FlowControl.Break
-       | FlowControl.Meta -> jumpTargetsForNext
-       | FlowControl.Branch -> jumpTargetsForBranch
-       | FlowControl.Cond_Branch ->
-           match opcode.OperandType with
-           | OperandType.InlineBrTarget -> inlineBrTarget NumberCreator.extractInt32
-           | OperandType.ShortInlineBrTarget -> inlineBrTarget NumberCreator.extractInt8
-           | OperandType.InlineSwitch -> inlineSwitch
-           | _ -> __notImplemented__()
-       | FlowControl.Return
-       | FlowControl.Throw -> jumpTargetsForReturn
-       | _ -> __notImplemented__()
-       <| opcode
+    let findNextInstructionOffsetAndEdges (opCode : OpCode) =
+        match opCode.FlowControl with
+        | FlowControl.Next
+        | FlowControl.Call
+        | FlowControl.Break
+        | FlowControl.Meta -> jumpTargetsForNext
+        | FlowControl.Branch -> jumpTargetsForBranch
+        | FlowControl.Cond_Branch ->
+            match opCode.OperandType with
+            | OperandType.InlineBrTarget -> inlineBrTarget NumberCreator.extractInt32
+            | OperandType.ShortInlineBrTarget -> inlineBrTarget NumberCreator.extractInt8
+            | OperandType.InlineSwitch -> inlineSwitch
+            | _ -> __notImplemented__()
+        | FlowControl.Return -> jumpTargetsForReturn
+        | FlowControl.Throw -> jumpTargetsForThrow
+        | _ -> __notImplemented__()
+        <| opCode
 
-   let parseInstruction (ilBytes : byte []) pos =
-       let b1 = ilBytes.[pos]
-       if isSingleByteOpcode b1 then singleByteOpcodes.[int b1]
-       elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
-       else twoBytesOpcodes.[int ilBytes.[pos + 1]]
+    let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
+
+    let private isCallOpCode (opCode : OpCode) =
+        opCode = OpCodes.Call
+        || opCode = OpCodes.Calli
+        || opCode = OpCodes.Callvirt
+        || opCode = OpCodes.Tailcall
+    let private isNewObjOpCode (opCode : OpCode) =
+        opCode = OpCodes.Newobj
+    let isDemandingCallOpCode (opCode : OpCode) =
+        isCallOpCode opCode || isNewObjOpCode opCode
+    let isFinallyClause (ehc : ExceptionHandlingClause) =
+        ehc.Flags = ExceptionHandlingClauseOptions.Finally
+    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+//        let srcOffset, dstOffset = src.Offset(), dst.Offset()
+        let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
+        isInside src && not <| isInside dst
+
+    let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
+    let (|Call|_|) (opCode : OpCode) = if opCode = OpCodes.Call then Some () else None
+    let (|CallVirt|_|) (opCode : OpCode) = if opCode = OpCodes.Callvirt then Some () else None
+    let (|Calli|_|) (opCode : OpCode) = if opCode = OpCodes.Calli then Some () else None
+    let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
+    let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
+
+
+    let parseInstruction (m : MethodBase) pos =
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
+        let b1 = ilBytes.[pos]
+        if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
+        elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
+        else twoBytesOpCodes.[int ilBytes.[pos + 1]]
+
+    let (|EndFinally|_|) = function
+        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some ()
+        | _ -> None
+
+    let rec (|InstructionEndingIp|_|) = function
+        | Instruction(offset, m)
+        | InFilterHandler(offset, m, _, _) -> Some (offset, m)
+        | Leave(ip, _, _, _) -> (|InstructionEndingIp|_|) ip
+        | _ -> None
+
+    let parseCallSite (m : MethodBase) pos =
+        let opCode = parseInstruction m pos
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
+        let calledMethod = TokenResolver.resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
+        {sourceMethod = m; calledMethod = calledMethod; opCode = opCode; offset = pos}
+
+    let unconditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | UnconditionalBranch target -> target
+        | _ -> __unreachable__()
+
+    let fallThroughTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | FallThrough target -> target
+        | _ -> __unreachable__()
+
+    let conditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | ConditionalBranch(fallThrough, rest) -> fallThrough, rest
+        | _ -> __unreachable__()

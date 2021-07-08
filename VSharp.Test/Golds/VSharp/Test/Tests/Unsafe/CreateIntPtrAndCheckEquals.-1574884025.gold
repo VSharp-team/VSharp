@@ -1,0 +1,12 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.CreateIntPtrAndCheckEquals()
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+--------------- Static fields: ---------------
+Zero ==> {
+        <Pointer to System.Void> <- (nullptr as System.Void)
+    }
+--------------- Stack: ---------------
+key = __loc__0, value = (nullptr as System.Void, offset = 0)
+key = __tmp__System.IntPtr, value = (nullptr as System.Void, offset = 0)
+Initialized types = { <Pointer to System.Void>, VSharp.Test.Tests.Unsafe }

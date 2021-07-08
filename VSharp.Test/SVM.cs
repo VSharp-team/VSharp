@@ -1,67 +1,135 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using VSharp.Core;
+using VSharp.Interpreter.IL;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
-using VSharp.Test.Tests;
-
+using VSharp.CSharpUtils;
+using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Interpreter.IL.codeLocationSummary>;
+using VSharp.Solver;
 
 namespace VSharp.Test
 {
+    public class TestCodeLocationSummaries
+    {
+        private InsufficientInformationException _exception;
+        private CodeLocationSummaries _summaries;
+
+        public InsufficientInformationException Exception => _exception;
+        public CodeLocationSummaries Summaries => _summaries;
+
+        private TestCodeLocationSummaries(InsufficientInformationException exception)
+        {
+            _exception = exception;
+        }
+
+        private TestCodeLocationSummaries(CodeLocationSummaries summaries)
+        {
+            _summaries = summaries;
+        }
+
+        public static TestCodeLocationSummaries WithInsufficientInformationException(InsufficientInformationException exception)
+        {
+            return new TestCodeLocationSummaries(exception);
+        }
+
+        public static TestCodeLocationSummaries WithSummaries(CodeLocationSummaries summaries)
+        {
+            return new TestCodeLocationSummaries(summaries);
+        }
+    }
+
     public class SVM
     {
-        private ExplorerBase _explorer;
+        private readonly ExplorerBase _explorer;
+        private readonly Statistics _statistics = new Statistics();
 
         public SVM(ExplorerBase explorer)
         {
             _explorer = explorer;
-            API.Configure(explorer);
         }
 
-        private codeLocationSummary PrepareAndInvoke(IDictionary<MethodInfo, codeLocationSummary> dict, MethodInfo m, Func<IMethodIdentifier, FSharpFunc<codeLocationSummary, codeLocationSummary>, codeLocationSummary> invoke)
+        private TestCodeLocationSummaries PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, TestCodeLocationSummaries> dict,
+            MethodInfo m,
+            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
         {
-            IMethodIdentifier methodIdentifier = _explorer.MakeMethodIdentifier(m);
-            if (methodIdentifier == null)
+            _statistics.SetupBeforeMethod(m);
+            if (m == null)
             {
-                var format = new PrintfFormat<string, Unit, string, Unit>($"WARNING: metadata method for {m.Name} not found!");
+                var format =
+                    new PrintfFormat<string, Unit, string, Unit>(
+                        $"WARNING: metadata method for {m.Name} not found!");
                 Logger.printLog(Logger.Warning, format);
                 return null;
             }
+
             dict?.Add(m, null);
-            var id = FSharpFunc<codeLocationSummary,codeLocationSummary>.FromConverter(x => x);
-            var summary = invoke(methodIdentifier, id);
+            var id = FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>.FromConverter(x => x);
+            TestCodeLocationSummaries summary = null;
+
+            try
+            {
+                summary = TestCodeLocationSummaries.WithSummaries(invoke(m, id));
+            }
+            catch (InsufficientInformationException e)
+            {
+                summary = TestCodeLocationSummaries.WithInsufficientInformationException(e);
+            }
+
+            _statistics.AddSucceededMethod(m);
             if (dict != null)
             {
                 dict[m] = summary;
             }
+
             return summary;
         }
 
-        private void InterpretEntryPoint(IDictionary<MethodInfo, codeLocationSummary> dictionary, MethodInfo m)
+        private TestCodeLocationSummaries PrepareAndInvoke(IDictionary<MethodInfo, TestCodeLocationSummaries> dict, MethodInfo m,
+            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
+        {
+            // try
+            // {
+                return PrepareAndInvokeWithoutStatistics(dict, m, invoke);
+            // }
+            // catch (Exception e)
+            // {
+            //     _statistics.AddException(e, m);
+            // }
+
+            return null;
+        }
+
+        private void InterpretEntryPoint(IDictionary<MethodInfo, TestCodeLocationSummaries> dictionary, MethodInfo m)
         {
             Assert.IsTrue(m.IsStatic);
             PrepareAndInvoke(dictionary, m, _explorer.InterpretEntryPoint);
         }
 
-        private void Explore(IDictionary<MethodInfo, codeLocationSummary> dictionary, MethodInfo m)
+        private void Explore(IDictionary<MethodInfo, TestCodeLocationSummaries> dictionary, MethodInfo m)
         {
-            PrepareAndInvoke(dictionary, m, _explorer.Explore);
+            if (m.GetMethodBody() != null)
+                PrepareAndInvoke(dictionary, m, _explorer.Explore);
         }
 
-        private void ExploreType(List<string> ignoreList, MethodInfo ep, IDictionary<MethodInfo, codeLocationSummary> dictionary, Type t)
+        private void ExploreType(List<string> ignoreList, MethodInfo ep,
+            IDictionary<MethodInfo, TestCodeLocationSummaries> dictionary, Type t)
         {
-            BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly;
+            BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                                        BindingFlags.DeclaredOnly;
 
-            if (ignoreList?.Where(kw => !t.AssemblyQualifiedName.Contains(kw)).Count() == ignoreList?.Count && t.IsPublic)
+            if (ignoreList?.Where(kw => !t.AssemblyQualifiedName.Contains(kw)).Count() == ignoreList?.Count &&
+                t.IsPublic)
             {
                 foreach (var m in t.GetMethods(bindingFlags))
                 {
-                    if (m != ep && !m.IsAbstract)
+                    // FOR DEBUGGING SPECIFIED METHOD
+                    // if (m != ep && !m.IsAbstract)
+                    if (m != ep && !m.IsAbstract && m.Name != "op_Division")
                     {
                         Debug.Print(@"Called interpreter for method {0}", m.Name);
                         Explore(dictionary, m);
@@ -75,9 +143,28 @@ namespace VSharp.Test
             return Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");
         }
 
-        private static string ResultToString(codeLocationSummary summary)
+        private static string SummaryToString(codeLocationSummary summary)
         {
-            return $"{summary.result}\nHEAP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.state))}";
+            if (summary == null)
+                return "Summary is empty";
+            return $"{summary.Result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Memory.Dump(summary.State))}";
+        }
+
+        private static string ResultToString(TestCodeLocationSummaries summary)
+        {
+            if (summary.Exception != null)
+            {
+                if (summary.Summaries != null)
+                    return "Test summary contains both InsInfExc and ordinary Summaries";
+                return $"Totally 1 state:\n{summary.Exception.Message}\n";
+            }
+
+            int count = 0;
+            if ((count = summary.Summaries.Count()) == 0)
+                return "No states were obtained!";
+            var suffix = count > 1 ? "s" : "";
+            var sortedResults = summary.Summaries.Select(SummaryToString).OrderBy(x => x.GetDeterministicHashCode());
+            return $"Totally {count} state{suffix}:\n{String.Join("\n", sortedResults)}";
         }
 
         public string ExploreOne(MethodInfo m)
@@ -86,14 +173,20 @@ namespace VSharp.Test
             return ResultToString(summary);
         }
 
-        public void ConfigureSolver(ISolver solver)
+        public string ExploreOneWithoutStatistics(MethodInfo m)
         {
-            API.ConfigureSolver(solver);
+            var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.Explore);
+            return ResultToString(summary);
+        }
+
+        public void ConfigureSolver()
+        {
+            API.ConfigureSolver(SolverPool.mkSolver());
         }
 
         public IDictionary<MethodInfo, string> Run(Assembly assembly, List<string> ignoredList)
         {
-            IDictionary<MethodInfo, codeLocationSummary> dictionary = new Dictionary<MethodInfo, codeLocationSummary>();
+            IDictionary<MethodInfo, TestCodeLocationSummaries> dictionary = new Dictionary<MethodInfo, TestCodeLocationSummaries>();
             var ep = assembly.EntryPoint;
 
             foreach (var t in assembly.GetTypes())
@@ -106,8 +199,9 @@ namespace VSharp.Test
                 InterpretEntryPoint(dictionary, ep);
             }
 
+            _statistics.PrintExceptionsStats();
+
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
         }
-
     }
 }

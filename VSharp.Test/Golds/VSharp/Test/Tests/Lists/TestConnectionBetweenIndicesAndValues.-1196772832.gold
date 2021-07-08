@@ -1,0 +1,19 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.TestConnectionBetweenIndicesAndValues(System.Int32[], System.Int32, System.Int32)
+RESULT: Totally 2 states:
+0
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(i < 0) & i < Length(a, 0) /\ !(i == j) /\ !(j < 0) & j < Length(a, 0)
+--------------- Stack: ---------------
+key = __loc__0, value = a[i]
+key = __loc__1, value = a[j]
+key = __loc__2, value = 0
+Initialized types = { VSharp.Test.Tests.Lists }
+
+0
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(i < 0) & i < Length(a, 0) /\ !(j < 0) & j < Length(a, 0) /\ i == j
+--------------- Stack: ---------------
+key = __loc__0, value = a[i]
+key = __loc__1, value = a[j]
+key = __loc__2, value = 0
+Initialized types = { VSharp.Test.Tests.Lists }

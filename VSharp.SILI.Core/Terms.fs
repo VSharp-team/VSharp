@@ -2,134 +2,94 @@ namespace VSharp.Core
 
 open VSharp
 open VSharp.CSharpUtils
-open global.System
+open System
 open System.Collections.Generic
 open Types.Constructor
 
 [<CustomEquality;CustomComparison>]
 type stackKey =
-    | SymbolicThisKey of Reflection.MethodBase
     | ThisKey of Reflection.MethodBase
     | ParameterKey of Reflection.ParameterInfo
-    | LocalVariableKey of Reflection.LocalVariableInfo
+    | LocalVariableKey of Reflection.LocalVariableInfo * Reflection.MethodBase
+    | TemporaryLocalVariableKey of Type
     override x.ToString() =
         match x with
-        | SymbolicThisKey _ -> "symbolic this on stack"
         | ThisKey _ -> "this"
         | ParameterKey pi -> pi.Name
-        | LocalVariableKey lvi -> "__loc__" + lvi.LocalIndex.ToString()
+        | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
+        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
     override x.GetHashCode() =
         let fullname =
             match x with
-            | SymbolicThisKey m -> sprintf "%s##symbolic this on stack" (Reflection.GetFullMethodName m)
-            | ThisKey m -> sprintf "%s##this" (Reflection.GetFullMethodName m)
+            | ThisKey m -> sprintf "%s##this" (Reflection.getFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey lvi -> lvi.ToString()
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.getFullMethodName m) (lvi.ToString())
+            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
             match other with
             | :? stackKey as other ->
                 match x, other with
-                | SymbolicThisKey _, SymbolicThisKey _
                 | ThisKey _, ThisKey _
                 | ParameterKey _, ParameterKey _
-                | LocalVariableKey _, LocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
-                | SymbolicThisKey _, _ -> -1
-                | _, SymbolicThisKey _ -> 1
+                | LocalVariableKey _, LocalVariableKey _
+                | TemporaryLocalVariableKey _, TemporaryLocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
                 | ThisKey _, _ -> -1
                 | _, ThisKey _ -> 1
                 | LocalVariableKey _, _ -> -1
                 | _, LocalVariableKey _ -> 1
+                | TemporaryLocalVariableKey _, _ -> -1
+                | _, TemporaryLocalVariableKey _ -> 1
             | _ -> -1
     override x.Equals(other) = (x :> IComparable).CompareTo(other) = 0
+    member x.TypeOfLocation =
+        match x with
+        | ThisKey m -> m.DeclaringType
+        | ParameterKey p -> p.ParameterType
+        | LocalVariableKey(l, _) -> l.LocalType
+        | TemporaryLocalVariableKey typ -> typ
+        |> fromDotNetType
+    member x.Map typeSubst =
+        match x with
+        | ThisKey m -> ThisKey (Reflection.concretizeMethodBase m typeSubst)
+        | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
+        | LocalVariableKey(l, m) -> LocalVariableKey (Reflection.concretizeLocalVariable l m typeSubst)
+        | TemporaryLocalVariableKey typ -> TemporaryLocalVariableKey (Reflection.concretizeType typeSubst typ)
 
-type locationBinding = obj
-type stackHash = int list
-type concreteHeapAddress = int list
-type termOrigin = { location : locationBinding; stack : stackHash }
-type termMetadata = { origins : termOrigin list; mutable misc : HashSet<obj> }
-
-type ICodeLocation =
-    abstract Location : obj
-
-type IFunctionIdentifier =
-    inherit ICodeLocation
-    abstract ReturnType : Type
-
-type StandardFunctionIdentifier(id : StandardFunction) =
-    interface IFunctionIdentifier with
-        override x.Location = id :> obj
-        override x.ReturnType = typeof<double>
-    member x.Function = id
-    override x.ToString() = id.ToString()
-
-type EmptyIdentifier() =
-    interface IFunctionIdentifier with
-        override x.Location = null
-        override x.ReturnType = typeof<Void>
+type concreteHeapAddress = vectorTime
+type arrayType = symbolicType * int * bool // Element type * dimension * is vector
 
 [<StructuralEquality;NoComparison>]
 type operation =
-    | Operator of OperationType * bool
-    | Application of IFunctionIdentifier
-    | Cast of termType * termType * bool
+    | Operator of OperationType
+    | Application of StandardFunction
+    | Cast of symbolicType * symbolicType
     member x.priority =
         match x with
-        | Operator (op, _) -> Operations.operationPriority op
+        | Operator op -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
 
+// TODO: symbolic type -> primitive type
+// TODO: get rid of Nop!
 [<StructuralEquality;NoComparison>]
 type termNode =
     | Nop
-    | Error of term
-    | Concrete of obj * termType
-    | Constant of string transparent * ISymbolicConstantSource * termType
-    | Array of term                                       // Dimension
-               * term                                     // Overal length (product of lengths by dimensions)
-               * term heap                                // Lower bounds
-               * (term * arrayInstantiator) list          // Element instantiator with guards
-               * term heap                                // Contents
-               * term heap                                // Lengths by dimensions
-    | Expression of operation * term list * termType
-    | Struct of string heap * termType
-    | Class of string heap
-    | Ref of topLevelAddress * pathSegment list
-    | Ptr of topLevelAddress * pathSegment list * termType * term option // contents * type sight * indent
+    | Concrete of obj * symbolicType
+    | Constant of string transparent * ISymbolicConstantSource * symbolicType
+    | Expression of operation * term list * symbolicType
+    | Struct of pdict<fieldId, term> * symbolicType
+    | HeapRef of heapAddress * symbolicType
+    | Ref of address
+    | Ptr of address option * symbolicType * term option // base address (none = null) * type sight * offset
     | Union of (term * term) list
-
-    member x.IndicesToString() =
-        let sortKeyFromTerm = (fun t -> t.term) >> function
-            | Concrete(value, Numeric (Id t)) when t = typedefof<int> -> value :?> int
-            | _ -> Int32.MaxValue
-        let arrayOfIndicesConcreteContentsToString contents =
-            let separator = ", "
-            Heap.toString "%s%s" separator (always "") (always toString) sortKeyFromTerm contents
-        let arrayOfIndicesSymbolicContentsToString contents =
-            let separator = ", "
-            Heap.toString "%s: %s" separator toString (always toString) sortKeyFromTerm contents
-        let arrayOfIndicesToString = function
-            | Array(d, _, _, [(_, instantiator)], contents, _) ->
-                let printed =
-                    match instantiator with
-                    | DefaultInstantiator _ -> ""
-                    | LazyInstantiator t -> sprintf "LI(%O): " t
-                match d.term with
-                | Concrete _ -> sprintf "%s%s" printed (arrayOfIndicesConcreteContentsToString contents)
-                | _ -> sprintf "%s(%s)" printed (arrayOfIndicesSymbolicContentsToString contents)
-            | x -> toString x
-        arrayOfIndicesToString x
 
     override x.ToString() =
         let getTerm (term : term) = term.term
 
-        let checkExpression curChecked parentChecked priority parentPriority str =
-            match curChecked, parentChecked with
-            | true, _ when curChecked <> parentChecked -> sprintf "checked(%s)" str
-            | false, _ when curChecked <> parentChecked -> sprintf "unchecked(%s)" str
-            | _ when priority < parentPriority -> sprintf "(%s)" str
-            | _ -> str
+        let checkExpression priority parentPriority =
+            if priority < parentPriority then sprintf "(%s)" else id
 
         let formatIfNotEmpty format value =
             match value with
@@ -140,297 +100,181 @@ type termNode =
 
         let extendIndent = (+) "\t"
 
-        let rec toStr parentPriority parentChecked indent term =
+        let rec toStr parentPriority indent term k =
             match term with
-            | Error e -> sprintf "<ERROR: %O>" (toStringWithIndent indent e)
-            | Nop -> "<VOID>"
-            | Constant(name, _, _) -> name.v
-            | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
-                sprintf "<Lambda Expression %O>" t
-            | Concrete(_, Null) -> "null"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c
-            | Concrete(:? concreteHeapAddress as k, _) -> k |> List.map toString |> join "."
-            | Concrete(value, _) -> value.ToString()
+            | Nop -> k "<VOID>"
+            | Constant(name, _, _) -> k name.v
+            | Concrete(_, (ClassType(Id t, _) as typ)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+                sprintf "<Lambda Expression %O>" typ |> k
+            | Concrete(_, Null) -> k "null"
+            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> k "null"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> k "'\\000'"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c |> k
+            | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
+            | Concrete(value, _) -> value.ToString() |> k
             | Expression(operation, operands, _) ->
                 match operation with
-                | Operator(operator, isChecked) when Operations.operationArity operator = 1 ->
+                | Operator operator when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
                     let operand = List.head operands
-                    let opStr = Operations.operationToString operator |> checkExpression isChecked parentChecked operation.priority parentPriority
-                    let printedOperand = toStr operation.priority isChecked indent operand.term
-                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
-                | Operator(operator, isChecked) ->
+                    let opStr = Operations.operationToString operator |> checkExpression operation.priority parentPriority
+                    toStr operation.priority indent operand.term (fun printedOperand ->
+                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand |> k)
+                | Operator operator ->
                     assert (List.length operands >= 2)
-                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority isChecked indent)
-                    let sortedOperands = if Operations.isCommutative operator && not isChecked then List.sort printedOperands else printedOperands
+                    Cps.List.mapk (fun x k -> toStr operation.priority indent (getTerm x) k) operands (fun printedOperands ->
+                    let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
                     sortedOperands
                         |> String.concat (Operations.operationToString operator)
-                        |> checkExpression isChecked parentChecked operation.priority parentPriority
-                | Cast(_, dest, isChecked) ->
+                        |> checkExpression operation.priority parentPriority
+                        |> k)
+                | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority isChecked indent (List.head operands).term) |>
-                        checkExpression isChecked parentChecked operation.priority parentPriority
-                | Application f -> operands |> List.map (getTerm >> toStr -1 parentChecked indent) |> join ", " |> sprintf "%O(%s)" f
+                    toStr operation.priority indent (List.head operands).term (fun term ->
+                    sprintf "(%O %s)" dest term
+                        |> checkExpression operation.priority parentPriority
+                        |> k)
+                | Application f ->
+                    Cps.List.mapk (getTerm >> toStr -1 indent) operands (fun results ->
+                    results |> join ", " |> sprintf "%O(%s)" f |> k)
             | Struct(fields, t) ->
-                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t
-            | Class fields ->
-                fieldsToString indent fields |> sprintf "CLASS [%s]"
-            | Array(_, _, _, instantiators, contents, lengths) ->
-                let printInstor = function
-                    | DefaultInstantiator t -> sprintf "default of %O" t
-                    | LazyInstantiator t -> toString t
-                let guardedToString (guard, instor) =
-                    let guardString = toStringWithParentIndent indent guard
-                    let instorString = printInstor instor
-                    sprintf "| %s ~> %s" guardString instorString
-                let printedInstors = instantiators |> List.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                let simplifiedInstors =
-                    match instantiators with
-                    | [_, i] ->
-                        match i with
-                        | DefaultInstantiator _ -> ""
-                        | LazyInstantiator t -> sprintf "%O: " t
-                    | _ -> sprintf "%s: " printedInstors
-                let printedLengths = Heap.toString "%O%O" " x " (always "") (toStringWithParentIndent indent |> always) toString lengths
-                let printedContents = arrayContentsToString contents indent
-                sprintf "%s[|%s... %s ... |]" simplifiedInstors printedContents printedLengths
+                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
             | Union(guardedTerms) ->
-                let guardedToString (guard, term) =
-                    let guardString = toStringWithParentIndent indent guard
-                    let termString = toStringWithParentIndent indent term
-                    sprintf "| %s ~> %s" guardString termString
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]"
-            | Ref(topLevel, path) -> printRef topLevel path None
-            | Ptr(topLevel, path, typ, shift) ->
-                let basePtr = printRef topLevel path (Some typ)
-                match shift with
-                | Some shift -> sprintf "(IndentedPtr %O[%O])" basePtr shift
-                | None -> basePtr
-            | _ -> __unreachable__()
+                let guardedToString (guard, term) k =
+                    toStringWithParentIndent indent guard (fun guardString ->
+                    toStringWithParentIndent indent term (fun termString ->
+                    sprintf "| %s ~> %s" guardString termString |> k))
+                Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
+                let printed = guards |> Seq.sort |> join ("\n" + indent)
+                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
+            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> k "NullRef"
+            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
+            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
+            | Ptr(address, typ, shift) ->
+                let offset =
+                    match shift with
+                    | None -> ""
+                    | Some shift -> ", offset = " + shift.ToString()
+                match address with
+                | None -> sprintf "(nullptr as %O%s)" typ offset |> k
+                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
 
         and fieldsToString indent fields =
-            let stringResult = Heap.toString "| %O ~> %O" ("\n" + indent) toString (toStringWithParentIndent indent |> always) toString fields
+            let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
             formatIfNotEmpty (formatWithIndent indent) stringResult
 
-        and printRef topLevel path pointerType =
-            let fqlStr = List.map toString path |> cons (toString topLevel) |> join "."
-            let makeRef sort =
-                match pointerType with
-                | Some typ -> sprintf "(%sPtr %s as %O)" sort fqlStr typ
-                | None -> sprintf "(%sRef %s)" sort fqlStr
-            match topLevel with
-            | NullAddress ->
-                assert(List.isEmpty path)
-                fqlStr
-            | TopLevelHeap _ -> makeRef "Heap"
-            | TopLevelStack _ -> makeRef "Stack"
-            | TopLevelStatics _ -> makeRef "Static"
+        and toStringWithIndent indent term k = toStr -1 indent term.term k
 
-        and toStringWithIndent indent term = toStr -1 false indent term.term
+        and toStringWithParentIndent parentIndent term k = toStringWithIndent (extendIndent parentIndent) term k
 
-        and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
+        toStr -1 "\t" x id
 
-        and isPrimitiveTerm term =
-            match term.term with
-            | Struct _
-            | Class _
-            | Array _
-            | Union _ -> false
-            | _ -> true
+and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 
-        and arrayContentsToString contents indent =
-            let contentsIsLinear = Heap.forall (snd >> isPrimitiveTerm) contents
-            let separator = if contentsIsLinear then " " else "\n" + indent
-            let heapSeparator = ";" + separator
-            let mapper = toStringWithParentIndent indent
-            let keyMapper key =
-                match key.term with
-                | Array _ -> key.term.IndicesToString()
-                | _ -> toStringWithParentIndent indent key
-            let sortKeyFromIndex index = // TODO: change when index will be term list
-                let stringIndex = keyMapper index
-                let id = ref 0
-                let parseOne (str : string) = if Int32.TryParse(str, id) then !id else Int32.MaxValue
-                Array.foldBack (parseOne >> cons) (stringIndex.Split(',')) List.empty
-            let stringResult = Heap.toString "%s ~> %s" heapSeparator keyMapper (always mapper) sortKeyFromIndex contents
-            let format contents = sprintf "%s%s%s" separator contents separator
-            formatIfNotEmpty format stringResult
-
-        toStr -1 false "\t" x
-
-and topLevelAddress =
-    | NullAddress
-    | TopLevelStack of stackKey
-    | TopLevelHeap of term * termType * termType transparent // Address * Base type * Sight type
-    | TopLevelStatics of termType
+and address =
+    | PrimitiveStackLocation of stackKey
+    | StructField of address * fieldId
+    | StackBufferIndex of stackKey * term
+    | BoxedLocation of concreteHeapAddress * symbolicType // TODO: delete type from boxed location?
+    | ClassField of heapAddress * fieldId
+    | ArrayIndex of heapAddress * term list * arrayType
+    | ArrayLowerBound of heapAddress * term * arrayType
+    | ArrayLength of heapAddress * term * arrayType
+    | StaticField of symbolicType * fieldId
     override x.ToString() =
         match x with
-        | TopLevelStack key -> toString key
-        | TopLevelStatics typ -> toString typ
-        | TopLevelHeap(key, _, _) -> toString key
-        | NullAddress -> "null"
-
-and [<CustomEquality;NoComparison>] FieldId =
-    | FieldId of string
-    override x.GetHashCode() =
+        | PrimitiveStackLocation key -> toString key
+        | ClassField(addr, field) -> sprintf "%O.%O" addr field
+        | ArrayIndex(addr, idcs, _) -> sprintf "%O[%s]" addr (List.map toString idcs |> join ", ")
+        | StaticField(typ, field) -> sprintf "%O.%O" typ field
+        | StructField(addr, field) -> sprintf "%O.%O" addr field
+        | ArrayLength(addr, dim, _) -> sprintf "Length(%O, %O)" addr dim
+        | BoxedLocation(addr, typ) -> sprintf "%O^%s" typ (addr |> List.map toString |> join ".")
+        | StackBufferIndex(key, idx) -> sprintf "%O[%O]" key idx
+        | ArrayLowerBound(addr, dim, _) -> sprintf "LowerBound(%O, %O)" addr dim
+    member x.Zone() =
         match x with
-        | FieldId s -> s.GetDeterministicHashCode()
-    override x.Equals(other) =
-        match other with
-        | :? FieldId as other -> hash x = hash other
-        | _ -> false
-    override x.ToString() = match x with FieldId s -> s
-
-and pathSegment =
-    | BlockField of FieldId * termType
-    | ArrayIndex of term * termType
-    | ArrayLowerBound of term
-    | ArrayLength of term
-    override x.ToString() =
-        match x with
-        | BlockField(field, _) -> toString field
-        | ArrayIndex(idx, _) -> idx.term.IndicesToString() |> sprintf "[%s]"
-        | ArrayLowerBound idx
-        | ArrayLength idx -> toString idx
-
-and fql = topLevelAddress * pathSegment list // TODO: change fql and create ToString() for it
-
-and
-    [<StructuralEquality;NoComparison>]
-    arrayInstantiator =
-        | DefaultInstantiator of termType
-        | LazyInstantiator of termType
+        | PrimitiveStackLocation _
+        | StackBufferIndex _ -> "Stack"
+        | ClassField _
+        | ArrayIndex _
+        | ArrayLength _
+        | BoxedLocation _
+        | ArrayLowerBound  _ -> "Heap"
+        | StaticField _ -> "Statics"
+        | StructField(addr, _) -> addr.Zone()
 
 and
     [<CustomEquality;NoComparison>]
     term =
-        {term : termNode; metadata : termMetadata}
+        {term : termNode; hc : int}
         override x.ToString() = x.term.ToString()
-        override x.GetHashCode() = x.term.GetHashCode()
+        override x.GetHashCode() = x.hc
         override x.Equals(o : obj) =
             match o with
-            | :? term as other -> x.term.Equals(other.term)
+            | :? term as other -> Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality x.term other.term
             | _ -> false
 
 and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
-
-and 'key heap when 'key : equality = heap<'key, term, fql, termType>
-and 'key memoryCell when 'key : equality = memoryCell<'key, fql, termType>
+        abstract Time : vectorTime
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
 
+module HashMap =
+    let hashMap = weakdict<termNode, term>()
+    let addTerm node =
+        let result = ref { term = node; hc = 0 }
+        if hashMap.TryGetValue(node, result)
+            then !result
+            else
+                let hc = hash node
+                let term = { term = node; hc = hc }
+                hashMap.Add(node, term)
+                term
+
 [<AutoOpen>]
 module internal Terms =
-
-    let TopLevelHeap(k, t1, t2) = TopLevelHeap(k, t1, {v=t2})
-
-    let (|NullAddress|TopLevelStack|TopLevelHeap|TopLevelStatics|) (addr : topLevelAddress) =
-        match addr with
-        | NullAddress -> NullAddress
-        | TopLevelStack k -> TopLevelStack k
-        | TopLevelHeap(k, t1, t2) -> TopLevelHeap(k, t1, t2.v)
-        | TopLevelStatics t -> TopLevelStatics t
-
-    module internal Metadata =
-        let empty<'a> = { origins = List.empty; misc = null }
-        let combine m1 m2 = { origins = List.append m1.origins m2.origins |> List.distinct; misc = null }
-        let combine3 m1 m2 m3 = { origins = List.append3 m1.origins m2.origins m3.origins |> List.distinct; misc = null }
-        let addMisc t obj =
-            if t.metadata.misc = null then t.metadata.misc <- new HashSet<obj>()
-            t.metadata.misc.Add obj |> ignore
-        let removeMisc t obj =
-            if t.metadata.misc <> null then
-                t.metadata.misc.Remove obj |> ignore
-                if t.metadata.misc.Count = 0 then t.metadata.misc <- null
-        let miscContains t obj = t.metadata.misc <> null && t.metadata.misc.Contains(obj)
-        let firstOrigin m =
-            match m.origins with
-            | [] -> null
-            | x::_ -> x.location
-        let clone m = { m with misc = if m.misc <> null then new System.Collections.Generic.HashSet<obj>(m.misc) else null}
 
     let term (term : term) = term.term
 
 // --------------------------------------- Primitives ---------------------------------------
 
-    let Nop<'a> = { term = Nop; metadata = Metadata.empty<'a> }
-    let Error metadata term = { term = Error term; metadata = metadata }
-    let Concrete metadata obj typ = { term = Concrete(obj, typ); metadata = metadata }
-    let Constant metadata name source typ = { term = Constant({v=name}, source, typ); metadata = metadata }
-    let Array metadata dimension length lower constant contents lengths = { term = Array(dimension, length, lower, constant, contents, lengths); metadata = metadata }
-    let Expression metadata op args typ = { term = Expression(op, args, typ); metadata = metadata }
-    let Struct metadata fields typ = { term = Struct(fields, typ); metadata = metadata }
-    let Class metadata fields = { term = Class fields; metadata = metadata }
-    let Block metadata fields typ = Option.fold (Struct metadata fields |> always) (Class metadata fields) typ
-    let StackRef metadata key path = { term = Ref(TopLevelStack key, path); metadata = metadata }
-    let HeapRef metadata addr baseType sightType path = { term = Ref(TopLevelHeap(addr, baseType, sightType), path); metadata = metadata }
-    let StaticRef metadata typ path = { term = Ref(TopLevelStatics typ, path); metadata = metadata }
-    let StackPtr metadata key path typ = { term = Ptr(TopLevelStack key, path, typ, None); metadata = metadata }
-    let HeapPtr metadata addr baseType sightType path ptrTyp = { term = Ptr(TopLevelHeap(addr, baseType, sightType), path, ptrTyp, None); metadata = metadata }
-    let AnyPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, shift); metadata = metadata }
-    let IndentedPtr metadata topLevel path typ shift = { term = Ptr(topLevel, path, typ, Some shift); metadata = metadata }
-    let Ref metadata topLevel path = { term = Ref(topLevel, path); metadata = metadata }
-    let Ptr metadata topLevel path typ = { term = Ptr(topLevel, path, typ, None); metadata = metadata }
-    let Union metadata gvs = { term = Union gvs; metadata = metadata }
+    let Nop = HashMap.addTerm Nop
+    let Concrete obj typ = HashMap.addTerm (Concrete(obj, typ))
+    let Constant name source typ = HashMap.addTerm (Constant({v=name}, source, typ))
+    let Expression op args typ = HashMap.addTerm (Expression(op, args, typ))
+    let Struct fields typ = HashMap.addTerm (Struct(fields, typ))
+    let HeapRef address baseType =
+        match address.term with
+        | Constant(name, _, _) when name.v = "this.head" -> ()
+        | _ -> ()
+        HashMap.addTerm (HeapRef(address, baseType))
+    let Ref address =
+        match address with
+        | ArrayIndex(_, indices, (_, dim, _)) -> assert(List.length indices = dim)
+        | _ -> ()
+        HashMap.addTerm (Ref address)
+    let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
+    let ConcreteHeapAddress addr = Concrete addr AddressType
+    let Union gvs =
+        if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
+        HashMap.addTerm (Union gvs)
 
-    // TODO: get rid of fql reversing (by changing fql) (a lot of bugs are hidden here)
-    let reverseFQL fql = mapsnd List.rev fql
-    let reverseOptionFQL fql = Option.map reverseFQL fql
-
-    let addToFQL key fql = mapsnd (cons key) fql
-    let addToOptionFQL fql key = Option.map (addToFQL key) fql
-
-    let makeTopLevelFQL constr key = Some (constr key, [])
-
-    let makeKey key fql typ = {key = key; FQL = reverseOptionFQL fql; typ = typ} // TODO: makeKey should take only fql
-    let makeTopLevelKey constr key typ = {key = key; FQL = makeTopLevelFQL constr key; typ = typ}
-    let makePathKey fql constr key typ = {key = key; FQL = constr key |> addToOptionFQL fql |> reverseOptionFQL; typ = typ}
-    let getFQLOfKey = function
-        | {FQL = Some fql} -> fql
-        | {FQL = None} as k -> internalfailf "requested fql from unexpected key %O" k
-    let getFQLOfRef = term >> function
-        | Ref(tl, path) -> (tl, List.rev path)
-        | t -> internalfailf "Expected reference, got %O" t
-
-    let makeFQLRef metadata (tl, path) = Ref metadata tl path
-
-    let castReferenceToPointer mtd targetType = term >> function
-        | Ref(topLevel, path)
-        | Ptr(topLevel, path, _, None) -> Ptr mtd topLevel path targetType
-        | Ptr(topLevel, path, _, Some indent) -> IndentedPtr mtd topLevel path targetType indent
+    let castReferenceToPointer targetType = term >> function
+        | Ref address -> Ptr (Some address) targetType None
+        | Ptr(address, _, None) -> Ptr address targetType None
+        | Ptr(address, _, (Some _ as indent)) -> Ptr address targetType indent
         | t -> internalfailf "Expected reference or pointer, got %O" t
-
-    let getReferenceFromPointer mtd = term >> function
-        | Ptr(topLevel, path, _, _) -> Ref mtd topLevel path
-        | t -> internalfailf "Expected pointer, got %O" t
 
     let isVoid = term >> function
         | Nop -> true
         | _ -> false
 
-    let isError = term >> function
-        | Error _ -> true
-        | _ -> false
-
     let isConcrete = term >> function
         | Concrete _ -> true
-        | _ -> false
-
-    let isExpression = term >> function
-        | Expression _ -> true
-        | _ -> false
-
-    let isArray = term >> function
-        | Array _ -> true
-        | _ -> false
-
-    let isRef = term >> function
-        | Ref _ -> true
         | _ -> false
 
     let isUnion = term >> function
@@ -445,120 +289,65 @@ module internal Terms =
         | Concrete(b, t) when Types.isBool t && not (b :?> bool) -> true
         | _ -> false
 
-    let isTopLevelHeapConcreteAddr = function
-        | TopLevelHeap(addr, _, _), [] when isConcrete addr -> true
-        | _ -> false
-
-    let isTopLevelStatics = function
-        | TopLevelStatics _, [] -> true
-        | _ -> false
-
-    let private isSymbolicTopLevel = function
-        | TopLevelHeap(a, _, _) -> isConcrete a |> not
-        | NullAddress -> false
-        | _ -> __notImplemented__()
-
-    let isSymbolicRef = term >> function
-        | Ref(tl, _) -> isSymbolicTopLevel tl
-        | _ -> false
-
-    let (|SymbolicRef|_|) = term >> function
-        | Ref(tl, _) when isSymbolicTopLevel tl -> Some()
-        | _ -> None
-
-    let (|ConcreteRef|_|) = term >> function
-        | Ref(tl, _) when isSymbolicTopLevel tl |> not -> Some()
-        | _ -> None
-
-    let isArrayIndex = function
-        | ArrayIndex _ -> true
-        | _ -> false
-
-    let isArrayLengthSeg = function
-        | ArrayLength _ -> true
-        | _ -> false
-
-    let isArrayLowerBoundSeg = function
-        | ArrayLowerBound _ -> true
-        | _ -> false
-
     let operationOf = term >> function
         | Expression(op, _, _) -> op
-        | term -> internalfailf "expression expected, %O recieved" term
+        | term -> internalfailf "expression expected, %O received" term
 
     let argumentsOf = term >> function
         | Expression(_, args, _) -> args
-        | term -> internalfailf "expression expected, %O recieved" term
-
-    let (|Block|_|) = function
-        | Struct(fields, typ) -> Some(Block(fields, Some typ))
-        | Class fields -> Some(Block(fields, None))
-        | _ -> None
+        | term -> internalfailf "expression expected, %O received" term
 
     let fieldsOf = term >> function
-        | Block(fields, _) -> fields
-        | term -> internalfailf "struct or class expected, %O recieved" term
-
-    let private typeOfTopLevel needBaseType = function
-        | TopLevelHeap(_, baseType, _) when needBaseType -> baseType
-        | TopLevelHeap(_, _, sightType) -> sightType
-        | TopLevelStatics typ -> typ
-        | TopLevelStack _ -> Core.Void // TODO: this is temporary hack, support normal typing
-        | NullAddress -> Null
-
-    let typeOfPath = List.last >> function
-        | BlockField(_, t)
-        | ArrayIndex(_, t) -> t
-        | ArrayLowerBound _
-        | ArrayLength _ -> Types.lengthType
-
-    let private commonTypeOfFQL needBaseType = function
-        | tl, [] -> typeOfTopLevel needBaseType tl
-        | _, path -> typeOfPath path
-
-    let sightTypeOfFQL = commonTypeOfFQL false
-    let baseTypeOfFQL = commonTypeOfFQL true
-
-    let baseTypeOfKey k = k |> getFQLOfKey |> baseTypeOfFQL
+        | Struct(fields, _) -> fields
+        | term -> internalfailf "struct or class expected, %O received" term
 
     let private typeOfUnion getType gvs =
-        let folder types (_, v) =
-            if isError v || isVoid v then types else getType v :: types
-        let nonEmptyTypes = List.fold folder [] gvs
+        let chooseTypes (_, v) =
+            let typ = getType v
+            if Types.isVoid typ || Types.isNull typ then None else Some typ
+        let nonEmptyTypes = List.choose chooseTypes gvs
         match nonEmptyTypes with
-        | [] -> termType.Bottom
+        | [] -> Null
         | t::ts ->
             let allSame =
                 List.forall ((=) t) ts
-                || List.forall Types.concreteIsReferenceType nonEmptyTypes // TODO: unhack this hack (goes from TryCatch.MakeOdd)
             if allSame then t
             else internalfailf "evaluating type of unexpected union %O!" gvs
 
     let commonTypeOf getType term =
         match term.term with
-        | Nop -> termType.Void
-        | Error _ -> termType.Bottom
+        | Nop -> symbolicType.Void
         | Union gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
-    let private commonTypeOfRef needBaseType =
+    let typeOfAddress = function
+        | ClassField(_, field)
+        | StructField(_, field)
+        | StaticField(_, field) -> fromDotNetType field.typ
+        | ArrayIndex(_, _, (elementType, _, _)) -> elementType
+        | BoxedLocation(_, typ) -> typ
+        | ArrayLength _
+        | ArrayLowerBound  _ -> Types.lengthType
+        | StackBufferIndex _ -> Types.Numeric typeof<int8>
+        | PrimitiveStackLocation loc -> loc.TypeOfLocation
+
+    let typeOfRef =
         let getTypeOfRef = term >> function
-            | Ref(tl, path) -> commonTypeOfFQL needBaseType (tl, path)
+            | Ref addr -> typeOfAddress addr
+            | Ptr(addr, _, _) ->
+                match addr with
+                | Some addr -> typeOfAddress addr
+                | None -> __unreachable__()
             | term -> internalfailf "expected reference, but got %O" term
         commonTypeOf getTypeOfRef
 
-    let sightTypeOfRef = commonTypeOfRef false
-    let baseTypeOfRef = commonTypeOfRef true
-
-    let commonTypeOfPtr baseType =
+    let sightTypeOfPtr =
         let getTypeOfPtr = term >> function
-            | Ptr(tl, path, _, _) when baseType -> baseTypeOfFQL (tl, path)
-            | Ptr(_, _, typ, _) -> typ
+            | Ptr(_, typ, _) -> typ
             | term -> internalfailf "expected pointer, but got %O" term
         commonTypeOf getTypeOfPtr
 
-    let sightTypeOfPtr = commonTypeOfPtr false
-    let baseTypeOfPtr = commonTypeOfPtr true
+    let baseTypeOfPtr = typeOfRef
 
     let typeOf =
         let getType term =
@@ -566,26 +355,28 @@ module internal Terms =
             | Concrete(_, t)
             | Constant(_, _, t)
             | Expression(_, _, t)
+            | HeapRef(_, t)
             | Struct(_, t) -> t
-            | Ref _ -> sightTypeOfRef term
+            | Ref _ -> typeOfRef term
             | Ptr _ -> sightTypeOfPtr term |> Pointer
             | _ -> __unreachable__()
         commonTypeOf getType
 
+    let symbolicTypeToArrayType = function
+        | ArrayType(elementType, dim) ->
+            match dim with
+            | Vector -> (elementType, 1, true)
+            | ConcreteDimension d -> (elementType, d, false)
+            | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
+        | typ -> internalfailf "Expected array type, but got %O" typ
+
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
-    let rec private isPrimitiveTerm term =
-        match term.term with
-        | Block _
-        | Array _ -> false
-        | Union gvs -> List.forall (snd >> isPrimitiveTerm) gvs
-        | _ -> true
+    let isBool t =    typeOf t |> Types.isBool
+    let isNumeric t = typeOf t |> Types.isNumeric
 
-    let isBool t =     isPrimitiveTerm t && typeOf t |> Types.isBool
-    let isNumeric t =  isPrimitiveTerm t && typeOf t |> Types.isNumeric
-
-    let rec isStruct term = // TODO: use common function
+    let rec isStruct term =
         match term.term with
         | Struct _ -> true
         | Union gvs -> List.forall (snd >> isStruct) gvs
@@ -593,91 +384,112 @@ module internal Terms =
 
     let rec isReference term =
         match term.term with
+        | HeapRef _ -> true
+        | Ref _ -> true
         | Union gvs -> List.forall (snd >> isReference) gvs
-        | _ -> isRef term
+        | _ -> false
 
-    let CastConcrete isChecked (value : obj) (t : System.Type) metadata =
-        let actualType = if box value = null then t else value.GetType()
-        try
-            if actualType = t then
-                Concrete metadata value (fromDotNetType t)
-            elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
-                let casted =
-                    if t.IsPointer then
-                        new IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
-                    //TODO: ability to convert negative integers to UInt32 without overflowException
-                    elif not isChecked && TypeUtils.isIntegral t then
-                        TypeUtils.uncheckedChangeType value t
-                    else Convert.ChangeType(value, t)
-                Concrete metadata casted (fromDotNetType t)
-            elif t.IsAssignableFrom(actualType) then
-                Concrete metadata value (fromDotNetType t)
-            else raise(new InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-        with
-        | _ ->
-            internalfailf "cannot cast %s to %s!" actualType.FullName t.FullName
+    // Only for concretes: there will never be null type
+    let canCastConcrete (concrete : obj) targetType =
+        assert(not <| Types.isNull targetType)
+        let targetType = Types.toDotNetType targetType
+        let actualType = TypeUtils.getTypeOfConcrete concrete
+        actualType = targetType || targetType.IsAssignableFrom(actualType)
 
-    let makeTrue metadata =
-        Concrete metadata (box true) Bool
+    let castConcrete (concrete : obj) (t : Type) =
+        let actualType = TypeUtils.getTypeOfConcrete concrete
+        let functionIsCastedToMethodPointer () =
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
+        if actualType = t then
+            Concrete concrete (fromDotNetType t)
+        elif t.IsEnum && TypeUtils.isNumeric actualType then
+            let underlyingType = t.GetEnumUnderlyingType()
+            Concrete (TypeUtils.convert concrete underlyingType) (fromDotNetType t)
+        elif actualType.IsEnum && TypeUtils.isNumeric t then
+            Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+        elif TypeUtils.canConvert actualType t then
+            Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
+        elif t.IsAssignableFrom(actualType) then
+            Concrete concrete (fromDotNetType t)
+        elif functionIsCastedToMethodPointer() then
+            Concrete concrete (fromDotNetType actualType)
+        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" (Reflection.getFullTypeName actualType) (Reflection.getFullTypeName t)))
 
-    let makeFalse metadata =
-        Concrete metadata (box false) Bool
+    let True =
+        Concrete (box true) Bool
 
-    let True = makeTrue Metadata.empty
+    let False =
+        Concrete (box false) Bool
 
-    let False = makeFalse Metadata.empty
+    let makeBool predicate =
+        if predicate then True else False
 
-    let makeBool metadata predicate =
-        if predicate then makeTrue metadata else makeFalse metadata
+    let makeIndex (i : int) =
+        Concrete i Types.indexType
 
-    let makeNullRef metadata =
-        Ref metadata NullAddress []
+    let zeroAddress =
+        Concrete VectorTime.zero AddressType
 
-    let makeNullPtr metadata typ =
-        Ptr metadata NullAddress [] typ
+    let nullRef =
+        HeapRef zeroAddress Null
 
-    let makeIndex metadata i =
-        Concrete metadata i Types.indexType
+    let makeNullPtr typ =
+        Ptr None typ None
 
-    let makeZeroAddress metadata =
-        Concrete metadata [0] Types.pointerType
+    let makeNumber n =
+        Concrete n (Numeric(Id(n.GetType())))
 
-    let makeNumber metadata n =
-        Concrete metadata n (Numeric(Id(n.GetType())))
-
-    let makeBinary operation x y isChecked t metadata =
+    let makeBinary operation x y t =
         assert(Operations.isBinary operation)
-        Expression metadata (Operator(operation, isChecked)) [x; y] t
+        Expression (Operator operation) [x; y] t
 
-    let makeNAry operation x isChecked t metadata =
+    let makeNAry operation x t =
         match x with
-        | [] -> raise(new ArgumentException("List of args should be not empty"))
+        | [] -> raise(ArgumentException("List of args should be not empty"))
         | [x] -> x
-        | _ -> Expression metadata (Operator(operation, isChecked)) x t
+        | _ -> Expression (Operator operation) x t
 
-    let makeUnary operation x isChecked t metadata =
+    let makeUnary operation x t =
         assert(Operations.isUnary operation)
-        Expression metadata (Operator(operation, isChecked)) [x] t
+        Expression (Operator operation) [x] t
 
-    let makeCast srcTyp dstTyp expr isChecked metadata =
-        if srcTyp = dstTyp then expr
-        else Expression metadata (Cast(srcTyp, dstTyp, isChecked)) [expr] dstTyp
+    let (|CastExpr|_|) = term >> function
+        | Expression(Cast(srcType, dstType), [x], t) ->
+            assert(dstType = t)
+            Some(CastExpr(x, srcType, dstType))
+        | _ -> None
 
-    let negate term metadata =
+    let rec private makeCast term fromType toType =
+        match term, toType with
+        | _ when fromType = toType -> term
+        | CastExpr(x, xType, Numeric(Id t)), Numeric(Id dstType) when not <| TypeUtils.isLessForNumericTypes t dstType ->
+            makeCast x xType toType
+        | CastExpr(x, (Numeric(Id srcType) as xType), Numeric(Id t)), Numeric(Id dstType)
+            when not <| TypeUtils.isLessForNumericTypes t srcType && not <| TypeUtils.isLessForNumericTypes dstType t ->
+            makeCast x xType toType
+        | _ -> Expression (Cast(fromType, toType)) [term] toType
+
+    let rec primitiveCast term targetType =
+        match term.term, targetType with
+        | _ when typeOf term = targetType -> term
+        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr None typ (Some term)
+        | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
+        // TODO: make cast to Bool like function Transform2BooleanTerm
+        | Constant(_, _, t), _
+        | Expression(_, _, t), _ -> makeCast term t targetType
+        | Ref _, ByRef _ -> term
+        | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
+        | _ -> __unreachable__()
+
+    let negate term =
         assert(isBool term)
-        makeUnary OperationType.LogicalNeg term false Bool metadata
-
-    let makePathIndexKey mtd refTarget i fql typ = makePathKey fql refTarget (makeIndex mtd i) typ
+        makeUnary OperationType.LogicalNot term Bool
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
 
     let (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
-        | _ -> None
-
-    let (|ErrorT|_|) = term >> function
-        | Error e -> Some(ErrorT e)
         | _ -> None
 
     let (|UnionT|_|) = term >> function
@@ -689,122 +501,177 @@ module internal Terms =
         | _ -> None
 
     let (|UnaryMinus|_|) = function
-        | Expression(Operator(OperationType.UnaryMinus, isChecked), [x], t) -> Some(UnaryMinus(x, isChecked, t))
+        | Expression(Operator OperationType.UnaryMinus, [x], t) -> Some(UnaryMinus(x, t))
         | _ -> None
 
     let (|UnaryMinusT|_|) = term >> (|UnaryMinus|_|)
 
     let (|Add|_|) = term >> function
-        | Expression(Operator(OperationType.Add, isChecked), [x;y], t) -> Some(Add(x, y, isChecked, t))
+        | Expression(Operator OperationType.Add, [x;y], t) -> Some(Add(x, y, t))
         | _ -> None
 
     let (|Sub|_|) = term >> function
-        | Expression(Operator(OperationType.Subtract, isChecked), [x;y], t) -> Some(Sub(x, y, isChecked, t))
+        | Expression(Operator OperationType.Subtract, [x;y], t) -> Some(Sub(x, y, t))
         | _ -> None
 
     let (|Mul|_|) = term >> function
-        | Expression(Operator(OperationType.Multiply, isChecked), [x;y], t) -> Some(Mul(x, y, isChecked, t))
+        | Expression(Operator OperationType.Multiply, [x;y], t) -> Some(Mul(x, y, t))
         | _ -> None
 
     let (|Div|_|) = term >> function
-        | Expression(Operator(OperationType.Divide, isChecked), [x;y], t) -> Some(Div(x, y, isChecked, t))
+        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t, true))
+        | Expression(Operator OperationType.Divide_Un, [x;y], t) -> Some(Div(x, y, t, false))
         | _ -> None
 
     let (|Rem|_|) = term >> function
-        | Expression(Operator(OperationType.Remainder, isChecked), [x;y], t) -> Some(Rem(x, y, isChecked, t))
+        | Expression(Operator OperationType.Remainder, [x;y], t)
+        | Expression(Operator OperationType.Remainder_Un, [x;y], t) -> Some(Rem(x, y, t))
         | _ -> None
 
     let (|Negation|_|) = function
-        | Expression(Operator(OperationType.LogicalNeg, _), [x], _) -> Some(Negation x)
+        | Expression(Operator OperationType.LogicalNot, [x], _) -> Some(Negation x)
         | _ -> None
 
     let (|NegationT|_|) = term >> (|Negation|_|)
 
     let (|Conjunction|_|) = function
-        | Expression(Operator(OperationType.LogicalAnd, _), xs, _) -> Some(Conjunction xs)
+        | Expression(Operator OperationType.LogicalAnd, xs, _) -> Some(Conjunction xs)
         | _ -> None
 
     let (|Disjunction|_|) = function
-        | Expression(Operator(OperationType.LogicalOr, _), xs, _) -> Some(Disjunction xs)
+        | Expression(Operator OperationType.LogicalOr, xs, _) -> Some(Disjunction xs)
         | _ -> None
 
     let (|Xor|_|) = term >> function
-        | Expression(Operator(OperationType.LogicalXor, _), [x;y], _) -> Some(Xor(x, y))
+        | Expression(Operator OperationType.LogicalXor, [x;y], _) -> Some(Xor(x, y))
         | _ -> None
 
     let (|ShiftLeft|_|) = term >> function
-        | Expression(Operator(OperationType.ShiftLeft, isChecked), [x;y], t) -> Some(ShiftLeft(x, y, isChecked, t))
+        | Expression(Operator OperationType.ShiftLeft, [x;y], t) -> Some(ShiftLeft(x, y, t))
         | _ -> None
 
     let (|ShiftRight|_|) = term >> function
-        | Expression(Operator(OperationType.ShiftRight, isChecked), [x;y], t) -> Some(ShiftRight(x, y, isChecked, t))
+        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t, true))
+        | Expression(Operator OperationType.ShiftRight_Un, [x;y], t) -> Some(ShiftRight(x, y, t, false))
         | _ -> None
 
-    // TODO: can we already get rid of visited?
-    let rec private foldChildren folder (visited : HashSet<term>) state term =
+    let (|ShiftRightThroughCast|_|) = function
+        | CastExpr(ShiftRight(a, b, Numeric(Id t), _), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
+        | _ -> None
+
+    let (|ConcreteHeapAddress|_|) = function
+        | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
+        | _ -> None
+
+    let getConcreteHeapAddress = term >> function
+        | ConcreteHeapAddress(addr) -> addr
+        | _ -> __unreachable__()
+
+    let isConcreteHeapAddress term =
         match term.term with
-        | Constant(_, source, _) when visited.Add(term) ->
-            foldSeq folder visited source.SubTerms state
-        | Array(dimension, len, lowerBounds, _, contents, lengths) ->
-            doFold folder visited state dimension
-            |> fun state -> doFold folder visited state len
-            |> foldSeq folder visited (Heap.locations lowerBounds)
-            |> foldSeq folder visited (Heap.values lowerBounds)
-            |> foldSeq folder visited (Heap.locations contents)
-            |> foldSeq folder visited (Heap.values contents)
-            |> foldSeq folder visited (Heap.locations lengths)
-            |> foldSeq folder visited (Heap.values lengths)
+        | ConcreteHeapAddress _ -> true
+        | _ -> false
+
+    let rec timeOf (address : heapAddress) =
+        match address.term with
+        | ConcreteHeapAddress addr -> addr
+        | Constant(_, source, _) -> source.Time
+        | HeapRef(address, _) -> timeOf address
+        | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
+        | _ -> internalfailf "timeOf : expected heap address, but got %O" address
+
+    let compareTerms t1 t2 =
+        match t1.term, t2.term with
+        | Concrete(:? IComparable as x, _), Concrete(:? IComparable as y, _) -> x.CompareTo y
+        | Concrete(:? IComparable, _), _ -> -1
+        | _, Concrete(:? IComparable, _) -> 1
+        | _ -> compare (toString t1) (toString t2)
+
+    let rec private foldChildren folder state term =
+        match term.term with
+        | Constant(_, source, _) ->
+            foldSeq folder source.SubTerms state
         | Expression(_, args, _) ->
-            foldSeq folder visited args state
-        | Block(fields, _) ->
-            foldSeq folder visited (Heap.values fields) state
-        | Ref(topLevel, path) ->
-            let state = foldTopLevel folder visited state topLevel
-            foldPath folder visited state path
-        | Ptr(topLevel, path, _, indent) ->
-            let state = foldTopLevel folder visited state topLevel
-            let state = foldPath folder visited state path
+            foldSeq folder args state
+        | Struct(fields, _) ->
+            foldSeq folder (PersistentDict.values fields) state
+        | Ref address ->
+            foldAddress folder state address
+        | Ptr(address, _, indent) ->
+            let state = Option.fold (foldAddress folder) state address
             match indent with
             | None -> state
-            | Some indent -> doFold folder visited state indent
+            | Some indent -> doFold folder state indent
         | GuardedValues(gs, vs) ->
-            foldSeq folder visited gs state |> foldSeq folder visited vs
-        | Error e ->
-            doFold folder visited state e
+            foldSeq folder gs state |> foldSeq folder vs
         | _ -> state
 
-    and doFold folder (visited : HashSet<term>) state term =
-        let state = foldChildren folder visited state term
+    and doFold folder state term =
+        let state = foldChildren folder state term
         folder state term
 
-    and foldTopLevel folder visited state = function
-        | TopLevelHeap(addr, _, _) -> doFold folder visited state addr
-        | NullAddress
-        | TopLevelStack _
-        | TopLevelStatics _ -> state
+    and foldAddress folder state = function
+        | PrimitiveStackLocation _
+        | StaticField _
+        | BoxedLocation _ -> state
+        | ClassField(addr, _) -> doFold folder state addr
+        | ArrayIndex(addr, idcs, _) ->
+            let state = doFold folder state addr
+            foldSeq folder idcs state
+        | StructField(addr, _) -> foldAddress folder state addr
+        | ArrayLength(addr, idx, _)
+        | ArrayLowerBound(addr, idx, _) ->
+            let state = doFold folder state addr
+            doFold folder state idx
+        | StackBufferIndex(_, idx) -> doFold folder state idx
 
-    and foldPathSegment folder visited state = function
-        | BlockField _ -> state
-        | ArrayIndex(idx, _)
-        | ArrayLowerBound idx
-        | ArrayLength idx -> doFold folder visited state idx
-
-    and private foldPath folder visited =
-        Seq.fold (foldPathSegment folder visited)
-
-    and private foldSeq folder visited terms state =
-        Seq.fold (doFold folder visited) state terms
+    and private foldSeq folder terms state =
+        Seq.fold (doFold folder) state terms
 
     let fold folder state terms =
-        foldSeq folder (new HashSet<term>()) terms state
+        foldSeq folder terms state
 
     let iter action term =
-        doFold (fun () -> action) (new HashSet<term>()) () term
+        doFold (fun () -> action) () term
 
     let discoverConstants terms =
-        let result = new HashSet<term>()
+        let result = HashSet<term>()
         let addConstant = function
             | {term = Constant _} as constant -> result.Add constant |> ignore
             | _ -> ()
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
+
+
+    let private foldFields isStatic folder acc typ =
+        let dotNetType = Types.toDotNetType typ
+        let fields = Reflection.fieldsOf isStatic dotNetType
+        let addField heap (field, typ) =
+            let termType = typ |> Types.Constructor.fromDotNetType
+            folder heap field termType
+        FSharp.Collections.Array.fold addField acc fields
+
+    let private makeFields isStatic makeField typ =
+        let folder fields field termType =
+            let value = makeField field termType
+            PersistentDict.add field value fields
+        foldFields isStatic folder PersistentDict.empty typ
+
+    let makeStruct isStatic makeField typ =
+        let fields = makeFields isStatic makeField typ
+        Struct fields typ
+
+    let rec makeDefaultValue typ =
+        match typ with
+        | Bool -> False
+        | Numeric(Id t) when t.IsEnum -> castConcrete (System.Activator.CreateInstance t) t
+        | Numeric(Id t) -> castConcrete 0 t
+        | ArrayType _
+        | ClassType _
+        | InterfaceType _ -> nullRef
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> nullRef
+        | TypeVariable(Id t) -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
+        | StructType _ -> makeStruct false (fun _ t -> makeDefaultValue t) typ
+        | Pointer typ -> makeNullPtr typ
+        | _ -> __notImplemented__()

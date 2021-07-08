@@ -1,6 +1,5 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.AndOr20(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
-RESULT: a
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Logics ==> CLASS []
+RESULT: Totally 1 state:
+!b & !c & a | !c & a | a & b | a & c
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Logics }

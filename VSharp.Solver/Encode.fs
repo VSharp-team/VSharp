@@ -29,7 +29,7 @@ module internal Encode =
     let private isInputConstant = function
     | { term = Constant(_, source, _) } ->
         match source with
-        | LazyInstantiation({term = Ref(TopLevelStack _, _)}, None, _) -> true
+        | LazyInstantiation({term = Ref(RefTopLevelStack _, _)}, None, _) -> true
         | _ -> false
     | _ -> false
 
@@ -39,9 +39,9 @@ module internal Encode =
 
         let clear () = keys.Clear()
 
-        let private toKey funcId = function
-            | None -> sprintf "%O#res" funcId
-            | Some _ -> IdGenerator.startingWith (toString funcId)
+        let private toKey method = function
+            | None -> sprintf "%O#res" method
+            | Some _ -> IdGenerator.startingWith (toString method)
 
         let private encodeBody codeLoc loc =
             let pair = (codeLoc, loc)
@@ -100,7 +100,7 @@ module internal Encode =
         match constant.term with
         | Constant(_, source, _) ->
             match source with
-            | RecursionOutcome(id, state, location, _) ->
+            | RecursionOutcome(_, id, state, location, _) ->
                 CodeLocationSummaries.encode constant id state location |> Some
             | LazyInstantiation(_, None, _) -> None
             | LazyInstantiation(_, Some _, _) -> __notImplemented__()

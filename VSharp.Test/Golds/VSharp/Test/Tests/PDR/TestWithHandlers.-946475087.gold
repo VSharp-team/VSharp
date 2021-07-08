@@ -1,0 +1,9 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestWithHandlers(System.Int32, System.Int32)
+RESULT: Totally 1 state:
+x / y
+MEMORY DUMP:
+Path condition: !(-1 == y) | !(-2147483648 == x) /\ !(0 == y)
+--------------- Stack: ---------------
+key = __loc__0, value = 2
+key = __loc__1, value = x / y
+Initialized types = { VSharp.Test.Tests.PDR }

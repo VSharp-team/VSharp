@@ -4,105 +4,53 @@ open VSharp
 
 module Substitution =
 
-    let private substituteTopLevel addressSubst typeSubst = function
-        | TopLevelHeap(addr, bt, st) -> addressSubst addr bt st
-        | TopLevelStatics typ -> [True, typ |> typeSubst |> TopLevelStatics]
-        | NullAddress
-        | TopLevelStack _ as tl -> [True, tl]
+    let rec substituteAddress termSubst typeSubst timeSubst = function
+        | PrimitiveStackLocation _ as sl -> sl
+        | ClassField(addr, field) -> ClassField(termSubst addr, field)
+        | ArrayIndex(addr, index, (elementType, dim, isVector)) -> ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
+        | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst timeSubst addr, field)
+        | StaticField(typ, field) -> StaticField(typeSubst typ, field)
+        | ArrayLength(addr, dim, (typ, d, isVector)) -> ArrayLength(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
+        | BoxedLocation(addr, typ) -> BoxedLocation(timeSubst addr, typeSubst typ)
+        | StackBufferIndex(key, index)  -> StackBufferIndex(key, termSubst index)
+        | ArrayLowerBound(addr, dim, (typ, d, isVector)) -> ArrayLowerBound(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
 
-    let rec substituteHeap<'a when 'a : equality> keySubst subst addressSubst typeSubst (heap : 'a heap) : 'a heap =
-        Heap.map (fun (k, v) -> substituteHeapKey keySubst subst addressSubst typeSubst k, substitute subst addressSubst typeSubst v) heap
-
-    and substituteHeapKey<'a when 'a : equality> (keySubst : 'a -> 'a) (subst : term -> term) (addressSubst : term -> termType -> termType -> (term * topLevelAddress) list) (typeSubst : termType -> termType) (key : 'a memoryCell) : 'a memoryCell =
-        let key' = keySubst key.key // TODO: key substitution works twice (in key.key and in key.FQL)
-        let typ' = typeSubst key.typ
-        let FQL' = Option.map (substituteFQL subst addressSubst typeSubst) key.FQL
-        match FQL' with
-        | None -> {key = key'; FQL = None; typ = typ'}
-        | Some [True, fql] -> {key = key'; FQL = Some fql; typ = typ'} // we should never have union in heap key after substitution, so it shouldn't happen in fql
-        | _ -> internalfail "substitution of heap key has failed"
-
-    and substitute subst addressSubst typeSubst term =
+    // TODO: get rid of union unnesting to avoid the exponential blow-up!
+    let rec substitute termSubst typeSubst timeSubst term =
+        let recur = substitute termSubst typeSubst timeSubst
         match term.term with
-        | Ref(topLevel, path) ->
-            substituteRef subst addressSubst typeSubst topLevel path (Ref term.metadata) |> Merging.merge |> subst
-        | Ptr(topLevel, path, typ, shift) ->
-            let ctor =
-                match shift with
-                | None -> fun tl path -> Ptr term.metadata tl path typ
-                | Some shift ->
-                    fun tl path ->
-                        shift
-                        |> substitute subst addressSubst typeSubst
-                        |> Merging.guardedErroredApply (IndentedPtr term.metadata tl path typ)
-            substituteRef subst addressSubst typeSubst topLevel path ctor |> Merging.merge
-        | Error e ->
-            e |> substitute subst addressSubst typeSubst |> Merging.guardedErroredApply (fun e' ->
-            if e' = e then term else Error term.metadata e')
-        | Expression(op, args, t) ->
-            let t = typeSubst t
-            substituteMany subst addressSubst typeSubst args (fun args' ->
+        | Expression(op, args, _) ->
+            substituteMany termSubst typeSubst timeSubst args (fun args' ->
             if args = args' then term
             else
                 match op with
-                | Operator(op, isChecked) -> Operators.simplifyOperation term.metadata op isChecked t args' id
-                | Cast(_, targetType, isChecked) ->
+                | Operator op -> Operators.simplifyOperation op args' id
+                | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'
-                    TypeCasting.cast term.metadata isChecked State.empty arg targetType (fun _ _ _ -> __unreachable__()) fst
+                    primitiveCast arg targetType
                 | Application _ -> __notImplemented__())
             |> Merging.merge
         | Union gvs ->
-            let gvs' = gvs |> List.collect (fun (g, v) ->
-                let ges, ggs = substitute subst addressSubst typeSubst g |> Merging.erroredUnguard
-                if isFalse ggs then ges else (ggs, substitute subst addressSubst typeSubst v)::ges)
+            let gvs' = gvs |> List.choose (fun (g, v) ->
+                let ggs = recur g |> Merging.unguardMerge
+                if isFalse ggs then None else Some (ggs, recur v))
             if gvs' = gvs then term else Merging.merge gvs'
-        | Block(contents, typ) ->
-            let contents' = substituteHeap id subst addressSubst typeSubst contents
-            let typ' = Option.map typeSubst typ
-            Block term.metadata contents' typ'
-        | Array(dim, len, lower, inst, contents, lengths) ->
-            let dimerrs, dim' = dim |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
-            let lenerrs, len' = len |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
-            let lower' = substituteHeap subst subst addressSubst typeSubst lower
-            let contents' = substituteHeap subst subst addressSubst typeSubst contents
-            let lengths' = substituteHeap subst subst addressSubst typeSubst lengths
-            let getErrorsAndInstors (ges, gis) (g, i) =
-                let ges', g' = g |> substitute subst addressSubst typeSubst |> Merging.erroredUnguard
-                let gis' = Merging.genericSimplify [(g', i)]
-                List.append ges ges', List.append gis gis'
-            let insterrs, inst' = List.fold getErrorsAndInstors ([], []) inst
-            let errs = List.concat [dimerrs; lenerrs; insterrs]
-            let guard = errs |> List.fold (fun d (g, _) -> d ||| g) False
-            let result = Array term.metadata dim' len' lower' inst' contents' lengths'
-            (!!guard, result)::errs |> Merging.merge
-        | _ -> subst term
+        | HeapRef(address, typ) ->
+            let addr' = recur address
+            let typ' = if addr' = zeroAddress then Null else typeSubst typ
+            HeapRef addr' typ'
+        | Struct(contents, typ) ->
+            let contents' = PersistentDict.map id recur contents
+            let typ' = typeSubst typ
+            Struct contents' typ'
+        | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
+        | Ref address -> substituteAddress recur typeSubst timeSubst address |> Ref
+        | Ptr(address, typ, shift) -> Ptr (Option.map (substituteAddress recur typeSubst timeSubst) address) (typeSubst typ) (Option.map recur shift)
+        | _ -> termSubst term
 
-    and private substituteMany subst addressSubst typeSubst terms ctor =
-        Merging.guardedCartesianProduct (substitute subst addressSubst typeSubst >> Merging.unguard) terms ctor
+    and private substituteMany termSubst typeSubst timeSubst terms ctor =
+        Merging.guardedCartesianProduct (substitute termSubst typeSubst timeSubst >> Merging.unguard) terms ctor
 
     and private substituteAndMap subst addressSubst typeSubst mapper =
         substitute subst addressSubst typeSubst >> Merging.unguard >> Merging.guardedMapWithoutMerge mapper
-
-    and private substituteSegment subst addressSubst typeSubst = function
-        | BlockField(f, t) -> [True, BlockField(f, typeSubst t)]
-        | ArrayIndex(i, t) ->
-            let t' = typeSubst t
-            substituteAndMap subst addressSubst typeSubst (fun i' -> ArrayIndex(i', t')) i
-        | ArrayLowerBound i ->
-            substituteAndMap subst addressSubst typeSubst ArrayLowerBound i
-        | ArrayLength i ->
-            substituteAndMap subst addressSubst typeSubst ArrayLength i
-
-    and private substitutePath subst addressSubst typeSubst path =
-        Merging.genericGuardedCartesianProduct (substituteSegment subst addressSubst typeSubst) path
-
-    and private substituteFQL subst addressSubst typeSubst (topLevel, path) =
-        let tls = substituteTopLevel addressSubst typeSubst topLevel
-        let paths = substitutePath subst addressSubst typeSubst path
-        let createFQL (g, tl) = List.map (fun (g', path) -> g &&& g', (tl, path)) paths
-        List.collect createFQL tls
-
-    and private substituteRef subst addressSubst typeSubst topLevel path ctor =
-        let FQL' = substituteFQL subst addressSubst typeSubst (topLevel, path)
-        List.map (fun (g, (tl, path)) -> g, ctor tl path) FQL'

@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.Marshaling.WasSymbolic_BecameConcrete_RecursiveObject(System.Int32)
+RESULT: 100
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> VSharp.Test.Tests.Marshaling+RecursiveClass CLASS [
+	| VSharp::Test::Tests::Marshaling::RecursiveClass::_value ~> 50
+	| VSharp::Test::Tests::Marshaling::RecursiveClass::next ~> (HeapRef 1)]
+---------- s1 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Marshaling ==> CLASS []
+VSharp.Test.Tests.Marshaling+RecursiveClass ==> CLASS []

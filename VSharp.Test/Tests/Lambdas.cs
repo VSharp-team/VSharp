@@ -27,13 +27,15 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 18
-        [Ignore("reinterpretation")]
+        // [Ignore("ThisKey for lambda function is not in stack")]
+        [TestSvm]
         public static int Always18()
         {
             return Mult2(9);
         }
 
         // Expecting always true
+        // [Ignore("ThisKey for lambda function is not in stack")]
         [TestSvm]
         public static bool DoubleValue(int n, bool flag)
         {
@@ -53,6 +55,67 @@ namespace VSharp.Test.Tests
                 };
             assign(n);
             return a + b + c == n + n;
+        }
+
+        public static bool CheckIsLambda<T>(object o)
+        {
+            return o is Action<int>;
+        }
+
+        [TestSvm]
+        public static bool LambdaAsObjectIsLambda(bool flag)
+        {
+            Action<int> nop;
+            nop = x => {};
+            object o = nop;
+            return CheckIsLambda<Action<int>>(o);
+        }
+
+        public static bool FunctionInsideFunc(int x)
+        {
+            return x > 0;
+        }
+
+        [TestSvm]
+        public static bool FuncFromFunction(int x)
+        {
+            var func = new Func<int, bool>(FunctionInsideFunc);
+            return func.Invoke(x);
+        }
+
+        [TestSvm]
+        public static bool FuncFromLambda(int x)
+        {
+            var func = new Func<int, bool>(i => i <= 0);
+            return func.Invoke(x);
+        }
+
+        [Ignore("exception handling")]
+        public static Action<int> NullLambdaInvoke()
+        {
+            Action<int> nullAction = null;
+            nullAction(42);
+            return nullAction;
+        }
+
+        [TestSvm]
+        public static bool SymbolicLambdaInvoke(Func<int, bool> f)
+        {
+            return f.Invoke(42);
+        }
+
+        [TestSvm]
+        public static bool ConcreteLambdaInvokeSymbolic()
+        {
+            Func<int, bool> f = i => i < 0;
+            return SymbolicLambdaInvoke(f);
+        }
+
+        [Ignore("exception handling")]
+        public static bool NullLambdaInvokeSymbolic()
+        {
+            Func<int, bool> f = null;
+            return SymbolicLambdaInvoke(f);
         }
 
 /*        public static int ForToLambdaDelegateSmokeTest(int n)

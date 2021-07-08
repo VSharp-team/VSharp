@@ -73,6 +73,11 @@ module public List =
         | [] -> internalfail "List.last of empty list!"
         | x::xs -> lastAndRest x xs makePair
 
+    let rec mapLast f = function
+        | [x] -> [f x]
+        | x::xs -> x::(mapLast f xs)
+        | [] -> []
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 
@@ -106,7 +111,7 @@ module public Dict =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue
 
-    let public tryGetValue2 (dict : System.Collections.Generic.IDictionary<'a, 'b>) key defaultValue =
+    let public tryGetValue2 (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue()
 
@@ -119,23 +124,24 @@ module public Dict =
         dict1.Keys.Count = dict2.Keys.Count &&
         dict1.Keys |> Seq.forall (fun k -> dict2.ContainsKey(k) && obj.Equals(dict2.[k], dict1.[k]));
 
+    let public toString format separator keyMapper valueMapper sorter (d : IDictionary<'a, 'b>) =
+        d
+        |> Seq.sortBy (fun kv -> sorter kv.Key)
+        |> Seq.map (fun kv -> sprintf format (keyMapper kv.Key) (valueMapper kv.Value))
+        |> join separator
+
+
 type 'a stack = 'a list
 
 module public Stack =
-
-    let peek = function
-        | [] -> failwith "Attempt to peak head of an empty stack"
-        | hd::_ -> hd
 
     let bottomAndRest = List.lastAndRest
 
     let pop = function
         | [] -> failwith "Attempt to pop an empty stack"
-        | _::tl -> tl
+        | head :: tl -> head, tl
 
     let push stack element = element::stack
-
-    let updateHead stack newHd = push (pop stack) newHd
 
     let empty = List.empty
 
@@ -150,3 +156,9 @@ module public Stack =
     let tryFindBottom = List.tryFindBack
 
     let exists = List.exists
+
+    let map = List.map
+
+    let union = List.append
+
+    let fold = List.fold

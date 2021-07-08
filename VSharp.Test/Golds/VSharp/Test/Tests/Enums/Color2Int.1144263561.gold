@@ -1,0 +1,16 @@
+METHOD: System.Int32 VSharp.Test.Tests.Enums.Color2Int(VSharp.Test.Tests.Enums+Color)
+RESULT: Totally 3 states:
+42
+MEMORY DUMP:
+Path condition: !((System.Int32 c) == 0) /\ !((System.Int32 c) == 1)
+Initialized types = { VSharp.Test.Tests.Enums }
+
+500
+MEMORY DUMP:
+Path condition: !((System.Int32 c) == 0) /\ (System.Int32 c) == 1
+Initialized types = { VSharp.Test.Tests.Enums }
+
+10
+MEMORY DUMP:
+Path condition: (System.Int32 c) == 0
+Initialized types = { VSharp.Test.Tests.Enums }

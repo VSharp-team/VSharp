@@ -1,0 +1,25 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestLengths_6(System.Boolean)
+RESULT: Totally 2 states:
+20
+MEMORY DUMP:
+Path condition: !f
+--------------- Array lengths: ---------------
+System.Int32[,] ==> {2[0] <- 4; 2[1] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[,]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Array)
+Initialized types = { System.Array, VSharp.Test.Tests.PDR, System.Int32[,] }
+
+100
+MEMORY DUMP:
+Path condition: f
+--------------- Array lengths: ---------------
+System.Int32[,] ==> {2[0] <- 4; 2[1] <- 5}
+System.Int32[] ==> {3[0] <- 100}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[,]
+3 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 3 to System.Array)
+Initialized types = { System.Array, VSharp.Test.Tests.PDR, System.Int32[,] }

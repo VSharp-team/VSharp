@@ -1,0 +1,9 @@
+METHOD: System.IntPtr VSharp.Test.Tests.Unsafe.IntPtrZero()
+RESULT: Totally 1 state:
+(nullptr as System.Void)
+MEMORY DUMP:
+--------------- Static fields: ---------------
+Zero ==> {
+        <Pointer to System.Void> <- (nullptr as System.Void)
+    }
+Initialized types = { <Pointer to System.Void>, VSharp.Test.Tests.Unsafe }

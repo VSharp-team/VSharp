@@ -1,6 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Unsafe.StrangeSizeOf()
-RESULT: 70
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Unsafe ==> CLASS []
+RESULT: Totally 1 state:
+70
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Unsafe }

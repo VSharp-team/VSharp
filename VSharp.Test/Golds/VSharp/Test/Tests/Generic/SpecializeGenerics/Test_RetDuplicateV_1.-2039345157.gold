@@ -1,0 +1,5 @@
+METHOD: System.Int32 VSharp.Test.Tests.Generic.SpecializeGenerics.Test_RetDuplicateV_1()
+RESULT: Totally 1 state:
+1
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Generic.GenericMethodInsideGenericType`3[VSharp.Test.Tests.Generic.IKeeper`1[System.Int32],VSharp.Test.Tests.Generic.IKeeper`1[System.Object],VSharp.Test.Tests.SimpleStruct], VSharp.Test.Tests.Generic.SpecializeGenerics }

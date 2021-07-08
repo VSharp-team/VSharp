@@ -1,102 +1,117 @@
 namespace VSharp.Core
 
 open VSharp
+open System.Reflection
 
 [<AutoOpen>]
 module API =
-    val Enter : locationBinding -> state -> ('a -> 'b) -> ('a -> 'b)
-
-    val Configure : IActivator -> unit
-    val ConfigureSolver : ISolver -> unit
+    val ConfigureSolver : SolverInteraction.ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
 
-    val HigherOrderApply : ICodeLocation -> state -> (term * state -> 'a) -> 'a
-    val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'b
-    val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
-    val BranchExpressions : state -> ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
-    val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item * state -> 'a) -> 'a) -> (state -> ('item * state -> 'a) -> 'a) -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> (term -> term -> 'item -> 'item -> 'item) -> (term -> term -> state -> state -> state) -> (term -> 'item) -> ('item * state -> 'a) -> 'b)
+    val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'b
+    val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
+    val BranchExpressions : ((term -> 'a) -> 'b) -> ((term -> 'a) -> 'a) -> ((term -> 'a) -> 'a) -> (term -> 'a) -> 'b
+    val StatedConditionalExecution : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> ('item -> 'a) -> 'a) -> (state -> ('item -> 'a) -> 'a) -> ('item -> 'item -> 'item list) -> ('item  list -> 'a) -> 'b)
+    val StatedConditionalExecutionAppendResults : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (state list -> 'a) -> 'a) -> (state -> (state list -> 'a) -> 'a) -> (state list -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
-    val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> (term * state -> 'a) -> 'a
-    val GuardedErroredStatedApplyk : (state -> term -> ('item * state -> 'a) -> 'a) -> (term -> 'item) -> state -> term -> ((term * 'item) list -> 'item) -> (term list -> state list -> state) -> ('item * state -> 'a) -> 'a
+    val GuardedApplyExpressionWithPC : pathCondition -> term -> (term -> term) -> term
+    val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
+    val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
-    val PerformBinaryOperation : OperationType -> bool -> state -> term -> term -> (term * state -> 'a) -> 'a
-    val PerformUnaryOperation : OperationType -> bool -> state -> termType -> term -> (term * state -> 'a) -> 'a
+    val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
+    val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
+
+    val IsValid : state -> SolverInteraction.smtResult
 
     [<AutoOpen>]
     module Terms =
         val Nop : term
-        val Error : term -> term
-        val Concrete : 'a -> termType -> term
-        val Constant : string -> ISymbolicConstantSource -> termType -> term
-        val Expression : operation -> term list -> termType -> term
-        val Struct : string heap -> termType -> term
-        val Class : string heap -> term
+        val Concrete : 'a -> symbolicType -> term
+        val Constant : string -> ISymbolicConstantSource -> symbolicType -> term
+        val Expression : operation -> term list -> symbolicType -> term
+        val Struct : pdict<fieldId, term> -> symbolicType -> term
+        val Ref : address -> term
+        val Ptr : address option -> symbolicType -> term option -> term
+        val HeapRef : heapAddress -> symbolicType -> term
         val Union : (term * term) list -> term
 
         val True : term
         val False : term
+        val NullRef : term
 
-        val MakeNullRef : unit -> term
-        val MakeDefault : termType -> term -> term
+        val MakeBool : bool -> term
         val MakeNumber : 'a -> term
+        val MakeIntPtr : term -> state -> term
 
-        val TypeOf : term -> termType
-        val BaseTypeOfRef : term -> termType
-        val SightTypeOfRef : term -> termType
+        val TypeOf : term -> symbolicType
+        val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
 
-        val isStruct : term -> bool
-        val isReference : term -> bool
+        val IsStruct : term -> bool
+        val IsReference : term -> bool
         val IsNullReference : term -> term
+
+        val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
-        val (|LazyInstantiation|_|) : ISymbolicConstantSource -> (term * 'a generalizedHeap option * bool) option
-        val (|RecursionOutcome|_|) : ISymbolicConstantSource -> (ICodeLocation * state * term option * bool) option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
 
+        val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
+        val (|ArrayIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
+        val (|VectorIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
+        val (|StackBufferReading|_|) : IMemoryAccessConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
+        val (|StaticsReading|_|) : IMemoryAccessConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<symbolicType>>>
+        val (|StructFieldSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource * fieldId>
+        val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource>
+        val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
+
+        val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort
+
         val ConstantsOf : term seq -> term System.Collections.Generic.ISet
 
-        val AddConditionToState : state -> term -> state
+        val HeapReferenceToBoxReference : term -> term
 
-    module RuntimeExceptions =
-        val InvalidCastException : state -> (term -> 'a) -> 'a * state
-        val TypeInitializerException : string -> term -> state -> (term -> 'a) -> 'a * state
-        val IndexOutOfRangeException : state -> (term -> 'a) -> 'a * state
-        val InvalidProgramException : state -> (term -> 'a) -> 'a * state
+        val WithPathCondition : state -> term -> state
+        val IsFalsePathCondition : state -> bool
+        val PathConditionToSeq : pathCondition -> term seq
 
     module Types =
-        val Numeric : System.Type -> termType
+        val Numeric : System.Type -> symbolicType
+        val ObjectType : symbolicType
+        val IndexType : symbolicType
 
-        val FromDotNetType : state -> System.Type -> termType
-        val ToDotNetType : termType -> System.Type
+        val FromDotNetType : System.Type -> symbolicType
+        val ToDotNetType : symbolicType -> System.Type
 
-        val SizeOf : termType -> int
+        val SizeOf : symbolicType -> int
+        val RankOf : symbolicType -> int
 
-        val TLength : termType
-        val IsBool : termType -> bool
-        val IsInteger : termType -> bool
-        val IsReal : termType -> bool
-        val IsPointer : termType -> bool
-        val IsValueType : termType -> term
+        val TLength : symbolicType
+        val IsBool : symbolicType -> bool
+        val IsInteger : symbolicType -> bool
+        val IsReal : symbolicType -> bool
+        val IsNumeric : symbolicType -> bool
+        val IsPointer : symbolicType -> bool
+        val IsValueType : symbolicType -> bool
+        val IsArrayType : symbolicType -> bool
+        val String : symbolicType
+        val (|StringType|_|) : symbolicType -> unit option
 
-        val String : termType
-        val (|StringType|_|) : termType -> unit option
+        val ElementType : symbolicType -> symbolicType
 
-        val elementType : termType -> termType
-
-        val TypeIsType : termType -> termType -> term
-        val TypeIsNullable : termType -> term
-        val TypeIsRef : termType -> term -> term
-        val RefIsType : term -> termType -> term
-        val RefIsRef : term -> term -> term
-        val CanCast : term -> termType -> term
-        val IsCast : state -> termType -> term -> term
-        val Cast : state -> term -> termType -> bool -> (state -> term -> termType -> term * state) -> (term * state -> 'b) -> 'b
+        val TypeIsType : symbolicType -> symbolicType -> term
+        val TypeIsNullable : symbolicType -> bool
+        val TypeIsRef :  state -> symbolicType -> term -> term
+        val RefIsType : state -> term -> symbolicType -> term
+        val RefIsAssignableToType : state -> term -> symbolicType -> term
+        val RefIsRef : state -> term -> term -> term
+        val IsCast : state -> term -> symbolicType -> term
+        val Cast : term -> symbolicType -> term
         val CastReferenceToPointer : state -> term -> term
 
     [<AutoOpen>]
@@ -118,46 +133,97 @@ module API =
         val (>>=) : term -> term -> term
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
+        val Mul : term -> term -> term
+        val Sub : term -> term -> term
+        val Add : term -> term -> term
+        val IsZero : term -> term
+
+    module public EvaluationStack =
+        val Pop : evaluationStack -> term * evaluationStack
+        val PopArguments : int -> evaluationStack -> term list * evaluationStack
+        val Push : term -> evaluationStack -> evaluationStack
+        val GetItem : int -> evaluationStack -> term
+        val FilterActiveFrame : (term -> bool) -> evaluationStack -> evaluationStack
+        val Union : evaluationStack -> evaluationStack -> evaluationStack
+        val MakeSymbolicActiveFrame : (int -> term -> term) -> evaluationStack -> evaluationStack
+        val Length : evaluationStack -> int
+        val ToList : evaluationStack -> term list
+        val ClearActiveFrame : evaluationStack -> evaluationStack
 
     module public Memory =
         val EmptyState : state
-
-        val PopStack : state -> state
+        val PopFrame : state -> state
         val PopTypeVariables : state -> state
-        val NewStackFrame : state -> IFunctionIdentifier -> (stackKey * term symbolicValue * termType) list -> state
-        val NewScope : state -> (stackKey * term symbolicValue * termType) list -> state
-        val NewTypeVariables : state -> (typeId * termType) list -> state
+        val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> state
+        val NewTypeVariables : state -> (typeId * symbolicType) list -> state
 
-        val ReferenceField : term -> string -> termType -> term
-        val ReferenceLocalVariable : stackKey -> term
-        val ReferenceStaticField : termType -> string -> termType -> term
-        val ReferenceArrayIndex : state -> term -> term list -> term * state
+        val ReferenceField : state -> term -> fieldId -> term
+        val ReferenceArrayIndex : term -> term list -> term
 
-        val Dereference : state -> term -> term * state
-        val DereferenceWithoutValidation : state -> term -> term
-        val DereferenceLocalVariable : state -> stackKey -> term * state
-        val Mutate : state -> term -> term -> term * state
-        val ReadBlockField : term -> string -> termType -> term
+        val ReadSafe : state -> term -> term
+        val ReadLocalVariable : state -> stackKey -> term
+        val ReadThis : state -> MethodBase -> term
+        val ReadArgument : state -> ParameterInfo -> term
+        val ReadField : state -> term -> fieldId -> term
+        val ReadArrayIndex : state -> term -> term list -> term
+        val ReadStringChar : state -> term -> term -> term
+        val ReadStaticField : state -> symbolicType -> fieldId -> term
+        val ReadDelegate : state -> term -> term
 
-        val AllocateOnStack : state -> stackKey -> termType -> term -> state
-        val AllocateInHeap : state -> termType -> term -> term * state
-        val AllocateDefaultStatic : state -> termType -> state
-        val MakeDefaultBlock : termType -> fql -> term
-        val AllocateDefaultBlock : state -> termType -> term * state
-        val AllocateDefaultArray : state -> term list -> termType -> term * state
-        val AllocateInitializedArray : state -> term list -> int -> termType -> term -> term * state
+        val WriteSafe : state -> term -> term -> state list
+        val WriteLocalVariable : state -> stackKey -> term -> state
+        val WriteStructField : term -> fieldId -> term -> term
+        val WriteClassField : state -> term -> fieldId -> term -> state list
+        val WriteArrayIndex : state -> term -> term list -> term -> state list
+        val WriteStringChar : state -> term -> term list -> term -> state list
+        val WriteStaticField : state -> symbolicType -> fieldId -> term -> state
+
+        val DefaultOf : symbolicType -> term
+
+        val MakeSymbolicThis : MethodBase -> term
+        val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+
+        val CallStackContainsFunction : state -> MethodBase -> bool
+        val CallStackSize : state -> int
+        val GetCurrentExploringFunction : state -> MethodBase
+
+        val BoxValueType : state -> term -> term * state
+
+        val InitializeStaticMembers : state -> symbolicType -> state
+
+        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
+        val AllocateDefaultClass : state -> symbolicType -> term * state
+        val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
+        val AllocateVectorArray : state -> term -> symbolicType -> term * state
         val AllocateString : string -> state -> term * state
+        val AllocateEmptyString : state -> term -> term * state
+        val AllocateDelegate : state -> term -> term * state
 
-        val IsTypeNameInitialized : termType -> state -> term
+        val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> state
+        val CopyStringArray : state -> term -> term -> term -> term -> term -> state
+
+        val ClearArray : state -> term -> term -> term -> state
+
+        val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
 
-        val ArrayLength : term -> term
-        val ArrayRank : term -> term
-        val ArrayLengthByDimension : state -> term -> term -> term * state
-        val ArrayLowerBoundByDimension : state -> term -> term -> term * state
+        val ArrayRank : state -> term -> term
+        val ArrayLengthByDimension : state -> term -> term -> term
+        val ArrayLowerBoundByDimension : state -> term -> term -> term
 
-        val StringLength : state -> term -> term * state
-        val StringCtorOfCharArray : state -> term -> term -> term * state
+        val CountOfArrayElements : state -> term -> term
 
-    module Database =
-        val QuerySummary : ICodeLocation -> codeLocationSummary
+        val StringLength : state -> term -> term
+        val StringCtorOfCharArray : state -> term -> term -> state list
+
+        // TODO: get rid of all unnecessary stuff below!
+        val ComposeStates : state -> state -> state list
+
+        val Merge2States : state -> state -> state list
+        val Merge2Results : term * state -> term * state -> (term * state) list
+
+
+//    module Marshalling =
+//        val Unmarshal : state -> obj -> term * state
+//        val CanBeCalledViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> bool
+//        val CallViaReflection : state -> IFunctionIdentifier -> term option -> term list symbolicValue -> (term * state -> 'a) -> 'a

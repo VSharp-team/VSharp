@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices.ComTypes;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
     [TestSvmFixture]
+    // unrolling recursion cycles
     public class ControlFlow
     {
         [TestSvm]
@@ -269,7 +272,8 @@ namespace VSharp.Test.Tests
 //            return x;
 //        }
 
-        [TestSvm]
+
+        [Ignore("Path explosion problem, when MaxBound = 10u, because we have about 2^45 different paths")]
         public static int ForsWithContinueAndBreak(int x)
         {
             int sum = 0;

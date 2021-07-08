@@ -1,0 +1,15 @@
+METHOD: System.Int32 VSharp.Test.Tests.ExceptionsControlFlow.CallInsideFinally(System.Boolean)
+RESULT: Totally 2 states:
+168
+MEMORY DUMP:
+Path condition: f
+--------------- Stack: ---------------
+key = __loc__0, value = 168
+Initialized types = { VSharp.Test.Tests.ExceptionsControlFlow }
+
+42
+MEMORY DUMP:
+Path condition: !f
+--------------- Stack: ---------------
+key = __loc__0, value = 42
+Initialized types = { VSharp.Test.Tests.ExceptionsControlFlow }

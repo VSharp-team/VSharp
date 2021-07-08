@@ -1,0 +1,18 @@
+METHOD: System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] VSharp.Test.Tests.Marshaling.CreateDictionary_Empty()
+RESULT: (HeapRef 1)
+HEAP:
+{ heap = h0, statics = s1 } where
+---------- h0 = ----------
+1 ==> System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] CLASS [
+	| System::Collections::Generic::Dictionary`2::_buckets ~> null
+	| System::Collections::Generic::Dictionary`2::_comparer ~> null
+	| System::Collections::Generic::Dictionary`2::_count ~> 0
+	| System::Collections::Generic::Dictionary`2::_entries ~> null
+	| System::Collections::Generic::Dictionary`2::_freeCount ~> 0
+	| System::Collections::Generic::Dictionary`2::_freeList ~> 0
+	| System::Collections::Generic::Dictionary`2::_keys ~> null
+	| System::Collections::Generic::Dictionary`2::_values ~> null
+	| System::Collections::Generic::Dictionary`2::_version ~> 0]
+---------- s1 = ----------
+System.Collections.Generic.Dictionary`2[System.Char,ChessDotNet.Piece] ==> CLASS []
+VSharp.Test.Tests.Marshaling ==> CLASS []

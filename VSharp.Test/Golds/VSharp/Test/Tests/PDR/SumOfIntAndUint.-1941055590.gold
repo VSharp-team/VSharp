@@ -1,0 +1,5 @@
+METHOD: System.Int64 VSharp.Test.Tests.PDR.SumOfIntAndUint(System.Int32, System.UInt32)
+RESULT: Totally 1 state:
+(System.Int64 a) + (System.Int64 b)
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.PDR }

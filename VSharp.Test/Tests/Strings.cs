@@ -14,7 +14,7 @@ namespace VSharp.Test.Tests
         }
 
         [Ignore("Exceptions handling")]
-        public static string SymbolicString(string s) // TODO: keys of MemoryCell are equal, but FQLs are not
+        public static string SymbolicString(string s)
         {
             var len = s.Length;
             return s;
@@ -31,6 +31,30 @@ namespace VSharp.Test.Tests
         public static string HopHeyCharArray(char[] a)
         {
             return new string(a);
+        }
+
+        [TestSvm]
+        public static string StringOfConcreteCharArray()
+        {
+            char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
+            string str = new string(a);
+            return str;
+        }
+
+        [TestSvm]
+        public static char GetCharOfString()
+        {
+            char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
+            string str = new string(a);
+            return str[3];
+        }
+
+        [TestSvm]
+        public static int StringOfNullCharArray()
+        {
+            char[] a = null;
+            string str = new string(a);
+            return str.Length;
         }
     }
 }

@@ -1,0 +1,10 @@
+METHOD: System.Type VSharp.Test.Tests.Typecast.Knight.UnionGetType(System.Boolean, System.Object, System.Object)
+RESULT: UNION[
+	| !(0 == o1) & !(0 == o2) & !f ~> (HeapRef GetType((HeapRef o2)))
+	| !(0 == o1) & !(0 == o2) & f ~> (HeapRef GetType((HeapRef o1)))
+	| (0 == o1 | 0 == o2 | f) & (0 == o1 | 0 == o2) ~> null]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+System.Object ==> CLASS []
+VSharp.Test.Tests.Typecast.Knight ==> CLASS []

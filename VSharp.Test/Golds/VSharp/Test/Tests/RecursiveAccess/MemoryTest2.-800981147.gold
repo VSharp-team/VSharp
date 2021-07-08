@@ -1,0 +1,29 @@
+METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.MemoryTest2(System.Int32[], System.Int32)
+RESULT: Totally 4 states:
+0
+MEMORY DUMP:
+Path condition: !(x < 0) & x < Length(a, 0) /\ 1 < Length(a, 0) /\ !(0 == a) /\ 10 == x /\ !(x < 0) & x < Length(a, 0) /\ !(0 == a) /\ !(12 == a[x])
+--------------- Array contents: ---------------
+System.Int32[] ==> {a[1] <- 12; a[x] <- 12}
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }
+
+1
+MEMORY DUMP:
+Path condition: !(x < 0) & x < Length(a, 0) /\ 1 < Length(a, 0) /\ !(0 == a) /\ 10 == x /\ !(x < 0) & x < Length(a, 0) /\ !(0 == a) /\ 12 == a[x]
+--------------- Array contents: ---------------
+System.Int32[] ==> {a[1] <- 12; a[x] <- 12}
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }
+
+0
+MEMORY DUMP:
+Path condition: !(x < 0) & x < Length(a, 0) /\ 1 < Length(a, 0) /\ !(0 == a) /\ !(10 == x) /\ 10 < Length(a, 0) /\ !(0 == a) /\ !(x < 0) & x < Length(a, 0) /\ !(0 == a) /\ !(12 == a[x])
+--------------- Array contents: ---------------
+System.Int32[] ==> {a[1] <- 12; a[10] <- 42; a[x] <- 12; a[x] <- 12}
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }
+
+1
+MEMORY DUMP:
+Path condition: !(x < 0) & x < Length(a, 0) /\ 1 < Length(a, 0) /\ !(0 == a) /\ !(10 == x) /\ 10 < Length(a, 0) /\ !(0 == a) /\ !(x < 0) & x < Length(a, 0) /\ !(0 == a) /\ 12 == a[x]
+--------------- Array contents: ---------------
+System.Int32[] ==> {a[1] <- 12; a[10] <- 42; a[x] <- 12; a[x] <- 12}
+Initialized types = { VSharp.Test.Tests.RecursiveAccess }

@@ -1,0 +1,13 @@
+METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.MemoryTest(System.Collections.Generic.LinkedList`1[System.Int32])
+RESULT: Totally 1 state:
+l.head.item
+MEMORY DUMP:
+Path condition: !(l == null) /\ !(l.head == null) /\ l.head.item <= 7
+--------------- Fields: ---------------
+item ==> {2 <- 10; 3 <- 42}
+--------------- Types tokens: ---------------
+2 ==> System.Collections.Generic.LinkedListNode`1[System.Int32]
+3 ==> System.Collections.Generic.LinkedListNode`1[System.Int32]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Collections.Generic.LinkedListNode`1[System.Int32])
+Initialized types = { System.Collections.Generic.LinkedListNode`1[System.Int32], System.Object, VSharp.Test.Tests.RecursiveAccess, System.Collections.Generic.LinkedList`1[System.Int32] }

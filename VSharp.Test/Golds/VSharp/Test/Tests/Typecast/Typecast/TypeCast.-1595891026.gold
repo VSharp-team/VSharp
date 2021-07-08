@@ -1,48 +1,6 @@
 METHOD: VSharp.Test.Tests.Typecast.Pawn VSharp.Test.Tests.Typecast.Typecast.TypeCast(System.Object)
-RESULT: UNION[
-	| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj) ~> <ERROR: (HeapRef 2)>
-	| !(0 == obj) & ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) ~> (HeapRef obj)
-	| 0 == obj ~> null]
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> System.String CLASS [
-	| System::String::m_FirstChar ~> [| 0 ~> 'S'; 1 ~> 'p'; 2 ~> 'e'; 3 ~> 'c'; 4 ~> 'i'; 5 ~> 'f'; 6 ~> 'i'; 7 ~> 'e'; 8 ~> 'd'; 9 ~> ' '; 10 ~> 'c'; 11 ~> 'a'; 12 ~> 's'; 13 ~> 't'; 14 ~> ' '; 15 ~> 'i'; 16 ~> 's'; 17 ~> ' '; 18 ~> 'n'; 19 ~> 'o'; 20 ~> 't'; 21 ~> ' '; 22 ~> 'v'; 23 ~> 'a'; 24 ~> 'l'; 25 ~> 'i'; 26 ~> 'd'; 27 ~> '.'; 28 ~> '\000' ... 29 ... |]
-	| System::String::m_StringLength ~> 28]
-2 ==> System.InvalidCastException CLASS [
-	| System::Exception::_HResult ~> -2147467262
-	| System::Exception::_data ~> null
-	| System::Exception::_dynamicMethods ~> null
-	| System::Exception::_exceptionMethod ~> null
-	| System::Exception::_helpURL ~> null
-	| System::Exception::_innerException ~> null
-	| System::Exception::_ipForWatsonBuckets ~> System.UIntPtr STRUCT [
-		| System::UIntPtr::_value ~> null]
-	| System::Exception::_message ~> (HeapRef 1)
-	| System::Exception::_remoteStackTraceString ~> null
-	| System::Exception::_source ~> null
-	| System::Exception::_stackTrace ~> null
-	| System::Exception::_stackTraceString ~> null
-	| System::Exception::_watsonBuckets ~> null
-	| System::Exception::_xcode ~> -532462766
-	| System::Exception::_xptrs ~> System.IntPtr STRUCT [
-		| System::IntPtr::_value ~> null]]
-3 ==> System.String CLASS [
-	| System::String::m_FirstChar ~> [| 0 ~> ' '; 1 ~> '-'; 2 ~> '-'; 3 ~> '-'; 4 ~> '>'; 5 ~> ' '; 6 ~> '\000' ... 7 ... |]
-	| System::String::m_StringLength ~> 6]
-4 ==> System.Object CLASS []
----------- s1 = ----------
-System.Exception ==> CLASS [
-	| InnerExceptionPrefix ~> UNION[
-		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj) & !hasKey#3 ~> (HeapRef 3)
-		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj | hasKey#3 ~> (HeapRef System.Exception.InnerExceptionPrefix)]
-	| _COMPlusExceptionCode ~> UNION[
-		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj) & !hasKey#3 ~> -532462766
-		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj | hasKey#3 ~> System.Exception._COMPlusExceptionCode]
-	| s_DispatchStateLock ~> UNION[
-		| !((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) & !(0 == obj) & !hasKey#3 ~> (HeapRef 4)
-		| ((HeapRef obj) <: VSharp.Test.Tests.Typecast.Pawn) | 0 == obj | hasKey#3 ~> (HeapRef System.Exception.s_DispatchStateLock)]]
-System.InvalidCastException ==> CLASS []
-System.Object ==> CLASS []
-System.SystemException ==> CLASS []
-VSharp.Test.Tests.Typecast.Typecast ==> CLASS []
+RESULT: Totally 1 state:
+(HeapRef obj to VSharp.Test.Tests.Typecast.Pawn)
+MEMORY DUMP:
+Path condition: (obj <: VSharp.Test.Tests.Typecast.Pawn) | null == obj
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

@@ -48,21 +48,55 @@ namespace VSharp.Test.Tests
             return **&p;
         }
 
-        [Ignore("topLevelLocation of StackRef")]
+        [TestSvm]
+        public static IntPtr IntPtrZero()
+        {
+            return IntPtr.Zero;
+        }
+
+        [TestSvm]
+        public static bool CreateIntPtrAndCheckEquals()
+        {
+            IntPtr ptr1 = new IntPtr(0);
+            IntPtr ptr2 = new IntPtr(null);
+            return ptr1 == ptr2;
+        }
+
+        [TestSvm]
+        public static IntPtr IntPtrSum()
+        {
+            IntPtr ptr = new IntPtr(0);
+            return ptr + 10;
+        }
+
+        private static unsafe bool Identity(int startValue)
+        {
+            void* nativeInt = (void*) startValue;
+            int back = (int) nativeInt;
+            return startValue == back;
+        }
+
+        [Ignore("Casting from pointer to number results in pointer, so we try to 'Ptr == 5'")]
+        public static unsafe bool IdentityTest()
+        {
+            return Identity(5);
+        }
+
+        [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
             var s = new IntPtr(&myFavouriteParameter);
             return *(int*) s.ToPointer();
         }
 
-        [TestSvm]
-        public static void* CompilerHackLikePtrReturn(void* ptr) // TODO: keys of MemoryCell are equal, but FQLs are not (because of equality of concrete "this" and "constructed instance")
+        [Ignore("Insufficient information")]
+        public static void* CompilerHackLikePtrReturn(void* ptr)
         {
             var x = (IntPtr) ptr;
             return x.ToPointer();
         }
 
-        [Ignore("Not working, because of (p - q) might not be multiple of 8")]
+        [Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
         public static int SimplePointerDifference(int x, double y)
         {
             int* p = &x;
@@ -72,7 +106,7 @@ namespace VSharp.Test.Tests
             return * (int*) (q + d);
         }
 
-        [Ignore("Not working, because the idea of test is not right")]
+        [Ignore("Idea of symbolic pointer difference is wrong: (p - q) + q != p")]
         public static int PointerTriangle(int x, int y, int z)
         {
             int* px = &x;

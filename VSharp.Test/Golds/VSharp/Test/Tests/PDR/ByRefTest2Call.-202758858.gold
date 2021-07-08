@@ -1,0 +1,7 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.ByRefTest2Call(System.Int32)
+RESULT: Totally 1 state:
+10
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = x, value = 10
+Initialized types = { VSharp.Test.Tests.PDR }

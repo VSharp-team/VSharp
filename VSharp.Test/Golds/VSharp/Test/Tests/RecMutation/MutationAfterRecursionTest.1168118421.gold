@@ -1,5 +1,5 @@
 METHOD: VSharp.Test.Tests.RecMutation+SmallClass VSharp.Test.Tests.RecMutation.MutationAfterRecursionTest(System.Int32)
-RESULT: (HeapRef 3)
+RESULT: (HeapRef 2)
 HEAP:
 { heap = merge[
 	(n <= 0, h0),
@@ -8,21 +8,20 @@ HEAP:
 	(!(n <= 0), { heap = h1, statics = s2 } ⚪ recapp(F))] } where
 ---------- h0 = ----------
 1 ==> VSharp.Test.Tests.RecMutation+BigClass CLASS [
-	| VSharp::Test::Tests::RecMutation::BigClass::Small ~> (HeapRef 3)]
-3 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
+	| VSharp::Test::Tests::RecMutation::BigClass::Small ~> (HeapRef 2)]
+2 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
 	| VSharp::Test::Tests::RecMutation::SmallClass::Field0 ~> 53]
 ---------- h1 = ----------
 1 ==> VSharp.Test.Tests.RecMutation+BigClass CLASS [
-	| VSharp::Test::Tests::RecMutation::BigClass::Small ~> (HeapRef 3)]
-3 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
+	| VSharp::Test::Tests::RecMutation::BigClass::Small ~> (HeapRef 2)]
+2 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
 	| VSharp::Test::Tests::RecMutation::SmallClass::Field0 ~> 0]
 ---------- s2 = ----------
-System.Object ==> CLASS []
 VSharp.Test.Tests.RecMutation ==> CLASS []
 VSharp.Test.Tests.RecMutation+BigClass ==> CLASS []
 VSharp.Test.Tests.RecMutation+SmallClass ==> CLASS []
 ---------- h3 = ----------
-3 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
+2 ==> VSharp.Test.Tests.RecMutation+SmallClass CLASS [
 	| VSharp::Test::Tests::RecMutation::SmallClass::Field0 ~> UNION[
 		| !(n <= 0) ~> 53 + μ[F]_1
 		| n <= 0 ~> 53]]

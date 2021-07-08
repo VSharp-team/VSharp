@@ -1,0 +1,12 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestRefClass1()
+RESULT: Totally 1 state:
+100
+MEMORY DUMP:
+--------------- Fields: ---------------
+x ==> {2 <- 100}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> System.Object
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 3 to System.Object)
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

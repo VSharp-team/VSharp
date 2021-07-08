@@ -2,30 +2,43 @@
 
     <PropertyGroup>
         <TargetFramework>netcoreapp3.0</TargetFramework>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <Tailcalls>false</Tailcalls>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+      <Tailcalls>true</Tailcalls>
+      <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Options.fs" />
         <Compile Include="Operations.fs" />
         <Compile Include="Types.fs" />
         <Compile Include="Terms.fs" />
-        <Compile Include="State.fs" />
         <Compile Include="Propositional.fs" />
+        <Compile Include="PathCondition.fs" />
         <Compile Include="Merging.fs" />
         <Compile Include="Common.fs" />
         <Compile Include="Arithmetics.fs" />
-        <Compile Include="Arrays.fs" />
-        <Compile Include="Strings.fs" />
         <Compile Include="Pointers.fs" />
-        <Compile Include="TypeCasting.fs" />
         <Compile Include="Operators.fs" />
         <Compile Include="Substitution.fs" />
+        <Compile Include="MemoryRegion.fs" />
+        <Compile Include="EvaluationStack.fs" />
+        <Compile Include="CallStack.fs" />
+        <Compile Include="State.fs" />
         <Compile Include="Database.fs" />
+        <Compile Include="SolverInteraction.fs" />
         <Compile Include="Memory.fs" />
-        <Compile Include="Explorer.fs" />
+        <Compile Include="TypeCasting.fs" />
+        <Compile Include="Copying.fs" />
+        <Compile Include="Marshalling.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />
-        <Compile Include="InterpreterBase.fs" />
     </ItemGroup>
 
     <ItemGroup>

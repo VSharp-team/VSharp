@@ -8,47 +8,49 @@ open VSharp.Core
 
 module internal SystemArray =
 
-    open Arithmetics
-
-    let checkBounds state lower upper x fits k =
-        let notTooSmall = x >>= lower
-        let notTooLarge = x << upper
-        let inBounds = notTooSmall &&& notTooLarge
-        BranchStatements state
-            (fun state k -> k (inBounds, state))
-            fits
-            (fun state k -> RuntimeExceptions.IndexOutOfRangeException state Error |> k)
-            k
-
-    let private accessBound accessor state args =
-        assert(List.length args = 2)
-        let this, dimension = List.item 0 args, List.item 1 args
-        let array, state = Memory.Dereference state this
-        GuardedStatedApplyStatementK state array (fun state term k ->
-            match term.term with
-            | Array(d, _, _, _, _, _) ->
-                let lowerBound = Concrete 0 Types.TLength
-                checkBounds state lowerBound d dimension
-                    (fun state k -> accessor state this dimension |> k) k
-            | term -> internalfailf "expected array, but %O got!" term) id
-
-    let GetLength state args = accessBound Memory.ArrayLengthByDimension state args
-
-    let GetLowerBound state args = accessBound Memory.ArrayLowerBoundByDimension state args
-
-    let GetRank state args =
+    let GetRank (state : state) args =
         assert(List.length args = 1)
-        let array, state = Memory.Dereference state (List.head args)
-        let result = GuardedApplyExpression array (fun term ->
-            match term.term with
-            | Array(d, _, _, _, _, _) -> d
-            | term -> internalfailf "expected array, but %O got!" term)
-        result, state
+        List.head args |> Memory.ArrayRank state, state
 
     let get_Rank state args =
         GetRank state args
 
     let get_Length state args =
         assert(List.length args = 1)
-        let array, state = Memory.Dereference state (List.head args)
-        Memory.ArrayLength array, state
+        let getLengthFromRank arrayRef =
+            let rank = Terms.MostConcreteTypeOfHeapRef state arrayRef |> Types.RankOf
+            assert (rank >= 1)
+            let lengths = List.init rank (MakeNumber >> Memory.ArrayLengthByDimension state arrayRef)
+            match lengths with
+            | [l] -> l
+            | l::ls -> List.fold Arithmetics.Mul l ls
+            | _ -> __unreachable__()
+        GuardedApplyExpression (List.head args) getLengthFromRank, state
+
+    let ContainsChar (state : state) args =
+        assert(List.length args = 3)
+        let this, char = args.[0], args.[2]
+        match this.term with
+        | HeapRef({term = ConcreteHeapAddress _}, _) ->
+            let checkOneElement acc i =
+                let index = Concrete i Types.IndexType
+                let elem = Memory.ReadArrayIndex state this [index]
+                acc ||| (elem === char)
+            let length = Memory.ArrayLengthByDimension state this (MakeNumber 0)
+            match length.term with
+            | Concrete(obj, _) ->
+                let length = obj :?> int
+                let indices = List.init length id
+                List.fold checkOneElement False indices, state
+            | _ -> __unreachable__()
+        | _ -> __insufficientInformation__ "Contains works only for concrete address arrays"
+
+    let GetCount (state : state) (args : term list) =
+        assert(List.length args = 2)
+        let this = List.head args
+        get_Length state [this]
+
+    let GetItem (state : state) (args : term list) =
+        assert(List.length args = 3)
+        let this, index = args.[0], args.[2]
+        Memory.ReadArrayIndex state this [index], state

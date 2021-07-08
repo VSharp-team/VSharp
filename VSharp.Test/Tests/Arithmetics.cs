@@ -4,10 +4,326 @@ using NUnit.Framework;
 namespace VSharp.Test.Tests
 {
     [TestSvmFixture]
+    [Ignore("Need exceptions for all tests")]
+    public sealed class Arithmetics_CIL
+    {
+        [Ignore("unknown result")]
+        public static bool MultiplicationOfFloatsIsNotAssociative()
+        {
+            float a = 0.825402526103613f;
+            float b = 0.909231618470155f;
+            float c = 0.654626872695343f;
+            float d = (a * b) * c;
+            float e = a * (b * c);
+            return d != e;
+        }
+
+        [Ignore("unknown result")]
+        public static bool MultiplicationOfFloatsIsCommutativity()
+        {
+            float a = 0.825402526103613f;
+            float b = 0.909231618470155f;
+            return Math.Abs(a * b - b * a) <= Single.Epsilon;
+        }
+
+        // Overflow exception
+        [Ignore("Exceptions handling")]
+        public static int DivideWithOverflow()
+        {
+            int a = Int32.MinValue;
+            int b = -1;
+            return a / b;
+        }
+
+        // no exception
+        [TestSvm]
+        public static uint DivideWithoutOverflow(uint a)
+        {
+            int x = -1;
+            uint y = (uint) x;
+            return a / y;
+        }
+
+        // NaN
+        [TestSvm]
+        public static float DivideFloatOnZero(float a)
+        {
+            return a / 0;
+        }
+
+        // divide by zero exception
+        [Ignore("Exceptions handling")]
+        public static float DivideOnZero1()
+        {
+            int x = 8;
+            int y = 0;
+            return x / y;
+        }
+
+        // divide by zero exception
+        [Ignore("Exceptions handling")]
+        public static float DivideOnZero2()
+        {
+            uint x = 8;
+            uint y = 0;
+            return x / y;
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static int Add(int a, int b)
+        {
+            return a + b;
+        }
+
+        // overflow exceptions possible
+        [TestSvm]
+        public static int Add_Checked(int a, int b)
+        {
+            return checked(a + b);
+        }
+
+        // no exceptions
+        [TestSvm]
+        public static uint Add_Unsigned(uint a, uint b)
+        {
+            return a + b;
+        }
+
+        // overflow exceptions possible
+        [TestSvm]
+        public static uint Add_Ovf_Un(uint a, uint b)
+        {
+            return checked(a + b);
+        }
+
+        // overflow exceptions possible
+        [TestSvm]
+        public static uint Mul_Ovf_Un(uint a, uint b)
+        {
+            return checked(a * b);
+        }
+
+        // overflow exceptions possible
+        [TestSvm]
+        public static int Mul_Ovf(int a, int b)
+        {
+            return checked(a * b);
+        }
+
+        [TestSvm]
+        public static Int64 Mul_Ovf_64(Int64 a, Int64 b)
+        {
+            return checked(a * b);
+        }
+
+        [TestSvm]
+        public static UInt64 Mul_Ovf_U64(UInt64 a, UInt64 b)
+        {
+            return checked(a * b);
+        }
+
+        [TestSvm]
+        public static int Mul_No_OverFlow1()
+        {
+            int a = -1;
+            int b = Int32.MaxValue;
+            return Mul_Ovf(a, b);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static uint Mul_OverFlow1()
+        {
+            int a = -1;
+            uint c = (UInt32) a;
+            int b = Int32.MaxValue;
+            uint d = (UInt32) b;
+            return Mul_Ovf_Un(c, d);
+        }
+
+        [TestSvm]
+        public static int Sub_Ovf(int a, int b)
+        {
+            return checked(a - b);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static int Sub_Overflow1()
+        {
+            int a = 0;
+            int b = Int32.MinValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static int Sub_Overflow2()
+        {
+            int a = 1;
+            int b = Int32.MinValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static int Sub_Overflow3()
+        {
+            int a = Int32.MinValue;
+            int b = 1;
+            return Sub_Ovf(a, b);
+        }
+
+        [TestSvm]
+        public static int Sub_No_Overflow1()
+        {
+            int a = -1;
+            int b = Int32.MinValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [TestSvm]
+        public static int Sub_No_Overflow2()
+        {
+            int a = 0;
+            int b = Int16.MinValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [TestSvm]
+        public static int Sub_No_Overflow3()
+        {
+            int a = Int32.MaxValue;
+            int b = Int32.MaxValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [TestSvm]
+        public static int Sub_No_Overflow4()
+        {
+            int a = Int32.MinValue;
+            int b = Int32.MinValue;
+            return Sub_Ovf(a, b);
+        }
+
+        [TestSvm]
+        public static uint Sub_Ovf_Un(uint a, uint b)
+        {
+            return checked(a - b);
+        }
+
+        [Ignore("Bug in Core: it assumes that a - b == a + (-b)")]
+        public static uint Sub_Ovf_Un_NoOverflow1()
+        {
+            return Sub_Ovf_Un(5, 4);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static uint Sub_Ovf_Un_Overflow1()
+        {
+            return Sub_Ovf_Un(4, 5);
+        }
+
+        // if a = UInt32.MaxValue then a
+        // else overflow
+        [Ignore("Exceptions handling")]
+        public static uint Sub_Ovf_Un_Overflow2(uint a)
+        {
+            return Sub_Ovf_Un(a, a + 1);
+        }
+
+        [TestSvm]
+        public static int Add_sbyte_short(sbyte a, short b)
+        {
+            return checked(a + b);
+        }
+
+        [TestSvm]
+        public static double Rem_Doubles(double a, double b)
+        {
+            return a % b;
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Doubles()
+        {
+            return Rem_Doubles(10.0, 6.0);
+        }
+
+        [TestSvm]
+        public static double Rem_Always_A(double a)
+        {
+            return Rem_Doubles(a, double.PositiveInfinity);
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Doubles_0()
+        {
+            return Rem_Always_A(0.0);
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Double_Nan1()
+        {
+            return Rem_Always_A(double.PositiveInfinity);
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Double_Nan2()
+        {
+            return Rem_Always_A(double.NegativeInfinity);
+        }
+
+        [TestSvm]
+        public static double Rem_Concrete_Double_Nan3()
+        {
+            return Rem_Doubles(double.MaxValue, 0.0);
+        }
+
+        [TestSvm]
+        public static int Rem_Ints(int a, int b)
+        {
+            return a % b;
+        }
+
+        [Ignore("Exceptions handling")]
+        public static int Rem_Ints_DivideOnZero(int a)
+        {
+            return Rem_Ints(a, 0);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static int Rem_Ints_Overflow()
+        {
+            return Rem_Ints(int.MinValue, -1);
+        }
+
+        [TestSvm]
+        public static uint RemUn_Ints(uint a, uint b)
+        {
+            return a % b;
+        }
+
+        [Ignore("Exceptions handling")]
+        public static uint RemUn_Ints_DivideOnZero(uint a)
+        {
+            return RemUn_Ints(a, 0);
+        }
+
+        [TestSvm]
+        public static uint RemUn_Ints_No_Overflow()
+        {
+            int z = int.MinValue;
+            int w = -1;
+
+            uint a = (uint) z;
+            uint b = (uint) (w);
+            return RemUn_Ints(a, b);
+        }
+    }
+
+    [TestSvmFixture]
     public sealed class Arithmetics
     {
         // 7 + n
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod1(int n, int m)
         {
             return -((n - m) + (m - n) + (1 + m + 2 + 0 - m + 4 + m) - (m + n)) + 14 + (n * (5 - 4) + (5 - 7 + m / m) * n) / m;
@@ -28,7 +344,7 @@ namespace VSharp.Test.Tests
         }
 
         // 6*n - 126826
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int ArithmeticsMethod4(int n, int m)
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
@@ -50,6 +366,23 @@ namespace VSharp.Test.Tests
             return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
 
+        [TestSvm]
+        public static int BigSum(int x)
+        {
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+        }
+
+        [TestSvm]
+        public static int BigSumCycle(int x)
+        {
+            int res = 0;
+            for (int i = 0; i < 9; i++)
+            {
+                res += x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+            }
+            return res;
+        }
+
         // Expecting true
         [TestSvm]
         public static bool Decreasing(int x)
@@ -59,7 +392,7 @@ namespace VSharp.Test.Tests
             return x2 - x1 == 1;
         }
 
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int CheckedUnchecked(int x0, int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9)
         {
             return checked(x0 + unchecked(x1 + checked(x2 + x3 + x4)) + unchecked(x5 - x6 * x7));
@@ -71,14 +404,14 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting overflow error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckOverflow1(int x1)
         {
             return CheckOverflow0(2147483620, 2147483620 + x1);
         }
 
         // Expecting overflow error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckOverflow2(int x1)
         {
             int x = 1000 * 1000 * 1000;
@@ -94,8 +427,47 @@ namespace VSharp.Test.Tests
             return checked ((x / 0.01) + x1);
         }
 
+        // Expecting +Infinity
+        [TestSvm]
+        public static double CheckOverflow4()
+        {
+            double x = Double.MaxValue;
+            double y = Double.MaxValue;
+            return checked (x + y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndUint(int a, uint b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfSingedAndUnsigned()
+        {
+            int x = 42;
+            uint y = UInt32.MaxValue;
+            return SumOfIntAndUint(x, y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndShort(int a, short b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfIntAndShort()
+        {
+            int x = 42;
+            short y = Int16.MaxValue;
+            return SumOfIntAndShort(x, y);
+        }
+
         // Expecting devide by zero error
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int CheckDivideByZeroException0(int x1)
         {
             int x = 255;
@@ -104,7 +476,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 2000000000 + x1 + 2000000000
-        [TestSvm]
+        [Ignore("Exceptions handling")]
         public static int CheckOrder(int x1)
         {
             int x = 2000000000;
@@ -194,6 +566,35 @@ namespace VSharp.Test.Tests
         public static ulong ShiftDevision4(ulong a)
         {
             return (a >> 31) / 1024;
+        }
+
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUn(int a)
+        {
+            uint b = (uint) a;
+            return b >> 1;
+        }
+
+        [TestSvm]
+        public static uint Shr(int a)
+        {
+            return (uint)(a >> 1);
+        }
+
+        // expecting 4294967295
+        [TestSvm]
+        public static uint ShrTest()
+        {
+            int a = -1;
+            return Shr(a);
+        }
+
+        // expecting 2147483647
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUnTest()
+        {
+            int a = -1;
+            return ShrUn(a);
         }
 
         // Expecting 0
@@ -571,7 +972,7 @@ namespace VSharp.Test.Tests
         }
 
         // 5.9
-        [TestSvm]
+        [Ignore("GetTypeFromHandle is not implemented #fix")]
         public static float AbsSingleMethod()
         {
             return Math.Abs(Convert.ToSingle(-5.9));
@@ -596,6 +997,43 @@ namespace VSharp.Test.Tests
         public static double Atan2Method3()
         {
             return Math.Atan2(1, Double.PositiveInfinity);
+        }
+
+        [Ignore("Forward exploration does not handle recursion now")]
+        public static void Mult(int x, int y)
+        {
+            int z = 0;
+            while (x > 0)
+            {
+                z += y;
+                x --;
+            }
+
+            if (x >= 0 && y >= 0 && z <= 0)
+            {
+                throw new Exception();
+            }
+        }
+
+        [TestSvm]
+        public static int PossibleBug(int n) {
+            if (n <= 0 && -n < 0) {
+                throw new Exception("Possible Impossible bug");
+            }
+            return 42;
+        }
+
+        [TestSvm]
+        public static int ImpossibleBug(int n) {
+            try {
+                if (n <= 0 && checked(-n) < 0) {
+                    throw new Exception("Possible Impossible bug");
+                }
+            } catch (OverflowException) {
+                return 100;
+            }
+
+            return 42;
         }
     }
 }

@@ -1,0 +1,4060 @@
+METHOD: System.Boolean VSharp.Test.Tests.RegExTest.OwnImplementationTest(System.Char, System.Char, System.Char, System.Char, System.Char, System.Char)
+RESULT: Totally 123 states:
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 104 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 0) /\ !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 0 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 104) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 94 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 111) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 111 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 111 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 94) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 111) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 0) /\ !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: (System.Int32 c1) == 94 /\ (System.Int32 c2) == 104 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 104 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42)
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 0 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 101 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 0) /\ !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 0) /\ !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 111 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 104) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 0 /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 111) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 104) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 111
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 111 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 111 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 111) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 0 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 101) /\ !((System.Int32 c2) == 108) /\ !((System.Int32 c2) == 111) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 104) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 108 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 104 /\ (System.Int32 c3) == 101
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 101 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 46 /\ (System.Int32 c3) == 108
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 108 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 104
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c3) == 108) /\ !((System.Int32 c3) == 111) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 36) /\ !((System.Int32 c2) == 42) /\ !((System.Int32 c2) == 46) /\ !((System.Int32 c3) == 42) /\ (System.Int32 c1) == 46 /\ (System.Int32 c2) == 101 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 36
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 36) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c2) == 42) /\ (System.Int32 c1) == 111 /\ (System.Int32 c3) == 42
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ (System.Int32 c1) == 104 /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+True
+MEMORY DUMP:
+Path condition: !((System.Int32 c1) == 101) /\ !((System.Int32 c1) == 104) /\ !((System.Int32 c1) == 108) /\ !((System.Int32 c1) == 46) /\ !((System.Int32 c1) == 94) /\ !((System.Int32 c3) == 36) /\ (System.Int32 c2) == 42 /\ (System.Int32 c3) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }
+
+False
+MEMORY DUMP:
+Path condition: !((System.Int32 c2) == 36) /\ !((System.Int32 c3) == 101) /\ !((System.Int32 c3) == 36) /\ !((System.Int32 c3) == 42) /\ !((System.Int32 c3) == 46) /\ (System.Int32 c1) == 94 /\ (System.Int32 c2) == 46
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 3; 5 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- c1
+        2[1] <- c2
+        2[2] <- c3
+        3[0] <- '\000'
+        4[0] <- c1
+        4[1] <- c2
+        4[2] <- c3
+        4[3] <- '\000'
+        5[0] <- 'h'
+        5[1] <- 'e'
+        5[2] <- 'l'
+        5[3] <- 'l'
+        5[4] <- 'o'
+        5[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 3; 3[0] <- 1; 4[0] <- 4; 5[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+5 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.RegExTest, VSharp.Test.Tests.RegExImplementation }

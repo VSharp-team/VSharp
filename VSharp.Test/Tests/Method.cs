@@ -132,7 +132,7 @@ namespace VSharp.Test.Tests.Methods
             return p;
         }
 
-        [Ignore("Encoding of High-Order application")]
+        [TestSvm]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
@@ -142,6 +142,13 @@ namespace VSharp.Test.Tests.Methods
         public static IMovable MakeConcreteMove(Coord c)
         {
             var p = new Piece(0, 0);
+            return p.MakeMove(c);
+        }
+
+        [Ignore("Exceptions handling")]
+        public static IMovable MakeNullMove(Coord c)
+        {
+            IMovable p = null;
             return p.MakeMove(c);
         }
 
@@ -271,7 +278,7 @@ namespace VSharp.Test.Tests.Methods
             return a.F<float, int>();
         }
 
-        [Ignore("Reinterpretation is not implemented")]
+        [Ignore("Exceptions handling")]
         public static int VirtualCall9(A a)
         {
             if (a is B)

@@ -1,0 +1,26 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.CopyConcreteToConcreteArray()
+RESULT: Totally 1 state:
+3
+MEMORY DUMP:
+--------------- Array contents: ---------------
+System.Int32[] ==> {
+        2[0] <- 10
+        2[1] <- 2
+        2[2] <- 3
+        2[3] <- 4
+        2[4] <- 5
+        3[0] <- 1
+        3[1] <- 2
+        3[2] <- 3
+        3[3] <- 4
+        3[4] <- 1
+    }
+--------------- Array lengths: ---------------
+System.Int32[] ==> {2[0] <- 5; 3[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+3 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to System.Int32[])
+key = __loc__1, value = (HeapRef 3 to System.Int32[])
+Initialized types = { System.Array, System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Lists }

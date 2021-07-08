@@ -4,8 +4,12 @@ open global.System
 open VSharp
 open VSharp.Core
 
-module internal Runtime_CompilerServices_RuntimeHelpers =
+module Runtime_CompilerServices_RuntimeHelpers =
 
-    [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)")>]
-    val internal InitializeArray : state -> term list -> term * state
+    val InitializeArray : state -> term -> term -> state list
 
+    [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsBitwiseEquatable()")>]
+    val IsBitwiseEquatable : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsReferenceOrContainsReferences()")>]
+    val IsReferenceOrContainsReferences : state -> term list -> term * state

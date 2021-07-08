@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
- using System;
-using VSharp.Test.Tests.Typecast;
+using System;
 
 namespace VSharp.Test.Tests.Typecast
 {
@@ -84,6 +83,12 @@ namespace VSharp.Test.Tests.Typecast
         }
 
         [TestSvm]
+        public static bool CheckIs(ValueType x)
+        {
+            return x is Double;
+        }
+
+        [TestSvm]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
@@ -98,6 +103,18 @@ namespace VSharp.Test.Tests.Typecast
             Object obj = a;
             Piece b = a;
             return DownCastObject(obj) + DownCastPiece(b);
+        }
+
+        public static String DownCastToString(object str)
+        {
+            return (String) str;
+        }
+
+        [TestSvm]
+        public static String UpCastDownCastString()
+        {
+            object str = "literal";
+            return DownCastToString(str);
         }
 
         [TestSvm]
@@ -123,14 +140,14 @@ namespace VSharp.Test.Tests.Typecast
             return b is Object ? 33 : 38;
         }
 
-        [Ignore("Cast produces term with Error in Union")]
+        [TestSvm]
         public static Pawn TypeCast(Object obj)
         {
             Pawn pawn = (Pawn)obj;
             return pawn;
         }
 
-        [Ignore("Cast produces term with Error in Union")]
+        [TestSvm]
         public static Pawn TypeCastConcreteNull()
         {
             return TypeCast(null);
@@ -303,6 +320,63 @@ namespace VSharp.Test.Tests.Typecast
             _yCoord = c.X - c.Y;
             return this;
         }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj.GetType() != this.GetType())
+                return false;
+            return true;
+        }
+
+        [Ignore("GetType() is not implemented")]
+        public static bool ReferenceIdentity()
+        {
+            var knight = new Knight();
+            return knight.Equals(knight);
+        }
+
+
+        [Ignore("GetType() is not implemented")]
+        public static bool KnightIsKnight()
+        {
+            var knight = new Knight();
+            var knight2 = new Knight();
+            return knight.Equals(knight2);
+        }
+
+        [Ignore("GetType() is not implemented")]
+        public static bool KnightIsNotPawn()
+        {
+            var knight = new Knight();
+            var blackPawn = new BlackPawn(1, 1, 1);
+            return knight.Equals(blackPawn);
+        }
+
+        [Ignore("GetType() is not implemented")]
+        public static Type UnionGetTypeSymbolic(bool f, object o1, object o2)
+        {
+            if (o1 == null || o2 == null)
+                return null;
+            if (f)
+            {
+                return o1.GetType();
+            }
+
+            return o2.GetType();
+        }
+
+        [Ignore("GetType() is not implemented")]
+        public static Type UnionGetType(bool f, object o1, object o2)
+        {
+            if (o1 == null || o2 == null)
+                return null;
+            if (f)
+            {
+                return o1.GetType();
+            }
+
+            return o2.GetType();
+        }
     }
 
     interface IPromotion
@@ -345,11 +419,18 @@ namespace VSharp.Test.Tests.Typecast
     [TestSvmFixture]
     public static class Helper
     {
-        [Ignore("substitute: Application - not implemented")]
+        [TestSvm]
         public static double CastStructToInterface(Coord arg)
         {
             INormalize tmp = arg;
             return tmp.Norm();
+        }
+
+        [TestSvm]
+        public static int WriteInStructUsingNorm(Coord2 arg)
+        {
+            var y = (int) arg.Norm();
+            return arg.X + y; // arg.X should change
         }
 
         [TestSvm]
@@ -366,7 +447,7 @@ namespace VSharp.Test.Tests.Typecast
             return (int)obj;
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

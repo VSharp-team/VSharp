@@ -1,0 +1,7 @@
+METHOD: System.Object VSharp.Test.Tests.PDR.CreateClassViaNewobj()
+RESULT: Totally 1 state:
+(HeapRef 2 to System.Object)
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> System.Object
+Initialized types = { VSharp.Test.Tests.PDR, System.Object }

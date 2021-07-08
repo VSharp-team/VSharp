@@ -203,7 +203,7 @@ namespace VSharp.Test.Tests
     public static class ClassesSimple
     {
         [TestSvm]
-        public static bool Test1(int n) // TODO: keys of MemoryCell are equal, but FQLs are not (because of "constructed instance" hack)
+        public static bool Test1(int n)
         {
             ClassesSimpleA a = new ClassesSimpleA(n);
             a.IncN();
@@ -251,14 +251,14 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public static class ClassesSimpleHierarchy
     {
-        [Ignore("Stuck until the engine becomes more effective")]
+        [Ignore("Byref is not implemented")]
         public static List<string> Test1()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123, 42);
             return ClassesSimpleRegistrator.entries;
         }
 
-        [Ignore("Stuck until the engine becomes more effective")]
+        [Ignore("Byref is not implemented")]
         public static int Test2()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
@@ -343,7 +343,7 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
-        public void TestProperty1() // TODO: keys of MemoryCell are equal, but FQLs are not
+        public void TestProperty1()
         {
             var st = new ClassesSimplePropertyAccess();
             st.StructProperty.Set(42);
@@ -360,7 +360,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class ClassesSimplePropertyAccessModify
     {
-        public class SimpleStruct
+        public class SimpleContainer
         {
             public int X;
 
@@ -370,21 +370,29 @@ namespace VSharp.Test.Tests
             }
         }
 
-        public SimpleStruct StructProperty
+        public SimpleContainer ContainerProperty
         { get; set; }
 
         [TestSvm]
         public int TestProperty1(int anyVarName)
         {
-            return (new ClassesSimplePropertyAccessModify().StructProperty = new SimpleStruct()).X = anyVarName; // anyVarName
+            return (new ClassesSimplePropertyAccessModify().ContainerProperty = new SimpleContainer()).X = anyVarName; // anyVarName
         }
 
         [Ignore("Exceptions handling")]
-        public void FirstUseInGuard(SimpleStruct s)
+        public void FirstUseInGuard(SimpleContainer s)
         {
             if (s.X > 5)
                 return;
             s.X = 42;
+        }
+
+        [Ignore("Exceptions handling")]
+        public static void UnionInReference(SimpleContainer a)
+        {
+            var obj = (object) a;
+            var b = (SimpleContainer) obj;
+            b.Set(42);
         }
     }
 }

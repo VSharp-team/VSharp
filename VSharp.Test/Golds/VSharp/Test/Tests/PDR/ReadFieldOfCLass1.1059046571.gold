@@ -1,0 +1,23 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.ReadFieldOfCLass1(VSharp.Test.Tests.PDR+ClassWithOneField, VSharp.Test.Tests.PDR+ClassWithOneField)
+RESULT: Totally 2 states:
+a.x
+MEMORY DUMP:
+Path condition: !(2 * b.x <= 127) /\ !(a == null) /\ !(b == null)
+--------------- Fields: ---------------
+x ==> {2 <- 42; 3 <- 12; 4 <- 7; a <- 2 * b.x; b <- 4 * b.x}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }
+
+2 * b.x
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(b == null) /\ 2 * b.x <= 127
+--------------- Fields: ---------------
+x ==> {2 <- 42; 3 <- 12; 4 <- 7; a <- 2 * b.x}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

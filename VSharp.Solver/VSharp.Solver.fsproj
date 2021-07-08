@@ -2,14 +2,22 @@
 
     <PropertyGroup>
         <TargetFramework>netcoreapp3.0</TargetFramework>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <Tailcalls>false</Tailcalls>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+      <Tailcalls>true</Tailcalls>
+      <DebugSymbols>true</DebugSymbols>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Result.fs" />
-        <Compile Include="CHC.fs" />
-        <Compile Include="Encode.fs" />
         <Compile Include="Z3.fs" />
-        <Compile Include="Solver.fs" />
+        <Compile Include="SolverPool.fs" />
     </ItemGroup>
 
     <ItemGroup>

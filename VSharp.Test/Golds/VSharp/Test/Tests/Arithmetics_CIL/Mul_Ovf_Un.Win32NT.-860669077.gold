@@ -1,0 +1,8 @@
+METHOD: System.UInt32 VSharp.Test.Tests.Arithmetics_CIL.Mul_Ovf_Un(System.UInt32, System.UInt32)
+RESULT: UNION[
+	| !(0 == a) & !(0 == b) & !(4294967295 / a < b) ~> a * b
+	| 0 == a | 0 == b ~> 0]
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []

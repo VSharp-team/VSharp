@@ -1,0 +1,6 @@
+METHOD: System.Single VSharp.Test.Tests.Arithmetics_CIL.DivideFloatOnZero(System.Single)
+RESULT: a / 0
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []

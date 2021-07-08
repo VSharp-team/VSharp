@@ -1,0 +1,11 @@
+METHOD: System.IntPtr VSharp.Test.Tests.Unsafe.IntPtrSum()
+RESULT: Totally 1 state:
+(nullptr as System.Void, offset = 10)
+MEMORY DUMP:
+--------------- Static fields: ---------------
+Zero ==> {
+        <Pointer to System.Void> <- (nullptr as System.Void)
+    }
+--------------- Stack: ---------------
+key = __tmp__System.IntPtr, value = (nullptr as System.Void, offset = 0)
+Initialized types = { <Pointer to System.Void>, VSharp.Test.Tests.Unsafe }

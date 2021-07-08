@@ -1,0 +1,1551 @@
+METHOD: System.Int64 VSharp.Test.Tests.Blockchain.test(System.Int64)
+RESULT: Totally 10 states:
+(System.Int64 ((System.Int32 (11 + time >> 32))(System.Int32 (11 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (10 + time >> 32))(System.Int32 (10 + time))) < 10000000) /\ !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ !(((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000) /\ !(((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))) < 10000000) /\ !(((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))) < 10000000) /\ !(((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))) < 10000000) /\ ((System.Int32 (11 + time >> 32))(System.Int32 (11 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (11 + time >> 32))(System.Int32 (11 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 9}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (11 + time >> 32))(System.Int32 (11 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ ((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 2}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ !(((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000) /\ !(((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))) < 10000000) /\ !(((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))) < 10000000) /\ ((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 7}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))))
+MEMORY DUMP:
+Path condition: ((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 0}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ ((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 3}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (10 + time >> 32))(System.Int32 (10 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ !(((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000) /\ !(((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))) < 10000000) /\ !(((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))) < 10000000) /\ !(((System.Int32 (9 + time >> 32))(System.Int32 (9 + time))) < 10000000) /\ ((System.Int32 (10 + time >> 32))(System.Int32 (10 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (10 + time >> 32))(System.Int32 (10 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 8}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (10 + time >> 32))(System.Int32 (10 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ !(((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000) /\ ((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 5}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ ((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 4}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ !(((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000) /\ !(((System.Int32 (4 + time >> 32))(System.Int32 (4 + time))) < 10000000) /\ !(((System.Int32 (5 + time >> 32))(System.Int32 (5 + time))) < 10000000) /\ !(((System.Int32 (6 + time >> 32))(System.Int32 (6 + time))) < 10000000) /\ !(((System.Int32 (7 + time >> 32))(System.Int32 (7 + time))) < 10000000) /\ ((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 6}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (8 + time >> 32))(System.Int32 (8 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }
+
+(System.Int64 ((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))))
+MEMORY DUMP:
+Path condition: !(((System.Int32 (2 + time >> 32))(System.Int32 (2 + time))) < 10000000) /\ ((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))) < 10000000
+--------------- Fields: ---------------
+<Amount>k__BackingField ==> {7 <- 2}
+<Blockchain>k__BackingField ==> {
+        2 <- (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+    }
+<Hash>k__BackingField ==> {
+        9 <- (System.Int64 ((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))))
+    }
+<Index>k__BackingField ==> {9 <- 0}
+<Nounce>k__BackingField ==> {9 <- 1}
+<PrevHash>k__BackingField ==> {9 <- 0}
+<TimeStamp>k__BackingField ==> {9 <- time}
+<TransactionList>k__BackingField ==> {
+        9 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_comparer ==> {
+        26 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_comparer ==> {
+        17 <- (HeapRef 25 to System.Collections.Generic.IComparer`1[System.Int64])
+    }
+_descending ==> {17 <- False}
+_descending ==> {26 <- False}
+_items ==> {4 <- (HeapRef 14 to VSharp.Test.Tests.Block[])}
+_items ==> {
+        6 <- (HeapRef 8 to VSharp.Test.Tests.Transaction[])
+    }
+_keySelector ==> {
+        26 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_keySelector ==> {
+        17 <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+_lastKey ==> {
+        26 <- (System.Int64 ((System.Int32 (3 + time >> 32))(System.Int32 (3 + time))))
+    }
+_parent ==> {17 <- NullRef}
+_size ==> {6 <- 1}
+_size ==> {4 <- 1}
+_source ==> {
+        17 <- (HeapRef 4 to System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block])
+    }
+_transactionPool ==> {
+        2 <- (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+    }
+_version ==> {6 <- 1}
+_version ==> {4 <- 1}
+typeInfo ==> {24 <- System.Int64}
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Block[] ==> {14[0] <- (HeapRef 9 to VSharp.Test.Tests.Block)}
+VSharp.Test.Tests.Transaction[] ==> {
+        8[0] <- (HeapRef 7 to VSharp.Test.Tests.Transaction)
+    }
+--------------- Array lengths: ---------------
+System.Type[] ==> {18[0] <- 0}
+VSharp.Test.Tests.Block[] ==> {3[0] <- 0; 14[0] <- 4}
+VSharp.Test.Tests.Transaction[] ==> {5[0] <- 0; 8[0] <- 4}
+--------------- Boxed items: ---------------
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 6 to System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction])
+	| _version ~> 1]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block] STRUCT [
+	| _current ~> NullRef
+	| _index ~> 2
+	| _list ~> (HeapRef 4 to System.Collections.Generic.List`1[VSharp.Test.Tests.Block])
+	| _version ~> 1]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.BlockMiner
+3 ==> VSharp.Test.Tests.Block[]
+4 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Block]
+5 ==> VSharp.Test.Tests.Transaction[]
+6 ==> System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction]
+7 ==> VSharp.Test.Tests.Transaction
+8 ==> VSharp.Test.Tests.Transaction[]
+9 ==> VSharp.Test.Tests.Block
+10 ==> VSharp.Test.Tests.BlockMiner+<>c
+11 ==> System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]
+12 ==> System.Func`2[System.Int32,System.Int32]
+13 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction]
+14 ==> VSharp.Test.Tests.Block[]
+15 ==> VSharp.Test.Tests.Blockchain+<>c
+16 ==> System.Func`2[VSharp.Test.Tests.Block,System.Int64]
+17 ==> System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64]
+18 ==> System.Type[]
+19 ==> System.Reflection.Missing
+20 ==> System.Reflection.MemberFilter
+21 ==> System.Type+<>c
+22 ==> System.Reflection.MemberFilter
+23 ==> System.Reflection.MemberFilter
+24 ==> System.RuntimeType
+25 ==> System.Collections.Generic.ObjectComparer`1[System.Int64]
+26 ==> System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64]
+27 ==> System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block]
+--------------- Static fields: ---------------
+<>9 ==> {System.Type+<>c <- (HeapRef 21 to System.Type+<>c)}
+<>9 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 10 to VSharp.Test.Tests.BlockMiner+<>c)
+    }
+<>9 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 15 to VSharp.Test.Tests.Blockchain+<>c)
+    }
+<>9__0_0 ==> {
+        VSharp.Test.Tests.Blockchain+<>c <- (HeapRef 16 to System.Func`2[VSharp.Test.Tests.Block,System.Int64])
+    }
+<>9__8_0 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 11 to System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32])
+    }
+<>9__8_1 ==> {
+        VSharp.Test.Tests.BlockMiner+<>c <- (HeapRef 12 to System.Func`2[System.Int32,System.Int32])
+    }
+<Default>k__BackingField ==> {
+        System.Collections.Generic.Comparer`1[System.Int64] <- (HeapRef 25 to System.Collections.Generic.Comparer`1[System.Int64])
+    }
+Delimiter ==> {System.Type <- '.'}
+EmptyTypes ==> {System.Type <- (HeapRef 18 to System.Type[])}
+FilterAttribute ==> {
+        System.Type <- (HeapRef 20 to System.Reflection.MemberFilter)
+    }
+FilterName ==> {
+        System.Type <- (HeapRef 22 to System.Reflection.MemberFilter)
+    }
+FilterNameIgnoreCase ==> {
+        System.Type <- (HeapRef 23 to System.Reflection.MemberFilter)
+    }
+MINING_REWARD ==> {VSharp.Test.Tests.BlockMiner <- 2}
+MaxValue ==> {System.Int64 <- 9223372036854775807}
+MinValue ==> {System.Int64 <- -9223372036854775808}
+Missing ==> {System.Type <- (HeapRef 19 to System.Object)}
+Value ==> {
+        System.Reflection.Missing <- (HeapRef 19 to System.Reflection.Missing)
+    }
+Value ==> {
+        System.Array+EmptyArray`1[System.Type] <- (HeapRef 18 to System.Type[])
+    }
+s_defaultBinder ==> {System.Type <- NullRef}
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Block] <- (HeapRef 3 to VSharp.Test.Tests.Block[])
+    }
+s_emptyArray ==> {
+        System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction] <- (HeapRef 5 to VSharp.Test.Tests.Transaction[])
+    }
+--------------- Delegates: ---------------
+11 ==> <Lambda Expression System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32]>
+12 ==> <Lambda Expression System.Func`2[System.Int32,System.Int32]>
+16 ==> <Lambda Expression System.Func`2[VSharp.Test.Tests.Block,System.Int64]>
+20 ==> <Lambda Expression System.Reflection.MemberFilter>
+22 ==> <Lambda Expression System.Reflection.MemberFilter>
+23 ==> <Lambda Expression System.Reflection.MemberFilter>
+Initialized types = { System.Linq.OrderedEnumerable`1[VSharp.Test.Tests.Block], System.Func`3[System.Int32,VSharp.Test.Tests.Transaction,System.Int32], System.Collections.Generic.List`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Block], System.Reflection.MemberFilter, System.Array, System.Linq.CachingComparer`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerable`1[VSharp.Test.Tests.Transaction], VSharp.Test.Tests.Block, System.Type+<>c, System.Collections.Generic.ComparerHelpers, System.Func`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner+<>c, System.Int64, System.Func`2[System.Int32,System.Int32], VSharp.Test.Tests.Blockchain+<>c, VSharp.Test.Tests.Transaction, System.Object, System.Linq.Enumerable, System.Collections.IEnumerator, System.Array+EmptyArray`1[System.Type], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Block], System.Type, System.Linq.CachingComparer`2[VSharp.Test.Tests.Block,System.Int64], System.Collections.Generic.ICollection`1[VSharp.Test.Tests.Block], System.Collections.Generic.List`1+Enumerator[VSharp.Test.Tests.Transaction], System.Reflection.Missing, System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Block], System.Collections.Generic.IEnumerator`1[VSharp.Test.Tests.Transaction], System.Collections.Generic.Comparer`1[System.Int64], System.Linq.OrderedEnumerable`2[VSharp.Test.Tests.Block,System.Int64], VSharp.Test.Tests.BlockMiner, System.IDisposable, VSharp.Test.Tests.Blockchain, System.Linq.IPartition`1[VSharp.Test.Tests.Block] }

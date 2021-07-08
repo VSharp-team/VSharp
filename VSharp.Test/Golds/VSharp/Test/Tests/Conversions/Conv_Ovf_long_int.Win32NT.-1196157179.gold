@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conversions.Conv_Ovf_long_int(System.Int64)
+RESULT: (System.Int32)a
+HEAP:
+{ heap = <empty>, statics = s0 } where
+---------- s0 = ----------
+VSharp.Test.Tests.Conversions ==> CLASS []

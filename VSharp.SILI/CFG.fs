@@ -1,136 +1,192 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open System.Reflection
 open System.Collections.Generic
 
+open System.Reflection.Emit
+open FSharpx.Collections
 open VSharp
+open VSharp.Core
 
 module public CFG =
-    type internal offset = int
-    type internal graph = int List List
+    type internal graph = Dictionary<offset, List<offset>>
 
-    type public cfgData = {
-        methodBase : MethodBase
-        ilBytes : byte []
-        sortedOffsets : List<offset>
-        topologicalTimes : int []
-        graph : graph
-        reverseGraph : graph
-        clauses : ExceptionHandlingClause list
-    }
+    [<CustomEquality; CustomComparison>]
+    type public cfgData =
+        {
+            methodBase : MethodBase
+            ilBytes : byte []
+            sortedOffsets : List<offset>
+            dfsOut : Dictionary<offset, int>
+            sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
+            graph : graph
+            reverseGraph : graph
+            clauses : ExceptionHandlingClause list
+            offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
+        }
+        interface IComparable with
+            override x.CompareTo (obj : obj) =
+                match obj with
+                | :? cfgData as other -> x.methodBase.GetHashCode().CompareTo(other.GetHashCode())
+                | _ -> -1
+        override x.Equals (obj : obj) =
+            match obj with
+            | :? cfgData as other -> x.methodBase = other.methodBase
+            | _ -> false
+        override x.GetHashCode() = x.methodBase.GetHashCode()
 
     type private interimData = {
-        verticesOffsets : bool []
-        previousVertexOffset : offset []
-        nextVertexOffset : offset []
-        visitedOffsets : bool []
-        edges : (int * int) List
+        opCodes : OpCode [] //  for debug
+        verticesOffsets : int HashSet
+        fallThroughOffset : offset option []
+        edges : Dictionary<offset, List<offset>>
+        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
     }
+    with
+        member x.AddEdge src dst =
+            if not <| x.edges.ContainsKey src then
+                x.edges.Add (src, List<_>())
+                x.edges.[src].Add dst
+            elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
+
     let private createData (methodBase : MethodBase) =
         let mb = methodBase.GetMethodBody()
-        let size = mb.GetILAsByteArray().Length
+        if mb = null then ()
+        let array = mb.GetILAsByteArray()
+        let size = array.Length
         let interim = {
-            previousVertexOffset = Array.init size id
-            nextVertexOffset = Array.init size id
-            visitedOffsets = Array.zeroCreate size
-            verticesOffsets = Array.zeroCreate size
-            edges = new List<_>()
+            fallThroughOffset = Array.init size (fun _ -> None)
+            verticesOffsets = HashSet<_>()
+            edges = Dictionary<_, _>()
+            opCodes = Array.init size (fun _ -> OpCodes.Prefix1)
+            offsetsDemandingCall = Dictionary<_,_>()
         }
         let cfg = {
             methodBase = methodBase
             ilBytes = mb.GetILAsByteArray()
-            sortedOffsets = new List<_>()
-            topologicalTimes = null
-            graph = new List<_>()
-            reverseGraph = new List<_>()
-            clauses = []
+            sortedOffsets = List<_>()
+            dfsOut = Dictionary<_,_>()
+            sccOut = Dictionary<_,_>()
+            graph = Dictionary<_, _>()
+            reverseGraph = Dictionary<_,_>()
+            clauses = List.ofSeq mb.ExceptionHandlingClauses
+            offsetsDemandingCall = Dictionary<_,_>()
         }
         interim, cfg
 
-    let private add (data : cfgData) (s, d) =
-        let sIndex = data.sortedOffsets.BinarySearch(s)
-        let dIndex = data.sortedOffsets.BinarySearch(d)
-        data.graph.[sIndex].Add(dIndex)
-        data.reverseGraph.[dIndex].Add(sIndex)
+    let createVertex (cfgData : cfgData) offset =
+        cfgData.sortedOffsets.Add offset
+        cfgData.graph.Add <| (offset, List<_>())
+        cfgData.reverseGraph.Add <| (offset, List<_>())
 
     let private addVerticesAndEdges (cfgData : cfgData) (interimData : interimData) =
-        List.init (interimData.verticesOffsets.Length) id
-        |> List.iter (fun offset -> if interimData.verticesOffsets.[offset] then cfgData.sortedOffsets.Add offset
-                                                                                 cfgData.graph.Add (new List<_>())
-                                                                                 cfgData.reverseGraph.Add (new List<_>()))
-        interimData.edges |> Seq.iter (add cfgData)
-        cfgData.sortedOffsets |> Seq.iter (fun v ->
-            let u = interimData.nextVertexOffset.[v]
-            if u <> v then add cfgData (v, u)
-        )
-        cfgData
+        interimData.verticesOffsets
+        |> Seq.sort
+        |> Seq.iter (createVertex cfgData)
 
-    let private markVertex (data : interimData) vOffset =
-        if not data.verticesOffsets.[vOffset] then
-            data.verticesOffsets.[vOffset] <- true
+        let addEdge src dst =
+            cfgData.graph.[src].Add dst
+            cfgData.reverseGraph.[dst].Add src
 
-            let mutable up = data.previousVertexOffset.[vOffset]
-            let mutable down = data.nextVertexOffset.[up]
-
-            while down < vOffset do
-                up <- down
-                down <- data.nextVertexOffset.[up]
-
-            data.nextVertexOffset.[up] <- vOffset
-            data.previousVertexOffset.[vOffset] <- up
-            data.nextVertexOffset.[vOffset] <- down
-            data.previousVertexOffset.[down] <- vOffset
-
-    let rec private dfs (data : interimData) (ilBytes : byte []) (v : offset) (lastOffset : offset) =
-        data.visitedOffsets.[v] <- true
-        let opcode = Instruction.parseInstruction ilBytes v
-        let nextTargets = Instruction.findNextInstructionOffsetAndEdges opcode ilBytes v
-        match nextTargets with
-        | Choice1Of2 ins ->
-            if ins > lastOffset
-            then markVertex data v // marking leave.s going to next instruction as terminal
+        let used = HashSet<offset>()
+        let rec addEdges currentVertex src =
+            if used.Contains src then ()
             else
-                let niV = data.previousVertexOffset.[v]
-                data.previousVertexOffset.[ins] <- niV
-                data.nextVertexOffset.[niV] <- ins
-                if not data.visitedOffsets.[ins] then
-                    dfs data ilBytes ins lastOffset
-        | Choice2Of2 restTargets ->
-            // marking terminal vertices
-            markVertex data v
-            for x in restTargets do
-                if x <= lastOffset then
-                    markVertex data x
-                    if not data.visitedOffsets.[x] then
-                        dfs data ilBytes x lastOffset
-                    data.edges.Add(v, x)
+                let wasAdded = used.Add src
+                assert(wasAdded)
+                match interimData.fallThroughOffset.[src] with
+                | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
+                    addEdge currentVertex dst
+                    addEdges dst dst
+                | Some dst when cfgData.sortedOffsets.Contains dst ->
+                    addEdge currentVertex dst
+                    addEdges dst dst
+                | Some dst -> addEdges currentVertex dst
+                | None when interimData.edges.ContainsKey src ->
+                    interimData.edges.[src] |> Seq.iter (fun dst ->
+                        if cfgData.sortedOffsets.Contains dst then
+                            addEdge currentVertex dst
+                            addEdges dst dst
+                        else
+                            addEdges currentVertex dst
+                    )
+                | None -> ()
+        cfgData.sortedOffsets |> Seq.iter (fun offset -> addEdges offset offset)
+        { cfgData with offsetsDemandingCall = interimData.offsetsDemandingCall }
 
-    let private dfsComponent (data : interimData) (ilBytes : byte []) startOffset lastOffset =
-        markVertex data startOffset
-        dfs data ilBytes startOffset lastOffset
+    let private markVertex (set : HashSet<offset>) vOffset =
+        set.Add vOffset |> ignore
 
-    let private dfsExceptionHandlingClause (data : interimData) (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
+    let private dfs (methodBase : MethodBase) (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
+        let rec dfs' (v : offset) =
+            if used.Contains v then ()
+            else
+                let wasAdded = used.Add(v)
+                assert(wasAdded)
+                let opCode = Instruction.parseInstruction methodBase v
+//                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.getFullMethodName methodBase) v opCode
+                data.opCodes.[v] <- opCode
+
+                let dealWithJump src dst =
+                    markVertex data.verticesOffsets src
+                    markVertex data.verticesOffsets dst
+                    data.AddEdge src dst
+                    dfs' dst
+
+                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
+                match ipTransition with
+                | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
+                    data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
+                    markVertex data.verticesOffsets v
+                    markVertex data.verticesOffsets offset
+                    data.fallThroughOffset.[v] <- Some offset
+                    dfs' offset
+                | FallThrough offset ->
+                    data.fallThroughOffset.[v] <- Some offset
+                    dfs' offset
+                | ExceptionMechanism -> ()
+                | Return -> markVertex data.verticesOffsets v
+                | UnconditionalBranch target -> dealWithJump v target
+                | ConditionalBranch (fallThrough, offsets) -> fallThrough :: offsets |> List.iter (dealWithJump v)
+        dfs' v
+    let private dfsComponent methodBase (data : interimData) used (ilBytes : byte []) startOffset =
+        markVertex data.verticesOffsets startOffset
+        dfs methodBase data used ilBytes startOffset
+
+    let private dfsExceptionHandlingClause methodBase (data : interimData) used (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
         if ehc.Flags = ExceptionHandlingClauseOptions.Filter
-        then dfsComponent data ilBytes ehc.FilterOffset (ilBytes.Length - 1)
-        dfsComponent data ilBytes ehc.HandlerOffset (ilBytes.Length - 1) // some catch handlers may be nested
-    let topDfs cnt (gr : graph) =
-        let mutable t = cnt
-        let topTm = Array.create cnt -1
-        let rec helperH v =
-            topTm.[v] <- 0
-            gr.[v] |> Seq.iter (fun u -> if topTm.[u] = -1 then helperH u)
-            topTm.[v] <- t
-            t <- t - 1
-        for i in [0 .. cnt - 1] do
-            if topTm.[i] = -1 then helperH i
-        topTm
+        then dfsComponent methodBase data used ilBytes ehc.FilterOffset
+        dfsComponent methodBase data used ilBytes ehc.HandlerOffset // some catch handlers may be nested
+
+    let orderEdges (used : HashSet<offset>) (cfg : cfgData) : unit =
+        let rec bypass acc (u : offset) =
+            used.Add u |> ignore
+            let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
+            cfg.dfsOut.[u] <- tOut
+            u::vertices, tOut + 1
+        let propagateMaxTOutForSCC (usedForSCC : HashSet<offset>) max v =
+            let rec helper v =
+                usedForSCC.Add v |> ignore
+                cfg.sccOut.[v] <- max
+                cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| usedForSCC.Contains u then helper u)
+            helper v
+        let vertices, _ = Seq.fold (fun acc u -> if used.Contains u then acc else bypass acc u)  ([], 1) cfg.sortedOffsets
+        let usedForSCC = HashSet<offset>()
+        vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
 
     let build (methodBase : MethodBase) =
-        let methodBody = methodBase.GetMethodBody()
         let interimData, cfgData = createData methodBase
+        let methodBody = methodBase.GetMethodBody()
         let ilBytes = methodBody.GetILAsByteArray()
-        dfsComponent interimData ilBytes 0 (ilBytes.Length - 1)
-        Seq.iter (dfsExceptionHandlingClause interimData ilBytes) methodBody.ExceptionHandlingClauses
-        let cfgData = { cfgData with clauses = List.ofSeq methodBody.ExceptionHandlingClauses }
-        let cfgData = addVerticesAndEdges cfgData interimData
-        { cfgData with topologicalTimes = topDfs cfgData.sortedOffsets.Count cfgData.graph }
+        let used = HashSet<offset>()
+        dfsComponent methodBase interimData used ilBytes 0
+        Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
+        let cfg = addVerticesAndEdges cfgData interimData
+        orderEdges (HashSet<offset>()) cfg
+        cfg
+
+    let cfgs = Dictionary<MethodBase, cfgData>()
+    let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
+

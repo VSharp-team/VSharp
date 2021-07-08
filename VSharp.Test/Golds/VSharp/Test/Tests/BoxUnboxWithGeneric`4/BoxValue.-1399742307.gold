@@ -1,0 +1,3 @@
+METHOD: System.Object VSharp.Test.Tests.BoxUnboxWithGeneric`4[G,T,U,V].BoxValue(U)
+RESULT: Totally 1 state:
+Insufficient information! Can't instantiate symbolic value of unknown value type U

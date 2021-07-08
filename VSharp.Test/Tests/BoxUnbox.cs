@@ -41,43 +41,43 @@ namespace VSharp.Test.Tests
             return (T) o;
         }
 
-        [Ignore("primitive cast: unreachable")]
-        public static object UnboxAny1()
+        [TestSvm]
+        public static B UnboxAny1()
         {
             var b = new B(5);
             return Cast<B>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny2()
         {
             var b = new B(5);
             return Cast<A>(b);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [Ignore("Exceptions handling")]
         public static object UnboxAny3()
         {
             var a = new A();
             return Cast<B>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static object UnboxAny4()
         {
             var a = new A();
             return Cast<A>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
-        public static object UnboxAny5()
+        [TestSvm]
+        public static uint[] UnboxAny5()
         {
             var a = new int[] {1, 2, 3};
             return Cast<uint[]>(a);
         }
 
-        [Ignore("primitive cast: unreachable")]
-        public static object UnboxAny6()
+        [TestSvm]
+        public static int[] UnboxAny6()
         {
             var a = new uint[] {1, 2, 3};
             return Cast<int[]>(a);
@@ -104,20 +104,20 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static object Box7()
         {
             int? x = 7;
             return x;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static object BoxNullable(int? x)
         {
             return x;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool AlwaysNull()
         {
             return BoxNullable(null) == null;
@@ -130,13 +130,13 @@ namespace VSharp.Test.Tests
             return x == y;
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool True1()
         {
             return AlwaysTrueForNullable(null);
         }
 
-        [Ignore("expected reference, but got System.Nullable")]
+        [TestSvm]
         public static bool True2()
         {
             int? x = 55;
@@ -155,12 +155,22 @@ namespace VSharp.Test.Tests
     }
 
     [TestSvmFixture]
+    public class UnboxGeneric<T>
+    {
+        [TestSvm]
+        public static T Cast(object o)
+        {
+            return (T) o;
+        }
+    }
+
+    [TestSvmFixture]
     public class BoxUnboxWithGeneric<G, T, U, V>
         where G : IVirtual
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [Ignore("Subtype analysis is not so smart (it doesn't check IVirtual constraint)")]
+        [TestSvm]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -174,15 +184,8 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [Ignore("Subtype analysis is not so smart (it doesn't check IVirtual constraint)")]
+        [TestSvm]
         public static object BoxValue(U t)
-        {
-            object o = t;
-            return o;
-        }
-
-        [Ignore("There's no way to introduce new Generic Parameter for Nullable'")]
-        public static object BoxValue(V t)
         {
             object o = t;
             return o;

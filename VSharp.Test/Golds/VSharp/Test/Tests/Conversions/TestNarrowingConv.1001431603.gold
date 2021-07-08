@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.Conversions.TestNarrowingConv(System.SByte)
+RESULT: Totally 1 state:
+1
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = (System.SByte ((System.Int32 number) + 1024))
+key = __loc__1, value = 1
+Initialized types = { VSharp.Test.Tests.Conversions }

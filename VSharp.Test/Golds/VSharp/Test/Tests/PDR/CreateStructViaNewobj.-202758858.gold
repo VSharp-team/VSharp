@@ -1,0 +1,10 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.CreateStructViaNewobj(System.Int32)
+RESULT: Totally 1 state:
+n + n
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> n]
+key = __tmp__VSharp.Test.Tests.PDR+A, value = VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> n]
+Initialized types = { VSharp.Test.Tests.PDR+A, VSharp.Test.Tests.PDR }

@@ -1,8 +1,11 @@
 METHOD: System.Boolean VSharp.Test.Tests.BoxUnbox.True3()
-RESULT: True
-HEAP:
-{ heap = h0, statics = s1 } where
----------- h0 = ----------
-1 ==> 42
----------- s1 = ----------
-VSharp.Test.Tests.BoxUnbox ==> CLASS []
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+--------------- Boxed items: ---------------
+2 ==> 42
+--------------- Types tokens: ---------------
+2 ==> System.Int32
+--------------- Stack: ---------------
+key = __loc__0, value = 42
+Initialized types = { VSharp.Test.Tests.BoxUnbox }

@@ -1,0 +1,28 @@
+METHOD: System.Int32 VSharp.Test.Tests.Lists.TestConnectionBetweenMultiIndicesAndValues(System.Int32[,], System.Int32, System.Int32, System.Int32, System.Int32)
+RESULT: Totally 3 states:
+0
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(f == i) /\ !(g < 0) & !(g < 0) & g < Length(a, 0) & g < Length(a, 1) /\ !(j < 0) & !(j < 0) & j < Length(a, 0) & j < Length(a, 1)
+--------------- Stack: ---------------
+key = __loc__0, value = a[j, j]
+key = __loc__1, value = a[g, g]
+key = __loc__2, value = 0
+Initialized types = { VSharp.Test.Tests.Lists, System.Int32[,] }
+
+0
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(g < 0) & !(g < 0) & g < Length(a, 0) & g < Length(a, 1) /\ !(j < 0) & !(j < 0) & j < Length(a, 0) & j < Length(a, 1) /\ f == i /\ g == j
+--------------- Stack: ---------------
+key = __loc__0, value = a[j, j]
+key = __loc__1, value = a[g, g]
+key = __loc__2, value = 0
+Initialized types = { VSharp.Test.Tests.Lists, System.Int32[,] }
+
+0
+MEMORY DUMP:
+Path condition: !(a == null) /\ !(g < 0) & !(g < 0) & g < Length(a, 0) & g < Length(a, 1) /\ !(g == j) /\ !(j < 0) & !(j < 0) & j < Length(a, 0) & j < Length(a, 1) /\ f == i
+--------------- Stack: ---------------
+key = __loc__0, value = a[j, j]
+key = __loc__1, value = a[g, g]
+key = __loc__2, value = 0
+Initialized types = { VSharp.Test.Tests.Lists, System.Int32[,] }
