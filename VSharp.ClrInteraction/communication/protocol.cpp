@@ -119,9 +119,9 @@ bool Protocol::handshake() {
 
 #ifndef INSTRUMENTATION
 bool Protocol::sendProbes() {
-    unsigned bytesCount = sizeof ProbesAddresses;
-    LOG(tout << "Sending probes (push1Concrete = " << (unsigned long long) Push1ConcreteAddress << ")");
-    return writeBuffer((char*)ProbesAddresses, bytesCount);
+    unsigned bytesCount = ProbesAddresses.size() * sizeof(unsigned long long);
+    LOG(tout << "Sending probes..." << std::endl);
+    return writeBuffer((char*)ProbesAddresses.data(), bytesCount);
 }
 
 bool Protocol::sendMethodBody(const MethodBodyInfo &body) {

@@ -63,10 +63,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     instrumenter = new Instrumenter(*corProfilerInfo);
 
     protocol = new icsharp::Protocol();
-#ifndef INSTRUMENTATION
     if (!protocol->connect()) return E_FAIL;
     if (!protocol->sendProbes()) return E_FAIL;
-#endif
 
     return S_OK;
 }
@@ -463,8 +461,68 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RootReferences(ULONG cRootRefs, ObjectID 
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
 {
-    std::cout << "EXCEPTION THROWN!!1!!!1!" << std::endl;
-    UNUSED(thrownObjectId);
+    HRESULT hr;
+    printf("Exception %lX thrown!\n", thrownObjectId);
+    ULONG size;
+    ClassID classId;
+    IfFailRet(corProfilerInfo->GetObjectSize(thrownObjectId, &size));
+    IfFailRet(corProfilerInfo->GetClassFromObject(thrownObjectId, &classId));
+    std::cout << "size of exception: " << size << std::endl;
+    char *p = (char *)thrownObjectId;
+    for (unsigned i = 0; i < size; ++i) {
+        char b = *(p + i);
+        printf("%u: %c (%hhX, %hhu)\n", i, b, b, b);
+    }
+
+    ULONG fieldsCount = 0;
+    ULONG bytesCount = 0;
+    IfFailRet(this->corProfilerInfo->GetClassLayout(classId, new COR_FIELD_OFFSET[0], 0, &fieldsCount, &bytesCount));
+    mdTypeDef token;
+    ModuleID moduleId;
+    IfFailRet(this->corProfilerInfo->GetClassIDInfo(classId, &moduleId, &token));
+
+    CComPtr<IMetaDataImport> metadataImport;
+    IfFailRet(this->corProfilerInfo->GetModuleMetaData(moduleId, ofRead | ofWrite, IID_IMetaDataImport, reinterpret_cast<IUnknown **>(&metadataImport)));
+
+    printf("This is class! Fields count = %u, bytes count = %u\n", fieldsCount, bytesCount);
+    COR_FIELD_OFFSET *fieldOffsets = new COR_FIELD_OFFSET[fieldsCount];
+    if (this->corProfilerInfo->GetClassLayout(classId, fieldOffsets, fieldsCount, &fieldsCount, &bytesCount) != S_OK) {
+        printf("Unexpected fail while getting class laoyut!!!");
+        return S_OK;
+    }
+    printf("Offsets:\n");
+    for (unsigned int i = 0; i < fieldsCount; ++i) {
+        printf("offset %u: token = %u, offset = %u\n", i, fieldOffsets[i].ridOfField, fieldOffsets[i].ulOffset);
+    }
+    printf("\n");
+
+
+    char spbuf[8];
+    for (int i = 0; i < 8; ++i) {
+        spbuf[i] = *(p + 120 + i);
+    }
+    char *sp = *(char **)(spbuf);
+    ObjectID sid = (ObjectID) sp;
+    ClassID sclassId;
+    printf("string pointer: %lX\n", sid);
+    unsigned ssize;
+    IfFailRet(corProfilerInfo->GetObjectSize(sid, &ssize));
+    IfFailRet(corProfilerInfo->GetClassFromObject(sid, &sclassId));
+    std::cout << "size of string: " << ssize << std::endl;
+    fflush(stdout);
+    ULONG lengthOffset = 0;
+    ULONG contentsOffset = 0;
+    IfFailRet(this->corProfilerInfo->GetStringLayout2(&lengthOffset, &contentsOffset));
+    printf("This is string! Length offset = %u, contents offset = %u\n", lengthOffset, contentsOffset);
+    int length = *((int *)(sid + lengthOffset));
+    printf("Length = %d\n", length);
+    printf("String contents: ");
+    for (int i = 0; i < 2 * length; ++i) {
+        char b = *(sp + contentsOffset + i);
+        printf("%u: %c (%hhX, %hhu)\n", i, b, b, b);
+    }
+    printf("\n");
+
     return S_OK;
 }
 

@@ -2,8 +2,20 @@ namespace VSharp.Concolic
 
 open System
 open System.Reflection.Emit
+open FSharpx.Collections
 open VSharp
 open VSharp.Interpreter.IL
+
+type evaluationStackCellType =
+    | I1 = 1
+    | I2 = 2
+    | I4 = 3
+    | I8 = 4
+    | R4 = 5
+    | R8 = 6
+    | I = 7
+    | Ref = 8
+    | Struct = 9
 
 type opcode =
     | OpCode of OpCode
@@ -67,8 +79,30 @@ and ilInstr = {
     mutable next : ilInstr
     mutable opcode : opcode
     mutable offset : uint32
+    mutable types : evaluationStackCellType list
     mutable arg : ilInstrOperand
 }
+with
+    member x.Arg8 with get() =
+        match x.arg with
+        | Arg8 v -> v
+        | _ -> internalfail "Requesting 8-bit arg of instruction %O with arg %O" x.opcode x.arg
+    member x.Arg16 with get() =
+        match x.arg with
+        | Arg16 v -> v
+        | _ -> internalfail "Requesting 16-bit arg of instruction %O with arg %O" x.opcode x.arg
+    member x.Arg32 with get() =
+        match x.arg with
+        | Arg32 v -> v
+        | _ -> internalfail "Requesting 32-bit arg of instruction %O with arg %O" x.opcode x.arg
+    member x.Arg64 with get() =
+        match x.arg with
+        | Arg64 v -> v
+        | _ -> internalfail "Requesting 64-bit arg of instruction %O with arg %O" x.opcode x.arg
+    member x.Target with get() =
+        match x.arg with
+        | Target v -> v
+        | _ -> internalfail "Requesting target arg of instruction %O with arg %O" x.opcode x.arg
 
 type ehClauseMatcher =
     | ClassToken of uint32
@@ -83,6 +117,340 @@ type ehClause = {
     matcher : ehClauseMatcher
 }
 
+module private EvaluationStackTyper =
+
+    let fail() = internalfail "Stack typer validation failed!"
+
+    type evaluationStackTypes =
+        { d : System.Collections.Generic.Stack<evaluationStackCellType> }
+    with
+        static member TypeAbstraction =
+            let result = System.Collections.Generic.Dictionary<int32 *int32, evaluationStackCellType>()
+            result.Add((typeof<int8>.Module.MetadataToken, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
+            result.Add((typeof<uint8>.Module.MetadataToken, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
+            result.Add((typeof<int16>.Module.MetadataToken, typeof<int16>.MetadataToken), evaluationStackCellType.I2)
+            result.Add((typeof<uint16>.Module.MetadataToken, typeof<uint16>.MetadataToken), evaluationStackCellType.I2)
+            result.Add((typeof<int32>.Module.MetadataToken, typeof<int32>.MetadataToken), evaluationStackCellType.I4)
+            result.Add((typeof<uint32>.Module.MetadataToken, typeof<uint32>.MetadataToken), evaluationStackCellType.I4)
+            result.Add((typeof<int64>.Module.MetadataToken, typeof<int64>.MetadataToken), evaluationStackCellType.I8)
+            result.Add((typeof<uint64>.Module.MetadataToken, typeof<uint64>.MetadataToken), evaluationStackCellType.I8)
+            result.Add((typeof<float32>.Module.MetadataToken, typeof<float32>.MetadataToken), evaluationStackCellType.R4)
+            result.Add((typeof<double>.Module.MetadataToken, typeof<double>.MetadataToken), evaluationStackCellType.R8)
+            result.Add((typeof<IntPtr>.Module.MetadataToken, typeof<IntPtr>.MetadataToken), evaluationStackCellType.I)
+            result
+
+        static member private AbstractType (typ : Type) =
+            if typ.IsValueType then
+                let result = ref evaluationStackCellType.I1
+                if evaluationStackTypes.TypeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then !result
+                else evaluationStackCellType.Struct
+            else evaluationStackCellType.Ref
+
+        member x.Push (typ : Type) = typ |> evaluationStackTypes.AbstractType |> x.d.Push
+        member x.Push (t : evaluationStackCellType) = x.d.Push t
+        member x.Pop() = x.d.Pop() |> ignore
+        member x.Pop count =
+            for i in 1..count do
+                x.d.Pop() |> ignore
+        member x.Dup() = x.d.Peek() |> x.d.Push
+        member x.Take count =
+            if x.d.Count < count then fail()
+            Seq.take count x.d |> List.ofSeq
+
+    let stackTypes : evaluationStackTypes = {d = System.Collections.Generic.Stack<_>()}
+
+    let start() = stackTypes.d.Clear()
+    let finish() = if stackTypes.d.Count <> 0 then fail()
+
+    let typeLdarg (m : Reflection.MethodBase) idx =
+        m.GetParameters().[idx].ParameterType |> stackTypes.Push
+    let typeLdloc (m : Reflection.MethodBase) idx =
+        m.GetMethodBody().LocalVariables.[idx].LocalType |> stackTypes.Push
+
+    let typeBinop() =
+        // See ECMA-335, sec. III.1.5
+        let t1 = stackTypes.d.Pop()
+        let t2 = stackTypes.d.Pop()
+        let t1_is_I4 =
+            match t1 with
+            | evaluationStackCellType.I1
+            | evaluationStackCellType.I2
+            | evaluationStackCellType.I4 -> true
+            | _ -> false
+        let t2_is_I4 =
+            match t2 with
+            | evaluationStackCellType.I1
+            | evaluationStackCellType.I2
+            | evaluationStackCellType.I4 -> true
+            | _ -> false
+        let t1_is_F =
+            match t1 with
+            | evaluationStackCellType.R4
+            | evaluationStackCellType.R8 -> true
+            | _ -> false
+        let t2_is_F =
+            match t2 with
+            | evaluationStackCellType.R4
+            | evaluationStackCellType.R8 -> true
+            | _ -> false
+        if t1_is_I4 && t2_is_I4 then
+            if t1 = t2 then t1 else evaluationStackCellType.I4
+        elif t1_is_F && t2_is_F then
+            if t1 = t2 then t1 else evaluationStackCellType.R8
+        elif t1 = evaluationStackCellType.I then t1
+        elif t2 = evaluationStackCellType.I then t2
+        else fail()
+        |> stackTypes.Push
+
+    let typeInstruction (m : Reflection.MethodBase) (instr : ilInstr) =
+        match instr.opcode with
+        | OpCode op ->
+            if op.StackBehaviourPop <> StackBehaviour.Varpop then
+                let pops = instr.opcode.StackBehaviourPop
+                instr.types <- pops |> int |> stackTypes.Take
+            let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
+            match opcodeValue with
+            | OpCodeValues.Ldarg_0 -> typeLdarg m 0
+            | OpCodeValues.Ldarg_1 -> typeLdarg m 1
+            | OpCodeValues.Ldarg_2 -> typeLdarg m 2
+            | OpCodeValues.Ldarg_3 -> typeLdarg m 3
+            | OpCodeValues.Ldarg_S -> stackTypes.Pop(); instr.Arg8 |> int |> typeLdarg m
+            | OpCodeValues.Ldarg -> stackTypes.Pop(); instr.Arg16 |> int |> typeLdarg m
+            | OpCodeValues.Ldloc_0 -> typeLdloc m 0
+            | OpCodeValues.Ldloc_1 -> typeLdloc m 1
+            | OpCodeValues.Ldloc_2 -> typeLdloc m 2
+            | OpCodeValues.Ldloc_3 -> typeLdloc m 3
+            | OpCodeValues.Ldloc_S -> stackTypes.Pop(); instr.Arg8 |> int |> typeLdarg m
+            | OpCodeValues.Ldloc -> stackTypes.Pop(); instr.Arg16 |> int |> typeLdarg m
+
+            | OpCodeValues.Ldarga_S
+            | OpCodeValues.Ldloca_S
+            | OpCodeValues.Ldarga
+            | OpCodeValues.Ldloca -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+
+            | OpCodeValues.Stloc_0
+            | OpCodeValues.Stloc_1
+            | OpCodeValues.Stloc_2
+            | OpCodeValues.Stloc_3
+            | OpCodeValues.Pop
+
+            | OpCodeValues.Brfalse_S
+            | OpCodeValues.Brtrue_S
+            | OpCodeValues.Brfalse
+            | OpCodeValues.Brtrue
+            | OpCodeValues.Switch -> stackTypes.Pop()
+
+            | OpCodeValues.Starg_S
+            | OpCodeValues.Stloc_S
+            | OpCodeValues.Starg
+            | OpCodeValues.Stloc
+            | OpCodeValues.Beq_S
+            | OpCodeValues.Bge_S
+            | OpCodeValues.Bgt_S
+            | OpCodeValues.Ble_S
+            | OpCodeValues.Blt_S
+            | OpCodeValues.Bne_Un_S
+            | OpCodeValues.Bge_Un_S
+            | OpCodeValues.Bgt_Un_S
+            | OpCodeValues.Ble_Un_S
+            | OpCodeValues.Blt_Un_S
+            | OpCodeValues.Beq
+            | OpCodeValues.Bge
+            | OpCodeValues.Bgt
+            | OpCodeValues.Ble
+            | OpCodeValues.Blt
+            | OpCodeValues.Bne_Un
+            | OpCodeValues.Bge_Un
+            | OpCodeValues.Bgt_Un
+            | OpCodeValues.Ble_Un
+            | OpCodeValues.Blt_Un
+            | OpCodeValues.Cpobj -> stackTypes.Pop 2
+
+            | OpCodeValues.Ldc_I4_M1
+            | OpCodeValues.Ldc_I4_0
+            | OpCodeValues.Ldc_I4_1
+            | OpCodeValues.Ldc_I4_2
+            | OpCodeValues.Ldc_I4_3
+            | OpCodeValues.Ldc_I4_4
+            | OpCodeValues.Ldc_I4_5
+            | OpCodeValues.Ldc_I4_6
+            | OpCodeValues.Ldc_I4_7
+            | OpCodeValues.Ldc_I4_8
+            | OpCodeValues.Ldc_I4_S
+            | OpCodeValues.Ldc_I4 -> stackTypes.Push evaluationStackCellType.I4
+            | OpCodeValues.Ldc_I8 -> stackTypes.Push evaluationStackCellType.I8
+            | OpCodeValues.Ldc_R4 -> stackTypes.Push evaluationStackCellType.R4
+            | OpCodeValues.Ldc_R8 -> stackTypes.Push evaluationStackCellType.R8
+            | OpCodeValues.Ldnull -> stackTypes.Push evaluationStackCellType.Ref
+
+            | OpCodeValues.Dup -> stackTypes.Dup()
+
+            | OpCodeValues.Ldind_I1
+            | OpCodeValues.Ldind_U1 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I1
+            | OpCodeValues.Ldind_I2
+            | OpCodeValues.Ldind_U2 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I2
+            | OpCodeValues.Ldind_I4
+            | OpCodeValues.Ldind_U4 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I4
+            | OpCodeValues.Ldind_I8 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I8
+            | OpCodeValues.Ldind_I -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Ldind_R4 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.R4
+            | OpCodeValues.Ldind_R8 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.R8
+            | OpCodeValues.Ldind_Ref -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.Ref
+            | OpCodeValues.Stind_Ref
+            | OpCodeValues.Stind_I1
+            | OpCodeValues.Stind_I2
+            | OpCodeValues.Stind_I4
+            | OpCodeValues.Stind_I8
+            | OpCodeValues.Stind_R4
+            | OpCodeValues.Stind_R8
+            | OpCodeValues.Stind_I -> stackTypes.Pop 2
+
+            | OpCodeValues.Add
+            | OpCodeValues.Sub
+            | OpCodeValues.Mul
+            | OpCodeValues.Div
+            | OpCodeValues.Div_Un
+            | OpCodeValues.Rem
+            | OpCodeValues.Rem_Un
+            | OpCodeValues.And
+            | OpCodeValues.Or
+            | OpCodeValues.Xor
+            | OpCodeValues.Shl
+            | OpCodeValues.Shr
+            | OpCodeValues.Shr_Un
+            | OpCodeValues.Add_Ovf
+            | OpCodeValues.Add_Ovf_Un
+            | OpCodeValues.Mul_Ovf
+            | OpCodeValues.Mul_Ovf_Un
+            | OpCodeValues.Sub_Ovf
+            | OpCodeValues.Sub_Ovf_Un-> typeBinop()
+            | OpCodeValues.Ceq
+            | OpCodeValues.Cgt
+            | OpCodeValues.Cgt_Un
+            | OpCodeValues.Clt
+            | OpCodeValues.Clt_Un -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I4
+
+            | OpCodeValues.Conv_I1
+            | OpCodeValues.Conv_U1
+            | OpCodeValues.Conv_Ovf_I1
+            | OpCodeValues.Conv_Ovf_U1
+            | OpCodeValues.Conv_Ovf_I1_Un
+            | OpCodeValues.Conv_Ovf_U1_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I1
+            | OpCodeValues.Conv_I2
+            | OpCodeValues.Conv_U2
+            | OpCodeValues.Conv_Ovf_I2
+            | OpCodeValues.Conv_Ovf_U2
+            | OpCodeValues.Conv_Ovf_U2_Un
+            | OpCodeValues.Conv_Ovf_I2_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I2
+            | OpCodeValues.Conv_I4
+            | OpCodeValues.Conv_U4
+            | OpCodeValues.Conv_Ovf_I4
+            | OpCodeValues.Conv_Ovf_U4
+            | OpCodeValues.Conv_Ovf_I4_Un
+            | OpCodeValues.Conv_Ovf_U4_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I1
+            | OpCodeValues.Conv_I8
+            | OpCodeValues.Conv_U8
+            | OpCodeValues.Conv_Ovf_I8
+            | OpCodeValues.Conv_Ovf_U8
+            | OpCodeValues.Conv_Ovf_I8_Un
+            | OpCodeValues.Conv_Ovf_U8_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I8
+            | OpCodeValues.Conv_R4 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.R4
+            | OpCodeValues.Conv_R8 -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.R8
+            | OpCodeValues.Conv_R_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.R8
+            | OpCodeValues.Conv_I
+            | OpCodeValues.Conv_U
+            | OpCodeValues.Conv_Ovf_I
+            | OpCodeValues.Conv_Ovf_U
+            | OpCodeValues.Conv_Ovf_I_Un
+            | OpCodeValues.Conv_Ovf_U_Un -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+
+            | OpCodeValues.Ldobj -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.Struct
+            | OpCodeValues.Ldstr -> stackTypes.Push evaluationStackCellType.Ref
+            | OpCodeValues.Unbox -> stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Throw -> stackTypes.Pop()
+
+            | OpCodeValues.Ldsfld
+            | OpCodeValues.Ldfld ->
+                let fieldInfo = Reflection.resolveField m instr.Arg32
+                fieldInfo.FieldType |> stackTypes.Push
+
+            | OpCodeValues.Ldflda -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Ldsflda -> stackTypes.Push evaluationStackCellType.I
+
+            | OpCodeValues.Stfld -> stackTypes.Pop 2
+            | OpCodeValues.Stsfld -> stackTypes.Pop()
+            | OpCodeValues.Stobj
+            | OpCodeValues.Unbox_Any ->
+                stackTypes.Pop()
+                let typ = Reflection.resolveType m instr.Arg32
+                stackTypes.Push typ
+            | OpCodeValues.Box
+            | OpCodeValues.Newarr -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.Ref
+            | OpCodeValues.Ldlen -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+
+            | OpCodeValues.Ldelema -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Ldelem_I1
+            | OpCodeValues.Ldelem_U1 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I1
+            | OpCodeValues.Ldelem_I2
+            | OpCodeValues.Ldelem_U2 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I2
+            | OpCodeValues.Ldelem_I4
+            | OpCodeValues.Ldelem_U4 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I4
+            | OpCodeValues.Ldelem_I8 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I8
+            | OpCodeValues.Ldelem_I -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Ldelem_R4 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.R4
+            | OpCodeValues.Ldelem_R8 -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.R8
+            | OpCodeValues.Ldelem_Ref -> stackTypes.Pop 2; stackTypes.Push evaluationStackCellType.Ref
+            | OpCodeValues.Ldelem ->
+                stackTypes.Pop 2
+                let typ = Reflection.resolveType m instr.Arg32
+                stackTypes.Push typ
+
+            | OpCodeValues.Stelem_I
+            | OpCodeValues.Stelem_I1
+            | OpCodeValues.Stelem_I2
+            | OpCodeValues.Stelem_I4
+            | OpCodeValues.Stelem_I8
+            | OpCodeValues.Stelem_R4
+            | OpCodeValues.Stelem_R8
+            | OpCodeValues.Stelem_Ref
+            | OpCodeValues.Stelem -> stackTypes.Pop 3
+
+            | OpCodeValues.Refanyval
+            | OpCodeValues.Ldvirtftn -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Mkrefany -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.Ref
+            | OpCodeValues.Ldtoken
+            | OpCodeValues.Arglist
+            | OpCodeValues.Ldftn -> stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Localloc -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Cpblk -> stackTypes.Pop 3
+            | OpCodeValues.Initblk -> stackTypes.Pop 3
+            | OpCodeValues.Sizeof -> stackTypes.Push evaluationStackCellType.I
+            | OpCodeValues.Refanytype -> stackTypes.Pop(); stackTypes.Push evaluationStackCellType.I4
+
+            | OpCodeValues.Call
+            | OpCodeValues.Callvirt
+            | OpCodeValues.Newobj ->
+                let callee = Reflection.resolveMethod m instr.Arg32
+                let hasThis = callee.CallingConvention.HasFlag(System.Reflection.CallingConventions.HasThis)
+                let pops = callee.GetParameters().Length
+                let pops =
+                    if hasThis && opcodeValue <> OpCodeValues.Newobj then pops + 1
+                    else pops
+                instr.types <- pops |> int |> stackTypes.Take
+                stackTypes.Pop pops
+                let returnType = Reflection.methodReturnType callee
+                if opcodeValue = OpCodeValues.Newobj then
+                    stackTypes.Push evaluationStackCellType.Ref
+                elif returnType <> typeof<Void> then
+                    stackTypes.Push returnType
+            | OpCodeValues.Calli ->
+                // TODO: resolve and parse signature
+                __notImplemented__()
+            | OpCodeValues.Ret ->
+                if Reflection.methodReturnType m <> typeof<Void> then stackTypes.Pop()
+            | _ -> ()
+        | SwitchArg -> ()
+
 [<AllowNullLiteral>]
 type ILRewriter(body : rawMethodBody) =
     // If this line throws exception, we should improve resolving assemblies by names. Probably we should track assemblies from the directory of executed assembly
@@ -94,7 +462,6 @@ type ILRewriter(body : rawMethodBody) =
     let offsetToInstr : ilInstr array = Array.zeroCreate (codeSize + 1)
     let mutable ehs : ehClause array = Array.empty
     let il : ilInstr = System.Runtime.Serialization.FormatterServices.GetUninitializedObject typeof<ilInstr> :?> ilInstr
-//    = { prev = ref il; next = ref il; opcode = OpCodes.Nop; offset = 0u; arg = Arg8 0y}
 
     let invalidProgram reason =
         Logger.error "Invalid program: %s" reason
@@ -148,15 +515,15 @@ type ILRewriter(body : rawMethodBody) =
 
     member x.NewInstr opcode =
         instrCount <- instrCount + 1u
-        {prev = il; next = il; opcode = opcode; offset = 0u; arg = Arg8 0uy}
+        {prev = il; next = il; opcode = opcode; offset = 0u; types = []; arg = Arg8 0uy}
 
     member x.NewInstr opcode =
         instrCount <- instrCount + 1u
-        {prev = il; next = il; opcode = OpCode opcode; offset = 0u; arg = Arg8 0uy}
+        {prev = il; next = il; opcode = OpCode opcode; offset = 0u; types = []; arg = Arg8 0uy}
 
     member x.CopyInstruction instr =
         instrCount <- instrCount + 1u
-        {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; arg = instr.arg}
+        {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; types = instr.types; arg = instr.arg}
 
     member x.CopyInstructions() =
         let result = Array.zeroCreate<ilInstr> <| int instrCount
@@ -196,6 +563,23 @@ type ILRewriter(body : rawMethodBody) =
         Array.exists (fun eh -> x.InstrEq eh.handlerEnd instr) ehs
     member x.ILList = il
 
+    member private x.ReplaceBranchAlias (instr : ilInstr) (op : OpCode) (brop : OpCode) =
+        let newInstr = x.CopyInstruction instr
+        x.InsertAfter(instr, newInstr)
+        instr.opcode <- OpCode op
+        instr.arg <- NoArg
+        newInstr.types <- [evaluationStackCellType.I4]
+        newInstr.opcode <- OpCode brop
+
+    member private x.IsFloatBinOp (instr : ilInstr) =
+        match instr.types with
+        | [x; y] ->
+            match x with
+            | evaluationStackCellType.R4 -> assert(y = evaluationStackCellType.R4); true
+            | evaluationStackCellType.R8 -> assert(y = evaluationStackCellType.R8); true
+            | _ -> false
+        | _ -> __unreachable__()
+
     member private x.ImportIL() =
         // Set the sentinel instruction
         il.next <- il
@@ -205,6 +589,7 @@ type ILRewriter(body : rawMethodBody) =
         // TODO: unify code with Instruction.fs (parseInstruction)
         let mutable branch = false
         let mutable offset = 0
+        EvaluationStackTyper.start()
         while offset < codeSize do
             let startOffset = offset
             let opcode = int16 code.[offset]
@@ -288,8 +673,35 @@ type ILRewriter(body : rawMethodBody) =
                 branch <- true
             | _ -> invalidProgram "Unexpected operand type!"
 
+            EvaluationStackTyper.typeInstruction m instr
+
+            // Replace binary branch instructions with binop + branch
+            match LanguagePrimitives.EnumOfValue op.Value with
+            | OpCodeValues.Beq_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue_S
+            | OpCodeValues.Bge_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse_S
+            | OpCodeValues.Bgt_S -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue_S
+            | OpCodeValues.Ble_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse_S
+            | OpCodeValues.Blt_S -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue_S
+            | OpCodeValues.Bne_Un_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse_S
+            | OpCodeValues.Bge_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse_S
+            | OpCodeValues.Bgt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue_S
+            | OpCodeValues.Ble_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse_S
+            | OpCodeValues.Blt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue_S
+            | OpCodeValues.Beq -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue
+            | OpCodeValues.Bge -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse
+            | OpCodeValues.Bgt -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue
+            | OpCodeValues.Ble -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse
+            | OpCodeValues.Blt -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue
+            | OpCodeValues.Bne_Un -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse
+            | OpCodeValues.Bge_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse
+            | OpCodeValues.Bgt_Un -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue
+            | OpCodeValues.Ble_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse
+            | OpCodeValues.Blt_Un -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue
+            | _ -> ()
+
             offset <- offset + size
 //            Logger.trace "Imported %O (offsets %d .. %d)" instr.opcode startOffset offset
+        EvaluationStackTyper.finish()
 
         assert(offset = codeSize)
         if branch then

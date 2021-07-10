@@ -14,7 +14,7 @@ class CorProfiler : public ICorProfilerCallback8
 {
 private:
     std::atomic<int> refCount;
-    ICorProfilerInfo9* corProfilerInfo;
+    ICorProfilerInfo9 *corProfilerInfo;
     Instrumenter *instrumenter;
     Protocol *protocol;
 

@@ -1,17 +1,21 @@
 #include "memory/stack.h"
 
 #include "logging.h"
+#include <cstring>
 
 using namespace icsharp;
 
-StackFrame::StackFrame(unsigned maxStackSize)
+StackFrame::StackFrame(unsigned maxStackSize, char *args, unsigned argsCount, unsigned localsCount)
     : m_concreteness(new bool[maxStackSize])
     , m_capacity(maxStackSize)
     , m_concretenessTop(0)
+    , m_args(new bool[argsCount])
+    , m_locals(new bool[localsCount])
     , m_expectedToken(0)
     , m_enteredMarker(false)
     , m_unmanagedContext(false)
 {
+    std::memcpy(m_args, args, argsCount);
 }
 
 //StackFrame::~StackFrame()
@@ -28,6 +32,21 @@ bool StackFrame::isEmpty() const
 bool StackFrame::isFull() const
 {
     return m_concretenessTop == m_capacity;
+}
+
+bool StackFrame::peek0() const
+{
+    return m_concreteness[m_concretenessTop - 1];
+}
+
+bool StackFrame::peek1() const
+{
+    return m_concreteness[m_concretenessTop - 2];
+}
+
+bool StackFrame::peek2() const
+{
+    return m_concreteness[m_concretenessTop - 3];
 }
 
 void StackFrame::push1(bool isConcrete)
@@ -64,14 +83,19 @@ void StackFrame::pop(unsigned count)
     m_concretenessTop -= count;
 }
 
-void StackFrame::pop2Push1()
+bool StackFrame::pop2Push1()
 {
 #ifdef _DEBUG
     if (m_concretenessTop < 2)
         FAIL_LOUD("Corrupted stack!");
 #endif
     --m_concretenessTop;
-    m_concreteness[m_concretenessTop - 1] &= m_concreteness[m_concretenessTop];
+    return m_concreteness[m_concretenessTop - 1] &= m_concreteness[m_concretenessTop];
+}
+
+void StackFrame::dup()
+{
+    push1(peek0());
 }
 
 unsigned StackFrame::count() const
@@ -109,9 +133,13 @@ void StackFrame::setUnmanagedContext(bool isUnmanaged)
     this->m_unmanagedContext = isUnmanaged;
 }
 
+//void Stack::pushFrame(int maxStackSize, char *args, unsigned argsCount, unsigned localsCount)
+//{
+//    m_frames.push(StackFrame(maxStackSize, args, argsCount, localsCount));
+//}
 void Stack::pushFrame(int maxStackSize)
 {
-    m_frames.push(maxStackSize);
+    m_frames.push(StackFrame(maxStackSize, nullptr, 0, 0));
 }
 
 void Stack::popFrame()

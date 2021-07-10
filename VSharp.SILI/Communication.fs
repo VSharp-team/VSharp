@@ -5,50 +5,232 @@ open System.IO
 open System.IO.Pipes
 open System.Text
 open System.Runtime.InteropServices
+open FSharpx.Collections
 open VSharp
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type probes = {
-    mutable push1Concrete : uint64
-    mutable pop1 : uint64
-    mutable pop2Push1 : uint64
+    mutable ldarg_0 : uint64
+    mutable ldarg_1 : uint64
+    mutable ldarg_2 : uint64
+    mutable ldarg_3 : uint64
+    mutable ldarg_S : uint64
+    mutable ldarg : uint64
+    mutable ldarga : uint64
+
+    mutable ldloc_0 : uint64
+    mutable ldloc_1 : uint64
+    mutable ldloc_2 : uint64
+    mutable ldloc_3 : uint64
+    mutable ldloc_S : uint64
+    mutable ldloc : uint64
+    mutable ldloca : uint64
+
+    mutable starg_S : uint64
+    mutable starg : uint64
+    mutable stloc_0 : uint64
+    mutable stloc_1 : uint64
+    mutable stloc_2 : uint64
+    mutable stloc_3 : uint64
+    mutable stloc_S : uint64
+    mutable stloc : uint64
+
+    mutable ldc : uint64
+    mutable dup : uint64
+    mutable pop : uint64
+
+    mutable brtrue : uint64
+    mutable brfalse : uint64
+    mutable switch : uint64
+
+    mutable unOp : uint64
+    mutable binOp : uint64
+    mutable execBinOp_4 : uint64
+    mutable execBinOp_8 : uint64
+    mutable execBinOp_f4 : uint64
+    mutable execBinOp_f8 : uint64
+    mutable execBinOp_p : uint64
+    mutable execBinOp_4_p : uint64
+    mutable execBinOp_p_4 : uint64
+    mutable execBinOp_4_ovf : uint64
+    mutable execBinOp_8_ovf : uint64
+    mutable execBinOp_f4_ovf : uint64
+    mutable execBinOp_f8_ovf : uint64
+    mutable execBinOp_p_ovf : uint64
+    mutable execBinOp_4_p_ovf : uint64
+    mutable execBinOp_p_4_ovf : uint64
+
+    mutable ldind : uint64
+    mutable stind : uint64
+    mutable execStind_I1 : uint64
+    mutable execStind_I2 : uint64
+    mutable execStind_I4 : uint64
+    mutable execStind_I8 : uint64
+    mutable execStind_R4 : uint64
+    mutable execStind_R8 : uint64
+    mutable execStind_ref : uint64
+
+    mutable conv : uint64
+    mutable conv_Ovf : uint64
+
+    mutable newarr : uint64
+    mutable localloc : uint64
+    mutable ldobj : uint64
+    mutable ldstr : uint64
+    mutable ldtoken : uint64
+    mutable stobj : uint64
+    mutable initobj : uint64
+    mutable ldlen : uint64
+
+    mutable cpobj : uint64
+    mutable execCpobj : uint64
+    mutable cpblk : uint64
+    mutable execCpblk : uint64
+    mutable initblk : uint64
+    mutable execInitblk : uint64
+
+    mutable castclass : uint64
+    mutable isinst : uint64
+
+    mutable box : uint64
+    mutable unbox : uint64
+    mutable unboxAny : uint64
+
+    mutable ldfld : uint64
+    mutable ldflda : uint64
+    mutable stfld_4 : uint64
+    mutable stfld_8 : uint64
+    mutable stfld_f4 : uint64
+    mutable stfld_f8 : uint64
+    mutable stfld_p : uint64
+
+    mutable ldsfld : uint64
+    mutable ldsflda : uint64
+    mutable stsfld : uint64
+
+    mutable ldelema : uint64
+    mutable ldelem : uint64
+    mutable execLdelema : uint64
+    mutable execLdelem : uint64
+
+    mutable stelem : uint64
+    mutable execStelem_I : uint64
+    mutable execStelem_I1 : uint64
+    mutable execStelem_I2 : uint64
+    mutable execStelem_I4 : uint64
+    mutable execStelem_I8 : uint64
+    mutable execStelem_R4 : uint64
+    mutable execStelem_R8 : uint64
+    mutable execStelem_Ref : uint64
+
+    mutable ckfinite : uint64
+    mutable sizeof : uint64
+    mutable ldftn : uint64
+    mutable ldvirtftn : uint64
+    mutable arglist : uint64
+    mutable mkrefany : uint64
+
     mutable enter : uint64
-    mutable enter1 : uint64                                              // TODO: remove it!
     mutable leave : uint64
     mutable finalizeCall : uint64
-    mutable dumpInstruction : uint64
     mutable call : uint64
     mutable callVirt : uint64
-    mutable pop : uint64                                                 // TODO: remove it!
-    mutable push : uint64                                                // TODO: remove it!
+    mutable newobj : uint64
+    mutable calli : uint64
+    mutable throw : uint64
+    mutable rethrow : uint64
+
+    mutable mem2_4 : uint64
+    mutable mem2_8 : uint64
+    mutable mem2_f4 : uint64
+    mutable mem2_f8 : uint64
+    mutable mem2_p : uint64
+    mutable mem2_4_p : uint64
+    mutable mem2_p_1 : uint64
+    mutable mem2_p_2 : uint64
+    mutable mem2_p_4 : uint64
+    mutable mem2_p_8 : uint64
+    mutable mem2_p_f4 : uint64
+    mutable mem2_p_f8 : uint64
+    mutable mem3_p_p_p : uint64
+    mutable mem3_p_p_i1 : uint64
+    mutable mem3_p_p_i2 : uint64
+    mutable mem3_p_p_i4 : uint64
+    mutable mem3_p_p_i8 : uint64
+    mutable mem3_p_p_f4 : uint64
+    mutable mem3_p_p_f8 : uint64
+    mutable mem3_p_i1_p : uint64
+    mutable unmem_1 : uint64
+    mutable unmem_2 : uint64
+    mutable unmem_4 : uint64
+    mutable unmem_8 : uint64
+    mutable unmem_f4 : uint64
+    mutable unmem_f8 : uint64
+    mutable unmem_p : uint64
 }
 with
+    member private x.probe2str =
+        let map = System.Collections.Generic.Dictionary<uint64, string>()
+        typeof<probes>.GetFields() |> Seq.iter (fun fld -> map.Add(fld.GetValue x |> unbox, fld.Name))
+        map
     member x.AddressToString (address : int64) =
-        if uint64 address = x.push1Concrete then "probe_push1Concrete"
-        elif uint64  address = x.pop1 then "probe_pop1"
-        elif uint64 address = x.pop2Push1 then "probe_pop2push1"
-        elif uint64 address = x.enter then "probe_enter"
-        elif uint64 address = x.enter1 then "probe_enter1"
-        elif uint64 address = x.leave then "probe_leave"
-        elif uint64 address = x.finalizeCall then "probe_finalizeCall"
-        elif uint64 address = x.dumpInstruction then "probe_dump"
-        elif uint64 address = x.call then "probe_call"
-        elif uint64 address = x.callVirt then "probe_callVirt"
-        elif uint64 address = x.pop then "probe_pop"
-        elif uint64 address = x.push then "probe_push"
+        let result = ref ""
+        if x.probe2str.TryGetValue(uint64 address, result) then "probe_" + !result
         else toString address
-
-
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type signatureTokens = {
-    mutable void_sig                 : uint32
-    mutable void_int32_sig             : uint32
-    mutable void_uint32_sig            : uint32
-    mutable void_uint64_sig           : uint32
-    mutable void_bool_uint32_sig       : uint32
-    mutable void_uint32_uint32_sig       : uint32
-    mutable void_uint32_uint32_uint64_sig : uint32
+    mutable void_sig : uint32
+    mutable bool_sig : uint32
+    mutable void_u1_sig : uint32
+    mutable void_u2_sig : uint32
+    mutable void_i_sig : uint32
+    mutable bool_i_sig : uint32
+    mutable i1_i1_sig : uint32
+    mutable i2_i1_sig : uint32
+    mutable i4_i1_sig : uint32
+    mutable i8_i1_sig : uint32
+    mutable r4_i1_sig : uint32
+    mutable r8_i1_sig : uint32
+    mutable i_i1_sig : uint32
+    mutable void_token_sig : uint32
+    mutable void_i_i1_sig : uint32
+    mutable void_i_i2_sig : uint32
+    mutable void_i_i4_sig : uint32
+    mutable void_i_i8_sig : uint32
+    mutable void_i_r4_sig : uint32
+    mutable void_i_r8_sig : uint32
+    mutable void_i_i_sig : uint32
+    mutable void_i_token_sig : uint32
+    mutable void_i4_i4_sig : uint32
+    mutable void_i4_i_sig : uint32
+    mutable void_i8_i8_sig : uint32
+    mutable void_r4_r4_sig : uint32
+    mutable void_r8_r8_sig : uint32
+    mutable void_token_i_sig : uint32
+    mutable void_token_u2_sig : uint32
+    mutable void_token_u4_sig : uint32
+    mutable bool_i_i_sig : uint32
+    mutable void_u2_i4_i4_sig : uint32
+    mutable void_u2_i4_i_sig : uint32
+    mutable void_u2_i8_i8_sig : uint32
+    mutable void_u2_r4_r4_sig : uint32
+    mutable void_u2_r8_r8_sig : uint32
+    mutable void_u2_i_i_sig : uint32
+    mutable void_u2_i_i4_sig : uint32
+    mutable void_i_i_i_sig : uint32
+    mutable void_i_i_i1_sig : uint32
+    mutable void_i_i_i2_sig : uint32
+    mutable void_i_i_i4_sig : uint32
+    mutable void_i_i_i8_sig : uint32
+    mutable void_i_i_r4_sig : uint32
+    mutable void_i_i_r8_sig : uint32
+    mutable void_i_i1_i_sig : uint32
+    mutable void_token_i_i_sig : uint32
+    mutable void_token_i_i4_sig : uint32
+    mutable void_token_i_i8_sig : uint32
+    mutable void_token_i_r4_sig : uint32
+    mutable void_token_i_r8_sig : uint32
 }
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]

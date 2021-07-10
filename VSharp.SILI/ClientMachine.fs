@@ -11,6 +11,7 @@ type ClientMachine(assembly : Assembly, state : state) =
     let pathToClient = "libicsharpConcolic.so"
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
+    let mutable mainReached = false
     let environment (assembly : Assembly) =
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
@@ -44,11 +45,17 @@ type ClientMachine(assembly : Assembly, state : state) =
         Logger.trace "Reading next command..."
         match x.communicator.ReadCommand() with
         | Instrument methodBody ->
-            Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
-            let mb = x.instrumenter.Instrument methodBody
-//            let rewriter = ILRewriter methodBody
-//            rewriter.Import()
-//            let mb = rewriter.Export()
+            let ep = assembly.EntryPoint
+            if int methodBody.properties.token = ep.MetadataToken && methodBody.moduleName = ep.Module.FullyQualifiedName then
+                mainReached <- true
+            let mb =
+                if mainReached then
+                    Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
+                    x.instrumenter.Instrument methodBody
+        //            let rewriter = ILRewriter methodBody
+        //            rewriter.Import()
+        //            let mb = rewriter.Export()
+                else x.instrumenter.Skip methodBody
             x.communicator.SendMethodBody mb
             true
         | ExecuteInstruction _ ->
