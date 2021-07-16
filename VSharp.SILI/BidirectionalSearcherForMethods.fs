@@ -54,5 +54,7 @@ type BidirectionalSearcherForMethods() =
                 let m = starts.Dequeue()
                 startFrom m
             |  _, None  -> Stop
-            | _, Some s -> GoForward s
+            | _, Some s ->
+                let removed = qFront.DeleteMin() in assert removed
+                GoForward s
 

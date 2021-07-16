@@ -75,12 +75,14 @@ type FrontQueue(maxBound, searcher : INewSearcher) =
     member x.AddGoodStates(newStates : cilState seq) = Seq.iter addGoodState newStates
     member x.AddIIEStates(newStates : cilState seq) = Seq.iter iieStates.Add newStates
     member x.AddErroredStates(newStates : cilState seq) = Seq.iter erroredStates.Add newStates
-    member x.Remove(s : cilState) : bool =
-        assert(goodStates.ExtractMin() = Some s)
-        goodStates.DeleteMin()
-    member x.ExtractMin() : cilState option =
-        transformJustAdded2GoodStates()
-        goodStates.ExtractMin()
+//    member x.Remove(s : cilState) : bool =
+//        assert(goodStates.ExtractMin() = Some s)
+//        goodStates.DeleteMin()
+//    member x.ExtractMinAndRemoveItFromQueue() : cilState option =
+//        transformJustAdded2GoodStates()
+//        let res = goodStates.ExtractMin()
+//        goodStates.DeleteMin() |> ignore
+//        res
 
     member x.StatesForPropagation() : IPriorityQueue<cilState> =
         transformJustAdded2GoodStates()

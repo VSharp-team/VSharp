@@ -175,8 +175,8 @@ type public PobsInterpreter(maxBound, searcher : INewSearcher) =
         | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
 
     member x.Forward (s : cilState) =
-        let removed = qFront.Remove(s)
-        assert removed
+//        let removed = qFront.Remove(s)
+//        assert removed
         updateQBack s
 //        Seq.iter (fun (p : pob) -> if p.loc = (currentIp s) then qBack.Add(p, s)) currentPobs
 //        if not removed then ()

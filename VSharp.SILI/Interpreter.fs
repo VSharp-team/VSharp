@@ -61,9 +61,7 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
         let mutable action = (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
         while action <> Stop do
             match action with
-            | GoForward s ->
-                let removed = q.Remove s in assert(removed)
-                step s
+            | GoForward s -> step s
             | _ -> __unreachable__()
             action <- (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
         x.GetResults initialState q

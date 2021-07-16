@@ -34,13 +34,13 @@ namespace VSharp.Test
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             var searchers = new INewSearcher[] {
-                // new BidirectionalSearcherForMethods()
-                new DFSSearcher()
-                , new DFSSearcher()
-                , new BFSSearcher()
-                , new BFSSearcher()
-                , new BidirectionalSearcherForMethods()
-                , new BidirectionalSearcherForMethods()
+                new BidirectionalSearcherForMethods()
+                // new DFSSearcher()
+                // , new DFSSearcher()
+                // , new BFSSearcher()
+                // , new BFSSearcher()
+                // , new BidirectionalSearcherForMethods()
+                // , new BidirectionalSearcherForMethods()
                 // new TargetedSearcher(maxBound)
             };
             //var pobsStatistics = new PobsStatistics(searchers);
