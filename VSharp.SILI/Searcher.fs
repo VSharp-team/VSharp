@@ -126,7 +126,7 @@ type FrontQueue(maxBound, searcher : INewSearcher) =
 [<AbstractClass>]
 type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-    static let mutable totalNumber = 0u
+    let mutable totalNumber = 0u
     let mutable stepsNumber = 0u
     let mutable mainMethod = null
     interface INewSearcher with
@@ -149,7 +149,9 @@ type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion,
             | Seq.Empty ->
                 match fq.ExtractMin() with
                 | None -> Stop
-                | Some s -> GoForward s
+                | Some s ->
+                    let removed = fq.DeleteMin() in assert removed
+                    GoForward s
     abstract member PriorityQueue : uint -> IPriorityQueue<cilState>
     default x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 

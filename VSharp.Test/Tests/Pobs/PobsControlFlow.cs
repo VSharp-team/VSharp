@@ -151,7 +151,7 @@ namespace VSharp.Test.Tests.Pobs
                 case 3:
                     return ExpensiveCalculation(40);
                 case 4:
-                    return LittleExpensiveCalculations(50);
+                    return LittleExpensiveCalculations(5);
                 default:
                     return ExpensiveCalculation(500);
             }

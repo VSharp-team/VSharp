@@ -168,7 +168,7 @@ type OneTargetedSearcher(target : codeLocation, cfg, reachableLocations, reachab
             __notImplemented__()
 
 type TargetedSearcher() =
-    static let mutable totalNumber = 0u
+    let mutable totalNumber = 0u
     let reachableLocations = Dictionary<codeLocation, HashSet<codeLocation>>()
     let reachableMethods = Dictionary<codeLocation, HashSet<MethodBase>>()
     let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()

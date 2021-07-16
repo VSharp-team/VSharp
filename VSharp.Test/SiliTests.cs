@@ -153,7 +153,7 @@ namespace VSharp.Test
 
         public static void PrintStats()
         {
-            var searchers = _searchers; //new INewSearcher[] {_searchers[1], _searchers[2], _searchers[3]};
+            var searchers = _searchers;
             foreach (var m in _pobsStatistics.Keys)
             {
                 foreach (var s in searchers)

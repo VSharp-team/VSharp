@@ -8,19 +8,19 @@ open VSharp.Utils
 
 type BidirectionalSearcherForMethods() =
     let starts = Queue<MethodBase>()
-    let usedStarts = HashSet<MethodBase>()
-    static let mutable totalNumber = 0u
+    let addedStarts = HashSet<MethodBase>()
+    let mutable totalNumber = 0u
     let mutable mainMethod = null
     let mutable stepsNumber = 0u
     let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null
 
     let rememberStart (m : MethodBase) =
-        if usedStarts.Contains(m) then ()
+        if addedStarts.Contains(m) then ()
         else
-            usedStarts.Add(m) |> ignore
+            addedStarts.Add(m) |> ignore
             starts.Enqueue(m)
     let startFrom (m : MethodBase) =
-        assert(usedStarts.Contains(m))
+        assert(addedStarts.Contains(m))
 //        Logger.warning "Starting for method = %s" (Reflection.getFullMethodName m)
         Start(Instruction(0x00, m))
     let getInverse (ip : ip) =
@@ -36,12 +36,13 @@ type BidirectionalSearcherForMethods() =
             let _, inverseReachability' = CFG.buildMethodsReachabilityForAssembly m
             inverseReachability <- inverseReachability'
             Seq.iter (fun loc -> rememberStart loc.method) locs
-        override x.PriorityQueue _ = ComparerPriorityQueue<cilState>(IpStackComparer()) :> IPriorityQueue<cilState>
+        override x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 
         override x.Reset () =
             Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             totalNumber <- totalNumber + stepsNumber
             stepsNumber <- 0u
+            addedStarts.Clear()
             mainMethod <- null
             starts.Clear()
         override x.ChooseAction (qFront, qBack, _) =

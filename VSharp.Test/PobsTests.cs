@@ -113,7 +113,7 @@ namespace VSharp.Test
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.EntryMethod),
                 new[]
                 {
-                    new CodeLocationProxy(56, typeof(SwitchWithSequentialCases1),
+                    new CodeLocationProxy(0x2A, typeof(SwitchWithSequentialCases1),
                         nameof(SwitchWithSequentialCases1.EntryMethod), DesiredStatus.Witnessed),
                 }
             }
@@ -124,7 +124,7 @@ namespace VSharp.Test
                 typeof(CallsTest), nameof(CallsTest.EntryMethod2),
                 new[]
                 {
-                    new CodeLocationProxy(0x07, typeof(CallsTest), nameof(CallsTest.G), DesiredStatus.Witnessed)
+                    new CodeLocationProxy(0x06, typeof(CallsTest), nameof(CallsTest.G), DesiredStatus.Witnessed)
                 }
             },
             new object[]
@@ -132,7 +132,7 @@ namespace VSharp.Test
                 typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod),
                 new[]
                 {
-                    new CodeLocationProxy(210, typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod),
+                    new CodeLocationProxy(0x4C, typeof(LotsOfIfs), nameof(LotsOfIfs.EntryMethod),
                         DesiredStatus.Witnessed),
                 }
             },
@@ -141,7 +141,7 @@ namespace VSharp.Test
                 typeof(UnsatCases), nameof(UnsatCases.EntryMethod),
                 new[]
                 {
-                    new CodeLocationProxy(23, typeof(UnsatCases), nameof(UnsatCases.EntryMethod),
+                    new CodeLocationProxy(0x08, typeof(UnsatCases), nameof(UnsatCases.EntryMethod),
                         DesiredStatus.Unknown),
                 }
             },
@@ -150,7 +150,7 @@ namespace VSharp.Test
                 typeof(Calls.Recursion), nameof(Calls.Recursion.F),
                 new[]
                 {
-                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
+                    new CodeLocationProxy(0x9, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
                         DesiredStatus.Witnessed),
                 }
             },
@@ -159,7 +159,7 @@ namespace VSharp.Test
                 typeof(Calls.Recursion), nameof(Calls.Recursion.TrickyCycle),
                 new[]
                 {
-                    new CodeLocationProxy(0xb, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
+                    new CodeLocationProxy(0x9, typeof(Calls.Recursion), nameof(Calls.Recursion.G),
                         DesiredStatus.Witnessed),
                 }
             },
@@ -169,7 +169,7 @@ namespace VSharp.Test
                 nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations),
                 new[]
                 {
-                    new CodeLocationProxy(0x4a, typeof(SwitchWithSequentialCases1),
+                    new CodeLocationProxy(0x3c, typeof(SwitchWithSequentialCases1),
                         nameof(SwitchWithSequentialCases1.SwitchWithExpensiveCalculations),
                         DesiredStatus.Witnessed),
                 }
@@ -179,7 +179,7 @@ namespace VSharp.Test
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.TestForDFS),
                 new[]
                 {
-                    new CodeLocationProxy(0x56, typeof(SwitchWithSequentialCases1),
+                    new CodeLocationProxy(0x3F, typeof(SwitchWithSequentialCases1),
                         nameof(SwitchWithSequentialCases1.TestForDFS), DesiredStatus.Witnessed),
                 }
             },
@@ -189,7 +189,7 @@ namespace VSharp.Test
                 nameof(SwitchWithSequentialCases1.TrickyTestForTargetedSearcher),
                 new[]
                 {
-                    new CodeLocationProxy(0x1a, typeof(SwitchWithSequentialCases1),
+                    new CodeLocationProxy(0x12, typeof(SwitchWithSequentialCases1),
                         nameof(SwitchWithSequentialCases1.LittleExpensiveCalculations), DesiredStatus.Witnessed),
                 }
             },
@@ -198,7 +198,7 @@ namespace VSharp.Test
                 typeof(SwitchWithSequentialCases1), nameof(SwitchWithSequentialCases1.BoundTest),
                 new[]
                 {
-                    new CodeLocationProxy(0x1e, typeof(SwitchWithSequentialCases1),
+                    new CodeLocationProxy(0x16, typeof(SwitchWithSequentialCases1),
                         nameof(SwitchWithSequentialCases1.BoundTest), DesiredStatus.Witnessed),
                 }
             },
@@ -219,32 +219,30 @@ namespace VSharp.Test
                 typeof(RegExTest), nameof(RegExTest.OwnImplementationTest),
                 new[]
                 {
-                    // new CodeLocationProxy(0x009d, typeof(ForKostya), nameof(ForKostya.SymbolicLinqTest2), DesiredStatus.Witnessed),
-                    new CodeLocationProxy(0x0040, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
+                    new CodeLocationProxy(0x15, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
-                    new CodeLocationProxy(0x002e, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
+                    new CodeLocationProxy(0xD, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
                         DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0095, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0063, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
-                    // new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest), DesiredStatus.Witnessed),
                 }
             },
             new object[]
             {
+                // TODO: investigate problem with encoding addresses, after fill holes
                 typeof(RegExTest), nameof(RegExTest.OwnImplementationTest2),
                 new[]
                 {
                     new CodeLocationProxy(0x0040, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
-                    new CodeLocationProxy(0x002e, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
+                    new CodeLocationProxy(0xD, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar),
                         DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0095, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0063, typeof(RegExImplementation), nameof(RegExImplementation.MatchHere),
                         DesiredStatus.Witnessed),
-                    // new CodeLocationProxy(0x0077, typeof(LinqTest), nameof(LinqTest.SimpleSymbolicLinqTest), DesiredStatus.Witnessed),
                 }
             }
 
@@ -253,8 +251,8 @@ namespace VSharp.Test
                 typeof(CallsTest), nameof(CallsTest.SomeCallChain),
                 new []
                 {
-                    new CodeLocationProxy(0x0014, typeof(CallsTest), nameof(CallsTest.F), DesiredStatus.Witnessed),
-                    new CodeLocationProxy(0x0006, typeof(CallsTest), nameof(CallsTest.G3), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x13, typeof(CallsTest), nameof(CallsTest.F), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x6, typeof(CallsTest), nameof(CallsTest.G3), DesiredStatus.Witnessed),
                 }
             }
 
@@ -263,7 +261,6 @@ namespace VSharp.Test
                 typeof(RegExTest), nameof(RegExTest.OwnImplementationTest),
                 new []
                 {
-                    // new CodeLocationProxy(0x009d, typeof(ForKostya), nameof(ForKostya.SymbolicLinqTest2), DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0023, typeof(RegExImplementation), nameof(RegExImplementation.Match), DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x0032, typeof(RegExImplementation), nameof(RegExImplementation.Match), DesiredStatus.Witnessed),
                     new CodeLocationProxy(0x000d, typeof(RegExImplementation), nameof(RegExImplementation.MatchStar), DesiredStatus.Witnessed),
@@ -293,7 +290,7 @@ namespace VSharp.Test
                 typeof(Calls.NestedCalls), nameof(Calls.NestedCalls.F1),
                 new []
                 {
-                    new CodeLocationProxy(0x000f, typeof(Calls.NestedCalls), nameof(Calls.NestedCalls.F4), DesiredStatus.Witnessed),
+                    new CodeLocationProxy(0x7, typeof(Calls.NestedCalls), nameof(Calls.NestedCalls.F4), DesiredStatus.Witnessed),
                 }
             }
 
