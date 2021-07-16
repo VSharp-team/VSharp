@@ -100,16 +100,6 @@ namespace VSharp.Test.Tests
             return 0;
         }
 
-        [TestSvm]
-        public static MatchCollection SystemImplementationTest()
-        {
-            Regex rx = new Regex(@"\b(?<word>\w+)\s+(\k<word>)\b",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
-            string text = "The the quick brown fox  fox jumps over the lazy dog dog.";
-            MatchCollection matches = rx.Matches(text);
-            return matches;
-        }
-
         [Ignore("need more external method implementations")]
         public static MatchCollection SmallSystemImplementationTest()
         {

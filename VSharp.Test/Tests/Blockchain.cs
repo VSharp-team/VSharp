@@ -129,19 +129,5 @@ namespace VSharp.Test.Tests
             a.Mine(time, 1);
             return a.Blockchain.First().Hash;
         }
-
-        [TestSvm]
-        public static long test5(long time)
-        {
-            long mininum = Int64.MaxValue;
-            for (int i = 0; i < 5; i++)
-            {
-                var a = new BlockMiner();
-                a.Mine(time, 2);
-                mininum = Math.Min(mininum, a.Blockchain.First().Hash);
-            }
-
-            return mininum;
-        }
     }
 }
