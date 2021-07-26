@@ -9,9 +9,7 @@ open VSharp.Utils
 type BidirectionalSearcherForMethods() =
     let starts = Queue<MethodBase>()
     let addedStarts = HashSet<MethodBase>()
-    let mutable totalNumber = 0u
     let mutable mainMethod = null
-    let mutable stepsNumber = 0u
     let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null
 
     let rememberStart (m : MethodBase) =
@@ -29,8 +27,6 @@ type BidirectionalSearcherForMethods() =
         else HashSet<_>()
 
     interface INewSearcher with
-        override x.CanReach(_,_,_) = true
-        override x.TotalNumber = totalNumber
         override x.Init (m, locs) =
             mainMethod <- m
             let _, inverseReachability' = CFG.buildMethodsReachabilityForAssembly m
@@ -39,14 +35,10 @@ type BidirectionalSearcherForMethods() =
         override x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 
         override x.Reset () =
-            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
-            totalNumber <- totalNumber + stepsNumber
-            stepsNumber <- 0u
             addedStarts.Clear()
             mainMethod <- null
             starts.Clear()
         override x.ChooseAction (qFront, qBack, _) =
-            stepsNumber <- stepsNumber + 1u
             match qBack, qFront.ExtractMin() with
             | Seq.Cons((p,s), _), _ ->
                 Seq.iter rememberStart (getInverse(s.startingIP))

@@ -170,7 +170,7 @@ namespace VSharp.Test
 
             foreach (var s in searchers)
             {
-                Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
+                // Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
             }
 
             PobsStatistics.PrintAccuracy();

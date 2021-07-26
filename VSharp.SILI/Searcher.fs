@@ -29,11 +29,9 @@ type SearchDirection =
 
 type INewSearcher =
     abstract member ChooseAction : IPriorityQueue<cilState> * (pob * cilState) seq * pob seq -> SearchDirection
-    abstract member CanReach : ip stack * ip * ip list -> bool
     abstract member Reset : unit -> unit
     abstract member Init : MethodBase * codeLocation seq -> unit
     abstract member PriorityQueue : uint -> IPriorityQueue<cilState>
-    abstract member TotalNumber : uint
 
 type FrontQueue(maxBound, searcher : INewSearcher) =
     let goodStates : IPriorityQueue<cilState> = searcher.PriorityQueue(maxBound)
@@ -126,26 +124,22 @@ type FrontQueue(maxBound, searcher : INewSearcher) =
 [<AbstractClass>]
 type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-    let mutable totalNumber = 0u
-    let mutable stepsNumber = 0u
     let mutable mainMethod = null
+    let mutable startedFromMain = false
     interface INewSearcher with
-        override x.CanReach(_,_,_) = true
-        override x.TotalNumber = totalNumber
         override x.PriorityQueue maxBound : IPriorityQueue<cilState> = x.PriorityQueue maxBound
         override x.Init (m,_) =
             mainMethod <- m
 //        override x.ClosePob (_) = ()
         override x.Reset () =
-            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
-            totalNumber <- totalNumber + stepsNumber
-            stepsNumber <- 0u
+//            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
             mainMethod <- null
         override x.ChooseAction(fq, bq, _) =
-            stepsNumber <- stepsNumber + 1u
             match bq with
             | Seq.Cons(ps, _) -> GoBackward ps
-            | Seq.Empty when stepsNumber = 1u && fq.IsEmpty -> Start <| Instruction(0, mainMethod)
+            | Seq.Empty when not startedFromMain && fq.IsEmpty ->
+                startedFromMain <- true
+                Start <| Instruction(0, mainMethod)
             | Seq.Empty ->
                 match fq.ExtractMin() with
                 | None -> Stop

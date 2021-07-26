@@ -29,6 +29,9 @@
         <Compile Include="Variables.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcherForMethods.fs" />
+        <Compile Include="RandomSearcher.fs" />
+        <Compile Include="StackTraceEstimator.fs" />
+        <Compile Include="StackTraceSearcher.fs" />
     </ItemGroup>
 
     <ItemGroup>

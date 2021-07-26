@@ -151,7 +151,9 @@ module ipOperations =
         | Some offset, m ->
             let loc = {offset = offset; method = m}
             Some loc
-
+    let buildIpFromOffset (m : MethodBase) (offset : int) =
+        // TODO: what about Leave-constructor?
+        instruction m offset
 module Level =
     // TODO: implement level
     let zero : level = PersistentDict.empty
