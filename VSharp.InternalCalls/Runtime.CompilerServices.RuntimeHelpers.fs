@@ -148,3 +148,8 @@ module Runtime_CompilerServices_RuntimeHelpers =
         match typ with
         | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ), state
         | _ -> __unreachable__()
+
+    let GetHashCode (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let object = List.head args
+        GetHashCode object, state

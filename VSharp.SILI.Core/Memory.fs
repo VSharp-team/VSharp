@@ -130,6 +130,19 @@ module internal Memory =
         | BoxedLocation(addr, _) -> typeOfConcreteHeapAddress state addr
         | _ -> typeOfAddress address
 
+// -------------------------------- GetHashCode --------------------------------
+
+    [<StructuralEquality;NoComparison>]
+    type private hashCodeSource =
+        {object : term}
+        interface IStatedSymbolicConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.Time = VectorTime.zero
+
+    let getHashCode object =
+        let name = sprintf "HashCode(%O)" object
+        let source = {object = object}
+        Constant name source Int32
 // ------------------------------- Instantiation -------------------------------
 
     [<CustomEquality;NoComparison>]
@@ -874,6 +887,12 @@ module internal Memory =
                 let typ = substituteTypeVariables state x.typ
                 let newTypes = composeInitializedTypes state x.matchingTypes
                 isTypeInitialized {state with initializedTypes = newTypes} typ
+
+    type hashCodeSource with
+        interface IStatedSymbolicConstantSource with
+            override x.Compose state =
+                let object' = fillHoles state x.object
+                getHashCode object'
 
 // ------------------------------- Pretty-printing -------------------------------
 

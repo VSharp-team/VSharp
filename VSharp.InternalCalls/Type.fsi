@@ -39,3 +39,6 @@ module internal Type =
 
     [<Implements("System.String System.RuntimeType.get_Name(this)")>]
     val get_Name : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.Type.get_IsValueType(this)")>]
+    val isValueType : state -> term list -> term * state

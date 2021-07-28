@@ -11,3 +11,9 @@ module internal Unsafe =
 
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)")>]
     val internal As : state -> term list -> term * state
+
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.NullRef()")>]
+    val internal NullRef : state -> term list -> term * state
+
+    [<Implements("System.Boolean Internal.Runtime.CompilerServices.Unsafe.IsNullRef(T&)")>]
+    val internal IsNullRef : state -> term list -> term * state

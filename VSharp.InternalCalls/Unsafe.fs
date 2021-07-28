@@ -22,3 +22,11 @@ module Unsafe =
             | Concrete(:? Type as t, _) -> Types.FromDotNetType t
             | _ -> __unreachable__()
         Types.Cast ref typ, state
+
+    let internal NullRef (state : state) (_ : term list) : term * state =
+        NullRef, state
+
+    let internal IsNullRef (state : state) (args : term list) : term * state =
+        assert(List.length args = 2)
+        let ref = args.[1]
+        IsNullReference ref, state

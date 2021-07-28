@@ -278,18 +278,21 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             if Types.RankOf srcType = Types.RankOf dstType then assignableCheck cilState
             else x.Raise x.RankException cilState
         StatedConditionalExecutionAppendResultsCIL cilState
-            (fun state k -> k (IsNullReference src ||| IsNullReference src, state))
+            (fun state k -> k (IsNullReference src ||| IsNullReference dst, state))
             (x.Raise x.ArgumentNullException)
             rankCheck
             id
 
+    member private x.TrustedIntrinsics =
+        let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map (fun mi -> mi :> MethodBase)
+        let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map (fun mi -> mi :> MethodBase)
+        Array.append intPtr volatile
+
     member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) =
-        let implementedIntrinsics =
-            Reflection.getAllMethods typeof<IntPtr> |> Array.map (fun mi -> mi :> MethodBase)
         let isIntrinsic =
             let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
             methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
-        isIntrinsic && (Array.contains methodBase implementedIntrinsics |> not)
+        isIntrinsic && (Array.contains methodBase x.TrustedIntrinsics |> not)
 
     member private x.IsExternalMethod (methodBase : MethodBase) =
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
@@ -368,8 +371,12 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             x.InvokeCSharpImplementation cilState fullMethodName thisOption args |> k
         elif x.IsArrayGetOrSet methodBase then
             x.InvokeArrayGetOrSet cilState methodBase thisOption args |> (List.map moveIpToExit >> k)
-        elif x.IsExternalMethod methodBase then internalfailf "new extern method: %s" fullMethodName
-        elif x.IsNotImplementedIntrinsic methodBase then internalfailf "new intrinsic method: %s" fullMethodName
+        elif x.IsExternalMethod methodBase then
+            let stackTrace = Memory.StackTrace cilState.state.stack
+            internalfailf "new extern method: %s\nStack trace:\n%s" fullMethodName stackTrace
+        elif x.IsNotImplementedIntrinsic methodBase then
+            let stackTrace = Memory.StackTrace cilState.state.stack
+            internalfailf "new intrinsic method: %s \nStack trace:\n%s" fullMethodName stackTrace
         elif methodBase.GetMethodBody() <> null then cilState |> List.singleton |> k
         else internalfailf "non-extern method %s without body!" (Reflection.getFullMethodName methodBase)
 

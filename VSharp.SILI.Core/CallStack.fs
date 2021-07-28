@@ -131,3 +131,6 @@ module internal CallStack =
         let sorted = List.sortBy fst keysAndValues
         List.choose printEntry sorted
         |> join "\n"
+
+    let stackTrace (stack : callStack) =
+        Stack.map (fun f -> Reflection.getFullMethodName f.func) stack.frames |> join "\n"

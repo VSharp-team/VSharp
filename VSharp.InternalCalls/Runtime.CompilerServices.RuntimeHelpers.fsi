@@ -13,3 +13,6 @@ module Runtime_CompilerServices_RuntimeHelpers =
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsReferenceOrContainsReferences()")>]
     val IsReferenceOrContainsReferences : state -> term list -> term * state
+
+    [<Implements("System.Int32 System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(System.Object)")>]
+    val GetHashCode : state -> term list -> term * state

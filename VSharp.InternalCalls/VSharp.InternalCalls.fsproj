@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -26,6 +26,8 @@
         <Compile Include="Environment.fs" />
         <Compile Include="Thread.fsi" />
         <Compile Include="Thread.fs" />
+        <Compile Include="Volatile.fsi" />
+        <Compile Include="Volatile.fs" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fsi" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fs" />
         <Compile Include="Type.fsi" />
@@ -46,6 +48,8 @@
         <Compile Include="SR.fs" />
         <Compile Include="Interlocked.fsi" />
         <Compile Include="Interlocked.fs" />
+        <Compile Include="OpenSourceRider.fsi" />
+        <Compile Include="OpenSourceRider.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 
@@ -56,6 +60,9 @@
     <ItemGroup>
       <Reference Include="ChessDotNet, Version=0.9.4.0, Culture=neutral, PublicKeyToken=95fb3ccd1157343b">
         <HintPath>..\VSharp.Test\Tests\Chess.NET\ChessDotNet.dll</HintPath>
+      </Reference>
+      <Reference Include="JetBrains.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+        <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp3.1\JetBrains.Lifetimes.dll</HintPath>
       </Reference>
     </ItemGroup>
 

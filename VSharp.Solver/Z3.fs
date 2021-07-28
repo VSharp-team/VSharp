@@ -152,7 +152,7 @@ module internal Z3 =
                 | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
                 | Expression(op, args, typ) -> x.EncodeExpression encCtx t op args typ
                 | HeapRef(address, _) -> x.EncodeTerm encCtx address
-                | _ -> __notImplemented__()
+                | _ -> internalfailf "unexpected term: %O" t
             encodingCache.Get(t, getResult)
 
         member private x.EncodeConcrete encCtx (obj : obj) typ : encodingResult =

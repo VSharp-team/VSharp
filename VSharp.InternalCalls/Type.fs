@@ -95,3 +95,9 @@ module internal Type =
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
         Memory.AllocateString actualType.Name state
+
+    let isValueType (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let runtimeType = List.head args
+        let actualType = getActualType state runtimeType
+        MakeBool actualType.IsValueType, state

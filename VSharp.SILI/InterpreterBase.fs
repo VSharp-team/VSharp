@@ -157,7 +157,10 @@ type public ExplorerBase() =
                 let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
                 let cilState = withState state cilState
                 match staticConstructor with
-                | Some cctor -> x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
+                | Some cctor ->
+                    // TODO: use InlineMethodBaseCallIfNeed instead #do (union Interpreter and InterpreterBase)
+                    if (Reflection.getFullMethodName cctor = "System.Void JetBrains.Diagnostics.Log..cctor()") then whenInitializedCont cilState
+                    else x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 

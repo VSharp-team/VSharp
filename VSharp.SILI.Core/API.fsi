@@ -50,6 +50,8 @@ module API =
         val TypeOf : term -> symbolicType
         val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
 
+        val GetHashCode : term -> term
+
         val IsStruct : term -> bool
         val IsReference : term -> bool
         val IsNullReference : term -> term
@@ -206,6 +208,7 @@ module API =
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
+        val StackTrace : callStack -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term

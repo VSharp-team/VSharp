@@ -80,6 +80,8 @@ module API =
         let IsReference term = isReference term
         let IsNullReference term = Pointers.isNull term
 
+        let GetHashCode term = Memory.getHashCode term
+
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|True|_|) t = (|True|_|) t
@@ -341,6 +343,7 @@ module API =
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
+        let StackTrace stack = CallStack.stackTrace stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
