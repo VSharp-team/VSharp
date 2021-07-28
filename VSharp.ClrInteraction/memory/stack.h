@@ -44,7 +44,7 @@ private:
     std::stack<StackFrame> m_frames;
 
 public:
-    void pushFrame(int maxStackSize);
+    void pushFrame(unsigned int maxStackSize);
     void popFrame();
     StackFrame &topFrame();
     inline const StackFrame &topFrame() const;

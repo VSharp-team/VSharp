@@ -25,7 +25,7 @@ type probes = {
 with
     member x.AddressToString (address : int64) =
         if uint64 address = x.push1Concrete then "probe_push1Concrete"
-        elif uint64  address = x.pop1 then "probe_pop1"
+        elif uint64 address = x.pop1 then "probe_pop1"
         elif uint64 address = x.pop2Push1 then "probe_pop2push1"
         elif uint64 address = x.enter then "probe_enter"
         elif uint64 address = x.enter1 then "probe_enter1"
@@ -98,10 +98,14 @@ type concolicInstruction = {
     offset : uint32
 }
 
-type concolicCommand =
+type commandFromConcolic =
     | Instrument of rawMethodBody
     | ExecuteInstruction of concolicInstruction
     | Terminate
+
+type commandForConcolic =
+    | ReadMethodBody
+    | ReadString
 
 type Communicator() =
     let pipeFile = "/tmp/concolic_fifo" // TODO: use pid also
@@ -109,6 +113,8 @@ type Communicator() =
     let confirmationByte = byte(0x55)
     let instrumentCommandByte = byte(0x56)
     let executeCommandByte = byte(0x57)
+    let readMethodBodyByte = byte(0x58)
+    let readStringByte = byte(0x59)
     let confirmation = Array.singleton confirmationByte
 
     let server = new NamedPipeServerStream(pipeFile, PipeDirection.InOut)
@@ -208,6 +214,13 @@ type Communicator() =
         x.Serialize<'a>(structure, result, 0)
         result
 
+    member private x.SerializeCommand command =
+        let byte =
+            match command with
+            | ReadString -> readStringByte
+            | ReadMethodBody -> readMethodBodyByte
+        Array.singleton byte
+
     member x.Connect() =
         try
             waitClient()
@@ -222,6 +235,17 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
 
     member x.ReadProbes() = x.ReadStructure<probes>()
+
+    member x.SendCommand (command : commandForConcolic) =
+        let bytes = x.SerializeCommand command
+        writeBuffer bytes
+
+    member x.SendStringAndReadItsIndex (str : string) : uint =
+        x.SendCommand ReadString
+        writeString str
+        match readBuffer() with
+        | Some bytes -> BitConverter.ToUInt32(bytes, 0)
+        | None -> unexpectedlyTerminated()
 
     member x.ReadMethodBody() =
         match readBuffer() with
@@ -245,6 +269,7 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
+        x.SendCommand ReadMethodBody
         let propBytes = x.Serialize mb.properties
         let ehSize = Marshal.SizeOf typeof<rawExceptionHandler>
         let ehBytes : byte[] = Array.zeroCreate (ehSize * mb.ehs.Length)

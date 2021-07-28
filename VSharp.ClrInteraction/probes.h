@@ -37,9 +37,13 @@ void FinalizeCall(unsigned returnValues) {
     finalizeCall(returnValues);
 }
 
-
-void DumpInstruction(unsigned long name) {
-    LOG(tout << "Executing " << ((char*)name) << std::endl);
+void DumpInstruction(unsigned index) {
+    const char *&s = stringsPool[index];
+    if (!s) {
+        ERROR(tout << "Pool doesn't contain string with index:" << index);
+    }
+    else
+        LOG(tout << "Executing " << s << std::endl);
 }
 
 void Call(unsigned token, unsigned count) {
@@ -57,7 +61,7 @@ void(STDMETHODCALLTYPE *EnterProbeAddress)(unsigned, unsigned) = &Enter;
 void(STDMETHODCALLTYPE *Enter1ProbeAddress)(unsigned, unsigned, unsigned long) = &Enter1;
 void(STDMETHODCALLTYPE *LeaveProbeAddress)(unsigned) = &Leave;
 void(STDMETHODCALLTYPE *FinalizeCallProbeAddress)(unsigned) = &FinalizeCall;
-void(STDMETHODCALLTYPE *DumpInstructionAddress)(unsigned long) = &DumpInstruction;
+void(STDMETHODCALLTYPE *DumpInstructionAddress)(unsigned) = &DumpInstruction;
 void(STDMETHODCALLTYPE *CallProbeAddress)(unsigned, unsigned) = &Call;
 void(STDMETHODCALLTYPE *CallVirtProbeAddress)(unsigned) = &CallVirt;
 
@@ -74,7 +78,7 @@ void(STDMETHODCALLTYPE *PopAddress)(unsigned) = &Pop;
 void(STDMETHODCALLTYPE *PushAddress)(unsigned) = &Push;
 
 unsigned long long ProbesAddresses[] = {
-    (unsigned long long) Push1ConcreteAddress,
+    (unsigned long long) &Push1Concrete,
     (unsigned long long) Pop1Address,
     (unsigned long long) Pop2Push1Address,
     (unsigned long long) EnterProbeAddress,

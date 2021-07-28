@@ -5,6 +5,8 @@
 
 namespace icsharp {
 
+enum commandType {ReadMethodBody = 58, ReadString = 59};
+
 struct MethodBodyInfo {
     unsigned token;
     unsigned codeLength;
@@ -38,7 +40,11 @@ private:
 public:
     bool connect();
     bool sendProbes();
-    bool sendMethodBody(const MethodBodyInfo &body);
+    bool startSession();
+    bool acceptCommand(commandType &command);
+    bool acceptString(char *&string);
+    bool sendStringsPoolIndex(unsigned index);
+    bool sendMethodBody(MethodBodyInfo body);
     bool acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength);
     bool shutdown();
 };

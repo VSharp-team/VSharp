@@ -10,6 +10,8 @@ using namespace icsharp;
 char confirmationByte = 0x55;
 char instrumentCommandByte = 0x56;
 char executeCommandByte = 0x57;
+char readMethodBodyByte = 0x58;
+char readStringByte = 0x59;
 char *confirmationMessage = new char[1] {confirmationByte};
 char *instrumentationCommandMessage = new char[1] {instrumentCommandByte};
 
@@ -118,13 +120,64 @@ bool Protocol::handshake() {
 }
 
 #ifndef INSTRUMENTATION
+bool Protocol::startSession() {
+    return connect() && sendProbes();
+}
+
 bool Protocol::sendProbes() {
     unsigned bytesCount = sizeof ProbesAddresses;
     LOG(tout << "Sending probes (push1Concrete = " << (unsigned long long) Push1ConcreteAddress << ")");
     return writeBuffer((char*)ProbesAddresses, bytesCount);
 }
 
-bool Protocol::sendMethodBody(const MethodBodyInfo &body) {
+bool Protocol::acceptCommand(commandType &command)
+{
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        ERROR(tout << "Reading command failed!");
+        return false;
+    }
+    char byte = *message;
+    if (byte == readMethodBodyByte) {
+        LOG(tout << "Accepted ReadMethodBody command");
+        command = ReadMethodBody;
+    } else {
+        if (byte == readStringByte) {
+            LOG(tout << "Accepted ReadString command");
+            command = ReadString;
+        }
+        else
+            ERROR(tout << "Wrong command accepted!");
+    }
+    delete[] message;
+    return true;
+}
+
+bool Protocol::acceptString(char *&string) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    string = new char[messageLength];
+    memcpy(string, message, messageLength);
+    LOG(tout << "Successfully accepted string: " << string);
+    delete[] message;
+    return true;
+}
+
+bool Protocol::sendStringsPoolIndex(const unsigned index) {
+    unsigned messageLength = sizeof(unsigned);
+    char *buffer = new char[messageLength];
+    *(unsigned *)buffer = index;
+    bool result = writeBuffer(buffer, (int)messageLength);
+    delete[] buffer;
+    return result;
+}
+
+bool Protocol::sendMethodBody(const MethodBodyInfo body) {
     if (!writeBuffer(instrumentationCommandMessage, 1)) return false;
     LOG(tout << "Sending code (token = " << body.token << ")");
     unsigned messageLength = body.codeLength + 6 * sizeof(unsigned) + body.ehsLength + body.assemblyNameLength + body.moduleNameLength + body.signatureTokensLength;
@@ -152,8 +205,7 @@ bool Protocol::sendMethodBody(const MethodBodyInfo &body) {
     return result;
 }
 
-bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength)
-{
+bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength) {
     char *message;
     int messageLength;
     if (!readBuffer(message, messageLength)) {

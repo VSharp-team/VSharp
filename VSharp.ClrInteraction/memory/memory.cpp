@@ -9,6 +9,10 @@ ThreadID currentThreadNotConfigured() {
 }
 
 std::function<ThreadID()> icsharp::currentThread(&currentThreadNotConfigured);
+#ifdef _DEBUG
+std::map<unsigned, const char*> icsharp::stringsPool;
+int topStringIndex = 0;
+#endif
 
 ThreadID lastThreadID = 0;
 Stack *stack = nullptr;
@@ -76,7 +80,7 @@ void icsharp::enter(unsigned token, unsigned maxStackSize) {
     switchContext();
     if (!stack->isEmpty()) {
         unsigned expected = stack->topFrame().expectedToken();
-        LOG(tout << "Entering token " << token << ", expected token is " << expected << "; resetting it!" << std::endl);
+        LOG(tout << "Frame " << stack->framesCount() + 1 << ": entering token " << token << ", expected token is " << expected << "; resetting it!" << std::endl);
         if (!expected || expected == token) {
             stack->topFrame().setExpectedToken(0);
             stack->topFrame().setEnteredMarker(true);
@@ -143,3 +147,16 @@ void icsharp::validateEnd() {
     }
 #endif
 }
+
+#ifdef _DEBUG
+unsigned icsharp::allocateString(const char *s) {
+    unsigned currentIndex = topStringIndex;
+    // Place s into intern pool
+    stringsPool[currentIndex] = s;
+    LOG(tout << "Allocated string '" << s << "' with index '" << currentIndex << "'");
+    // Increment top index
+    topStringIndex++;
+    // Return string's index
+    return currentIndex;
+}
+#endif

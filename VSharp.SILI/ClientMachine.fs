@@ -3,12 +3,18 @@ namespace VSharp.Concolic
 open System.Diagnostics
 open System.IO
 open System.Reflection
+open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
 
 
 type ClientMachine(assembly : Assembly, state : state) =
-    let pathToClient = "libicsharpConcolic.so"
+    let extension =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
+        else __notImplemented__()
+    let pathToClient = "libicsharpConcolic" + extension
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
     let environment (assembly : Assembly) =
@@ -45,7 +51,7 @@ type ClientMachine(assembly : Assembly, state : state) =
         match x.communicator.ReadCommand() with
         | Instrument methodBody ->
             Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
-            let mb = x.instrumenter.Instrument methodBody
+            let mb = x.instrumenter.Instrument x.communicator methodBody
 //            let rewriter = ILRewriter methodBody
 //            rewriter.Import()
 //            let mb = rewriter.Export()

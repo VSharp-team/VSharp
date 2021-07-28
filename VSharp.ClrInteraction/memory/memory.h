@@ -14,12 +14,13 @@ class Stack;
 class Heap;
 
 extern std::function<ThreadID()> currentThread;
-static std::map<ThreadID, Stack *> stacks;
+static std::map<ThreadID, Stack*> stacks;
 static Heap heap;
+#ifdef _DEBUG
+extern std::map<unsigned, const char*> stringsPool;
+#endif
 
 unsigned framesCount();
-void pushFrame(int stackSize);
-void popFrame();
 
 void push1Concrete();
 // TODO: remove it!
@@ -35,6 +36,8 @@ void leave(unsigned returnValues);
 void finalizeCall(unsigned returnValues);
 
 void validateEnd();
+
+unsigned allocateString(const char *s);
 }
 
 #endif // MEMORY_H_

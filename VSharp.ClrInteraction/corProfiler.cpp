@@ -64,8 +64,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
     protocol = new icsharp::Protocol();
 #ifndef INSTRUMENTATION
-    if (!protocol->connect()) return E_FAIL;
-    if (!protocol->sendProbes()) return E_FAIL;
+    if (!protocol->startSession()) return E_FAIL;
 #endif
 
     return S_OK;
@@ -501,17 +500,17 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchCatcherFound(FunctionID fu
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerEnter(UINT_PTR __unused)
+HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerEnter(UINT_PTR ptr)
 {
     std::cout << "EXCEPTION OS HANDLER ENTER!" << std::endl;
-    UNUSED(__unused);
+    UNUSED(ptr);
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR __unused)
+HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR ptr)
 {
     std::cout << "EXCEPTION OS HANDLER LEAVE!" << std::endl;
-    UNUSED(__unused);
+    UNUSED(ptr);
     return S_OK;
 }
 

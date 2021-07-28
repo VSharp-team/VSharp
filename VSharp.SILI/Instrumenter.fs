@@ -53,47 +53,38 @@ type Instrumenter(probes : probes) =
         x.rewriter.InsertBefore(beforeInstr, newInstr)
 
     member private x.PrependProbe_void_int32(methodAddress : uint64, arg : int32, beforeInstr : ilInstr byref) =
-        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode = ldc_i
+        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
         let arg = Arg32 arg
         x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_int32_sig, &beforeInstr)
 
     member private x.PrependProbe_void_uint32(methodAddress : uint64, arg : uint32, beforeInstr : ilInstr byref) =
-        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode = ldc_i
+        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
         let arg = Arg32 (int32 arg)
         x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint32_sig, &beforeInstr)
 
     member private x.PrependProbe_void_uint64(methodAddress : uint64, arg : uint64, beforeInstr : ilInstr byref) =
-        let opcode = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode = ldc_i
+        let opcode = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode
         let arg = Arg64 (int64 arg)
         x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint64_sig, &beforeInstr)
 
     member private x.PrependProbe_void_bool_uint32(methodAddress : uint64, arg1 : bool, arg2 : uint32, beforeInstr : ilInstr byref) =
         let opcode1 = (if arg1 then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0) |> VSharp.Concolic.OpCode
-        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode2 = ldc_i
+        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
         let arg1 = NoArg
         let arg2 = Arg32 (int32 arg2)
         x.PrependProbe_void_with_args(methodAddress, [(opcode1, arg1); (opcode2, arg2)], x.tokens.void_bool_uint32_sig, &beforeInstr)
 
     member private x.PrependProbe_void_uint32_uint32(methodAddress : uint64, arg1 : uint32, arg2 : uint32, beforeInstr : ilInstr byref) =
-        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode1 = ldc_i
-//        let opcode2 = ldc_i
+        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
+        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
         let arg1 = Arg32 (int32 arg1)
         let arg2 = Arg32 (int32 arg2)
         x.PrependProbe_void_with_args(methodAddress, [(opcode1, arg1); (opcode2, arg2)], x.tokens.void_uint32_uint32_sig, &beforeInstr)
 
     member private x.PrependProbe_void_uint32_uint32_uint64(methodAddress : uint64, arg1 : uint32, arg2 : uint32, arg3 : uint64, beforeInstr : ilInstr byref) =
-        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-        let opcode3 = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode1 = ldc_i
-//        let opcode2 = ldc_i
-//        let opcode3 = ldc_i
+        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
+        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode
+        let opcode3 = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode
         let arg1 = Arg32 (int32 arg1)
         let arg2 = Arg32 (int32 arg2)
         let arg3 = Arg64 (int64 arg3)
@@ -117,14 +108,12 @@ type Instrumenter(probes : probes) =
         x.AppendProbe_void_with_args(methodAddress, [], x.tokens.void_sig, afterInstr)
 
     member private x.AppendProbe_void_int32(methodAddress : uint64, arg : int32, afterInstr : ilInstr) =
-        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode = ldc_i
+        let opcode = VSharp.Concolic.OpCode OpCodes.Ldc_I4
         let arg = Arg32 arg
         x.AppendProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_int32_sig, afterInstr)
 
     member private x.AppendProbe_void_uint32(methodAddress : uint64, arg : uint32, afterInstr : ilInstr) =
-        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode = ldc_i
+        let opcode = VSharp.Concolic.OpCode OpCodes.Ldc_I4
         let arg = Arg32 (int32 arg)
         x.AppendProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint32_sig, afterInstr)
 
@@ -137,7 +126,7 @@ type Instrumenter(probes : probes) =
 
     member x.MethodName with get() = x.m.Name
 
-    member x.PlaceProbes() =
+    member x.PlaceProbes (communicator : Communicator) =
         let instructions = x.rewriter.CopyInstructions()
         assert(not <| Array.isEmpty instructions)
         let mutable atLeastOneReturnFound = false
@@ -149,8 +138,11 @@ type Instrumenter(probes : probes) =
             if not hasPrefix then prefix <- instr
             match instr.opcode with
             | OpCode op ->
-                //let dumpedInfo = ...
-                //prependProbe_void_ulong(reinterpret_cast<ULONGLONG>(DumpInstructionAddress), (unsigned long)dumpedInfo, prefix ? *prefix : pInstr);
+                let dumpedInfo = x.rewriter.ILInstrToString probes instr
+                // let idx = <send string to client and receive string number from client>
+                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
+                let prependTarget = if hasPrefix then &prefix else &instr
+                x.PrependProbe_void_uint32(probes.dumpInstruction, idx, &prependTarget);
                 let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
                 match opcodeValue with
                 // Prefixes
@@ -208,7 +200,8 @@ type Instrumenter(probes : probes) =
                             if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1
                             else argsCount
                         let prependTarget = if hasPrefix then &prefix else &instr
-                        x.PrependProbe_void_uint32_uint32(probes.call, (if opcodeValue = OpCodeValues.Callvirt then 0u else uint32 token), uint32 count, &prependTarget);
+                        let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0u else uint32 callee.MetadataToken
+                        x.PrependProbe_void_uint32_uint32(probes.call, expectedToken, uint32 count, &prependTarget);
                         x.AppendProbe_void_uint32(probes.finalizeCall, (if returnsSomething then 1u else 0u), instr);
 
                         if opcodeValue = OpCodeValues.Newobj then
@@ -429,7 +422,7 @@ type Instrumenter(probes : probes) =
             | SwitchArg -> ()
         assert(atLeastOneReturnFound)
 
-    member x.Instrument(body : rawMethodBody) =
+    member x.Instrument (communicator : Communicator) (body : rawMethodBody) =
         assert(x.rewriter = null)
         x.tokens <- body.tokens
         x.rewriter <- ILRewriter(body)
@@ -438,9 +431,9 @@ type Instrumenter(probes : probes) =
             if Instrumenter.instrumentedFunctions.Add x.m then
                 Logger.trace "Instrumenting %s (token = %u)" (Reflection.methodToString x.m) body.properties.token
                 x.rewriter.Import()
-//                x.rewriter.PrintInstructions "before instrumentation" probes
+                x.rewriter.PrintInstructions "before instrumentation" probes
 //                Logger.trace "Placing probes..."
-                x.PlaceProbes()
+                x.PlaceProbes communicator
 //                Logger.trace "Done placing probes!"
                 x.rewriter.PrintInstructions "after instrumentation" probes
 //                Logger.trace "Exporting..."

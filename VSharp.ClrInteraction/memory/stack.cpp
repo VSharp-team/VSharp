@@ -37,6 +37,7 @@ void StackFrame::push1(bool isConcrete)
         FAIL_LOUD("Stack overflow!");
 #endif
     m_concreteness[m_concretenessTop++] = isConcrete;
+    LOG(tout << "push1, balance: " << m_concretenessTop);
 }
 
 void StackFrame::push1Concrete()
@@ -51,6 +52,7 @@ bool StackFrame::pop1()
         FAIL_LOUD("Corrupted stack!");
 #endif
     --m_concretenessTop;
+    LOG(tout << "pop1, balance: " << m_concretenessTop);
     return m_concreteness[m_concretenessTop];
 }
 
@@ -62,6 +64,7 @@ void StackFrame::pop(unsigned count)
         FAIL_LOUD("Corrupted stack!");
 #endif
     m_concretenessTop -= count;
+    LOG(tout << "pop << " << count << ", balance: " << m_concretenessTop);
 }
 
 void StackFrame::pop2Push1()
@@ -71,6 +74,7 @@ void StackFrame::pop2Push1()
         FAIL_LOUD("Corrupted stack!");
 #endif
     --m_concretenessTop;
+    LOG(tout << "pop2push1, balance: " << m_concretenessTop);
     m_concreteness[m_concretenessTop - 1] &= m_concreteness[m_concretenessTop];
 }
 
@@ -109,7 +113,7 @@ void StackFrame::setUnmanagedContext(bool isUnmanaged)
     this->m_unmanagedContext = isUnmanaged;
 }
 
-void Stack::pushFrame(int maxStackSize)
+void Stack::pushFrame(unsigned int maxStackSize)
 {
     m_frames.push(maxStackSize);
 }

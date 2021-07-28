@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <corhlpr.cpp>
+#include <memory/memory.h>
 
 using namespace icsharp;
 
@@ -45,6 +46,7 @@ Instrumenter::Instrumenter(ICorProfilerInfo9 &profilerInfo)
     , m_generateTinyHeader(false)
     , m_pEH(nullptr)
 {
+    LOG(tout << "profilerInfo: " << &profilerInfo << std::endl);
 }
 
 Instrumenter::~Instrumenter()
@@ -253,6 +255,23 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
     if (!protocol.sendMethodBody(info)) return false;
     LOG(tout << "Successfully sent method body!");
     char *bytecode; int length; unsigned maxStackSize; char *ehs; unsigned ehsLength;
+#ifdef _DEBUG
+    commandType command;
+    do {
+        if (!protocol.acceptCommand(command)) return false;
+        switch (command) {
+            case ReadString: {
+                char *string;
+                if (!protocol.acceptString(string)) return false;
+                unsigned index = allocateString(string);
+                if (!protocol.sendStringsPoolIndex(index)) return false;
+                break;
+            }
+            default:
+                break;
+        }
+    } while (command != ReadMethodBody);
+#endif
     LOG(tout << "Reading method body back...");
     if (!protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) return false;
     LOG(tout << "Exporting " << length << " IL bytes!");
