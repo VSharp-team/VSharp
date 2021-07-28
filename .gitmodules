@@ -1,3 +1,6 @@
 [submodule "CoreClr"]
 	path = CoreClr
 	url = https://github.com/VSharp-team/CoreClr.git
+[submodule "rd"]
+	path = rd
+	url = https://github.com/MchKosticyn/rd.git
