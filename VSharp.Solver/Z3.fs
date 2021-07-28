@@ -346,7 +346,7 @@ module internal Z3 =
             let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regSort, structFields)
 
-        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst left mo =
+        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields left mo =
             let updates = MemoryRegion.flatten mo
             let assumptions, leftExpr = encodeKey left
             let leftInRegion = keyInRegion x.True left leftExpr
@@ -359,6 +359,10 @@ module internal Z3 =
                 // NOTE: we need constraints on right key, because value may contain it
                 let keysEquality = keysAreEqual(leftExpr, rightExpr)
                 let keysAreMatch = keyInRegion keysEquality right rightExpr
+                let readFieldIfNeed structTerm field =
+                    assert(IsStruct structTerm)
+                    Memory.ReadField Memory.EmptyState structTerm field
+                let value = List.fold readFieldIfNeed value structFields
                 let valueExpr = x.EncodeTerm encCtx value
                 let assumptions = List.append assumptions valueExpr.assumptions
                 ctx.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
@@ -371,7 +375,7 @@ module internal Z3 =
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let inst (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst key mo
+            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
@@ -382,14 +386,14 @@ module internal Z3 =
                     let sort = ctx.MkArraySort(domainSort, valueSort)
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
-            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst key mo
+            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let inst (k : Expr) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey inst key mo
+            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey inst structFields key mo
 
         member private x.StaticsReading encCtx key mo typ source structFields (name : string) =
             let keyType = x.Type2Sort Types.IndexType
