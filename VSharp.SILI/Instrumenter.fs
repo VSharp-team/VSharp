@@ -247,7 +247,12 @@ type Instrumenter(probes : probes) =
                     let pops = instr.opcode.StackBehaviourPop
                     let prependTarget = if hasPrefix then &prefix else &instr
                     x.PrependProbe_void_int32(probes.pop, int32 pops, &prependTarget);
-
+                | OpCodeValues.Castclass ->
+                    // [NOTE] 'castclass' contains only pop,
+                    // because after 'castclass' JIT calls private function 'CastHelpers.ChkCastClass',
+                    // that pushes result
+                    let prependTarget = if hasPrefix then &prefix else &instr
+                    x.PrependProbe_void(probes.pop1, &prependTarget);
                 // Symbolic stack instructions
                 | OpCodeValues.Ldarg_0
                 | OpCodeValues.Ldarg_1
@@ -330,7 +335,6 @@ type Instrumenter(probes : probes) =
                 | OpCodeValues.Cpobj
                 | OpCodeValues.Ldobj
                 | OpCodeValues.Ldstr
-                | OpCodeValues.Castclass
                 | OpCodeValues.Isinst
                 | OpCodeValues.Unbox
                 | OpCodeValues.Ldfld
