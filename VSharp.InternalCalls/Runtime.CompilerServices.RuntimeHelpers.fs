@@ -1,6 +1,5 @@
 namespace VSharp.System
 
-open System.Runtime.CompilerServices
 open global.System
 open VSharp
 open VSharp.Core

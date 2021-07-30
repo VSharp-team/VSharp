@@ -28,7 +28,7 @@ type IndexedQueue() =
 
 [<AbstractClass>]
 type ISearcher() =
-    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    let maxBound = 100u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     abstract member PickNext : IndexedQueue -> cilState option
 
     member x.Used (cilState : cilState) =
@@ -88,11 +88,7 @@ type CFASearcher() =
 type EffectsFirstSearcher() =
     inherit ISearcher()
     override x.PickNext q =
-        let canBePropagated (s : cilState) =
-            let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
-            conditions |> List.fold (fun acc f -> acc || f s) false |> not
-
-        let states = q.GetStates() |> Seq.filter canBePropagated
+        let states = q.GetStates() |> Seq.filter x.CanBePropagated
         match states with
         | Seq.Empty -> None
         | Seq.Cons(s, _) when x.ShouldStartExploringInIsolation (q, s) ->

@@ -33,12 +33,7 @@ module internal CallStack =
         PersistentDict.tryFind frame.entries key
 
     let private writeFrameLocation (frame : frame) key entry =
-        let entriesWithoutKey =
-            let entries = frame.entries
-            assert(PersistentDict.contains key entries)
-            // TODO: need to delete entry before add? #do
-            PersistentDict.remove key entries
-        let newEntries = PersistentDict.add key entry entriesWithoutKey
+        let newEntries = PersistentDict.add key entry frame.entries
         {frame with entries = newEntries}
 
     // NOTE: allocate function is used for adding values to CURRENT frame:
