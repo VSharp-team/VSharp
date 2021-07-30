@@ -139,10 +139,19 @@ module internal Memory =
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
 
+    let hashConcreteAddress (address : concreteHeapAddress) =
+        address.GetHashCode() |> makeNumber
+
     let getHashCode object =
-        let name = sprintf "HashCode(%O)" object
-        let source = {object = object}
-        Constant name source Int32
+        assert(isReference object)
+        match object.term with
+        | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
+        | HeapRef(address, _) ->
+            let name = sprintf "HashCode(%O)" address
+            let source = {object = address}
+            Constant name source Int32
+        | _ -> internalfailf "expected HeapRef, but got %O" object
+
 // ------------------------------- Instantiation -------------------------------
 
     [<CustomEquality;NoComparison>]
