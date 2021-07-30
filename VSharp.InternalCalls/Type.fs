@@ -65,9 +65,12 @@ module internal Type =
 
     let private equality transform (state : state) (args : term list) =
         assert(List.length args = 2)
-        let typ1 = List.head args
-        let typ2 = args |> List.tail |> List.head
-        transform (typ1 === typ2), state
+        let runtimeType1 = List.head args
+        let runtimeType2 = args |> List.tail |> List.head
+        let actualType1 = getActualType state runtimeType1
+        let actualType2 = getActualType state runtimeType2
+        let eq = MakeBool (actualType1 = actualType2)
+        transform eq, state
 
     let opInequality (state : state) (args : term list) =
         equality (!!) state args
