@@ -159,7 +159,10 @@ type public ExplorerBase() =
                 match staticConstructor with
                 | Some cctor ->
                     // TODO: use InlineMethodBaseCallIfNeed instead #do (union Interpreter and InterpreterBase)
-                    if (Reflection.getFullMethodName cctor = "System.Void JetBrains.Diagnostics.Log..cctor()") then whenInitializedCont cilState
+                    let name = Reflection.getFullMethodName cctor
+                    if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
+                        || name = "System.Void System.Environment..cctor()")
+                    then whenInitializedCont cilState
                     else x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''

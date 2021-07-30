@@ -104,3 +104,19 @@ module internal Type =
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
         MakeBool actualType.IsValueType, state
+
+    // TODO: ToUint override
+    let getEnumValues (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let runtimeType = List.head args
+        let actualType = getActualType state runtimeType
+        let values : obj seq = Enum.GetValues(actualType) |> System.Linq.Enumerable.OfType<obj>
+        let length = Seq.length values |> MakeNumber
+        let elementType = Types.FromDotNetType actualType
+        Memory.AllocateConcreteVectorArray state length elementType values
+
+    let getEnumUnderlyingType (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let runtimeType = List.head args
+        let actualType = getActualType state runtimeType
+        actualType.GetEnumUnderlyingType() |> allocateType state

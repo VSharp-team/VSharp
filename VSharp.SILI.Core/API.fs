@@ -310,6 +310,10 @@ module API =
             let address, state = Memory.allocateVector state elementType length
             HeapRef address (ArrayType(elementType, Vector)), state
 
+        let AllocateConcreteVectorArray state length elementType contents =
+            let address, state = Memory.allocateConcreteVector state elementType length contents
+            HeapRef address (ArrayType(elementType, Vector)), state
+
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
         let AllocateString string state = Memory.allocateString state string

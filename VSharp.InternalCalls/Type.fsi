@@ -42,3 +42,9 @@ module internal Type =
 
     [<Implements("System.Boolean System.Type.get_IsValueType(this)")>]
     val isValueType : state -> term list -> term * state
+
+    [<Implements("System.Array System.RuntimeType.GetEnumValues(this)")>]
+    val getEnumValues : state -> term list -> term * state
+
+    [<Implements("System.Type System.RuntimeType.GetEnumUnderlyingType(this)")>]
+    val getEnumUnderlyingType : state -> term list -> (term * state) list

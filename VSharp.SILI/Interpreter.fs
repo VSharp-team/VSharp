@@ -47,7 +47,7 @@ type public MethodInterpreter(searcher : ISearcher) =
         let printResults (cilStates : cilState list) =
             let states = List.fold (fun acc (cilState : cilState) -> acc + Memory.Dump cilState.state + "\n") "" cilStates
             let fullMethodName = Reflection.getFullMethodName method
-            Logger.info "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
+            Logger.warning "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
 //        printResults results
         k results
 
@@ -128,7 +128,8 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
             "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
             "System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)", this.ClearArray
-            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.Copy
+            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm
+            "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
         ]
 
     member private x.Raise createException (cilState : cilState) k =
@@ -233,9 +234,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             nonNullCase
             id
 
-    member private x.Copy (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 6)
-        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+    member private x.CommonCopyArray (cilState : cilState) src srcIndex dst dstIndex length =
         let state = cilState.state
         let srcType = MostConcreteTypeOfHeapRef state src
         let dstType = MostConcreteTypeOfHeapRef state dst
@@ -282,6 +281,20 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
             (x.Raise x.ArgumentNullException)
             rankCheck
             id
+
+    member private x.CopyArrayExtendedForm (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 6)
+        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+        x.CommonCopyArray cilState src srcIndex dst dstIndex length
+
+    member private x.CopyArrayShortForm (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 3)
+        let src, dst, length = args.[0], args.[1], args.[2]
+        let state = cilState.state
+        let zero = TypeUtils.Int32.Zero
+        let srcLB = Memory.ArrayLowerBoundByDimension state src zero
+        let dstLB = Memory.ArrayLowerBoundByDimension state src zero
+        x.CommonCopyArray cilState src srcLB dst dstLB length
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map (fun mi -> mi :> MethodBase)

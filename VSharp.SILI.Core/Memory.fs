@@ -663,7 +663,7 @@ module internal Memory =
         let typ = ArrayType(elementType, Vector)
         allocateArray state typ lbs [length]
 
-    let private allocateConcreteVector state elementType length contents =
+    let allocateConcreteVector state elementType length contents =
         let address, state = allocateVector state elementType length
         // TODO: optimize this for large concrete arrays (like images)!
         address, Seq.foldi (fun state i value -> writeArrayIndex state address [Concrete i lengthType] (elementType, 1, true) (Concrete value elementType)) state contents

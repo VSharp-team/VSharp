@@ -197,6 +197,7 @@ module API =
         val AllocateDefaultClass : state -> symbolicType -> term * state
         val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
         val AllocateVectorArray : state -> term -> symbolicType -> term * state
+        val AllocateConcreteVectorArray : state -> term -> symbolicType -> 'a seq -> term * state
         val AllocateString : string -> state -> term * state
         val AllocateEmptyString : state -> term -> term * state
         val AllocateDelegate : state -> term -> term * state
