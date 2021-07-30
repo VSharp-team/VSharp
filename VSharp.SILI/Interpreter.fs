@@ -296,16 +296,20 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         let dstLB = Memory.ArrayLowerBoundByDimension state src zero
         x.CommonCopyArray cilState src srcLB dst dstLB length
 
+    // TODO: make faster #do
     member private x.TrustedIntrinsics =
-        let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map (fun mi -> mi :> MethodBase)
-        let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map (fun mi -> mi :> MethodBase)
-        Array.append intPtr volatile
+        let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
+        let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
+//        let comparerType = typeof<System.Collections.Generic.Comparer<obj>>.GetGenericTypeDefinition()
+//        let defaultComparer = Reflection.getAllMethods comparerType |> Array.map (fun mi -> mi :> MethodBase)
+        let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|];
+        Array.concat [intPtr; volatile; defaultComparer]
 
-    member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) =
+    member private x.IsNotImplementedIntrinsic (methodBase : MethodBase) fullMethodName =
         let isIntrinsic =
             let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
             methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
-        isIntrinsic && (Array.contains methodBase x.TrustedIntrinsics |> not)
+        isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
     member private x.IsExternalMethod (methodBase : MethodBase) =
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
@@ -387,7 +391,7 @@ and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
         elif x.IsExternalMethod methodBase then
             let stackTrace = Memory.StackTrace cilState.state.stack
             internalfailf "new extern method: %s\nStack trace:\n%s" fullMethodName stackTrace
-        elif x.IsNotImplementedIntrinsic methodBase then
+        elif x.IsNotImplementedIntrinsic methodBase fullMethodName then
             let stackTrace = Memory.StackTrace cilState.state.stack
             internalfailf "new intrinsic method: %s \nStack trace:\n%s" fullMethodName stackTrace
         elif methodBase.GetMethodBody() <> null then cilState |> List.singleton |> k

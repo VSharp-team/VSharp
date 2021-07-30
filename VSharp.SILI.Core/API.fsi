@@ -62,6 +62,8 @@ module API =
         val (|False|_|) : term -> unit option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
+        val (|NullRef|_|) : term -> unit option
+
 
         val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
         val (|ArrayIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>

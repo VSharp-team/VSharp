@@ -67,9 +67,15 @@ module internal Type =
         assert(List.length args = 2)
         let runtimeType1 = List.head args
         let runtimeType2 = args |> List.tail |> List.head
-        let actualType1 = getActualType state runtimeType1
-        let actualType2 = getActualType state runtimeType2
-        let eq = MakeBool (actualType1 = actualType2)
+        let eq =
+            match runtimeType1, runtimeType2 with
+            | NullRef, NullRef -> True
+            | NullRef, _
+            | _, NullRef -> False
+            | _ ->
+                let actualType1 = getActualType state runtimeType1
+                let actualType2 = getActualType state runtimeType2
+                MakeBool (actualType1 = actualType2)
         transform eq, state
 
     let opInequality (state : state) (args : term list) =

@@ -88,6 +88,9 @@ module API =
         let (|False|_|) t = (|False|_|) t
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
+        let (|NullRef|_|) = function
+            | ref when ref = nullRef -> Some()
+            | _ -> None
 
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
         let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src

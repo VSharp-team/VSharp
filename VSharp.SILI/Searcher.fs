@@ -23,7 +23,7 @@ type IndexedQueue() =
 
     member x.Remove s =
         let removed = q.Remove s
-        if not removed then Logger.trace "CilState was not removed from IndexedQueue:\n%O" s
+        if not removed then Logger.printLogLazy Logger.Trace "CilState was not removed from IndexedQueue:\n%O" (lazy dump s)
     member x.GetStates () = List.ofSeq q
 
 [<AbstractClass>]

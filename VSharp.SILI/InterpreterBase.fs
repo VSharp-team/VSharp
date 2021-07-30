@@ -161,7 +161,8 @@ type public ExplorerBase() =
                     // TODO: use InlineMethodBaseCallIfNeed instead #do (union Interpreter and InterpreterBase)
                     let name = Reflection.getFullMethodName cctor
                     if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
-                        || name = "System.Void System.Environment..cctor()")
+                        || name = "System.Void System.Environment..cctor()"
+                        || name = "System.Void System.Globalization.CultureInfo..cctor()")
                     then whenInitializedCont cilState
                     else x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
                 | None -> whenInitializedCont cilState
@@ -185,6 +186,7 @@ type public ExplorerBase() =
     abstract CreateException : Type -> term list -> cilState -> cilState list
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
+        Logger.printLogLazy Logger.Info "EXCEPTION!\nStack trace:\n%O" (lazy Memory.StackTrace cilState.state.stack)
         let cilState = clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments

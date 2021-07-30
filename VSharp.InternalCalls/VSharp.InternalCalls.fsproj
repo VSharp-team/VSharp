@@ -52,6 +52,8 @@
         <Compile Include="Interlocked.fs" />
         <Compile Include="OpenSourceRider.fsi" />
         <Compile Include="OpenSourceRider.fs" />
+        <Compile Include="Globalization.fsi" />
+        <Compile Include="Globalization.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

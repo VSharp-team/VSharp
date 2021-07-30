@@ -1,0 +1,17 @@
+namespace VSharp.System
+
+open global.System
+open VSharp
+open VSharp.Core
+
+module internal Globalization =
+
+    let get_CurrentCulture (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        let cultureType = Types.FromDotNetType typeof<System.Globalization.CultureInfo>
+        Memory.AllocateDefaultClass state cultureType
+
+    let get_CompareInfo (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let cultureType = Types.FromDotNetType typeof<System.Globalization.CompareInfo>
+        Memory.AllocateDefaultClass state cultureType
