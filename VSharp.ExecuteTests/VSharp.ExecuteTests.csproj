@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <TargetFramework>netcoreapp6.0</TargetFramework>
@@ -13,38 +13,31 @@
     </PropertyGroup>
 
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <Tailcalls>false</Tailcalls>
+        <RootNamespace>VSharp.ProfileTests</RootNamespace>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
-      <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
-      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Z3.fs" />
-        <Compile Include="SolverPool.fs" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
-      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
+      <ProjectReference Include="..\VSharp.Test\VSharp.Test.csproj" />
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp6.0' ">
-        <Reference Include="Microsoft.Z3, Version=4.8.11.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>..\..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</HintPath>
+        <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+            <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\Test.Lifetimes.dll</HintPath>
         </Reference>
     </ItemGroup>
 
     <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' ">
-        <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
+        <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+            <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\net5.0\Test.Lifetimes.dll</HintPath>
+        </Reference>
     </ItemGroup>
 
 </Project>

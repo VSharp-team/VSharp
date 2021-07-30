@@ -1,13 +1,18 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.12)
 
 project(VSharp.ClrInteraction LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CORECLR_PATH ../runtime/src/coreclr/src)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
+    set(CORECLR_PATH ../runtime/src/coreclr)
+else()
+    set(CORECLR_PATH ../runtime/src/coreclr/src)
+endif()
 
 include_directories(.
     ${CORECLR_PATH}/pal/inc/rt
@@ -38,3 +43,5 @@ add_library(icsharpConcolic SHARED
     memory/stack.cpp
     memory/heap.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
+
+add_link_options(--unresolved-symbols=ignore-in-object-files)
