@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using NUnit.Framework;
 
@@ -26,9 +28,16 @@ namespace VSharp.Test
             svm.ConfigureSolver();
             var path = "../../../../rd/rd-net/Test.Lifetimes/bin/Debug/netcoreapp3.1/Test.Lifetimes.dll";
             var assembly = Assembly.LoadFrom(path);
-            var testingMethodType = assembly.GetType("Test.Lifetimes.Lifetimes.LifetimeTest");
-            var testingMethod = testingMethodType?.GetMethod("StackTrace1");
-            svm.ExploreOne(testingMethod);
+            var testingMethodType = assembly.GetType("Test.Lifetimes.Core.TestResult");
+            var testingMethod = testingMethodType?.GetMethod("UnwrapStackTraceEasy");
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            string result = svm.ExploreOne(testingMethod);
+            stopwatch.Stop();
+            var ts = stopwatch.Elapsed;
+            Console.WriteLine($"For method {testingMethod} got: {result}");
+            Console.WriteLine("Elapsed Time is {0:00}:{1:00}:{2:00}.{3}", ts.Hours, ts.Minutes, ts.Seconds,
+                ts.Milliseconds);
         }
     }
 }
