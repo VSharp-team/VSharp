@@ -28,7 +28,7 @@ type IndexedQueue() =
 
 [<AbstractClass>]
 type ISearcher() =
-    let maxBound = 100u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+    let maxBound = 1000u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
     abstract member PickNext : IndexedQueue -> cilState option
 
     member x.Used (cilState : cilState) =
