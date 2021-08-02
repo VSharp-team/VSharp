@@ -844,6 +844,7 @@ module internal Memory =
     let composeEvaluationStacksOf state evaluationStack =
         EvaluationStack.map (fillHoles state) evaluationStack
 
+    // TODO: something fails and we get address 79.0 (Test: StackTrace1 without 'def = new ...', so def is symbolic) #do
     let composeStates state state' =
         assert(VectorTime.isDescending state.currentTime)
         assert(VectorTime.isDescending state'.currentTime)
