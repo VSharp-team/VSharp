@@ -111,7 +111,6 @@ module internal Type =
         let actualType = getActualType state runtimeType
         MakeBool actualType.IsValueType, state
 
-    // TODO: ToUint override
     let getEnumValues (state : state) (args : term list) =
         assert(List.length args = 1)
         let runtimeType = List.head args

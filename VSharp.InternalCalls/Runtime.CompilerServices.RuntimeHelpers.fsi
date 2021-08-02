@@ -16,3 +16,6 @@ module Runtime_CompilerServices_RuntimeHelpers =
 
     [<Implements("System.Int32 System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(System.Object)")>]
     val GetHashCode : state -> term list -> term * state
+
+    [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.Equals(System.Object, System.Object)")>]
+    val Equals : state -> term list -> term * state

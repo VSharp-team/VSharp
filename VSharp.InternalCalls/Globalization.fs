@@ -6,10 +6,17 @@ open VSharp.Core
 
 module internal Globalization =
 
-    let get_CurrentCulture (state : state) (args : term list) : term * state =
-        assert(List.length args = 0)
+    let allocateCulture state =
         let cultureType = Types.FromDotNetType typeof<System.Globalization.CultureInfo>
         Memory.AllocateDefaultClass state cultureType
+
+    let get_CurrentCulture (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        allocateCulture state
+
+    let get_InvariantCulture (state : state) (args : term list) : term * state =
+        assert(List.length args = 0)
+        allocateCulture state
 
     let get_CompareInfo (state : state) (args : term list) : term * state =
         assert(List.length args = 1)

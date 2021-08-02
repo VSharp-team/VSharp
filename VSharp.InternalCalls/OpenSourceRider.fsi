@@ -13,3 +13,9 @@ module internal OpenSourceRider =
 
     [<Implements("JetBrains.Diagnostics.ILog JetBrains.Diagnostics.Log.GetLog()")>]
     val internal getLog : state -> term list -> term * state
+
+    [<Implements("System.Boolean JetBrains.Diagnostics.LogEx.IsTraceEnabled(JetBrains.Diagnostics.ILog)")>]
+    val internal isTraceEnabled : state -> term list -> term * state
+
+//    [<Implements("System.Void System.Collections.Comparer..ctor(this, System.Globalization.CultureInfo)")>]
+//    val internal ctor : state -> term list -> (term * state) list

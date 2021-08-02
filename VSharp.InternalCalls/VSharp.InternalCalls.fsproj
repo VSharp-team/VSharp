@@ -50,10 +50,12 @@
         <Compile Include="SR.fs" />
         <Compile Include="Interlocked.fsi" />
         <Compile Include="Interlocked.fs" />
-        <Compile Include="OpenSourceRider.fsi" />
-        <Compile Include="OpenSourceRider.fs" />
         <Compile Include="Globalization.fsi" />
         <Compile Include="Globalization.fs" />
+        <Compile Include="OpenSourceRider.fsi" />
+        <Compile Include="OpenSourceRider.fs" />
+        <Compile Include="PlatformHelper.fsi" />
+        <Compile Include="PlatformHelper.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

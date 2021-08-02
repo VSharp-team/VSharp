@@ -152,3 +152,8 @@ module Runtime_CompilerServices_RuntimeHelpers =
         assert(List.length args = 1)
         let object = List.head args
         GetHashCode object, state
+
+    let Equals (state : state) (args : term list) : term * state =
+        assert(List.length args = 2)
+        let x, y = args.[0], args.[1]
+        x === y, state
