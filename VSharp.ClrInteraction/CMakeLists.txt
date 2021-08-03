@@ -5,8 +5,7 @@ project(VSharp.ClrInteraction LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CORECLR_PATH ../CoreClr/src)
-#set(CORECLR_PATH ../runtime/src/coreclr/src)
+set(CORECLR_PATH ../runtime/src/coreclr/src)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
 
@@ -22,7 +21,10 @@ message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-D_LOGGING)
     add_definitions(-D_DEBUG)
+    message("Logging enabled")
 endif()
+add_definitions(-DHOST_64BIT)
+add_definitions(-D_MIDL_USE_GUIDDEF_)
 
 add_library(icsharpConcolic SHARED
     classFactory.cpp

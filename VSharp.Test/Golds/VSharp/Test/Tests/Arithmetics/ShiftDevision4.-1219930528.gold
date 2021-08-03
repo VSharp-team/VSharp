@@ -1,5 +1,5 @@
 METHOD: System.UInt64 VSharp.Test.Tests.Arithmetics.ShiftDevision4(System.UInt64)
 RESULT: Totally 1 state:
-a >> 41
+(System.Int64 (a >> 41))
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Arithmetics }

@@ -1,0 +1,17 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lists.CheckArrayContains()
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- 'c'
+        2[1] <- 'h'
+        2[2] <- 'a'
+        2[3] <- 'r'
+        2[4] <- 's'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 5}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+Initialized types = { System.Runtime.CompilerServices.RuntimeHelpers, System.Linq.Enumerable, VSharp.Test.Tests.Lists, System.Collections.Generic.ICollection`1[System.Char] }

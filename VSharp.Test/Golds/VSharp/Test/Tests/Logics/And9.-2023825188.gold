@@ -1,5 +1,5 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.And9(System.Boolean, System.Boolean, System.Boolean)
 RESULT: Totally 1 state:
-False
+!a & !c & a & b & b & c
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Logics }

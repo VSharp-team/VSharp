@@ -1,6 +1,6 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.Equal1(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
 RESULT: Totally 1 state:
-True
+(!a | !b | a & b) & (!a | !b | a & b)
 MEMORY DUMP:
 --------------- Stack: ---------------
 key = __loc__0, value = a & b

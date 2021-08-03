@@ -162,8 +162,7 @@ namespace VSharp.Test.Tests
             return x;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int PreconditionLoop(int n)
         {
             var num = 0;
@@ -175,8 +174,7 @@ namespace VSharp.Test.Tests
             return num; // n > 0 ? n : 0
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int PostconditionLoop(int n)
         {
             var num = n;

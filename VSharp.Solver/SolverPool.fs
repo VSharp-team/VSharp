@@ -1,4 +1,5 @@
 namespace VSharp.Solver
+open VSharp.Core.SolverInteraction
 
 type public SupportedSolvers =
     | Z3

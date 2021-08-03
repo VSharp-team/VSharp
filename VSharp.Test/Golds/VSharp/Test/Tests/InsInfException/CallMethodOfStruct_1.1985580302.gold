@@ -1,0 +1,9 @@
+METHOD: VSharp.Test.Tests.PDR+A VSharp.Test.Tests.InsInfException.CallMethodOfStruct_1()
+RESULT: Totally 1 state:
+VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 123]
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 123]
+Initialized types = { VSharp.Test.Tests.InsInfException, VSharp.Test.Tests.PDR+A }

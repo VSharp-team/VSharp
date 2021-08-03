@@ -14,6 +14,22 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
 
+type regionSort =
+    | HeapFieldSort of fieldId
+    | StaticFieldSort of fieldId
+    | ArrayIndexSort of arrayType
+    | ArrayLengthSort of arrayType
+    | ArrayLowerBoundSort of arrayType
+    | StackBufferSort of stackKey
+    member x.TypeOfLocation =
+        match x with
+        | HeapFieldSort field
+        | StaticFieldSort field -> field.typ |> Types.Constructor.fromDotNetType
+        | ArrayIndexSort(elementType, _, _)
+        | ArrayLengthSort(elementType, _, _)
+        | ArrayLowerBoundSort(elementType, _, _) -> elementType
+        | StackBufferSort _ -> Types.Numeric typeof<int8>
+
 module private MemoryKeyUtils =
 
     let regionOfHeapAddress = function
@@ -21,7 +37,7 @@ module private MemoryKeyUtils =
         | addr -> intervals<vectorTime>.Closed VectorTime.zero (timeOf addr)
 
     let regionOfIntegerTerm = function
-        | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType-> points<int>.Singleton value
+        | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType -> points<int>.Singleton value
         | _ -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
@@ -39,12 +55,11 @@ type heapAddressKey =
             let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
             let newReg =
                 if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
-                    let rightBound = mapTime VectorTime.infty |> List.lastAndRest |> snd
-                    if rightBound.IsEmpty then reg
-                    else
-                        let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
-                        let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.zero rightBound
-                        mappedZeroInterval.Union(reg'.Map mapTime)
+                    let rightBound = mapTime []
+                    assert(not <| VectorTime.isEmpty rightBound)
+                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
+                    let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.zero rightBound
+                    mappedZeroInterval.Union(reg'.Map mapTime)
                 else
                     reg.Map mapTime
             newReg, {address = mapTerm x.address}
@@ -185,9 +200,6 @@ module private UpdateTree =
 
     let deterministicCompose earlier later = RegionTree.append earlier later
 
-    let maxTime (tree : updateTree<'a, heapAddress, 'b>) =
-        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
-
     let print indent valuePrint tree =
         let window = 50
         let incIndent = indent + "    "
@@ -209,13 +221,20 @@ module MemoryRegion =
     let empty typ =
         {typ = typ; updates = UpdateTree.empty}
 
+    let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
+        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
+
     let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ <| {typ=mr.typ; updates=tree}
+        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}
         let makeDefault () = makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
+    let validateWrite value cellType =
+        let typ = typeOf value
+        Types.isAssignable typ cellType
+
     let write mr key value =
-        assert(Types.isConcreteSubtype (typeOf value) mr.typ)
+        assert(validateWrite value mr.typ)
         {typ=mr.typ; updates=UpdateTree.write key value mr.updates}
 
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
@@ -236,8 +255,11 @@ module MemoryRegion =
 
     let toString indent mr = UpdateTree.print indent toString mr.updates
 
+    let flatten mr =
+        RegionTree.foldr (fun _ k acc -> (k.key, k.value)::acc) [] mr.updates
+
     let localizeArray address dimension mr =
-        let anyIndexRegion = (List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq)
+        let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
         let reg = productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) anyIndexRegion
         {typ=mr.typ; updates = UpdateTree.localize reg mr.updates}
 

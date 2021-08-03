@@ -1,0 +1,11 @@
+METHOD: VSharp.Test.Tests.PDR+StructWithStructInside2 VSharp.Test.Tests.PDR.Test1_StructWithStructInside2()
+RESULT: Totally 1 state:
+VSharp.Test.Tests.PDR+StructWithStructInside2 STRUCT [
+	| _a ~> VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 0]]
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = VSharp.Test.Tests.PDR+StructWithStructInside2 STRUCT [
+	| _a ~> VSharp.Test.Tests.PDR+A STRUCT [
+	| x ~> 0]]
+Initialized types = { VSharp.Test.Tests.PDR }

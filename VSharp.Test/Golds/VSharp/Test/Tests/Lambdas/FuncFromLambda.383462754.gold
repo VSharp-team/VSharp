@@ -1,0 +1,19 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lambdas.FuncFromLambda(System.Int32)
+RESULT: Totally 1 state:
+x <= 0
+MEMORY DUMP:
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Lambdas+<>c
+3 ==> System.Func`2[System.Int32,System.Boolean]
+--------------- Static fields: ---------------
+<>9 ==> {
+        VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 2 to VSharp.Test.Tests.Lambdas+<>c)
+    }
+<>9__10_0 ==> {VSharp.Test.Tests.Lambdas+<>c <- NullRef}
+<>9__4_0 ==> {VSharp.Test.Tests.Lambdas+<>c <- NullRef}
+<>9__7_0 ==> {
+        VSharp.Test.Tests.Lambdas+<>c <- (HeapRef 3 to System.Func`2[System.Int32,System.Boolean])
+    }
+--------------- Delegates: ---------------
+3 ==> <Lambda Expression System.Func`2[System.Int32,System.Boolean]>
+Initialized types = { System.Object, System.Func`2[System.Int32,System.Boolean], VSharp.Test.Tests.Lambdas, VSharp.Test.Tests.Lambdas+<>c }

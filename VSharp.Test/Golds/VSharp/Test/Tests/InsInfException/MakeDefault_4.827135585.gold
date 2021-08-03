@@ -1,0 +1,5 @@
+METHOD: System.Object VSharp.Test.Tests.InsInfException.MakeDefault_4()
+RESULT: Totally 1 state:
+NullRef
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.InsInfException }

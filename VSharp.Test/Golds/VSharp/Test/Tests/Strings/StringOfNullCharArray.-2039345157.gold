@@ -1,0 +1,16 @@
+METHOD: System.Int32 VSharp.Test.Tests.Strings.StringOfNullCharArray()
+RESULT: Totally 1 state:
+0
+MEMORY DUMP:
+--------------- Fields: ---------------
+_stringLength ==> {2 <- 0}
+--------------- Array contents: ---------------
+System.Char[] ==> {2[0] <- '\000'}
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 1}
+--------------- Types tokens: ---------------
+2 ==> System.String
+3 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, VSharp.Test.Tests.Strings }

@@ -15,12 +15,31 @@ module Loader =
                 | _ -> None))
         |> Map.ofSeq
 
-    let public concreteExternalImplementations =
-        Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
-        |> Seq.singleton
+    let public CSharpImplementations =
+        seq [
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Monitor")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.RuntimeHelpersUtils")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.CLRConfig")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Interop")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.NumberFormatInfo")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.StringUtils")
+            Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.CharUnicodeInfo")
+        ]
         |> collectImplementations
 
-    let public internalImplementations =
+    let public FSharpImplementations =
         Assembly.GetExecutingAssembly().GetTypes()
         |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
         |> collectImplementations
+
+    let private runtimeExceptionsConstructors =
+        Assembly.Load(new AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Exceptions")
+        |> Seq.singleton
+        |> collectImplementations
+
+    let public hasRuntimeExceptionsImplementation (fullMethodName : string) =
+        Map.containsKey fullMethodName runtimeExceptionsConstructors
+
+    let public getRuntimeExceptionsImplementation (fullMethodName : string) =
+        runtimeExceptionsConstructors.[fullMethodName]

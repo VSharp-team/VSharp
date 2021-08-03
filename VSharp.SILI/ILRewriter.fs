@@ -2,7 +2,6 @@ namespace VSharp.Concolic
 
 open System
 open System.Reflection.Emit
-open FSharpx.Collections
 open VSharp
 open VSharp.Interpreter.IL
 
@@ -438,7 +437,7 @@ module private EvaluationStackTyper =
                     else pops
                 instr.types <- pops |> int |> stackTypes.Take
                 stackTypes.Pop pops
-                let returnType = Reflection.methodReturnType callee
+                let returnType = Reflection.getMethodReturnType callee
                 if opcodeValue = OpCodeValues.Newobj then
                     stackTypes.Push evaluationStackCellType.Ref
                 elif returnType <> typeof<Void> then
@@ -447,7 +446,7 @@ module private EvaluationStackTyper =
                 // TODO: resolve and parse signature
                 __notImplemented__()
             | OpCodeValues.Ret ->
-                if Reflection.methodReturnType m <> typeof<Void> then stackTypes.Pop()
+                if Reflection.getMethodReturnType m <> typeof<Void> then stackTypes.Pop()
             | _ -> ()
         | SwitchArg -> ()
 

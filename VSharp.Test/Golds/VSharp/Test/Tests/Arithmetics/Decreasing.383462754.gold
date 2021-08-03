@@ -1,6 +1,6 @@
 METHOD: System.Boolean VSharp.Test.Tests.Arithmetics.Decreasing(System.Int32)
 RESULT: Totally 1 state:
-True
+-1 + -x + 2 + x == 1
 MEMORY DUMP:
 --------------- Stack: ---------------
 key = __loc__0, value = 1 + x

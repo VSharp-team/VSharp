@@ -11,17 +11,20 @@ type stackKey =
     | ThisKey of Reflection.MethodBase
     | ParameterKey of Reflection.ParameterInfo
     | LocalVariableKey of Reflection.LocalVariableInfo * Reflection.MethodBase
+    | TemporaryLocalVariableKey of Type
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
         | ParameterKey pi -> pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
+        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" (Reflection.fullMethodName m)
+            | ThisKey m -> sprintf "%s##this" (Reflection.getFullMethodName m)
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.fullMethodName m) (lvi.ToString())
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.getFullMethodName m) (lvi.ToString())
+            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -30,11 +33,14 @@ type stackKey =
                 match x, other with
                 | ThisKey _, ThisKey _
                 | ParameterKey _, ParameterKey _
-                | LocalVariableKey _, LocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
+                | LocalVariableKey _, LocalVariableKey _
+                | TemporaryLocalVariableKey _, TemporaryLocalVariableKey _ -> x.GetHashCode().CompareTo(other.GetHashCode())
                 | ThisKey _, _ -> -1
                 | _, ThisKey _ -> 1
                 | LocalVariableKey _, _ -> -1
                 | _, LocalVariableKey _ -> 1
+                | TemporaryLocalVariableKey _, _ -> -1
+                | _, TemporaryLocalVariableKey _ -> 1
             | _ -> -1
     override x.Equals(other) = (x :> IComparable).CompareTo(other) = 0
     member x.TypeOfLocation =
@@ -42,26 +48,17 @@ type stackKey =
         | ThisKey m -> m.DeclaringType
         | ParameterKey p -> p.ParameterType
         | LocalVariableKey(l, _) -> l.LocalType
+        | TemporaryLocalVariableKey typ -> typ
         |> fromDotNetType
+    member x.Map typeSubst =
+        match x with
+        | ThisKey m -> ThisKey (Reflection.concretizeMethodBase m typeSubst)
+        | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
+        | LocalVariableKey(l, m) -> LocalVariableKey (Reflection.concretizeLocalVariable l m typeSubst)
+        | TemporaryLocalVariableKey typ -> TemporaryLocalVariableKey (Reflection.concretizeType typeSubst typ)
 
 type concreteHeapAddress = vectorTime
 type arrayType = symbolicType * int * bool // Element type * dimension * is vector
-
-type ICodeLocation =
-    abstract Location : obj
-
-type IFunctionIdentifier =
-    inherit ICodeLocation
-    abstract ReturnType : Type
-    abstract IsConstructor : bool
-    abstract Method : System.Reflection.MethodBase
-
-type EmptyIdentifier() =
-    interface IFunctionIdentifier with
-        override x.Location = null
-        override x.ReturnType = typeof<Void>
-        override x.IsConstructor = false
-        override x.Method = null
 
 [<StructuralEquality;NoComparison>]
 type operation =
@@ -73,7 +70,6 @@ type operation =
         | Operator op -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
-
 
 // TODO: symbolic type -> primitive type
 // TODO: get rid of Nop!
@@ -104,76 +100,82 @@ type termNode =
 
         let extendIndent = (+) "\t"
 
-        let rec toStr parentPriority indent term =
+        let rec toStr parentPriority indent term k =
             match term with
-            | Nop -> "<VOID>"
-            | Constant(name, _, _) -> name.v
-            | Concrete(_, ClassType(Id t, _)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
-                sprintf "<Lambda Expression %O>" t
-            | Concrete(_, Null) -> "null"
-            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> "null"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> "'\\000'"
-            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c
-            | Concrete(:? concreteHeapAddress as k, AddressType) -> VectorTime.print k
-            | Concrete(value, _) -> value.ToString()
+            | Nop -> k "<VOID>"
+            | Constant(name, _, _) -> k name.v
+            | Concrete(_, (ClassType(Id t, _) as typ)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+                sprintf "<Lambda Expression %O>" typ |> k
+            | Concrete(_, Null) -> k "null"
+            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> k "null"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> k "'\\000'"
+            | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c |> k
+            | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
+            | Concrete(value, _) -> value.ToString() |> k
             | Expression(operation, operands, _) ->
                 match operation with
                 | Operator operator when Operations.operationArity operator = 1 ->
                     assert (List.length operands = 1)
                     let operand = List.head operands
                     let opStr = Operations.operationToString operator |> checkExpression operation.priority parentPriority
-                    let printedOperand = toStr operation.priority indent operand.term
-                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand
+                    toStr operation.priority indent operand.term (fun printedOperand ->
+                    sprintf (Printf.StringFormat<string->string>(opStr)) printedOperand |> k)
                 | Operator operator ->
                     assert (List.length operands >= 2)
-                    let printedOperands = operands |> List.map (getTerm >> toStr operation.priority indent)
+                    Cps.List.mapk (fun x k -> toStr operation.priority indent (getTerm x) k) operands (fun printedOperands ->
                     let sortedOperands = if Operations.isCommutative operator then List.sort printedOperands else printedOperands
                     sortedOperands
                         |> String.concat (Operations.operationToString operator)
                         |> checkExpression operation.priority parentPriority
+                        |> k)
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
-                    sprintf "(%O)%s" dest (toStr operation.priority indent (List.head operands).term) |>
-                        checkExpression operation.priority parentPriority
-                | Application f -> operands |> List.map (getTerm >> toStr -1 indent) |> join ", " |> sprintf "%O(%s)" f
+                    toStr operation.priority indent (List.head operands).term (fun term ->
+                    sprintf "(%O %s)" dest term
+                        |> checkExpression operation.priority parentPriority
+                        |> k)
+                | Application f ->
+                    Cps.List.mapk (getTerm >> toStr -1 indent) operands (fun results ->
+                    results |> join ", " |> sprintf "%O(%s)" f |> k)
             | Struct(fields, t) ->
-                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t
+                fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
             | Union(guardedTerms) ->
-                let guardedToString (guard, term) =
-                    let guardString = toStringWithParentIndent indent guard
-                    let termString = toStringWithParentIndent indent term
-                    sprintf "| %s ~> %s" guardString termString
-                let printed = guardedTerms |> Seq.map guardedToString |> Seq.sort |> join ("\n" + indent)
-                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]"
-            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> "NullRef"
-            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType
-            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address
+                let guardedToString (guard, term) k =
+                    toStringWithParentIndent indent guard (fun guardString ->
+                    toStringWithParentIndent indent term (fun termString ->
+                    sprintf "| %s ~> %s" guardString termString |> k))
+                Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
+                let printed = guards |> Seq.sort |> join ("\n" + indent)
+                formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
+            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> k "NullRef"
+            | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
+            | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
             | Ptr(address, typ, shift) ->
                 let offset =
                     match shift with
                     | None -> ""
                     | Some shift -> ", offset = " + shift.ToString()
                 match address with
-                | None -> sprintf "(nullptr as %O%s)" typ offset
-                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset
+                | None -> sprintf "(nullptr as %O%s)" typ offset |> k
+                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
             formatIfNotEmpty (formatWithIndent indent) stringResult
 
-        and toStringWithIndent indent term = toStr -1 indent term.term
+        and toStringWithIndent indent term k = toStr -1 indent term.term k
 
-        and toStringWithParentIndent parentIndent = toStringWithIndent <| extendIndent parentIndent
+        and toStringWithParentIndent parentIndent term k = toStringWithIndent (extendIndent parentIndent) term k
 
-        toStr -1 "\t" x
+        toStr -1 "\t" x id
 
-and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type HeapAddressType!
+and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
 
 and address =
     | PrimitiveStackLocation of stackKey
     | StructField of address * fieldId
     | StackBufferIndex of stackKey * term
-    | BoxedLocation of concreteHeapAddress * symbolicType
+    | BoxedLocation of concreteHeapAddress * symbolicType // TODO: delete type from boxed location?
     | ClassField of heapAddress * fieldId
     | ArrayIndex of heapAddress * term list * arrayType
     | ArrayLowerBound of heapAddress * term * arrayType
@@ -321,7 +323,7 @@ module internal Terms =
     let typeOfAddress = function
         | ClassField(_, field)
         | StructField(_, field)
-        | StaticField(_, field) -> field.typ |> Types.Constructor.fromDotNetType
+        | StaticField(_, field) -> fromDotNetType field.typ
         | ArrayIndex(_, _, (elementType, _, _)) -> elementType
         | BoxedLocation(_, typ) -> typ
         | ArrayLength _
@@ -371,8 +373,8 @@ module internal Terms =
     let sizeOf = typeOf >> Types.sizeOf
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
-    let isBool t =     typeOf t |> Types.isBool
-    let isNumeric t =  typeOf t |> Types.isNumeric
+    let isBool t =    typeOf t |> Types.isBool
+    let isNumeric t = typeOf t |> Types.isNumeric
 
     let rec isStruct term =
         match term.term with
@@ -387,39 +389,31 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
 
-    let canCastConcrete (value : obj) targetType =
+    // Only for concretes: there will never be null type
+    let canCastConcrete (concrete : obj) targetType =
+        assert(not <| Types.isNull targetType)
         let targetType = Types.toDotNetType targetType
-        let actualType = if box value = null then targetType else value.GetType()
-        actualType = targetType
-        || targetType.IsAssignableFrom(actualType)
-        || typedefof<IConvertible>.IsAssignableFrom(actualType) && (TypeUtils.isIntegral targetType || TypeUtils.isReal targetType)
+        let actualType = TypeUtils.getTypeOfConcrete concrete
+        actualType = targetType || targetType.IsAssignableFrom(actualType)
 
-    let castConcrete (value : obj) (t : System.Type) =
-        let actualType = if box value = null then t else value.GetType()
+    let castConcrete (concrete : obj) (t : Type) =
+        let actualType = TypeUtils.getTypeOfConcrete concrete
         let functionIsCastedToMethodPointer () =
-            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<System.IntPtr>.IsAssignableFrom(t)
-        try
-            if actualType = t then
-                Concrete value (fromDotNetType t)
-            elif t.IsEnum && t.GetEnumUnderlyingType().IsAssignableFrom(actualType) || actualType.IsEnum && actualType.GetEnumUnderlyingType().IsAssignableFrom(t) then
-                Concrete value (fromDotNetType t)
-            elif typedefof<IConvertible>.IsAssignableFrom(actualType) then
-                let casted =
-                    if t.IsPointer then
-                        IntPtr(Convert.ChangeType(value, typedefof<int64>) :?> int64) |> box
-                    //TODO: ability to convert negative integers to UInt32 without overflowException
-                    elif TypeUtils.isIntegral t then
-                        TypeUtils.uncheckedChangeType value t
-                    else Convert.ChangeType(value, t)
-                Concrete casted (fromDotNetType t)
-            elif t.IsAssignableFrom(actualType) then
-                Concrete value (fromDotNetType t)
-            elif functionIsCastedToMethodPointer() then
-                Concrete value (fromDotNetType actualType)
-            else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" t.FullName actualType.FullName))
-        with
-        | _ ->
-            internalfailf "cannot cast %s to %s!" actualType.FullName t.FullName
+            typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
+        if actualType = t then
+            Concrete concrete (fromDotNetType t)
+        elif t.IsEnum && TypeUtils.isNumeric actualType then
+            let underlyingType = t.GetEnumUnderlyingType()
+            Concrete (TypeUtils.convert concrete underlyingType) (fromDotNetType t)
+        elif actualType.IsEnum && TypeUtils.isNumeric t then
+            Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+        elif TypeUtils.canConvert actualType t then
+            Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
+        elif t.IsAssignableFrom(actualType) then
+            Concrete concrete (fromDotNetType t)
+        elif functionIsCastedToMethodPointer() then
+            Concrete concrete (fromDotNetType actualType)
+        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" (Reflection.getFullTypeName actualType) (Reflection.getFullTypeName t)))
 
     let True =
         Concrete (box true) Bool
@@ -459,24 +453,37 @@ module internal Terms =
         assert(Operations.isUnary operation)
         Expression (Operator operation) [x] t
 
-    let private makeCast srcTyp dstTyp expr =
-        if srcTyp = dstTyp then expr
-        else Expression (Cast(srcTyp, dstTyp)) [expr] dstTyp
+    let (|CastExpr|_|) = term >> function
+        | Expression(Cast(srcType, dstType), [x], t) ->
+            assert(dstType = t)
+            Some(CastExpr(x, srcType, dstType))
+        | _ -> None
+
+    let rec private makeCast term fromType toType =
+        match term, toType with
+        | _ when fromType = toType -> term
+        | CastExpr(x, xType, Numeric(Id t)), Numeric(Id dstType) when not <| TypeUtils.isLessForNumericTypes t dstType ->
+            makeCast x xType toType
+        | CastExpr(x, (Numeric(Id srcType) as xType), Numeric(Id t)), Numeric(Id dstType)
+            when not <| TypeUtils.isLessForNumericTypes t srcType && not <| TypeUtils.isLessForNumericTypes dstType t ->
+            makeCast x xType toType
+        | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
-        match term.term with
+        match term.term, targetType with
         | _ when typeOf term = targetType -> term
-        | Concrete(value, _) -> castConcrete value (Types.toDotNetType targetType)
-        | Constant(_, _, t)
-        | Expression(_, _, t) -> makeCast t targetType term
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
-        | HeapRef _ when Types.isObject targetType -> term
+        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr None typ (Some term)
+        | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
+        // TODO: make cast to Bool like function Transform2BooleanTerm
+        | Constant(_, _, t), _
+        | Expression(_, _, t), _ -> makeCast term t targetType
+        | Ref _, ByRef _ -> term
+        | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 
     let negate term =
         assert(isBool term)
-        makeUnary OperationType.LogicalNeg term Bool
-
+        makeUnary OperationType.LogicalNot term Bool
 
     let (|True|_|) term = if isTrue term then Some True else None
     let (|False|_|) term = if isFalse term then Some False else None
@@ -512,15 +519,17 @@ module internal Terms =
         | _ -> None
 
     let (|Div|_|) = term >> function
-        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t))
+        | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t, true))
+        | Expression(Operator OperationType.Divide_Un, [x;y], t) -> Some(Div(x, y, t, false))
         | _ -> None
 
     let (|Rem|_|) = term >> function
-        | Expression(Operator OperationType.Remainder, [x;y], t) -> Some(Rem(x, y, t))
+        | Expression(Operator OperationType.Remainder, [x;y], t)
+        | Expression(Operator OperationType.Remainder_Un, [x;y], t) -> Some(Rem(x, y, t))
         | _ -> None
 
     let (|Negation|_|) = function
-        | Expression(Operator OperationType.LogicalNeg, [x], _) -> Some(Negation x)
+        | Expression(Operator OperationType.LogicalNot, [x], _) -> Some(Negation x)
         | _ -> None
 
     let (|NegationT|_|) = term >> (|Negation|_|)
@@ -542,12 +551,22 @@ module internal Terms =
         | _ -> None
 
     let (|ShiftRight|_|) = term >> function
-        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t))
+        | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t, true))
+        | Expression(Operator OperationType.ShiftRight_Un, [x;y], t) -> Some(ShiftRight(x, y, t, false))
+        | _ -> None
+
+    let (|ShiftRightThroughCast|_|) = function
+        | CastExpr(ShiftRight(a, b, Numeric(Id t), _), _, (Numeric(Id castType) as t')) when not <| TypeUtils.isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
     let (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
+
+    let getConcreteHeapAddress = term >> function
+        | ConcreteHeapAddress(addr) -> addr
+        | _ -> __unreachable__()
 
     let isConcreteHeapAddress term =
         match term.term with
@@ -558,6 +577,7 @@ module internal Terms =
         match address.term with
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
+        | HeapRef(address, _) -> timeOf address
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
         | _ -> internalfailf "timeOf : expected heap address, but got %O" address
 

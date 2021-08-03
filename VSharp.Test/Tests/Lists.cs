@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 
 namespace VSharp.Test.Tests
@@ -55,7 +56,7 @@ namespace VSharp.Test.Tests
 //            return a > 3;
 //        }
 
-        [Ignore("dfs goes through vertex twice #fix")]
+        [Ignore("Byref is not implemented")]
         public bool Construct()
         {
             var a = new List<int>(4) {1, 2, 3, 4};
@@ -91,7 +92,7 @@ namespace VSharp.Test.Tests
             return array.GetLowerBound(dimension);
         }
 
-        [Ignore("reinterpretation")]
+        [TestSvm]
         public int UpperBoundTest()
         {
             var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
@@ -118,19 +119,6 @@ namespace VSharp.Test.Tests
             return tmp.Length;
         }
 
-//        public void ClearTest()
-//        {
-//            var a = new int[4] { 5, 6, 7, 8 };
-//            SystemArray.Clear(a, 1, 2);
-//        }
-//
-//        public void Copy()
-//        {
-//            var a = new int[4] { 5, 6, 7, 8 };
-//            var b = new int[3];
-//            a.CopyTo(b, 1);
-//        }
-
         [TestSvm]
         public int RankTest()
         {
@@ -155,6 +143,138 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public void ConcreteClearTest()
+        {
+            var a = new int[4] { 5, 6, 7, 8 };
+            Array.Clear(a, 1, 2);
+        }
+
+        [Ignore("Exceptions handling")]
+        public void CopyToConcreteToConcreteArray()
+        {
+            var a = new int[4] { 5, 6, 7, 8 };
+            var b = new int[3];
+            a.CopyTo(b, 1);
+        }
+
+        [TestSvm]
+        public static int CopyConcreteToConcreteArray()
+        {
+            int[] arr = new int[5] {10, 2, 3, 4, 5};
+            int[] a = new int[5] {1, 1, 1, 1, 1};
+            Array.Copy(arr, 1, a, 1, 3);
+            return a[2];
+        }
+
+        [TestSvm]
+        public static int[] CopyConcreteToSymbolicArray(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            Array.Copy(arr, 2, a, 2, 2);
+            return a;
+        }
+
+        [TestSvm]
+        public static int[] CopyAndThenWrite(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            Array.Copy(arr, 2, a, 2, 2);
+            a[2] = 42;
+            return a;
+        }
+
+        [TestSvm]
+        public static int[] WriteAndThenCopy(int[] a)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            a[2] = 42;
+            Array.Copy(arr, 2, a, 2, 2);
+            return a;
+        }
+
+        [Ignore("Forward exploration does not handle recursion now")]
+        public static int TestSolvingCopy(int[] a, int[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                Array.Fill(a, 1);
+                Array.Copy(a, b, b.Length);
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm]
+        public static int MakeDefaultAndWrite(int k)
+        {
+            int[] arr = new int[5];
+            arr[k] = 42;
+            return arr[2];
+        }
+
+        [TestSvm]
+        public static int SymbolicWriteAfterConcreteWrite(int k)
+        {
+            int[] arr = new int[5];
+            arr[2] = 42;
+            arr[k] = 12;
+            return arr[2];
+        }
+
+        [TestSvm]
+        public static int SymbolicWriteAfterConcreteWrite2(int[] a, int k)
+        {
+            a[2] = 42;
+            a[k] = 12;
+            return a[2];
+        }
+
+        [TestSvm]
+        public static int SolverTestArrayKey(int[] a, int x)
+        {
+            a[1] = 12;
+            a[x] = 12;
+            if (x != 10)
+            {
+                a[10] = 42;
+            }
+            var res = 0;
+            if (a[x] == 12)
+            {
+                res = 1;
+            }
+            return res;
+        }
+
+        [TestSvm]
+        public static int SolverTestConcreteArray(int x)
+        {
+            var res = 0;
+            var a = new int[3] {1, 2, 3};
+            a[2] = x;
+            var len = a.Length;
+            var lb = a.GetLowerBound(0);
+            if (len == 3 && lb == 0)
+                res = 1;
+            return res;
+        }
+
+        [TestSvm]
+        public static int SolverTestMultiDimensionArray(int[,] a, int x, int y)
+        {
+            var res = 0;
+            var b = new int[x + 1, y + 1];
+            var axy = a[x, y];
+            var bxy = b[x, y];
+            if (axy == bxy)
+                res = 1;
+            return res;
+        }
+
+        [TestSvm]
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];
@@ -171,6 +291,62 @@ namespace VSharp.Test.Tests
             }
 
             return arr;
+        }
+
+        [TestSvm]
+        public static int TestConnectionBetweenIndicesAndValues(int[] a, int i, int j)
+        {
+            int x = a[i];
+            int y = a[j];
+            int res = 0;
+            if (i == j && x != y)
+                res = 1;
+            return res;
+        }
+
+        [TestSvm]
+        public static int TestConnectionBetweenMultiIndicesAndValues(int[,] a, int i, int j, int f, int g)
+        {
+            int x = a[i, j];
+            int y = a[f, g];
+            int res = 0;
+            if (i == f && j == g && x != y)
+                res = 1;
+            return res;
+        }
+
+        public class MyClass
+        {
+            public int x;
+        }
+
+        [TestSvm]
+        public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
+        {
+            MyClass x = a[i];
+            MyClass y = a[j];
+            int res = 0;
+            if (i == j && x != y)
+                res = 1;
+            return res;
+        }
+
+        [Ignore("needs big bound")]
+        public static int AddManyElementsToList()
+        {
+            List<int> l = new List<int>();
+            for (var i = 0; i < 1000000; i++)
+            {
+                l.Add(i);
+            }
+            return l.Last();
+        }
+
+        [TestSvm]
+        public static bool CheckArrayContains()
+        {
+            char[] l = {'c', 'h', 'a', 'r', 's'};
+            return l.Contains('a');
         }
 
         [Ignore("System.Array.Set(...) is not implemented")]
@@ -218,8 +394,7 @@ namespace VSharp.Test.Tests
         {
         }
 
-        // [TestSvm]
-        [Ignore("exceptions handling: should append errored state to result")]
+        [Ignore("Exceptions handling")]
         public static EmptyStruct LdElemMustThrowExceptionIfIndexIsNegative(int i)
         {
             var array = new EmptyStruct[3];
@@ -238,8 +413,7 @@ namespace VSharp.Test.Tests
             return i;
         }
 
-        // [TestSvm]
-        [Ignore("Exceptions handling. Should we represent function summary as list of states and compose only those that have !False path condition?")]
+        [Ignore("Exceptions handling")]
         public static int ArrayExceptionsOrder(int f, object[] crr, object c, int i)
         {
             var arr = new A[10];
@@ -368,8 +542,7 @@ namespace VSharp.Test.Tests
             return f;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int F(int x)
         {
             if (x > 10)
@@ -384,15 +557,13 @@ namespace VSharp.Test.Tests
             return Container.X + tmp.X;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int G(int x)
         {
             return F(5) + 10;
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int NonEmptyPath(First f)
         {
             int res = 0;
@@ -421,6 +592,7 @@ namespace VSharp.Test.Tests
             return 0;
         }
 
+        // [TestSvm]
         public static LinkedListNode<int> G(LinkedListNode<int> l, LinkedListNode<int> n)
         {
             LinkedListNode<int> tmp;
@@ -444,7 +616,8 @@ namespace VSharp.Test.Tests
         }
 
         // Test on tracking current heap address during access to heap for filtering possible locations
-        [Ignore("Exception handling is not implemented")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int MemoryTest(LinkedList<int> l)
         {
             LinkedListNode<int> n = new LinkedListNode<int>(10);
@@ -514,7 +687,7 @@ namespace VSharp.Test.Tests
                 Key = x;
             }
 
-            [TestSvm]
+            [Ignore("Forward exploration does not handle recursion now")]
             public void Add(int x)
             {
                 if (Key == x)
@@ -990,7 +1163,7 @@ namespace VSharp.Test.Tests
             }
         }
 
-        [Ignore("Test works too long")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static bool TestBinTree(BinTree tree, int x) // always true
         {
             if (tree == null)
@@ -999,8 +1172,7 @@ namespace VSharp.Test.Tests
             return tree.Contains(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void TestBinTree2(BinTree tree, int x)
         {
             if (tree == null)
@@ -1008,8 +1180,7 @@ namespace VSharp.Test.Tests
             tree.Add2(x);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void ListTest(List list)
         {
             if (list == null)
@@ -1033,8 +1204,7 @@ namespace VSharp.Test.Tests
                 return RecF(y - 2);
         }
 
-        // [TestSvm]
-        [Ignore("forward exploration does not handle recursion now")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static int TestRecF(int n)
         {
             return RecF(n - 15);

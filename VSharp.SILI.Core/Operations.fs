@@ -1,25 +1,35 @@
 ﻿namespace VSharp.Core
 
 type OperationType =
-    | Not = 0
-    | UnaryMinus = 1
-    | LogicalNeg = 2
-    | LogicalAnd = 3
-    | LogicalOr = 4
-    | LogicalXor = 5
-    | Equal = 6
-    | NotEqual = 7
-    | Greater = 8
-    | Less = 9
-    | GreaterOrEqual = 10
-    | LessOrEqual = 11
-    | Add = 12
-    | Subtract = 13
-    | Divide = 14
-    | Multiply = 15
-    | Remainder = 16
-    | ShiftLeft = 17
-    | ShiftRight = 18
+    | UnaryMinus = 0
+    | BitwiseNot = 1
+    | BitwiseAnd = 2
+    | BitwiseOr = 3
+    | BitwiseXor = 4
+    | LogicalNot = 5
+    | LogicalAnd = 6
+    | LogicalOr = 7
+    | LogicalXor = 8
+    | Equal = 9
+    | NotEqual = 10
+    | Greater = 11
+    | Greater_Un = 12
+    | Less = 13
+    | Less_Un = 14
+    | GreaterOrEqual = 15
+    | GreaterOrEqual_Un = 16
+    | LessOrEqual = 17
+    | LessOrEqual_Un = 18
+    | Add = 19
+    | Subtract = 20
+    | Divide = 21
+    | Divide_Un = 22
+    | Multiply = 23
+    | Remainder = 24
+    | Remainder_Un = 25
+    | ShiftLeft = 26
+    | ShiftRight = 27
+    | ShiftRight_Un = 28
 
 type StandardFunction =
     | Arccosine
@@ -70,8 +80,8 @@ module internal Operations =
     open VSharp
 
     let operationArity = function
-        | OperationType.LogicalNeg
-        | OperationType.Not
+        | OperationType.LogicalNot
+        | OperationType.BitwiseNot
         | OperationType.UnaryMinus
             -> 1
         | _ -> 2
@@ -80,31 +90,44 @@ module internal Operations =
 
     let maxPriority = 10
     let operationPriority = function
-        | OperationType.LogicalNeg
-        | OperationType.Not
-        | OperationType.UnaryMinus-> maxPriority
+        | OperationType.BitwiseNot
+        | OperationType.LogicalNot
+        | OperationType.UnaryMinus -> maxPriority
         | OperationType.Multiply
         | OperationType.Divide
-        | OperationType.Remainder -> maxPriority - 1
+        | OperationType.Divide_Un
+        | OperationType.Remainder
+        | OperationType.Remainder_Un -> maxPriority - 1
         | OperationType.Add
         | OperationType.Subtract -> maxPriority - 2
         | OperationType.ShiftLeft
-        | OperationType.ShiftRight -> maxPriority - 3
+        | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un -> maxPriority - 3
         | OperationType.Less
+        | OperationType.Less_Un
         | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un
         | OperationType.Greater
-        | OperationType.GreaterOrEqual -> maxPriority - 4
+        | OperationType.Greater_Un
+        | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un -> maxPriority - 4
         | OperationType.Equal
         | OperationType.NotEqual -> maxPriority - 5
+        | OperationType.BitwiseAnd
         | OperationType.LogicalAnd -> maxPriority - 6
+        | OperationType.BitwiseXor
         | OperationType.LogicalXor -> maxPriority - 7
+        | OperationType.BitwiseOr
         | OperationType.LogicalOr -> maxPriority - 8
-        | _ -> -1
+        | _ -> __unreachable__()
 
     let isCommutative = function
         | OperationType.Add
         | OperationType.Multiply
         | OperationType.Equal
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor
         | OperationType.LogicalAnd
         | OperationType.LogicalOr
         | OperationType.LogicalXor -> true
@@ -112,22 +135,31 @@ module internal Operations =
 
     let operationToString = function
         | OperationType.Add -> " + "
-        | OperationType.Divide -> " / "
+        | OperationType.Divide
+        | OperationType.Divide_Un -> " / "
         | OperationType.Equal -> " == "
         | OperationType.NotEqual -> " != "
-        | OperationType.Greater -> " > "
-        | OperationType.GreaterOrEqual -> " >= "
-        | OperationType.Less -> " < "
-        | OperationType.LessOrEqual -> " <= "
+        | OperationType.Greater
+        | OperationType.Greater_Un -> " > "
+        | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un -> " >= "
+        | OperationType.Less
+        | OperationType.Less_Un -> " < "
+        | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un -> " <= "
+        | OperationType.BitwiseAnd -> " && "
         | OperationType.LogicalAnd -> " & "
+        | OperationType.BitwiseOr -> " || "
         | OperationType.LogicalOr -> " | "
-        | OperationType.LogicalNeg -> "!%s"
+        | OperationType.BitwiseNot -> "~%s"
+        | OperationType.LogicalNot -> "!%s"
         | OperationType.LogicalXor -> " ^ "
         | OperationType.Multiply -> " * "
-        | OperationType.Not -> "~%s"
-        | OperationType.Remainder -> " % "
+        | OperationType.Remainder
+        | OperationType.Remainder_Un -> " % "
         | OperationType.ShiftLeft -> " << "
-        | OperationType.ShiftRight -> " >> "
+        | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un -> " >> "
         | OperationType.Subtract -> " - "
         | OperationType.UnaryMinus -> "-%s"
         | _ -> ""
@@ -137,17 +169,24 @@ module internal Operations =
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Greater
+        | OperationType.Greater_Un
         | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un
         | OperationType.Less
-        | OperationType.LessOrEqual -> TypeUtils.deduceComparisonTargetType x y
+        | OperationType.Less_Un
+        | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un -> TypeUtils.deduceComparisonTargetType x y
         | OperationType.Multiply
         | OperationType.Add
         | OperationType.Subtract
         | OperationType.Divide
-        | OperationType.Remainder -> TypeUtils.deduceSimpleArithmeticOperationTargetType x y
+        | OperationType.Divide_Un
+        | OperationType.Remainder
+        | OperationType.Remainder_Un -> TypeUtils.deduceSimpleArithmeticOperationTargetType x y
         | OperationType.ShiftLeft
-        | OperationType.ShiftRight -> TypeUtils.deduceShiftTargetType x y
-        | OperationType.LogicalAnd
-        | OperationType.LogicalOr
-        | OperationType.LogicalXor -> TypeUtils.deduceLogicalArithmeticOperationTargetType x y
+        | OperationType.ShiftRight
+        | OperationType.ShiftRight_Un -> TypeUtils.deduceShiftTargetType x y
+        | OperationType.BitwiseAnd
+        | OperationType.BitwiseOr
+        | OperationType.BitwiseXor -> TypeUtils.deduceLogicalArithmeticOperationTargetType x y
         | _ -> TypeUtils.failDeduceBinaryTargetType (operationToString op) x y

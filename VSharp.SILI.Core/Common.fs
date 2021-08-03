@@ -4,10 +4,6 @@
 
 open VSharp
 
-//type SolverResult = Sat | Unsat | Unknown
-//type ISolver =
-//    abstract Solve : term -> SolverResult
-//    abstract SolvePathCondition : term -> term list -> SolverResult
 
 module internal Common =
 //    let mutable private solver : ISolver option = None
@@ -36,7 +32,7 @@ module internal Common =
                 Merging.merge (List.zip guards values') |> matched)
         | _ -> unmatched x matched
 
-    let rec simplifyGenericBinary _ x y matched concrete unmatched repeat =
+    let simplifyGenericBinary _ x y matched concrete unmatched repeat =
         match x.term, y.term with
         | Concrete(xval, typeOfX), Concrete(yval, typeOfY) -> concrete x y xval yval typeOfX typeOfY |> matched
         | Union(gvsx), Union(gvsy) ->

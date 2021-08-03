@@ -137,7 +137,7 @@ void StackFrame::setUnmanagedContext(bool isUnmanaged)
 //{
 //    m_frames.push(StackFrame(maxStackSize, args, argsCount, localsCount));
 //}
-void Stack::pushFrame(int maxStackSize)
+void Stack::pushFrame(unsigned maxStackSize)
 {
     m_frames.push(StackFrame(maxStackSize, nullptr, 0, 0));
 }

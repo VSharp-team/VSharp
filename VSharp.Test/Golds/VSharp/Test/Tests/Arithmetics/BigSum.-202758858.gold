@@ -1,0 +1,5 @@
+METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.BigSum(System.Int32)
+RESULT: Totally 1 state:
+x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Arithmetics }

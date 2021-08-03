@@ -1,0 +1,6 @@
+METHOD: System.Int64 VSharp.Test.Tests.PDR.Conv_Ovf_short_int(System.Int64)
+RESULT: Totally 1 state:
+(System.Int64 (System.Int32 a))
+MEMORY DUMP:
+Path condition: -2147483648 <= a & a <= 2147483647
+Initialized types = { VSharp.Test.Tests.PDR }

@@ -18,8 +18,8 @@ namespace VSharp.Test.Tests
         {
             switch (c)
             {
-                case Color.Blue:  return 500;
-                case Color.Red:  return 10;
+                case Color.Blue: return 500;
+                case Color.Red: return 10;
                 default: return 42;
             }
         }

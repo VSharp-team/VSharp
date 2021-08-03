@@ -3,9 +3,9 @@ RESULT: Totally 1 state:
 True
 MEMORY DUMP:
 --------------- Stack: ---------------
-key = __loc__2, value = 2 + x
-key = __loc__3, value = 3 + x
 key = __loc__0, value = x
 key = __loc__1, value = 1 + x
+key = __loc__2, value = 2 + x
+key = __loc__3, value = 3 + x
 key = x, value = 3 + x
 Initialized types = { VSharp.Test.Tests.Arithmetics }

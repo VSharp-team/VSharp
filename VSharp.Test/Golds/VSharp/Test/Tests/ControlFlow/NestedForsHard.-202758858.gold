@@ -11,7 +11,7 @@ Initialized types = { VSharp.Test.Tests.ControlFlow }
 MEMORY DUMP:
 Path condition: !(1 < 1 + x) /\ 0 < x
 --------------- Stack: ---------------
-key = __loc__1, value = 0
 key = __loc__0, value = 1
+key = __loc__1, value = 0
 key = x, value = 1 + x
 Initialized types = { VSharp.Test.Tests.ControlFlow }

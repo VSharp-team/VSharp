@@ -1,0 +1,16 @@
+METHOD: System.Boolean VSharp.Test.Tests.Typecast.Typecast.CheckIs(System.ValueType)
+RESULT: Totally 3 states:
+True
+MEMORY DUMP:
+Path condition: !(null == x) /\ (x <: System.Double)
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
+
+False
+MEMORY DUMP:
+Path condition: !(null == x) /\ !(x <: System.Double)
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
+
+False
+MEMORY DUMP:
+Path condition: null == x
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

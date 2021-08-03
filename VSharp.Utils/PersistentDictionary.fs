@@ -3,12 +3,11 @@ namespace VSharp
 open FSharpx.Collections
 open VSharp
 
-
 // TODO: migrate on System.Collections.Immutable?
 // TODO: We do not really need equality of 'value, but PersistentHashMap requires it
 [<CustomEquality;NoComparison>]
-type public pdict<'key, 'value> when 'key : equality and 'value : equality=
-    {impl : PersistentHashMap<'key, 'value>}
+type public pdict<'key, 'value> when 'key : equality and 'value : equality =
+    private {impl : PersistentHashMap<'key, 'value>}
     static member Empty() = {impl = PersistentHashMap<'key, 'value>.Empty()}
     member x.Item
         with get key = x.impl.[key]
@@ -30,6 +29,8 @@ module public PersistentDict =
 
     let public contains (key : 'a) (d : pdict<'a, 'b>) = d.impl.ContainsKey key
     let public find (d : pdict<'a, 'b>) (key : 'a) = d.impl.[key]
+
+    // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
     let public add (key : 'a) (value : 'b) (d : pdict<'a, 'b>) = {impl = d.impl.Add(key, value)}
     let public remove key (d : pdict<'a, 'b>) = {impl = d.impl.Remove key}
     let public tryFind (d : pdict<'a, 'b>) key =
@@ -84,25 +85,31 @@ module public PersistentDict =
     let public merge2 (d1 : pdict<'a, 'b>) (d2 : pdict<'a, 'b>) resolve =
         unify2 d1 d1 d2 (fun s k v1 v2 -> add k (resolve k v1 v2) s)
 
-    let public toString format separator sorter keyMapper valueMapper (d : pdict<'a, 'b>) =
+    let private commonToString format separator sort keyMapper valueMapper (d : pdict<'a, 'b>) =
         d
         |> toSeq
-        |> Seq.sortBy (fst >> sorter)
+        |> sort
         |> Seq.map (fun (k, v) -> sprintf format (keyMapper k) (valueMapper v))
         |> join separator
 
-    let public dump (d : pdict<'a, 'b>) sorter keyToString valueToString =
-        toString "%s ==> %O" "\n" sorter keyToString valueToString d
+    let public toString format separator sorter keyMapper valueMapper (d : pdict<'a, 'b>) =
+        commonToString format separator (Seq.sortBy (fst >> sorter)) keyMapper valueMapper d
+
+    let public dump (d : pdict<'a, 'b>) sort keyToString valueToString =
+        commonToString "%s ==> %O" "\n" sort keyToString valueToString d
 
 type pset<'a when 'a : equality> = pdict<'a, int>
 
 module PersistentSet =
+
     let public empty<'a when 'a : equality> : pset<'a> = PersistentDict.empty<'a, int>
     let public isEmpty (d : pset<'a>) = PersistentDict.isEmpty d
 
     let public toSeq (d : pset<'a>) = PersistentDict.keys d
 
     let public contains (key : 'a) (d : pset<'a>) = PersistentDict.contains key d
+
+    // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
     let public add (d : pset<'a>) (key : 'a) : pset<'a> = PersistentDict.add key 0 d
     let public remove (d : pset<'a>) (key : 'a) : pset<'a> = PersistentDict.remove key d
 

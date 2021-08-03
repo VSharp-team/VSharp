@@ -3,12 +3,18 @@ namespace VSharp.Concolic
 open System.Diagnostics
 open System.IO
 open System.Reflection
+open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
 
 
 type ClientMachine(assembly : Assembly, state : state) =
-    let pathToClient = "libicsharpConcolic.so"
+    let extension =
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
+        else __notImplemented__()
+    let pathToClient = "libicsharpConcolic" + extension
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
     let mutable mainReached = false
@@ -38,7 +44,7 @@ type ClientMachine(assembly : Assembly, state : state) =
         if not <| x.communicator.Connect() then false
         else
             x.probes <- x.communicator.ReadProbes()
-            x.instrumenter <- Instrumenter x.probes
+            x.instrumenter <- Instrumenter(x.communicator, x.probes)
             true
 
     member x.ExecCommand() =

@@ -10,6 +10,8 @@ using namespace icsharp;
 char confirmationByte = 0x55;
 char instrumentCommandByte = 0x56;
 char executeCommandByte = 0x57;
+char readMethodBodyByte = 0x58;
+char readStringByte = 0x59;
 char *confirmationMessage = new char[1] {confirmationByte};
 char *instrumentationCommandMessage = new char[1] {instrumentCommandByte};
 
@@ -117,11 +119,61 @@ bool Protocol::handshake() {
     return false;
 }
 
-#ifndef INSTRUMENTATION
+bool Protocol::startSession() {
+    return connect() && sendProbes();
+}
+
 bool Protocol::sendProbes() {
     unsigned bytesCount = ProbesAddresses.size() * sizeof(unsigned long long);
     LOG(tout << "Sending probes..." << std::endl);
     return writeBuffer((char*)ProbesAddresses.data(), bytesCount);
+}
+
+bool Protocol::acceptCommand(CommandType &command)
+{
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        ERROR(tout << "Reading command failed!");
+        return false;
+    }
+    char byte = *message;
+    if (byte == readMethodBodyByte) {
+        LOG(tout << "Accepted ReadMethodBody command");
+        command = ReadMethodBody;
+    } else {
+        if (byte == readStringByte) {
+            LOG(tout << "Accepted ReadString command");
+            command = ReadString;
+        }
+        else
+            ERROR(tout << "Wrong command accepted!");
+    }
+    delete[] message;
+    return true;
+}
+
+bool Protocol::acceptString(char *&string) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    string = new char[messageLength];
+    memcpy(string, message, messageLength);
+    LOG(tout << "Successfully accepted string: " << string);
+    delete[] message;
+    return true;
+}
+
+bool Protocol::sendStringsPoolIndex(const unsigned index) {
+    unsigned messageLength = sizeof(unsigned);
+    char *buffer = new char[messageLength];
+    *(unsigned *)buffer = index;
+    bool result = writeBuffer(buffer, (int)messageLength);
+    delete[] buffer;
+    return result;
 }
 
 bool Protocol::sendMethodBody(const MethodBodyInfo &body) {
@@ -152,8 +204,7 @@ bool Protocol::sendMethodBody(const MethodBodyInfo &body) {
     return result;
 }
 
-bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength)
-{
+bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength) {
     char *message;
     int messageLength;
     if (!readBuffer(message, messageLength)) {
@@ -174,7 +225,6 @@ bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxS
     delete[] origMessage;
     return true;
 }
-#endif
 
 bool Protocol::connect() {
     LOG(tout << "Connecting to server...");

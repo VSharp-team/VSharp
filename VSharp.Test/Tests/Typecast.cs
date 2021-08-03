@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
 using System;
-using VSharp.Test.Tests.Typecast;
 
 namespace VSharp.Test.Tests.Typecast
 {
@@ -84,6 +83,12 @@ namespace VSharp.Test.Tests.Typecast
         }
 
         [TestSvm]
+        public static bool CheckIs(ValueType x)
+        {
+            return x is Double;
+        }
+
+        [TestSvm]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
@@ -98,6 +103,18 @@ namespace VSharp.Test.Tests.Typecast
             Object obj = a;
             Piece b = a;
             return DownCastObject(obj) + DownCastPiece(b);
+        }
+
+        public static String DownCastToString(object str)
+        {
+            return (String) str;
+        }
+
+        [TestSvm]
+        public static String UpCastDownCastString()
+        {
+            object str = "literal";
+            return DownCastToString(str);
         }
 
         [TestSvm]
@@ -311,7 +328,7 @@ namespace VSharp.Test.Tests.Typecast
             return true;
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [Ignore("GetType() is not implemented")]
         public static bool ReferenceIdentity()
         {
             var knight = new Knight();
@@ -402,14 +419,21 @@ namespace VSharp.Test.Tests.Typecast
     [TestSvmFixture]
     public static class Helper
     {
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
         public static double CastStructToInterface(Coord arg)
         {
             INormalize tmp = arg;
             return tmp.Norm();
         }
 
-        [Ignore("Calling virtual method is not implemented")]
+        [TestSvm]
+        public static int WriteInStructUsingNorm(Coord2 arg)
+        {
+            var y = (int) arg.Norm();
+            return arg.X + y; // arg.X should change
+        }
+
+        [TestSvm]
         public static int CastStructToInterfaceAndWriteInBoxed(Coord2 arg)
         {
             INormalize tmp = arg;
@@ -423,7 +447,7 @@ namespace VSharp.Test.Tests.Typecast
             return (int)obj;
         }
 
-        [Ignore("primitive cast: unreachable")]
+        [TestSvm]
         public static int BoxingInt(int obj)
         {
             return UnboxingInt(obj);

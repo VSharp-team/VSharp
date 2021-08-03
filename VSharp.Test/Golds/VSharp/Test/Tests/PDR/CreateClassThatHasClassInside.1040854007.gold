@@ -4,10 +4,10 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 --------------- Fields: ---------------
 _classWithOneField ==> {
-        2 <- (HeapRef 2.2 to VSharp.Test.Tests.PDR+ClassWithOneField)
+        2 <- (HeapRef 3 to VSharp.Test.Tests.PDR+ClassWithOneField)
     }
-x ==> {2.2 <- n}
+x ==> {3 <- n}
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithClassInside
-2.2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 Initialized types = { VSharp.Test.Tests.PDR+ClassWithClassInside, VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

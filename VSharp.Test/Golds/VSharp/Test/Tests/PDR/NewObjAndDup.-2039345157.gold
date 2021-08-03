@@ -1,6 +1,6 @@
 METHOD: System.Int32 VSharp.Test.Tests.PDR.NewObjAndDup()
 RESULT: Totally 1 state:
-0
+42
 MEMORY DUMP:
 --------------- Fields: ---------------
 x ==> {2 <- 42}

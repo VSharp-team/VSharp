@@ -15,10 +15,10 @@ type IRegion<'a> =
 // -------------------------------- Example: [1, 2) U [3,3] U [9, 10] --------------------------------
 
 type endpointSort =
-    | OpenRight = 0
-    | ClosedLeft = 1
-    | ClosedRight = 2
-    | OpenLeft = 3
+    | OpenRight = 1
+    | ClosedLeft = 2
+    | ClosedRight = 3
+    | OpenLeft = 4
 
 [<StructuralEquality;StructuralComparison>]
 type endpoint<'a when 'a : comparison> =
@@ -26,14 +26,14 @@ type endpoint<'a when 'a : comparison> =
 
 module private Intervals =
     let private flip x =
-        {x with sort =
-                match x.sort with
-                | endpointSort.ClosedLeft -> endpointSort.OpenRight
-                | endpointSort.ClosedRight -> endpointSort.OpenLeft
-                | endpointSort.OpenLeft -> endpointSort.ClosedRight
-                | endpointSort.OpenRight -> endpointSort.ClosedLeft
-                | _ -> __unreachable__()
-        }
+        let sort =
+            match x.sort with
+            | endpointSort.ClosedLeft -> endpointSort.OpenRight
+            | endpointSort.ClosedRight -> endpointSort.OpenLeft
+            | endpointSort.OpenLeft -> endpointSort.ClosedRight
+            | endpointSort.OpenRight -> endpointSort.ClosedLeft
+            | _ -> __unreachable__()
+        {x with sort = sort}
 
     let private isLeft = function
         | endpointSort.ClosedLeft
@@ -155,6 +155,7 @@ type points<'a when 'a : equality> =
             | true, false -> {points = PersistentSet.subtract other.points this.points; thrown = false}
             | false, true -> {points = PersistentSet.subtract this.points other.points; thrown = false}
             | true, true -> {points = PersistentSet.union other.points this.points; thrown = true}
+    override x.ToString() = x.points |> PersistentSet.toSeq |> Seq.map toString |> join ", " |> sprintf (if x.thrown then "Z \ {%s}" else "{%s}")
 
 // -------------------- Cartesian product of regions  --------------------
 

@@ -1,5 +1,5 @@
 METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.DefaultShift(System.Int32, System.Int32)
 RESULT: Totally 1 state:
-a << (31 & b)
+a << (31 && b)
 MEMORY DUMP:
 Initialized types = { VSharp.Test.Tests.Arithmetics }

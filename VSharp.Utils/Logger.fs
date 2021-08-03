@@ -8,8 +8,9 @@ module Logger =
     let Info = 3
     let Trace = 4
 
-    let mutable current_log_level = Trace
+    let mutable current_log_level = Info
     let mutable current_text_writer = Console.Out
+    let public ConfigureWriter writer = current_text_writer <- writer
 
     let LevelToString = function
         | 1 -> "Error"
@@ -19,7 +20,7 @@ module Logger =
         | _ -> "Unknown"
 
     let private writeLineString vLevel message =
-        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) System.DateTime.Now message
+        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()
 

@@ -5,12 +5,12 @@ MEMORY DUMP:
 Path condition: null == obj
 Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
 
-23
-MEMORY DUMP:
-Path condition: !(null == obj) /\ !(obj <: System.Int32)
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
-
 13
 MEMORY DUMP:
 Path condition: !(null == obj) /\ (obj <: System.Int32)
+Initialized types = { VSharp.Test.Tests.Typecast.Typecast }
+
+23
+MEMORY DUMP:
+Path condition: !(null == obj) /\ !(obj <: System.Int32)
 Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

@@ -1,6 +1,6 @@
 METHOD: System.Object VSharp.Test.Tests.BoxUnbox.TrickyBox(System.Int32)
 RESULT: Totally 2 states:
-(HeapRef 2 to System.Int32)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 Path condition: !(5 == x)
 --------------- Boxed items: ---------------
@@ -9,7 +9,7 @@ Path condition: !(5 == x)
 2 ==> System.Int32
 Initialized types = { VSharp.Test.Tests.BoxUnbox }
 
-(HeapRef 2 to System.Int32)
+(HeapRef 2 to System.Object)
 MEMORY DUMP:
 Path condition: 5 == x
 --------------- Boxed items: ---------------

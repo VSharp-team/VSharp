@@ -5,7 +5,6 @@ open System.IO
 open System.IO.Pipes
 open System.Text
 open System.Runtime.InteropServices
-open FSharpx.Collections
 open VSharp
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
@@ -167,6 +166,8 @@ type probes = {
     mutable unmem_f4 : uint64
     mutable unmem_f8 : uint64
     mutable unmem_p : uint64
+
+    mutable dumpInstruction : uint64
 }
 with
     member private x.probe2str =
@@ -184,6 +185,7 @@ type signatureTokens = {
     mutable bool_sig : uint32
     mutable void_u1_sig : uint32
     mutable void_u2_sig : uint32
+    mutable void_u4_sig : uint32
     mutable void_i_sig : uint32
     mutable bool_i_sig : uint32
     mutable i1_i1_sig : uint32
@@ -280,10 +282,14 @@ type concolicInstruction = {
     offset : uint32
 }
 
-type concolicCommand =
+type commandFromConcolic =
     | Instrument of rawMethodBody
     | ExecuteInstruction of concolicInstruction
     | Terminate
+
+type commandForConcolic =
+    | ReadMethodBody
+    | ReadString
 
 type Communicator() =
     let pipeFile = "/tmp/concolic_fifo" // TODO: use pid also
@@ -291,6 +297,8 @@ type Communicator() =
     let confirmationByte = byte(0x55)
     let instrumentCommandByte = byte(0x56)
     let executeCommandByte = byte(0x57)
+    let readMethodBodyByte = byte(0x58)
+    let readStringByte = byte(0x59)
     let confirmation = Array.singleton confirmationByte
 
     let server = new NamedPipeServerStream(pipeFile, PipeDirection.InOut)
@@ -390,6 +398,13 @@ type Communicator() =
         x.Serialize<'a>(structure, result, 0)
         result
 
+    member private x.SerializeCommand command =
+        let byte =
+            match command with
+            | ReadString -> readStringByte
+            | ReadMethodBody -> readMethodBodyByte
+        Array.singleton byte
+
     member x.Connect() =
         try
             waitClient()
@@ -404,6 +419,17 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
 
     member x.ReadProbes() = x.ReadStructure<probes>()
+
+    member x.SendCommand (command : commandForConcolic) =
+        let bytes = x.SerializeCommand command
+        writeBuffer bytes
+
+    member x.SendStringAndReadItsIndex (str : string) : uint =
+        x.SendCommand ReadString
+        writeString str
+        match readBuffer() with
+        | Some bytes -> BitConverter.ToUInt32(bytes, 0)
+        | None -> unexpectedlyTerminated()
 
     member x.ReadMethodBody() =
         match readBuffer() with
@@ -427,6 +453,7 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
+        x.SendCommand ReadMethodBody
         let propBytes = x.Serialize mb.properties
         let ehSize = Marshal.SizeOf typeof<rawExceptionHandler>
         let ehBytes : byte[] = Array.zeroCreate (ehSize * mb.ehs.Length)

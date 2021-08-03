@@ -3,6 +3,7 @@
 
 #include "cor.h"
 #include "memory/memory.h"
+#include <vector>
 
 #define COND INT_PTR
 
@@ -205,6 +206,15 @@ PROBE(INT64, Unmem_8, (INT8 idx)) { return unmem_i8(idx); }
 PROBE(FLOAT, Unmem_f4, (INT8 idx)) { return unmem_f4(idx); }
 PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return unmem_f8(idx); }
 PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return unmem_p(idx); }
+
+PROBE(void, DumpInstruction, (UINT32 index)) {
+    const char *&s = stringsPool[index];
+    if (!s) {
+        ERROR(tout << "Pool doesn't contain string with index " << index);
+    } else {
+        LOG(tout << "Executing " << s << std::endl);
+    }
+}
 
 }
 

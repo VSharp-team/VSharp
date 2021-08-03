@@ -1,8 +1,8 @@
 METHOD: System.Boolean VSharp.Test.Tests.Logics.CondAnd2(System.Int32)
 RESULT: Totally 1 state:
-False
+-1 + -x + 2 + x == 3
 MEMORY DUMP:
 --------------- Stack: ---------------
-key = __loc__1, value = 2 + x
 key = __loc__0, value = 1 + x
+key = __loc__1, value = 2 + x
 Initialized types = { VSharp.Test.Tests.Logics }

@@ -73,8 +73,11 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            // var svm = new SVM(new ILInterpreter());
-            var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
+            // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
+            // var svm = new SVM(new MethodInterpreter(new MethodSearcher()));
+            Logger.ConfigureWriter(TestContext.Progress);
+            var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher()));
+            svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             TestSvmAttribute.SetUpSVM(svm);
         }
@@ -260,9 +263,17 @@ namespace VSharp.Test
             var typeName = methodInfo?.DeclaringType?.FullName?.Split('.');
             if (typeName == null)
                 return null;
+            var methodNameWin = $"{methodInfo.Name}.{MethodHash(methodInfo)}{PlatformID.Win32NT}{IdealTestFileExtension}";
+            var methodNameUnix = $"{methodInfo.Name}.{MethodHash(methodInfo)}{PlatformID.Unix}{IdealTestFileExtension}";
+            var typePath = Path.Combine(currentFolder, GoldsDirectoryName, Path.Combine(typeName));
+            var idealValuePathWin = Path.Combine(typePath, methodNameWin);
+            var idealValuePathUnix = Path.Combine(typePath, methodNameUnix);
+            if (File.Exists(idealValuePathWin) || File.Exists(idealValuePathUnix))
+                if (Environment.OSVersion.Platform == PlatformID.Unix)
+                    return idealValuePathUnix;
+                else return idealValuePathWin;
             var methodName = $"{methodInfo.Name}.{MethodHash(methodInfo)}{IdealTestFileExtension}";
-            var idealValuePath = Path.Combine(currentFolder, GoldsDirectoryName, Path.Combine(typeName), methodName);
-            return idealValuePath;
+            return Path.Combine(typePath, methodName);
         }
 
         private static string ReadIdealValue(string idealValuePath)

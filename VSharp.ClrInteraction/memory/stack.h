@@ -55,7 +55,7 @@ private:
 
 public:
 //    void pushFrame(int maxStackSize, char *args, unsigned argsCount, unsigned localsCount);
-    void pushFrame(int maxStackSize);
+    void pushFrame(unsigned maxStackSize);
     void popFrame();
     StackFrame &topFrame();
     inline const StackFrame &topFrame() const;

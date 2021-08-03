@@ -1,0 +1,20 @@
+METHOD: System.Int32 VSharp.Test.Tests.InsInfException.EnsureConcreteType_2()
+RESULT: Totally 1 state:
+123
+MEMORY DUMP:
+--------------- Fields: ---------------
+_field ==> {
+        3 <- (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithOneField)
+    }
+_field ==> {
+        2 <- (HeapRef 3 to VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField])
+    }
+x ==> {4 <- 123}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]]
+3 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]
+4 ==> VSharp.Test.Tests.PDR+ClassWithOneField
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 3 to VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField])
+key = __loc__1, value = (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithOneField)
+Initialized types = { VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]], VSharp.Test.Tests.InsInfException, VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField], System.Object, VSharp.Test.Tests.PDR+ClassWithOneField }

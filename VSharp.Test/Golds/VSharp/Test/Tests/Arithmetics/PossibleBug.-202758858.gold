@@ -1,0 +1,11 @@
+METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.PossibleBug(System.Int32)
+RESULT: Totally 2 states:
+42
+MEMORY DUMP:
+Path condition: !(n <= 0)
+Initialized types = { VSharp.Test.Tests.Arithmetics }
+
+42
+MEMORY DUMP:
+Path condition: !(-n < 0) /\ n <= 0
+Initialized types = { VSharp.Test.Tests.Arithmetics }

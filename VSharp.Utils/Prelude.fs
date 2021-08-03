@@ -2,20 +2,23 @@
 open System
 open VSharp.CSharpUtils
 
-exception UnreachableException of string
-exception InternalException of string
-exception InsufficientInformationException of string
+type UnreachableException(msg : string) =
+    inherit Exception(msg)
+
+type InternalException(msg : string) =
+    inherit Exception(msg)
+
+type InsufficientInformationException(msg : string) =
+    inherit Exception(msg)
 
 [<AutoOpen>]
 module public Prelude =
-    let public internalfail message = raise (InternalException <| "Internal error: " + message)
+
+    let public internalfail message = raise (InternalException message)
     let public internalfailf format = Printf.ksprintf internalfail format
     let inline public __notImplemented__() = raise (System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
-    let inline public releaseAssert2(value, message) = if not value then internalfail message
-    let inline public releaseAssert value = releaseAssert2(value, "release assert")
-
     let inline public toString x = x.ToString()
     let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
 
@@ -52,9 +55,6 @@ module public Prelude =
     let inline public (|??) lhs rhs = Option.defaultValue rhs lhs
     let inline public (||??) (lhs : 'a option) (rhs : 'a Lazy) = Option.defaultWith rhs.Force lhs
 
-    let safeGenericTypeDefinition (t : System.Type) =
-        if t.IsGenericType && not t.IsGenericTypeDefinition then t.GetGenericTypeDefinition() else t
-
     type ListMonad() =
        member o.Bind(m : 'a list , f: 'a -> 'b list) = List.collect f m
        member o.Return x = List.singleton x
@@ -89,19 +89,3 @@ type fieldId =
                     (y.declaringType.AssemblyQualifiedName, y.name, y.typ.AssemblyQualifiedName)
             | _ -> -1
     override x.ToString() = x.name
-
-
-//type [<CustomEquality;NoComparison>] fieldId =
-//    | FieldId of string
-//    override x.GetHashCode() =
-//        match x with
-//        | FieldId s -> s.GetDeterministicHashCode()
-//    override x.Equals(other) =
-//        match other with
-//        | :? fieldId as other -> hash x = hash other
-//        | _ -> false
-//    override x.ToString() = match x with FieldId s -> s
-
-type 'a symbolicValue =
-    | Specified of 'a
-    | Unspecified

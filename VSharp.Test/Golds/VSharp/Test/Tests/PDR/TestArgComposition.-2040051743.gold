@@ -1,0 +1,8 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.TestArgComposition(VSharp.Test.Tests.PDR+Aaaa)
+RESULT: Totally 1 state:
+42 + c.a * c.a
+MEMORY DUMP:
+Path condition: !(c == null)
+--------------- Fields: ---------------
+a ==> {c <- 42 + c.a * c.a}
+Initialized types = { VSharp.Test.Tests.PDR }

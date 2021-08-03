@@ -5,9 +5,11 @@ open VSharp.Core.Common
 
 module internal Pointers =
     let private underlyingPointerTypeSizeof = term >> function // for `T* ptr` returns `sizeof(T)`
+        | Ptr(_, Void, _) -> makeNumber 1
         | Ptr(_, typ, _) -> makeNumber (Types.sizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
+    // TODO: delete this symbolic constant source, because the idea is wrong
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
         interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
@@ -216,7 +218,7 @@ module internal Pointers =
             else
                 SymbolicPointerDifference([p, 1], [q, 1])
                 |> makeSPDConst tp
-        let divideBySizeof diff = Arithmetics.div diff <| underlyingPointerTypeSizeof x
+        let divideBySizeof diff = div diff <| underlyingPointerTypeSizeof x
         let simplifyPointerDiffWithOffset p q offset =
             simplifySPDExpression (Arithmetics.add (makeDiff p q) offset) k (fun diff k -> k (divideBySizeof diff))
         let simplifyIndentedPointerSubtraction x y k =

@@ -1,0 +1,7 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.BreakCallSitesComposition()
+RESULT: Totally 1 state:
+342
+MEMORY DUMP:
+--------------- Stack: ---------------
+key = __loc__0, value = 321
+Initialized types = { VSharp.Test.Tests.PDR }

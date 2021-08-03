@@ -15,6 +15,9 @@ class Stack;
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
 //static Heap heap;
+#ifdef _DEBUG
+extern std::map<unsigned, const char*> stringsPool;
+#endif
 
 unsigned framesCount();
 void pushFrame(int stackSize);
@@ -78,6 +81,8 @@ void execThrow();
 void execRethrow();
 
 void validateEnd();
+
+unsigned allocateString(const char *s);
 
 void clear_mem();
 void mem_i1(INT8 value);

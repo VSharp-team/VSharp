@@ -65,11 +65,9 @@ namespace VSharp.Test
             Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<points<int>>) zero).CompareTo(zero));
         }
 
-        private state _emptyState = API.Memory.EmptyState;
-
         private symbolicType WrapType(Type t)
         {
-            return API.Types.FromDotNetType(_emptyState, t);
+            return API.Types.FromDotNetType(t);
         }
 
         [Test]

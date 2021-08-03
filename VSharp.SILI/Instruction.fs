@@ -1,8 +1,10 @@
 namespace VSharp.Interpreter.IL
 
+open System
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
+open VSharp.Core
 
 exception IncorrectCIL of string
 
@@ -234,71 +236,21 @@ type OpCodeValues =
     | Refanytype        = 0xFE1Ds
     | Readonly_         = 0xFE1Es
 
-
-//type offset = VSharp.Core.offset
 type offset = int
 type term = VSharp.Core.term
 type state = VSharp.Core.state
 
-type operationalStack = term list
+type ip = VSharp.Core.ip
+type level = VSharp.Core.level
 
-type ip =
-    | Instruction of offset
-    | Exit
-    | FindingHandler of offset // offset -- source of exception
-    with
-    member x.CanBeExpanded () =
-        match x with
-        | Instruction _ -> true
-        | _ -> false
-    member x.Offset () =
-        match x with
-        | Instruction i -> i
-        | _              -> internalfail "Could not get vertex from destination"
 type ipTransition =
     | FallThrough of offset
     | Return
     | UnconditionalBranch of offset
-    | ConditionalBranch of offset list
+    | ConditionalBranch of offset * offset list
     | ExceptionMechanism
 
-type cilState =
-    { ip : ip
-      isFinished : ip -> bool
-      recursiveVertices : int list
-      opStack : operationalStack
-      state : state
-      leaveInstructionExecuted : bool
-      filterResult : term option
-    }
-    interface VSharp.Core.IInterpreterState<cilState> with
-        member x.InternalState = x.state
-        member x.SetState st = {x with state = st}
-        member x.SetResultTerm resTerm = {x with state = {x.state with returnRegister = resTerm}}
-        member x.ResultTerm = x.state.returnRegister
-    member x.CanBeExpanded () = x.ip.CanBeExpanded()
-    member x.IsFinished = x.isFinished x.ip
-    member x.HasException = Option.isSome x.state.exceptionsRegister.ExceptionTerm
 
-    static member Empty =
-        {
-            ip = Exit
-            isFinished = fun ip -> ip = Exit
-            recursiveVertices = []
-            opStack = []
-            state = VSharp.Core.API.Memory.EmptyState
-            leaveInstructionExecuted = false
-            filterResult = None
-        }
-    static member MakeEmpty curV targetV state =
-        { ip = curV
-          isFinished = fun x -> x = targetV
-          recursiveVertices = []
-          opStack = [];
-          state = state
-          leaveInstructionExecuted = false
-          filterResult = None
-        }
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
         System.BitConverter.ToInt32(ilBytes, pos)
@@ -317,8 +269,7 @@ module internal NumberCreator =
     let public extractFloat32 (ilBytes : byte []) pos =
         System.BitConverter.ToSingle(ilBytes, pos)
 
-module internal Instruction =
-
+module internal TokenResolver =
     let private extractToken = NumberCreator.extractInt32
 
     let resolveFieldFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveField methodBase
@@ -326,6 +277,7 @@ module internal Instruction =
     let resolveMethodFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveMethod methodBase
     let resolveTokenFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveToken methodBase
 
+module internal Instruction =
     let private isSingleByteOpCodeValue = (<) 0
     let private isSingleByteOpCode = (<>) 0xFEuy
 
@@ -334,6 +286,7 @@ module internal Instruction =
     let twoBytesOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
 
     let private fillOpCodes =
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
         let resolve (field : FieldInfo) =
             match field.GetValue() with
             | :? OpCode as opCode -> let value = int opCode.Value
@@ -357,20 +310,20 @@ module internal Instruction =
 
         let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
         if offset = 0 && opCode <> OpCodes.Leave && opCode <> OpCodes.Leave_S
-        then FallThrough nextInstruction
+        then UnconditionalBranch nextInstruction
         else UnconditionalBranch <| offset + nextInstruction
 
     let private inlineBrTarget extract (opCode : OpCode) ilBytes pos =
         let offset = extract ilBytes (pos + opCode.Size)
         let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
-        ConditionalBranch [nextInstruction; nextInstruction + offset]
+        ConditionalBranch(nextInstruction, [nextInstruction + offset])
 
     let private inlineSwitch (opCode : OpCode) ilBytes pos =
         let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opCode.Size) |> int
         let nextInstruction = pos + opCode.Size + 4 * n + 4
         let nextOffsets =
             List.init n (fun x -> nextInstruction + NumberCreator.extractInt32 ilBytes (pos + opCode.Size + 4 * (x + 1)))
-        ConditionalBranch <| nextInstruction :: nextOffsets
+        ConditionalBranch(nextInstruction, nextOffsets)
 
     let private jumpTargetsForReturn _ _ _ = Return
     let private jumpTargetsForThrow _ _ _ = ExceptionMechanism
@@ -393,6 +346,8 @@ module internal Instruction =
         | _ -> __notImplemented__()
         <| opCode
 
+    let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
+
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
         || opCode = OpCodes.Calli
@@ -404,68 +359,59 @@ module internal Instruction =
         isCallOpCode opCode || isNewObjOpCode opCode
     let isFinallyClause (ehc : ExceptionHandlingClause) =
         ehc.Flags = ExceptionHandlingClauseOptions.Finally
-    let shouldExecuteFinallyClause (src : ip) (dst : ip) (ehc : ExceptionHandlingClause) =
-        let srcOffset, dstOffset = src.Offset(), dst.Offset()
+    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+//        let srcOffset, dstOffset = src.Offset(), dst.Offset()
         let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
-        isInside srcOffset && not <| isInside dstOffset
+        isInside src && not <| isInside dst
 
+    let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
     let (|Call|_|) (opCode : OpCode) = if opCode = OpCodes.Call then Some () else None
     let (|CallVirt|_|) (opCode : OpCode) = if opCode = OpCodes.Callvirt then Some () else None
     let (|Calli|_|) (opCode : OpCode) = if opCode = OpCodes.Calli then Some () else None
     let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
-    let parseInstruction (ilBytes : byte []) pos =
+
+    let parseInstruction (m : MethodBase) pos =
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
         let b1 = ilBytes.[pos]
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
         elif pos + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[pos + 1]]
 
+    let (|EndFinally|_|) = function
+        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some ()
+        | _ -> None
 
+    let rec (|InstructionEndingIp|_|) = function
+        | Instruction(offset, m)
+        | InFilterHandler(offset, m, _, _) -> Some (offset, m)
+        | Leave(ip, _, _, _) -> (|InstructionEndingIp|_|) ip
+        | _ -> None
 
-    let countOperationalStackBalance (opCode : OpCode) (calledMethod : MethodBase option) oldBalance =
-        let countMethodCallArgumentsNumber opCode (methodBase : MethodBase) =
-            let thisAddition = if methodBase.IsStatic || opCode = OpCodes.Newobj then 0 else 1
-            thisAddition + methodBase.GetParameters().Length
-        let hasResultOnOperationalStackAfterCall : MethodBase * OpCode -> bool = function
-            | (:? ConstructorInfo, NewObj)     -> true
-            | (:? ConstructorInfo, _)          -> false
-            | (:? MethodInfo as methodInfo, _) -> methodInfo.ReturnType <> typedefof<System.Void>
-            | _ -> __unreachable__()
+    let parseCallSite (m : MethodBase) pos =
+        let opCode = parseInstruction m pos
+        let ilBytes = m.GetMethodBody().GetILAsByteArray()
+        let calledMethod = TokenResolver.resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
+        {sourceMethod = m; calledMethod = calledMethod; opCode = opCode; offset = pos}
 
-        let popCount = function
-            | StackBehaviour.Pop0 -> 0
-            | StackBehaviour.Popi
-            | StackBehaviour.Popref
-            | StackBehaviour.Pop1 -> -1
-            | StackBehaviour.Popi_pop1
-            | StackBehaviour.Popi_popi
-            | StackBehaviour.Popi_popi8
-            | StackBehaviour.Popi_popr4
-            | StackBehaviour.Popi_popr8
-            | StackBehaviour.Popref_pop1
-            | StackBehaviour.Popref_popi
-            | StackBehaviour.Pop1_pop1 -> -2
-            | StackBehaviour.Popref_popi_popi
-            | StackBehaviour.Popref_popi_popi8
-            | StackBehaviour.Popref_popi_popr4
-            | StackBehaviour.Popref_popi_popr8
-            | StackBehaviour.Popref_popi_popref
-            | StackBehaviour.Popref_popi_pop1
-            | StackBehaviour.Popi_popi_popi -> -3
-            | StackBehaviour.Varpop -> -1 * countMethodCallArgumentsNumber opCode (Option.get calledMethod)
-            | _ -> __unreachable__()
-        let pushCount = function
-            | StackBehaviour.Push0 -> 0
-            | StackBehaviour.Pushi
-            | StackBehaviour.Pushi8
-            | StackBehaviour.Pushr4
-            | StackBehaviour.Pushr8
-            | StackBehaviour.Pushref
-            | StackBehaviour.Push1 -> 1
-            | StackBehaviour.Push1_push1 -> 2
-            | StackBehaviour.Varpush when hasResultOnOperationalStackAfterCall (Option.get calledMethod, opCode) -> 1
-            | StackBehaviour.Varpush -> 0
-            | _ -> __unreachable__()
-        if opCode = OpCodes.Leave || opCode = OpCodes.Leave_S then 0
-        else oldBalance + popCount (opCode.StackBehaviourPop) + pushCount (opCode.StackBehaviourPush)
+    let unconditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | UnconditionalBranch target -> target
+        | _ -> __unreachable__()
+
+    let fallThroughTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | FallThrough target -> target
+        | _ -> __unreachable__()
+
+    let conditionalBranchTarget (m : MethodBase) pos =
+        let opCode = parseInstruction m pos // TODO: remove this copy-paste
+        let bytes = m.GetMethodBody().GetILAsByteArray()
+        match findNextInstructionOffsetAndEdges opCode bytes pos with
+        | ConditionalBranch(fallThrough, rest) -> fallThrough, rest
+        | _ -> __unreachable__()

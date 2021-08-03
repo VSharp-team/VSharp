@@ -1,0 +1,12 @@
+METHOD: System.Boolean VSharp.Test.Tests.ChessDotNet.CheckEquality()
+RESULT: Totally 1 state:
+False
+MEMORY DUMP:
+--------------- Fields: ---------------
+<Owner>k__BackingField ==> {2 <- 0; 3 <- 1}
+--------------- Types tokens: ---------------
+2 ==> ChessDotNet.Pieces.Pawn
+3 ==> ChessDotNet.Pieces.Pawn
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 3 to ChessDotNet.Pieces.Pawn)
+Initialized types = { ChessDotNet.Pieces.Pawn, ChessDotNet.Piece, System.Object, VSharp.Test.Tests.ChessDotNet }

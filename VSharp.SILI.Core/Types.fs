@@ -25,6 +25,7 @@ type symbolicType =
     | TypeVariable of typeId
     | ArrayType of symbolicType * arrayDimensionType
     | Pointer of symbolicType // C-style pointers like int*
+    | ByRef of symbolicType // only for byref
 
     override x.ToString() =
         match x with
@@ -38,8 +39,9 @@ type symbolicType =
         | InterfaceType(Id t, g) ->
             if t.IsGenericType
                 then
+                    assert(t.IsGenericTypeDefinition)
                     let args = String.Join(",", (Seq.map toString g))
-                    sprintf "%s[%s]" (t.GetGenericTypeDefinition().FullName) args
+                    sprintf "%s[%s]" t.FullName args
                 else toString t
         | TypeVariable(Id t) -> toString t
         | ArrayType(t, Vector) -> t.ToString() + "[]"
@@ -47,6 +49,7 @@ type symbolicType =
         | ArrayType(t, ConcreteDimension rank) -> t.ToString() + "[" + new string(',', rank - 1) + "]"
         | ArrayType(_, SymbolicDimension) -> "System.Array"
         | Pointer t -> sprintf "<Pointer to %O>" t
+        | ByRef t -> sprintf "<ByRef to %O>" t
     interface IAtomicRegion<symbolicType>
 
 and [<CustomEquality;CustomComparison>]
@@ -66,7 +69,7 @@ and [<CustomEquality;CustomComparison>]
                 match other with
                 | :? typeId as other ->
                     match x, other with
-                    | Id h1, Id h2 -> compare (hash h1) (hash h2) //TODO: change hash to MetadataToken when mono/mono#10127 is fixed.
+                    | Id h1, Id h2 -> compare (h1.GetDeterministicHashCode()) (h2.GetDeterministicHashCode())
                 | _ -> -1
 
 module internal Types =
@@ -151,6 +154,10 @@ module internal Types =
         | Pointer _ -> true
         | _ -> false
 
+    let isByRef = function
+        | ByRef _ -> true
+        | _ -> false
+
     let elementType = function
         | ArrayType(t, _) -> t
         | t -> internalfailf "expected array type, but got %O" t
@@ -172,7 +179,9 @@ module internal Types =
         | InterfaceType(Id t, args)
         | ClassType(Id t, args) ->
             if t.IsGenericType
-                then t.GetGenericTypeDefinition().MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
+                then
+                    assert(t.IsGenericTypeDefinition)
+                    t.MakeGenericType(Seq.map toDotNetType args |> Seq.toArray)
                 else t
         | TypeVariable(Id t) -> t
         | ArrayType(_, SymbolicDimension) -> typedefof<System.Array>
@@ -180,20 +189,10 @@ module internal Types =
         | ArrayType(t, ConcreteDimension rank) -> (toDotNetType t).MakeArrayType(rank)
         | Pointer t -> (toDotNetType t).MakePointerType()
         | AddressType -> typeof<AddressTypeAgent>
+        | ByRef t -> (toDotNetType t).MakeByRefType()
         | Null -> __unreachable__()
 
-    let sizeOf typ = // Reflection hacks, don't touch! Marshal.SizeOf lies!
-        let internalSizeOf (typ: Type) : uint32 =
-            let meth = Reflection.Emit.DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
-
-            let gen = meth.GetILGenerator()
-            gen.Emit(Reflection.Emit.OpCodes.Sizeof, typ)
-            gen.Emit(Reflection.Emit.OpCodes.Ret)
-
-            meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke()
-            |> unbox
-        typ |> toDotNetType |> internalSizeOf |> int
-
+    let sizeOf typ = typ |> toDotNetType |> TypeUtils.internalSizeOf |> int
 
     let bitSizeOfType t (resultingType : System.Type) = System.Convert.ChangeType(sizeOf(t) * 8, resultingType)
 
@@ -226,21 +225,21 @@ module internal Types =
         let private ClassType (t : Type) g = ClassType (Id t) g
         let private InterfaceType (t : Type) g = InterfaceType (Id t) g
 
+        let private getGenericDefinition (dotNetType : Type) =
+            if dotNetType.IsGenericType then
+                dotNetType.GetGenericTypeDefinition()
+            else dotNetType
+
         let rec private getGenericArguments (dotNetType : Type) =
             if dotNetType.IsGenericType then
                 Seq.map fromDotNetType (dotNetType.GetGenericArguments()) |> List.ofSeq
             else []
 
-        and private makeInterfaceType (interfaceType : Type) =
-            let genericArguments = getGenericArguments interfaceType
-            InterfaceType interfaceType genericArguments
-
-        and private getInterfaces (dotNetType : Type) = dotNetType.GetInterfaces() |> Seq.map makeInterfaceType |> List.ofSeq
-
         and fromDotNetType (dotNetType : Type) =
             match dotNetType with
             | null -> Null
-            | t when t.IsByRef -> internalfail "byref type is not implemented!" // TODO: care about byref type
+            | t when t.IsByRef -> t.GetElementType() |> fromDotNetType |> ByRef
+            | _ when dotNetType = typeof<IntPtr> -> Pointer Void
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)
@@ -252,17 +251,19 @@ module internal Types =
                 ArrayType(
                     fromDotNetType (a.GetElementType()),
                     if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
-            | s when s.IsValueType && not s.IsGenericParameter -> StructType s (getGenericArguments s)
+            | s when s.IsValueType && not s.IsGenericParameter -> StructType (getGenericDefinition s) (getGenericArguments s)
             | p when p.IsGenericParameter -> TypeVariable(Id p)
-            | c when c.IsClass -> ClassType c (getGenericArguments c)
-            | i when i.IsInterface -> makeInterfaceType i
+            | c when c.IsClass -> ClassType (getGenericDefinition c) (getGenericArguments c)
+            | i when i.IsInterface -> InterfaceType (getGenericDefinition i) (getGenericArguments i)
             | _ -> __notImplemented__()
 
     open Constructor
 
     let public Char = Numeric typedefof<char>
-
     let public String = fromDotNetType typedefof<string>
+    let Int32 = Numeric typeof<int>
+    let Int64 = Numeric typeof<int64>
+    let F = Numeric typeof<float>
 
     let (|StringType|_|) = function
         | typ when typ = String -> Some()
@@ -278,11 +279,42 @@ module internal Types =
         | TypeVariable(Id t) when TypeUtils.isValueTypeParameter t -> true
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
         | TypeVariable _ as t -> __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | Null -> __unreachable__()
+        | Null -> false
         | t -> (toDotNetType t).IsValueType
 
-    let isConcreteSubtype t1 t2 =
-        (toDotNetType t2).IsAssignableFrom (toDotNetType t1)
+    // [NOTE] All heuristics of subtyping are here
+    let rec private commonConcreteCanCast canCast nullCase leftType rightType certainK uncertainK =
+        match leftType, rightType with
+        | _ when leftType = rightType -> certainK true
+        | Null, _ -> nullCase rightType |> certainK
+        | _, Null -> certainK false
+        | Void, _ | _, Void -> certainK false
+        | ArrayType _, ClassType(Id obj, _) -> obj = typedefof<obj> |> certainK
+        | Numeric (Id t), Numeric (Id enum)
+        | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && enum.GetEnumUnderlyingType() = t -> certainK true
+        | Pointer _, Pointer _ -> certainK true
+        | ArrayType _, ArrayType(_, SymbolicDimension) -> certainK true
+        | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            if d1 = d2 then commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK else certainK false
+        | ComplexType, ComplexType ->
+            let lType = toDotNetType leftType
+            let rType = toDotNetType rightType
+            if canCast lType rType then certainK true
+            elif TypeUtils.isGround lType && TypeUtils.isGround rType then certainK false
+            else uncertainK leftType rightType
+        | _ -> certainK false
+
+    let isConcreteSubtype nullCase leftType rightType =
+        let canCast lType (rType : Type) = rType.IsAssignableFrom(lType)
+        commonConcreteCanCast canCast nullCase leftType rightType
+
+    // Works like isVerifierAssignable in .NET specification
+    let isAssignable leftType rightType =
+        isConcreteSubtype (not << isValueType) leftType rightType id (fun _ _ -> false)
+
+    let canCastImplicitly leftType rightType =
+        let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || TypeUtils.canConvert lType rType
+        commonConcreteCanCast canCast (not << isValueType) leftType rightType id (fun _ _ -> false)
 
 type symbolicType with
     interface IAtomicRegion<symbolicType> with

@@ -34,6 +34,14 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
+        public static class NonGenericClassInsideGenericClass
+        {
+            public static K GenericMethodOfNonGenericType(K k)
+            {
+                return k;
+            }
+        }
+
         [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
@@ -46,7 +54,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
@@ -62,21 +70,19 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [TestSvm]
         public static U RetU(U u)
         {
             return u;
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static P RetP(P p)
         {
             return p;
@@ -88,15 +94,14 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
-        public static N RetT(N n)
+        [TestSvm]
+        public static N RetN(N n)
         {
             return n;
         }
 
         [TestSvm]
-        public static Z RetU(Z z)
+        public static Z RetZ(Z z)
         {
             return z;
         }
@@ -113,13 +118,12 @@ namespace VSharp.Test.Tests.Generic
             return r;
         }
 
-
         public static object Ret0(R r)
         {
             return 0;
         }
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public static V RetV(V v)
         {
             return v;
@@ -134,6 +138,12 @@ namespace VSharp.Test.Tests.Generic
         {
             return GenericClass<object, int>.RetR(0);
         }
+
+        // [TestSvm]
+        // public static object RetConstructedRWithInt2()
+        // {
+        //     return GenericClass<int, int>.RetR(0, 0);
+        // }
 
         [TestSvm]
         public static object RetConstructedR0()
@@ -152,7 +162,105 @@ namespace VSharp.Test.Tests.Generic
         {
             return GenericClass<object, int>.RetV(0);
         }
+
+        [TestSvm]
+        public static SimpleStruct Test_OnlyGenericMethod_1()
+        {
+            return GenericMethodInsideGenericType<object, object, int>.OnlyGenericMethod<SimpleStruct>(new SimpleStruct());
+        }
+
+        [TestSvm]
+        public static object Test_OnlyGenericMethod_2()
+        {
+            var obj = 1;
+            return GenericMethodInsideGenericType<object, object, int>.OnlyGenericMethod<object>(obj);
+        }
+
+        [TestSvm]
+        public static int Test_MixedGenericParameterAndTypeGenerics_RetW_1()
+        {
+            int w = 1;
+            object t = new object();
+            object r = new object();
+            int v = 2;
+            return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetW<int>(w, t, r, v);
+        }
+
+        [TestSvm]
+        public static object Test_MixedGenericParameterAndTypeGenerics_RetT_1()
+        {
+            int w = 1;
+            object t = new object();
+            object r = new object();
+            int v = 2;
+            return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetT<int>(w, t, r, v);
+        }
+
+        [TestSvm]
+        public static object Test_MixedGenericParameterAndTypeGenerics_RetT_2()
+        {
+            int w = 1;
+            object t = new object();
+            int v = 2;
+            return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetT<int>(w, t, t, v);
+        }
+
+        [TestSvm]
+        public static int Test_MixedGenericParameterAndTypeGenerics_RetV_1()
+        {
+            int w = 1;
+            object t = new object();
+            object r = new object();
+            int v = 2;
+            return GenericMethodInsideGenericType<object, object, int>.MixedGenericParameterAndTypeGenerics_RetV<int>(w, t, r, v);
+        }
+
+        [TestSvm]
+        public static int Test_RetDuplicateV_1()
+        {
+            int v = 1;
+            return GenericMethodInsideGenericType<IKeeper<int>, IKeeper<object>, SimpleStruct>.RetDuplicateV<int>(v);
+        }
     }
+
+    [TestSvmFixture]
+    public static class GenericMethodInsideGenericType<T, R, V>
+        where R : class
+        where V : struct
+    {
+        public static W OnlyGenericMethod<W>(W w)
+        {
+            return w;
+        }
+
+        public static W MixedGenericParameterAndTypeGenerics_RetW<W>(W w, T t, R r, V v)
+        {
+            return w;
+        }
+
+        public static T MixedGenericParameterAndTypeGenerics_RetT<W>(W w, T t, R r, V v)
+        {
+            return t;
+        }
+
+        public static T MixedGenericParameterAndTypeGenerics_RetT<W>(W w, V r, T t, V v)
+        {
+            return t;
+        }
+
+        public static V MixedGenericParameterAndTypeGenerics_RetV<W>(W w, T t, R r, V v)
+        {
+            return v;
+        }
+
+        // this type parameter duplication is done intentionally
+        public static V RetDuplicateV<V>(V v)
+        {
+            return v;
+        }
+    }
+
+
 
     [TestSvmFixture]
     public class Foo<T, U>
@@ -163,15 +271,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [TestSvm]
         public T GetFields()
         {
             return _field;
         }
 
-        // [TestSvm]
-        [Ignore("problem with Union[!IsValueType, IsValueType] substitution because it does not consider guards")]
+        [TestSvm]
         public void SetField(T f)
         {
             _field = f;
@@ -192,34 +298,34 @@ namespace VSharp.Test.Tests.Generic
     [TestSvmFixture]
     public static class TetsUnion
     {
-//        public static Coord RetCoord(Object obj, Coord coord, int field)
-//        {
-//            if (obj is BlackPawn)
-//            {
-//                coord.X = 42;
-//            }
-//            if (obj is Pawn)
-//            {
-//                coord.X += 66;
-//            }
-//            return coord;
-//        }
+        public static Coord RetCoord(Object obj, Coord coord, int field)
+        {
+            if (obj is BlackPawn)
+            {
+                coord.X = 42;
+            }
+            if (obj is Pawn)
+            {
+                coord.X += 66;
+            }
+            return coord;
+        }
 
-//        public static Object Ret(Object obj)
-//        {
-//            var f = obj as BlackPawn;
-//            if (f != null)
-//            {
-//                f.SetNewField(42);
-//            }
-//            var a = obj as Pawn;
-//            if (a != null)
-//            {
-//                int b = a.GetNewField();
-//                a.SetNewField(b + 66);
-//            }
-//            return obj;
-//        }
+        public static Object Ret(Object obj)
+        {
+            var f = obj as BlackPawn;
+            if (f != null)
+            {
+                f.SetNewField(42);
+            }
+            var a = obj as Pawn;
+            if (a != null)
+            {
+                int b = a.GetNewField();
+                a.SetNewField(b + 66);
+            }
+            return obj;
+        }
 
         [TestSvm]
         public static int RetWorked(Object obj, int a)

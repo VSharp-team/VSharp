@@ -224,8 +224,7 @@ namespace VSharp.Test.Tests
             return x.MyValue;
         }
 
-        [TestSvm] //TODO: uncomment for new Memory Model
-        // [Ignore("This of ValueType requires fake stackFrame")]
+        [TestSvm]
         public static int ValueTypeMethod(int x, int y)
         {
             return x.CompareTo(y);
@@ -252,14 +251,14 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public static class ClassesSimpleHierarchy
     {
-        [Ignore("dfs goes through vertex twice #fix")]
+        [Ignore("Byref is not implemented")]
         public static List<string> Test1()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2(123, 42);
             return ClassesSimpleRegistrator.entries;
         }
 
-        [Ignore("dfs goes through vertex twice #fix")]
+        [Ignore("Byref is not implemented")]
         public static int Test2()
         {
             ClassesSimpleHierarchyA2 a = new ClassesSimpleHierarchyA2();
@@ -274,7 +273,7 @@ namespace VSharp.Test.Tests
         public static int Y;
         public static int Z;
 
-        [Ignore("Insufficient information")]
+        [TestSvm]
         public void Set(int x)
         {
             X = x;
@@ -343,7 +342,7 @@ namespace VSharp.Test.Tests
             SecretProperty = new List<bool>();
         }
 
-        [Ignore("_structProperty field is lost #fix")]
+        [TestSvm]
         public void TestProperty1()
         {
             var st = new ClassesSimplePropertyAccess();
@@ -395,6 +394,5 @@ namespace VSharp.Test.Tests
             var b = (SimpleContainer) obj;
             b.Set(42);
         }
-
     }
 }

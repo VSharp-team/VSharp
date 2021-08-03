@@ -10,6 +10,11 @@ ThreadID currentThreadNotConfigured() {
 
 std::function<ThreadID()> icsharp::currentThread(&currentThreadNotConfigured);
 
+#ifdef _DEBUG
+std::map<unsigned, const char*> icsharp::stringsPool;
+int topStringIndex = 0;
+#endif
+
 ThreadID lastThreadID = 0;
 Stack *stack = nullptr;
 
@@ -68,7 +73,10 @@ void icsharp::enter(mdMethodDef token, unsigned maxStackSize/*, unsigned argsCou
     switchContext();
     if (!stack->isEmpty()) {
         unsigned expected = stack->topFrame().expectedToken();
-        LOG(tout << "Entering token " << std::hex << token << ", expected token is " << std::hex << expected << "; resetting it!" << std::endl);
+        LOG(tout << "Frame " << stack->framesCount() + 1 << 
+                    ": entering token " << std::hex << token << 
+                    ", expected token is " << std::hex << expected << 
+                    "; resetting it!" << std::endl);
         if (!expected || expected == token) {
             stack->topFrame().setExpectedToken(0);
             stack->topFrame().setEnteredMarker(true);
@@ -79,7 +87,6 @@ void icsharp::enter(mdMethodDef token, unsigned maxStackSize/*, unsigned argsCou
                      << std::hex << expected << ", but entered " << std::hex << token << std::endl);
         }
     }
-    // TODO: pass max stack size obtained BEFORE instrumentation, not after
     stack->pushFrame(maxStackSize);
 }
 
@@ -156,6 +163,19 @@ void icsharp::validateEnd() {
     }
 #endif
 }
+
+#ifdef _DEBUG
+unsigned icsharp::allocateString(const char *s) {
+    unsigned currentIndex = topStringIndex;
+    // Place s into intern pool
+    stringsPool[currentIndex] = s;
+    LOG(tout << "Allocated string '" << s << "' with index '" << currentIndex << "'");
+    // Increment top index
+    topStringIndex++;
+    // Return string's index
+    return currentIndex;
+}
+#endif
 
 void icsharp::ldarg(INT16 idx) {
     // TODO
@@ -299,6 +319,9 @@ void icsharp::castclass(mdToken typeToken, INT_PTR ptr) {
     // TODO
     // TODO: if exn is thrown, no value is pushed onto the stack
 //    switchContext();
+    // TODO: is it true that 'castclass' contains only pop,
+    // because after 'castclass' JIT calls private function 'CastHelpers.ChkCastClass',
+    // that pushes result?
     LOG(tout << "Exec castclass 0x" << std::hex << ptr << " to class " << std::hex << typeToken << std::endl);
 }
 

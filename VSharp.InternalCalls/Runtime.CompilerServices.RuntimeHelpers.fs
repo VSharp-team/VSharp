@@ -3,10 +3,10 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open System.Runtime.InteropServices
+open System.Reflection
 
 module Runtime_CompilerServices_RuntimeHelpers =
-    open System.Runtime.InteropServices
-    open System.Reflection
 
     let private reinterpretValueTypeAsByteArray (value : obj) size =
         let rawData = Array.create size Byte.MinValue
@@ -53,7 +53,8 @@ module Runtime_CompilerServices_RuntimeHelpers =
     let doubleTermCreator (rawData : byte []) index =
         BitConverter.ToDouble(rawData, index) |> MakeNumber
 
-    let private fillInArray termCreator (state : state) arrayRef (size : int) (rawData : byte[]) = // TODO: move this code to Core
+    // TODO: move this code to Core
+    let private fillInArray termCreator (state : state) arrayRef (size : int) (rawData : byte[]) =
         let extractIntFromTerm (term : term) =
             match term.term with
             | Concrete (:? int as v, _) -> v
@@ -66,13 +67,11 @@ module Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-//        let array = Memory.ReadSafe state arrayRef
         let dimensionsNumberTerm = Memory.ArrayRank state arrayRef
         let dimensionsNumber = extractIntFromTerm dimensionsNumberTerm
         let rec helper currentDimension (multiIndex : term list) (state, j) =
             if currentDimension = dimensionsNumber then
                 let valueTerm = termCreator rawData (j * size)
-//                let ref = Memory.ReferenceArrayIndex state arrayRef multiIndex
                 let states = Memory.WriteArrayIndex state arrayRef multiIndex valueTerm
                 match states with
                 | [state] -> (state, j + 1)
@@ -91,7 +90,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
         match handleTerm.term with
         | Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-            let elemType = BaseTypeOfHeapRef state arrayRef |> Types.ElementType
+            let elemType = MostConcreteTypeOfHeapRef state arrayRef |> Types.ElementType
             let t = Types.ToDotNetType elemType
             assert (t.IsValueType) // TODO: be careful about type variables
 
@@ -111,7 +110,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 | _ when t = typedefof<int> ->
                     fillInArray int32TermCreator state arrayRef sizeof<int> rawData
                 | _ when t = typedefof<uint32> ->
-                    fillInArray int32TermCreator state arrayRef sizeof<uint32> rawData
+                    fillInArray unsignedInt32TermCreator state arrayRef sizeof<uint32> rawData
                 | _ when t = typedefof<int64> ->
                     fillInArray int64TermCreator state arrayRef sizeof<int64> rawData
                 | _ when t = typedefof<uint64> ->
@@ -125,10 +124,36 @@ module Runtime_CompilerServices_RuntimeHelpers =
                 | _ when t = typedefof<char> ->
                     fillInArray charTermCreator state arrayRef sizeof<char> rawData
                 | _ -> __notImplemented__()
-            Nop, {state with returnRegister = None}
+            Nop, state
         | _ -> __notImplemented__(), state
 
     let InitializeArray (state : state) arrayRef handleTerm : state list =
         GuardedStatedApplyStatementK state arrayRef (fun state arrayRef k ->
         GuardedStatedApplyStatementK state handleTerm (fun state handleTerm k ->
         initializeArray state arrayRef handleTerm |> k) (List.map k >> List.concat)) (List.map snd)
+
+    // This function checks, whether type can be checked on equality using only it's bits
+    // Example: any value type, because it doesn't have metadata
+    let IsBitwiseEquatable (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let typ = List.head args
+        match typ with
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType, state
+        | _ -> __unreachable__()
+
+    let IsReferenceOrContainsReferences (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let typ = List.head args
+        match typ with
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ), state
+        | _ -> __unreachable__()
+
+    let GetHashCode (state : state) (args : term list) : term * state =
+        assert(List.length args = 1)
+        let object = List.head args
+        GetHashCode object, state
+
+    let Equals (state : state) (args : term list) : term * state =
+        assert(List.length args = 2)
+        let x, y = args.[0], args.[1]
+        x === y, state

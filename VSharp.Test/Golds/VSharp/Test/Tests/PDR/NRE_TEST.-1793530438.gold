@@ -1,0 +1,6 @@
+METHOD: System.Int32 VSharp.Test.Tests.PDR.NRE_TEST(VSharp.Test.Tests.PDR+ClassWithOneField)
+RESULT: Totally 1 state:
+c.x
+MEMORY DUMP:
+Path condition: !(c == null)
+Initialized types = { VSharp.Test.Tests.PDR }

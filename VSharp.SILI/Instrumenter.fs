@@ -6,7 +6,7 @@ open System.Reflection.Emit
 open System.Collections.Generic
 open VSharp.Interpreter.IL
 
-type Instrumenter(probes : probes) =
+type Instrumenter(communicator : Communicator, probes : probes) =
     // TODO: should we consider executed assembly build options here?
     let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> VSharp.Concolic.OpCode
     static member private instrumentedFunctions = HashSet<MethodBase>()
@@ -76,52 +76,6 @@ type Instrumenter(probes : probes) =
         x.MkCalli(&newInstr, signature)
         x.rewriter.InsertBefore(beforeInstr, newInstr)
 
-//    member private x.PrependProbe_void_int32(methodAddress : uint64, arg : int32, beforeInstr : ilInstr byref) =
-//        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode = ldc_i
-//        let arg = Arg32 arg
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_int32_sig, &beforeInstr)
-//
-//    member private x.PrependProbe_void_uint32(methodAddress : uint64, arg : uint32, beforeInstr : ilInstr byref) =
-//        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode = ldc_i
-//        let arg = Arg32 (int32 arg)
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint32_sig, &beforeInstr)
-//
-//    member private x.PrependProbe_void_uint64(methodAddress : uint64, arg : uint64, beforeInstr : ilInstr byref) =
-//        let opcode = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode = ldc_i
-//        let arg = Arg64 (int64 arg)
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint64_sig, &beforeInstr)
-//
-//    member private x.PrependProbe_void_bool_uint32(methodAddress : uint64, arg1 : bool, arg2 : uint32, beforeInstr : ilInstr byref) =
-//        let opcode1 = (if arg1 then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0) |> VSharp.Concolic.OpCode
-//        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode2 = ldc_i
-//        let arg1 = NoArg
-//        let arg2 = Arg32 (int32 arg2)
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode1, arg1); (opcode2, arg2)], x.tokens.void_bool_uint32_sig, &beforeInstr)
-//
-//    member private x.PrependProbe_void_uint32_uint32(methodAddress : uint64, arg1 : uint32, arg2 : uint32, beforeInstr : ilInstr byref) =
-//        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode1 = ldc_i
-////        let opcode2 = ldc_i
-//        let arg1 = Arg32 (int32 arg1)
-//        let arg2 = Arg32 (int32 arg2)
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode1, arg1); (opcode2, arg2)], x.tokens.void_uint32_uint32_sig, &beforeInstr)
-//
-//    member private x.PrependProbe_void_uint32_uint32_uint64(methodAddress : uint64, arg1 : uint32, arg2 : uint32, arg3 : uint64, beforeInstr : ilInstr byref) =
-//        let opcode1 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode2 = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-//        let opcode3 = OpCodes.Ldc_I8 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode1 = ldc_i
-////        let opcode2 = ldc_i
-////        let opcode3 = ldc_i
-//        let arg1 = Arg32 (int32 arg1)
-//        let arg2 = Arg32 (int32 arg2)
-//        let arg3 = Arg64 (int64 arg3)
-//        x.PrependProbe_void_with_args(methodAddress, [(opcode1, arg1); (opcode2, arg2); (opcode3, arg3)], x.tokens.void_uint32_uint32_uint64_sig, &beforeInstr)
 
     member private x.AppendProbe(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, signature, afterInstr : ilInstr) =
         let mutable newInstr = afterInstr
@@ -137,27 +91,12 @@ type Instrumenter(probes : probes) =
             newInstr.arg <- arg
             x.rewriter.InsertAfter(afterInstr, newInstr)
 
-//    member private x.AppendProbe_void(methodAddress : uint64, afterInstr : ilInstr) =
-//        x.AppendProbe_void_with_args(methodAddress, [], x.tokens.void_sig, afterInstr)
-//
-//    member private x.AppendProbe_void_int32(methodAddress : uint64, arg : int32, afterInstr : ilInstr) =
-//        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode = ldc_i
-//        let arg = Arg32 arg
-//        x.AppendProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_int32_sig, afterInstr)
-//
-//    member private x.AppendProbe_void_uint32(methodAddress : uint64, arg : uint32, afterInstr : ilInstr) =
-//        let opcode = OpCodes.Ldc_I4 |> VSharp.Concolic.OpCode // TODO: previously was ldc_i, but it seems to be wrong
-////        let opcode = ldc_i
-//        let arg = Arg32 (int32 arg)
-//        x.AppendProbe_void_with_args(methodAddress, [(opcode, arg)], x.tokens.void_uint32_sig, afterInstr)
-
     member private x.PlaceEnterProbe (firstInstr : ilInstr byref) =
         let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken); (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)]
         x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_sig, &firstInstr)
 
     member private x.PlaceLeaveProbe(instr : ilInstr byref) =
-        let returnsSomething = Reflection.methodReturnType x.m <> typeof<System.Void>
+        let returnsSomething = Reflection.getMethodReturnType x.m <> typeof<System.Void>
         let args = [(OpCodes.Ldc_I4, (if returnsSomething then 1 else 0) |> Arg32)]
         x.PrependProbe(probes.leave, args, x.tokens.void_i_i1_sig, &instr)
 
@@ -173,11 +112,13 @@ type Instrumenter(probes : probes) =
         for i in 0 .. instructions.Length - 1 do
             let instr = &instructions.[i]
             if not hasPrefix then prefix <- instr
-            let prependTarget = if hasPrefix then &prefix else &instr
             match instr.opcode with
             | OpCode op ->
-                //let dumpedInfo = ...
-                //prependProbe_void_ulong(reinterpret_cast<ULONGLONG>(DumpInstructionAddress), (unsigned long)dumpedInfo, prefix ? *prefix : pInstr);
+                let dumpedInfo = x.rewriter.ILInstrToString probes instr
+                // let idx = <send string to client and receive string number from client>
+                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
+                let prependTarget = if hasPrefix then &prefix else &instr
+                x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget);
                 let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
                 match opcodeValue with
                 // Prefixes
@@ -752,11 +693,12 @@ type Instrumenter(probes : probes) =
                         let callee = Reflection.resolveMethod x.m token
                         let hasThis = callee.CallingConvention.HasFlag(CallingConventions.HasThis)
                         let argsCount = callee.GetParameters().Length
-                        let returnsSomething = Reflection.methodReturnType callee <> typeof<System.Void>
+                        let returnsSomething = Reflection.getMethodReturnType callee <> typeof<System.Void>
                         let count =
                             if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1
                             else argsCount
-                        let args = [(OpCodes.Ldc_I4, (if opcodeValue = OpCodeValues.Callvirt then 0 else token) |> Arg32); (OpCodes.Ldc_I4, Arg32 count)]
+                        let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken 
+                        let args = [(OpCodes.Ldc_I4, Arg32 expectedToken); (OpCodes.Ldc_I4, Arg32 count)]
                         x.PrependProbe(probes.call, args, x.tokens.void_token_u2_sig, &prependTarget);
                         x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, (if returnsSomething then 1 else 0) |> Arg32)], x.tokens.void_u1_sig, instr);
 

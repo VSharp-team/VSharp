@@ -1,0 +1,3 @@
+METHOD: System.Boolean VSharp.Test.Tests.Lambdas.SymbolicLambdaInvoke(System.Func`2[System.Int32,System.Boolean])
+RESULT: Totally 1 state:
+Insufficient information! Can't obtain symbolic delegate f!

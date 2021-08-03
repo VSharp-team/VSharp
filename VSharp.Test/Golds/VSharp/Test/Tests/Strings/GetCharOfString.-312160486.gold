@@ -1,0 +1,30 @@
+METHOD: System.Char VSharp.Test.Tests.Strings.GetCharOfString()
+RESULT: Totally 1 state:
+100
+MEMORY DUMP:
+--------------- Fields: ---------------
+_stringLength ==> {3 <- 0; 4 <- 5}
+--------------- Array contents: ---------------
+System.Char[] ==> {
+        2[0] <- 'a'
+        2[1] <- 'b'
+        2[2] <- 'c'
+        2[3] <- 'd'
+        2[4] <- 'e'
+        3[0] <- '\000'
+        4[0] <- 'a'
+        4[1] <- 'b'
+        4[2] <- 'c'
+        4[3] <- 'd'
+        4[4] <- 'e'
+        4[5] <- '\000'
+    }
+--------------- Array lengths: ---------------
+System.Char[] ==> {2[0] <- 5; 3[0] <- 1; 4[0] <- 6}
+--------------- Types tokens: ---------------
+2 ==> System.Char[]
+3 ==> System.String
+4 ==> System.String
+--------------- Static fields: ---------------
+Empty ==> {System.String <- NullRef}
+Initialized types = { System.String, System.Runtime.CompilerServices.RuntimeHelpers, VSharp.Test.Tests.Strings }

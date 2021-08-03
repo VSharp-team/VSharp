@@ -3,7 +3,8 @@ using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
-    // [TestSvmFixture] // TODO: need exceptions for all tests
+    [TestSvmFixture]
+    [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
         [Ignore("unknown result")]
@@ -365,6 +366,23 @@ namespace VSharp.Test.Tests
             return x1 == xorig & x2 == xorig + 1 & x3 == xorig + 2 & x4 == xorig + 3;
         }
 
+        [TestSvm]
+        public static int BigSum(int x)
+        {
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+        }
+
+        [TestSvm]
+        public static int BigSumCycle(int x)
+        {
+            int res = 0;
+            for (int i = 0; i < 9; i++)
+            {
+                res += x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+            }
+            return res;
+        }
+
         // Expecting true
         [TestSvm]
         public static bool Decreasing(int x)
@@ -409,6 +427,45 @@ namespace VSharp.Test.Tests
             return checked ((x / 0.01) + x1);
         }
 
+        // Expecting +Infinity
+        [TestSvm]
+        public static double CheckOverflow4()
+        {
+            double x = Double.MaxValue;
+            double y = Double.MaxValue;
+            return checked (x + y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndUint(int a, uint b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfSingedAndUnsigned()
+        {
+            int x = 42;
+            uint y = UInt32.MaxValue;
+            return SumOfIntAndUint(x, y);
+        }
+
+        [TestSvm]
+        public static long SumOfIntAndShort(int a, short b)
+        {
+            return b + a;
+        }
+
+        // Expecting +Infinity
+        [TestSvm]
+        public static long CheckSumOfIntAndShort()
+        {
+            int x = 42;
+            short y = Int16.MaxValue;
+            return SumOfIntAndShort(x, y);
+        }
+
         // Expecting devide by zero error
         [Ignore("Exceptions handling")]
         public static int CheckDivideByZeroException0(int x1)
@@ -419,8 +476,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting 2000000000 + x1 + 2000000000
-        // [TestSvm]
-        [Ignore("exceptions handling")]
+        [Ignore("Exceptions handling")]
         public static int CheckOrder(int x1)
         {
             int x = 2000000000;
@@ -510,6 +566,35 @@ namespace VSharp.Test.Tests
         public static ulong ShiftDevision4(ulong a)
         {
             return (a >> 31) / 1024;
+        }
+
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUn(int a)
+        {
+            uint b = (uint) a;
+            return b >> 1;
+        }
+
+        [TestSvm]
+        public static uint Shr(int a)
+        {
+            return (uint)(a >> 1);
+        }
+
+        // expecting 4294967295
+        [TestSvm]
+        public static uint ShrTest()
+        {
+            int a = -1;
+            return Shr(a);
+        }
+
+        // expecting 2147483647
+        [Ignore("Need to implement shr.un correctly")]
+        public static uint ShrUnTest()
+        {
+            int a = -1;
+            return ShrUn(a);
         }
 
         // Expecting 0
@@ -628,8 +713,7 @@ namespace VSharp.Test.Tests
             return Math.Sqrt(4);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [TestSvm]
         public static double SqrtMethod3(double x)
         {
             double y;
@@ -689,8 +773,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(x, y);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [TestSvm]
         public static double PowMethod5(double x)
         {
             double y;
@@ -701,8 +784,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(y, 2);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [TestSvm]
         public static double PowMethod6(double x)
         {
             double y;
@@ -852,8 +934,7 @@ namespace VSharp.Test.Tests
             return Math.Tan(Double.NegativeInfinity);
         }
 
-        // [TestSvm]
-        [Ignore("states are only merged for result vertex due to forward exploration design, so System.Math.cctor is called twice and then merged resulting in double allocation of array")]
+        [TestSvm]
         public static double SinhMethod(double x)
         {
             double y;
@@ -918,7 +999,7 @@ namespace VSharp.Test.Tests
             return Math.Atan2(1, Double.PositiveInfinity);
         }
 
-        [Ignore("Unbounded recursion, need to implement PDR")]
+        [Ignore("Forward exploration does not handle recursion now")]
         public static void Mult(int x, int y)
         {
             int z = 0;
@@ -932,6 +1013,27 @@ namespace VSharp.Test.Tests
             {
                 throw new Exception();
             }
+        }
+
+        [TestSvm]
+        public static int PossibleBug(int n) {
+            if (n <= 0 && -n < 0) {
+                throw new Exception("Possible Impossible bug");
+            }
+            return 42;
+        }
+
+        [TestSvm]
+        public static int ImpossibleBug(int n) {
+            try {
+                if (n <= 0 && checked(-n) < 0) {
+                    throw new Exception("Possible Impossible bug");
+                }
+            } catch (OverflowException) {
+                return 100;
+            }
+
+            return 42;
         }
     }
 }

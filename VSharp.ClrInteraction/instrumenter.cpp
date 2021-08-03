@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <corhlpr.cpp>
+#include <memory/memory.h>
 
 using namespace icsharp;
 
@@ -27,6 +28,7 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x00, ELEMENT_TYPE_COND)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_U1)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_U2)
+    SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_U4)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_I)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_COND, ELEMENT_TYPE_I)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x01, ELEMENT_TYPE_I1, ELEMENT_TYPE_I1)
@@ -297,6 +299,23 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
     if (!protocol.sendMethodBody(info)) return false;
     LOG(tout << "Successfully sent method body!");
     char *bytecode; int length; unsigned maxStackSize; char *ehs; unsigned ehsLength;
+#ifdef _DEBUG
+    CommandType command;
+    do {
+        if (!protocol.acceptCommand(command)) return false;
+        switch (command) {
+            case ReadString: {
+                char *string;
+                if (!protocol.acceptString(string)) return false;
+                unsigned index = allocateString(string);
+                if (!protocol.sendStringsPoolIndex(index)) return false;
+                break;
+            }
+            default:
+                break;
+        }
+    } while (command != ReadMethodBody);
+#endif
     LOG(tout << "Reading method body back...");
     if (!protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) return false;
     LOG(tout << "Exporting " << length << " IL bytes!");

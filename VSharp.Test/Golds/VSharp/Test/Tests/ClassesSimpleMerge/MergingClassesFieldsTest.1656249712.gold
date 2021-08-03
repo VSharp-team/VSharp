@@ -2,6 +2,13 @@ METHOD: System.Object VSharp.Test.Tests.ClassesSimpleMerge.MergingClassesFieldsT
 RESULT: Totally 4 states:
 (HeapRef o to System.Object)
 MEMORY DUMP:
+Path condition: !(null == o) /\ !(o <: VSharp.Test.Tests.ClassesSimpleMerge+A) /\ (o <: VSharp.Test.Tests.ClassesSimpleMerge+B)
+--------------- Fields: ---------------
+x ==> {o <- 10}
+Initialized types = { VSharp.Test.Tests.ClassesSimpleMerge }
+
+(HeapRef o to System.Object)
+MEMORY DUMP:
 Path condition: null == o
 Initialized types = { VSharp.Test.Tests.ClassesSimpleMerge }
 
@@ -15,11 +22,4 @@ MEMORY DUMP:
 Path condition: !(null == o) /\ (o <: VSharp.Test.Tests.ClassesSimpleMerge+A)
 --------------- Fields: ---------------
 x ==> {o <- 2}
-Initialized types = { VSharp.Test.Tests.ClassesSimpleMerge }
-
-(HeapRef o to System.Object)
-MEMORY DUMP:
-Path condition: !(null == o) /\ !(o <: VSharp.Test.Tests.ClassesSimpleMerge+A) /\ (o <: VSharp.Test.Tests.ClassesSimpleMerge+B)
---------------- Fields: ---------------
-x ==> {o <- 10}
 Initialized types = { VSharp.Test.Tests.ClassesSimpleMerge }
