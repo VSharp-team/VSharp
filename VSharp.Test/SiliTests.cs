@@ -114,18 +114,18 @@ namespace VSharp.Test
     {
         protected static SVM _svm;
         private static uint _maxBound;
-        private static INewSearcher[] _searchers;//= new INewSearcher[]
-        private static Dictionary<INewSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
+        private static IBidirectionalSearcher[] _searchers;//= new INewSearcher[]
+        private static Dictionary<IBidirectionalSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
         private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
         private List<int> _unreachableLocations = new List<int>();
 
-        public static void SetUpSVM(SVM svm, uint maxBound, INewSearcher[] searchers)
+        public static void SetUpSVM(SVM svm, uint maxBound, IBidirectionalSearcher[] searchers)
         {
             _svm = svm;
             _maxBound = maxBound;
             _searchers = searchers;
             _pobsStatistics = new Dictionary<MethodBase, PobsStatistics>();
-            _globalTime = new Dictionary<INewSearcher, TimeSpan>();
+            _globalTime = new Dictionary<IBidirectionalSearcher, TimeSpan>();
             foreach (var s in _searchers)
             {
                 _globalTime.Add(s, TimeSpan.Zero);
@@ -209,12 +209,12 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, INewSearcher searcher
+            private bool AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
                 , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
             {
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
-                var svm = new SVM(new PobsInterpreter(maxBound, searcher));
+                var svm = new SVM(new PobsInterpreter(searcher));
                 var list = expectedResults.Keys.ToList();
                 var dict = svm.AnswerPobs(entryMethod, list);
                 stopWatch.Stop();

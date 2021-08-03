@@ -10,6 +10,50 @@ open CilStateOperations
 open VSharp.Core
 open VSharp.Utils
 
+type IResettableSearcher =
+    abstract member Init : MethodBase -> pob seq -> unit
+    abstract member Reset : unit -> unit
+    abstract member ShouldWork : unit -> bool
+
+type action =
+    | GoFront of cilState
+    | GoBack of cilState * pob
+    | Stop
+type IBidirectionalSearcher =
+    abstract member UpdateStates : cilState -> cilState seq -> unit
+    abstract member UpdatePobs : pob -> pob -> unit          // updatePob q q' добавляет pob q в backwardSearcher с родителем q'
+    abstract member Pick : unit -> action
+    abstract member Answer : pob -> pobStatus -> unit
+//    abstract member IsFinished : unit -> bool
+//    abstract member Init : MethodBase -> pob seq -> unit
+    abstract member Statuses : unit -> seq<pob * pobStatus>
+    inherit IResettableSearcher
+
+type IForwardSearcher =
+    abstract member Update : cilState -> cilState seq -> unit
+    abstract member Pick : unit -> cilState
+//    abstract member Init : cilState -> unit
+//    abstract member IsEmpty : unit -> bool
+    abstract member FinishedStates : unit -> cilState seq
+    inherit IResettableSearcher
+
+type ITargetedSearcher =
+    abstract member SetTargets : ip -> ip seq -> unit  // setTargets from to: добавить eps в точке from, вести его в точки to
+    abstract member Update : cilState -> cilState seq -> cilState seq // возвращаемое значение: какие состояния достигли цели
+    abstract member Pick : unit -> cilState
+//    abstract member IsEmpty : unit -> bool
+    inherit IResettableSearcher
+type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
+type IBackwardSearcher =
+//    abstract member HasPobs : unit -> bool
+    abstract member Update : pob -> pob -> unit
+    abstract member Answer : pob -> pobStatus -> unit
+    abstract member Statuses : unit -> seq<pob * pobStatus>
+//    abstract member Init : MethodBase -> pob seq -> unit
+    abstract member Pick : unit -> backwardAction // выбрать, к каким pobs двигаться и откуда
+    abstract member AddBranch : cilState -> pob list // как только targeted-состояние достигает target, серчер уведомляется об этом через этот метод. возвращается список pob-ов в этой точке
+    inherit IResettableSearcher
+
 type IpStackComparer() =
     interface IComparer<cilState> with
         override _.Compare(x : cilState, y : cilState) =
@@ -21,138 +65,64 @@ type cilStateComparer(comparer) =
         override _.Compare(x : cilState, y : cilState) =
             comparer x y
 
-type SearchDirection =
-    | Stop
-    | Start of ip
-    | GoForward of cilState
-    | GoBackward of pob * cilState
-
-type INewSearcher =
-    abstract member ChooseAction : IPriorityQueue<cilState> * (pob * cilState) seq * pob seq -> SearchDirection
-    abstract member Reset : unit -> unit
-    abstract member Init : MethodBase * codeLocation seq -> unit
-    abstract member PriorityQueue : uint -> IPriorityQueue<cilState>
-
-type FrontQueue(maxBound, searcher : INewSearcher) =
-    let goodStates : IPriorityQueue<cilState> = searcher.PriorityQueue(maxBound)
-    // NOTE: ``justAddedGoodStates'' should be used by TargetedSearcher to update its priorityQueue
-    let justAddedGoodStates =
-        let emptyState = makeInitialState null Memory.EmptyState
-        Array.init 10 (fun _ -> emptyState)
-    let mutable justAddedSize = 0
-    let iieStates = List<cilState>()
-    let erroredStates = List<cilState>()
-    let maxBoundViolatingStates = List<cilState>()
-    let nonExecutableStates = List<cilState>()
-
-    let doesViolateMaxBound (s : cilState) =
-        levelToUnsignedInt s.level > maxBound
-//        match currentIp s with
-//        | Instruction(offset, m) ->
-//            let codeLocation = {offset = offset; method = m}
-//            match PersistentDict.tryFind s.level codeLocation with
-//            | Some current -> current >= uint32 maxBound
-//            | None -> false
-//        | _ -> false
-    let addGoodState (s : cilState) =
-        if doesViolateMaxBound s then maxBoundViolatingStates.Add(s)
-        elif not (isExecutable s) then nonExecutableStates.Add(s)
-        else justAddedGoodStates.[justAddedSize] <- s
-             justAddedSize <- justAddedSize + 1
-
-    let transformJustAdded2GoodStates() =
-        // TODO: profile it, because clearing might give overhead
-        for i = 0 to justAddedSize - 1 do
-            goodStates.Push(justAddedGoodStates.[i])
-        justAddedSize <- 0
-    member x.Add(s : cilState) =
-        assert(List.length s.ipStack = Memory.CallStackSize s.state)
-        if isIIEState s then iieStates.Add(s)
-        elif isUnhandledError s then erroredStates.Add(s) // TODO: check it. Maybe ''isUnhandledError'' should be here
-        else addGoodState s
-    member x.AddGoodStates(newStates : cilState seq) = Seq.iter addGoodState newStates
-    member x.AddIIEStates(newStates : cilState seq) = Seq.iter iieStates.Add newStates
-    member x.AddErroredStates(newStates : cilState seq) = Seq.iter erroredStates.Add newStates
-//    member x.Remove(s : cilState) : bool =
-//        assert(goodStates.ExtractMin() = Some s)
-//        goodStates.DeleteMin()
-//    member x.ExtractMinAndRemoveItFromQueue() : cilState option =
-//        transformJustAdded2GoodStates()
-//        let res = goodStates.ExtractMin()
-//        goodStates.DeleteMin() |> ignore
-//        res
-
-    member x.StatesForPropagation() : IPriorityQueue<cilState> =
-        transformJustAdded2GoodStates()
-        goodStates
-
-    // TODO: Is this method really needed?
-    member x.GetAllStates() =
-        goodStates.ToSeq() |> Seq.append iieStates |> Seq.append erroredStates
-        |> Seq.append maxBoundViolatingStates |> Seq.append nonExecutableStates
-
-    member x.Clear() =
-        goodStates.Clear()
-        iieStates.Clear()
-        erroredStates.Clear()
-        maxBoundViolatingStates.Clear()
-        nonExecutableStates.Clear()
-
-//type IndexedQueue() =
-//    let q = List<cilState>()
-////    let isRecursiveEffect (s : cilState) =
-////        let isEffect = (Seq.last s.state.frames).isEffect
-////        if isEffect then
-////            let effectsMethod = (Seq.last s.state.frames).func.Method
-////            match currentIp s with
-////            | {label = Instruction offset; method = m} when Instruction.isDemandingCallOpCode (Instruction.parseInstruction m offset)->
-////                let callSite = Instruction.parseCallSite m offset
-////                callSite.calledMethod.Equals(effectsMethod)
-////            | _ -> false
-////        else false
-//    member x.Add (s : cilState) =
-//        if List.length s.ipStack <> Memory.CallStackSize s.state then __unreachable__() // TODO: change to assert; this falls in factAgain #do
-//        q.Add s
-//
-//    member x.Remove s =
-//        let removed = q.Remove s
-//        if not removed then Logger.trace "CilState was not removed from IndexedQueue:\n%O" s
-//    member x.GetStates () = List.ofSeq q
-
-
 
 [<AbstractClass>]
-type ForwardSearcher() = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
+type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-    let mutable mainMethod = null
-    let mutable startedFromMain = false
-    interface INewSearcher with
-        override x.PriorityQueue maxBound : IPriorityQueue<cilState> = x.PriorityQueue maxBound
-        override x.Init (m,_) =
-            mainMethod <- m
-//        override x.ClosePob (_) = ()
-        override x.Reset () =
-//            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
-            mainMethod <- null
-        override x.ChooseAction(fq, bq, _) =
-            match bq with
-            | Seq.Cons(ps, _) -> GoBackward ps
-            | Seq.Empty when not startedFromMain && fq.IsEmpty ->
-                startedFromMain <- true
-                Start <| Instruction(0, mainMethod)
-            | Seq.Empty ->
-                match fq.ExtractMin() with
-                | None -> Stop
-                | Some s ->
-                    let removed = fq.DeleteMin() in assert removed
-                    GoForward s
-    abstract member PriorityQueue : uint -> IPriorityQueue<cilState>
-    default x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
+//    let mutable mainMethod = null
+//    let mutable startedFromMain = false
+    let forPropagation = List<cilState>()
+    let finished = List<cilState>()
+    let violatesLevel (s : cilState) =
+        levelToUnsignedInt s.level > maxBound
+    let add (s : cilState) =
+        if isIIEState s || isError s || not(isExecutable(s)) || violatesLevel s then finished.Add(s)
+        else forPropagation.Add(s)
+    interface IResettableSearcher with
+        override x.ShouldWork () = forPropagation.Count > 0
+        override x.Init m _ =
+            let initial = ExplorerBase.FormInitialStateWithoutStatics m
+            let initial = makeInitialState m initial
+            forPropagation.Add initial
+        override x.Reset() =
+            forPropagation.Clear()
+            finished.Clear()
+    interface IForwardSearcher with
+//        override x.Reset () =
+//            forPropagation.Clear()
+        override x.FinishedStates () = seq finished
+        override x.Pick() = x.Choose(forPropagation)
+        override x.Update parent children =
+            forPropagation.Remove(parent) |> ignore
+            Seq.iter add children
+//            match bq with
+//            | Seq.Cons(ps, _) -> GoBackward ps
+//            | Seq.Empty when not startedFromMain && fq.IsEmpty ->
+//                startedFromMain <- true
+//                Start <| Instruction(0, mainMethod)
+//            | Seq.Empty ->
+//                match fq.ExtractMin() with
+//                | None -> Stop
+//                | Some s ->
+//                    let removed = fq.DeleteMin() in assert removed
+//                    GoForward s
 
-type BFSSearcher() =
-    inherit ForwardSearcher() with
-        override x.PriorityQueue _ = TrivialPriorityQueue<cilState>() :> IPriorityQueue<cilState>
+//    interface IBidirectionalSearcher with
+//        override x.UpdateStates parent children = (x :> IForwardSearcher).Update parent children
+//        override x.UpdatePobs parent child = __notImplemented__()
+//        override x.ChooseAction () = __notImplemented__()
+//        override x.Reset () = __notImplemented__()
+//        override x.Init (_,_) = __notImplemented__()
+    abstract member Choose : seq<cilState> -> cilState
+    default x.Choose states =
+        if Seq.isEmpty states then ()
+        Seq.last states
 
-type DFSSearcher() =
-    inherit ForwardSearcher()
+
+type BFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound) with
+        override x.Choose states = Seq.head states
+
+type DFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound)
 

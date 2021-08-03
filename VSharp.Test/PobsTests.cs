@@ -45,7 +45,7 @@ namespace VSharp.Test
 
 
 
-        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, INewSearcher searcher, uint maxBound)
+        private static bool AnswerPobsForSearcher(MethodInfo entry, CodeLocationProxy[] proxies, IBidirectionalSearcher searcher, uint maxBound)
         {
             List<codeLocation> codeLocations = new List<codeLocation>();
             foreach (var p in proxies)
@@ -53,7 +53,7 @@ namespace VSharp.Test
                 codeLocations.Add(new codeLocation(p.Offset, p.Method));
             }
 
-            var svm = new SVM(new PobsInterpreter(maxBound, searcher));
+            var svm = new SVM(new PobsInterpreter(searcher));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
 
@@ -85,15 +85,14 @@ namespace VSharp.Test
         {
             uint maxBound = 20u;
             var entryMethod = t.GetMethod(mainName, All);
-            var searchers = new INewSearcher[]
+            var searchers = new IBidirectionalSearcher[]
             {
                 // new TargetedSearcher()
                 // new BFSSearcher()
 
                 // , new TargetedSearcher()
-                new DFSSearcher()
-                , new BidirectionalSearcherForMethods()
-                , new BFSSearcher()
+                new BidirectionalSearcher(new DFSSearcher(maxBound), new BackwardSearcher(), new TargetedSearcher.DummyTargetedSearcher())
+                , new BidirectionalSearcher(new BFSSearcher(maxBound), new BackwardSearcher(), new TargetedSearcher.DummyTargetedSearcher())
             };
 
             bool allWitnessed = true;

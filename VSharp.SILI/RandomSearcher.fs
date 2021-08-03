@@ -48,12 +48,12 @@ type ProbabilityPriorityQueue(estimator : IEstimator) =
             indexToRemove <- -1
             list.Clear()
 
-type public RandomSearcher(weightedSearcher : IEstimator) =
-    interface INewSearcher with
-        override  x.ChooseAction(_,_,_) =
-            __notImplemented__()
-        override x.Reset () = __notImplemented__()
-        override x.Init (_,_) = __notImplemented__()
-        override x.PriorityQueue _ = ProbabilityPriorityQueue(weightedSearcher) :> IPriorityQueue<cilState>
-    member x.F() = ()
+//type public RandomSearcher(weightedSearcher : IEstimator) =
+//    interface INewSearcher with
+//        override  x.ChooseAction(_,_,_) =
+//            __notImplemented__()
+//        override x.Reset () = __notImplemented__()
+//        override x.Init (_,_) = __notImplemented__()
+//        override x.PriorityQueue _ = ProbabilityPriorityQueue(weightedSearcher) :> IPriorityQueue<cilState>
+//    member x.F() = ()
 

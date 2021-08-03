@@ -25,10 +25,11 @@
         <Compile Include="Lambdas.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="Statistics.fs" />
         <Compile Include="PobsInterpreter.fs" />
         <Compile Include="Variables.fs" />
         <Compile Include="TargetedSearcher.fs" />
-        <Compile Include="BidirectionalSearcherForMethods.fs" />
+        <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="RandomSearcher.fs" />
         <Compile Include="StackTraceEstimator.fs" />
         <Compile Include="StackTraceSearcher.fs" />

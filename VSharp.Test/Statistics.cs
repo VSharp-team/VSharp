@@ -136,23 +136,23 @@ namespace VSharp.Test
     public class PobsStatistics
     {
         // private static TimeSpan diff = new TimeSpan(milliseconds:500);
-        private INewSearcher[] _searchers;
-        private Dictionary<INewSearcher, List<codeLocation>> _correct;
-        private Dictionary<INewSearcher, TimeSpan> _time;
-        private Dictionary<INewSearcher, List<codeLocation>> _wrong;
+        private IBidirectionalSearcher[] _searchers;
+        private Dictionary<IBidirectionalSearcher, List<codeLocation>> _correct;
+        private Dictionary<IBidirectionalSearcher, TimeSpan> _time;
+        private Dictionary<IBidirectionalSearcher, List<codeLocation>> _wrong;
         // private Dictionary<INewSearcher, Tuple<Me, TimeSpan>>> _wrong;
         private HashSet<codeLocation> _allLocs = new HashSet<codeLocation>();
-        private static Dictionary<INewSearcher, double> _allAccuracy = new Dictionary<INewSearcher, double>();
+        private static Dictionary<IBidirectionalSearcher, double> _allAccuracy = new Dictionary<IBidirectionalSearcher, double>();
         private static int testsNumber = 0;
 
 
 
-        public PobsStatistics(INewSearcher[] searchers)
+        public PobsStatistics(IBidirectionalSearcher[] searchers)
         {
             _searchers = searchers;
-            _correct = new Dictionary<INewSearcher, List<codeLocation>>();
-            _wrong = new Dictionary<INewSearcher, List<codeLocation>>();
-            _time = new Dictionary<INewSearcher, TimeSpan>();
+            _correct = new Dictionary<IBidirectionalSearcher, List<codeLocation>>();
+            _wrong = new Dictionary<IBidirectionalSearcher, List<codeLocation>>();
+            _time = new Dictionary<IBidirectionalSearcher, TimeSpan>();
 
             foreach (var s in searchers)
             {
@@ -167,12 +167,12 @@ namespace VSharp.Test
             testsNumber++;
         }
 
-        public void AddTime(INewSearcher s, MethodBase m, TimeSpan t)
+        public void AddTime(IBidirectionalSearcher s, MethodBase m, TimeSpan t)
         {
             _time[s] = t;
         }
 
-        public void AddCorrectAnswer(INewSearcher s, codeLocation loc, TimeSpan t)
+        public void AddCorrectAnswer(IBidirectionalSearcher s, codeLocation loc, TimeSpan t)
         {
             _allLocs.Add(loc);
             if (!_searchers.Contains(s))
@@ -182,7 +182,7 @@ namespace VSharp.Test
             _correct[s].Add(loc);
         }
 
-        public void AddWrongAnswer(INewSearcher s, codeLocation loc, TimeSpan t)
+        public void AddWrongAnswer(IBidirectionalSearcher s, codeLocation loc, TimeSpan t)
         {
             _allLocs.Add(loc);
             _wrong[s].Add(loc);
@@ -197,7 +197,7 @@ namespace VSharp.Test
             }
         }
 
-        public void PrintStats(MethodBase m, INewSearcher s)
+        public void PrintStats(MethodBase m, IBidirectionalSearcher s)
         {
             double numberRight = _correct[s].Count;
             double numberWrong = _wrong[s].Count;

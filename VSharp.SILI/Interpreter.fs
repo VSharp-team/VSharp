@@ -8,17 +8,19 @@ open InstructionsSet
 open CilStateOperations
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL
 open ipOperations
 open Instruction
 
 type cfg = CFG.cfgData
 
-type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg*)) =
+type public MethodInterpreter(maxBound, forwardSearcher : IForwardSearcher (*ilInterpreter : ILInterpreter, funcId : IFunctionIdentifier, cfg : cfg*)) =
     inherit ExplorerBase()
-    member x.GetResults initialState (q : FrontQueue) =
+    member x.GetResults initialState =
         let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
         let isStartingDescender (s : cilState) = s.startingIP = initialState.startingIP
-        let allStates = List.filter isStartingDescender (q.GetAllStates() |> List.ofSeq)
+        let allStates = List.filter isStartingDescender (forwardSearcher.FinishedStates() |> List.ofSeq)
         let iieStates, nonIIEstates = List.partition isIIEState allStates
         let isFinished (s : cilState) = s.ipStack = [Exit <| methodOf initialState.startingIP]
         let finishedStates = List.filter isFinished nonIIEstates
@@ -28,7 +30,7 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
            | _ -> true
         let validStates = List.filter isValid finishedStates
         let printInfoForDebug () =
-            let allStatesInQueue = q.GetAllStates() |> List.ofSeq
+            let allStatesInQueue = forwardSearcher.FinishedStates() |> List.ofSeq
             Logger.info "No states were obtained. Most likely such a situation is a bug. Check it!"
             Logger.info "Indexed queue size = %d\n" (List.length allStatesInQueue)
             List.iteri (fun i -> dump >> Logger.info "Queue.[%d]:\n%s\n" i) allStatesInQueue
@@ -42,31 +44,17 @@ type public MethodInterpreter(maxBound, searcher : ForwardSearcher (*ilInterpret
         | _ -> validStates
 
     member x.Interpret (main : MethodBase) (initialState : cilState) =
-        let q = FrontQueue(maxBound, searcher)
-        q.Add initialState
-
-        let hasAnyProgress (s : cilState) = [s.startingIP] <> s.ipStack
-        let isEffectFor currentIp (s : cilState) = hasAnyProgress s && startingIpOf s = currentIp
-        let step s =
-            let forPropagation = q.StatesForPropagation().ToSeq() |> List.ofSeq
-            let states = List.filter (isEffectFor (currentIp s)) (s :: forPropagation)
-            match states with
-            | [] ->
-                let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
-                q.AddGoodStates(goodStates)
-                q.AddIIEStates(incompleteStates)
-                q.AddErroredStates(errors)
-            | _ -> List.map (compose s) states |> List.concat |> List.iter q.Add
-
-        let mutable action = (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
-        while action <> Stop do
-            match action with
-            | GoForward s -> step s
-            | _ -> __unreachable__()
-            action <- (searcher :> INewSearcher).ChooseAction (q.StatesForPropagation(), [], [])
-        x.GetResults initialState q
+        forwardSearcher.Init main Seq.empty
+        let interpreter = ILInterpreter(x)
+        while forwardSearcher.ShouldWork() do
+            let s = forwardSearcher.Pick()
+            let goodStates, incompleteStates, errors = interpreter.ExecuteOnlyOneInstruction s
+            let allStates = goodStates @ incompleteStates @ errors |> List.toSeq
+            forwardSearcher.Update s allStates
+        x.GetResults initialState
 
     override x.Invoke method initialState k =
+        let k x = forwardSearcher.Reset(); k x
         let cilStates = x.InitializeStatics initialState method.DeclaringType List.singleton
         assert(List.length cilStates = 1)
         let cilState = List.head cilStates

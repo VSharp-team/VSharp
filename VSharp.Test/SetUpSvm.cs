@@ -28,19 +28,23 @@ namespace VSharp.Test
             // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
             Logger.ConfigureWriter(TestContext.Progress);
             // var svm = new SVM(new PobsInterpreter(new BFSSearcher(bound)));
-            var svm = new SVM(new PobsInterpreter(maxBound, new DFSSearcher()));
+            var forward = new DFSSearcher(maxBound);
+            var backward = new BackwardSearcher();
+            var targeted = new TargetedSearcher.DummyTargetedSearcher();
+            var bidirectional = new BidirectionalSearcher(forward, backward, targeted);
+            var svm = new SVM(new PobsInterpreter(bidirectional));
             // var svm = new SVM(new PobsInterpreter(new TargetedSearcher(bound)));
             // var svm = new SVM(new MethodInterpreter(maxBound, new DFSSearcher()));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
-            var searchers = new INewSearcher[] {
-                new BidirectionalSearcherForMethods()
+            var searchers = new IBidirectionalSearcher[] {
+                new BidirectionalSearcher(forward, backward, targeted)
                 // new DFSSearcher()
                 // , new DFSSearcher()
                 // , new BFSSearcher()
                 // , new BFSSearcher()
-                // , new BidirectionalSearcherForMethods()
-                // , new BidirectionalSearcherForMethods()
+                // , new BidirectionalSearcher()
+                // , new BidirectionalSearcher()
                 // new TargetedSearcher(maxBound)
             };
             //var pobsStatistics = new PobsStatistics(searchers);
