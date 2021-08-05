@@ -145,13 +145,13 @@ void icsharp::execThrow() {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec THROW!" << std::endl);
+//    LOG(tout << "Exec THROW!" << std::endl);
 }
 
 void icsharp::execRethrow() {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec rethrow" << std::endl);
+//    LOG(tout << "Exec rethrow" << std::endl);
 }
 
 void icsharp::validateEnd() {
@@ -169,7 +169,7 @@ unsigned icsharp::allocateString(const char *s) {
     unsigned currentIndex = topStringIndex;
     // Place s into intern pool
     stringsPool[currentIndex] = s;
-    LOG(tout << "Allocated string '" << s << "' with index '" << currentIndex << "'");
+//    LOG(tout << "Allocated string '" << s << "' with index '" << currentIndex << "'");
     // Increment top index
     topStringIndex++;
     // Return string's index
@@ -181,137 +181,137 @@ void icsharp::ldarg(INT16 idx) {
     // TODO
     switchContext();
     stack->topFrame().push1Concrete();
-    LOG(tout << "Exec ldarg " << idx << std::endl);
+//    LOG(tout << "Exec ldarg " << idx << std::endl);
 }
 
 void icsharp::ldloc(INT16 idx) {
     // TODO
     switchContext();
     stack->topFrame().push1Concrete();
-    LOG(tout << "Exec ldloc " << idx << std::endl);
+//    LOG(tout << "Exec ldloc " << idx << std::endl);
 }
 
 void icsharp::starg(INT16 idx) {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec starg " << idx << std::endl);
+//    LOG(tout << "Exec starg " << idx << std::endl);
 }
 
 void icsharp::stloc(INT16 idx) {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec stloc " << idx << std::endl);
+//    LOG(tout << "Exec stloc " << idx << std::endl);
 }
 
 void icsharp::dup() {
     switchContext();
     stack->topFrame().dup();
-    LOG(tout << "Exec dup" << std::endl);
+//    LOG(tout << "Exec dup" << std::endl);
 }
 
 void icsharp::unop(INT16 op) {
     // TODO
     switchContext();
-    LOG(tout << "Exec unary operation " << op << std::endl);
+//    LOG(tout << "Exec unary operation " << op << std::endl);
 }
 
 void icsharp::ldind(INT_PTR ptr) {
     // TODO
     switchContext();
     stack->topFrame().push1Concrete();
-    LOG(tout << "Exec ldind 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec ldind 0x" << std::hex << ptr << std::endl);
 }
 
 bool icsharp::stind(INT_PTR ptr) {
     // TODO
     switchContext();
-    LOG(tout << "Exec stind 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec stind 0x" << std::hex << ptr << std::endl);
     return stack->topFrame().pop1();
 }
 
 void icsharp::conv() {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec conv" << std::endl);
+//    LOG(tout << "Exec conv" << std::endl);
 }
 
 void icsharp::conv_ovf() {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec conv" << std::endl);
+//    LOG(tout << "Exec conv" << std::endl);
 }
 
-void newarr(INT_PTR ptr) {
+void icsharp::newarr(INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec newarr (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
+//    LOG(tout << "Exec newarr (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
 }
 
-void localloc(INT_PTR ptr) {
+void icsharp::localloc(INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec localloc (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
+//    LOG(tout << "Exec localloc (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
 }
 
 void icsharp::alloc(INT_PTR ptr) {
-
+    push1Concrete();
 }
 
-void ldobj(INT_PTR ptr) {
+void icsharp::ldobj(INT_PTR ptr) {
     // TODO
     // TODO: assert that ptr is concrete!
 //    switchContext();
-    LOG(tout << "Exec ldobj 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec ldobj 0x" << std::hex << ptr << std::endl);
 }
 
-void ldstr(INT_PTR ptr) {
+void icsharp::ldstr(INT_PTR ptr) {
     // TODO
     switchContext();
     stack->topFrame().push1Concrete();
-    LOG(tout << "Exec ldstr (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
+//    LOG(tout << "Exec ldstr (allocated address is 0x" << std::hex << ptr << ")" << std::endl);
 }
 
-void stobj(INT_PTR ptr) {
+void icsharp::stobj(INT_PTR ptr) {
     // TODO
     // TODO: assert that ptr is concrete!
     switchContext();
-    stack->topFrame().pop1();
-    LOG(tout << "Exec initobj 0x" << std::hex << ptr << std::endl);
+    stack->topFrame().pop1() & stack->topFrame().pop1();
+//    LOG(tout << "Exec stobj 0x" << std::hex << ptr << std::endl);
 }
 
-void initobj(INT_PTR ptr) {
+void icsharp::initobj(INT_PTR ptr) {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec initobj 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec initobj 0x" << std::hex << ptr << std::endl);
 }
 
-void ldlen(INT_PTR ptr) {
+void icsharp::ldlen(INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec ldlen 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec ldlen 0x" << std::hex << ptr << std::endl);
 }
 
 bool icsharp::cpobj(INT_PTR dest, INT_PTR src) {
     // TODO
     switchContext();
-    LOG(tout << "Exec cpobj from 0x" << std::hex << src << " to 0x" << std::hex << dest << std::endl);
+//    LOG(tout << "Exec cpobj from 0x" << std::hex << src << " to 0x" << std::hex << dest << std::endl);
     return stack->topFrame().pop1() & stack->topFrame().pop1();
 }
 
 bool icsharp::cpblk(INT_PTR dest, INT_PTR src) {
     // TODO
     switchContext();
-    LOG(tout << "Exec cpblk from 0x" << std::hex << src << " to 0x" << std::hex << dest << std::endl);
+//    LOG(tout << "Exec cpblk from 0x" << std::hex << src << " to 0x" << std::hex << dest << std::endl);
     return stack->topFrame().pop1() & stack->topFrame().pop1() & stack->topFrame().pop1();
 }
 
 bool icsharp::initblk(INT_PTR ptr) {
     // TODO
     switchContext();
-    LOG(tout << "Exec initblk 0x" << std::hex << ptr << std::endl);
+//    LOG(tout << "Exec initblk 0x" << std::hex << ptr << std::endl);
     return stack->topFrame().pop1() & stack->topFrame().pop1() & stack->topFrame().pop1();
 }
 
@@ -322,50 +322,50 @@ void icsharp::castclass(mdToken typeToken, INT_PTR ptr) {
     // TODO: is it true that 'castclass' contains only pop,
     // because after 'castclass' JIT calls private function 'CastHelpers.ChkCastClass',
     // that pushes result?
-    LOG(tout << "Exec castclass 0x" << std::hex << ptr << " to class " << std::hex << typeToken << std::endl);
+//    LOG(tout << "Exec castclass 0x" << std::hex << ptr << " to class " << std::hex << typeToken << std::endl);
 }
 
 void icsharp::isinst(mdToken typeToken, INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec isinst 0x" << std::hex << ptr << ", class token is " << std::hex << typeToken << std::endl);
+//    LOG(tout << "Exec isinst 0x" << std::hex << ptr << ", class token is " << std::hex << typeToken << std::endl);
 }
 
 void icsharp::box(INT_PTR ptr) {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec box (resulting location is 0x" << std::hex << ptr << ")" << std::endl);
+//    LOG(tout << "Exec box (resulting location is 0x" << std::hex << ptr << ")" << std::endl);
 }
 
 void icsharp::unbox(mdToken typeToken, INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec unbox 0x" << std::hex << ptr << "(type token 0x" << std::hex << typeToken << ")" << std::endl);
+//    LOG(tout << "Exec unbox 0x" << std::hex << ptr << "(type token 0x" << std::hex << typeToken << ")" << std::endl);
 }
 
 void icsharp::unbox_any(mdToken typeToken, INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec unbox.any 0x" << std::hex << ptr << "(type token 0x" << std::hex << typeToken << ")" << std::endl);
+//    LOG(tout << "Exec unbox.any 0x" << std::hex << ptr << "(type token 0x" << std::hex << typeToken << ")" << std::endl);
 }
 
 void icsharp::ldfld(mdToken fieldToken, INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec ldfld 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
+//    LOG(tout << "Exec ldfld 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
 }
 
 void icsharp::ldflda(mdToken fieldToken, INT_PTR ptr) {
     // TODO
 //    switchContext();
-    LOG(tout << "Exec ldflda 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
+//    LOG(tout << "Exec ldflda 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
 }
 
 bool icsharp::stfld(mdToken fieldToken, INT_PTR ptr) {
     // TODO
     switchContext();
-    LOG(tout << "Exec stfld 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
+//    LOG(tout << "Exec stfld 0x" << std::hex << ptr << "(field token 0x" << std::hex << fieldToken << ")" << std::endl);
     return stack->topFrame().pop1() & stack->topFrame().pop1();
 }
 
@@ -373,34 +373,34 @@ void icsharp::ldfsld(mdToken fieldToken) {
     // TODO
     switchContext();
     stack->topFrame().push1Concrete();
-    LOG(tout << "Exec ldsfld, field token 0x" << std::hex << fieldToken << std::endl);
+//    LOG(tout << "Exec ldsfld, field token 0x" << std::hex << fieldToken << std::endl);
 }
 
 void icsharp::stsfld(mdToken fieldToken) {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec stsfld, field token 0x" << std::hex << fieldToken << std::endl);
+//    LOG(tout << "Exec stsfld, field token 0x" << std::hex << fieldToken << std::endl);
 }
 
 bool icsharp::ldelema(INT_PTR ptr, INT_PTR index) {
     // TODO
     switchContext();
-    LOG(tout << "Exec ldelema, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
+//    LOG(tout << "Exec ldelema, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
     return stack->topFrame().pop1() && stack->topFrame().peek0();
 }
 
 bool icsharp::ldelem(INT_PTR ptr, INT_PTR index) {
     // TODO
     switchContext();
-    LOG(tout << "Exec ldelem, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
+//    LOG(tout << "Exec ldelem, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
     return stack->topFrame().pop1() && stack->topFrame().peek0();
 }
 
 bool icsharp::stelem(INT_PTR ptr, INT_PTR index){
     // TODO
     switchContext();
-    LOG(tout << "Exec stelem, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
+//    LOG(tout << "Exec stelem, addr 0x" << std::hex << ptr << ", index " << index << std::endl);
     return stack->topFrame().pop1() & stack->topFrame().pop1() & stack->topFrame().pop1();
 }
 
@@ -408,111 +408,147 @@ void icsharp::ckfinite() {
     // TODO
     // TODO: if exn is thrown, no value is pushed onto the stack
 //    switchContext();
-    LOG(tout << "Exec ckfinite" << std::endl);
+//    LOG(tout << "Exec ckfinite" << std::endl);
 }
 
 void icsharp::ldvirtftn(mdToken token, INT_PTR ptr) {
     // TODO
     switchContext();
-    LOG(tout << "Exec ldvirtftn, addr 0x" << std::hex << ptr << ", token 0x" << std::hex << token << std::endl);
+//    LOG(tout << "Exec ldvirtftn, addr 0x" << std::hex << ptr << ", token 0x" << std::hex << token << std::endl);
 }
 
 void icsharp::mkrefany() {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec mkrefany" << std::endl);
+//    LOG(tout << "Exec mkrefany" << std::endl);
 }
 
-void brtrue() {
+void icsharp::brtrue() {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec brtrue" << std::endl);
+//    LOG(tout << "Exec brtrue" << std::endl);
 }
 
-void brfalse() {
+void icsharp::brfalse() {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec brfalse" << std::endl);
+//    LOG(tout << "Exec brfalse" << std::endl);
 }
 
-void execSwitch() {
+void icsharp::execSwitch() {
     // TODO
     switchContext();
     stack->topFrame().pop1();
-    LOG(tout << "Exec switch" << std::endl);
+//    LOG(tout << "Exec switch" << std::endl);
 }
 
 unsigned data_idx, data_ptr;
 std::vector<char> data;
 std::vector<unsigned> dataPtrs;
 
+#define MAX_ENTRIES 3
+
 void icsharp::clear_mem() {
+    LOG(tout << "clear_mem()" << std::endl);
     data_idx = 0; data_ptr = 0;
-    dataPtrs.reserve(3);
+    dataPtrs.reserve(MAX_ENTRIES);
+    data.reserve(MAX_ENTRIES * sizeof(DOUBLE));
 }
 
 void mem(char *value, size_t size) {
     dataPtrs[data_idx++] = data_ptr;
     data_ptr += size;
-    data.reserve(data_ptr);
     memcpy(data.data() + data_ptr - size, value, size);
 }
 
 void icsharp::mem_i1(INT8 value) {
+    LOG(tout << "mem_i1 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT8));
 }
 
 void icsharp::mem_i2(INT16 value) {
+    LOG(tout << "mem_i2 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT16));
 }
 
 void icsharp::mem_i4(INT32 value) {
+    LOG(tout << "mem_i4 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT32));
 }
 
 void icsharp::mem_i8(INT64 value) {
+    LOG(tout << "mem_i8 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT64));
 }
 
 void icsharp::mem_f4(FLOAT value) {
+    LOG(tout << "mem_f4 " << value << std::endl);
     mem((char *) &value, sizeof(FLOAT));
 }
 
 void icsharp::mem_f8(DOUBLE value) {
+    LOG(tout << "mem_f8 " << value << std::endl);
     mem((char *) &value, sizeof(DOUBLE));
 }
 
 void icsharp::mem_p(INT_PTR value) {
+    LOG(tout << "mem_p " << value << std::endl);
     mem((char *) &value, sizeof(INT_PTR));
 }
 
 INT8 icsharp::unmem_i1(INT8 idx) {
-    return *((INT8*) data.data() + dataPtrs[idx]);
+    auto result = *((INT8*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_i1(" << (int)idx << ") returned " << (int) result);
+    return result;
+//    return *((INT8*) (data.data() + dataPtrs[idx]));
 }
 
 INT16 icsharp::unmem_i2(INT8 idx) {
-    return *((INT16*) data.data() + dataPtrs[idx]);
+    auto result = *((INT16*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_i2(" << (int)idx << ") returned " << (int) result);
+    return result;
+//    return *((INT16*) (data.data() + dataPtrs[idx]));
 }
 
 INT32 icsharp::unmem_i4(INT8 idx) {
-    return *((INT32*) data.data() + dataPtrs[idx]);
+    auto result = *((INT32*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_i4(" << (int)idx << ") returned " << (int) result);
+    return result;
+//    return *((INT32*) (data.data() + dataPtrs[idx]));
 }
 
 INT64 icsharp::unmem_i8(INT8 idx) {
-    return *((INT64*) data.data() + dataPtrs[idx]);
+    auto result = *((INT64*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_i8(" << (int)idx << ") returned " << result);
+    return result;
+//    return *((INT64*) (data.data() + dataPtrs[idx]));
 }
 
 FLOAT icsharp::unmem_f4(INT8 idx) {
-    return *((FLOAT*) data.data() + dataPtrs[idx]);
+    auto result = *((FLOAT*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_f4(" << (int)idx << ") returned " << result);
+    return result;
+//    return *((FLOAT*) (data.data() + dataPtrs[idx]));
 }
 
 DOUBLE icsharp::unmem_f8(INT8 idx) {
-    return *((DOUBLE*) data.data() + dataPtrs[idx]);
+    auto result = *((DOUBLE*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_f8(" << (int)idx << ") returned " << result);
+    return result;
+    return *((DOUBLE*) (data.data() + dataPtrs[idx]));
 }
 
 INT_PTR icsharp::unmem_p(INT8 idx) {
-    return *((INT_PTR*) data.data() + dataPtrs[idx]);
+    auto result = *((INT_PTR*) (data.data() + dataPtrs[idx]));
+    LOG(tout << "unmem_p(" << (int)idx << ") returned " << result);
+    return result;
+//    return *((INT_PTR*) (data.data() + dataPtrs[idx]));
+}
+
+int icsharp::stackBalance() {
+    switchContext();
+    return stack->topFrame().count();
 }

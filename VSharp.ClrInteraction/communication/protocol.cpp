@@ -143,7 +143,7 @@ bool Protocol::acceptCommand(CommandType &command)
         command = ReadMethodBody;
     } else {
         if (byte == readStringByte) {
-            LOG(tout << "Accepted ReadString command");
+//            LOG(tout << "Accepted ReadString command");
             command = ReadString;
         }
         else
@@ -162,7 +162,7 @@ bool Protocol::acceptString(char *&string) {
     }
     string = new char[messageLength];
     memcpy(string, message, messageLength);
-    LOG(tout << "Successfully accepted string: " << string);
+//    LOG(tout << "Successfully accepted string: " << string);
     delete[] message;
     return true;
 }

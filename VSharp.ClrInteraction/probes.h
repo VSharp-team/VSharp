@@ -212,7 +212,7 @@ PROBE(void, DumpInstruction, (UINT32 index)) {
     if (!s) {
         ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
-        LOG(tout << "Executing " << s << std::endl);
+        LOG(tout << "Executing " << s << " (stack balance before = " << stackBalance() << ")" << std::endl);
     }
 }
 

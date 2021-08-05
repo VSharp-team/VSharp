@@ -100,6 +100,8 @@ FLOAT unmem_f4(INT8 idx);
 DOUBLE unmem_f8(INT8 idx);
 INT_PTR unmem_p(INT8 idx);
 
+int stackBalance();
+
 }
 
 #endif // MEMORY_H_

@@ -126,6 +126,7 @@ module private EvaluationStackTyper =
         let result = System.Collections.Generic.Dictionary<int32 *int32, evaluationStackCellType>()
         result.Add((typeof<int8>.Module.MetadataToken, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<uint8>.Module.MetadataToken, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
+        result.Add((typeof<char>.Module.MetadataToken, typeof<char>.MetadataToken), evaluationStackCellType.I2)
         result.Add((typeof<int16>.Module.MetadataToken, typeof<int16>.MetadataToken), evaluationStackCellType.I2)
         result.Add((typeof<uint16>.Module.MetadataToken, typeof<uint16>.MetadataToken), evaluationStackCellType.I2)
         result.Add((typeof<int32>.Module.MetadataToken, typeof<int32>.MetadataToken), evaluationStackCellType.I4)
@@ -234,8 +235,8 @@ module private EvaluationStackTyper =
             | OpCodeValues.Ldloc_1 -> typeLdloc m s 1
             | OpCodeValues.Ldloc_2 -> typeLdloc m s 2
             | OpCodeValues.Ldloc_3 -> typeLdloc m s 3
-            | OpCodeValues.Ldloc_S -> instr.Arg8 |> int |> typeLdarg m s
-            | OpCodeValues.Ldloc -> instr.Arg16 |> int |> typeLdarg m s
+            | OpCodeValues.Ldloc_S -> instr.Arg8 |> int |> typeLdloc m s
+            | OpCodeValues.Ldloc -> instr.Arg16 |> int |> typeLdloc m s
 
             | OpCodeValues.Ldarga_S
             | OpCodeValues.Ldloca_S
@@ -396,7 +397,7 @@ module private EvaluationStackTyper =
 
             | OpCodeValues.Stfld -> Stack.drop 2 s
             | OpCodeValues.Stsfld -> Stack.drop 1 s
-            | OpCodeValues.Stobj
+            | OpCodeValues.Stobj -> Stack.drop 2 s
             | OpCodeValues.Unbox_Any ->
                 let s = Stack.drop 1 s
                 Reflection.resolveType m instr.Arg32 |> push s
@@ -437,6 +438,7 @@ module private EvaluationStackTyper =
             | OpCodeValues.Arglist
             | OpCodeValues.Ldftn -> Stack.push s evaluationStackCellType.I
             | OpCodeValues.Localloc -> Stack.push (Stack.drop 1 s) evaluationStackCellType.I
+            | OpCodeValues.Initobj -> Stack.drop 1 s
             | OpCodeValues.Cpblk -> Stack.drop 3 s
             | OpCodeValues.Initblk -> Stack.drop 3 s
             | OpCodeValues.Sizeof -> Stack.push s evaluationStackCellType.I
@@ -478,19 +480,21 @@ module private EvaluationStackTyper =
             let instr = q.Dequeue()
             let s = typeInstruction m instr
             let next =
-                match instr.arg with
-                | Target tgt ->
-                    [instr.next; tgt]
-                | _ ->
-                    match instr.opcode with
-                    | OpCode op ->
-                        let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
-                        match opcodeValue with
-                        | OpCodeValues.Ret
-                        | OpCodeValues.Throw
-                        | OpCodeValues.Rethrow -> []
-                        | _ -> [instr.next]
-                    | _ -> __unreachable__()
+                match instr.opcode with
+                | OpCode op ->
+                    let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
+                    match opcodeValue with
+                    | OpCodeValues.Ret
+                    | OpCodeValues.Throw
+                    | OpCodeValues.Rethrow -> []
+                    | OpCodeValues.Br_S
+                    | OpCodeValues.Br -> [instr.Target]
+                    | _ ->
+                        match instr.arg with
+                        | Target tgt ->
+                            [instr.next; tgt]
+                            | _ -> [instr.next]
+                | SwitchArg -> [instr.next; instr.Target]
             next |> Seq.iter (fun nxt ->
                 match nxt.stackState with
                 | None ->
@@ -617,7 +621,9 @@ type ILRewriter(body : rawMethodBody) =
         x.InsertAfter(instr, newInstr)
         instr.opcode <- OpCode op
         instr.arg <- NoArg
-        newInstr.stackState <- None
+        match instr.stackState with
+        | Some (_ :: _ :: tl)  -> newInstr.stackState <- Some(evaluationStackCellType.I4 :: tl)
+        | _ -> __unreachable__()
         newInstr.opcode <- OpCode brop
 
     member private x.IsFloatBinOp (instr : ilInstr) =
@@ -721,30 +727,6 @@ type ILRewriter(body : rawMethodBody) =
                 branch <- true
             | _ -> invalidProgram "Unexpected operand type!"
 
-            // Replace binary branch instructions with binop + branch
-            match LanguagePrimitives.EnumOfValue op.Value with
-            | OpCodeValues.Beq_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue_S
-            | OpCodeValues.Bge_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse_S
-            | OpCodeValues.Bgt_S -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue_S
-            | OpCodeValues.Ble_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse_S
-            | OpCodeValues.Blt_S -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue_S
-            | OpCodeValues.Bne_Un_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse_S
-            | OpCodeValues.Bge_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse_S
-            | OpCodeValues.Bgt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue_S
-            | OpCodeValues.Ble_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse_S
-            | OpCodeValues.Blt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue_S
-            | OpCodeValues.Beq -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue
-            | OpCodeValues.Bge -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse
-            | OpCodeValues.Bgt -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue
-            | OpCodeValues.Ble -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse
-            | OpCodeValues.Blt -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue
-            | OpCodeValues.Bne_Un -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse
-            | OpCodeValues.Bge_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse
-            | OpCodeValues.Bgt_Un -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue
-            | OpCodeValues.Ble_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse
-            | OpCodeValues.Blt_Un -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue
-            | _ -> ()
-
             offset <- offset + size
 //            Logger.trace "Imported %O (offsets %d .. %d)" instr.opcode startOffset offset
 
@@ -766,6 +748,33 @@ type ILRewriter(body : rawMethodBody) =
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
         EvaluationStackTyper.validate m il.next
+        x.TraverseProgram (fun instr ->
+            match instr.opcode with
+            | OpCode op ->
+                // Replace binary branch instructions with binop + branch
+                match LanguagePrimitives.EnumOfValue op.Value with
+                | OpCodeValues.Beq_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue_S
+                | OpCodeValues.Bge_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse_S
+                | OpCodeValues.Bgt_S -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue_S
+                | OpCodeValues.Ble_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse_S
+                | OpCodeValues.Blt_S -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue_S
+                | OpCodeValues.Bne_Un_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse_S
+                | OpCodeValues.Bge_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse_S
+                | OpCodeValues.Bgt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue_S
+                | OpCodeValues.Ble_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse_S
+                | OpCodeValues.Blt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue_S
+                | OpCodeValues.Beq -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue
+                | OpCodeValues.Bge -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse
+                | OpCodeValues.Bgt -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue
+                | OpCodeValues.Ble -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse
+                | OpCodeValues.Blt -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue
+                | OpCodeValues.Bne_Un -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse
+                | OpCodeValues.Bge_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse
+                | OpCodeValues.Bgt_Un -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue
+                | OpCodeValues.Ble_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse
+                | OpCodeValues.Blt_Un -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue
+                | _ -> ()
+            | _ -> ())
 
     member private x.ImportEH() =
         let parseEH (raw : rawExceptionHandler) = {

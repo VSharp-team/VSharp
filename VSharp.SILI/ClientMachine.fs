@@ -58,9 +58,6 @@ type ClientMachine(assembly : Assembly, state : state) =
                 if mainReached then
                     Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
                     x.instrumenter.Instrument methodBody
-        //            let rewriter = ILRewriter methodBody
-        //            rewriter.Import()
-        //            let mb = rewriter.Export()
                 else x.instrumenter.Skip methodBody
             x.communicator.SendMethodBody mb
             true
