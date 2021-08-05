@@ -170,13 +170,13 @@ type probes = {
     mutable dumpInstruction : uint64
 }
 with
-    member private x.probe2str =
+    member private x.Probe2str =
         let map = System.Collections.Generic.Dictionary<uint64, string>()
         typeof<probes>.GetFields() |> Seq.iter (fun fld -> map.Add(fld.GetValue x |> unbox, fld.Name))
         map
     member x.AddressToString (address : int64) =
         let result = ref ""
-        if x.probe2str.TryGetValue(uint64 address, result) then "probe_" + !result
+        if x.Probe2str.TryGetValue(uint64 address, result) then "probe_" + !result
         else toString address
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
@@ -209,7 +209,6 @@ type signatureTokens = {
     mutable void_i8_i8_sig : uint32
     mutable void_r4_r4_sig : uint32
     mutable void_r8_r8_sig : uint32
-    mutable void_token_i_sig : uint32
     mutable void_token_u2_sig : uint32
     mutable void_token_u4_sig : uint32
     mutable bool_i_i_sig : uint32
@@ -234,6 +233,17 @@ type signatureTokens = {
     mutable void_token_i_r4_sig : uint32
     mutable void_token_i_r8_sig : uint32
 }
+with
+    member private x.SigToken2str =
+        let map = System.Collections.Generic.Dictionary<uint32, string>()
+        typeof<signatureTokens>.GetFields() |> Seq.iter (fun fld ->
+            let token : uint32 = fld.GetValue x |> unbox
+            if not <| map.ContainsKey token then map.Add(token, fld.Name))
+        map
+    member x.TokenToString (token : int32) =
+        let result = ref ""
+        if x.SigToken2str.TryGetValue(uint32 token, result) then !result
+        else "<UNKNOWN TOKEN!>"
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type rawMethodProperties = {

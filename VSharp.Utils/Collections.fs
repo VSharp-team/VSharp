@@ -141,7 +141,13 @@ module public Stack =
         | [] -> failwith "Attempt to pop an empty stack"
         | head :: tl -> head, tl
 
+    let drop count s = List.skip count s
+
     let push stack element = element::stack
+
+    let dup = function
+        | [] -> failwith "Dup on empty stack"
+        | head :: tl -> head :: head :: tl
 
     let empty = List.empty
 

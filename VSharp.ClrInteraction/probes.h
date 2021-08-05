@@ -87,7 +87,7 @@ PROBE(void, Exec_Stind_ref, (INT_PTR ptr, INT_PTR value)) { /*send command*/ }
 PROBE(void, Track_Conv, ()) { conv(); }
 PROBE(void, Track_Conv_Ovf, ()) { conv_ovf(); }
 
-PROBE(void, Track_Newarr, (mdToken typeToken, INT_PTR ptr)) { newarr(ptr); }
+PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken)) { newarr(ptr); }
 PROBE(void, Track_Localloc, (INT_PTR ptr)) { localloc(ptr); }
 PROBE(void, Track_Ldobj, (INT_PTR ptr)) { ldobj(ptr); /* TODO: ptr must be always concrete? */ }
 PROBE(void, Track_Ldstr, (INT_PTR ptr)) { ldstr(ptr); }

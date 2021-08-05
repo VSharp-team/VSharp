@@ -63,7 +63,7 @@ module public Reflection =
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let hasNonVoidResult m = getMethodReturnType m <> typeof<Void>
+    let hasNonVoidResult m = (getMethodReturnType m).FullName <> typeof<Void>.FullName
 
     let getFullTypeName (typ : Type) = typ.ToString()
 
@@ -179,7 +179,7 @@ module public Reflection =
 
     let public methodToString (m : MethodBase) =
         let hasThis = m.CallingConvention.HasFlag(CallingConventions.HasThis)
-        let returnsSomething = getMethodReturnType m <> typeof<Void>
+        let returnsSomething = hasNonVoidResult m
         let argsCount = m.GetParameters().Length
         if m.DeclaringType = null then m.Name
         else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.FullName m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
