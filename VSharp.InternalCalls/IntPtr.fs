@@ -9,7 +9,7 @@ open VSharp.Core
 module IntPtr =
 
     let private ctor (state : state) this term : (term * state) list =
-        let ptr = MakeIntPtr term state
+        let ptr = MakeIntPtr term
         Memory.WriteSafe state this ptr |> List.map (withFst Nop)
 
     let internal ctorFromInt (state : state) (args : term list) : (term * state) list =

@@ -73,8 +73,6 @@ module internal Memory =
         s.stack <- stack
         s.evaluationStack <- evaluationStack
 
-    let typeOfStackLocation (s : state) key = CallStack.typeOfStackLocation s.stack key
-
 // ------------------------------- Types -------------------------------
 
     let pushTypeVariablesSubstitution state subst =

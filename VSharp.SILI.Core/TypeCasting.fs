@@ -166,14 +166,10 @@ module internal TypeCasting =
             | _ -> __unreachable__()
         Merging.guardedApply castUnguarded term
 
-    let castReferenceToPointer state reference =
-        let getType ref =
-            match ref.term with
-            | Ref(PrimitiveStackLocation key) -> Memory.typeOfStackLocation state key
-            | _ -> typeOfRef ref
+    let castReferenceToPointer reference =
         let doCast reference =
-            let typ = commonTypeOf getType reference
-            Terms.castReferenceToPointer typ reference
+            let typ = typeOf reference
+            castReferenceToPointer typ reference
         Merging.guardedApply doCast reference
 
     let rec private nearestBiggerTypeForEvaluationStack (t : System.Type) =

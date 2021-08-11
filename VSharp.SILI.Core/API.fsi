@@ -45,7 +45,7 @@ module API =
 
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
-        val MakeIntPtr : term -> state -> term
+        val MakeIntPtr : term -> term
 
         val TypeOf : term -> symbolicType
         val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
@@ -118,7 +118,7 @@ module API =
         val RefIsRef : state -> term -> term -> term
         val IsCast : state -> term -> symbolicType -> term
         val Cast : term -> symbolicType -> term
-        val CastReferenceToPointer : state -> term -> term
+        val CastReferenceToPointer : term -> term
 
     [<AutoOpen>]
     module public Operators =

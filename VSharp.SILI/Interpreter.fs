@@ -315,9 +315,9 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let name = methodBase.Name
         match thisOption with
         | Some arrayRef when name = "Get" ->
-            let cast value state =
+            let cast value =
                 let typ = Reflection.getMethodReturnType methodBase |> Types.FromDotNetType
-                castUnchecked typ value state
+                castUnchecked typ value
             x.LdElemCommon cast cilState arrayRef args
         | Some arrayRef when name = "Set" ->
             let value, indices = List.lastAndRest args
@@ -489,12 +489,12 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
 
     member private x.ConvOvfUn unsignedSightType targetType (cilState : cilState) =
         let t = pop cilState
-        let unsignedT = castUnchecked unsignedSightType t cilState.state
+        let unsignedT = castUnchecked unsignedSightType t
         push unsignedT cilState
         x.ConvOvf targetType cilState
 
     member private x.CommonCastClass (cilState : cilState) (term : term) (typ : symbolicType) k =
-        let term = castReferenceToPointerIfNeeded term typ cilState.state
+        let term = castReferenceToPointerIfNeeded term typ
         StatedConditionalExecutionAppendResultsCIL cilState
             (fun state k -> k (IsNullReference term ||| Types.IsCast state term typ, state))
             (fun cilState k ->
@@ -680,7 +680,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let fieldId = Reflection.wrapField fieldInfo
         let value = pop cilState
         let fieldType = Types.FromDotNetType fieldInfo.FieldType
-        let value = castUnchecked fieldType value cilState.state
+        let value = castUnchecked fieldType value
         Memory.WriteStaticField cilState.state declaringTermType fieldId value
         setCurrentIp newIp cilState
         [cilState])
@@ -708,7 +708,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let value, targetRef = pop2 cilState
         let storeWhenTargetIsNotNull (cilState : cilState) k =
             let fieldType = Types.FromDotNetType fieldInfo.FieldType
-            let value = castUnchecked fieldType value cilState.state
+            let value = castUnchecked fieldType value
             let reference =
                 if fieldInfo.DeclaringType = typeof<IntPtr> then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
@@ -718,7 +718,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
         let uncheckedLdElem (cilState : cilState) k =
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices
-            let castedValue = cast value cilState.state
+            let castedValue = cast value
             push castedValue cilState
             k [cilState]
         let checkedLdElem (cilState : cilState) k =
@@ -733,7 +733,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
     member private x.LdElem (cfg : cfg) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelem.Size)
         x.LdElemTyp typ cilState
-    member private x.LdElemRef = x.LdElemWithCast always
+    member private x.LdElemRef = x.LdElemWithCast id
     member private x.LdElema (cfg : cfg) offset (cilState : cilState) =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelema.Size)
         let index, arrayRef = pop2 cilState
@@ -758,7 +758,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =
-                let casted = castUnchecked baseType value cilState.state
+                let casted = castUnchecked baseType value
                 Memory.WriteArrayIndex cilState.state arrayRef indices casted |> List.map (changeState cilState) |> k
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
@@ -1458,7 +1458,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind (castUnchecked TypeUtils.uint32Type)) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind (castUnchecked TypeUtils.float32Type)) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind (castUnchecked TypeUtils.float64Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind always) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind id) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_I -> (fun _ _ -> ldind MakeIntPtr) |> fallThrough cfg offset cilState
             | OpCodeValues.Isinst -> isinst |> forkThrough cfg offset cilState
             | OpCodeValues.Stobj -> stobj |> forkThrough cfg offset cilState
@@ -1469,7 +1469,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             | OpCodeValues.Stind_I8 -> (fun _ _ -> stind (castUnchecked TypeUtils.int64Type)) |> forkThrough cfg offset cilState
             | OpCodeValues.Stind_R4 -> (fun _ _ -> stind (castUnchecked TypeUtils.float32Type)) |> forkThrough cfg offset cilState
             | OpCodeValues.Stind_R8 -> (fun _ _ -> stind (castUnchecked TypeUtils.float64Type)) |> forkThrough cfg offset cilState
-            | OpCodeValues.Stind_Ref -> (fun _ _ -> stind always) |> forkThrough cfg offset cilState
+            | OpCodeValues.Stind_Ref -> (fun _ _ -> stind id) |> forkThrough cfg offset cilState
             | OpCodeValues.Stind_I -> (fun _ _ -> stind MakeIntPtr) |> forkThrough cfg offset cilState
             | OpCodeValues.Sizeof -> sizeofInstruction |> fallThrough cfg offset cilState
             | OpCodeValues.Leave

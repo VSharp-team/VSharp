@@ -61,10 +61,6 @@ module internal CallStack =
         | Some entry -> k entry
         | None -> findFrameAndRead frames key k
 
-    let typeOfStackLocation (stack : callStack) key =
-        let entry = findFrameAndRead stack.frames key id
-        entry.typ
-
     let readStackLocation (stack : callStack) key makeSymbolic =
         let entry = findFrameAndRead stack.frames key id
         match entry.value with

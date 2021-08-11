@@ -55,10 +55,10 @@ module API =
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        let MakeIntPtr value state =
+        let MakeIntPtr value =
             match value.term with
             // Case for references
-            | Ref _ -> TypeCasting.castReferenceToPointer state value
+            | Ref _ -> TypeCasting.castReferenceToPointer value
             // Case for numerics, that need to be converted to IntPtr (native int)
             | Concrete(_, Numeric _) ->
                 // We will never create IntPtr from another numeric, because it's pointless
@@ -151,7 +151,7 @@ module API =
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
         let Cast term targetType = TypeCasting.cast term targetType
-        let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
+        let CastReferenceToPointer reference = TypeCasting.castReferenceToPointer reference
 
     module public Operators =
         let (!!) x = simplifyNegation x id

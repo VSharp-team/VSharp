@@ -137,12 +137,12 @@ module internal InstructionsSet =
         let pi = methodBase.GetParameters().[index]
         PrimitiveStackLocation (ParameterKey pi) |> Ref
 
-    let castReferenceToPointerIfNeeded term typ state =
+    let castReferenceToPointerIfNeeded term typ =
         if IsReference term && Types.IsPointer typ
-        then Types.CastReferenceToPointer state term
+        then Types.CastReferenceToPointer term
         else term
-    let castUnchecked typ term (state : state) : term =
-        let term = castReferenceToPointerIfNeeded term typ state
+    let castUnchecked typ term : term =
+        let term = castReferenceToPointerIfNeeded term typ
         Types.Cast term typ
     let ldc numberCreator t (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let num = numberCreator cfg.ilBytes shiftedOffset
@@ -184,9 +184,8 @@ module internal InstructionsSet =
         let right = pop cilState
         let left = referenceLocalVariable variableIndex cfg.methodBase
         let typ = TypeOf left
-        let state = cilState.state
-        let value = castUnchecked typ right state
-        let states = Memory.WriteSafe state left value
+        let value = castUnchecked typ right
+        let states = Memory.WriteSafe cilState.state left value
         states |> List.map (changeState cilState)
     let private simplifyConditionResult state res k =
         if Contradicts state !!res then k True
@@ -223,7 +222,7 @@ module internal InstructionsSet =
         let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
         if resultTyp <> Void then
             let res = pop cilState
-            let castedResult = castUnchecked resultTyp res cilState.state
+            let castedResult = castUnchecked resultTyp res
             push castedResult cilState
         match cilState.ipStack with
         | _ :: ips -> cilState.ipStack <- (Exit cfg.methodBase) :: ips
@@ -314,10 +313,10 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, evaluationStack = EvaluationStack.PopMany paramsNumber cilState.state.evaluationStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
+            if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
             else
                 let typ = Types.FromDotNetType parInfo.ParameterType
-                castUnchecked typ parameter cilState.state
+                castUnchecked typ parameter
         setEvaluationStack evaluationStack cilState
         Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
 
@@ -342,13 +341,12 @@ module internal InstructionsSet =
         push address cilState
     let ldnull (cilState : cilState) = push NullRef cilState
     let convu (cilState : cilState) =
-        let value = pop cilState
-        let ptr = MakeIntPtr value cilState.state
+        let ptr = pop cilState |> MakeIntPtr
         push ptr cilState
     let convi = convu
     let castTopOfOperationalStackUnchecked targetType (cilState : cilState) =
         let t = pop cilState
-        let termForStack = castUnchecked targetType t cilState.state
+        let termForStack = castUnchecked targetType t
         push termForStack cilState
     let ldloca numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let index = numberCreator cfg.ilBytes shiftedOffset
@@ -393,8 +391,7 @@ module internal InstructionsSet =
     let ldind valueCast (cilState : cilState) =
         // TODO: what about null pointers?
         let address = pop cilState
-        let value = Memory.ReadSafe cilState.state address
-        let value = valueCast value cilState.state
+        let value = Memory.ReadSafe cilState.state address |> valueCast
         push value cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
@@ -428,17 +425,17 @@ module internal InstructionsSet =
         let address = pop cilState
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldobj.Size)
         let value = Memory.ReadSafe cilState.state address
-        let typedValue = castUnchecked typ value cilState.state
+        let typedValue = castUnchecked typ value
         push typedValue cilState
     let stobj (cfg : cfgData) offset (cilState : cilState) =
         let src, dest = pop2 cilState
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stobj.Size)
-        let value = castUnchecked typ src cilState.state
+        let value = castUnchecked typ src
         let states = Memory.WriteSafe cilState.state dest value
         states |> List.map (changeState cilState)
     let stind valueCast (cilState : cilState) =
         let value, address = pop2 cilState
-        let value = valueCast value cilState.state
+        let value = valueCast value
         let states = Memory.WriteSafe cilState.state address value
         states |> List.map (changeState cilState)
     let sizeofInstruction (cfg : cfgData) offset (cilState : cilState) =
