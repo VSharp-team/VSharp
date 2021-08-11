@@ -635,7 +635,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
                 methodInterpreter.InitFunctionFrameCIL cilState constructorInfo (Some reference) (Some args)
                 x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall
 
-            if Types.IsValueType constructedTermType || typ = typeof<IntPtr> then
+            if Types.IsValueType constructedTermType || TypeUtils.isPointer typ then
                 let freshValue = Memory.DefaultOf constructedTermType
                 let ref = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
                 push ref cilState // NOTE: ref is used to retrieve constructed struct
@@ -692,7 +692,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
                 push value cilState
                 k [cilState]
             let fieldId = Reflection.wrapField fieldInfo
-            if fieldInfo.DeclaringType = typeof<IntPtr> then
+            if TypeUtils.isPointer fieldInfo.DeclaringType then
                 if addressNeeded then createCilState target
                 else Memory.ReadSafe cilState.state target |> createCilState
             else
@@ -710,7 +710,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             let fieldType = Types.FromDotNetType fieldInfo.FieldType
             let value = castUnchecked fieldType value
             let reference =
-                if fieldInfo.DeclaringType = typeof<IntPtr> then targetRef
+                if TypeUtils.isPointer fieldInfo.DeclaringType then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
             Memory.WriteSafe cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id

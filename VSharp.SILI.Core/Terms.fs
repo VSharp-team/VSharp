@@ -104,7 +104,7 @@ type termNode =
             match term with
             | Nop -> k "<VOID>"
             | Constant(name, _, _) -> k name.v
-            | Concrete(_, (ClassType(Id t, _) as typ)) when t.IsSubclassOf(typedefof<System.Delegate>) ->
+            | Concrete(_, (ClassType(Id t, _) as typ)) when TypeUtils.isSubtypeOrEqual t typedefof<Delegate> ->
                 sprintf "<Lambda Expression %O>" typ |> k
             | Concrete(_, Null) -> k "null"
             | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> k "null"

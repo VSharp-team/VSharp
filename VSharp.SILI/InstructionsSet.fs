@@ -313,7 +313,7 @@ module internal InstructionsSet =
         let paramsNumber = methodBase.GetParameters().Length
         let parameters, evaluationStack = EvaluationStack.PopMany paramsNumber cilState.state.evaluationStack
         let castParameter parameter (parInfo : ParameterInfo) =
-            if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<IntPtr> then parameter
+            if Reflection.isDelegateConstructor methodBase && TypeUtils.isPointer parInfo.ParameterType then parameter
             else
                 let typ = Types.FromDotNetType parInfo.ParameterType
                 castUnchecked typ parameter

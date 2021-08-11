@@ -86,10 +86,10 @@ module public Reflection =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 
     let isDelegateConstructor (methodBase : MethodBase) =
-        methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<Delegate>
+        methodBase.IsConstructor && TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate>
 
     let isDelegate (methodBase : MethodBase) =
-        methodBase.DeclaringType.IsSubclassOf typedefof<Delegate> && methodBase.Name = "Invoke"
+        TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate> && methodBase.Name = "Invoke"
 
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
@@ -210,10 +210,10 @@ module public Reflection =
 
     let retrieveNonStaticFields t = retrieveFields false id t
 
-    let fieldsOf isStatic (t : System.Type) =
+    let fieldsOf isStatic (t : Type) =
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
-            if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
+            if TypeUtils.isSubtypeOrEqual field.FieldType typeof<MulticastDelegate> then None
             else Some (wrapField field, field)
         retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
 
