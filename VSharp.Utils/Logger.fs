@@ -31,6 +31,10 @@ module Logger =
         if current_log_level >= vLevel then
             Printf.ksprintf (writeLineString vLevel) format (s.Force())
 
+//    let public printLogLazy vLevel format ([<ParamArray>] s : Lazy<_> array) =
+//        if current_log_level >= vLevel then
+//            Printf.ksprintf (writeLineString vLevel) format (Array.map (fun (s : Lazy<_>) -> s.Force()) s)
+
     let public error format = printLog Error format
     let public warning format = printLog Warning format
     let public info format = printLog Info format

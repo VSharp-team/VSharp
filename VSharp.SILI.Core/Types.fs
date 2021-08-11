@@ -235,18 +235,17 @@ module internal Types =
                 Seq.map fromDotNetType (dotNetType.GetGenericArguments()) |> List.ofSeq
             else []
 
-        and fromDotNetType (dotNetType : Type) =
-            match dotNetType with
+        and fromDotNetType (t : Type) =
+            match t with
             | null -> Null
             | t when t.IsByRef -> t.GetElementType() |> fromDotNetType |> ByRef
-            | _ when dotNetType = typeof<IntPtr> -> Pointer Void
+            | _ when t = typeof<IntPtr> || t = typeof<UIntPtr> -> Pointer Void
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
             | a when a.Equals(typedefof<AddressTypeAgent>) -> AddressType
             | n when TypeUtils.isNumeric n -> Numeric n
-            | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
                     fromDotNetType (a.GetElementType()),

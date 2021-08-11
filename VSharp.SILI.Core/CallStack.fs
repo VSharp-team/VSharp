@@ -9,7 +9,6 @@ type private entry = internal { value : term option; typ : symbolicType }
 type private frame = internal { func : MethodBase; entries : pdict<stackKey, entry> }
 type callStack = private { frames : frame stack }
 
-// TODO: rename and style #do
 module internal CallStack =
 
     let empty = { frames = Stack.empty }

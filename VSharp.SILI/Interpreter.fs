@@ -251,7 +251,6 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let dstLB = Memory.ArrayLowerBoundByDimension state src zero
         x.CommonCopyArray cilState src srcLB dst dstLB length
 
-    // TODO: make faster #do
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
@@ -569,9 +568,9 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
 //        let _, _ = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         methodInterpreter.InitFunctionFrameCIL cilState methodToCall this (Some args)
         x.CommonCallVirt methodToCall cilState id)
-    member x.ReduceArrayCreation (arrayType : System.Type) (cilState : cilState) (parameters : term list) k =
+    member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         let arrayTyp = Types.FromDotNetType arrayType
-        Memory.AllocateDefaultArray cilState.state parameters arrayTyp |> k
+        Memory.AllocateDefaultArray cilState.state lengths arrayTyp |> k
     member x.CommonCreateDelegate (ctor : ConstructorInfo) (cilState : cilState) (args : term list) k =
         let target, methodPtr =
             assert(List.length args = 2)
@@ -854,7 +853,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             else
                 x.Raise x.NullReferenceException cilState k
         let nullableCase (cilState : cilState) =
-            let underlyingTypeOfNullableT = System.Nullable.GetUnderlyingType t
+            let underlyingTypeOfNullableT = Nullable.GetUnderlyingType t
             StatedConditionalExecutionAppendResultsCIL cilState
                 (fun state k -> k (Types.RefIsType state obj (Types.FromDotNetType underlyingTypeOfNullableT), state))
                 (fun cilState k ->

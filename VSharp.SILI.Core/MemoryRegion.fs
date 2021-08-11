@@ -4,8 +4,6 @@ open System
 open System.Text
 open VSharp
 
-#nowarn "60"
-#nowarn "342"
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
 //    abstract IsAllocated : bool

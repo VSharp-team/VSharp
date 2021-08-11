@@ -61,8 +61,7 @@ module API =
             | Ref _ -> TypeCasting.castReferenceToPointer value
             // Case for numerics, that need to be converted to IntPtr (native int)
             | Concrete(_, Numeric _) ->
-                // We will never create IntPtr from another numeric, because it's pointless
-//                assert(v :?> int = 0) // localloc takes size in native int
+            // assert(v :?> int = 0) // localloc takes size as native int
                 Ptr None Void (Some value)
             // Case for native int
             | Ptr _ -> value

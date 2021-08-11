@@ -483,7 +483,7 @@ type Communicator() =
         let bytes = x.SerializeCommand command
         writeBuffer bytes
 
-    member x.SendStringAndReadItsIndex (str : string) : uint =
+    member x.SendStringAndReadItsIndex (str : string) : uint32 =
         x.SendCommand ReadString
         writeString str
         match readBuffer() with

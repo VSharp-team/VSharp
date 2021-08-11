@@ -171,6 +171,7 @@ type public ExplorerBase() =
                 Seq.iter (x.InitStaticFieldWithDefaultValue cilState.state) fields
                 match staticConstructor with
                 | Some cctor ->
+                    // TODO: use InlineMethodBaseCallIfNeed instead (union Interpreter and InterpreterBase)
                     let name = Reflection.getFullMethodName cctor
                     if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
                         || name = "System.Void System.Environment..cctor()"
@@ -209,7 +210,7 @@ type public ExplorerBase() =
     abstract CreateException : Type -> term list -> cilState -> unit
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
-        Logger.printLogLazy Logger.Info "EXCEPTION!\nStack trace:\n%O" (lazy Memory.StackTrace cilState.state.stack)
+        Logger.printLog Logger.Info "%O!\nStack trace:\n%O" exceptionType (Memory.StackTrace cilState.state.stack)
         clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
