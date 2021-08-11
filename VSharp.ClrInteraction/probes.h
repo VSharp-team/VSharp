@@ -3,13 +3,83 @@
 
 #include "cor.h"
 #include "memory/memory.h"
+#include "communication/protocol.h"
 #include <vector>
 
 #define COND INT_PTR
-
-// TODO: we also have ELEMENT_TYPE_BYREF and ELEMENT_TYPE_PTR. What's with them?
+#define OFFSET UINT32
 
 namespace icsharp {
+
+/// ------------------------------ Commands ---------------------------
+
+Protocol *protocol = nullptr;
+void setProtocol(Protocol *p) {
+    protocol = p;
+}
+
+void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOperand *ops, ExecCommand &command) {
+    Stack &stack = icsharp::stack();
+    StackFrame &top = stack.topFrame();
+    command.offset = offset;
+    command.isBranch = isBranch ? 1 : 0;
+
+    unsigned minCallFrames = stack.minTopSinceLastSent();
+    unsigned currCallFrames = stack.framesCount();
+    assert(minCallFrames <= currCallFrames);
+    command.newCallStackFramesCount = currCallFrames - minCallFrames;
+    command.newCallStackFrames = new unsigned[command.newCallStackFramesCount];
+    for (unsigned i = minCallFrames; i < currCallFrames; ++i) {
+        command.newCallStackFrames[i - minCallFrames] = stack.tokenAt(i);
+    }
+
+    command.callStackFramesPops = stack.unsentPops();
+    unsigned afterPop = top.symbolicsCount();
+    const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
+    unsigned currentSymbs = afterPop + poppedSymbs.size();
+    for (auto &pair : poppedSymbs) {
+        unsigned idx = opsCount - pair.second - 1;
+        assert(idx < opsCount);
+        ops[idx].typ = OpSymbolic;
+        ops[idx].content = currentSymbs - pair.first;
+    }
+    command.evaluationStackPushesCount = opsCount;
+    command.evaluationStackPops = top.evaluationStackPops();
+    command.evaluationStackPushes = ops;
+    stack.resetPopsTracking();
+}
+
+void freeCommand(ExecCommand &command) {
+    delete[] command.newCallStackFrames;
+    delete[] command.evaluationStackPushes;
+}
+
+void sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
+    ExecCommand command;
+    initCommand(offset, false, opsCount, ops, command);
+    protocol->sendExecCommand(command);
+    freeCommand(command);
+    protocol->waitExecResult();
+}
+
+void sendCommand0(OFFSET offset) { sendCommand(offset, 0, nullptr); }
+void sendCommand1(OFFSET offset) { sendCommand(offset, 1, new EvalStackOperand[1]); }
+
+bool sendBranchCommand(OFFSET offset) {
+    ExecCommand command;
+    initCommand(offset, true, 1, new EvalStackOperand[1], command);
+    protocol->sendExecCommand(command);
+    freeCommand(command);
+    return protocol->waitExecBranchResult();
+}
+
+EvalStackOperand mkop_4(INT32 op) { return {OpI4, (long long)op}; }
+EvalStackOperand mkop_8(INT64 op) { return {OpI8, (long long)op}; }
+EvalStackOperand mkop_f4(FLOAT op) { return {OpR4, (long long)op}; }
+EvalStackOperand mkop_f8(DOUBLE op) { return {OpR8, (long long)op}; }
+EvalStackOperand mkop_p(INT_PTR op) { return {OpRef, (long long)op}; }
+
+/// ------------------------------ Probes declarations ---------------------------
 
 std::vector<unsigned long long> ProbesAddresses;
 
@@ -23,159 +93,402 @@ int registerProbe(unsigned long long probe) {
     int NAME##_tmp = registerProbe((unsigned long long)&NAME);\
     RETTYPE STDMETHODCALLTYPE NAME ARGS
 
+inline bool ldarg(INT16 idx) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.arg(idx);
+    top.push1(concreteness);
+    return concreteness;
+}
+PROBE(void, Track_Ldarg_0, (OFFSET offset)) { if (!ldarg(0)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg_1, (OFFSET offset)) { if (!ldarg(1)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
 
-PROBE(void, Track_Ldarg_0, ()) { ldarg(0); }
-PROBE(void, Track_Ldarg_1, ()) { ldarg(1); }
-PROBE(void, Track_Ldarg_2, ()) { ldarg(2); }
-PROBE(void, Track_Ldarg_3, ()) { ldarg(3); }
-PROBE(void, Track_Ldarg_S, (UINT8 idx)) { ldarg(idx); }
-PROBE(void, Track_Ldarg, (UINT16 idx)) { ldarg(idx); }
-PROBE(void, Track_Ldarga, ()) { push1Concrete(); }
+inline bool ldloc(INT16 idx) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.loc(idx);
+    top.push1(concreteness);
+    return concreteness;
+}
+PROBE(void, Track_Ldloc_0, (OFFSET offset)) { if (!ldloc(0)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc_1, (OFFSET offset)) { if (!ldloc(1)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
 
-PROBE(void, Track_Ldloc_0, ()) { ldloc(0); }
-PROBE(void, Track_Ldloc_1, ()) { ldloc(1); }
-PROBE(void, Track_Ldloc_2, ()) { ldloc(2); }
-PROBE(void, Track_Ldloc_3, ()) { ldloc(3); }
-PROBE(void, Track_Ldloc_S, (UINT8 idx)) { ldloc(idx); }
-PROBE(void, Track_Ldloc, (UINT16 idx)) { ldloc(idx); }
-PROBE(void, Track_Ldloca, ()) { push1Concrete(); }
+inline bool starg(INT16 idx) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.pop1();
+    top.setArg(idx, concreteness);
+    return concreteness;
+}
+PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand1(offset); }
+PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand1(offset); }
 
-PROBE(void, Track_Starg_S, (UINT8 idx)) { starg(idx); }
-PROBE(void, Track_Starg, (UINT16 idx)) { starg(idx); }
-PROBE(void, Track_Stloc_0, ()) { stloc(0); }
-PROBE(void, Track_Stloc_1, ()) { stloc(1); }
-PROBE(void, Track_Stloc_2, ()) { stloc(2); }
-PROBE(void, Track_Stloc_3, ()) { stloc(3); }
-PROBE(void, Track_Stloc_S, (UINT8 idx)) { stloc(idx); }
-PROBE(void, Track_Stloc, (UINT16 idx)) { stloc(idx); }
+inline bool stloc(INT16 idx) {
+    // TODO
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.pop1();
+    top.setLoc(idx, concreteness);
+    return concreteness;
+}
+PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand1(offset); }
+PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand1(offset); }
+PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand1(offset); }
+PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand1(offset); }
+PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
+PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
 
-PROBE(void, Track_Ldc, ()) { push1Concrete(); }
-PROBE(void, Track_Dup, ()) { dup(); }
-PROBE(void, Track_Pop, ()) { pop1(); }
+PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
+PROBE(void, Track_Dup, ()) { topFrame().dup(); }
+PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
 
-PROBE(void, BrTrue, ()) { brtrue(); }
-PROBE(void, BrFalse, ()) { brfalse(); }
-PROBE(void, Switch, ()) { execSwitch(); }
+inline bool branch(OFFSET offset) {
+    if (!topFrame().pop1())
+        return sendBranchCommand(offset);
+    // TODO
+    return true;
+}
+// TODO: make it bool, change instrumentation
+PROBE(void, BrTrue, (OFFSET offset)) { branch(offset); }
+PROBE(void, BrFalse, (OFFSET offset)) { branch(offset); }
+PROBE(void, Switch, (OFFSET offset)) {
+    // TODO:
+    topFrame().pop1();
+}
 
-PROBE(void, Track_UnOp, (UINT16 op)) { return unop(op); }
-PROBE(COND, Track_BinOp, ()) { return pop2Push1(); }
-PROBE(void, Exec_BinOp_4, (UINT16 op, INT32 arg1, INT32 arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_8, (UINT16 op, INT64 arg1, INT64 arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_f4, (UINT16 op, FLOAT arg1, FLOAT arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_f8, (UINT16 op, DOUBLE arg1, DOUBLE arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_p, (UINT16 op, INT_PTR arg1, INT_PTR arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_4_p, (UINT16 op, INT32 arg1, INT_PTR arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_p_4, (UINT16 op, INT_PTR arg1, INT32 arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_4_ovf, (UINT16 op, INT32 arg1, INT32 arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_8_ovf, (UINT16 op, INT64 arg1, INT64 arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_f4_ovf, (UINT16 op, FLOAT arg1, FLOAT arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_f8_ovf, (UINT16 op, DOUBLE arg1, DOUBLE arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_p_ovf, (UINT16 op, INT_PTR arg1, INT_PTR arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_4_p_ovf, (UINT16 op, INT32 arg1, INT_PTR arg2)) { /*send command*/ }
-PROBE(void, Exec_BinOp_p_4_ovf, (UINT16 op, INT_PTR arg1, INT32 arg2)) { /*send command*/ }
+PROBE(void, Track_UnOp, (UINT16 op, OFFSET offset)) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.pop1();
+    if (!concreteness)
+        sendCommand1(offset);
+    top.push1(concreteness);
+}
+PROBE(COND, Track_BinOp, ()) { return topFrame().pop2Push1(); }
+// TODO: do we need op?
+PROBE(void, Exec_BinOp_4, (UINT16 op, INT32 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_4(arg2) }); }
+PROBE(void, Exec_BinOp_8, (UINT16 op, INT64 arg1, INT64 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_8(arg1), mkop_8(arg2) }); }
+PROBE(void, Exec_BinOp_f4, (UINT16 op, FLOAT arg1, FLOAT arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f4(arg1), mkop_f4(arg2) }); }
+PROBE(void, Exec_BinOp_f8, (UINT16 op, DOUBLE arg1, DOUBLE arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f8(arg1), mkop_f8(arg2) }); }
+PROBE(void, Exec_BinOp_p, (UINT16 op, INT_PTR arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_4_p, (UINT16 op, INT32 arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_p_4, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_4(arg2) }); }
+PROBE(void, Exec_BinOp_4_ovf, (UINT16 op, INT32 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_4(arg2) }); }
+PROBE(void, Exec_BinOp_8_ovf, (UINT16 op, INT64 arg1, INT64 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_8(arg1), mkop_8(arg2) }); }
+PROBE(void, Exec_BinOp_f4_ovf, (UINT16 op, FLOAT arg1, FLOAT arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f4(arg1), mkop_f4(arg2) }); }
+PROBE(void, Exec_BinOp_f8_ovf, (UINT16 op, DOUBLE arg1, DOUBLE arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f8(arg1), mkop_f8(arg2) }); }
+PROBE(void, Exec_BinOp_p_ovf, (UINT16 op, INT_PTR arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_4_p_ovf, (UINT16 op, INT32 arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_p_4_ovf, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_4(arg2) }); }
 
-PROBE(void, Track_Ldind, (INT_PTR ptr)) { ldind(ptr); }
-PROBE(COND, Track_Stind, (INT_PTR ptr)) { return stind(ptr); }
-PROBE(void, Exec_Stind_I1, (INT_PTR ptr, INT8 value)) { /*send command*/ }
-PROBE(void, Exec_Stind_I2, (INT_PTR ptr, INT16 value)) { /*send command*/ }
-PROBE(void, Exec_Stind_I4, (INT_PTR ptr, INT32 value)) { /*send command*/ }
-PROBE(void, Exec_Stind_I8, (INT_PTR ptr, INT64 value)) { /*send command*/ }
-PROBE(void, Exec_Stind_R4, (INT_PTR ptr, FLOAT value)) { /*send command*/ }
-PROBE(void, Exec_Stind_R8, (INT_PTR ptr, DOUBLE value)) { /*send command*/ }
-PROBE(void, Exec_Stind_ref, (INT_PTR ptr, INT_PTR value)) { /*send command*/ }
+PROBE(void, Track_Ldind, (INT_PTR ptr, OFFSET offset)) {
+    // TODO
+}
+PROBE(COND, Track_Stind, (INT_PTR ptr)) { return topFrame().pop(2); }
+PROBE(void, Exec_Stind_I1, (INT_PTR ptr, INT8 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
+PROBE(void, Exec_Stind_I2, (INT_PTR ptr, INT16 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
+PROBE(void, Exec_Stind_I4, (INT_PTR ptr, INT32 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
+PROBE(void, Exec_Stind_I8, (INT_PTR ptr, INT64 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_8(value) }); }
+PROBE(void, Exec_Stind_R4, (INT_PTR ptr, FLOAT value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f4(value) }); }
+PROBE(void, Exec_Stind_R8, (INT_PTR ptr, DOUBLE value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f8(value) }); }
+PROBE(void, Exec_Stind_ref, (INT_PTR ptr, INT_PTR value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) }); }
 
-PROBE(void, Track_Conv, ()) { conv(); }
-PROBE(void, Track_Conv_Ovf, ()) { conv_ovf(); }
+inline void conv(OFFSET offset) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.pop1();
+    if (!concreteness)
+        sendCommand1(offset);
+    top.push1(concreteness);
+}
+PROBE(void, Track_Conv, (OFFSET offset)) { conv(offset); }
+PROBE(void, Track_Conv_Ovf, (OFFSET offset)) { conv(offset); }
 
-PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken)) { newarr(ptr); }
-PROBE(void, Track_Localloc, (INT_PTR ptr)) { localloc(ptr); }
-PROBE(void, Track_Ldobj, (INT_PTR ptr)) { ldobj(ptr); /* TODO: ptr must be always concrete? */ }
-PROBE(void, Track_Ldstr, (INT_PTR ptr)) { ldstr(ptr); }
-PROBE(void, Track_Ldtoken, ()) { push1Concrete(); }
-PROBE(void, Track_Stobj, (INT_PTR ptr)) { stobj(ptr); /* TODO: ptr must be always concrete? */ }
-PROBE(void, Track_Initobj, (INT_PTR ptr)) { initobj(ptr); }
-PROBE(void, Track_Ldlen, (INT_PTR ptr)) { ldlen(ptr); }
+PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO! Do we need allocated address?*/ }
+PROBE(void, Track_Localloc, (INT_PTR len, OFFSET offset)) { /*TODO*/ }
+PROBE(void, Track_Ldobj, (INT_PTR ptr, OFFSET offset)) { /* TODO! will ptr be always concrete? */ }
+PROBE(void, Track_Ldstr, (INT_PTR ptr)) { topFrame().push1Concrete(); } // TODO: do we need allocated address?
+PROBE(void, Track_Ldtoken, ()) { topFrame().push1Concrete(); }
 
-PROBE(COND, Track_Cpobj, (INT_PTR dest, INT_PTR src)) { return cpobj(dest, src); }
-PROBE(void, Exec_Cpobj, (mdToken typeToken, INT_PTR dest, INT_PTR src)) { /*send command*/ }
-PROBE(COND, Track_Cpblk, (INT_PTR dest, INT_PTR src)) { return cpblk(dest, src); }
-PROBE(void, Exec_Cpblk, (INT_PTR dest, INT_PTR src, INT_PTR count)) { /*send command*/ }
-PROBE(COND, Track_Initblk, (INT_PTR ptr)) { return initblk(ptr); }
-PROBE(void, Exec_Initblk, (INT_PTR ptr, INT8 value, INT_PTR count)) { /*send command*/ }
+PROBE(void, Track_Stobj, (INT_PTR ptr)) {
+    // TODO!
+    // Will ptr be always concrete?
+    topFrame().pop(2);
+}
 
-PROBE(void, Track_Castclass, (INT_PTR ptr, mdToken typeToken)) { castclass(typeToken, ptr); }
-PROBE(void, Track_Isinst, (INT_PTR ptr, mdToken typeToken)) { isinst(typeToken, ptr); }
+PROBE(void, Track_Initobj, (INT_PTR ptr)) {
+    // TODO!
+    // Will ptr be always concrete?
+    topFrame().pop1();
+}
 
-PROBE(void, Track_Box, (INT_PTR ptr)) { box(ptr); }
-PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken)) { unbox(typeToken, ptr); }
-PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken)) { unbox_any(typeToken, ptr); }
+PROBE(void, Track_Ldlen, (INT_PTR ptr, OFFSET offset)) {
+    StackFrame &top = topFrame();
+    bool concreteness = top.pop1();
+    if (!concreteness)
+        sendCommand1(offset);
+    // TODO: check concreteness of referenced memory
+    top.push1(concreteness); // WRONK
+}
 
-PROBE(void, Track_Ldfld, (INT_PTR ptr, mdToken fieldToken)) { ldfld(fieldToken, ptr); }
-PROBE(void, Track_Ldflda, (INT_PTR ptr, mdToken fieldToken)) { ldflda(fieldToken, ptr); }
+PROBE(COND, Track_Cpobj, (INT_PTR dest, INT_PTR src)) {
+    // TODO: check concreteness of referenced memory!
+    return topFrame().pop(2);
+}
+PROBE(void, Exec_Cpobj, (mdToken typeToken, INT_PTR dest, INT_PTR src, OFFSET offset)) {
+    /*send command*/
+}
 
+PROBE(COND, Track_Cpblk, (INT_PTR dest, INT_PTR src)) {
+    // TODO: check concreteness of referenced memory!
+    return topFrame().pop(3);
+}
+PROBE(void, Exec_Cpblk, (INT_PTR dest, INT_PTR src, INT_PTR count, OFFSET offset)) {
+    /*send command*/
+}
+
+PROBE(COND, Track_Initblk, (INT_PTR ptr)) {
+    // TODO: check concreteness of referenced memory!
+    return topFrame().pop(3);
+}
+PROBE(void, Exec_Initblk, (INT_PTR ptr, INT8 value, INT_PTR count, OFFSET offset)) {
+    /*send command*/
+}
+
+PROBE(void, Track_Castclass, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) {
+    // TODO
+    // TODO: if exn is thrown, no value is pushed onto the stack
+//    switchContext();
+    // TODO: is it true that 'castclass' contains only pop,
+    // because after 'castclass' JIT calls private function 'CastHelpers.ChkCastClass',
+    // that pushes result?
+}
+
+PROBE(void, Track_Isinst, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
+
+PROBE(void, Track_Box, (INT_PTR ptr, OFFSET offset)) {
+    // TODO
+    topFrame().pop1();
+}
+PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
+PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
+
+PROBE(void, Track_Ldfld, (INT_PTR ptr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
+PROBE(void, Track_Ldflda, (INT_PTR ptr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
+
+inline bool stfld(mdToken fieldToken, INT_PTR ptr) {
+    StackFrame &top = icsharp::topFrame();
+    // TODO: check concreteness of memory referenced by ptr
+    return top.pop(2);
+}
+PROBE(void, Track_Stfld_4, (mdToken fieldToken, INT_PTR ptr, INT32 value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) });
+    }
+}
+PROBE(void, Track_Stfld_8, (mdToken fieldToken, INT_PTR ptr, INT64 value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_8(value) });
+    }
+}
+PROBE(void, Track_Stfld_f4, (mdToken fieldToken, INT_PTR ptr, FLOAT value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f4(value) });
+    }
+}
+PROBE(void, Track_Stfld_f8, (mdToken fieldToken, INT_PTR ptr, DOUBLE value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f8(value) });
+    }
+}
+PROBE(void, Track_Stfld_p, (mdToken fieldToken, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) });
+    }
+}
 /// TODO: stfld may be called with any value type! :(
-PROBE(void, Track_Stfld_4, (mdToken fieldToken, INT_PTR ptr, INT32 value)) {
-    if (!stfld(fieldToken, ptr)) {
-        // Send command
-    }
+
+PROBE(void, Track_Ldsfld, (mdToken fieldToken, OFFSET offset)) {
+    // TODO
+    topFrame().push1Concrete();
 }
-PROBE(void, Track_Stfld_8, (mdToken fieldToken, INT_PTR ptr, INT64 value)) {
-    if (!stfld(fieldToken, ptr)) {
-        // Send command
-    }
-}
-PROBE(void, Track_Stfld_f4, (mdToken fieldToken, INT_PTR ptr, FLOAT value)) {
-    if (!stfld(fieldToken, ptr)) {
-        // Send command
-    }
-}
-PROBE(void, Track_Stfld_f8, (mdToken fieldToken, INT_PTR ptr, DOUBLE value)) {
-    if (!stfld(fieldToken, ptr)) {
-        // Send command
-    }
-}
-PROBE(void, Track_Stfld_p, (mdToken fieldToken, INT_PTR ptr, INT_PTR value)) {
-    if (!stfld(fieldToken, ptr)) {
-        // Send command
-    }
+PROBE(void, Track_Ldsflda, (INT_PTR ptr)) { topFrame().push1Concrete(); }
+PROBE(void, Track_Stsfld, (mdToken fieldToken, OFFSET offset)) {
+    // TODO
+    topFrame().pop1();
 }
 
-PROBE(void, Track_Ldsfld, (mdToken fieldToken)) { ldfsld(fieldToken); }
-PROBE(void, Track_Ldsflda, ()) { push1Concrete(); }
-PROBE(void, Track_Stsfld, (mdToken fieldToken)) { stsfld(fieldToken); }
+PROBE(COND, Track_Ldelema, (INT_PTR ptr, INT_PTR index)) {
+    // TODO
+    StackFrame &top = icsharp::topFrame();
+    return top.pop1() && top.peek0();
+}
+PROBE(COND, Track_Ldelem, (INT_PTR ptr, INT_PTR index)) {
+    // TODO
+    StackFrame &top = icsharp::topFrame();
+    return top.pop1() && top.peek0();
+}
+PROBE(void, Exec_Ldelema, (INT_PTR ptr, INT_PTR index, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Ldelem, (INT_PTR ptr, INT_PTR index, OFFSET offset)) { /*send command*/ }
 
-PROBE(COND, Track_Ldelema, (INT_PTR ptr, INT_PTR index)) { return ldelema(ptr, index); }
-PROBE(COND, Track_Ldelem, (INT_PTR ptr, INT_PTR index)) { return ldelem(ptr, index); }
-PROBE(void, Exec_Ldelema, (INT_PTR ptr, INT_PTR index)) { /*send command*/ }
-PROBE(void, Exec_Ldelem, (INT_PTR ptr, INT_PTR index)) { /*send command*/ }
+PROBE(COND, Track_Stelem, (INT_PTR ptr, INT_PTR index)) {
+    // TODO
+    StackFrame &top = icsharp::topFrame();
+    return top.pop(3);
+}
+PROBE(void, Exec_Stelem_I, (INT_PTR ptr, INT_PTR index, INT_PTR value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_I1, (INT_PTR ptr, INT_PTR index, INT8 value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_I2, (INT_PTR ptr, INT_PTR index, INT16 value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_I4, (INT_PTR ptr, INT_PTR index, INT32 value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_I8, (INT_PTR ptr, INT_PTR index, INT64 value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_R4, (INT_PTR ptr, INT_PTR index, FLOAT value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_R8, (INT_PTR ptr, INT_PTR index, DOUBLE value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_Ref, (INT_PTR ptr, INT_PTR index, INT_PTR value, OFFSET offset)) { /*send command*/ }
 
-PROBE(COND, Track_Stelem, (INT_PTR ptr, INT_PTR index)) { return stelem(ptr, index); }
-PROBE(void, Exec_Stelem_I, (INT_PTR ptr, INT_PTR index, INT_PTR value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_I1, (INT_PTR ptr, INT_PTR index, INT8 value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_I2, (INT_PTR ptr, INT_PTR index, INT16 value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_I4, (INT_PTR ptr, INT_PTR index, INT32 value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_I8, (INT_PTR ptr, INT_PTR index, INT64 value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_R4, (INT_PTR ptr, INT_PTR index, FLOAT value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_R8, (INT_PTR ptr, INT_PTR index, DOUBLE value)) { /*send command*/ }
-PROBE(void, Exec_Stelem_Ref, (INT_PTR ptr, INT_PTR index, INT_PTR value)) { /*send command*/ }
+PROBE(void, Track_Ckfinite, ()) {
+    // TODO
+    // TODO: if exn is thrown, no value is pushed onto the stack
+}
+PROBE(void, Track_Sizeof, ()) { topFrame().push1Concrete(); }
+PROBE(void, Track_Ldftn, ()) { topFrame().push1Concrete(); }
+PROBE(void, Track_Ldvirtftn, (INT_PTR ptr, mdToken token, OFFSET offset)) { /*TODO*/ }
+PROBE(void, Track_Arglist, ()) { topFrame().push1Concrete(); }
+PROBE(void, Track_Mkrefany, ()) {
+    // TODO
+    topFrame().pop1();
+}
 
-PROBE(void, Track_Ckfinite, ()) { ckfinite(); }
-PROBE(void, Track_Sizeof, ()) { push1Concrete(); }
-PROBE(void, Track_Ldftn, ()) { push1Concrete(); }
-PROBE(void, Track_Ldvirtftn, (INT_PTR ptr, mdToken token)) { ldvirtftn(token, ptr); }
-PROBE(void, Track_Arglist, ()) { push1Concrete(); }
-PROBE(void, Track_Mkrefany, ()) { mkrefany(); }
+PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned localsCount)) {
+    Stack &stack = icsharp::stack();
+    assert(!stack.isEmpty());
+    StackFrame &top = stack.topFrame();
+    top.configure(maxStackSize, localsCount);
+    unsigned expected = top.resolvedToken();
+    LOG(tout << "Frame " << stack.framesCount() <<
+                ": entering token " << HEX(token) <<
+                ", expected token is " << HEX(expected) << std::endl);
+    if (!expected || expected == token) {
+        // TODO: if expected is 0, set resolved token?
+        top.setEnteredMarker(true);
+        top.setUnmanagedContext(false);
+    } else {
+        top.setUnmanagedContext(true);
+        LOG(tout << "Hmmm!! Managed code has been triggered in unmanaged context! Details: expected token "
+                 << HEX(expected) << ", but entered " << HEX(token) << std::endl);
+    }
+}
+PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
+    Stack &stack = icsharp::stack();
+    assert(stack.isEmpty());
+    auto args = new bool[argsCount];
+    memset(args, argsConcreteness, argsCount);
+    stack.pushFrame(token, token, args, argsCount);
+    Track_Enter(token, maxStackSize, localsCount);
+    stack.resetPopsTracking();
+}
 
-PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize)) { enter(token, maxStackSize); }
-PROBE(void, Track_Leave, (UINT8 returnValues)) { leave(returnValues); }
-PROBE(void, Finalize_Call, (UINT8 returnValues)) { finalizeCall(returnValues); }
-PROBE(void, Track_Call, (mdMethodDef token, UINT16 count)) { call(token, count); }
-PROBE(void, Track_CallVirt, (UINT16 count)) { callVirt(count); }
-PROBE(void, Track_Newobj, (INT_PTR ptr)) { alloc(ptr); }
-PROBE(void, Track_Calli, (mdSignature signature)) { calli(signature); }
+PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
+    Stack &stack = icsharp::stack();
+    StackFrame &top = stack.topFrame();
+#ifdef _DEBUG
+    assert(returnValues == 0 || returnValues == 1);
+    if (top.count() != returnValues) {
+        FAIL_LOUD("Corrupted stack: stack is not empty when popping frame!");
+    }
+#endif
+    if (returnValues) {
+        bool returnValue = top.pop1();
+        stack.popFrame();
+        if (!stack.isEmpty()) {
+            if (!top.inUnmanagedContext())
+                top.push1(returnValue);
+            else
+                LOG(tout << "Ignoring return type because of internal execution in unmanaged context..." << std::endl);
+        } else {
+            FAIL_LOUD("Function returned result, but there is no frame to push return value!")
+        }
+    } else {
+        stack.popFrame();
+    }
+    LOG(tout << "Managed leave. After popping top frame stack balance is " << top.count() << std::endl);
+}
 
-PROBE(void, Track_Throw, ()) { execThrow(); }
-PROBE(void, Track_Rethrow, ()) { execRethrow(); }
+PROBE(void, Track_LeaveMain, (UINT8 returnValues, OFFSET offset)) {
+    Stack &stack = icsharp::stack();
+    StackFrame &top = stack.topFrame();
+#ifdef _DEBUG
+    assert(returnValues == 0 || returnValues == 1);
+    if (top.count() != returnValues) {
+        FAIL_LOUD("Corrupted stack: stack is not empty when popping frame!");
+    }
+#endif
+    LOG(tout << "Main left!");
+    if (returnValues) {
+        bool returnValue = top.pop1();
+        LOG(tout << "Return value is " << (returnValue ? "concrete" : "symbolic") << std::endl);
+    }
+    stack.popFrame();
+}
+
+PROBE(void, Finalize_Call, (UINT8 returnValues)) {
+    Stack &stack = icsharp::stack();
+    StackFrame &top = stack.topFrame();
+    if (!top.hasEntered()) {
+        // Extern has been called, should push return result onto stack
+        LOG(tout << "Extern left! " << stack.framesCount() << " frames remained" << std::endl);
+#ifdef _DEBUG
+        assert(returnValues == 0 || returnValues == 1);
+        if (stack.isEmpty()) {
+            FAIL_LOUD("Corrupted stack: stack is empty after executing external function!");
+        }
+#endif
+        if (returnValues) {
+            top.push1(1);
+        }
+    }
+}
+
+PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, UINT16 argsCount, OFFSET offset)) {
+    Stack &stack = icsharp::stack();
+    StackFrame &top = stack.topFrame();
+    LOG(tout << "Setting expected token of frame " << stack.framesCount() << " to "
+             << HEX(resolvedToken) << " (entered marker is " << top.hasEntered() << ")" << std::endl);
+    bool *argsConcreteness = new bool[argsCount];
+    memset(argsConcreteness, true, argsCount);
+    top.pop(argsCount);
+    LOG(tout << "Call: resolved_token = " << HEX(resolvedToken) << ", unresolved_token = " << HEX(unresolvedToken) << "\n"
+             << "\t\tbalance after pop: " <<  top.count() << std::endl);
+    const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
+    unsigned symbolicsCount = top.symbolicsCount() + poppedSymbs.size();
+    for (auto &pair : poppedSymbs) {
+        argsConcreteness[symbolicsCount - pair.first] = false;
+    }
+    LOG(tout << "Args concreteness: ";
+        for (unsigned i = 0; i < argsCount; ++i)
+            tout << argsConcreteness[i];);
+
+    stack.pushFrame(resolvedToken, unresolvedToken, argsConcreteness, argsCount);
+    delete[] argsConcreteness;
+}
+
+PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(0, 0, count, offset); }
+PROBE(void, Track_Newobj, (INT_PTR ptr)) { topFrame().push1Concrete(); }
+PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
+    // TODO
+    (void)signature;
+    FAIL_LOUD("CALLI NOT IMLEMENTED!");
+}
+
+PROBE(void, Track_Throw, (OFFSET offset)) {
+    //TODO
+    StackFrame &top = icsharp::topFrame();
+    top.pop1();
+}
+PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
 
 PROBE(void, Mem2_4, (INT32 arg1, INT32 arg2)) { clear_mem(); mem_i4(arg1); mem_i4(arg2); }
 PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2)) { clear_mem(); mem_i8(arg1); mem_i8(arg2); }
@@ -212,7 +525,8 @@ PROBE(void, DumpInstruction, (UINT32 index)) {
     if (!s) {
         ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
-        LOG(tout << "Executing " << s << " (stack balance before = " << stackBalance() << ")" << std::endl);
+        StackFrame &top = icsharp::topFrame();
+        LOG(tout << "Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
     }
 }
 

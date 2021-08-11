@@ -130,7 +130,9 @@ type probes = {
     mutable mkrefany : uint64
 
     mutable enter : uint64
+    mutable enterMain : uint64
     mutable leave : uint64
+    mutable leaveMain : uint64
     mutable finalizeCall : uint64
     mutable call : uint64
     mutable callVirt : uint64
@@ -184,7 +186,6 @@ type signatureTokens = {
     mutable void_sig : uint32
     mutable bool_sig : uint32
     mutable void_u1_sig : uint32
-    mutable void_u2_sig : uint32
     mutable void_u4_sig : uint32
     mutable void_i_sig : uint32
     mutable bool_i_sig : uint32
@@ -195,30 +196,20 @@ type signatureTokens = {
     mutable r4_i1_sig : uint32
     mutable r8_i1_sig : uint32
     mutable i_i1_sig : uint32
-    mutable void_token_sig : uint32
     mutable void_i_i1_sig : uint32
     mutable void_i_i2_sig : uint32
+    mutable void_i_u2_sig : uint32
     mutable void_i_i4_sig : uint32
     mutable void_i_i8_sig : uint32
     mutable void_i_r4_sig : uint32
     mutable void_i_r8_sig : uint32
     mutable void_i_i_sig : uint32
-    mutable void_i_token_sig : uint32
     mutable void_i4_i4_sig : uint32
     mutable void_i4_i_sig : uint32
     mutable void_i8_i8_sig : uint32
     mutable void_r4_r4_sig : uint32
     mutable void_r8_r8_sig : uint32
-    mutable void_token_u2_sig : uint32
-    mutable void_token_u4_sig : uint32
     mutable bool_i_i_sig : uint32
-    mutable void_u2_i4_i4_sig : uint32
-    mutable void_u2_i4_i_sig : uint32
-    mutable void_u2_i8_i8_sig : uint32
-    mutable void_u2_r4_r4_sig : uint32
-    mutable void_u2_r8_r8_sig : uint32
-    mutable void_u2_i_i_sig : uint32
-    mutable void_u2_i_i4_sig : uint32
     mutable void_i_i_i_sig : uint32
     mutable void_i_i_i1_sig : uint32
     mutable void_i_i_i2_sig : uint32
@@ -227,11 +218,42 @@ type signatureTokens = {
     mutable void_i_i_r4_sig : uint32
     mutable void_i_i_r8_sig : uint32
     mutable void_i_i1_i_sig : uint32
-    mutable void_token_i_i_sig : uint32
-    mutable void_token_i_i4_sig : uint32
-    mutable void_token_i_i8_sig : uint32
-    mutable void_token_i_r4_sig : uint32
-    mutable void_token_i_r8_sig : uint32
+    mutable void_token_u4_u4_sig : uint32
+    mutable void_token_u2_bool_u4_u4_sig : uint32
+    mutable void_offset_sig : uint32
+    mutable void_u1_offset_sig : uint32
+    mutable void_u2_offset_sig : uint32
+    mutable void_i_offset_sig : uint32
+    mutable void_token_offset_sig : uint32
+    mutable void_i_i1_offset_sig : uint32
+    mutable void_i_i2_offset_sig : uint32
+    mutable void_i_i4_offset_sig : uint32
+    mutable void_i_i8_offset_sig : uint32
+    mutable void_i_r4_offset_sig : uint32
+    mutable void_i_r8_offset_sig : uint32
+    mutable void_i_i_offset_sig : uint32
+    mutable void_i_token_offset_sig : uint32
+    mutable void_u2_i4_i4_offset_sig : uint32
+    mutable void_u2_i4_i_offset_sig : uint32
+    mutable void_u2_i8_i8_offset_sig : uint32
+    mutable void_u2_r4_r4_offset_sig : uint32
+    mutable void_u2_r8_r8_offset_sig : uint32
+    mutable void_u2_i_i_offset_sig : uint32
+    mutable void_u2_i_i4_offset_sig : uint32
+    mutable void_i_i_i_offset_sig : uint32
+    mutable void_i_i_i1_offset_sig : uint32
+    mutable void_i_i_i2_offset_sig : uint32
+    mutable void_i_i_i4_offset_sig : uint32
+    mutable void_i_i_i8_offset_sig : uint32
+    mutable void_i_i_r4_offset_sig : uint32
+    mutable void_i_i_r8_offset_sig : uint32
+    mutable void_i_i1_i_offset_sig : uint32
+    mutable void_token_i_i_offset_sig : uint32
+    mutable void_token_i_i4_offset_sig : uint32
+    mutable void_token_i_i8_offset_sig : uint32
+    mutable void_token_i_r4_offset_sig : uint32
+    mutable void_token_i_r8_offset_sig : uint32
+    mutable void_token_token_u2_offset_sig : uint32
 }
 with
     member private x.SigToken2str =
@@ -286,15 +308,42 @@ type instrumentedMethodBody = {
     ehs : rawExceptionHandler array
 }
 
+type evalStackArgType =
+    | OpSymbolic = 1
+    | OpI4 = 2
+    | OpI8 = 3
+    | OpR4 = 4
+    | OpR8 = 5
+    | OpRef = 6
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type concolicInstruction = {
+type evalStackOperand = {
+    typ : evalStackArgType
+    content : int64 // TODO: struct?
+}
+
+[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
+type private execCommandStatic = {
     offset : uint32
+    isBranch : uint32
+    newCallStackFramesCount : uint32
+    callStackFramesPops : uint32
+    evaluationStackPushesCount : uint32
+    evaluationStackPops : uint32
+}
+type execCommand = {
+    offset : uint32
+    isBranch : uint32
+    callStackFramesPops : uint32
+    evaluationStackPops : uint32
+    newCallStackFrames : int32 array
+    evaluationStackPushes : evalStackOperand array
+    // TODO: 2misha: put here allocated and moved objects
 }
 
 type commandFromConcolic =
     | Instrument of rawMethodBody
-    | ExecuteInstruction of concolicInstruction
+    | ExecuteInstruction of execCommand
     | Terminate
 
 type commandForConcolic =
@@ -462,6 +511,32 @@ type Communicator() =
             {properties = properties; tokens = signatureTokens; assembly = assemblyName; moduleName = moduleName; il = ilBytes; ehs = ehs}
         | None -> unexpectedlyTerminated()
 
+    member x.ReadExecuteCommand() =
+        match readBuffer() with
+        | Some bytes ->
+            let boolSize = Marshal.SizeOf typeof<bool>
+            let staticSize = Marshal.SizeOf typeof<execCommandStatic>
+            let staticBytes, dynamicBytes = Array.splitAt staticSize bytes
+            let staticPart = x.Deserialize<execCommandStatic> staticBytes
+            let evaluationStackEntrySize = Marshal.SizeOf typeof<evalStackOperand>
+            let callStackEntrySize = Marshal.SizeOf typeof<int32>
+            let callStackOffset = (int staticPart.newCallStackFramesCount) * callStackEntrySize
+            let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i -> BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
+            let evaluationStackPushes = Array.init (int staticPart.evaluationStackPushesCount) (fun i -> x.Deserialize<evalStackOperand>(dynamicBytes, callStackOffset + i * evaluationStackEntrySize))
+            { offset = staticPart.offset
+              isBranch = staticPart.isBranch
+              callStackFramesPops = staticPart.callStackFramesPops
+              evaluationStackPops = staticPart.evaluationStackPops
+              newCallStackFrames = newCallStackFrames;
+              evaluationStackPushes =  evaluationStackPushes }
+        | None -> unexpectedlyTerminated()
+
+    member x.SendExecConfirmation() =
+        writeBuffer [|1uy|]
+
+    member x.SendBranch (branch : bool) =
+        writeBuffer [|if branch then 1uy else 0uy|]
+
     member x.SendMethodBody (mb : instrumentedMethodBody) =
         x.SendCommand ReadMethodBody
         let propBytes = x.Serialize mb.properties
@@ -480,7 +555,7 @@ type Communicator() =
             | b when b = instrumentCommandByte ->
                 x.ReadMethodBody() |> Instrument
             | b when b = executeCommandByte ->
-                x.ReadStructure<concolicInstruction>() |> ExecuteInstruction
+                x.ReadExecuteCommand() |> ExecuteInstruction
             | b -> fail "Unexpected command %d from client machine!" b
         | None -> Terminate
 

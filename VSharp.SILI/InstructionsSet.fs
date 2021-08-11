@@ -320,7 +320,7 @@ module internal InstructionsSet =
         performCILUnaryOperation op cilState
     let retrieveActualParameters (methodBase : MethodBase) (cilState : cilState) =
         let paramsNumber = methodBase.GetParameters().Length
-        let parameters, evaluationStack = EvaluationStack.PopArguments paramsNumber cilState.state.evaluationStack
+        let parameters, evaluationStack = EvaluationStack.PopMany paramsNumber cilState.state.evaluationStack
         let castParameter parameter (parInfo : ParameterInfo) =
             if Reflection.isDelegateConstructor methodBase && parInfo.ParameterType = typeof<System.IntPtr> then parameter
             else
@@ -486,7 +486,7 @@ module internal InstructionsSet =
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
-            let args, evaluationStack = EvaluationStack.PopArguments n initialCilState.state.evaluationStack
+            let args, evaluationStack = EvaluationStack.PopMany n initialCilState.state.evaluationStack
             let cilState = withEvaluationStack evaluationStack initialCilState
             let thisForCallVirt, cilState = pop cilState
             match thisForCallVirt.term with

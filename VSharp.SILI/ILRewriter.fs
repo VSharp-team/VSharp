@@ -610,6 +610,7 @@ type ILRewriter(body : rawMethodBody) =
 
     member x.Method = m
     member x.InstructionsCount with get() = instrCount
+    member x.InitialMaxStackSize with get() = body.properties.maxStackSize
     member x.MaxStackSize with get() = maxStackSize
 
     member x.IsLastEHInstr (instr : ilInstr) =

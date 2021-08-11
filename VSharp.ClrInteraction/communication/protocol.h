@@ -22,6 +22,32 @@ struct MethodBodyInfo {
     char *ehs;
 };
 
+enum EvalStackArgType {
+    OpSymbolic = 1,
+    OpI4 = 2,
+    OpI8 = 3,
+    OpR4 = 4,
+    OpR8 = 5,
+    OpRef = 6
+};
+
+struct EvalStackOperand {
+    EvalStackArgType typ;
+    long long content; // TODO: struct?
+};
+
+struct ExecCommand {
+    unsigned offset;
+    unsigned isBranch;
+    unsigned newCallStackFramesCount;
+    unsigned callStackFramesPops;
+    unsigned evaluationStackPushesCount;
+    unsigned evaluationStackPops;
+    unsigned *newCallStackFrames;
+    EvalStackOperand *evaluationStackPushes;
+    // TODO: 2misha: put here allocated and moved objects
+};
+
 class Protocol {
 private:
     Communicator m_communicator;
@@ -46,6 +72,9 @@ public:
     bool sendStringsPoolIndex(unsigned index);
     bool sendMethodBody(const MethodBodyInfo &body);
     bool acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength);
+    bool sendExecCommand(const ExecCommand &command);
+    void waitExecResult();
+    bool waitExecBranchResult();
     bool shutdown();
 };
 

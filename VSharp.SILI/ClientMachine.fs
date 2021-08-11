@@ -1,14 +1,16 @@
 namespace VSharp.Concolic
 
+open System
 open System.Diagnostics
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 
 
-type ClientMachine(assembly : Assembly, state : state) =
+type ClientMachine(assembly : Assembly, entryPoint : MethodBase, interpreter : ExplorerBase, state : state) =
     let extension =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
@@ -17,6 +19,24 @@ type ClientMachine(assembly : Assembly, state : state) =
     let pathToClient = "libicsharpConcolic" + extension
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
+
+    let initSymbolicFrame state (method : MethodBase) =
+        let parameters = method.GetParameters() |> Seq.map (fun param ->
+            (ParameterKey param, None, Types.FromDotNetType param.ParameterType)) |> List.ofSeq
+        let locals =
+            match method.GetMethodBody() with
+            | null -> []
+            | body ->
+                body.LocalVariables
+                |> Seq.map (fun local -> (LocalVariableKey(local, method), None, Types.FromDotNetType local.LocalType))
+                |> List.ofSeq
+        let parametersAndThis =
+            if Reflection.hasThis method then
+                (ThisKey method, None, Types.FromDotNetType method.DeclaringType) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+            else parameters
+        Memory.NewStackFrame state method (parametersAndThis @ locals)
+
+    let mutable cilState : cilState = CilStateOperations.makeInitialState entryPoint (initSymbolicFrame state entryPoint)
     let mutable mainReached = false
     let environment (assembly : Assembly) =
         let result = ProcessStartInfo()
@@ -33,6 +53,7 @@ type ClientMachine(assembly : Assembly, state : state) =
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
+        assert(entryPoint <> null)
         let env = environment assembly
         x.communicator <- new Communicator()
         let proc = Process.Start env
@@ -44,15 +65,47 @@ type ClientMachine(assembly : Assembly, state : state) =
         if not <| x.communicator.Connect() then false
         else
             x.probes <- x.communicator.ReadProbes()
-            x.instrumenter <- Instrumenter(x.communicator, x.probes)
+            x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
+
+    member x.SynchronizeStates (c : execCommand) =
+        let state = Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
+        assert(Memory.CallStackSize state > 0)
+        let initFrame state token =
+            let topMethod = Memory.GetCurrentExploringFunction state
+            let method = Reflection.resolveMethod topMethod token
+            initSymbolicFrame state method
+        let state = Array.fold initFrame state c.newCallStackFrames
+        let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) state.evaluationStack |> snd
+        let mutable maxIndex = 0
+        let newEntries = c.evaluationStackPushes |> Array.map (fun op ->
+            match op.typ with
+            | evalStackArgType.OpSymbolic ->
+                let idx = int op.content
+                maxIndex <- max maxIndex idx
+                EvaluationStack.GetItem idx state.evaluationStack
+            | evalStackArgType.OpI4 ->
+                Concrete (int op.content) TypeUtils.int32Type
+            | evalStackArgType.OpI8 ->
+                Concrete op.content TypeUtils.int32Type
+            | evalStackArgType.OpR4 ->
+                Concrete (BitConverter.Int32BitsToSingle (int op.content)) TypeUtils.float32Type
+            | evalStackArgType.OpR8 ->
+                Concrete (BitConverter.Int64BitsToDouble op.content) TypeUtils.float64Type
+            | evalStackArgType.OpRef ->
+                // TODO: 2misha: parse object ref here
+                __notImplemented__()
+            | _ -> __unreachable__())
+        let evalStack = EvaluationStack.PopMany maxIndex evalStack |> snd
+        let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
+        let state = {state with evaluationStack = evalStack}
+        {cilState with ipStack = [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]; state = state}
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
         match x.communicator.ReadCommand() with
         | Instrument methodBody ->
-            let ep = assembly.EntryPoint
-            if int methodBody.properties.token = ep.MetadataToken && methodBody.moduleName = ep.Module.FullyQualifiedName then
+            if int methodBody.properties.token = entryPoint.MetadataToken && methodBody.moduleName = entryPoint.Module.FullyQualifiedName then
                 mainReached <- true
             let mb =
                 if mainReached then
@@ -61,8 +114,18 @@ type ClientMachine(assembly : Assembly, state : state) =
                 else x.instrumenter.Skip methodBody
             x.communicator.SendMethodBody mb
             true
-        | ExecuteInstruction _ ->
+        | ExecuteInstruction c ->
             Logger.trace "Got execute instruction command!"
+            cilState <- x.SynchronizeStates c
+            if c.isBranch = 0u then
+                cilState <- interpreter.StepInstruction cilState
+                x.communicator.SendExecConfirmation()
+            else
+                let s, b = interpreter.StepBranch cilState
+                cilState <- s
+                x.communicator.SendBranch b
+
+            // TODO: schedule it into interpreter, send back response
             true
         | Terminate ->
             Logger.trace "Got terminate command!"

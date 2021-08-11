@@ -263,5 +263,8 @@ type public ExplorerBase() =
 
     abstract member Invoke : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
 
+    abstract member StepInstruction : cilState -> cilState
+    abstract member StepBranch : cilState -> cilState * bool
+
     abstract member ReproduceEffect : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
     default x.ReproduceEffect method state k = x.ExploreAndCompose method state k

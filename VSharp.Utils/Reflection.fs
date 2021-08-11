@@ -65,6 +65,8 @@ module public Reflection =
 
     let hasNonVoidResult m = (getMethodReturnType m).FullName <> typeof<Void>.FullName
 
+    let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)
+
     let getFullTypeName (typ : Type) = typ.ToString()
 
     let getFullMethodName (methodBase : MethodBase) =
@@ -178,7 +180,7 @@ module public Reflection =
         {declaringType = declaringType; name = f.name; typ = concretizeType subst f.typ}
 
     let public methodToString (m : MethodBase) =
-        let hasThis = m.CallingConvention.HasFlag(CallingConventions.HasThis)
+        let hasThis = hasThis m
         let returnsSomething = hasNonVoidResult m
         let argsCount = m.GetParameters().Length
         if m.DeclaringType = null then m.Name

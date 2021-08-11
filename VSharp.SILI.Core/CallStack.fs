@@ -29,6 +29,9 @@ module internal CallStack =
         let _, frames = Stack.pop stack.frames
         {frames = frames}
 
+    let popFrames (stack : callStack) count : callStack =
+        {frames = Stack.drop count stack.frames}
+
     let private tryFindEntryOnFrame (frame : frame) key : entry option =
         PersistentDict.tryFind frame.entries key
 

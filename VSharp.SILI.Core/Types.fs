@@ -264,6 +264,7 @@ module internal Types =
     let Int32 = Numeric typeof<int>
     let Int64 = Numeric typeof<int64>
     let F = Numeric typeof<float>
+    let D = Numeric typeof<double>
 
     let (|StringType|_|) = function
         | typ when typ = String -> Some()

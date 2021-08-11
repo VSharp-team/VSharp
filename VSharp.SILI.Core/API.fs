@@ -176,7 +176,7 @@ module API =
 
     module public EvaluationStack =
         let Pop evaluationStack = EvaluationStack.pop evaluationStack
-        let PopArguments n evaluationStack = EvaluationStack.popMany n evaluationStack
+        let PopMany n evaluationStack = EvaluationStack.popMany n evaluationStack
         let Push x evaluationStack =
             let x' = TypeCasting.castToEvaluationStackType x
             EvaluationStack.push x' evaluationStack
@@ -191,6 +191,7 @@ module API =
     module public Memory =
         let EmptyState = Memory.empty
         let PopFrame state = Memory.popFrame state
+        let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst

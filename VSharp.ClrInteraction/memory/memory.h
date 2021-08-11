@@ -2,6 +2,7 @@
 #define MEMORY_H_
 
 #include "cor.h"
+#include "stack.h"
 #include "heap.h"
 #include <functional>
 #include <map>
@@ -15,72 +16,13 @@ class Stack;
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
 //static Heap heap;
+
 #ifdef _DEBUG
 extern std::map<unsigned, const char*> stringsPool;
 #endif
 
-unsigned framesCount();
-void pushFrame(int stackSize);
-void popFrame();
-
-void push1Concrete();
-void pop1();
-bool pop2Push1();
-void pop(unsigned count);
-void dup();
-
-// TODO: split everything into check concreteness and send command parts?
-
-void ldarg(INT16 idx);
-void ldloc(INT16 idx);
-void starg(INT16 idx);
-void stloc(INT16 idx);
-void brtrue();
-void brfalse();
-void execSwitch();
-void unop(INT16 op);
-void ldind(INT_PTR ptr);
-bool stind(INT_PTR ptr);
-void conv();
-void conv_ovf();
-void newarr(INT_PTR ptr);
-void localloc(INT_PTR ptr);
-void alloc(INT_PTR ptr);
-void ldobj(INT_PTR ptr);
-void ldstr(INT_PTR ptr);
-void stobj(INT_PTR ptr);
-void initobj(INT_PTR ptr);
-void ldlen(INT_PTR ptr);
-bool cpobj(INT_PTR dest, INT_PTR src);
-bool cpblk(INT_PTR dest, INT_PTR src);
-bool initblk(INT_PTR ptr);
-void castclass(mdToken typeToken, INT_PTR ptr);
-void isinst(mdToken typeToken, INT_PTR ptr);
-void box(INT_PTR ptr);
-void unbox(mdToken typeToken, INT_PTR ptr);
-void unbox_any(mdToken typeToken, INT_PTR ptr);
-void ldfld(mdToken fieldToken, INT_PTR ptr);
-void ldflda(mdToken fieldToken, INT_PTR ptr);
-bool stfld(mdToken fieldToken, INT_PTR ptr);
-void ldfsld(mdToken fieldToken);
-void stsfld(mdToken fieldToken);
-bool ldelema(INT_PTR ptr, INT_PTR index);
-bool ldelem(INT_PTR ptr, INT_PTR index);
-bool stelem(INT_PTR ptr, INT_PTR index);
-void ckfinite();
-void ldvirtftn(mdToken token, INT_PTR ptr);
-void mkrefany();
-
-void call(mdMethodDef token, UINT16 argsCount);
-void callVirt(UINT16 argsCount);
-void enter(mdMethodDef token, unsigned maxStackSize);
-void leave(UINT8 returnValues);
-void finalizeCall(UINT8 returnValues);
-void calli(mdSignature signature);
-void execThrow();
-void execRethrow();
-
-void validateEnd();
+Stack &stack();
+StackFrame &topFrame();
 
 unsigned allocateString(const char *s);
 
@@ -100,7 +42,7 @@ FLOAT unmem_f4(INT8 idx);
 DOUBLE unmem_f8(INT8 idx);
 INT_PTR unmem_p(INT8 idx);
 
-int stackBalance();
+void validateStackEmptyness();
 
 }
 

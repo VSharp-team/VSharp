@@ -14,6 +14,7 @@ char readMethodBodyByte = 0x58;
 char readStringByte = 0x59;
 char *confirmationMessage = new char[1] {confirmationByte};
 char *instrumentationCommandMessage = new char[1] {instrumentCommandByte};
+char *executeCommandMessage = new char[1] {executeCommandByte};
 
 bool Protocol::readConfirmation() {
     char *buffer = new char[1];
@@ -160,8 +161,10 @@ bool Protocol::acceptString(char *&string) {
         ERROR(tout << "Reading instrumented method body failed!");
         return false;
     }
-    string = new char[messageLength];
+    string = new char[messageLength + 2];
     memcpy(string, message, messageLength);
+    string[messageLength] = '\0';
+    string[messageLength + 1] = '\0';
 //    LOG(tout << "Successfully accepted string: " << string);
     delete[] message;
     return true;
@@ -224,6 +227,44 @@ bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxS
     memcpy(ehs, message + codeLength, ehsLength);
     delete[] origMessage;
     return true;
+}
+
+bool Protocol::sendExecCommand(const ExecCommand &command) {
+    if (!writeBuffer(executeCommandMessage, 1)) return false;
+    LOG(tout << "Sending exec command" << std::endl);
+    unsigned messageLength = 6 * sizeof(unsigned) + sizeof(unsigned) * command.newCallStackFramesCount +
+                             sizeof(EvalStackOperand) * command.evaluationStackPushesCount;
+    char *buffer = new char[messageLength];
+    char *origBuffer = buffer;
+    unsigned size = sizeof(unsigned);
+    *(unsigned *)buffer = command.offset; buffer += size;
+    *(unsigned *)buffer = command.isBranch; buffer += size;
+    *(unsigned *)buffer = command.newCallStackFramesCount; buffer += size;
+    *(unsigned *)buffer = command.callStackFramesPops; buffer += size;
+    *(unsigned *)buffer = command.evaluationStackPushesCount; buffer += size;
+    *(unsigned *)buffer = command.evaluationStackPops;
+    buffer += size; size = command.newCallStackFramesCount * sizeof(unsigned);
+    memcpy(buffer, (char*)command.newCallStackFrames, size);
+    buffer += size; size = command.evaluationStackPushesCount * sizeof(EvalStackOperand);
+    memcpy(buffer, (char*)command.evaluationStackPushes, size);
+    bool result = writeBuffer(origBuffer, (int)messageLength);
+    delete[] origBuffer;
+    return result;
+}
+
+void Protocol::waitExecResult() {
+    char *message; int messageLength;
+    if (!readBuffer(message, messageLength) || messageLength != 1 || message[0] != 1) {
+        FAIL_LOUD("Exec responce validation failed!");
+    }
+}
+
+bool Protocol::waitExecBranchResult() {
+    char *message; int messageLength;
+    if (!readBuffer(message, messageLength) || messageLength != 1) {
+        FAIL_LOUD("Branch exec responce validation failed!");
+    }
+    return message[0];
 }
 
 bool Protocol::connect() {

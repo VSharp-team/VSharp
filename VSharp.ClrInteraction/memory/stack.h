@@ -8,20 +8,29 @@ namespace icsharp {
 
 class StackFrame {
 private:
-    bool *m_concreteness;
+    unsigned *m_concreteness;
     unsigned m_capacity;
     unsigned m_concretenessTop;
+
+    unsigned m_symbolsCount;
+    unsigned m_lastSentSymbolsCount;
+    unsigned m_minSymbsCountSinceLastSent;
 
     bool *m_args;
     bool *m_locals;
 
-    unsigned m_expectedToken;
+    unsigned m_resolvedToken;
+    unsigned m_unresolvedToken;
     bool m_enteredMarker;
     bool m_unmanagedContext;
 
+    std::vector<std::pair<unsigned, unsigned>> m_lastPoppedSymbolics;
+
 public:
-    StackFrame(unsigned maxStackSize, char *args, unsigned argsCount, unsigned localsCount);
+    StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
 //    ~StackFrame();
+
+    void configure(unsigned maxStackSize, unsigned localsCount);
 
     inline bool isEmpty() const;
     inline bool isFull() const;
@@ -29,39 +38,58 @@ public:
     bool peek0() const;
     bool peek1() const;
     bool peek2() const;
+    bool peek(unsigned idx) const;
 
     bool pop1();
-    void pop(unsigned count);
+    bool pop(unsigned count);
+    void pop1Async(); // Does not track the popped symbolics, but tracks the total amount of such pops.
 
     void push1(bool isConcrete);
     void push1Concrete();
     bool pop2Push1();
 
+    bool arg(unsigned index) const;
+    void setArg(unsigned index, bool value);
+    bool loc(unsigned index) const;
+    void setLoc(unsigned index, bool value);
+
     void dup();
 
     unsigned count() const;
 
-    unsigned expectedToken() const;
-    void setExpectedToken(unsigned expectedToken);
+    unsigned resolvedToken() const;
+    unsigned unresolvedToken() const;
     bool hasEntered() const;
     void setEnteredMarker(bool entered);
     bool inUnmanagedContext() const;
     void setUnmanagedContext(bool isUnmanaged);
+
+    const std::vector<std::pair<unsigned, unsigned>> &poppedSymbolics() const;
+    unsigned evaluationStackPops() const;
+    unsigned symbolicsCount() const;
+    void resetPopsTracking();
 };
 
 class Stack {
 private:
-    std::stack<StackFrame> m_frames;
+    std::deque<StackFrame> m_frames;
+    unsigned m_lastSentTop;
+    unsigned m_minTopSinceLastSent;
 
 public:
-//    void pushFrame(int maxStackSize, char *args, unsigned argsCount, unsigned localsCount);
-    void pushFrame(unsigned maxStackSize);
+    void pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
     void popFrame();
+    void popFrameUntracked();
     StackFrame &topFrame();
     inline const StackFrame &topFrame() const;
 
     bool isEmpty() const;
     unsigned framesCount() const;
+    unsigned tokenAt(unsigned index) const;
+
+    unsigned unsentPops() const;
+    unsigned minTopSinceLastSent() const;
+    void resetPopsTracking();
 };
 
 }

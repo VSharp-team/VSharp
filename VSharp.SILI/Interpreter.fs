@@ -13,8 +13,11 @@ open Instruction
 
 type cfg = CFG.cfgData
 
-type public MethodInterpreter(searcher : ISearcher) =
+type public MethodInterpreter(searcher : ISearcher) as this =
     inherit ExplorerBase()
+
+    let ilInterpreter = ILInterpreter(this)
+
     member x.Interpret (_ : MethodBase) (initialState : cilState) =
         let q = IndexedQueue()
         q.Add initialState
@@ -25,7 +28,7 @@ type public MethodInterpreter(searcher : ISearcher) =
             let states = List.filter (isEffectFor (currentIp s)) (s :: q.GetStates())
             match states with
             | [] ->
-                let goodStates, incompleteStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
+                let goodStates, incompleteStates, errors = ilInterpreter.ExecuteOnlyOneInstruction s
                 goodStates @ incompleteStates @ errors
             | _ -> List.map (compose s) states |> List.concat
             |> List.iter q.Add
@@ -50,6 +53,13 @@ type public MethodInterpreter(searcher : ISearcher) =
             Logger.warning "For method %O got %i states :\n%s" fullMethodName (List.length cilStates) states
 //        printResults results
         k results
+
+    override x.StepInstruction state =
+        // TODO: schedule instruction, send response after its execution to client machine
+        ilInterpreter.MakeStep state |> List.head
+    override x.StepBranch state =
+        // TODO
+        x.StepInstruction state, true
 
 and public ILInterpreter(methodInterpreter : MethodInterpreter) as this =
     do

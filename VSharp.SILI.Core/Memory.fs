@@ -59,6 +59,11 @@ module internal Memory =
         let evaluationStack = EvaluationStack.popStackFrame s.evaluationStack
         { s with stack = stack; evaluationStack = evaluationStack }
 
+    let forcePopFrames (count : int) (s : state) : state =
+        let stack = CallStack.popFrames s.stack count
+        let evaluationStack = EvaluationStack.forcePopStackFrames count s.evaluationStack
+        { s with stack = stack; evaluationStack = evaluationStack }
+
     let typeOfStackLocation (s : state) key = CallStack.typeOfStackLocation s.stack key
 
 // ------------------------------- Types -------------------------------

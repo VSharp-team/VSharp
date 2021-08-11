@@ -74,7 +74,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
     close_log();
 #endif
 
-    validateEnd();
+    validateStackEmptyness();
 
     if (this->corProfilerInfo != nullptr)
     {
@@ -388,47 +388,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRange
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
-//    printf("Object %lu allocated!\n", objectId);
-//    ULONG fieldsCount = 0;
-//    ULONG bytesCount = 0;
-//    HRESULT res = this->corProfilerInfo->GetClassLayout(classId, new COR_FIELD_OFFSET[0], 0, &fieldsCount, &bytesCount);
-//    if (res ==  E_INVALIDARG) {
-//        ULONG lengthOffset = 0;
-//        ULONG contentsOffset = 0;
-//        res = this->corProfilerInfo->GetStringLayout2(&lengthOffset, &contentsOffset);
-//        if (res ==  E_INVALIDARG) {
-//            printf("THIS IS NOT CLASS OR STRING!\n");
-//        } else {
-//            printf("This is string! Length offset = %u, contents offset = %u\n", lengthOffset, contentsOffset);
-//            printf("Length = %d\n", *((int *)(objectId + lengthOffset)));
-//            printf("Contents: ");
-//            for (int i = 0; i < 100; ++i) {
-//                char *p = (char*)(objectId + contentsOffset);
-//                printf("%d", *p);
-//            }
-//            printf("\n");
-//        }
-//    } else {
-//        mdTypeDef token;
-//        ModuleID moduleId;
-//        HRESULT hr;
-//        IfFailRet(this->corProfilerInfo->GetClassIDInfo(classId, &moduleId, &token));
-
-//        CComPtr<IMetaDataImport> metadataImport;
-//        IfFailRet(this->corProfilerInfo->GetModuleMetaData(moduleId, ofRead | ofWrite, IID_IMetaDataImport, reinterpret_cast<IUnknown **>(&metadataImport)));
-
-//        printf("This is class! Fields count = %u, bytes count = %u\n", fieldsCount, bytesCount);
-//        COR_FIELD_OFFSET *fieldOffsets = new COR_FIELD_OFFSET[fieldsCount];
-//        if (this->corProfilerInfo->GetClassLayout(classId, fieldOffsets, fieldsCount, &fieldsCount, &bytesCount) != S_OK) {
-//            printf("Unexpected fail while getting class laoyut!!!");
-//            return S_OK;
-//        }
-//        printf("Offsets:\n");
-//        for (unsigned int i = 0; i < fieldsCount; ++i) {
-//            printf("offset %u: token = %u, offset = %u\n", i, fieldOffsets[i].ridOfField, fieldOffsets[i].ulOffset);
-//        }
-//        printf("\n");
-//    }
     UNUSED(objectId);
     UNUSED(classId);
     return S_OK;

@@ -144,7 +144,7 @@ module API =
 
     module public EvaluationStack =
         val Pop : evaluationStack -> term * evaluationStack
-        val PopArguments : int -> evaluationStack -> term list * evaluationStack
+        val PopMany : int -> evaluationStack -> term list * evaluationStack
         val Push : term -> evaluationStack -> evaluationStack
         val GetItem : int -> evaluationStack -> term
         val FilterActiveFrame : (term -> bool) -> evaluationStack -> evaluationStack
@@ -157,6 +157,7 @@ module API =
     module public Memory =
         val EmptyState : state
         val PopFrame : state -> state
+        val ForcePopFrames : int -> state -> state
         val PopTypeVariables : state -> state
         val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> state
         val NewTypeVariables : state -> (typeId * symbolicType) list -> state

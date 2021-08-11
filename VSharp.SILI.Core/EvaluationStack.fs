@@ -38,6 +38,9 @@ module internal EvaluationStack =
         | [res] :: l :: ls -> {contents = (res :: l) :: ls} // call case
         | _ -> __corruptedStack__()
 
+    let forcePopStackFrames count (evaluationStack : evaluationStack) =
+        {contents = List.skip count evaluationStack.contents}
+
     let filterActiveFrame f evaluationStack =
         match evaluationStack.contents with
         | l :: ls -> { contents = List.filter f l :: ls } // TODO: remove it when CFA module is gone
