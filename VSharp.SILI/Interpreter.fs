@@ -140,11 +140,11 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
     member private x.CommonInitializeArray (cilState : cilState) _ (args : term list) =
         match args with
         | [arrayRef; handleTerm] ->
+            let initArray (cilState : cilState) k =
+                Memory.InitializeArray cilState.state arrayRef handleTerm
+                k [cilState]
             x.NpeOrInvokeStatementCIL cilState arrayRef (fun cilState k ->
-            x.NpeOrInvokeStatementCIL cilState handleTerm (fun cilState k ->
-            let results : state list = VSharp.System.Runtime_CompilerServices_RuntimeHelpers.InitializeArray cilState.state arrayRef handleTerm
-            let cilResults = List.map (changeState cilState) results
-            k cilResults) k) id
+            x.NpeOrInvokeStatementCIL cilState handleTerm initArray k) id
         | _ -> internalfail "unexpected number of arguments"
 
     member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
@@ -833,7 +833,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         let termType = Types.FromDotNetType t
         if Types.IsValueType termType then
             let v = pop cilState
-            if Types.TypeIsNullable termType then x.BoxNullable t v cilState
+            if Types.IsNullable termType then x.BoxNullable t v cilState
             else
                 allocateValueTypeInHeap v cilState
                 [cilState]
@@ -846,7 +846,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         assert(IsReference obj)
         assert(Types.IsValueType termType)
         let nullCase (cilState : cilState) k =
-            if Types.TypeIsNullable termType then
+            if Types.IsNullable termType then
                 let nullableTerm = Memory.DefaultOf termType
                 let address = Memory.BoxValueType cilState.state nullableTerm
                 let res = handleRestResults cilState (HeapReferenceToBoxReference address)
@@ -868,7 +868,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
                     nonExceptionCont cilState res k)
                 (x.Raise x.InvalidCastException)
         let nonNullCase (cilState : cilState) =
-            if Types.TypeIsNullable termType then
+            if Types.IsNullable termType then
                 nullableCase cilState
             else
                 StatedConditionalExecutionAppendResultsCIL cilState

@@ -99,6 +99,12 @@ module public Reflection =
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
+    // ----------------------------------- Creating objects ----------------------------------
+
+    let createObject (t : Type) =
+        if TypeUtils.isNullable t then null
+        else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+
     // --------------------------------- Substitute generics ---------------------------------
 
     let private substituteMethod methodType (m : MethodBase) getMethods =
@@ -191,6 +197,9 @@ module public Reflection =
     let wrapField (field : FieldInfo) =
         {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
 
+    let getFieldInfo (field : fieldId) =
+        field.declaringType.GetField(field.name, instanceBindingFlags)
+
     let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
@@ -205,7 +214,7 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
             if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
-            else Some (wrapField field, field.FieldType)
+            else Some (wrapField field, field)
         retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
 
     // Returns pair (valueFieldInfo, hasValueFieldInfo)

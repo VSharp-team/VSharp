@@ -44,6 +44,7 @@ module internal Copying =
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length - 1]
 
+    // TODO: add heuristic for concrete memory
     let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType
         let offsets = List.init length id
@@ -79,16 +80,22 @@ module internal Copying =
             copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
         | _ -> copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
 
-    let copyCharArrayToString state arrayAddress dstAddress =
-        let arrayType = (Types.Char, 1, true)
-        let length = readLength state arrayAddress (makeNumber 0) arrayType
-        let lengthPlus1 = add length (makeNumber 1)
-        let dstAddress = ConcreteHeapAddress dstAddress
-        copyArray state arrayAddress (makeNumber 0) arrayType dstAddress (makeNumber 0) arrayType length
-        writeLength state dstAddress (makeNumber 0) arrayType lengthPlus1
-        writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Types.Char)
-        writeClassField state dstAddress Reflection.stringLengthField length
+    let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress =
+        let cm = state.concreteMemory
+        match arrayAddress.term with
+        | ConcreteHeapAddress concreteAddress when ConcreteMemory.contains cm concreteAddress ->
+            ConcreteMemory.copyCharArrayToString state concreteAddress stringConcreteAddress
+        | _ ->
+            let arrayType = (Types.Char, 1, true)
+            let length = readLength state arrayAddress (makeNumber 0) arrayType
+            let lengthPlus1 = add length (makeNumber 1)
+            let stringAddress = ConcreteHeapAddress stringConcreteAddress
+            copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType length
+            writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
+            writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' Types.Char)
+            writeClassField state stringAddress Reflection.stringLengthField length
 
+    // TODO: add heuristic for concrete memory
     let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =
         let offsets = List.init length id
         let copyOneElem offset =

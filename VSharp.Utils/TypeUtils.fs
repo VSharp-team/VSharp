@@ -83,11 +83,13 @@ module TypeUtils =
     // ---------------------------------- Basic type operations ----------------------------------
 
     let getTypeOfConcrete value =
-        assert(box value <> null)
-        value.GetType()
+        if box value = null then null
+        else value.GetType()
+
+    let inline isNullable (t : Type) = Nullable.GetUnderlyingType(t) <> null
 
     let defaultOf (t : Type) =
-        if t.IsValueType && Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
+        if t.IsValueType && not (isNullable t) && not t.ContainsGenericParameters
             then Activator.CreateInstance t
             else null
 

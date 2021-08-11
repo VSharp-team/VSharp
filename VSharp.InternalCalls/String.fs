@@ -25,6 +25,7 @@ module internal String =
         assert(List.length args = 1)
         Memory.StringLength state (List.head args)
 
+    // TODO: add IndexOutOfRangeException case
     let GetChars (state : state) (args : term list) =
         assert(List.length args = 2)
         let this, index = List.item 0 args, List.item 1 args
@@ -50,12 +51,10 @@ module internal String =
             | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete length strings right now"
         | _ -> __insufficientInformation__ "ToUpperInvariant works only for concrete address strings right now"
 
-    let CreateFromChar (state : state) (args : term list) : (term * state) list =
+    let CreateFromChar (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let char = List.head args
-        let string = Memory.AllocateString " " state
-        let states = Memory.WriteStringChar state string [Concrete 0 Types.IndexType] char
-        List.map (withFst string) states
+        Memory.CreateStringFromChar state char
 
     let CharToUpper (_ : state) (args : term list) =
         assert(List.length args = 1)

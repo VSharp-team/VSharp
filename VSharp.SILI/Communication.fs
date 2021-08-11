@@ -434,7 +434,7 @@ type Communicator() =
             fail "Communication with CLR: handshake failed: got %s instead of %s" s expectedMessage
 
     member private x.Deserialize<'a> (bytes : byte array, startIndex : int) =
-        let result = System.Runtime.Serialization.FormatterServices.GetUninitializedObject typeof<'a> :?> 'a
+        let result = Reflection.createObject typeof<'a> :?> 'a
         let size = Marshal.SizeOf(typeof<'a>)
         let unmanagedPtr = Marshal.AllocHGlobal(size)
         Marshal.Copy(bytes, startIndex, unmanagedPtr, size)

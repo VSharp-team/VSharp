@@ -161,13 +161,13 @@ module private EvaluationStackTyper =
         | evaluationStackCellType.R4
         | evaluationStackCellType.R8 -> true
         | _ -> false
-    
+
     let mergeAbstraction a1 a2 =
         if a1 = a2 then a1
         elif isI4 a1 && isI4 a2 then evaluationStackCellType.I4
         elif isFloat a1 && isFloat a2 then evaluationStackCellType.R8
         else fail()
-    
+
     let mergeStackStates s1 s2 = List.map2 mergeAbstraction s1 s2
 
     let typeLdarg (m : Reflection.MethodBase) (s : stackState) idx =
@@ -222,7 +222,7 @@ module private EvaluationStackTyper =
             | Some s -> s
             | None -> fail()
         match instr.opcode with
-        | OpCode op -> 
+        | OpCode op ->
             let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
             match opcodeValue with
             | OpCodeValues.Ldarg_0 -> typeLdarg m s 0
@@ -501,7 +501,7 @@ module private EvaluationStackTyper =
                     nxt.stackState <- Some s
                     q.Enqueue nxt
                 | Some s' ->
-                    nxt.stackState <- Some (mergeStackStates s s')) 
+                    nxt.stackState <- Some (mergeStackStates s s'))
 
 [<AllowNullLiteral>]
 type ILRewriter(body : rawMethodBody) =
@@ -513,7 +513,7 @@ type ILRewriter(body : rawMethodBody) =
     let mutable maxStackSize = body.properties.maxStackSize
     let offsetToInstr : ilInstr array = Array.zeroCreate (codeSize + 1)
     let mutable ehs : ehClause array = Array.empty
-    let il : ilInstr = System.Runtime.Serialization.FormatterServices.GetUninitializedObject typeof<ilInstr> :?> ilInstr
+    let il : ilInstr = Reflection.createObject typeof<ilInstr> :?> ilInstr
 
     let invalidProgram reason =
         Logger.error "Invalid program: %s" reason

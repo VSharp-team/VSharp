@@ -117,13 +117,6 @@ module internal TypeCasting =
                     typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
 
-    let isNullable termType =
-        match termType with
-        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
-        | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
-        | Null -> false
-        | _ -> System.Nullable.GetUnderlyingType(toDotNetType termType) <> null
-
     let private doCast term targetType =
         match term.term with
         | Ptr _ ->

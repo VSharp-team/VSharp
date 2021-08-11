@@ -11,6 +11,18 @@ type stackBufferKey = concreteHeapAddress
 
 type offset = int
 
+[<CustomEquality;NoComparison>]
+type physicalAddress = {object : obj}
+    with
+    override x.GetHashCode() = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(x.object)
+    override x.Equals(o : obj) =
+        match o with
+        | :? physicalAddress as other -> x.object.Equals(other.object)
+        | _ -> false
+    override x.ToString() = PrettyPrinting.printConcrete x.object
+
+type concreteMemory = System.Collections.Generic.Dictionary<concreteHeapAddress, physicalAddress>
+
 // last fields are determined by above fields
 // TODO: remove it when CFA is gone #Kostya
 [<CustomEquality;CustomComparison>]
@@ -74,25 +86,26 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
-
 and
     [<ReferenceEquality>]
     state = {
     mutable pc : pathCondition
     mutable evaluationStack : evaluationStack
-    mutable stack : callStack                                       // Arguments and local variables
-    mutable stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
-    mutable classFields : pdict<fieldId, heapRegion>                  // Fields of classes in heap
-    mutable arrays : pdict<arrayType, arrayRegion>                    // Contents of arrays in heap
-    mutable lengths : pdict<arrayType, vectorRegion>                  // Lengths by dimensions of arrays in heap
-    mutable lowerBounds : pdict<arrayType, vectorRegion>              // Lower bounds by dimensions of arrays in heap
-    mutable staticFields : pdict<fieldId, staticsRegion>              // Static fields of types without type variables
-    mutable boxedLocations : pdict<concreteHeapAddress, term>         // Value types boxed in heap
-    mutable initializedTypes : symbolicTypeSet                        // Types with initialized static members
-    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
-    mutable typeVariables : typeVariables                             // Type variables assignment in the current state
-    mutable delegates : pdict<concreteHeapAddress, term>              // Subtypes of System.Delegate allocated in heap
-    mutable currentTime : vectorTime                                  // Current timestamp (and next allocated address as well) in this state
-    mutable startingTime : vectorTime                                 // Timestamp before which all allocated addresses will be considered symbolic
-    mutable exceptionsRegister : exceptionRegister                    // Heap-address of exception object
+    mutable stack : callStack                                          // Arguments and local variables
+    mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
+    mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
+    mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
+    mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
+    mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
+    mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
+    mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
+    mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
+    concreteMemory : concreteMemory                                    // Fully concrete objects
+    mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
+    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+    mutable typeVariables : typeVariables                              // Type variables assignment in the current state
+    mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
+    mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
+    mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
+    mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
 }

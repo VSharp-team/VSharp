@@ -568,6 +568,13 @@ module internal Terms =
         | ConcreteHeapAddress(addr) -> addr
         | _ -> __unreachable__()
 
+    let tryIntListFromTermList (termList : term list) =
+        let addElement term concreteList k =
+            match term.term with
+            | Concrete(:? int as i, _) -> i :: concreteList |> k
+            | _ -> None
+        Cps.List.foldrk addElement List.empty termList Some
+
     let isConcreteHeapAddress term =
         match term.term with
         | ConcreteHeapAddress _ -> true
@@ -647,14 +654,14 @@ module internal Terms =
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ
         let fields = Reflection.fieldsOf isStatic dotNetType
-        let addField heap (field, typ) =
-            let termType = typ |> Types.Constructor.fromDotNetType
-            folder heap field termType
+        let addField heap (fieldId, fieldInfo : Reflection.FieldInfo) =
+            let termType = fieldInfo.FieldType |> fromDotNetType
+            folder heap fieldInfo fieldId termType
         FSharp.Collections.Array.fold addField acc fields
 
     let private makeFields isStatic makeField typ =
-        let folder fields field termType =
-            let value = makeField field termType
+        let folder fields fieldInfo field termType =
+            let value = makeField fieldInfo field termType
             PersistentDict.add field value fields
         foldFields isStatic folder PersistentDict.empty typ
 
@@ -672,6 +679,6 @@ module internal Terms =
         | InterfaceType _ -> nullRef
         | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> nullRef
         | TypeVariable(Id t) -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
-        | StructType _ -> makeStruct false (fun _ t -> makeDefaultValue t) typ
+        | StructType _ -> makeStruct false (fun _ _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ
         | _ -> __notImplemented__()

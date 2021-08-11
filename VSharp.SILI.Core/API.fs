@@ -137,13 +137,13 @@ module API =
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
         let IsArrayType t = Types.isArray t
+        let IsNullable t = Types.isNullable t
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
         let ElementType arrayType = Types.elementType arrayType
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
-        let TypeIsNullable typ = TypeCasting.isNullable typ
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
         let RefIsAssignableToType state ref typ = TypeCasting.refIsAssignableToType state ref typ
@@ -258,6 +258,8 @@ module API =
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
+        let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
+
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
         let WriteSafe state reference value = Memory.writeSafe state reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
@@ -277,15 +279,6 @@ module API =
                         let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                         assert(dim = List.length indices)
                         Memory.writeArrayIndex state addr indices arrayType value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
-                    state)
-                state reference
-        let WriteStringChar state reference index value =
-            Memory.guardedStatedMap
-                (fun state reference ->
-                    match reference.term with
-                    | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
-                        Memory.writeArrayIndex state addr index (Types.Char, 1, true) value
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
                     state)
                 state reference
@@ -316,10 +309,12 @@ module API =
             ref
 
         let AllocateDefaultClass state typ =
-            Memory.allocateClass state typ
+            if typ = Types.String then Memory.allocateString state ""
+            else Memory.allocateClass state typ
 
         let AllocateDefaultArray state lengths typ =
-            let address = Memory.allocateArray state typ None lengths
+            let zeroLowerBounds = List.map (fun _ -> makeNumber 0) lengths
+            let address = Memory.allocateArray state typ zeroLowerBounds lengths
             HeapRef address typ
 
         let AllocateVectorArray state length elementType =
@@ -334,6 +329,7 @@ module API =
 
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
+        let CreateStringFromChar state char = Memory.createStringFromChar state char
 
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with

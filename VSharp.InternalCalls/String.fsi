@@ -23,7 +23,7 @@ module internal String =
     val ToUpperInvariant : state -> term list -> term
 
     [<Implements("System.String System.String.CreateFromChar(System.Char)")>]
-    val CreateFromChar : state -> term list -> (term * state) list
+    val CreateFromChar : state -> term list -> term
 
     [<Implements("System.Char System.Char.ToUpper(System.Char)")>]
     val CharToUpper : state -> term list -> term

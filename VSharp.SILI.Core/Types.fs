@@ -283,6 +283,13 @@ module internal Types =
         | Null -> false
         | t -> (toDotNetType t).IsValueType
 
+    let isNullable termType =
+        match termType with
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
+        | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
+        | Null -> false
+        | _ -> TypeUtils.isNullable (toDotNetType termType)
+
     // [NOTE] All heuristics of subtyping are here
     let rec private commonConcreteCanCast canCast nullCase leftType rightType certainK uncertainK =
         match leftType, rightType with

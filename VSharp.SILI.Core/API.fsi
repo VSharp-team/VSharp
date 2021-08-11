@@ -111,7 +111,7 @@ module API =
         val ElementType : symbolicType -> symbolicType
 
         val TypeIsType : symbolicType -> symbolicType -> term
-        val TypeIsNullable : symbolicType -> bool
+        val IsNullable : symbolicType -> bool
         val TypeIsRef :  state -> symbolicType -> term -> term
         val RefIsType : state -> term -> symbolicType -> term
         val RefIsAssignableToType : state -> term -> symbolicType -> term
@@ -179,12 +179,13 @@ module API =
         val ReadStaticField : state -> symbolicType -> fieldId -> term
         val ReadDelegate : state -> term -> term
 
+        val InitializeArray : state -> term -> term -> unit
+
         val WriteSafe : state -> term -> term -> state list
         val WriteLocalVariable : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> state list
-        val WriteStringChar : state -> term -> term list -> term -> state list
         val WriteStaticField : state -> symbolicType -> fieldId -> term -> unit
 
         val DefaultOf : symbolicType -> term
@@ -208,6 +209,7 @@ module API =
         val AllocateString : string -> state -> term
         val AllocateEmptyString : state -> term -> term
         val AllocateDelegate : state -> term -> term
+        val CreateStringFromChar : state -> term -> term
 
         val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
