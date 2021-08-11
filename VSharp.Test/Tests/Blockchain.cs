@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
 
 namespace VSharp.Test.Tests
 {
@@ -81,7 +82,8 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class Blockchain
     {
-        [TestSvm]
+        // TODO: add this test after concolic will be implemented
+        [Ignore("need deep copy or concolic")]
         public static long test(long time)
         {
             var miner = new BlockMiner();

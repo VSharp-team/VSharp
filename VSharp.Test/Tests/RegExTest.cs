@@ -13,7 +13,7 @@ namespace VSharp.Test.Tests
                 {
                     return true;
                 }
-            } while (textpos <= text.Length && (text[textpos++] == c || c == '.'));
+            } while (textpos < text.Length && (text[textpos++] == c || c == '.'));
 
             return false;
         }

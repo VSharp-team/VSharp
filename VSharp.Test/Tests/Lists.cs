@@ -274,6 +274,14 @@ namespace VSharp.Test.Tests
             return res;
         }
 
+        [Ignore("needs extern 'Array.InternalCreate'")]
+        public static int SpecifyLowerBounds(int x, int y)
+        {
+            var a = Array.CreateInstance(typeof(int), new[] { 4 }, new[] { 2011 });
+            var res = (int) a.GetValue(new[] {1});
+            return res;
+        }
+
         [TestSvm]
         public static int[] RetOneDArray2(int n)
         {

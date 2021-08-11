@@ -143,7 +143,8 @@ namespace VSharp.Test.Tests
             public char City { get; set; }
         }
 
-        [TestSvm]
+        // TODO: add this test after concolic will be implemented
+        [Ignore("need deep copy or concolic")]
         public static string HardSymbolicLinqTest(int x, int y, int z, int f, int g)
         {
             var customers = new List<Customer>

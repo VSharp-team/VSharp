@@ -43,8 +43,8 @@ namespace VSharp.Test.Tests
             return GetRank(array);
         }
 
-        // expecting 13
-        [TestSvm]
+        // expecting OutOfMemoryException
+        [Ignore("Exceptions handling")]
         public static int ArrayRank_4()
         {
             int[,,,,,,,,,,,,] array = new int[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
@@ -55,8 +55,8 @@ namespace VSharp.Test.Tests
         [TestSvm]
         public static int ArrayRank_5()
         {
-            int[,,,,,,,,,,,,] array = new int[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-            return array.Rank;
+            int[,,,,,,,,,,,,] array = new int[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+            return GetRank(array);
         }
 
         // expecting 7
