@@ -3,8 +3,8 @@ RESULT: Totally 2 states:
 100
 MEMORY DUMP:
 Path condition: f
---------------- Fields: ---------------
-x ==> {2 <- 100}
+--------------- Concrete memory: ---------------
+2 ==> x: 100
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Stack: ---------------

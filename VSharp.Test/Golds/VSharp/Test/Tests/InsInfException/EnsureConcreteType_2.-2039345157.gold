@@ -2,14 +2,10 @@ METHOD: System.Int32 VSharp.Test.Tests.InsInfException.EnsureConcreteType_2()
 RESULT: Totally 1 state:
 123
 MEMORY DUMP:
---------------- Fields: ---------------
-_field ==> {
-        3 <- (HeapRef 4 to VSharp.Test.Tests.PDR+ClassWithOneField)
-    }
-_field ==> {
-        2 <- (HeapRef 3 to VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField])
-    }
-x ==> {4 <- 123}
+--------------- Concrete memory: ---------------
+2 ==> _field: VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]
+3 ==> _field: VSharp.Test.Tests.PDR+ClassWithOneField
+4 ==> x: 123
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]]
 3 ==> VSharp.Test.Tests.InsInfException+GenericClass`1[VSharp.Test.Tests.PDR+ClassWithOneField]

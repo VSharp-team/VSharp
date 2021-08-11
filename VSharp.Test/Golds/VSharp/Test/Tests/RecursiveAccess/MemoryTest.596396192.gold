@@ -3,8 +3,9 @@ RESULT: Totally 1 state:
 l.head.item
 MEMORY DUMP:
 Path condition: !(l == null) /\ !(l.head == null) /\ l.head.item <= 7
---------------- Fields: ---------------
-item ==> {2 <- 10; 3 <- 42}
+--------------- Concrete memory: ---------------
+2 ==> 
+3 ==> 
 --------------- Types tokens: ---------------
 2 ==> System.Collections.Generic.LinkedListNode`1[System.Int32]
 3 ==> System.Collections.Generic.LinkedListNode`1[System.Int32]

@@ -3,6 +3,7 @@ RESULT: Totally 1 state:
 (HeapRef 2 to VSharp.Test.Tests.Typecast.IMovable)
 MEMORY DUMP:
 --------------- Fields: ---------------
+Rate ==> {2 <- 0}
 _xCoord ==> {2 <- X}
 _yCoord ==> {2 <- Y}
 --------------- Types tokens: ---------------

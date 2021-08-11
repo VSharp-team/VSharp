@@ -2,11 +2,8 @@ METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.UpCast()
 RESULT: Totally 1 state:
 15
 MEMORY DUMP:
---------------- Fields: ---------------
-Rate ==> {2 <- 1}
-_newField ==> {2 <- 25}
-_xCoord ==> {2 <- 1}
-_yCoord ==> {2 <- 1}
+--------------- Concrete memory: ---------------
+2 ==> 
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.Typecast.Pawn
 --------------- Stack: ---------------

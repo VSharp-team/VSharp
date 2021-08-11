@@ -2,12 +2,8 @@ METHOD: System.String VSharp.Test.Tests.Strings.EmptyString(System.Int32, System
 RESULT: Totally 1 state:
 NullRef
 MEMORY DUMP:
---------------- Fields: ---------------
-_stringLength ==> {2 <- 0}
---------------- Array contents: ---------------
-System.Char[] ==> {2[0] <- '\000'}
---------------- Array lengths: ---------------
-System.Char[] ==> {2[0] <- 1}
+--------------- Concrete memory: ---------------
+2 ==> ""
 --------------- Types tokens: ---------------
 2 ==> System.String
 --------------- Static fields: ---------------

@@ -2,10 +2,9 @@ METHOD: System.Collections.Generic.List`1[System.Double] VSharp.Test.Tests.Gener
 RESULT: Totally 1 state:
 (HeapRef 3 to System.Collections.Generic.List`1[System.Double])
 MEMORY DUMP:
---------------- Fields: ---------------
-_items ==> {3 <- (HeapRef 2 to System.Double[])}
---------------- Array lengths: ---------------
-System.Double[] ==> {2[0] <- 0}
+--------------- Concrete memory: ---------------
+2 ==> System.Double[]
+3 ==> 
 --------------- Types tokens: ---------------
 2 ==> System.Double[]
 3 ==> System.Collections.Generic.List`1[System.Double]

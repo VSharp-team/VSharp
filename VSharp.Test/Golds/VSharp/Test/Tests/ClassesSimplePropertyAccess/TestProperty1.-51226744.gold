@@ -3,13 +3,10 @@ RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
 Path condition: !(null == this)
---------------- Fields: ---------------
-<SecretProperty>k__BackingField ==> {
-        2 <- (HeapRef 4 to System.Collections.Generic.List`1[System.Boolean])
-    }
-_items ==> {4 <- (HeapRef 3 to System.Boolean[])}
---------------- Array lengths: ---------------
-System.Boolean[] ==> {3[0] <- 0}
+--------------- Concrete memory: ---------------
+2 ==> 
+3 ==> System.Boolean[]
+4 ==> 
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccess
 3 ==> System.Boolean[]

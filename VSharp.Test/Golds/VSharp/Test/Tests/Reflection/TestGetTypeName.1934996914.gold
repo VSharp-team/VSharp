@@ -4,21 +4,12 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 Path condition: !(null == o)
 --------------- Fields: ---------------
-_stringLength ==> {9 <- 6}
 typeInfo ==> {8 <- System.Object}
---------------- Array contents: ---------------
-System.Char[] ==> {
-        9[0] <- 'O'
-        9[1] <- 'b'
-        9[2] <- 'j'
-        9[3] <- 'e'
-        9[4] <- 'c'
-        9[5] <- 't'
-        9[6] <- '\000'
-    }
---------------- Array lengths: ---------------
-System.Char[] ==> {9[0] <- 7}
-System.Type[] ==> {2[0] <- 0}
+--------------- Concrete memory: ---------------
+2 ==> System.Type[]
+3 ==> Value: System.Reflection.Missing
+5 ==> <>9: System.Type+<>c
+9 ==> "Object"
 --------------- Types tokens: ---------------
 2 ==> System.Type[]
 3 ==> System.Reflection.Missing

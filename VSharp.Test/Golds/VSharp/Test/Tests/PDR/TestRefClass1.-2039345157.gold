@@ -2,8 +2,9 @@ METHOD: System.Int32 VSharp.Test.Tests.PDR.TestRefClass1()
 RESULT: Totally 1 state:
 100
 MEMORY DUMP:
---------------- Fields: ---------------
-x ==> {2 <- 100}
+--------------- Concrete memory: ---------------
+2 ==> x: 100
+3 ==> 
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 3 ==> System.Object

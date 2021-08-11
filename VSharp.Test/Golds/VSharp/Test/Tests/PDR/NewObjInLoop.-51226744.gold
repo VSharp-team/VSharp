@@ -2,6 +2,12 @@ METHOD: System.Void VSharp.Test.Tests.PDR.NewObjInLoop()
 RESULT: Totally 1 state:
 <VOID>
 MEMORY DUMP:
+--------------- Concrete memory: ---------------
+2 ==> 
+3 ==> 
+4 ==> 
+5 ==> 
+6 ==> 
 --------------- Types tokens: ---------------
 2 ==> System.Object
 3 ==> System.Object

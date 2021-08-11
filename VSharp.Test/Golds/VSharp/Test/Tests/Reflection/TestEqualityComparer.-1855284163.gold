@@ -4,8 +4,12 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 --------------- Fields: ---------------
 typeInfo ==> {8 <- System.String}
---------------- Array lengths: ---------------
-System.Type[] ==> {2[0] <- 0}
+--------------- Concrete memory: ---------------
+2 ==> System.Type[]
+3 ==> Value: System.Reflection.Missing
+5 ==> <>9: System.Type+<>c
+9 ==> 
+10 ==> 
 --------------- Types tokens: ---------------
 2 ==> System.Type[]
 3 ==> System.Reflection.Missing

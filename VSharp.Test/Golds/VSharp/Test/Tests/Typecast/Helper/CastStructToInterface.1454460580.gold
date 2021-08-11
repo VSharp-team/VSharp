@@ -2,27 +2,8 @@ METHOD: System.Double VSharp.Test.Tests.Typecast.Helper.CastStructToInterface(VS
 RESULT: Totally 1 state:
 sqrt((System.Double (X * X + Y * Y)))
 MEMORY DUMP:
---------------- Array contents: ---------------
-System.Double[] ==> {
-        3[0] <- 1
-        3[1] <- 10
-        3[2] <- 100
-        3[3] <- 1000
-        3[4] <- 10000
-        3[5] <- 100000
-        3[6] <- 1000000
-        3[7] <- 10000000
-        3[8] <- 100000000
-        3[9] <- 1000000000
-        3[10] <- 10000000000
-        3[11] <- 100000000000
-        3[12] <- 1000000000000
-        3[13] <- 10000000000000
-        3[14] <- 100000000000000
-        3[15] <- 1000000000000000
-    }
---------------- Array lengths: ---------------
-System.Double[] ==> {3[0] <- 16}
+--------------- Concrete memory: ---------------
+3 ==> System.Double[]
 --------------- Boxed items: ---------------
 2 ==> VSharp.Test.Tests.Typecast.Coord STRUCT [
 	| X ~> X

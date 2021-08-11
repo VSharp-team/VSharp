@@ -4,7 +4,11 @@ a.x
 MEMORY DUMP:
 Path condition: !(2 * b.x <= 127) /\ !(a == null) /\ !(b == null)
 --------------- Fields: ---------------
-x ==> {2 <- 42; 3 <- 12; 4 <- 7; a <- 2 * b.x; b <- 4 * b.x}
+x ==> {a <- 2 * b.x; b <- 4 * b.x}
+--------------- Concrete memory: ---------------
+2 ==> x: 42
+3 ==> x: 12
+4 ==> x: 7
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 3 ==> VSharp.Test.Tests.PDR+ClassWithOneField
@@ -15,7 +19,11 @@ Initialized types = { VSharp.Test.Tests.PDR, System.Object, VSharp.Test.Tests.PD
 MEMORY DUMP:
 Path condition: !(a == null) /\ !(b == null) /\ 2 * b.x <= 127
 --------------- Fields: ---------------
-x ==> {2 <- 42; 3 <- 12; 4 <- 7; a <- 2 * b.x}
+x ==> {a <- 2 * b.x}
+--------------- Concrete memory: ---------------
+2 ==> x: 42
+3 ==> x: 12
+4 ==> x: 7
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 3 ==> VSharp.Test.Tests.PDR+ClassWithOneField

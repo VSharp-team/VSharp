@@ -4,10 +4,9 @@ anyVarName
 MEMORY DUMP:
 Path condition: !(null == this)
 --------------- Fields: ---------------
-<ContainerProperty>k__BackingField ==> {
-        2 <- (HeapRef 3 to VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer)
-    }
 X ==> {3 <- anyVarName}
+--------------- Concrete memory: ---------------
+2 ==> 
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify
 3 ==> VSharp.Test.Tests.ClassesSimplePropertyAccessModify+SimpleContainer

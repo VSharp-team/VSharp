@@ -2,9 +2,9 @@ METHOD: System.Int32 VSharp.Test.Tests.PDR.TestLowerBound_1()
 RESULT: Totally 1 state:
 0
 MEMORY DUMP:
---------------- Array lengths: ---------------
-System.Int32[,] ==> {2[0] <- 4; 2[1] <- 5}
-System.Int32[] ==> {3[0] <- 100}
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[,]
+3 ==> System.Int32[]
 --------------- Types tokens: ---------------
 2 ==> System.Int32[,]
 3 ==> System.Int32[]

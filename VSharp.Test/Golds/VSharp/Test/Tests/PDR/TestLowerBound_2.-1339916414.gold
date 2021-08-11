@@ -3,8 +3,8 @@ RESULT: Totally 2 states:
 0
 MEMORY DUMP:
 Path condition: !f
---------------- Array lengths: ---------------
-System.Int32[] ==> {2[0] <- 100}
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
 --------------- Types tokens: ---------------
 2 ==> System.Int32[]
 --------------- Stack: ---------------
@@ -14,9 +14,9 @@ Initialized types = { System.Array, VSharp.Test.Tests.PDR }
 0
 MEMORY DUMP:
 Path condition: f
---------------- Array lengths: ---------------
-System.Int32[,] ==> {3[0] <- 4; 3[1] <- 5}
-System.Int32[] ==> {2[0] <- 100}
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+3 ==> System.Int32[,]
 --------------- Types tokens: ---------------
 2 ==> System.Int32[]
 3 ==> System.Int32[,]

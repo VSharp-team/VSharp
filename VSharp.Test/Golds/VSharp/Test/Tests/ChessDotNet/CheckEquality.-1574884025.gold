@@ -2,8 +2,9 @@ METHOD: System.Boolean VSharp.Test.Tests.ChessDotNet.CheckEquality()
 RESULT: Totally 1 state:
 False
 MEMORY DUMP:
---------------- Fields: ---------------
-<Owner>k__BackingField ==> {2 <- 0; 3 <- 1}
+--------------- Concrete memory: ---------------
+2 ==> 
+3 ==> 
 --------------- Types tokens: ---------------
 2 ==> ChessDotNet.Pieces.Pawn
 3 ==> ChessDotNet.Pieces.Pawn

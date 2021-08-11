@@ -2,11 +2,9 @@ METHOD: System.Action`1[System.Int32] VSharp.Test.Tests.PDR.CreateLambda(System.
 RESULT: Totally 2 states:
 (HeapRef 3 to System.Action`1[System.Int32])
 MEMORY DUMP:
-Path condition: flag
---------------- Fields: ---------------
-a ==> {2 <- 0}
-b ==> {2 <- 0}
-c ==> {2 <- 0}
+Path condition: !flag
+--------------- Concrete memory: ---------------
+2 ==> a: 0; b: 0; c: 0
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass2_0
 3 ==> System.Action`1[System.Int32]
@@ -19,11 +17,9 @@ Initialized types = { System.Action`1[System.Int32], VSharp.Test.Tests.PDR, Syst
 
 (HeapRef 3 to System.Action`1[System.Int32])
 MEMORY DUMP:
-Path condition: !flag
---------------- Fields: ---------------
-a ==> {2 <- 0}
-b ==> {2 <- 0}
-c ==> {2 <- 0}
+Path condition: flag
+--------------- Concrete memory: ---------------
+2 ==> a: 0; b: 0; c: 0
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+<>c__DisplayClass2_0
 3 ==> System.Action`1[System.Int32]

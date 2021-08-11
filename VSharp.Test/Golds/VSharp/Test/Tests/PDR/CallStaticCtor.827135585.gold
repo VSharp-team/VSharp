@@ -2,6 +2,8 @@ METHOD: System.Object VSharp.Test.Tests.PDR.CallStaticCtor()
 RESULT: Totally 1 state:
 (HeapRef 2 to System.Object)
 MEMORY DUMP:
+--------------- Concrete memory: ---------------
+2 ==> x: 0
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 --------------- Static fields: ---------------

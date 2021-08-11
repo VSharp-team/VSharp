@@ -2,9 +2,12 @@ METHOD: System.Int32 VSharp.Test.Tests.PDR.TestCompositionWhenCallDividesBlocksA
 RESULT: Totally 1 state:
 64
 MEMORY DUMP:
---------------- Array lengths: ---------------
-System.Double[] ==> {5[0] <- 32; 6[0] <- 32}
-System.Int32[] ==> {3[0] <- 32; 4[0] <- 32}
+--------------- Concrete memory: ---------------
+2 ==> x: 0
+3 ==> System.Int32[]
+4 ==> System.Int32[]
+5 ==> System.Double[]
+6 ==> System.Double[]
 --------------- Types tokens: ---------------
 2 ==> VSharp.Test.Tests.PDR+ClassWithOneField
 3 ==> System.Int32[]
