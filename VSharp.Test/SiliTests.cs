@@ -193,17 +193,25 @@ namespace VSharp.Test
             {
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var idealValue = new IdealValuesHandler(methodInfo);
-                var gotValue = _svm.ExploreOne(methodInfo).Trim();
+                try
+                {
+                    var gotValue = _svm.ExploreOne(methodInfo).Trim();
 
-                if (string.Equals(idealValue.ExpectedValue, gotValue))
-                {
-                    context.CurrentResult.SetResult(ResultState.Success);
+                    if (string.Equals(idealValue.ExpectedValue, gotValue))
+                    {
+                        context.CurrentResult.SetResult(ResultState.Success);
+                    }
+                    else
+                    {
+                        idealValue.CreateTemporaryIdealFile(gotValue);
+                        var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
+                        context.CurrentResult.SetResult(ResultState.Failure, diff);
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    idealValue.CreateTemporaryIdealFile(gotValue);
-                    var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
-                    context.CurrentResult.SetResult(ResultState.Failure, diff);
+                    // TODO: add more info
+                    context.CurrentResult.SetResult(ResultState.Inconclusive, e.Message);
                 }
 
                 return context.CurrentResult;
