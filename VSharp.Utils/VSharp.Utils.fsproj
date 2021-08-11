@@ -13,6 +13,7 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
       <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
+      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
