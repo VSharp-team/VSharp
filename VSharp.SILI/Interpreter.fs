@@ -654,7 +654,11 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         if Reflection.isDelegateConstructor constructorInfo then
             x.CommonCreateDelegate constructorInfo cilState args k
         elif typ.IsArray && constructorInfo.GetMethodBody() = null then
-            x.ReduceArrayCreation typ cilState args k
+            try
+                // TODO: can lower bounds be specified via newobj?
+                x.ReduceArrayCreation typ cilState args k
+            with
+            | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState id
         else blockCase cilState)
 
     member x.LdsFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
@@ -1212,6 +1216,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
     member x.TypeInitializerException qualifiedTypeName innerException cilState =
         methodInterpreter.TypeInitializerException qualifiedTypeName innerException cilState
     member x.InvalidCastException cilState = methodInterpreter.InvalidCastException cilState; [cilState]
+    member x.OutOfMemoryException cilState = methodInterpreter.OutOfMemoryException cilState; [cilState]
 
     // -------------------------------- ExplorerBase operations -------------------------------------
 

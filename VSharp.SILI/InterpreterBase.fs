@@ -259,6 +259,8 @@ type public ExplorerBase() =
     member x.InvalidCastException (cilState : cilState) =
         let message = Memory.AllocateString "Specified cast is not valid." cilState.state
         x.CreateException typeof<System.InvalidCastException> [message] cilState
+    member x.OutOfMemoryException (cilState : cilState) =
+        x.CreateException typeof<System.OutOfMemoryException> [] cilState
 
     member x.ExploreAndCompose (method : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let prepareGenericsLessState (method : MethodBase) state =
