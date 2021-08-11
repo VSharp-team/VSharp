@@ -222,7 +222,7 @@ module MemoryRegion =
         {typ = typ; updates = UpdateTree.empty}
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
-        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
+        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
 
     let read mr key isDefault instantiate =
         let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}
