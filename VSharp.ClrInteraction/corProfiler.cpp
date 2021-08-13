@@ -6,6 +6,7 @@
 #include "instrumenter.h"
 #include "communication/protocol.h"
 #include "memory/memory.h"
+#include "reflection.h"
 #include <string>
 
 #define UNUSED(x) (void)x
@@ -34,14 +35,18 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         return E_FAIL;
     }
 
-    DWORD eventMask = COR_PRF_MONITOR_JIT_COMPILATION                      |
-            COR_PRF_DISABLE_ALL_NGEN_IMAGES |
-//            COR_PRF_DISABLE_OPTIMIZATIONS |
-//            COR_PRF_MONITOR_CACHE_SEARCHES |
-            COR_PRF_MONITOR_EXCEPTIONS |
-            COR_PRF_MONITOR_CLR_EXCEPTIONS |
-                      COR_PRF_DISABLE_TRANSPARENCY_CHECKS_UNDER_FULL_TRUST | /* helps the case where this profiler is used on Full CLR */
-                      COR_PRF_DISABLE_INLINING                             ;
+    DWORD eventMask =
+        COR_PRF_MONITOR_JIT_COMPILATION |
+        COR_PRF_DISABLE_ALL_NGEN_IMAGES |
+//        COR_PRF_DISABLE_OPTIMIZATIONS |
+//        COR_PRF_MONITOR_CACHE_SEARCHES |
+        COR_PRF_MONITOR_EXCEPTIONS |
+        COR_PRF_MONITOR_CLR_EXCEPTIONS |
+        COR_PRF_DISABLE_TRANSPARENCY_CHECKS_UNDER_FULL_TRUST | /* helps the case where this profiler is used on Full CLR */
+        COR_PRF_DISABLE_INLINING |
+        COR_PRF_MONITOR_GC |
+        COR_PRF_ENABLE_OBJECT_ALLOCATED |
+        COR_PRF_MONITOR_OBJECT_ALLOCATED;
 
     // TODO: place IfFailRet here, log fails!
     auto hr = this->corProfilerInfo->SetEventMask(eventMask);
@@ -62,8 +67,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
     instrumenter = new Instrumenter(*corProfilerInfo);
 
-    protocol = new icsharp::Protocol();
-    if (!protocol->startSession()) return E_FAIL;
+//    protocol = new icsharp::Protocol();
+//    if (!protocol->startSession()) return E_FAIL;
 
     return S_OK;
 }
@@ -206,14 +211,19 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
 }
 
 #include<iostream>
+#include <vector>
+
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
-//    std::cout << __FUNCTION__ << std::endl;
-    LOG(tout << __FUNCTION__ << std::endl);
+//    ClassID pClassId;
+//    ModuleID pModuleId;
+//    mdToken pToken;
+//    this->corProfilerInfo->GetFunctionInfo(functionId, &pClassId, &pModuleId, &pToken);
+//    std::cout << __FUNCTION__ << " " << std::hex << pToken << std::dec << std::endl;
     UNUSED(fIsSafeToBlock);
 
-    return instrumenter->instrument(functionId, *protocol);
-//    return S_OK;
+//    return instrumenter->instrument(functionId, *protocol);
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock)
@@ -379,17 +389,27 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RuntimeThreadResumed(ThreadID threadId)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[], ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[])
 {
-    UNUSED(cMovedObjectIDRanges);
-    UNUSED(oldObjectIDRangeStart);
-    UNUSED(newObjectIDRangeStart);
-    UNUSED(cObjectIDRangeLength);
+//    auto vec = heap.FlushObjects();
+//    tout << "Range:" << cMovedObjectIDRanges << std::endl;
+//    for (int i = 0; i < cMovedObjectIDRanges; i++){
+//        tout << "Old: " << oldObjectIDRangeStart[i] << std::endl;
+//        tout << "New: " << newObjectIDRangeStart[i] << std::endl;
+//        tout << "Length: " << cObjectIDRangeLength[i] << std::endl;
+//    }
+//    tout << "Before movement" << std::endl;
+//    heap.dump();
+    for (int i = 0; i < cMovedObjectIDRanges; ++i) {
+        heap.moveAndMark(oldObjectIDRangeStart[i], newObjectIDRangeStart[i], cObjectIDRangeLength[i]);
+    }
+//    tout << "After movement" << std::endl;
+//    heap.dump();
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
-    UNUSED(objectId);
-    UNUSED(classId);
+    ObjectBuilder objectBuilder(*this->corProfilerInfo);
+    objectBuilder.build(objectId, classId);
     return S_OK;
 }
 
@@ -618,14 +638,14 @@ HRESULT STDMETHODCALLTYPE CorProfiler::GarbageCollectionStarted(int cGenerations
 
 HRESULT STDMETHODCALLTYPE CorProfiler::SurvivingReferences(ULONG cSurvivingObjectIDRanges, ObjectID objectIDRangeStart[], ULONG cObjectIDRangeLength[])
 {
-    UNUSED(cSurvivingObjectIDRanges);
-    UNUSED(objectIDRangeStart);
-    UNUSED(cObjectIDRangeLength);
+    for (int i = 0; i < cSurvivingObjectIDRanges; ++i)
+        heap.markSurvivedObjects(objectIDRangeStart[i], cObjectIDRangeLength[i]);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::GarbageCollectionFinished()
 {
+    heap.clearAfterGC();
     return S_OK;
 }
 

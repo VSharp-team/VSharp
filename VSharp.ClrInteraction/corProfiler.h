@@ -2,6 +2,7 @@
 #define CORPROFILER_H_
 
 #include <atomic>
+#include <memory/heap.h>
 #include "cor.h"
 #include "corprof.h"
 

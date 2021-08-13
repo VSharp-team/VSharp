@@ -13,8 +13,7 @@ namespace icsharp {
 
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
-//static Heap heap;
-
+extern Heap heap;
 #ifdef _DEBUG
 extern std::map<unsigned, const char*> stringsPool;
 #endif

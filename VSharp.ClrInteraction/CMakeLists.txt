@@ -28,6 +28,7 @@ add_definitions(-D_MIDL_USE_GUIDDEF_)
 
 add_library(icsharpConcolic SHARED
     classFactory.cpp
+    reflection.cpp
     corProfiler.cpp
     dllmain.cpp
     logging.cpp

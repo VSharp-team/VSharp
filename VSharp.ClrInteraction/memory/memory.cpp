@@ -10,6 +10,8 @@ ThreadID currentThreadNotConfigured() {
 
 std::function<ThreadID()> icsharp::currentThread(&currentThreadNotConfigured);
 
+Heap icsharp::heap = Heap();
+
 #ifdef _DEBUG
 std::map<unsigned, const char*> icsharp::stringsPool;
 int topStringIndex = 0;
