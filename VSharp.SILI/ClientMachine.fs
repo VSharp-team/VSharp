@@ -10,7 +10,7 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 
 
-type ClientMachine(assembly : Assembly, entryPoint : MethodBase, interpreter : ExplorerBase, state : state) =
+type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : state) =
     let extension =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
@@ -38,7 +38,7 @@ type ClientMachine(assembly : Assembly, entryPoint : MethodBase, interpreter : E
 
     let mutable cilState : cilState = CilStateOperations.makeInitialState entryPoint (initSymbolicFrame state entryPoint)
     let mutable mainReached = false
-    let environment (assembly : Assembly) =
+    let environment (method : MethodBase) =
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
@@ -48,13 +48,20 @@ type ClientMachine(assembly : Assembly, entryPoint : MethodBase, interpreter : E
         result.UseShellExecute <- false
         result.RedirectStandardOutput <- true
         result.RedirectStandardError <- true
-        result.Arguments <- assembly.Location
+        if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
+            result.Arguments <- entryPoint.Module.Assembly.Location
+        else
+            let runnerPath = "./VSharp.Runner.dll"
+            let moduleFqn = method.Module.FullyQualifiedName
+            let assemblyPath = method.Module.Assembly.Location
+            let token = method.MetadataToken.ToString()
+            result.Arguments <- runnerPath + " " + assemblyPath + " " + moduleFqn + " " + token
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
         assert(entryPoint <> null)
-        let env = environment assembly
+        let env = environment entryPoint
         x.communicator <- new Communicator()
         let proc = Process.Start env
         proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
@@ -82,7 +89,7 @@ type ClientMachine(assembly : Assembly, entryPoint : MethodBase, interpreter : E
             match op.typ with
             | evalStackArgType.OpSymbolic ->
                 let idx = int op.content
-                maxIndex <- max maxIndex idx
+                maxIndex <- max maxIndex (idx + 1)
                 EvaluationStack.GetItem idx state.evaluationStack
             | evalStackArgType.OpI4 ->
                 Concrete (int op.content) TypeUtils.int32Type

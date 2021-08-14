@@ -31,6 +31,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\VSharp.Runner\VSharp.Runner.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>

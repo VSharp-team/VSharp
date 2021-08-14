@@ -41,7 +41,7 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
         unsigned idx = opsCount - pair.second - 1;
         assert(idx < opsCount);
         ops[idx].typ = OpSymbolic;
-        ops[idx].content = currentSymbs - pair.first;
+        ops[idx].content = (long long)(currentSymbs - pair.first);
     }
     command.evaluationStackPushesCount = opsCount;
     command.evaluationStackPops = top.evaluationStackPops();

@@ -31,7 +31,7 @@ enum EvalStackArgType {
     OpRef = 6
 };
 
-struct EvalStackOperand {
+struct  __attribute__ ((packed)) EvalStackOperand {
     EvalStackArgType typ;
     long long content; // TODO: struct?
 };

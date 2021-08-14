@@ -11,8 +11,6 @@ typedef UINT_PTR ThreadID;
 
 namespace icsharp {
 
-class Stack;
-
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
 //static Heap heap;
