@@ -201,7 +201,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Starg -> x.AppendProbeWithOffset(probes.starg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
                 | OpCodeValues.Ldloc -> x.AppendProbeWithOffset(probes.ldloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
                 | OpCodeValues.Stloc -> x.AppendProbeWithOffset(probes.stloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
-                | OpCodeValues.Dup -> x.AppendProbe(probes.dup, [], x.tokens.void_sig, instr)
+                | OpCodeValues.Dup -> x.AppendProbeWithOffset(probes.dup, [], x.tokens.void_u4_sig, instr)
 
                 | OpCodeValues.Add
                 | OpCodeValues.Sub

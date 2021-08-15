@@ -40,6 +40,7 @@ public:
     bool peek2() const;
     bool peek(unsigned idx) const;
 
+    void pop0();
     bool pop1();
     bool pop(unsigned count);
     void pop1Async(); // Does not track the popped symbolics, but tracks the total amount of such pops.
@@ -53,7 +54,7 @@ public:
     bool loc(unsigned index) const;
     void setLoc(unsigned index, bool value);
 
-    void dup();
+    bool dup();
 
     unsigned count() const;
 

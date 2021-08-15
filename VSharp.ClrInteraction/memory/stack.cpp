@@ -68,6 +68,11 @@ bool StackFrame::peek(unsigned idx) const
     return m_concreteness[m_concretenessTop - idx - 1] == CONCRETE;
 }
 
+void StackFrame::pop0()
+{
+    m_lastPoppedSymbolics.clear();
+}
+
 void StackFrame::push1(bool isConcrete)
 {
 #ifdef _DEBUG
@@ -108,7 +113,7 @@ bool StackFrame::pop(unsigned count)
 #endif
     m_lastPoppedSymbolics.clear();
     m_concretenessTop -= count;
-    for (unsigned i = m_concretenessTop + count; i < m_concretenessTop; -i) {
+    for (unsigned i = m_concretenessTop + count; i > m_concretenessTop; --i) {
         unsigned cell = m_concreteness[i - 1];
         if (cell != CONCRETE) {
             --m_symbolsCount;
@@ -127,17 +132,9 @@ void StackFrame::pop1Async()
 
 bool StackFrame::pop2Push1()
 {
-#ifdef _DEBUG
-    if (m_concretenessTop < 2)
-        FAIL_LOUD("Corrupted stack!");
-#endif
-    m_lastPoppedSymbolics.clear();
-    --m_concretenessTop;
-    unsigned concreteness = std::min(m_concreteness[m_concretenessTop - 1], m_concreteness[m_concretenessTop]);
-    if (m_symbolsCount > concreteness) {
-        m_symbolsCount = concreteness;
-    }
-    return m_concreteness[m_concretenessTop - 1] = concreteness;
+    bool result = pop(2);
+    push1(result);
+    return result;
 }
 
 bool StackFrame::arg(unsigned index) const
@@ -160,9 +157,11 @@ void StackFrame::setLoc(unsigned index, bool value)
     m_locals[index] = value;
 }
 
-void StackFrame::dup()
+bool StackFrame::dup()
 {
-    push1(peek0());
+    bool concreteness = peek0();
+    push1(concreteness);
+    return concreteness;
 }
 
 unsigned StackFrame::count() const

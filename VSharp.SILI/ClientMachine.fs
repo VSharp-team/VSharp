@@ -89,8 +89,8 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             match op.typ with
             | evalStackArgType.OpSymbolic ->
                 let idx = int op.content
-                maxIndex <- max maxIndex (idx + 1)
-                EvaluationStack.GetItem idx state.evaluationStack
+                maxIndex <- max maxIndex idx
+                EvaluationStack.GetItem (idx - 1) state.evaluationStack
             | evalStackArgType.OpI4 ->
                 Concrete (int op.content) TypeUtils.int32Type
             | evalStackArgType.OpI8 ->

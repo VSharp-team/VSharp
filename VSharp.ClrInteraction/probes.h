@@ -38,7 +38,7 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     unsigned currentSymbs = afterPop + poppedSymbs.size();
     for (auto &pair : poppedSymbs) {
-        unsigned idx = opsCount - pair.second - 1;
+        unsigned idx = pair.second;
         assert(idx < opsCount);
         ops[idx].typ = OpSymbolic;
         ops[idx].content = (long long)(currentSymbs - pair.first);
@@ -95,6 +95,7 @@ int registerProbe(unsigned long long probe) {
 
 inline bool ldarg(INT16 idx) {
     StackFrame &top = icsharp::topFrame();
+    top.pop0();
     bool concreteness = top.arg(idx);
     top.push1(concreteness);
     return concreteness;
@@ -109,6 +110,7 @@ PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(
 
 inline bool ldloc(INT16 idx) {
     StackFrame &top = icsharp::topFrame();
+    top.pop0();
     bool concreteness = top.loc(idx);
     top.push1(concreteness);
     return concreteness;
@@ -145,7 +147,7 @@ PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCo
 PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
-PROBE(void, Track_Dup, ()) { topFrame().dup(); }
+PROBE(void, Track_Dup, (OFFSET offset)) { if (!topFrame().dup()) sendCommand1(offset); }
 PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
 
 inline bool branch(OFFSET offset) {
