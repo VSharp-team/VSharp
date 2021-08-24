@@ -16,10 +16,12 @@ open CilStateOperations
 
 
 
-type public PobsInterpreter(searcher : IBidirectionalSearcher) =
+type public PobsInterpreter(searcher : IBidirectionalSearcher) as this =
     inherit ExplorerBase()
     let bidirectionalEngineStatistics = BidirectionalEngineStatistics()
     let infty = UInt32.MaxValue
+    let emptyState = Memory.EmptyState()
+    let interpreter = ILInterpreter(this)
     //let qFront : FrontQueue = FrontQueue(maxBound, searcher)
 
 
@@ -41,7 +43,8 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) =
 
 
     let isSat pc =
-        match SolverInteraction.isValid {Memory.EmptyState with pc = pc} with
+        emptyState.pc <- pc
+        match SolverInteraction.isValid emptyState with
         | SolverInteraction.SmtSat _
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
@@ -49,7 +52,7 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) =
     member x.MakeCilStateForIp (ip : ip) =
         let m = methodOf ip
         let cilStates = x.FormInitialState m
-        cilStates |> List.map (fun s -> {s with startingIP = ip} |> withIpStack [ip])
+        cilStates |> List.map (fun s -> {s with startingIP = ip} |> setIpStack [ip])
 
 //    NOTE: Must be called for ip with empty evaluation stack!
 //    member x.Start (ip : ip) =
@@ -60,8 +63,18 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) =
 //        | :? InsufficientInformationException -> Logger.info "Could not START from %O" ip
 
     member x.Forward (s : cilState) =
-        let goodStates, iieStates, errors = ILInterpreter(x).ExecuteOnlyOneInstruction s
-        searcher.UpdateStates s (goodStates @ iieStates @ errors) // update will remove s
+        let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
+        let newStates =
+            match goodStates with
+            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+            | _ ->
+                match iieStates with
+                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                | _ ->
+                    match errors with
+                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                    | _ -> __unreachable__()
+        searcher.UpdateStates s newStates // update will remove s
 
     member x.Backward p' s' EP =
         assert(currentLoc s' = p'.loc)
@@ -124,7 +137,7 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) =
         let mainPobs =
             codeLocations
             |> Seq.filter (fun loc -> loc.method.GetMethodBody().GetILAsByteArray().Length > loc.offset)
-            |> Seq.map (fun (loc : codeLocation) -> {loc = loc; lvl = infty; pc = Memory.EmptyState.pc})
+            |> Seq.map (fun (loc : codeLocation) -> {loc = loc; lvl = infty; pc = EmptyPathCondition})
         searcher.Init entryMethod mainPobs
         x.BidirectionalSymbolicExecution (Instruction(0x0, entryMethod)) mainPobs
         let addLocationStatus (d : Dictionary<codeLocation, string>) (pob : pob, status : pobStatus) =

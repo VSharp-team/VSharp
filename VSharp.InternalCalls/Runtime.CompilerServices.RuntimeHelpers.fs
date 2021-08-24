@@ -1,6 +1,5 @@
 namespace VSharp.System
 
-open System.Runtime.CompilerServices
 open global.System
 open VSharp
 open VSharp.Core
@@ -64,7 +63,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
             | Concrete (:? byte as v, _) -> int v
             | Concrete (:? sbyte as v, _) -> int v
             | Concrete (:? char as v, _) -> int v
-            | Concrete (:? int64 as v, _) when v <= int64 System.Int32.MaxValue -> int v
+            | Concrete (:? int64 as v, _) when v <= int64 Int32.MaxValue -> int v
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
@@ -93,7 +92,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
             let elemType = MostConcreteTypeOfHeapRef state arrayRef |> Types.ElementType
             let t = Types.ToDotNetType elemType
-            assert (t.IsValueType) // TODO: be careful about type variables
+            assert t.IsValueType // TODO: be careful about type variables
 
             let fieldValue : obj = fieldInfo.GetValue null
             let size = ClassType (Id fieldInfo.FieldType, []) |> API.Types.SizeOf
@@ -135,16 +134,16 @@ module Runtime_CompilerServices_RuntimeHelpers =
 
     // This function checks, whether type can be checked on equality using only it's bits
     // Example: any value type, because it doesn't have metadata
-    let IsBitwiseEquatable (state : state) (args : term list) : term * state =
+    let IsBitwiseEquatable (_ : state) (args : term list) : term =
         assert(List.length args = 1)
         let typ = List.head args
         match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType, state
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType
         | _ -> __unreachable__()
 
-    let IsReferenceOrContainsReferences (state : state) (args : term list) : term * state =
+    let IsReferenceOrContainsReferences (_ : state) (args : term list) : term =
         assert(List.length args = 1)
         let typ = List.head args
         match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ), state
+        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ)
         | _ -> __unreachable__()

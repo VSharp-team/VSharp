@@ -10,10 +10,10 @@ module private MathImpl =
 
     open Arithmetics
 
-    let impl<'a when 'a : comparison> (concrete : 'a -> 'a) standFunc (state : state) args =
+    let impl<'a when 'a : comparison> (concrete : 'a -> 'a) standFunc (_ : state) args =
         assert(List.length args = 1)
         let arg = List.head args
-        let result = GuardedApplyExpression arg (fun term ->
+        GuardedApplyExpression arg (fun term ->
             match term.term with
             | Concrete(obj, _) ->
                 let a = obj :?> 'a
@@ -22,9 +22,8 @@ module private MathImpl =
             | Expression(_, _, t) ->
                 Expression (Application standFunc) [term] t
             | term -> internalfailf "expected number, but %O got!" term)
-        result, state
 
-    let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete (state : state) args =
+    let pow<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete (_ : state) args =
         let mkPowExpr args typ = Expression (Application StandardFunction.Power) args typ
         let zero = convert 0.0
         let one = convert 1.0
@@ -34,7 +33,7 @@ module private MathImpl =
         let infTerm = convert infinity |> MakeNumber
         let minusOneTerm = convert -1.0 |> MakeNumber
         let b, p = List.item 0 args, List.item 1 args
-        let result = GuardedApplyExpression b (fun term ->
+        GuardedApplyExpression b (fun term ->
             match term.term with
             | Concrete(bObj, _) ->
                 let bConc = term
@@ -102,13 +101,12 @@ module private MathImpl =
                         mkPowExpr [b; term] t
                     | term -> internalfailf "expected number for power, but %O got!" term)
             | term -> internalfailf "expected number for base, but %O got!" term)
-        result, state
 
-    let atan2<'a when 'a : comparison> convert isNan isInf concrete (state : state) args =
+    let atan2<'a when 'a : comparison> convert isNan isInf concrete (_ : state) args =
         let atanOp = Application StandardFunction.Arctangent2
         let y, x = List.item 0 args, List.item 1 args
         let inf, Nan = convert infinity, convert nan
-        let result = GuardedApplyExpression y (fun term ->
+        GuardedApplyExpression y (fun term ->
             match term.term with
             | Concrete(yObj, _) ->
                 let yConc = term
@@ -148,7 +146,6 @@ module private MathImpl =
                         Expression atanOp [y; term] t
                     | term -> internalfailf "expected number for x, but %O got!" term)
             | term -> internalfailf "expected number for y, but %O got!" term)
-        result, state
 
 module internal Math =
     let Acos state args = MathImpl.impl<double> Math.Acos StandardFunction.Arccosine state args

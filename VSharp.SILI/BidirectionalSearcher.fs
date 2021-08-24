@@ -46,6 +46,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             match loc with
             | Some loc when loc.method = mainMethod && loc.offset = 0x0 ->
                 forward.Update parent children
+                backward.AddBranch parent |> ignore
                 Seq.iter (backward.AddBranch >> ignore) children
             | _ ->
                 let reached = targeted.Update parent children
@@ -62,7 +63,9 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
                 if targeted.ShouldWork() then
                     GoFront(targeted.Pick())
                 elif forward.ShouldWork() then
-                    GoFront(forward.Pick())
+                    let state = forward.Pick()
+                    backward.RemoveBranch state
+                    GoFront state
                 else Stop
     interface IResettableSearcher with
         override x.Init m mainPobs =
@@ -125,7 +128,7 @@ type BackwardSearcher() =
             list.Remove(p') |> ignore
             if list.Count = 0 then loc2pob.Remove(p'.loc) |> ignore
         currentPobs.Remove(p') |> ignore
-        qBack.RemoveAll(fun (_,p) -> p = p') |> ignore
+        qBack.RemoveAll(fun ((_, p) as pair) -> if p = p' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false) |> ignore
         if Seq.contains p' mainPobs then
             mainPobs.Remove(p') |> ignore
         if not(answeredPobs.ContainsKey p') then answeredPobs.Add(p', Witnessed s')
@@ -133,7 +136,7 @@ type BackwardSearcher() =
         if ancestorOf.ContainsKey p' then
 //            assert(ancestorOf.[p'] <> null)
             Seq.iter (fun (ancestor : pob) ->
-                if p' = ancestor then internalfailf "Pob has itself as parent"
+                assert(p' <> ancestor)
                 if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
                     answerYes s' ancestor) ancestorOf.[p']
 
@@ -156,9 +159,7 @@ type BackwardSearcher() =
             Seq.iter (fun p -> answeredPobs.Add(p, pobStatus.Unknown)) pobs
             Seq.iter doAddPob pobs
         override x.ShouldWork() =
-            let res = mainPobs.Count > 0
-            if res then ()
-            res
+            mainPobs.Count > 0
     interface IBackwardSearcher with
         override x.Update parent child = addPob parent child
 
@@ -166,7 +167,7 @@ type BackwardSearcher() =
             match status with
             | Witnessed s' -> answerYes s' pob
             | _ -> __notImplemented__()
-        override x.Statuses () = Seq.map (fun (kvp : KeyValuePair<pob, pobStatus>) -> kvp.Key, kvp.Value ) answeredPobs
+        override x.Statuses () = Seq.map (fun (kvp : KeyValuePair<pob, pobStatus>) -> kvp.Key, kvp.Value) answeredPobs
 
         override x.Pick() =
             if qBack.Count > 0 then
@@ -178,6 +179,10 @@ type BackwardSearcher() =
         override x.AddBranch cilState =
             updateQBack cilState
 
+        override x.RemoveBranch cilState =
+            let count = qBack.RemoveAll(fun ((cilState', _) as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
+            if count > 0 then
+                internalfail "olololo!"
 
 module TargetedSearcher =
     open CilStateOperations
@@ -203,7 +208,10 @@ module TargetedSearcher =
             if isIIEState s || isError s || not(isExecutable(s)) then
                 finished.[from].Add(s); Seq.empty
             elif targets.[from].Contains(current) then addReached from s
-            else forPropagation.[from].Add(s); Seq.empty
+            else
+                let list = forPropagation.[from]
+                if not <| list.Contains s then list.Add(s)
+                Seq.empty
 
         interface IResettableSearcher with
             override x.Init _ _ = ()
@@ -222,8 +230,8 @@ module TargetedSearcher =
             override x.Update parent children =
                 let from = parent.startingIP
                 assert(targets.ContainsKey from)
-                forPropagation.[from].Remove(parent) |> ignore
-                Seq.map add children |> Seq.concat
+//                forPropagation.[from].Remove(parent) |> ignore
+                Seq.map add (Seq.cons parent children) |> Seq.concat
 
             override x.Pick () =
                 let ip = targets.Keys |> Seq.filter (fun ip -> forPropagation.[ip].Count > 0) |> Seq.head

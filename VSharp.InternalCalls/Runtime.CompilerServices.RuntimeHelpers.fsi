@@ -9,7 +9,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
     val InitializeArray : state -> term -> term -> state list
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsBitwiseEquatable()")>]
-    val IsBitwiseEquatable : state -> term list -> term * state
+    val IsBitwiseEquatable : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsReferenceOrContainsReferences()")>]
-    val IsReferenceOrContainsReferences : state -> term list -> term * state
+    val IsReferenceOrContainsReferences : state -> term list -> term

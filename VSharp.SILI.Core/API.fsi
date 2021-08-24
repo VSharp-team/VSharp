@@ -76,9 +76,11 @@ module API =
 
         val HeapReferenceToBoxReference : term -> term
 
-        val WithPathCondition : state -> term -> state
+        val AddConstraint : state -> term -> unit
         val IsFalsePathCondition : state -> bool
+        val Contradicts : state -> term -> bool
         val PathConditionToSeq : pathCondition -> term seq
+        val EmptyPathCondition : pathCondition
 
     module Types =
         val Numeric : System.Type -> symbolicType
@@ -142,6 +144,7 @@ module API =
         val Pop : evaluationStack -> term * evaluationStack
         val PopArguments : int -> evaluationStack -> term list * evaluationStack
         val Push : term -> evaluationStack -> evaluationStack
+        val PushMany : term list -> evaluationStack -> evaluationStack
         val GetItem : int -> evaluationStack -> term
         val FilterActiveFrame : (term -> bool) -> evaluationStack -> evaluationStack
         val Union : evaluationStack -> evaluationStack -> evaluationStack
@@ -149,13 +152,14 @@ module API =
         val Length : evaluationStack -> int
         val ToList : evaluationStack -> term list
         val ClearActiveFrame : evaluationStack -> evaluationStack
+        val EmptyStack : evaluationStack
 
     module public Memory =
-        val EmptyState : state
-        val PopFrame : state -> state
-        val PopTypeVariables : state -> state
-        val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> state
-        val NewTypeVariables : state -> (typeId * symbolicType) list -> state
+        val EmptyState : unit -> state
+        val PopFrame : state -> unit
+        val PopTypeVariables : state -> unit
+        val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> unit
+        val NewTypeVariables : state -> (typeId * symbolicType) list -> unit
 
         val ReferenceField : state -> term -> fieldId -> term
         val ReferenceArrayIndex : term -> term list -> term
@@ -171,12 +175,12 @@ module API =
         val ReadDelegate : state -> term -> term
 
         val WriteSafe : state -> term -> term -> state list
-        val WriteLocalVariable : state -> stackKey -> term -> state
+        val WriteLocalVariable : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> state list
         val WriteStringChar : state -> term -> term list -> term -> state list
-        val WriteStaticField : state -> symbolicType -> fieldId -> term -> state
+        val WriteStaticField : state -> symbolicType -> fieldId -> term -> unit
 
         val DefaultOf : symbolicType -> term
 
@@ -187,22 +191,22 @@ module API =
         val CallStackSize : state -> int
         val GetCurrentExploringFunction : state -> MethodBase
 
-        val BoxValueType : state -> term -> term * state
+        val BoxValueType : state -> term -> term
 
-        val InitializeStaticMembers : state -> symbolicType -> state
+        val InitializeStaticMembers : state -> symbolicType -> unit
 
-        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term * state
-        val AllocateDefaultClass : state -> symbolicType -> term * state
-        val AllocateDefaultArray : state -> term list -> symbolicType -> term * state
-        val AllocateVectorArray : state -> term -> symbolicType -> term * state
-        val AllocateString : string -> state -> term * state
-        val AllocateEmptyString : state -> term -> term * state
-        val AllocateDelegate : state -> term -> term * state
+        val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term
+        val AllocateDefaultClass : state -> symbolicType -> term
+        val AllocateDefaultArray : state -> term list -> symbolicType -> term
+        val AllocateVectorArray : state -> term -> symbolicType -> term
+        val AllocateString : string -> state -> term
+        val AllocateEmptyString : state -> term -> term
+        val AllocateDelegate : state -> term -> term
 
-        val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> state
-        val CopyStringArray : state -> term -> term -> term -> term -> term -> state
+        val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> unit
+        val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
 
-        val ClearArray : state -> term -> term -> term -> state
+        val ClearArray : state -> term -> term -> term -> unit
 
         val IsTypeInitialized : state -> symbolicType -> term
 

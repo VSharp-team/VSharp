@@ -74,22 +74,25 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
-and state = {
-    pc : pathCondition
-    evaluationStack : evaluationStack
-    stack : callStack                                       // Arguments and local variables
-    stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
-    classFields : pdict<fieldId, heapRegion>                  // Fields of classes in heap
-    arrays : pdict<arrayType, arrayRegion>                    // Contents of arrays in heap
-    lengths : pdict<arrayType, vectorRegion>                  // Lengths by dimensions of arrays in heap
-    lowerBounds : pdict<arrayType, vectorRegion>              // Lower bounds by dimensions of arrays in heap
-    staticFields : pdict<fieldId, staticsRegion>              // Static fields of types without type variables
-    boxedLocations : pdict<concreteHeapAddress, term>         // Value types boxed in heap
-    initializedTypes : symbolicTypeSet                        // Types with initialized static members
-    allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
-    typeVariables : typeVariables                             // Type variables assignment in the current state
-    delegates : pdict<concreteHeapAddress, term>              // Subtypes of System.Delegate allocated in heap
-    currentTime : vectorTime                                  // Current timestamp (and next allocated address as well) in this state
-    startingTime : vectorTime                                 // Timestamp before which all allocated addresses will be considered symbolic
-    exceptionsRegister : exceptionRegister                    // Heap-address of exception object
+
+and
+    [<ReferenceEquality>]
+    state = {
+    mutable pc : pathCondition
+    mutable evaluationStack : evaluationStack
+    mutable stack : callStack                                       // Arguments and local variables
+    mutable stackBuffers : pdict<stackKey, stackBufferRegion>         // Buffers allocated via stackAlloc
+    mutable classFields : pdict<fieldId, heapRegion>                  // Fields of classes in heap
+    mutable arrays : pdict<arrayType, arrayRegion>                    // Contents of arrays in heap
+    mutable lengths : pdict<arrayType, vectorRegion>                  // Lengths by dimensions of arrays in heap
+    mutable lowerBounds : pdict<arrayType, vectorRegion>              // Lower bounds by dimensions of arrays in heap
+    mutable staticFields : pdict<fieldId, staticsRegion>              // Static fields of types without type variables
+    mutable boxedLocations : pdict<concreteHeapAddress, term>         // Value types boxed in heap
+    mutable initializedTypes : symbolicTypeSet                        // Types with initialized static members
+    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType> // Types of heap locations allocated via new
+    mutable typeVariables : typeVariables                             // Type variables assignment in the current state
+    mutable delegates : pdict<concreteHeapAddress, term>              // Subtypes of System.Delegate allocated in heap
+    mutable currentTime : vectorTime                                  // Current timestamp (and next allocated address as well) in this state
+    mutable startingTime : vectorTime                                 // Timestamp before which all allocated addresses will be considered symbolic
+    mutable exceptionsRegister : exceptionRegister                    // Heap-address of exception object
 }

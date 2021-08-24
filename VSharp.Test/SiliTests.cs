@@ -227,8 +227,8 @@ namespace VSharp.Test
                 bool res = true;
                 foreach (var loc in list)
                 {
-                    bool res1 = expectedResults[loc].ToString() == dict[loc];
-                    if (!res1)
+                    bool matches = expectedResults[loc].ToString() == dict[loc];
+                    if (!matches)
                     {
                         _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
                         // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
@@ -241,7 +241,7 @@ namespace VSharp.Test
                         _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
                     }
 
-                    res &= res1;
+                    res &= matches;
                 }
 
                 return res;

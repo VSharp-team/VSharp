@@ -9,7 +9,7 @@ open VSharp.Core
 module Thread =
 
     [<Implements("System.AppDomain System.Threading.Thread.GetFastDomainInternal()")>]
-    val internal GetFastDomainInternal : state -> term list -> term * state
+    val internal GetFastDomainInternal : state -> term list -> term
 
     [<Implements("System.AppDomain System.Threading.Thread.GetDomainInternal()")>]
-    val internal GetDomainInternal : (state -> term list -> term * state)
+    val internal GetDomainInternal : (state -> term list -> term)

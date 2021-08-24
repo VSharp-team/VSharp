@@ -8,7 +8,7 @@ open VSharp.Core
 
 module ReadOnlySpan =
 
-    let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term * state =
+    let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
         assert(List.length args = 3)
         let this, index = List.item 0 args, List.item 2 args
         let span = Memory.ReadSafe state this
@@ -32,9 +32,9 @@ module ReadOnlySpan =
                 let dim = if isVector then Vector else ConcreteDimension dim
                 HeapRef addr (ArrayType(eType, dim))
             | _ -> __notImplemented__()
-        Memory.ReferenceArrayIndex ref [index], state
+        Memory.ReferenceArrayIndex ref [index]
 
-    let internal GetItemFromSpan (state : state) (args : term list) : term * state =
+    let internal GetItemFromSpan (state : state) (args : term list) : term =
         GetItemFromReadOnlySpan state args
 
     let internal CtorFromFromArray (state : state) this arrayRef =
@@ -63,7 +63,7 @@ module ReadOnlySpan =
             match wrappedType.term with
             | Concrete(:? Type as t, _) -> t
             | _ -> __unreachable__()
-        let arrayRef, state = Memory.AllocateVectorArray state size (Types.FromDotNetType elementType)
+        let arrayRef = Memory.AllocateVectorArray state size (Types.FromDotNetType elementType)
         CtorFromFromArray state this arrayRef
 
     let internal CtorFromPtrForReadOnlySpan (state : state) (args : term list) : (term * state) list =

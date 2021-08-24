@@ -38,13 +38,14 @@ type IForwardSearcher =
     inherit IResettableSearcher
 
 type ITargetedSearcher =
+    inherit IResettableSearcher
     abstract member SetTargets : ip -> ip seq -> unit  // setTargets from to: добавить eps в точке from, вести его в точки to
     abstract member Update : cilState -> cilState seq -> cilState seq // возвращаемое значение: какие состояния достигли цели
     abstract member Pick : unit -> cilState
 //    abstract member IsEmpty : unit -> bool
-    inherit IResettableSearcher
 type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
 type IBackwardSearcher =
+    inherit IResettableSearcher
 //    abstract member HasPobs : unit -> bool
     abstract member Update : pob -> pob -> unit
     abstract member Answer : pob -> pobStatus -> unit
@@ -52,7 +53,9 @@ type IBackwardSearcher =
 //    abstract member Init : MethodBase -> pob seq -> unit
     abstract member Pick : unit -> backwardAction // выбрать, к каким pobs двигаться и откуда
     abstract member AddBranch : cilState -> pob list // как только targeted-состояние достигает target, серчер уведомляется об этом через этот метод. возвращается список pob-ов в этой точке
-    inherit IResettableSearcher
+
+    // TODO: get rid of this!
+    abstract member RemoveBranch : cilState -> unit
 
 type IpStackComparer() =
     interface IComparer<cilState> with
@@ -92,9 +95,11 @@ type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in re
 //            forPropagation.Clear()
         override x.FinishedStates () = seq finished
         override x.Pick() = x.Choose(forPropagation)
-        override x.Update parent children =
-            forPropagation.Remove(parent) |> ignore
-            Seq.iter add children
+        override x.Update parent newStates =
+            if isIIEState parent || isError parent || not(isExecutable(parent)) || violatesLevel parent then
+                forPropagation.Remove(parent) |> ignore
+                finished.Add(parent)
+            Seq.iter add newStates
 //            match bq with
 //            | Seq.Cons(ps, _) -> GoBackward ps
 //            | Seq.Empty when not startedFromMain && fq.IsEmpty ->
@@ -125,4 +130,3 @@ type BFSSearcher(maxBound) =
 
 type DFSSearcher(maxBound) =
     inherit ForwardSearcher(maxBound)
-

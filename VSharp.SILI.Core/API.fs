@@ -107,9 +107,11 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
-        let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
+        let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
         let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
+        let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
         let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
+        let EmptyPathCondition = PC.empty
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -175,6 +177,8 @@ module API =
         let Push x evaluationStack =
             let x' = TypeCasting.castToEvaluationStackType x
             EvaluationStack.push x' evaluationStack
+        let PushMany xs evaluationStack =
+            EvaluationStack.pushMany xs evaluationStack
         let GetItem index evaluationStack = EvaluationStack.item index evaluationStack
         let FilterActiveFrame f evaluationStack = EvaluationStack.filterActiveFrame f evaluationStack
         let Union oldStack newStack = EvaluationStack.union oldStack newStack
@@ -182,9 +186,10 @@ module API =
         let Length evaluationStack = EvaluationStack.length evaluationStack
         let ToList evaluationStack = EvaluationStack.toList evaluationStack
         let ClearActiveFrame evaluationStack = EvaluationStack.clearActiveFrame evaluationStack
+        let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState = Memory.empty
+        let EmptyState() = Memory.mkEmpty()
         let PopFrame state = Memory.popFrame state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
@@ -255,7 +260,8 @@ module API =
                 (fun state reference ->
                     match reference.term with
                     | HeapRef(addr, _) -> Memory.writeClassField state addr field value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
+                    state)
                 state reference
         let WriteArrayIndex state reference indices value =
             Memory.guardedStatedMap
@@ -265,7 +271,8 @@ module API =
                         let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                         assert(dim = List.length indices)
                         Memory.writeArrayIndex state addr indices arrayType value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
+                    state)
                 state reference
         let WriteStringChar state reference index value =
             Memory.guardedStatedMap
@@ -273,7 +280,8 @@ module API =
                     match reference.term with
                     | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
                         Memory.writeArrayIndex state addr index (Types.Char, 1, true) value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
+                    state)
                 state reference
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
@@ -287,9 +295,10 @@ module API =
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 
         let BoxValueType state term =
-            let address, state = Memory.freshAddress state
+            let address = Memory.freshAddress state
             let reference = HeapRef (ConcreteHeapAddress address) Types.ObjectType
-            reference, Memory.writeBoxedLocation state address term
+            Memory.writeBoxedLocation state address term
+            reference
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
@@ -297,18 +306,19 @@ module API =
         let AllocateTemporaryLocalVariable state typ term =
             let tmpKey = TemporaryLocalVariableKey typ
             let ref = PrimitiveStackLocation tmpKey |> Ref
-            ref, Memory.allocateOnStack state tmpKey term
+            Memory.allocateOnStack state tmpKey term
+            ref
 
         let AllocateDefaultClass state typ =
             Memory.allocateClass state typ
 
         let AllocateDefaultArray state lengths typ =
-            let address, state = Memory.allocateArray state typ None lengths
-            HeapRef address typ, state
+            let address = Memory.allocateArray state typ None lengths
+            HeapRef address typ
 
         let AllocateVectorArray state length elementType =
-            let address, state = Memory.allocateVector state elementType length
-            HeapRef address (ArrayType(elementType, Vector)), state
+            let address = Memory.allocateVector state elementType length
+            HeapRef address (ArrayType(elementType, Vector))
 
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
@@ -378,7 +388,8 @@ module API =
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))
                         Copying.copyCharArrayToString state arrayAddr dstAddr
-                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef)
+                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef
+                    state)
                     state arrayRef
             | HeapRef _
             | Union _ -> __notImplemented__()

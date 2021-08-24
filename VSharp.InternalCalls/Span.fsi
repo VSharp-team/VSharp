@@ -7,10 +7,10 @@ open VSharp.Core
 module internal ReadOnlySpan =
 
     [<Implements("T& System.ReadOnlySpan`1[T].get_Item(this, System.Int32)")>]
-    val internal GetItemFromReadOnlySpan : state -> term list -> term * state
+    val internal GetItemFromReadOnlySpan : state -> term list -> term
 
     [<Implements("T& System.Span`1[T].get_Item(this, System.Int32)")>]
-    val internal GetItemFromSpan : state -> term list -> term * state
+    val internal GetItemFromSpan : state -> term list -> term
 
     [<Implements("System.Void System.Span`1[T]..ctor(this, System.Void*, System.Int32)")>]
     val internal CtorFromPtrForSpan : state -> term list -> (term * state) list
