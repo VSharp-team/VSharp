@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using VSharp.Core;
+using VSharp.Interpreter.IL;
 
 namespace VSharp.Test
 {
@@ -130,4 +132,114 @@ namespace VSharp.Test
             exceptions[stackTrace].Add(m);
         }
     }
+
+    public class PobsStatistics
+    {
+        // private static TimeSpan diff = new TimeSpan(milliseconds:500);
+        private IBidirectionalSearcher[] _searchers;
+        private Dictionary<IBidirectionalSearcher, List<codeLocation>> _correct;
+        private Dictionary<IBidirectionalSearcher, TimeSpan> _time;
+        private Dictionary<IBidirectionalSearcher, List<codeLocation>> _wrong;
+        // private Dictionary<INewSearcher, Tuple<Me, TimeSpan>>> _wrong;
+        private HashSet<codeLocation> _allLocs = new HashSet<codeLocation>();
+        private static Dictionary<IBidirectionalSearcher, double> _allAccuracy = new Dictionary<IBidirectionalSearcher, double>();
+        private static int testsNumber = 0;
+
+
+
+        public PobsStatistics(IBidirectionalSearcher[] searchers)
+        {
+            _searchers = searchers;
+            _correct = new Dictionary<IBidirectionalSearcher, List<codeLocation>>();
+            _wrong = new Dictionary<IBidirectionalSearcher, List<codeLocation>>();
+            _time = new Dictionary<IBidirectionalSearcher, TimeSpan>();
+
+            foreach (var s in searchers)
+            {
+                _correct.Add(s, new List<codeLocation>());
+                _wrong.Add(s, new List<codeLocation>());
+                _time.Add(s, new TimeSpan());
+            }
+        }
+
+        public static void IncrementTestsNumber()
+        {
+            testsNumber++;
+        }
+
+        public void AddTime(IBidirectionalSearcher s, MethodBase m, TimeSpan t)
+        {
+            _time[s] = t;
+        }
+
+        public void AddCorrectAnswer(IBidirectionalSearcher s, codeLocation loc, TimeSpan t)
+        {
+            _allLocs.Add(loc);
+            if (!_searchers.Contains(s))
+            {
+                throw new Exception("WTF");
+            }
+            _correct[s].Add(loc);
+        }
+
+        public void AddWrongAnswer(IBidirectionalSearcher s, codeLocation loc, TimeSpan t)
+        {
+            _allLocs.Add(loc);
+            _wrong[s].Add(loc);
+        }
+
+        public static void PrintAccuracy()
+        {
+            foreach (var kvp in _allAccuracy)
+            {
+                double res = kvp.Value / (double) testsNumber;
+                Console.WriteLine($"Accuracy of {kvp.Key.GetType()} = {res}");
+            }
+        }
+
+        public void PrintStats(MethodBase m, IBidirectionalSearcher s)
+        {
+            double numberRight = _correct[s].Count;
+            double numberWrong = _wrong[s].Count;
+            double accuracy = numberRight / (numberRight + numberWrong);
+            if (numberRight + numberWrong == 0)
+            {
+                Console.WriteLine($"\nThere were no pobs for method {m}, searcher = {s.GetType()}");
+            }
+
+            if (!_allAccuracy.ContainsKey(s))
+            {
+                _allAccuracy.Add(s, 0);
+            }
+
+            if (Double.IsNaN(accuracy))
+            {
+                //testsNumber--;
+            }
+            else
+            {
+                _allAccuracy[s] += accuracy;
+            }
+
+            TimeSpan timeSpan = _time[s];
+
+            // foreach (var pair in _correct[s])
+            // {
+            //     var loc = pair.Item1;
+            //     var timeSpan = pair.Item2;
+            //     Console.WriteLine($"{s.GetType()} answered right to {loc}, time = {timeSpan}");
+            // }
+
+            Console.Write($"{timeSpan.TotalSeconds} {accuracy} ");
+
+            // foreach (var loc in _wrong[s])
+            // {
+            //     Console.WriteLine($"{s.GetType()} NO loc =[{loc}]");
+            // }
+        }
+
+        public int CilStatesGenerated { get; set; }
+        public int InstructionsExecuted { get; set; }
+    }
+
 }

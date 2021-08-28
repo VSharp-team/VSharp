@@ -7,7 +7,6 @@ open System.Collections.Generic
 open System.Reflection.Emit
 open FSharpx.Collections
 open VSharp
-open VSharp.Core
 
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
@@ -50,11 +49,8 @@ module public CFG =
                 x.edges.[src].Add dst
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
-    let private createData (methodBase : MethodBase) =
-        let mb = methodBase.GetMethodBody()
-        if mb = null then ()
-        let array = mb.GetILAsByteArray()
-        let size = array.Length
+    let private createData (methodBase : MethodBase) (methodBody : MethodBody) (ilBytes : byte []) =
+        let size = ilBytes.Length
         let interim = {
             fallThroughOffset = Array.init size (fun _ -> None)
             verticesOffsets = HashSet<_>()
@@ -64,13 +60,13 @@ module public CFG =
         }
         let cfg = {
             methodBase = methodBase
-            ilBytes = mb.GetILAsByteArray()
+            ilBytes = ilBytes
             sortedOffsets = List<_>()
             dfsOut = Dictionary<_,_>()
             sccOut = Dictionary<_,_>()
             graph = Dictionary<_, _>()
             reverseGraph = Dictionary<_,_>()
-            clauses = List.ofSeq mb.ExceptionHandlingClauses
+            clauses = List.ofSeq methodBody.ExceptionHandlingClauses
             offsetsDemandingCall = Dictionary<_,_>()
         }
         interim, cfg
@@ -122,6 +118,9 @@ module public CFG =
         let rec dfs' (v : offset) =
             if used.Contains v then ()
             else
+                //TODO: remove next line of code when generic pobs-generating mechanism is coded: for now ``markVertex''
+                //TODO: is done intentionally to bypass all opcodes and find ``hard-coded Throw'' that would be pobs
+//                markVertex data.verticesOffsets v
                 let wasAdded = used.Add(v)
                 assert(wasAdded)
                 let opCode = Instruction.parseInstruction methodBase v
@@ -176,10 +175,32 @@ module public CFG =
         let usedForSCC = HashSet<offset>()
         vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
 
-    let build (methodBase : MethodBase) =
-        let interimData, cfgData = createData methodBase
+    let floydAlgo (cfg : cfgData) infty =
+//        let infty = 10000
+        let dist = Dictionary<offset * offset, int>()
+        let offsets = cfg.sortedOffsets
+        for i in offsets do
+            for j in offsets do
+                dist.Add((i, j), infty)
+
+        for i in offsets do
+            dist.[(i, i)] <- 0
+            for j in cfg.graph.[i] do
+                dist.[(i, j)] <- 1
+
+        for k in offsets do
+            for i in offsets do
+                for j in offsets do
+                    if dist.[i, j] > dist.[i, k] + dist.[k, j] then
+                        dist.[(i,j)] <- dist.[i, k] + dist.[k, j]
+        dist
+
+    let private build (methodBase : MethodBase) =
         let methodBody = methodBase.GetMethodBody()
+        assert (methodBody <> null)
         let ilBytes = methodBody.GetILAsByteArray()
+        assert (ilBytes <> null)
+        let interimData, cfgData = createData methodBase methodBody ilBytes
         let used = HashSet<offset>()
         dfsComponent methodBase interimData used ilBytes 0
         Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
@@ -188,5 +209,41 @@ module public CFG =
         cfg
 
     let cfgs = Dictionary<MethodBase, cfgData>()
+    let floyds = Dictionary<cfgData, Dictionary<offset * offset, int>>()
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
 
+    let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
+
+    let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
+
+    let private addToDict (dict : Dictionary<'a, HashSet<'b>> ) (k : 'a ) (v : 'b) =
+        let mutable refSet = ref null
+        if not (dict.TryGetValue(k, refSet)) then
+            refSet <- ref (HashSet<_>())
+            dict.Add(k, !refSet)
+        (!refSet).Add(v) |> ignore
+
+    let private addCall methodsReachability inverseMethodsReachability caller callee =
+        addToDict methodsReachability caller callee
+        addToDict inverseMethodsReachability callee caller
+
+    let buildMethodsReachabilityForAssembly (entryMethod : MethodBase) =
+        let assembly = entryMethod.Module.Assembly
+        let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
+        let inverseMethodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
+        let rec exit processedMethods = function
+            | [] -> ()
+            | m :: q' -> dfs (processedMethods, q') m
+        and dfs (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
+            if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
+            else
+                let processedMethods = current :: processedMethods
+                if current.GetMethodBody() <> null then
+                    let cfg = findCfg current
+                    Seq.iter (fun (_, m) -> addCall methodsReachability inverseMethodsReachability current m) cfg.offsetsDemandingCall.Values
+                let newQ =
+                    if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
+                    else methodsQueue
+                exit processedMethods newQ
+        dfs ([],[]) entryMethod
+        methodsReachability, inverseMethodsReachability

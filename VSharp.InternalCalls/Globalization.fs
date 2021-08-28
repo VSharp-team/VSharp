@@ -10,15 +10,15 @@ module internal Globalization =
         let cultureType = Types.FromDotNetType typeof<System.Globalization.CultureInfo>
         Memory.AllocateDefaultClass state cultureType
 
-    let get_CurrentCulture (state : state) (args : term list) : term * state =
+    let get_CurrentCulture (state : state) (args : term list) : term =
         assert(List.length args = 0)
         allocateCulture state
 
-    let get_InvariantCulture (state : state) (args : term list) : term * state =
+    let get_InvariantCulture (state : state) (args : term list) : term =
         assert(List.length args = 0)
         allocateCulture state
 
-    let get_CompareInfo (state : state) (args : term list) : term * state =
+    let get_CompareInfo (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let cultureType = Types.FromDotNetType typeof<System.Globalization.CompareInfo>
         Memory.AllocateDefaultClass state cultureType

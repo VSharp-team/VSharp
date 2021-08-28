@@ -13,218 +13,17 @@ using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter.IL;
+using VSharp.Core;
+using VSharp.Test.Tests;
 
 namespace VSharp.Test
 {
-    public class DumpStackTraceListener : TraceListener
-    {
-        public override void Write(string message)
-        {
-            Console.Write(message);
-        }
-
-        public override void WriteLine(string message)
-        {
-            Console.WriteLine(message);
-        }
-
-        public override void Fail(string message)
-        {
-            Fail(message, String.Empty);
-        }
-
-        public override void Fail(string message1, string message2)
-        {
-            Console.WriteLine("ASSERT FAILED");
-            Console.WriteLine("{0}: {1}", message1, message2);
-            Console.WriteLine("Stack Trace:");
-
-            StackTrace trace = new StackTrace( true );
-            StackFrame[] stackFrames = trace.GetFrames();
-            if (stackFrames != null)
-            {
-                foreach (StackFrame frame in stackFrames)
-                {
-                    MethodBase frameClass = frame.GetMethod();
-                    Console.WriteLine("  {2}.{3} {0}:{1}",
-                        frame.GetFileName(),
-                        frame.GetFileLineNumber(),
-                        frameClass.DeclaringType,
-                        frameClass.Name);
-                }
-            }
-        }
-    }
-
-    [SetUpFixture]
-    public class SetUpSvm
-    {
-        [OneTimeSetUp]
-        public void PrepareSvm()
-        {
-            Trace.Listeners.Add(new DumpStackTraceListener());
-
-            var ci = new CultureInfo("en-GB")
-            {
-                NumberFormat = {
-                    PositiveInfinitySymbol = "Infinity",
-                    NegativeInfinitySymbol = "-Infinity"
-                }
-            };
-            Thread.CurrentThread.CurrentCulture = ci;
-
-            // var svm = new SVM(new VSharp.Analyzer.StepInterpreter());
-            // var svm = new SVM(new MethodInterpreter(new MethodSearcher()));
-            Logger.ConfigureWriter(TestContext.Progress);
-            var svm = new SVM(new MethodInterpreter(new ExceptionsExplorationSearcher()));
-            svm.ConfigureSolver();
-            // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
-            TestSvmAttribute.SetUpSVM(svm);
-        }
-    }
-
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
-        private class DummyFilter : IPreFilter
-        {
-            /* Filter for exploring all possible methods */
-            public bool IsMatch(Type type)
-            {
-                return true;
-            }
-
-            public bool IsMatch(Type type, MethodInfo method)
-            {
-                return true;
-            }
-        }
-
-        private class DummyTypeInfo : ITypeInfo
-        {
-            /*
-             * This class is mostly a hack to bypass NUnit test-class validation checks
-             * (NUnit doesn't allow test class to be generic with not specified parameters
-             * However, we want to keep generic classes generic, e.g. in ``Tests/Generic.cs")
-             * It's a copy-paste of NUnit.Framework.Internal.TypeWrapper with certain modifications
-             * (e.g. ``ContainsGenericParameters" always returns ``false")
-             * For NUnit validation checks see:
-             * NUnit.Framework.Internal.Builders.NUnitTestFixtureBuilder.CheckTestFixtureIsValid
-             */
-            public Type Type { get; }
-
-            public DummyTypeInfo(Type type)
-            {
-                Type = type;
-            }
-
-            public ITypeInfo BaseType
-            {
-                get
-                {
-                    var baseType = Type.GetTypeInfo().BaseType;
-
-                    return baseType != null
-                        ? new TypeWrapper(baseType)
-                        : null;
-                }
-            }
-
-            public string Name => Type.Name;
-
-            public string FullName => Type.FullName;
-
-            public Assembly Assembly => Type.GetTypeInfo().Assembly;
-
-            public string Namespace => Type.Namespace;
-
-            public bool IsAbstract => Type.GetTypeInfo().IsAbstract;
-
-            public bool IsGenericType => false;
-
-            public bool IsType(Type type)
-            {
-                return Type == type;
-            }
-
-            public bool ContainsGenericParameters => false;
-
-            public bool IsGenericTypeDefinition => false;
-
-            public bool IsSealed => Type.GetTypeInfo().IsSealed;
-
-            public bool IsStaticClass => true;
-
-            public string GetDisplayName()
-            {
-                return TypeHelper.GetDisplayName(Type);
-            }
-
-            public string GetDisplayName(object[] args)
-            {
-                return TypeHelper.GetDisplayName(Type, args);
-            }
-
-            public ITypeInfo MakeGenericType(Type[] typeArgs)
-            {
-                return new TypeWrapper(Type.MakeGenericType(typeArgs));
-            }
-
-            public Type GetGenericTypeDefinition()
-            {
-                return Type.GetGenericTypeDefinition();
-            }
-
-            public T[] GetCustomAttributes<T>(bool inherit) where T : class
-            {
-                return (T[])((ICustomAttributeProvider)Type.GetTypeInfo()).GetCustomAttributes(typeof(T), inherit);
-            }
-
-            public bool IsDefined<T>(bool inherit) where T : class
-            {
-                return ((ICustomAttributeProvider) Type.GetTypeInfo()).IsDefined(typeof(T), inherit);
-            }
-
-            public bool HasMethodWithAttribute(Type attributeType)
-            {
-                return Reflect.HasMethodWithAttribute(Type, attributeType);
-            }
-
-            public IMethodInfo[] GetMethods(BindingFlags flags)
-            {
-                var methods = Type.GetMethods(flags);
-                var result = new MethodWrapper[methods.Length];
-
-                for (int i = 0; i < methods.Length; i++)
-                    result[i] = new MethodWrapper(Type, methods[i]);
-
-                return result;
-            }
-
-            public ConstructorInfo GetConstructor(Type[] argTypes)
-            {
-                return Type.GetConstructor(argTypes);
-            }
-
-            public bool HasConstructor(Type[] argTypes)
-            {
-                return GetConstructor(argTypes) != null;
-            }
-
-            public object Construct(object[] args)
-            {
-                return null;
-            }
-
-            public override string ToString()
-            {
-                return Type.ToString();
-            }
-        }
-
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
         {
-            var typ = new DummyTypeInfo(typeInfo.Type);
-            yield return new NUnitTestFixtureBuilder().BuildFrom(typ, new DummyFilter());
+            var typ = new Utils.DummyTypeInfo(typeInfo.Type);
+            yield return new NUnitTestFixtureBuilder().BuildFrom(typ, new Utils.DummyFilter());
         }
     }
 
@@ -313,23 +112,84 @@ namespace VSharp.Test
 
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
-        private static SVM _svm;
+        protected static SVM _svm;
+        private static uint _maxBound;
+        private static IBidirectionalSearcher[] _searchers;//= new INewSearcher[]
+        private static Dictionary<IBidirectionalSearcher, TimeSpan> _globalTime;//= new INewSearcher[]
+        private static Dictionary<MethodBase, PobsStatistics> _pobsStatistics;
+        private List<int> _unreachableLocations = new List<int>();
 
-        public static void SetUpSVM(SVM svm)
+        public static void SetUpSVM(SVM svm, uint maxBound, IBidirectionalSearcher[] searchers)
         {
             _svm = svm;
+            _maxBound = maxBound;
+            _searchers = searchers;
+            _pobsStatistics = new Dictionary<MethodBase, PobsStatistics>();
+            _globalTime = new Dictionary<IBidirectionalSearcher, TimeSpan>();
+            foreach (var s in _searchers)
+            {
+                _globalTime.Add(s, TimeSpan.Zero);
+            }
         }
 
-        public TestCommand Wrap(TestCommand command)
+        public TestSvmAttribute() { }
+
+        public TestSvmAttribute(int excludedLoc)
         {
-            return new TestSvmCommand(command);
+            _unreachableLocations.Add(excludedLoc);
+        }
+
+        public TestSvmAttribute(int excludedLoc1, int excludedLoc2)
+        {
+            _unreachableLocations.Add(excludedLoc1);
+            _unreachableLocations.Add(excludedLoc2);
+        }
+
+        public TestSvmAttribute(int[] excludedLocations)
+        {
+            for (int i = 0; i < excludedLocations.Length; ++i)
+                _unreachableLocations.Add(excludedLocations[i]);
+        }
+
+        public static void PrintStats()
+        {
+            var searchers = _searchers;
+            foreach (var m in _pobsStatistics.Keys)
+            {
+                foreach (var s in searchers)
+                {
+                    _pobsStatistics[m].PrintStats(m, s);
+                }
+                Console.WriteLine();
+            }
+
+            foreach (var s in searchers)
+            {
+                Console.WriteLine($"{s.GetType()} executed {_globalTime[s]}");
+            }
+
+            foreach (var s in searchers)
+            {
+                // Console.WriteLine($"{s.GetType()} executed {s.TotalNumber}");
+            }
+
+            PobsStatistics.PrintAccuracy();
+        }
+
+        public virtual TestCommand Wrap(TestCommand command)
+        {
+            return new TestSvmCommand(command, _unreachableLocations);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
-            public TestSvmCommand(TestCommand innerCommand) : base(innerCommand) {}
+            private List<int> _unreachableLocations;
+            public TestSvmCommand(TestCommand innerCommand, List<int> unreachableLocations) : base(innerCommand)
+            {
+                _unreachableLocations = unreachableLocations;
+            }
 
-            public override TestResult Execute(TestExecutionContext context)
+            private TestResult Explore(TestExecutionContext context)
             {
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var idealValue = new IdealValuesHandler(methodInfo);
@@ -345,6 +205,84 @@ namespace VSharp.Test
                     var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
                     context.CurrentResult.SetResult(ResultState.Failure, diff);
                 }
+
+                return context.CurrentResult;
+            }
+
+            private bool AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
+                , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
+            {
+                var stopWatch = new Stopwatch();
+                stopWatch.Start();
+                var svm = new SVM(new PobsInterpreter(searcher));
+                var list = expectedResults.Keys.ToList();
+                var dict = svm.AnswerPobs(entryMethod, list);
+                stopWatch.Stop();
+
+                Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
+
+                _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
+                _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
+
+                bool res = true;
+                foreach (var loc in list)
+                {
+                    bool matches = expectedResults[loc].ToString() == dict[loc];
+                    if (!matches)
+                    {
+                        _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
+                        // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
+                        // var exit = exitOffset.ToString("X4");
+                        // Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
+                        // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+                    }
+                    else
+                    {
+                        _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
+                    }
+
+                    res &= matches;
+                }
+
+                return res;
+                // return context.CurrentResult;
+            }
+
+            public override TestResult Execute(TestExecutionContext context)
+            {
+                // return Explore(context);
+                var entryMethod = innerCommand.Test.Method.MethodInfo;
+                var cfg = CFG.findCfg(entryMethod);
+                var codeLocations = new Dictionary<codeLocation, PobsSetup.DesiredStatus>();
+                PobsStatistics.IncrementTestsNumber();
+                foreach (var offset in cfg.sortedOffsets)
+                {
+                    if (offset != 0)
+                    {
+                        var loc = new codeLocation(offset, entryMethod);
+                        if (_unreachableLocations.Contains(offset))
+                        {
+                            // we can not establish ``unreachable'' yet
+                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Unknown);
+                        }
+                        else
+                        {
+                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Witnessed);
+                        }
+                    }
+                }
+
+                // var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
+                _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
+                bool res = true;
+
+                foreach (var s in _searchers)
+                {
+                    res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
+                }
+                // PrintStats();
+
+                context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
                 return context.CurrentResult;
             }
         }

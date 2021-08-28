@@ -131,7 +131,7 @@ namespace VSharp.Test.Tests.Typecast
         }
 
         // always 38, because the null reference is not assigned any type at all
-        [TestSvm]
+        [TestSvm(new []{0xE, 0x10})]
         public static int CastAfterNull()
         {
             Piece a = new Piece(1, 3);

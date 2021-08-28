@@ -36,7 +36,18 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             else parameters
         Memory.NewStackFrame state method (parametersAndThis @ locals)
 
-    let mutable cilState : cilState = CilStateOperations.makeInitialState entryPoint (initSymbolicFrame state entryPoint)
+    let mutable cilState : cilState =
+        initSymbolicFrame state entryPoint
+        let cilState = CilStateOperations.makeInitialState entryPoint state
+        cilState.ownedByConcolic <- true
+        cilState
+
+    let bindNewCilState newState =
+        if not <| LanguagePrimitives.PhysicalEquality cilState newState then
+            cilState.ownedByConcolic <- false
+            newState.ownedByConcolic <- true
+            cilState <- newState
+
     let mutable mainReached = false
     let environment (method : MethodBase) =
         let result = ProcessStartInfo()
@@ -76,13 +87,13 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             true
 
     member x.SynchronizeStates (c : execCommand) =
-        let state = Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
+        Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
         assert(Memory.CallStackSize state > 0)
         let initFrame state token =
             let topMethod = Memory.GetCurrentExploringFunction state
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame state method
-        let state = Array.fold initFrame state c.newCallStackFrames
+        Array.iter (initFrame state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) state.evaluationStack |> snd
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (fun op ->
@@ -105,8 +116,8 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             | _ -> __unreachable__())
         let evalStack = EvaluationStack.PopMany maxIndex evalStack |> snd
         let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
-        let state = {state with evaluationStack = evalStack}
-        {cilState with ipStack = [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]; state = state}
+        state.evaluationStack <- evalStack
+        cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
@@ -123,15 +134,13 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             true
         | ExecuteInstruction c ->
             Logger.trace "Got execute instruction command!"
-            cilState <- x.SynchronizeStates c
-            if c.isBranch = 0u then
-                cilState <- interpreter.StepInstruction cilState
-                x.communicator.SendExecConfirmation()
-            else
-                let s, b = interpreter.StepBranch cilState
-                cilState <- s
-                x.communicator.SendBranch b
+            x.SynchronizeStates c
+            let steppedStates = interpreter.StepInstruction cilState
+//            if c.isBranch = 0u then
+//                x.communicator.SendExecConfirmation()
+//                x.communicator.SendBranch b
 
+            __notImplemented__()
             // TODO: schedule it into interpreter, send back response
             true
         | Terminate ->

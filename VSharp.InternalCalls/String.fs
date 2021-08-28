@@ -23,13 +23,12 @@ module internal String =
 
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)
-        let length = Memory.StringLength state (List.head args)
-        length, state
+        Memory.StringLength state (List.head args)
 
     let GetChars (state : state) (args : term list) =
         assert(List.length args = 2)
         let this, index = List.item 0 args, List.item 1 args
-        Memory.ReadStringChar state this index, state
+        Memory.ReadStringChar state this index
 
     let ToUpperInvariant (state : state) (args : term list) =
         assert(List.length args = 1)
@@ -54,21 +53,20 @@ module internal String =
     let CreateFromChar (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)
         let char = List.head args
-        let string, state = Memory.AllocateString " " state
+        let string = Memory.AllocateString " " state
         let states = Memory.WriteStringChar state string [Concrete 0 Types.IndexType] char
         List.map (withFst string) states
 
-    let CharToUpper (state : state) (args : term list) : term * state =
+    let CharToUpper (_ : state) (args : term list) =
         assert(List.length args = 1)
         let char = List.head args
         match char.term with
         | Concrete(symbol, Numeric(Id typ)) when typ = typeof<char> ->
             let char = symbol :?> char
-            let term = Char.ToUpper(char) |> MakeNumber
-            term, state
+            Char.ToUpper(char) |> MakeNumber
         | _ -> __insufficientInformation__ "Char.ToUpper works only for concrete chars right now"
 
-    let Equals (state : state) (args : term list) : term * state =
+    let Equals (state : state) (args : term list) =
         assert(List.length args = 2)
         let str1, str2 = args.[0], args.[1]
         let length1 = Memory.StringLength state str1
@@ -84,11 +82,11 @@ module internal String =
             let len2 = obj2 :?> int
             if len1 = len2 then
                 let indices = List.init len1 id
-                List.fold checkOneChar True indices, state
-            else MakeBool false, state
+                List.fold checkOneChar True indices
+            else MakeBool false
         | _ -> __insufficientInformation__ "String.Equals works only for concrete length strings right now"
 
-    let FastAllocateString (state : state) (args : term list) : term * state =
+    let FastAllocateString (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let length = List.head args
         Memory.AllocateEmptyString state length

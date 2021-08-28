@@ -12,12 +12,25 @@ open System.Collections.Generic
 open System.Reflection
 open ipOperations
 
+type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
+    with
+    override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
+
+type pobStatus =
+    | Unknown
+    | Witnessed of cilState
+    | Unreachable
+
 type codeLocationSummary = { cilState : cilState }
     with
-    member x.State = withEvaluationStack emptyEvaluationStack x.cilState |> stateOf
+    member x.State =
+        setEvaluationStack EvaluationStack.EmptyStack x.cilState
+        stateOf x.cilState
     member x.Result =
-        if EvaluationStack.Length x.cilState.state.evaluationStack = 0 then Nop
-        else pop x.cilState |> fst
+        match EvaluationStack.Length x.cilState.state.evaluationStack with
+        | 0 -> Nop
+        | 1 -> peek x.cilState
+        | _ -> internalfail "EvaluationStack size was bigger than 1"
 
 type codeLocationSummaries = codeLocationSummary list
 
@@ -29,8 +42,9 @@ type public ExplorerBase() =
         Memory.CallStackContainsFunction s method
 
     member x.InterpretEntryPoint (method : MethodBase) k =
-        assert(method.IsStatic)
-        let state = Memory.InitializeStaticMembers Memory.EmptyState (Types.FromDotNetType method.DeclaringType)
+        assert method.IsStatic
+        let state = Memory.EmptyState()
+        Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
         x.Invoke method initialState (List.map (fun cilState -> { cilState = cilState }) >> List.toSeq >> k)
 
@@ -79,7 +93,7 @@ type public ExplorerBase() =
 //            let invoke state k = x.Invoke methodId state k
 //            x.EnterRecursiveRegion methodId cilState invoke k
 
-    static member ReduceFunctionSignature state (method : MethodBase) this paramValues k =
+    static member InitFunctionFrame state (method : MethodBase) this paramValues =
         let parameters = method.GetParameters()
         let getParameterType (param : ParameterInfo) = Types.FromDotNetType param.ParameterType
         let values, areParametersSpecified =
@@ -112,23 +126,23 @@ type public ExplorerBase() =
                 let thisKey = ThisKey method
                 (thisKey, Some thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
-        Memory.NewStackFrame state method (parametersAndThis @ locals) |> k
+        Memory.NewStackFrame state method (parametersAndThis @ locals)
 
-    member x.ReduceFunctionSignatureCIL (cilState : cilState) (methodBase : MethodBase) this paramValues k =
-        ExplorerBase.ReduceFunctionSignature cilState.state methodBase this paramValues (fun state ->
-        cilState |> withState state |> pushToIp (instruction methodBase 0) |> k)
+    member x.InitFunctionFrameCIL (cilState : cilState) (methodBase : MethodBase) this paramValues =
+        ExplorerBase.InitFunctionFrame cilState.state methodBase this paramValues
+        pushToIp (instruction methodBase 0) cilState
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
-        assert(f.IsStatic)
+        assert f.IsStatic
         let fieldType = Types.FromDotNetType f.FieldType
-        let value, state =
+        let value =
             if f.IsLiteral then
                 match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
-                | null -> NullRef, state
+                | null -> NullRef
                 | :? string as str -> Memory.AllocateString str state
-                | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Concrete v fieldType, state
+                | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Concrete v fieldType
                 | _ -> __unreachable__()
-            else Memory.DefaultOf fieldType, state
+            else Memory.DefaultOf fieldType
         let targetType = Types.FromDotNetType f.DeclaringType
         let fieldId = Reflection.wrapField f
         Memory.WriteStaticField state targetType fieldId value
@@ -153,41 +167,50 @@ type public ExplorerBase() =
             | True -> whenInitializedCont cilState
             | _ ->
                 let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
-                let state = Memory.InitializeStaticMembers cilState.state termType
-                let state = Seq.fold x.InitStaticFieldWithDefaultValue state fields
-                let cilState = withState state cilState
+                Memory.InitializeStaticMembers cilState.state termType
+                Seq.iter (x.InitStaticFieldWithDefaultValue cilState.state) fields
                 match staticConstructor with
                 | Some cctor ->
-                    // TODO: use InlineMethodBaseCallIfNeed instead #do (union Interpreter and InterpreterBase)
                     let name = Reflection.getFullMethodName cctor
                     if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
                         || name = "System.Void System.Environment..cctor()"
                         || name = "System.Void System.Globalization.CultureInfo..cctor()")
                     then whenInitializedCont cilState
-                    else x.ReduceFunctionSignatureCIL cilState cctor None (Some []) List.singleton
+                    else
+                        x.InitFunctionFrameCIL cilState cctor None (Some [])
+                        [cilState]
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
-    member x.CallAbstractMethod (method : MethodBase) state k =
-        __insufficientInformation__ "Can't call abstract method %O, need more information about the object type" method
+    member x.CallAbstractMethod (method : MethodBase) cilState k =
+        let iie = createInsufficientInformation "Can't call abstract method %O, need more information about the object type" method
+        let cilState = {cilState with iie = Some iie}
+        k (List.singleton cilState)
 
     static member FormInitialStateWithoutStatics (method : MethodBase) =
-        let this, state(*, isMethodOfStruct*) =
+        let initialState = Memory.EmptyState()
+        let this(*, isMethodOfStruct*) =
             let declaringType = Types.FromDotNetType method.DeclaringType
-            let initialState = Memory.InitializeStaticMembers Memory.EmptyState declaringType
-            (if method.IsStatic then None else Memory.MakeSymbolicThis method |> Some), initialState
-        let state = Option.fold (fun state this -> !!(IsNullReference this) |> WithPathCondition state) state this
-        ExplorerBase.ReduceFunctionSignature state method this None id
+            Memory.InitializeStaticMembers initialState declaringType
+            if method.IsStatic then None // *TODO: use hasThis flag from Reflection
+            else
+                let this = Memory.MakeSymbolicThis method
+                !!(IsNullReference this) |> AddConstraint initialState
+                Some this
+        ExplorerBase.InitFunctionFrame initialState method this None
+        initialState
+
     member x.FormInitialState (method : MethodBase) : cilState list =
         let state = ExplorerBase.FormInitialStateWithoutStatics method
         let cilState = makeInitialState method state
         x.InitializeStatics cilState method.DeclaringType List.singleton
 
-    abstract CreateException : Type -> term list -> cilState -> cilState list
+
+    abstract CreateException : Type -> term list -> cilState -> unit
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
         Logger.printLogLazy Logger.Info "EXCEPTION!\nStack trace:\n%O" (lazy Memory.StackTrace cilState.state.stack)
-        let cilState = clearEvaluationStackLastFrame cilState
+        clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
         let argumentsTypes =
@@ -198,13 +221,13 @@ type public ExplorerBase() =
             |> List.filter (fun (ci : ConstructorInfo)
                              -> ci.GetParameters().Length = argumentsLength
                                 && ci.GetParameters()
-                                   |> Seq.forall2(fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
+                                   |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
         assert(List.length ctors = 1)
         let ctor = List.head ctors
         let fullConstructorName = Reflection.getFullMethodName ctor
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName
-        x.ReduceFunctionSignatureCIL cilState proxyCtor None (Some arguments) List.singleton
+        x.InitFunctionFrameCIL cilState proxyCtor None (Some arguments)
 
     member x.InvalidProgramException cilState =
         x.CreateException typeof<System.InvalidProgramException> [] cilState
@@ -229,42 +252,44 @@ type public ExplorerBase() =
     member x.ArithmeticException cilState =
         x.CreateException typeof<System.ArithmeticException> [] cilState
     member x.TypeInitializerException qualifiedTypeName innerException (cilState : cilState) =
-        let typeName, state = Memory.AllocateString qualifiedTypeName cilState.state
+        let typeName = Memory.AllocateString qualifiedTypeName cilState.state
         let args = [typeName; innerException]
-        x.CreateException typeof<System.TypeInitializationException> args {cilState with state = state}
+        x.CreateException typeof<System.TypeInitializationException> args cilState
     member x.InvalidCastException (cilState : cilState) =
-        let message, state = Memory.AllocateString "Specified cast is not valid." cilState.state
-        x.CreateException typeof<System.InvalidCastException> [message] {cilState with state = state}
+        let message = Memory.AllocateString "Specified cast is not valid." cilState.state
+        x.CreateException typeof<System.InvalidCastException> [message] cilState
 
     member x.ExploreAndCompose (method : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let prepareGenericsLessState (method : MethodBase) state =
-            if not <| Reflection.isGenericOrDeclaredInGenericType method then method, state, false
+            if not <| Reflection.isGenericOrDeclaredInGenericType method then method, false
             else
                 let fullyGenericMethod, genericArgs, genericDefs = Reflection.generalizeMethodBase method
                 let genericArgs = genericArgs |> Seq.map Types.FromDotNetType |> List.ofSeq
                 let genericDefs = genericDefs |> Seq.map Id |> List.ofSeq
-                if List.isEmpty genericDefs then method, state, false
+                if List.isEmpty genericDefs then method, false
                 else
-                    let state = Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
-                    fullyGenericMethod, state, true
-        let newMethod, state, isSubstitutionNeeded = prepareGenericsLessState method cilState.state
-        let cilState = withState state cilState
+                    Memory.NewTypeVariables state (List.zip genericDefs genericArgs)
+                    fullyGenericMethod, true
+        let newMethod, isSubstitutionNeeded = prepareGenericsLessState method cilState.state
         let k =
             if isSubstitutionNeeded then
-                List.map (fun (cilState : cilState) -> {cilState with state = Memory.PopTypeVariables cilState.state}) >> k
+                fun cilStates ->
+                    List.iter (fun (cilState : cilState) -> Memory.PopTypeVariables cilState.state) cilStates
+                    k cilStates
             else k
         x.Explore newMethod (Seq.map (fun summary ->
 //            Logger.trace "ExploreAndCompose: Original CodeLoc = %O New CodeLoc = %O\ngot summary state = %s" funcId newFuncId (dump summary.cilState)
 //            Logger.trace "ExploreAndCompose: Left state = %s" (dump cilState)
-            let summaryCilState = withCurrentTime [] summary.cilState
-            let resultStates = compose cilState summaryCilState
+            setCurrentTime [] summary.cilState
+            let resultStates = compose cilState summary.cilState
 //            List.iter (dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) resultStates
             resultStates) >> List.ofSeq >> List.concat >> k)
 
+    abstract member AnswerPobs : MethodBase -> codeLocation seq -> (IDictionary<codeLocation, string> -> 'a) -> 'a
+    default x.AnswerPobs _ _ _ = __notImplemented__()
     abstract member Invoke : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
 
-    abstract member StepInstruction : cilState -> cilState
-    abstract member StepBranch : cilState -> cilState * bool
+    abstract member StepInstruction : cilState -> cilState list
 
     abstract member ReproduceEffect : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
     default x.ReproduceEffect method state k = x.ExploreAndCompose method state k

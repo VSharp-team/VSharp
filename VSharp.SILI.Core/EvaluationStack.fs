@@ -15,6 +15,11 @@ module internal EvaluationStack =
         | [] -> __corruptedStack__()
         | l :: ls -> { contents = (x :: l) :: ls }
 
+    let pushMany (xs : term list) evaluationStack =
+        match evaluationStack.contents with
+        | [] -> __corruptedStack__()
+        | l :: ls -> { contents = (xs @ l) :: ls }
+
     let pop evaluationStack =
         match evaluationStack.contents with
         | [] | [] :: _ -> __corruptedStack__()

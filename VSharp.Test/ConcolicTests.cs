@@ -29,9 +29,8 @@ namespace VSharp.Test
             if (method == null)
                 throw new InvalidOperationException("Could not resolve method!");
 
-            var searcher = new CFASearcher();
-            var interpreter = new MethodInterpreter(searcher);
-            var machine = new ClientMachine(method, interpreter, API.Memory.EmptyState);
+            var interpreter = new MethodInterpreter(200, new BFSSearcher(200));
+            var machine = new ClientMachine(method, interpreter, API.Memory.EmptyState());
             Assert.IsTrue(machine.Spawn());
             while (machine.ExecCommand()) { }
         }

@@ -76,7 +76,7 @@ namespace VSharp.Test.Tests
             return assign;
         }
 
-        [TestSvm]
+        // [TestSvm]
         public static int factAgain(int n)
         {
             if (n <= 0) return 1;
@@ -229,7 +229,7 @@ namespace VSharp.Test.Tests
             new ClassWithOneField();
         }
 
-        [TestSvm]
+        [TestSvm(0x25, 0x2A)]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -329,7 +329,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting System.ArrayTypeMismatchException
-        [TestSvm]
+        [TestSvm(0x33)]
         public static void LdelemaTest2(bool f)
         {
             var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
@@ -460,7 +460,7 @@ namespace VSharp.Test.Tests
 
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(0xF, 0x10)]
         public static int TestAllocatedType_1()
         {
             VirtualC c = new VirtualC();
@@ -474,7 +474,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(0x9, 0xA)]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();
@@ -877,7 +877,7 @@ namespace VSharp.Test.Tests
             return classWithLotsOfFields._next;
         }
 
-        [TestSvm]
+        [TestSvm(0x35, 0x3A)]
         public static int CheckInvalidCfaConstruction(bool f)
         {
             ClassWithLotsOFFields c = new ClassWithLotsOFFields();
@@ -1250,13 +1250,13 @@ namespace VSharp.Test.Tests
             return ClassWithCCtor._f;
         }
 
-        [TestSvm]
+        [TestSvm(0x02)]
         public static int ByRefTest1(ref int x)
         {
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(0x04)]
         public static void ByRefTest2(out int x)
         {
             x = 10;
@@ -1270,7 +1270,7 @@ namespace VSharp.Test.Tests
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(0x02)]
         public static int ByRefTest3(in int x)
         {
             return x;

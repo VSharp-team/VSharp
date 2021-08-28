@@ -6,13 +6,14 @@ open VSharp
 
 
 [<CustomEquality; CustomComparison>]
-type codeLocation = {offset : offset; method : MethodBase}
+type public codeLocation = {offset : offset; method : MethodBase}
     with
     override x.Equals y =
         match y with
         | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
         | _ -> false
     override x.GetHashCode() = (x.offset, x.method).GetHashCode()
+    override x.ToString() = sprintf "[method = %s\noffset = %s]" (Reflection.getFullMethodName x.method) (x.offset.ToString("X"))
     interface System.IComparable with
         override x.CompareTo y =
             match y with
@@ -129,11 +130,30 @@ module ipOperations =
             | _ -> __unreachable__()
         helper newOffset ip id
 
+    let rec offsetOf = function
+        | Exit _ -> None
+        | Instruction(offset, _) -> Some offset
+        | Leave(ip, _, _, _) -> offsetOf ip
+        | _ -> None
+    let methodOf = function
+        | Exit m
+        | Instruction(_, m)
+        | Leave(_,_,_,m) -> m
+        | _ -> __notImplemented__()
 //    let withExit ip = {ip with label = Exit}
 //    let withOffset offset ip = {ip with label = Instruction offset}
 //    let labelOf (ip : ip) = ip.label
 //    let methodOf (ip : ip) = ip.method
 
+    let ip2codeLocation (ip : ip) =
+        match offsetOf ip, methodOf ip with
+        | None, _ -> None
+        | Some offset, m ->
+            let loc = {offset = offset; method = m}
+            Some loc
+    let buildIpFromOffset (m : MethodBase) (offset : int) =
+        // TODO: what about Leave-constructor?
+        instruction m offset
 module Level =
     // TODO: implement level
     let zero : level = PersistentDict.empty

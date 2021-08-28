@@ -98,7 +98,7 @@ namespace VSharp.Test.Tests
             return nullAction;
         }
 
-        [TestSvm]
+        [TestSvm(0x8)]
         public static bool SymbolicLambdaInvoke(Func<int, bool> f)
         {
             return f.Invoke(42);

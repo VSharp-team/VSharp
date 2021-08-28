@@ -108,7 +108,7 @@ namespace VSharp.Test.Tests
             return p1 == p2;
         }
 
-        [TestSvm]
+        [TestSvm(0x39, 0x3D)]
         public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();

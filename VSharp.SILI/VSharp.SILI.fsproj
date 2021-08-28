@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp5.0</TargetFramework>
+        <TargetFramework>net5.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -26,7 +26,14 @@
         <Compile Include="Lambdas.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="Statistics.fs" />
+        <Compile Include="PobsInterpreter.fs" />
         <Compile Include="Variables.fs" />
+        <Compile Include="TargetedSearcher.fs" />
+        <Compile Include="BidirectionalSearcher.fs" />
+        <Compile Include="RandomSearcher.fs" />
+        <Compile Include="StackTraceEstimator.fs" />
+        <Compile Include="StackTraceSearcher.fs" />
         <Compile Include="ILRewriter.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
@@ -37,4 +44,9 @@
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="C5" Version="2.5.3" />
+    </ItemGroup>
+
 </Project>

@@ -22,7 +22,7 @@ module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
 
-    let empty = {
+    let private empty = {
         pc = PC.empty
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException
@@ -42,27 +42,36 @@ module internal Memory =
         startingTime = VectorTime.zero
     }
 
+    let mkEmpty() = { empty with pc = PC.empty }
+
+    let copy state newPc =
+        { state with pc = newPc }
+
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
 
-    let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
+    let addConstraint (s : state) cond =
+        s.pc <- PC.add s.pc cond
 
 // ------------------------------- Stack -------------------------------
 
-    let newStackFrame (s : state) funcId frame : state =
-        let stack = CallStack.newStackFrame s.stack funcId frame
+    let newStackFrame (s : state) m frame =
+        let stack = CallStack.newStackFrame s.stack m frame
         let evaluationStack = EvaluationStack.newStackFrame s.evaluationStack
-        { s with stack = stack; evaluationStack = evaluationStack }
+        s.stack <- stack
+        s.evaluationStack <- evaluationStack
 
-    let popFrame (s : state) : state =
+    let popFrame (s : state) =
         let stack = CallStack.popFrame s.stack
         let evaluationStack = EvaluationStack.popStackFrame s.evaluationStack
-        { s with stack = stack; evaluationStack = evaluationStack }
+        s.stack <- stack
+        s.evaluationStack <- evaluationStack
 
-    let forcePopFrames (count : int) (s : state) : state =
+    let forcePopFrames (count : int) (s : state) =
         let stack = CallStack.popFrames s.stack count
         let evaluationStack = EvaluationStack.forcePopStackFrames count s.evaluationStack
-        { s with stack = stack; evaluationStack = evaluationStack }
+        s.stack <- stack
+        s.evaluationStack <- evaluationStack
 
     let typeOfStackLocation (s : state) key = CallStack.typeOfStackLocation s.stack key
 
@@ -73,13 +82,13 @@ module internal Memory =
         let oldMappedStack, oldStack = state.typeVariables
         let newStack = subst |> List.unzip |> fst |> Stack.push oldStack
         let newMappedStack = subst |> List.fold (fun acc (k, v) -> MappedStack.push k v acc) oldMappedStack
-        { state with typeVariables = (newMappedStack, newStack) }
+        state.typeVariables <- (newMappedStack, newStack)
 
     let popTypeVariablesSubstitution state =
         let oldMappedStack, oldStack = state.typeVariables
         let toPop, newStack = Stack.pop oldStack
         let newMappedStack = List.fold MappedStack.remove oldMappedStack toPop
-        { state with typeVariables = (newMappedStack, newStack) }
+        state.typeVariables <- (newMappedStack, newStack)
 
     let commonTypeVariableSubst state (t : Type) someCase noneCase =
         match MappedStack.tryFind (Id t) (fst state.typeVariables) with
@@ -171,7 +180,7 @@ module internal Memory =
     [<StructuralEquality;NoComparison>]
     type private stackReading =
         {key : stackKey; time : vectorTime option}
-        interface IMemoryAccessConstantSource  with
+        interface IMemoryAccessConstantSource with
             override x.SubTerms = Seq.empty
             override x.Time =
                 match x.time with
@@ -500,20 +509,25 @@ module internal Memory =
     let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with
         | Union gvs ->
-            let foldFunc (g, v) k =
-                // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions
+            let filterUnsat (g, v) k =
                 let pc = PC.add state.pc g
                 if PC.isFalse pc then k None
-                else f (withPathCondition state g) v (Some >> k)
-            Cps.List.choosek foldFunc gvs (mergeResults >> k)
+                else Some (pc, v) |> k
+            Cps.List.choosek filterUnsat gvs (fun pcs ->
+            match pcs with
+            | [] -> k []
+            | (pc, v)::pcs ->
+                let copyState (pc, v) k = f (copy state pc) v k
+                Cps.List.mapk copyState pcs (fun results ->
+                    state.pc <- pc
+                    f state v (fun r ->
+                    r::results |> mergeResults |> k)))
         | _ -> f state term (List.singleton >> k)
     let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
 
     let guardedStatedMap mapper state term =
-        match term.term with
-        | Union gvs -> gvs |> List.map (fun (g, v) -> mapper (withPathCondition state g) v)
-        | _ -> [mapper state term]
+        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         let execution thenState elseState condition k =
@@ -522,19 +536,33 @@ module internal Memory =
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
-        // TODO: this is slow! Instead, rely on PDR engine to throw out reachability facts with unsatisfiable path conditions.
-        // TODO: in fact, let the PDR engine decide which branch to pick, i.e. get rid of this function at all
-        let thenState = withPathCondition conditionState condition
-        let elseState = withPathCondition conditionState (!!condition)
-        if PC.isFalse thenState.pc then elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse elseState.pc then thenBranch conditionState (List.singleton >> k)
+        let thenPc = PC.add state.pc condition
+        let elsePc = PC.add state.pc (!!condition)
+        if PC.isFalse thenPc then
+            conditionState.pc <- elsePc
+            elseBranch conditionState (List.singleton >> k)
+        elif PC.isFalse elsePc then
+            conditionState.pc <- thenPc
+            thenBranch conditionState (List.singleton >> k)
         else
-            match SolverInteraction.isValid thenState with
-            | SolverInteraction.SmtUnsat _ -> elseBranch conditionState (List.singleton >> k)
-            | _ ->
-                match SolverInteraction.isValid elseState with
-                | SolverInteraction.SmtUnsat _ -> thenBranch conditionState (List.singleton >> k)
-                | _ -> execution thenState elseState condition k)
+            conditionState.pc <- thenPc
+            match SolverInteraction.checkSat conditionState with
+            | SolverInteraction.SmtUnsat _
+            | SolverInteraction.SmtUnknown _ ->
+                conditionState.pc <- elsePc
+                elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtSat model ->
+                conditionState.pc <- elsePc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- thenPc
+                    thenBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat model ->
+                    let thenState = conditionState
+                    let elseState = copy conditionState elsePc
+                    thenState.pc <- thenPc
+                    execution thenState elseState condition k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
@@ -547,7 +575,7 @@ module internal Memory =
         if isOpenType typ then __insufficientInformation__ "Cannot write value of generic type %O" typ
 
     let writeStackLocation (s : state) key value =
-        { s with stack = CallStack.writeStackLocation s.stack key value }
+        s.stack <- CallStack.writeStackLocation s.stack key value
 
     let writeStruct (structTerm : term) (field : fieldId) value =
         match structTerm with
@@ -560,7 +588,7 @@ module internal Memory =
         let mr = accessRegion state.classFields field symbolicType
         let key = {address = addr}
         let mr' = MemoryRegion.write mr key value
-        { state with classFields = PersistentDict.add field mr' state.classFields }
+        state.classFields <- PersistentDict.add field mr' state.classFields
 
     let writeArrayIndex state addr indices arrayType value =
         let elementType = fst3 arrayType
@@ -568,7 +596,7 @@ module internal Memory =
         let mr = accessRegion state.arrays arrayType elementType
         let key = {address = addr; indices = indices}
         let mr' = MemoryRegion.write mr key value
-        { state with arrays = PersistentDict.add arrayType mr' state.arrays }
+        state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
     let writeStaticField state typ (field : fieldId) value =
         let symbolicType = fromDotNetType field.typ
@@ -576,33 +604,31 @@ module internal Memory =
         let mr = accessRegion state.staticFields field symbolicType
         let key = {typ = typ}
         let mr' = MemoryRegion.write mr key value
-        { state with staticFields = PersistentDict.add field mr' state.staticFields  }
+        state.staticFields <- PersistentDict.add field mr' state.staticFields
 
     let writeLowerBound state addr dimension arrayType value =
         ensureConcreteType (fst3 arrayType)
         let mr = accessRegion state.lowerBounds arrayType lengthType
         let key = {address = addr; index = dimension}
         let mr' = MemoryRegion.write mr key value
-        { state with lowerBounds = PersistentDict.add arrayType mr' state.lowerBounds }
+        state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
 
     let writeLength state addr dimension arrayType value =
         ensureConcreteType (fst3 arrayType)
         let mr = accessRegion state.lengths arrayType lengthType
         let key = {address = addr; index = dimension}
         let mr' = MemoryRegion.write mr key value
-        { state with lengths = PersistentDict.add arrayType mr' state.lengths }
+        state.lengths <- PersistentDict.add arrayType mr' state.lengths
 
     let writeStackBuffer state stackKey index value =
         let mr = accessRegion state.stackBuffers stackKey (Numeric typeof<int8>)
         let key = {index = index}
         let mr' = MemoryRegion.write mr key value
-        { state with stackBuffers = PersistentDict.add stackKey mr' state.stackBuffers }
+        state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
     let writeBoxedLocation state (addr : concreteHeapAddress) value =
-        { state with
-            boxedLocations = PersistentDict.add addr value state.boxedLocations
-            allocatedTypes = PersistentDict.add addr (typeOf value) state.allocatedTypes
-        }
+        state.boxedLocations <- PersistentDict.add addr value state.boxedLocations
+        state.allocatedTypes <- PersistentDict.add addr (typeOf value) state.allocatedTypes
 
     let rec writeAddress state address value =
         match address with
@@ -625,43 +651,44 @@ module internal Memory =
                 match reference.term with
                 | Ref address -> writeAddress state address value
                 | Ptr (Some address, viewType, None) when typeOfAddress address = viewType -> writeAddress state address value
-                | _ -> internalfailf "Writing: expected reference, but got %O" reference)
+                | _ -> internalfailf "Writing: expected reference, but got %O" reference
+                state)
             state reference
 
 // ------------------------------- Allocation -------------------------------
 
     let freshAddress state =
-        let state = {state with currentTime = VectorTime.advance state.currentTime}
-        state.currentTime, state
+        state.currentTime <- VectorTime.advance state.currentTime
+        state.currentTime
 
     let allocateType state typ =
-        let concreteAddress, state = freshAddress state
+        let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
-        ConcreteHeapAddress concreteAddress, {state with allocatedTypes = PersistentDict.add concreteAddress typ state.allocatedTypes}
+        state.allocatedTypes <- PersistentDict.add concreteAddress typ state.allocatedTypes
+        ConcreteHeapAddress concreteAddress
 
     let allocateOnStack state key term =
-        { state with stack = CallStack.allocate state.stack key term}
+        state.stack <- CallStack.allocate state.stack key term
 
     // Strings and delegates should be allocated using the corresponding functions (see allocateString and allocateDelegate)!
     let allocateClass state typ =
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<String>)
         assert (not <| (toDotNetType typ).IsSubclassOf typeof<Delegate>)
-        let address, state = allocateType state typ
-        HeapRef address typ, state
+        let address = allocateType state typ
+        HeapRef address typ
 
     let allocateArray state typ lowerBounds lengths =
-        let address, state = allocateType state typ
+        let address = allocateType state typ
         let arrayType = symbolicTypeToArrayType typ
-        let state =
-            let d = List.length lengths
-            assert(d = snd3 arrayType)
-            let state = List.fold2 (fun state l i -> writeLength state address (Concrete i lengthType) arrayType l) state lengths [0 .. d-1]
-            match lowerBounds with
-            | None -> state
-            | Some lowerBounds ->
-                assert(List.length lowerBounds = d)
-                List.fold2 (fun state l i -> writeLowerBound state address (Concrete i lengthType) arrayType l) state lowerBounds [0 .. d-1]
-        address, state
+        let d = List.length lengths
+        assert(d = snd3 arrayType)
+        List.iter2 (fun l i -> writeLength state address (Concrete i lengthType) arrayType l) lengths [0 .. d-1]
+        match lowerBounds with
+        | None -> ()
+        | Some lowerBounds ->
+            assert(List.length lowerBounds = d)
+            List.iter2 (fun l i -> writeLowerBound state address (Concrete i lengthType) arrayType l) lowerBounds [0 .. d-1]
+        address
 
     let allocateVector state elementType length =
         let lbs = Some [makeNumber 0]
@@ -669,30 +696,29 @@ module internal Memory =
         allocateArray state typ lbs [length]
 
     let allocateConcreteVector state elementType length contents =
-        let address, state = allocateVector state elementType length
+        let address = allocateVector state elementType length
         // TODO: optimize this for large concrete arrays (like images)!
-        address, Seq.foldi (fun state i value -> writeArrayIndex state address [Concrete i lengthType] (elementType, 1, true) (Concrete value elementType)) state contents
+        Seq.iteri (fun i value -> writeArrayIndex state address [Concrete i lengthType] (elementType, 1, true) (Concrete value elementType)) contents
+        address
 
     let commonAllocateString state length contents =
         let arrayLength = add length (Concrete 1 lengthType)
-        let address, state = allocateConcreteVector state Char arrayLength contents
-        let state = writeArrayIndex state address [length] (Char, 1, true) (Concrete '\000' Char)
+        let address = allocateConcreteVector state Char arrayLength contents
+        writeArrayIndex state address [length] (Char, 1, true) (Concrete '\000' Char)
         let heapAddress = getConcreteHeapAddress address
-        let state = writeClassField state address Reflection.stringLengthField length
-        HeapRef address String, {state with allocatedTypes = PersistentDict.add heapAddress String state.allocatedTypes}
+        writeClassField state address Reflection.stringLengthField length
+        state.allocatedTypes <- PersistentDict.add heapAddress String state.allocatedTypes
+        HeapRef address String
 
     let allocateEmptyString state length = commonAllocateString state length Seq.empty
     let allocateString state (str : string) = commonAllocateString state (Concrete str.Length lengthType) str
 
     let allocateDelegate state delegateTerm =
-        let concreteAddress, state = freshAddress state
+        let concreteAddress = freshAddress state
         let address = ConcreteHeapAddress concreteAddress
-        let state =
-            { state with
-                delegates = PersistentDict.add concreteAddress delegateTerm state.delegates
-                allocatedTypes = PersistentDict.add concreteAddress (typeOf delegateTerm) state.allocatedTypes
-            }
-        HeapRef address (typeOf delegateTerm), state
+        state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
+        state.allocatedTypes <- PersistentDict.add concreteAddress (typeOf delegateTerm) state.allocatedTypes
+        HeapRef address (typeOf delegateTerm)
 
     let rec lengthOfString state heapRef =
         match heapRef.term with
@@ -703,12 +729,10 @@ module internal Memory =
         | _ -> internalfail "Getting length of string: expected heap reference, but got %O" heapRef
 
     let initializeStaticMembers state typ =
-        let state =
-            if typ = String then
-                let reference, state = allocateString state ""
-                writeStaticField state String Reflection.emptyStringField reference
-            else state
-        { state with initializedTypes = SymbolicSet.add {typ=typ} state.initializedTypes }
+        if typ = String then
+            let reference = allocateString state ""
+            writeStaticField state String Reflection.emptyStringField reference
+        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
 
 // ------------------------------- Composition -------------------------------
 

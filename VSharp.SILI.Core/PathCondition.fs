@@ -9,7 +9,7 @@ type pathCondition = pset<term>
 
 module internal PC =
 
-    let public empty = PersistentSet.empty<term>
+    let public empty : pathCondition = PersistentSet.empty<term>
     let public isEmpty pc = PersistentSet.isEmpty pc
 
     let public toSeq pc = PersistentSet.toSeq pc

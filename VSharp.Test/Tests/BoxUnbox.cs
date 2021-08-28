@@ -157,7 +157,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class UnboxGeneric<T>
     {
-        [TestSvm]
+        [TestSvm(0x6)]
         public static T Cast(object o)
         {
             return (T) o;
@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [TestSvm]
+        [TestSvm(0x6)]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -184,7 +184,7 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [TestSvm]
+        [TestSvm(0x6)]
         public static object BoxValue(U t)
         {
             object o = t;

@@ -42,6 +42,8 @@ module public PersistentDict =
 
     let public map (keyMapper : 'a -> 'a) (valueMapper : 'b -> 'c) (d : pdict<'a, 'b>) : pdict<'a, 'c> =
         d |> toSeq |> Seq.map (fun (k, v) -> (keyMapper k, valueMapper v)) |> ofSeq
+    let public iter (action : 'a * 'b -> unit) (d : pdict<'a, 'b>) : unit =
+        d |> toSeq |> Seq.iter action
     let public fold folder state (d : pdict<'a, 'b>) =
         d |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public forall predicate (d : pdict<'a, 'b>) =
@@ -121,6 +123,8 @@ module PersistentSet =
         d |> toSeq |> Seq.forall predicate
     let public map (mapper : 'a -> 'a) (d : pset<'a>) : pset<'a> =
         PersistentDict.map mapper id d
+    let public iter (action : 'a -> unit) (d : pset<'a>) : unit =
+        PersistentDict.iter (fst >> action) d
 
     let subtract (s1 : pset<'a>) (s2 : pset<'a>) =
         Seq.fold remove s1 (toSeq s2)

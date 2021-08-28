@@ -20,8 +20,8 @@ module internal Copying =
         let leftBound = simplifyLessOrEqual lowerBound constant id
         let rightBound = simplifyLessOrEqual constant upperBound id
         let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
-        let stateWithPC = { state with pc = pcWithBounds }
-        constant, stateWithPC
+        state.pc <- pcWithBounds
+        constant
 
 // ------------------------------- Copying -------------------------------
 
@@ -47,7 +47,7 @@ module internal Copying =
     let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType
         let offsets = List.init length id
-        let copyOneElem state offset =
+        let copyOneElem offset =
             let srcIndex = add srcIndex (makeNumber offset)
             let srcIndices = delinearizeArrayIndex srcIndex srcLens srcLBs
             let srcElem = readArrayIndex state srcAddress srcIndices srcType
@@ -55,16 +55,16 @@ module internal Copying =
             let dstIndex = add dstIndex (makeNumber offset)
             let dstIndices = delinearizeArrayIndex dstIndex dstLens dstLBs
             writeArrayIndex state dstAddress dstIndices dstType casted
-        List.fold copyOneElem state offsets
+        List.iter copyOneElem offsets
 
     let private copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType
-        let constant, stateWithPC = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
+        let constant = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
         let srcIndices = delinearizeArrayIndex (add srcIndex constant) srcLens srcLBs
-        let srcElem = readArrayIndex stateWithPC srcAddress srcIndices srcType
+        let srcElem = readArrayIndex state srcAddress srcIndices srcType
         let casted = TypeCasting.cast srcElem dstElemType
         let dstIndices = delinearizeArrayIndex (add dstIndex constant) dstLens dstLBs
-        writeArrayIndex stateWithPC dstAddress dstIndices dstType casted
+        writeArrayIndex state dstAddress dstIndices dstType casted
 
     // TODO: consider the case of overlapping src and dest arrays
     let copyArray state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex dstType length =
@@ -84,24 +84,23 @@ module internal Copying =
         let length = readLength state arrayAddress (makeNumber 0) arrayType
         let lengthPlus1 = add length (makeNumber 1)
         let dstAddress = ConcreteHeapAddress dstAddress
-        let state = copyArray state arrayAddress (makeNumber 0) arrayType dstAddress (makeNumber 0) arrayType length
-        let state = writeLength state dstAddress (makeNumber 0) arrayType lengthPlus1
-        let state = writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Types.Char)
-        let state = writeClassField state dstAddress Reflection.stringLengthField length
-        state
+        copyArray state arrayAddress (makeNumber 0) arrayType dstAddress (makeNumber 0) arrayType length
+        writeLength state dstAddress (makeNumber 0) arrayType lengthPlus1
+        writeArrayIndex state dstAddress [length] arrayType (Concrete '\000' Types.Char)
+        writeClassField state dstAddress Reflection.stringLengthField length
 
     let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =
         let offsets = List.init length id
-        let copyOneElem state offset =
+        let copyOneElem offset =
             let linearIndex = add startIndex (makeNumber offset)
             let indices = delinearizeArrayIndex linearIndex lens lbs
             writeArrayIndex state arrayAddress indices arrayType castedValue
-        List.fold copyOneElem state offsets
+        List.iter copyOneElem offsets
 
     let private fillArraySymbolic state arrayAddress arrayType startIndex length lbs lens castedValue =
-        let constant, stateWithPC = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
+        let constant = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
         let indices = delinearizeArrayIndex (add startIndex constant) lens lbs
-        writeArrayIndex stateWithPC arrayAddress indices arrayType castedValue
+        writeArrayIndex state arrayAddress indices arrayType castedValue
 
     let fillArray state arrayAddress (elemType, dim, _ as arrayType) index length value =
         let lbs = List.init dim (fun dim -> readLowerBound state arrayAddress (makeNumber dim) arrayType)

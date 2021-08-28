@@ -23,28 +23,28 @@ module internal Type =
     val GetElementType : state -> term list -> (term * state) list
 
     [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
-    val opInequality : state -> term list -> term * state
+    val opInequality : state -> term list -> term
 
     [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
-    val opEquality : state -> term list -> term * state
+    val opEquality : state -> term list -> term
 
     [<Implements("System.Boolean System.RuntimeTypeHandle.IsGenericTypeDefinition(System.RuntimeType)")>]
-    val isGenericTypeDefinition : state -> term list -> term * state
+    val isGenericTypeDefinition : state -> term list -> term
 
     [<Implements("System.Boolean System.RuntimeTypeHandle.IsInterface(System.RuntimeType)")>]
-    val isInterface : state -> term list -> term * state
+    val isInterface : state -> term list -> term
 
     [<Implements("System.Boolean System.RuntimeTypeHandle.IsGenericVariable(System.RuntimeType)")>]
-    val isGenericVariable : state -> term list -> term * state
+    val isGenericVariable : state -> term list -> term
 
     [<Implements("System.String System.RuntimeType.get_Name(this)")>]
-    val get_Name : state -> term list -> term * state
+    val get_Name : state -> term list -> term
 
     [<Implements("System.Boolean System.Type.get_IsValueType(this)")>]
-    val isValueType : state -> term list -> term * state
+    val isValueType : state -> term list -> term
 
     [<Implements("System.Array System.RuntimeType.GetEnumValues(this)")>]
-    val getEnumValues : state -> term list -> term * state
+    val getEnumValues : state -> term list -> term
 
     [<Implements("System.Type System.RuntimeType.GetEnumUnderlyingType(this)")>]
     val getEnumUnderlyingType : state -> term list -> (term * state) list

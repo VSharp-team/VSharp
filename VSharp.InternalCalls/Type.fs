@@ -22,7 +22,7 @@ module internal Type =
     let private allocateType state (typeToAllocate : Type) =
         // NOTE: allocating empty RuntimeType
         let symbolicRuntimeType = Types.FromDotNetType systemRuntimeType
-        let ref, state = Memory.AllocateDefaultClass state symbolicRuntimeType
+        let ref = Memory.AllocateDefaultClass state symbolicRuntimeType
         let value = Concrete typeToAllocate symbolicRuntimeType
         // NOTE: add field with information about actual type
         let states = Memory.WriteClassField state ref fieldWithTypeInfo value
@@ -76,7 +76,7 @@ module internal Type =
                 let actualType1 = getActualType state runtimeType1
                 let actualType2 = getActualType state runtimeType2
                 MakeBool (actualType1 = actualType2)
-        transform eq, state
+        transform eq
 
     let opInequality (state : state) (args : term list) =
         equality (!!) state args
@@ -84,20 +84,20 @@ module internal Type =
     let opEquality (state : state) (args : term list) =
         equality id state args
 
-    let isGenericTypeDefinition (state : state) (_ : term list) =
-        MakeBool false, state
+    let isGenericTypeDefinition (_ : state) (_ : term list) =
+        MakeBool false
 
     let isInterface (state : state) (args : term list) =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
-        MakeBool actualType.IsInterface, state
+        MakeBool actualType.IsInterface
 
     let isGenericVariable (state : state) (args : term list) =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
-        MakeBool actualType.IsGenericParameter, state
+        MakeBool actualType.IsGenericParameter
 
     let get_Name (state : state) (args : term list) =
         assert(List.length args = 1)
@@ -109,7 +109,7 @@ module internal Type =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
-        MakeBool actualType.IsValueType, state
+        MakeBool actualType.IsValueType
 
     let getEnumValues (state : state) (args : term list) =
         assert(List.length args = 1)
