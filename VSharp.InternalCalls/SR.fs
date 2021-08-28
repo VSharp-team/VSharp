@@ -47,3 +47,11 @@ module SR =
     let internal get_Arg_ArgumentNullException (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_ArgumentNullException" state
+
+    let internal get_ArgumentNull_Generic (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "ArgumentNull_Generic" state
+
+    let internal getMessageFromNativeResources (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        Memory.AllocateString "getMessageFromNativeResources" state

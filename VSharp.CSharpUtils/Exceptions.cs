@@ -45,5 +45,17 @@ namespace VSharp.CSharpUtils
         {
             throw new ArrayTypeMismatchException();
         }
+
+        [Implements("System.Void System.ArgumentNullException..ctor(this)")]
+        public static void CreateArgumentNullException()
+        {
+            throw new ArgumentNullException();
+        }
+
+        [Implements("System.Void System.OutOfMemoryException..ctor(this)")]
+        public static void CreateOutOfMemoryException()
+        {
+            throw new OutOfMemoryException();
+        }
     }
 }
