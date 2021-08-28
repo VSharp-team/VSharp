@@ -5,7 +5,19 @@ open VSharp
 
 module public SolverInteraction =
 
-    type model() = class end
+    type model =
+        internal { subst : System.Collections.Generic.IDictionary<ISymbolicConstantSource, term> }
+    with
+        static member ofDict d = { subst = d }
+        member x.Eval term =
+            Substitution.substitute (fun term ->
+                match term with
+                | { term = Constant(_, source, _) } ->
+                    let value = ref Nop
+                    if x.subst.TryGetValue(source, value) then !value
+                    else term
+                | _ -> term) id id term
+
     type unsatCore() = class end
 
     type encodingContext =
@@ -35,7 +47,7 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let isValid state =
+    let checkSat state =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with

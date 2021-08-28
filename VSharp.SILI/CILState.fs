@@ -2,7 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open VSharp
 open System.Text
-open System.Reflection
 open VSharp.Core
 open ipOperations
 

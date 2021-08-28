@@ -43,8 +43,9 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) as this =
 
 
     let isSat pc =
+        // TODO: consider trivial cases
         emptyState.pc <- pc
-        match SolverInteraction.isValid emptyState with
+        match SolverInteraction.checkSat emptyState with
         | SolverInteraction.SmtSat _
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false

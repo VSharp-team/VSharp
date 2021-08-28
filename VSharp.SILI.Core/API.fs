@@ -35,7 +35,7 @@ module API =
     let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = Operators.simplifyUnaryOperation op arg k
 
-    let IsValid state = SolverInteraction.isValid state
+    let IsValid state = SolverInteraction.checkSat state
 
     [<AutoOpen>]
     module public Terms =

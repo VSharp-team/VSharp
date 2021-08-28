@@ -518,17 +518,21 @@ module internal Memory =
             thenBranch conditionState (List.singleton >> k)
         else
             conditionState.pc <- thenPc
-            match SolverInteraction.isValid conditionState with
-            | SolverInteraction.SmtUnsat _ ->
+            match SolverInteraction.checkSat conditionState with
+            | SolverInteraction.SmtUnsat _
+            | SolverInteraction.SmtUnknown _ ->
                 conditionState.pc <- elsePc
                 elseBranch conditionState (List.singleton >> k)
-            | _ ->
+            | SolverInteraction.SmtSat model ->
+                validate model.mdl conditionState.pc
                 conditionState.pc <- elsePc
-                match SolverInteraction.isValid conditionState with
-                | SolverInteraction.SmtUnsat _ ->
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
-                | _ ->
+                | SolverInteraction.SmtSat model ->
+                    validate model.mdl conditionState.pc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
                     thenState.pc <- thenPc

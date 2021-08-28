@@ -448,7 +448,10 @@ module internal Z3 =
             if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
             else
                 match expr with
-                | :? BitVecNum as bv -> x.GetTypeOfBV bv |> Concrete bv.Int64
+                | :? BitVecNum as bv ->
+                    if bv.SortSize = 32u then MakeNumber bv.Int
+                    elif bv.SortSize = 64u then MakeNumber bv.Int64
+                    else __unreachable__()
                 | :? BitVecExpr as bv when bv.IsConst -> x.GetTypeOfBV bv |> Concrete expr.String
                 | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
                 | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
@@ -468,6 +471,30 @@ module internal Z3 =
                     elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
                     elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
                     else __notImplemented__()
+
+        member public x.DecodeConcrete (expr : Expr) k =
+            match expr with
+            | :? BitVecNum as bv ->
+                if bv.SortSize = 32u then MakeNumber (int bv.Int64)
+                elif bv.SortSize = 64u then MakeNumber (uint64 bv.BigInteger |> int64)
+                else __unreachable__()
+                |> k
+            | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>)) |> k
+            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>)) |> k
+            | _ ->
+                if expr.IsTrue then True |> k
+                elif expr.IsFalse then False |> k
+
+        member x.MkModel (m : Model) =
+            let subst = Dictionary<ISymbolicConstantSource, term>()
+            encodingCache.t2e |> Seq.iter (fun kvp ->
+                match kvp.Key with
+                | {term = Constant(_, source, _)} ->
+                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    x.DecodeConcrete refinedExpr (fun term -> subst.Add(source, term))
+                | _ -> ())
+            model.ofDict subst
+
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
@@ -510,11 +537,6 @@ module internal Z3 =
             pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
             pathAtoms
 
-        let convertZ3Model m =
-            // TODO: implement model conversion!
-            ignore m
-            model()
-
         interface ISolver with
             member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
                 printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
@@ -540,7 +562,7 @@ module internal Z3 =
                         match result with
                         | Status.SATISFIABLE ->
                             let z3Model = optCtx.Model
-                            let model = convertZ3Model z3Model
+                            let model = builder.MkModel z3Model
                             let usedPaths =
                                 pathAtoms
                                 |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
@@ -549,7 +571,7 @@ module internal Z3 =
                         | Status.UNSATISFIABLE ->
                             SmtUnsat { core = optCtx.UnsatCore |> Array.map builder.Decode }
                         | Status.UNKNOWN ->
-                            printLog Trace "SOLVER: reason: %O" <| optCtx.ReasonUnknown
+                            printLog Trace "SOLVER: unknown! Reason: %O" <| optCtx.ReasonUnknown
                             SmtUnknown optCtx.ReasonUnknown
                         | _ -> __unreachable__()
                     with
