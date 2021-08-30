@@ -6,7 +6,6 @@
 #include "instrumenter.h"
 #include "communication/protocol.h"
 #include "memory/memory.h"
-#include "reflection.h"
 #include <string>
 
 #define UNUSED(x) (void)x
@@ -408,8 +407,9 @@ HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRange
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
-    ObjectBuilder objectBuilder(*this->corProfilerInfo);
-    objectBuilder.build(objectId, classId);
+    ULONG size;
+    this->corProfilerInfo->GetObjectSize(objectId, &size);
+    heap.allocateObject(objectId, size);
     return S_OK;
 }
 

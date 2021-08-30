@@ -13,7 +13,6 @@ namespace icsharp {
 #define ADDR UINT_PTR
 #define SIZE UINT_PTR
 #define OBJID UINT_PTR
-#define INDEX UINT_PTR
 
 class Shift {
 public:
@@ -55,117 +54,41 @@ public:
 
 };
 
-enum objectType {
-    CLASS,
-    STRING,
-    ARRAY,
-};
+typedef char cell;
 
 class Object : public Interval {
-public:
-    objectType type;
-    Object(ADDR address, SIZE size, objectType typeValue);
-    std::string toString() const override;
-};
-
-class Block;
-
-typedef std::pair<Interval, Block *> Offsets;
-typedef std::map<mdToken, Offsets> FieldOffsets;
-
-// NOTE: may be class or struct
-// TODO: record #do
-class Block : public Object {
 private:
-    // [NOTE] Empty concreteness map means fully concrete class
-    // [NOTE] mdToken is mdFieldDef or mdMemberRef (for fields of type from another module)
-    std::map<mdToken, bool> concreteness;
-    FieldOffsets fieldOffsets;
+    // NOTE: each bit corresponds of concreteness of memory byte
+    cell *concreteness = nullptr;
+    const cell max = 0xFF;
+    const cell min = 0x00;
+    const size_t sizeofCell = sizeof(cell) * 8;
 public:
-    Block(ADDR address, SIZE size, const FieldOffsets &fields);
-    ~Block() override;
-
-    void resolve(SIZE offset, mdToken &field, SIZE &offsetInsideField, Block *&structure) const;
-    std::vector<std::tuple<mdToken, Interval, Block *>> resolve(const Interval &interval) const;
-    void fieldOffset(const mdToken &field, SIZE &offset, Block *&fieldBlock) const;
-    bool isConcrete(mdToken field) const;
+    Object(ADDR address, SIZE size);
     std::string toString() const override;
-};
-
-// TODO: string inherits Array? #DIMA
-// TODO: string is Array? #do
-class String : public Object {
-private:
-    // [NOTE] Empty concreteness map means fully concrete class
-    std::map<INDEX, bool> charConcreteness;
-    SIZE lengthOffset;
-    SIZE contentsOffset;
-public:
-    String(ADDR address, SIZE size, SIZE lengthOffset, SIZE contentsOffsetValue);
-
-    void resolve(SIZE offset, INDEX &index, SIZE &offsetInsideChar) const;
-    std::vector<INDEX> resolve(const Interval& interval) const;
-    SIZE indexOffset(INDEX index) const;
-    bool isConcrete(INDEX index) const;
-    std::string toString() const override;
-};
-
-class Array : public Object {
-private:
-    // [NOTE] Empty concreteness map means fully concrete array
-    std::map<INDEX, bool> concreteness;
-    // TODO: use many blocks #do
-    Block *elementBlock;
-    SIZE elementSize;
-public:
-    Array(ADDR address, SIZE size, SIZE elemSize, Block *elemBlock);
-
-    void resolve(SIZE offset, SIZE &index, SIZE &offsetInsideElement, Block *&elemBlock) const;
-    std::vector<std::tuple<INDEX, Interval>> resolve(const Interval& interval, Block *&elemBlock) const;
-    void indexOffset(INDEX index, SIZE &offset, Block *&elemBlock) const;
-    bool isConcrete(INDEX index) const;
-    std::string toString() const override;
+    bool read(SIZE offset, SIZE size) const;
+    void write(SIZE offset, SIZE size, bool vConcreteness);
 };
 
 typedef IntervalTree<Interval, Shift, ADDR> IntervalTree;
 
-enum refType {
-    STRUCT_FIELD,
-    CLASS_FIELD,
-    ARRAY_INDEX,
-};
-
-// TODO: add destructor #do
 struct VirtualAddress
 {
-    union
-    {
-        // NOTE: mdToken is mdFieldDef or mdMemberRef (for fields of type from another module)
-        std::tuple<VirtualAddress *, mdToken> structField;
-        std::tuple<OBJID, mdToken> classField;
-        std::tuple<OBJID, INDEX> arrayIndex;
-    };
-    refType ctor;
+    OBJID obj;
+    SIZE offset;
 };
-
 
 class Heap {
 private:
     IntervalTree tree;
     std::vector<OBJID> newAddresses;
 
-//    OBJID allocateObject(Object *obj);
-    bool resolve(ADDR address, OBJID &obj, SIZE &offset);
-    bool isConcreteBlock(Block *block, const Interval &interval);
-    void virtToPhysAddressHelper(VirtualAddress virtAddress, ADDR &address, Block *&block) const;
+    bool resolve(ADDR address, VirtualAddress &vAddress);
 
 public:
     Heap();
 
-    OBJID allocateObject(Object *obj);
-    static Block *createBlock(ADDR address, SIZE size, COR_FIELD_OFFSET *fieldOffsets, ULONG *fieldSizes, Block *structs[], ULONG fieldsCount);
-    OBJID allocateClass(ADDR address, SIZE size, COR_FIELD_OFFSET *fieldOffsets, ULONG *fieldSizes, Block *structs[], ULONG fieldsCount);
-    OBJID allocateArray(ADDR address, SIZE size, SIZE elementSize, Block *elementBlock);
+    OBJID allocateObject(ADDR address, SIZE size);
 
     void moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length);
     void markSurvivedObjects(ADDR start, SIZE length);
@@ -173,10 +96,9 @@ public:
 
     std::vector<Interval> flushObjects();
 
-    VirtualAddress *physToVirtAddress(ADDR physAddress);
-    ADDR virtToPhysAddress(VirtualAddress virtAddress) const;
+    VirtualAddress physToVirtAddress(ADDR physAddress);
+    static ADDR virtToPhysAddress(const VirtualAddress &virtAddress) ;
 
-    //    bool isConcrete(ADDR address);
     bool isConcrete(ADDR address, SIZE sizeOfPtr);
 
     void dump() const;
