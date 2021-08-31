@@ -200,6 +200,9 @@ module public Reflection =
     let getFieldInfo (field : fieldId) =
         field.declaringType.GetField(field.name, instanceBindingFlags)
 
+    let getFieldOffset fieldId =
+        getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
+
     let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag

@@ -284,14 +284,24 @@ namespace VSharp.Test
                 _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
                 bool res = true;
 
-                foreach (var s in _searchers)
+                try
                 {
-                    res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
-                }
-                // PrintStats();
 
-                context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
-                return context.CurrentResult;
+                    foreach (var s in _searchers)
+                    {
+                        res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
+                    }
+                    // PrintStats();
+
+                    context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
+                    return context.CurrentResult;
+                }
+                catch (Exception e)
+                {
+                    // TODO: add more info
+                    context.CurrentResult.SetResult(ResultState.Inconclusive, e.Message);
+                    return context.CurrentResult;
+                }
             }
         }
 

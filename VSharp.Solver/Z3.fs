@@ -188,43 +188,46 @@ module internal Z3 =
             else
                 ctx.MkSignExt(uint32 -difference, x), y
 
+        member private x.EncodeOperation encCtx operation args =
+            match operation with
+            | OperationType.BitwiseNot -> x.MakeUnary encCtx ctx.MkBVNot args
+            | OperationType.BitwiseAnd -> x.MakeBinary encCtx ctx.MkBVAND args
+            | OperationType.BitwiseOr -> x.MakeBinary encCtx ctx.MkBVOR args
+            | OperationType.BitwiseXor -> x.MakeBinary encCtx ctx.MkBVXOR args
+            // [NOTE] IL specifies: arguments of SHL, SHR, SHR.UN are (int32 and int32), (int64 and int32)
+            // So it's needed to extend one of them for Z3
+            | OperationType.ShiftLeft -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVSHL) args
+            | OperationType.ShiftRight -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVASHR) args
+            | OperationType.ShiftRight_Un -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVLSHR) args
+            | OperationType.LogicalNot -> x.MakeUnary encCtx ctx.MkNot args
+            | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
+            | OperationType.LogicalOr -> x.MakeOperation encCtx ctx.MkOr args
+            | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
+            | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
+            | OperationType.NotEqual -> x.MakeBinary encCtx (ctx.MkNot << x.MkEq) args
+            | OperationType.Greater -> x.MakeBinary encCtx ctx.MkBVSGT args
+            | OperationType.Greater_Un -> x.MakeBinary encCtx ctx.MkBVUGT args
+            | OperationType.GreaterOrEqual -> x.MakeBinary encCtx ctx.MkBVSGE args
+            | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVUGE args
+            | OperationType.Less -> x.MakeBinary encCtx ctx.MkBVSLT args
+            | OperationType.Less_Un -> x.MakeBinary encCtx ctx.MkBVULT args
+            | OperationType.LessOrEqual -> x.MakeBinary encCtx ctx.MkBVSLE args
+            | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
+            | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
+            | OperationType.Multiply -> x.MakeBinary encCtx ctx.MkBVMul args
+            | OperationType.Subtract -> x.MakeBinary encCtx ctx.MkBVSub args
+            | OperationType.Divide -> x.MakeBinary encCtx ctx.MkBVSDiv args
+            | OperationType.Divide_Un -> x.MakeBinary encCtx ctx.MkBVUDiv args
+            | OperationType.Remainder -> x.MakeBinary encCtx ctx.MkBVSRem args
+            | OperationType.Remainder_Un -> x.MakeBinary encCtx ctx.MkBVURem args
+            | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
+            | _ -> __unreachable__()
+
         member private x.EncodeExpression encCtx term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
-                | Operator operator ->
-                    match operator with
-                    | OperationType.BitwiseNot -> x.MakeUnary encCtx ctx.MkBVNot args
-                    | OperationType.BitwiseAnd -> x.MakeBinary encCtx ctx.MkBVAND args
-                    | OperationType.BitwiseOr -> x.MakeBinary encCtx ctx.MkBVOR args
-                    | OperationType.BitwiseXor -> x.MakeBinary encCtx ctx.MkBVXOR args
-                    // [NOTE] IL specifies: arguments of SHL, SHR, SHR.UN are (int32 and int32), (int64 and int32)
-                    // So it's needed to extend one of them for Z3
-                    | OperationType.ShiftLeft -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVSHL) args
-                    | OperationType.ShiftRight -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVASHR) args
-                    | OperationType.ShiftRight_Un -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVLSHR) args
-                    | OperationType.LogicalNot -> x.MakeUnary encCtx ctx.MkNot args
-                    | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
-                    | OperationType.LogicalOr -> x.MakeOperation encCtx ctx.MkOr args
-                    | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
-                    | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
-                    | OperationType.NotEqual -> x.MakeBinary encCtx (ctx.MkNot << x.MkEq) args
-                    | OperationType.Greater -> x.MakeBinary encCtx ctx.MkBVSGT args
-                    | OperationType.Greater_Un -> x.MakeBinary encCtx ctx.MkBVUGT args
-                    | OperationType.GreaterOrEqual -> x.MakeBinary encCtx ctx.MkBVSGE args
-                    | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVUGE args
-                    | OperationType.Less -> x.MakeBinary encCtx ctx.MkBVSLT args
-                    | OperationType.Less_Un -> x.MakeBinary encCtx ctx.MkBVULT args
-                    | OperationType.LessOrEqual -> x.MakeBinary encCtx ctx.MkBVSLE args
-                    | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
-                    | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
-                    | OperationType.Multiply -> x.MakeBinary encCtx ctx.MkBVMul args
-                    | OperationType.Subtract -> x.MakeBinary encCtx ctx.MkBVSub args
-                    | OperationType.Divide -> x.MakeBinary encCtx ctx.MkBVSDiv args
-                    | OperationType.Divide_Un -> x.MakeBinary encCtx ctx.MkBVUDiv args
-                    | OperationType.Remainder -> x.MakeBinary encCtx ctx.MkBVSRem args
-                    | OperationType.Remainder_Un -> x.MakeBinary encCtx ctx.MkBVURem args
-                    | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
-                    | _ -> __unreachable__()
+                | Operator operation ->
+                    x.EncodeOperation encCtx operation args
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation encCtx (fun x -> ctx.MkApp(decl, x)) args

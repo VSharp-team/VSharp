@@ -10,9 +10,8 @@ module Unsafe =
 
     let internal AsPointer (state : state) (args : term list) : term =
         assert(List.length args = 2)
-        let ref = List.item 1 args
-        let ptr = Types.CastReferenceToPointer ref
-        Types.Cast ptr (Pointer Void)
+//        Types.Cast (List.item 1 args) (Pointer Void)
+        List.item 1 args
 
     let internal As (_ : state) (args : term list) : term =
         assert(List.length args = 2)

@@ -70,7 +70,7 @@ type cilStateComparer(comparer) =
 
 
 [<AbstractClass>]
-type ForwardSearcher(maxBound) = // TODO: max bound is needed, when we are in recursion, but when we go to one method many time -- it's okay #do
+type ForwardSearcher(maxBound) =
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
 //    let mutable mainMethod = null
 //    let mutable startedFromMain = false

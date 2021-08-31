@@ -145,6 +145,7 @@ namespace icsharp {
 
     Heap::Heap() = default;
 
+    // TODO: need to free pointer? #do
     OBJID Heap::allocateObject(ADDR address, SIZE size) {
         auto *obj = new Object(address, size);
         tree.add(*obj);

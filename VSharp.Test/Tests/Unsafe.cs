@@ -69,17 +69,93 @@ namespace VSharp.Test.Tests
             return ptr + 10;
         }
 
-        private static unsafe bool Identity(int startValue)
+        [TestSvm]
+        private static bool Identity(int startValue)
         {
             void* nativeInt = (void*) startValue;
             int back = (int) nativeInt;
             return startValue == back;
         }
 
-        [Ignore("Casting from pointer to number results in pointer, so we try to 'Ptr == 5'")]
-        public static unsafe bool IdentityTest()
+        [TestSvm]
+        public static bool IdentityTest()
         {
             return Identity(5);
+        }
+
+        [TestSvm]
+        public static int *AddressArithmetic()
+        {
+            int x = 428999;
+            return &x + 1;
+        }
+
+        // Expected true
+        [TestSvm]
+        public static bool ArrayConcreteSafeRead1()
+        {
+            var array = new int[] {1, 2, 3};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *ptr;
+            }
+
+            return result == 1;
+        }
+
+        // Expected 2
+        [TestSvm]
+        public static bool ArrayConcreteSafeRead2()
+        {
+            var array = new int[] {1, 2, 3};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *(ptr + 1);
+            }
+            return result == 2;
+        }
+
+        [TestSvm]
+        public static bool ArrayConcreteUnsafeRead()
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            long result;
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (long*) ptr;
+                result = *(ptr2 + 1);
+            }
+
+            return result == 17179869187L;
+        }
+
+        [TestSvm]
+        public static bool ArraySymbolicSafeRead(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *(ptr + i);
+            }
+
+            return result == 3;
+        }
+
+        [TestSvm]
+        public static bool ArraySymbolicUnsafeRead(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            long result;
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (long*) ptr;
+                result = *(ptr2 + i);
+            }
+
+            return result == 17179869187L;
         }
 
         [Ignore("Insufficient information")]

@@ -25,25 +25,6 @@ module internal Copying =
 
 // ------------------------------- Copying -------------------------------
 
-    let private delinearizeArrayIndex ind lens lbs =
-        let detachOne (acc, lens) lb =
-            let lensProd = List.fold mul (makeNumber 1) (List.tail lens)
-            let curOffset = div acc lensProd
-            let curIndex = add curOffset lb
-            let rest = rem acc lensProd
-            curIndex, (rest, List.tail lens)
-        List.mapFold detachOne (ind, lens) lbs |> fst
-
-    let private linearizeArrayIndex (lens : term list) (lbs : term list) (indices : term list) =
-        let length = List.length indices
-        let attachOne acc i =
-            let relOffset = sub indices.[i] lbs.[i]
-            let prod acc j = mul acc lens.[j]
-            let lensProd = List.fold prod (makeNumber 1) [i .. length - 1]
-            let absOffset = mul relOffset lensProd
-            add acc absOffset
-        List.fold attachOne (makeNumber 0) [0 .. length - 1]
-
     // TODO: add heuristic for concrete memory
     let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType

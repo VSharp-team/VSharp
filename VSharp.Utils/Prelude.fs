@@ -16,6 +16,8 @@ module public Prelude =
 
     let public internalfail message = raise (InternalException message)
     let public internalfailf format = Printf.ksprintf internalfail format
+    let undefinedBehaviour reason = internalfailf "Undefined behaviour: %s" reason
+
     let inline public __notImplemented__() = raise (System.NotImplementedException())
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format

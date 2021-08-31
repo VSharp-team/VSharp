@@ -7,7 +7,7 @@ module API =
     let ConfigureSolver solver =
         SolverInteraction.configureSolver solver
     let ConfigureSimplifier simplifier =
-        Propositional.configureSimplifier simplifier
+        configureSimplifier simplifier
 
     let Reset() =
         IdGenerator.reset()
@@ -32,8 +32,8 @@ module API =
     let GuardedStatedApplyk f state term mergeStates k =
         Memory.commonGuardedStatedApplyk f state term mergeStates k
 
-    let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
-    let PerformUnaryOperation op arg k = Operators.simplifyUnaryOperation op arg k
+    let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
+    let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let IsValid state = SolverInteraction.checkSat state
 
@@ -52,22 +52,26 @@ module API =
         let True = True
         let False = False
         let NullRef = nullRef
+        let MakeNullPtr t = makeNullPtr t
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
         let MakeIntPtr value =
             match value.term with
             // Case for references
-            | Ref _ -> TypeCasting.castReferenceToPointer value
+            | Ref _ -> value
             // Case for numerics, that need to be converted to IntPtr (native int)
             | Concrete(_, Numeric _) ->
             // assert(v :?> int = 0) // localloc takes size as native int
-                Ptr None Void (Some value)
+                Ptr (HeapLocation zeroAddress) Void value
             // Case for native int
             | Ptr _ -> value
             | _ -> __unreachable__()
 
+        // NOTE: returns type of value
         let TypeOf term = typeOf term
+        // NOTE: returns type of location, referenced by 'ref'
+        let TypeOfLocation ref = typeOfRef ref
         let rec MostConcreteTypeOfHeapRef state ref =
             let getType ref =
                 match ref.term with
@@ -150,7 +154,6 @@ module API =
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
         let Cast term targetType = TypeCasting.cast term targetType
-        let CastReferenceToPointer reference = TypeCasting.castReferenceToPointer reference
 
     module public Operators =
         let (!!) x = simplifyNegation x id
@@ -221,13 +224,13 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
-        let ReadSafe state reference =
+        let Read state reference =
             let reference =
-                // TODO: check of reference is BoxedLocation
+                // TODO: check if reference is BoxedLocation
                 match reference.term with
                 | HeapRef _ -> HeapReferenceToBoxReference reference
                 | _ -> reference
-            Memory.readSafe state reference
+            Memory.read state reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -235,7 +238,7 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
-                | Ref _ -> ReferenceField state target field |> Memory.readSafe state
+                | Ref _ -> ReferenceField state target field |> Memory.read state
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
@@ -260,7 +263,7 @@ module API =
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
-        let WriteSafe state reference value = Memory.writeSafe state reference value
+        let WriteSafe state reference value = Memory.write state reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
             Memory.guardedStatedMap

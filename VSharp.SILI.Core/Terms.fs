@@ -65,11 +65,13 @@ type operation =
     | Operator of OperationType
     | Application of StandardFunction
     | Cast of symbolicType * symbolicType
+    | Combine
     member x.priority =
         match x with
         | Operator op -> Operations.operationPriority op
         | Application _ -> Operations.maxPriority
         | Cast _ -> Operations.maxPriority - 1
+        | Combine -> Operations.maxPriority
 
 // TODO: symbolic type -> primitive type
 // TODO: get rid of Nop!
@@ -82,7 +84,9 @@ type termNode =
     | Struct of pdict<fieldId, term> * symbolicType
     | HeapRef of heapAddress * symbolicType
     | Ref of address
-    | Ptr of address option * symbolicType * term option // base address (none = null) * type sight * offset
+    // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
+    | Ptr of pointerBase * symbolicType * term // base address * sight type * offset (in bytes)
+    | Slice of term * term // what term to slice * slicing offset inside term
     | Union of (term * term) list
 
     override x.ToString() =
@@ -137,6 +141,9 @@ type termNode =
                 | Application f ->
                     Cps.List.mapk (getTerm >> toStr -1 indent) operands (fun results ->
                     results |> join ", " |> sprintf "%O(%s)" f |> k)
+                | Combine ->
+                    Cps.List.mapk (getTerm >> toStr -1 indent) operands (fun results ->
+                    results |> join ", " |> sprintf "Combine(%s)" |> k)
             | Struct(fields, t) ->
                 fieldsToString indent fields |> sprintf "%O STRUCT [%s]" t |> k
             | Union(guardedTerms) ->
@@ -151,13 +158,9 @@ type termNode =
             | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
             | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
             | Ptr(address, typ, shift) ->
-                let offset =
-                    match shift with
-                    | None -> ""
-                    | Some shift -> ", offset = " + shift.ToString()
-                match address with
-                | None -> sprintf "(nullptr as %O%s)" typ offset |> k
-                | Some address -> sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
+                let offset = ", offset = " + shift.ToString()
+                sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
+            | Slice(term, offset) -> sprintf "Slice(%O, %O)" term offset
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
@@ -170,6 +173,16 @@ type termNode =
         toStr -1 "\t" x id
 
 and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of type AddressType!
+
+and pointerBase =
+    | StackLocation of stackKey
+    | HeapLocation of heapAddress // Null or virtual address
+    | StaticLocation of symbolicType
+    member x.Zone() =
+        match x with
+        | StackLocation _ -> "Stack"
+        | HeapLocation _ -> "Heap"
+        | StaticLocation _ -> "Statics"
 
 and address =
     | PrimitiveStackLocation of stackKey
@@ -212,7 +225,7 @@ and
         override x.GetHashCode() = x.hc
         override x.Equals(o : obj) =
             match o with
-            | :? term as other -> Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality x.term other.term
+            | :? term as other -> LanguagePrimitives.PhysicalEquality x.term other.term
             | _ -> false
 
 and
@@ -258,16 +271,11 @@ module internal Terms =
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
+    let Slice term first = HashMap.addTerm (Slice(term, first))
     let ConcreteHeapAddress addr = Concrete addr AddressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
         HashMap.addTerm (Union gvs)
-
-    let castReferenceToPointer targetType = term >> function
-        | Ref address -> Ptr (Some address) targetType None
-        | Ptr(address, _, None) -> Ptr address targetType None
-        | Ptr(address, _, (Some _ as indent)) -> Ptr address targetType indent
-        | t -> internalfailf "Expected reference or pointer, got %O" t
 
     let isVoid = term >> function
         | Nop -> true
@@ -333,11 +341,8 @@ module internal Terms =
 
     let typeOfRef =
         let getTypeOfRef = term >> function
-            | Ref addr -> typeOfAddress addr
-            | Ptr(addr, _, _) ->
-                match addr with
-                | Some addr -> typeOfAddress addr
-                | None -> __unreachable__()
+            | Ref address -> typeOfAddress address
+            | Ptr(_, sightType, _) -> sightType
             | term -> internalfailf "expected reference, but got %O" term
         commonTypeOf getTypeOfRef
 
@@ -357,7 +362,7 @@ module internal Terms =
             | Expression(_, _, t)
             | HeapRef(_, t)
             | Struct(_, t) -> t
-            | Ref _ -> typeOfRef term
+            | Ref _ -> typeOfRef term |> ByRef
             | Ptr _ -> sightTypeOfPtr term |> Pointer
             | _ -> __unreachable__()
         commonTypeOf getType
@@ -387,6 +392,10 @@ module internal Terms =
         | HeapRef _ -> true
         | Ref _ -> true
         | Union gvs -> List.forall (snd >> isReference) gvs
+        | _ -> false
+
+    let isPtr = term >> function
+        | Ptr _ -> true
         | _ -> false
 
     // Only for concretes: there will never be null type
@@ -433,11 +442,11 @@ module internal Terms =
     let nullRef =
         HeapRef zeroAddress Null
 
-    let makeNullPtr typ =
-        Ptr None typ None
-
     let makeNumber n =
         Concrete n (Numeric(Id(n.GetType())))
+
+    let makeNullPtr typ =
+        Ptr (HeapLocation zeroAddress) typ (makeNumber 0)
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
@@ -472,7 +481,7 @@ module internal Terms =
     let rec primitiveCast term targetType =
         match term.term, targetType with
         | _ when typeOf term = targetType -> term
-        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr None typ (Some term)
+        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr (HeapLocation zeroAddress) typ term
         | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
@@ -560,6 +569,10 @@ module internal Terms =
             Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
+    let (|Combined|_|) = term >> function
+        | Expression(Combine, args, t) -> Some(Combined(args, t))
+        | _ -> None
+
     let (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
@@ -579,6 +592,15 @@ module internal Terms =
         match term.term with
         | ConcreteHeapAddress _ -> true
         | _ -> false
+
+    let combine terms t =
+        assert(List.isEmpty terms |> not)
+        let concat = function
+            | Combined(terms, _) -> terms
+            | term -> List.singleton term
+        let terms = List.collect concat terms
+        // TODO: if all are concrete, reinterpret concretes #do
+        Expression Combine terms t
 
     let rec timeOf (address : heapAddress) =
         match address.term with
@@ -606,10 +628,8 @@ module internal Terms =
         | Ref address ->
             foldAddress folder state address
         | Ptr(address, _, indent) ->
-            let state = Option.fold (foldAddress folder) state address
-            match indent with
-            | None -> state
-            | Some indent -> doFold folder state indent
+            let state = foldPointerBase folder state address
+            doFold folder state indent
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state |> foldSeq folder vs
         | _ -> state
@@ -632,6 +652,11 @@ module internal Terms =
             let state = doFold folder state addr
             doFold folder state idx
         | StackBufferIndex(_, idx) -> doFold folder state idx
+
+    and foldPointerBase folder state = function
+        | HeapLocation heapAddress -> doFold folder state heapAddress
+        | StackLocation _
+        | StaticLocation _ -> state
 
     and private foldSeq folder terms state =
         Seq.fold (doFold folder) state terms
@@ -672,8 +697,9 @@ module internal Terms =
     let rec makeDefaultValue typ =
         match typ with
         | Bool -> False
-        | Numeric(Id t) when t.IsEnum -> castConcrete (System.Activator.CreateInstance t) t
+        | Numeric(Id t) when t.IsEnum -> castConcrete (Activator.CreateInstance t) t
         | Numeric(Id t) -> castConcrete 0 t
+        | ByRef _
         | ArrayType _
         | ClassType _
         | InterfaceType _ -> nullRef

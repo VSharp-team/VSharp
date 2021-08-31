@@ -14,7 +14,8 @@ namespace VSharp.Test
         [Ignore("externs")]
         public static void MSCoreLibTest()
         {
-            var svm = new SVM(new MethodInterpreter(200, new BFSSearcher(200)));            // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
+            var svm = new SVM(new MethodInterpreter(200, new BFSSearcher(200)));
+            // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             // svm.ConfigureSolver(new SmtSolverWrapper<Microsoft.Z3.AST>(new Z3Solver()));
             var assembly = typeof(int).Assembly;
             svm.Run(assembly, new List<string>());

@@ -343,6 +343,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             internalCall Loader.FSharpImplementations.[fullMethodName] thisAndArguments cilState.state moveIp
         elif Map.containsKey fullMethodName Loader.CSharpImplementations then
             x.InvokeCSharpImplementation cilState fullMethodName thisOption args |> k
+        // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet methodBase then
             let cilStates = x.InvokeArrayGetOrSet cilState methodBase thisOption args
             List.iter moveIpToExit cilStates
@@ -493,7 +494,6 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
         x.ConvOvf targetType cilState
 
     member private x.CommonCastClass (cilState : cilState) (term : term) (typ : symbolicType) k =
-        let term = castReferenceToPointerIfNeeded term typ
         StatedConditionalExecutionAppendResultsCIL cilState
             (fun state k -> k (IsNullReference term ||| Types.IsCast state term typ, state))
             (fun cilState k ->
@@ -509,7 +509,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
     member private x.PushNewObjResultOnEvaluationStack (cilState : cilState) reference (calledMethod : MethodBase) =
         let valueOnStack =
             if calledMethod.DeclaringType.IsValueType then
-                  Memory.ReadSafe cilState.state reference
+                  Memory.Read cilState.state reference
             else reference
         push valueOnStack cilState
 
@@ -697,7 +697,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             let fieldId = Reflection.wrapField fieldInfo
             if TypeUtils.isPointer fieldInfo.DeclaringType then
                 if addressNeeded then createCilState target
-                else Memory.ReadSafe cilState.state target |> createCilState
+                else Memory.Read cilState.state target |> createCilState
             else
                 if addressNeeded then Memory.ReferenceField cilState.state target fieldId |> createCilState
                 else Memory.ReadField cilState.state target fieldId |> createCilState
@@ -861,7 +861,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             StatedConditionalExecutionAppendResultsCIL cilState
                 (fun state k -> k (Types.RefIsType state obj (Types.FromDotNetType underlyingTypeOfNullableT), state))
                 (fun cilState k ->
-                    let value = HeapReferenceToBoxReference obj |> Memory.ReadSafe cilState.state
+                    let value = HeapReferenceToBoxReference obj |> Memory.Read cilState.state
                     let nullableTerm = Memory.DefaultOf termType
                     let valueField, hasValueField = Reflection.fieldsOfNullable t
                     let nullableTerm = Memory.WriteStructField nullableTerm valueField value
@@ -918,7 +918,7 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
             StatedConditionalExecutionAppendResultsCIL cilState
                 (fun state k -> k (Types.TypeIsType termType valueType, state))
                 (fun cilState k ->
-                    let handleRestResults cilState address = Memory.ReadSafe cilState.state address
+                    let handleRestResults cilState address = Memory.Read cilState.state address
                     x.UnboxCommon cilState obj t handleRestResults k)
                 (fun state k -> x.CommonCastClass state obj termType k)
                 id

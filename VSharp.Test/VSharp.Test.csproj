@@ -45,10 +45,4 @@
       </Reference>
     </ItemGroup>
 
-    <ItemGroup>
-      <None Update="libicsharpConcolic.so">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
-
 </Project>

@@ -6,13 +6,13 @@ open VSharp
 module internal Operators =
 
     let simplifyBinaryOperation op left right k =
-        let t1 = Terms.typeOf left
-        let t2 = Terms.typeOf right
+        let t1 = typeOf left
+        let t2 = typeOf right
         match op with
-        | op when Propositional.isLogicalOperation op t1 t2 ->
-            Propositional.simplifyBinaryConnective op left right k
-        | op when Arithmetics.isArithmeticalOperation op t1 t2 ->
-            Arithmetics.simplifyBinaryOperation op left right k
+        | op when isLogicalOperation op t1 t2 ->
+            simplifyBinaryConnective op left right k
+        | op when isArithmeticalOperation op t1 t2 ->
+            simplifyBinaryOperation op left right k
         | op when Pointers.isPointerOperation op t1 t2 ->
             Pointers.simplifyBinaryOperation op left right k
         | _ -> internalfailf "simplifyBinary of: %O %O %O" left op right

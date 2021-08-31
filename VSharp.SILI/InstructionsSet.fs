@@ -137,12 +137,7 @@ module internal InstructionsSet =
         let pi = methodBase.GetParameters().[index]
         PrimitiveStackLocation (ParameterKey pi) |> Ref
 
-    let castReferenceToPointerIfNeeded term typ =
-        if IsReference term && Types.IsPointer typ
-        then Types.CastReferenceToPointer term
-        else term
     let castUnchecked typ term : term =
-        let term = castReferenceToPointerIfNeeded term typ
         Types.Cast term typ
     let ldc numberCreator t (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let num = numberCreator cfg.ilBytes shiftedOffset
@@ -152,7 +147,7 @@ module internal InstructionsSet =
     let ldloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let index = numberCreator cfg.ilBytes shiftedOffset
         let reference = referenceLocalVariable index cfg.methodBase
-        let term = Memory.ReadSafe cilState.state reference
+        let term = Memory.Read cilState.state reference
         push term cilState
 
     let ldarg numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
@@ -164,11 +159,11 @@ module internal InstructionsSet =
             | None, _
             | Some _, true ->
                 let term = getArgTerm argumentIndex cfg.methodBase
-                Memory.ReadSafe state term
+                Memory.Read state term
             | Some this, _ when argumentIndex = 0 -> this
             | Some _, false ->
                 let term = getArgTerm (argumentIndex - 1) cfg.methodBase
-                Memory.ReadSafe state term
+                Memory.Read state term
         push arg cilState
     let ldarga numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
@@ -182,10 +177,10 @@ module internal InstructionsSet =
     let stloc numberCreator (cfg : cfgData) shiftedOffset (cilState : cilState) =
         let variableIndex = numberCreator cfg.ilBytes shiftedOffset
         let right = pop cilState
-        let left = referenceLocalVariable variableIndex cfg.methodBase
-        let typ = TypeOf left
+        let location = referenceLocalVariable variableIndex cfg.methodBase
+        let typ = TypeOfLocation location
         let value = castUnchecked typ right
-        let states = Memory.WriteSafe cilState.state left value
+        let states = Memory.WriteSafe cilState.state location value
         states |> List.map (changeState cilState)
     let private simplifyConditionResult state res k =
         if Contradicts state !!res then k True
@@ -391,7 +386,7 @@ module internal InstructionsSet =
     let ldind valueCast (cilState : cilState) =
         // TODO: what about null pointers?
         let address = pop cilState
-        let value = Memory.ReadSafe cilState.state address |> valueCast
+        let value = Memory.Read cilState.state address |> valueCast
         push value cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
@@ -424,7 +419,7 @@ module internal InstructionsSet =
     let ldobj (cfg : cfgData) offset (cilState : cilState) =
         let address = pop cilState
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldobj.Size)
-        let value = Memory.ReadSafe cilState.state address
+        let value = Memory.Read cilState.state address
         let typedValue = castUnchecked typ value
         push typedValue cilState
     let stobj (cfg : cfgData) offset (cilState : cilState) =
@@ -486,12 +481,12 @@ module internal InstructionsSet =
             match thisForCallVirt.term with
             | HeapRef _ -> ()
             | Ref _ when TypeOf thisForCallVirt |> Types.IsValueType ->
-                let thisStruct = Memory.ReadSafe cilState.state thisForCallVirt
+                let thisStruct = Memory.Read cilState.state thisForCallVirt
                 let heapRef = Memory.BoxValueType cilState.state thisStruct
                 push heapRef cilState
                 pushMany args cilState
             | Ref _ ->
-                let this = Memory.ReadSafe cilState.state thisForCallVirt
+                let this = Memory.Read cilState.state thisForCallVirt
                 push this cilState
                 pushMany args cilState
             | _ -> __unreachable__()
@@ -500,7 +495,7 @@ module internal InstructionsSet =
         // [NOTE] localloc usually is used for Span
         // So, pushing nullptr, because array will be allocated in Span constructor
         pop cilState |> ignore
-        push (Ptr None Void None) cilState
+        push (MakeNullPtr Void) cilState
 
     let inline private fallThroughImpl stackSizeBefore newIp cilState =
         // if not constructing runtime exception

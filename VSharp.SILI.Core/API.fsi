@@ -35,19 +35,21 @@ module API =
         val Expression : operation -> term list -> symbolicType -> term
         val Struct : pdict<fieldId, term> -> symbolicType -> term
         val Ref : address -> term
-        val Ptr : address option -> symbolicType -> term option -> term
+        val Ptr : pointerBase -> symbolicType -> term -> term
         val HeapRef : heapAddress -> symbolicType -> term
         val Union : (term * term) list -> term
 
         val True : term
         val False : term
         val NullRef : term
+        val MakeNullPtr : symbolicType -> term
 
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
         val MakeIntPtr : term -> term
 
         val TypeOf : term -> symbolicType
+        val TypeOfLocation : term -> symbolicType
         val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
 
         val GetHashCode : term -> term
@@ -118,7 +120,6 @@ module API =
         val RefIsRef : state -> term -> term -> term
         val IsCast : state -> term -> symbolicType -> term
         val Cast : term -> symbolicType -> term
-        val CastReferenceToPointer : term -> term
 
     [<AutoOpen>]
     module public Operators =
@@ -169,7 +170,7 @@ module API =
         val ReferenceField : state -> term -> fieldId -> term
         val ReferenceArrayIndex : term -> term list -> term
 
-        val ReadSafe : state -> term -> term
+        val Read : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> MethodBase -> term
         val ReadArgument : state -> ParameterInfo -> term

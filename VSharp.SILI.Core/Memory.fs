@@ -57,6 +57,25 @@ module internal Memory =
     let addConstraint (s : state) cond =
         s.pc <- PC.add s.pc cond
 
+    let delinearizeArrayIndex ind lens lbs =
+        let detachOne (acc, lens) lb =
+            let lensProd = List.fold mul (makeNumber 1) (List.tail lens)
+            let curOffset = div acc lensProd
+            let curIndex = add curOffset lb
+            let rest = rem acc lensProd
+            curIndex, (rest, List.tail lens)
+        List.mapFold detachOne (ind, lens) lbs |> fst
+
+    let linearizeArrayIndex (lens : term list) (lbs : term list) (indices : term list) =
+        let length = List.length indices
+        let attachOne acc i =
+            let relOffset = sub indices.[i] lbs.[i]
+            let prod acc j = mul acc lens.[j]
+            let lensProd = List.fold prod (makeNumber 1) [i .. length - 1]
+            let absOffset = mul relOffset lensProd
+            add acc absOffset
+        List.fold attachOne (makeNumber 0) [0 .. length - 1]
+
 // ------------------------------- Stack -------------------------------
 
     let newStackFrame (s : state) m frame =
@@ -520,25 +539,124 @@ module internal Memory =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readDelegate state v)) |> Merging.merge
         | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
 
-    let rec private readAddress state = function
+    let rec private readSafe state = function
         | PrimitiveStackLocation key -> readStackLocation state key
         | ClassField(address, field) -> readClassField state address field
         // [NOTE] ref must be the most concrete, otherwise region will be not found
         | ArrayIndex(address, indices, typ) -> readArrayIndex state address indices typ
         | StaticField(typ, field) -> readStaticField state typ field
         | StructField(address, field) ->
-            let structTerm = readAddress state address
+            let structTerm = readSafe state address
             readStruct structTerm field
         | ArrayLength(address, dimension, typ) -> readLength state address dimension typ
         | BoxedLocation(address, _) -> readBoxedLocation state address
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
-    let rec readSafe state reference =
+// ------------------------------- Unsafe reading -------------------------------
+
+    // NOTE: returns list of slices
+    let rec private readTermUnsafe term offsetInsideTerm window =
+        match term.term with
+        | Struct(fields, t) -> readStructUnsafe fields t offsetInsideTerm window
+        | HeapRef _
+        | Ref _
+        | Ptr _ -> sprintf "reinterpreting %O" term |> undefinedBehaviour
+        | Concrete _
+        | Constant _
+        | Expression _ -> Slice term offsetInsideTerm |> List.singleton
+        | _ -> __unreachable__()
+
+    and private readStructUnsafe fields structType offset window =
+        let readField fieldId = fields.[fieldId]
+        readFieldsUnsafe readField false structType offset window
+
+    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) offset window : term list =
+        let fields = Reflection.fieldsOf isStatic (toDotNetType blockType)
+        let mapper (fieldId, fieldInfo : Reflection.FieldInfo) =
+            // TODO: add zeros between fields #do
+            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset(fieldInfo), TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let fieldIntervals = Array.map mapper fields |> Array.sortBy snd3
+        // TODO: unify #do
+        match offset.term with
+        | Concrete(:? int as offset, _) ->
+            let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
+                if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
+                    let fieldValue = readField fieldId
+                    let offsetInsideField = fieldOffset - offset
+                    readTermUnsafe fieldValue (makeNumber offsetInsideField) window
+                else List.empty
+            Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
+        | _ ->
+            let readSymbolicSlices (fieldId, fieldOffset, _) =
+                let fieldValue = readField fieldId
+                let offsetInsideField = sub (makeNumber fieldOffset) offset
+                readTermUnsafe fieldValue offsetInsideField window
+            Seq.collect readSymbolicSlices fieldIntervals |> List.ofSeq
+
+    // TODO: Add undefined behaviour: #do
+    // TODO: 1. when reading info between fields #do
+    // TODO: 3. when reading info outside block #do
+    // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr #do
+    let private readClassUnsafe state address classType offset sightType =
+        let window = sizeOf sightType
+        let readField fieldId = readClassField state address fieldId
+        let slices = readFieldsUnsafe readField false classType offset window
+        combine slices sightType
+
+    let private readArrayUnsafe state address arrayType offset sightType =
+        let window = sizeOf sightType
+        let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
+        let concreteElementSize = sizeOf elementType
+        // NOTE: if offset > 0 then one more element is needed
+        // TODO: if it's last element? #do
+        let countToRead = (window / concreteElementSize) + 1
+        let elementSize = makeNumber concreteElementSize
+        let firstElement = div offset elementSize
+        let elementOffset = rem offset elementSize
+        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
+        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
+        let readElement offset i =
+            let linearIndex = makeNumber i |> add firstElement
+            let indices = delinearizeArrayIndex linearIndex lens lbs
+            let element = readArrayIndex state address indices arrayType
+            readTermUnsafe element offset window
+        let firstElementSlices = readElement elementOffset 0
+        let restSlices = List.map (readElement (makeNumber 0)) [1 .. countToRead]
+        let slices = firstElementSlices :: restSlices |> List.concat
+        combine slices sightType
+
+    let private readStaticUnsafe state t offset sightType =
+        let window = sizeOf sightType
+        let readField fieldId = readStaticField state t fieldId
+        let slices = readFieldsUnsafe readField true t offset window
+        combine slices sightType
+
+    let private readUnsafe state baseAddress offset sightType =
+        match baseAddress with
+        | HeapLocation loc ->
+            let typ = typeOfHeapLocation state loc
+            match typ with
+            | ClassType _ -> readClassUnsafe state loc typ offset sightType
+            | ArrayType _ -> readArrayUnsafe state loc typ offset sightType
+            | StructType _ ->
+                // TODO: boxed location? #do
+                __notImplemented__()
+            | _ -> internalfailf "expected complex type, but got %O" typ
+        | StackLocation loc ->
+            let term = readStackLocation state loc
+            let window = sizeOf sightType
+            let slices = readTermUnsafe term offset window
+            combine slices sightType
+        | StaticLocation loc ->
+            readStaticUnsafe state loc offset sightType
+
+    // TODO: take type of heap address
+    let rec read state reference =
         match reference.term with
-        | Ref address -> readAddress state address
-        | Ptr (Some address, viewType, None) when typeOfAddress address = viewType -> readAddress state address
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readSafe state v)) |> Merging.merge
+        | Ref address -> readSafe state address
+        | Ptr(baseAddress, sightType, offset) -> readUnsafe state baseAddress offset sightType
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
         | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
     let isTypeInitialized state (typ : symbolicType) =
@@ -792,16 +910,16 @@ module internal Memory =
             writeArrayIndexSymbolic state address indices arrayType value
         | _ -> writeArrayIndexSymbolic state address indices arrayType value
 
-    let rec writeAddress state address value =
+    let rec private writeSafe state address value =
         match address with
         | PrimitiveStackLocation key -> writeStackLocation state key value
         | ClassField(address, field) -> writeClassField state address field value
         | ArrayIndex(address, indices, typ) -> writeArrayIndex state address indices typ value
         | StaticField(typ, field) -> writeStaticField state typ field value
         | StructField(address, field) ->
-            let oldStruct = readAddress state address
+            let oldStruct = readSafe state address
             let newStruct = writeStruct oldStruct field value
-            writeAddress state address newStruct
+            writeSafe state address newStruct
         // TODO: need concrete memory for BoxedLocation?
         | BoxedLocation(address, _) -> writeBoxedLocation state address value
         | StackBufferIndex(key, index) -> writeStackBuffer state key index value
@@ -812,12 +930,16 @@ module internal Memory =
 //            writeLowerBound state address dimension typ value
             __unreachable__()
 
-    let rec writeSafe state reference value =
+    // TODO: do write by pointer #do
+    let private writeUnsafe state baseAddress offset sightType value =
+        __notImplemented__()
+
+    let rec write state reference value =
         guardedStatedMap
             (fun state reference ->
                 match reference.term with
-                | Ref address -> writeAddress state address value
-                | Ptr (Some address, viewType, None) when typeOfAddress address = viewType -> writeAddress state address value
+                | Ref address -> writeSafe state address value
+                | Ptr(address, sightType, offset) -> writeUnsafe state address offset sightType value
                 | _ -> internalfailf "Writing: expected reference, but got %O" reference
                 state)
             state reference
@@ -1070,7 +1192,7 @@ module internal Memory =
             if cm.ContainsKey k' then
                 cm.[k'] <- kvp.Value
             else cm.Add(k', kvp.Value)
-        Seq.iter write cm
+        Seq.iter write cm'
 
     let private composeArrayCopyInfo state (addr, reg) =
         let addr = fillHoles state addr

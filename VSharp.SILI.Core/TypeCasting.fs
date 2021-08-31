@@ -118,25 +118,24 @@ module internal TypeCasting =
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
 
     let private doCast term targetType =
-        match term.term with
-        | Ptr _ ->
-            match targetType with
-            | Pointer typ' -> castReferenceToPointer typ' term
-            // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
-            | Numeric _ -> term
-            | _ -> internalfailf "Can't cast pointer %O to type %O" term targetType
-        | HeapRef(addr, _) -> HeapRef addr targetType
-        | Ref _ when isByRef targetType -> term
-        | Ref _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
-        | Struct _ -> term
-        | _ -> __unreachable__()
+        match term.term, targetType with
+        | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
+        // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
+        | Ptr _, Numeric _ -> term
+        | Ref _, ByRef _ -> term
+        | Ref address, Pointer typ' -> Pointers.makePointerFromAddress address typ'
+        | Ref _, _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
+        | HeapRef(addr, _), _ -> HeapRef addr targetType
+//        | Struct _, _ -> term
+        | Struct _, _ -> internalfailf "Casting struct to %O" targetType // TODO: can this happen? #do
+        | _ -> internalfailf "Can't cast %O to type %O" term targetType
 
     let canCast state term targetType =
         let castCheck term =
             match term.term with
             | Concrete(value, _) -> canCastConcrete value targetType |> makeBool
             | Ptr(_, typ, _) -> typeIsType (Pointer typ) targetType
-            | Ref address -> typeIsType (Memory.baseTypeOfAddress state address) targetType
+            | Ref address -> typeIsType (Memory.baseTypeOfAddress state address |> ByRef) targetType
             | HeapRef(address, sightType) ->
                 let baseType = Memory.mostConcreteTypeOfHeapRef state address sightType
                 addressIsType address baseType targetType
@@ -150,6 +149,7 @@ module internal TypeCasting =
             | Bool
             | Numeric _ -> primitiveCast term targetType
             | Pointer _
+            | ByRef _
             | StructType _
             | ClassType _
             | InterfaceType _
@@ -158,12 +158,6 @@ module internal TypeCasting =
             | Null -> nullRef
             | _ -> __unreachable__()
         Merging.guardedApply castUnguarded term
-
-    let castReferenceToPointer reference =
-        let doCast reference =
-            let typ = typeOf reference
-            castReferenceToPointer typ reference
-        Merging.guardedApply doCast reference
 
     let rec private nearestBiggerTypeForEvaluationStack (t : System.Type) =
         match t with
